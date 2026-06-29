@@ -140,7 +140,7 @@ describe('tw-348 The White Tree', () => {
     state = attachItemToChar(state, RESOURCE_PLAYER, ELROND, SAPLING_OF_THE_WHITE_TREE);
 
     const elrondId = findCharInstanceId(state, RESOURCE_PLAYER, ELROND);
-    const saplingId = state.players[0].characters[elrondId as string].items[0].instanceId;
+    const saplingId = state.players[0].characters[elrondId].items[0].instanceId;
     const whiteTreeId = handCardId(state, RESOURCE_PLAYER);
 
     state = playPermanentEventAndResolve(state, PLAYER_1, whiteTreeId, undefined, {
@@ -155,7 +155,7 @@ describe('tw-348 The White Tree', () => {
     expect(saplingInDiscard).toBe(true);
 
     // Sapling should no longer be on the character
-    const elrond = state.players[0].characters[elrondId as string];
+    const elrond = state.players[0].characters[elrondId];
     expect(elrond.items).toHaveLength(0);
 
     // The White Tree should be in cardsInPlay
@@ -209,7 +209,7 @@ describe('tw-348 The White Tree', () => {
     state = attachItemToChar(state, RESOURCE_PLAYER, ELROND, SAPLING_OF_THE_WHITE_TREE);
 
     const elrondId = findCharInstanceId(state, RESOURCE_PLAYER, ELROND);
-    const saplingId = state.players[0].characters[elrondId as string].items[0].instanceId;
+    const saplingId = state.players[0].characters[elrondId].items[0].instanceId;
     const whiteTreeId = handCardId(state, RESOURCE_PLAYER);
 
     state = playPermanentEventAndResolve(state, PLAYER_1, whiteTreeId, undefined, {
@@ -279,7 +279,7 @@ describe('tw-348 The White Tree', () => {
 
     // Wounded character should heal to tapped (like at a haven)
     const elrondId = findCharInstanceId(result.state, RESOURCE_PLAYER, ELROND);
-    const elrond = result.state.players[0].characters[elrondId as string];
+    const elrond = result.state.players[0].characters[elrondId];
     expect(elrond.status).toBe(CardStatus.Tapped);
   });
 
@@ -308,7 +308,7 @@ describe('tw-348 The White Tree', () => {
 
     // Without the constraint, Minas Tirith is a free-hold — no healing
     const elrondId = findCharInstanceId(result.state, RESOURCE_PLAYER, ELROND);
-    const elrond = result.state.players[0].characters[elrondId as string];
+    const elrond = result.state.players[0].characters[elrondId];
     expect(elrond.status).toBe(CardStatus.Inverted);
   });
 

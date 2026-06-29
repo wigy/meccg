@@ -156,7 +156,7 @@ describe('Great Bats (as-74)', () => {
 
     const assignActions = viableActions(combatState, PLAYER_1, 'assign-strike');
     const allyId = combatState.players[RESOURCE_PLAYER]
-      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK) as string]
+      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK)]
       .allies[0].instanceId;
     const allyAssigned = assignActions.some(a =>
       'characterId' in a.action && a.action.characterId === allyId,
@@ -180,7 +180,7 @@ describe('Great Bats (as-74)', () => {
 
     const assignActions = viableActions(combatState, PLAYER_2, 'assign-strike');
     const allyId = combatState.players[RESOURCE_PLAYER]
-      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK) as string]
+      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK)]
       .allies[0].instanceId;
     const allyAssigned = assignActions.some(a =>
       'characterId' in a.action && a.action.characterId === allyId,
@@ -254,11 +254,11 @@ describe('Great Bats (as-74)', () => {
     expect(s.combat).toBeNull();
 
     // Asternak should still be in play (wounded, not eliminated)
-    expect(s.players[RESOURCE_PLAYER].characters[asternakId as string]).toBeDefined();
+    expect(s.players[RESOURCE_PLAYER].characters[asternakId]).toBeDefined();
     // Great Bats should be discarded to the resource player's discard pile
     expectInDiscardPile(s, RESOURCE_PLAYER, GREAT_BATS);
     // Ally must not still be attached to Asternak
-    const asternakChar = s.players[RESOURCE_PLAYER].characters[asternakId as string];
+    const asternakChar = s.players[RESOURCE_PLAYER].characters[asternakId];
     expect(asternakChar.allies).toHaveLength(0);
   });
 
@@ -278,7 +278,7 @@ describe('Great Bats (as-74)', () => {
     s = executeAction(s, PLAYER_1, 'resolve-strike', 12);    // roll 12: 12+5=17 > 9 → success
 
     expect(s.combat).toBeNull();
-    const asternakChar = s.players[RESOURCE_PLAYER].characters[asternakId as string];
+    const asternakChar = s.players[RESOURCE_PLAYER].characters[asternakId];
     expect(asternakChar.allies).toHaveLength(1);
     expect(asternakChar.allies[0].definitionId).toBe(GREAT_BATS);
   });
@@ -300,7 +300,7 @@ describe('Great Bats (as-74)', () => {
     };
 
     const allyId = combatState.players[RESOURCE_PLAYER]
-      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK) as string]
+      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK)]
       .allies[0].instanceId;
     const modifyActions = viableActions(combatState, PLAYER_1, 'modify-attack')
       .filter(a => 'cardInstanceId' in a.action && (a.action as ModifyAttackAction).cardInstanceId === allyId);
@@ -318,7 +318,7 @@ describe('Great Bats (as-74)', () => {
     });
 
     const allyId = combatState.players[RESOURCE_PLAYER]
-      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK) as string]
+      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK)]
       .allies[0].instanceId;
     const modifyActions = viableActions(combatState, PLAYER_1, 'modify-attack')
       .filter(a => 'cardInstanceId' in a.action && (a.action as ModifyAttackAction).cardInstanceId === allyId);
@@ -329,7 +329,7 @@ describe('Great Bats (as-74)', () => {
     const base = buildTestState(BASE_OPTS);
     let withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const charId = findCharInstanceId(withAlly, RESOURCE_PLAYER, ASTERNAK);
-    const char = withAlly.players[RESOURCE_PLAYER].characters[charId as string];
+    const char = withAlly.players[RESOURCE_PLAYER].characters[charId];
     withAlly = {
       ...withAlly,
       players: [
@@ -357,7 +357,7 @@ describe('Great Bats (as-74)', () => {
       combat: { ...cancelWindow.combat!, assignmentPhase: 'cancel-window', attackerChoosesDefenders: true },
     };
 
-    const allyId = withAlly.players[RESOURCE_PLAYER].characters[charId as string].allies[0].instanceId;
+    const allyId = withAlly.players[RESOURCE_PLAYER].characters[charId].allies[0].instanceId;
     const modifyActions = viableActions(combatState, PLAYER_1, 'modify-attack')
       .filter(a => 'cardInstanceId' in a.action && (a.action as ModifyAttackAction).cardInstanceId === allyId);
     expect(modifyActions).toHaveLength(0);
@@ -378,7 +378,7 @@ describe('Great Bats (as-74)', () => {
     };
 
     const charId = findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK);
-    const allyId = combatState.players[RESOURCE_PLAYER].characters[charId as string].allies[0].instanceId;
+    const allyId = combatState.players[RESOURCE_PLAYER].characters[charId].allies[0].instanceId;
     const modifyActions = viableActions(combatState, PLAYER_1, 'modify-attack')
       .filter(a => 'cardInstanceId' in a.action && (a.action as ModifyAttackAction).cardInstanceId === allyId);
     expect(modifyActions).toHaveLength(1);
@@ -390,7 +390,7 @@ describe('Great Bats (as-74)', () => {
     // The attacker-chooses-defenders rule is removed.
     expect(afterTap.combat!.attackerChoosesDefenders).toBeFalsy();
     // Great Bats is now tapped.
-    const ally = afterTap.players[RESOURCE_PLAYER].characters[charId as string].allies[0];
+    const ally = afterTap.players[RESOURCE_PLAYER].characters[charId].allies[0];
     expect(ally.status).toBe(CardStatus.Tapped);
 
     // After the defender passes the cancel-window, the DEFENDER assigns
@@ -435,7 +435,7 @@ describe('Great Bats (as-74)', () => {
     };
 
     const charId = findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK);
-    const allyId = combatState.players[RESOURCE_PLAYER].characters[charId as string].allies[0].instanceId;
+    const allyId = combatState.players[RESOURCE_PLAYER].characters[charId].allies[0].instanceId;
     const modifyActions = viableActions(combatState, PLAYER_1, 'modify-attack')
       .filter(a => 'cardInstanceId' in a.action && (a.action as ModifyAttackAction).cardInstanceId === allyId);
     expect(modifyActions).toHaveLength(1);

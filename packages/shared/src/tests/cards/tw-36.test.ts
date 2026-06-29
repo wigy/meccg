@@ -86,7 +86,7 @@ describe('Foul Fumes (tw-36)', () => {
 
     const aragornId = findCharInstanceId(withChain, RESOURCE_PLAYER, ARAGORN);
     const goldberryInstanceId =
-      withChain.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+      withChain.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
     const cancelActions = computeLegalActions(withChain, PLAYER_1)

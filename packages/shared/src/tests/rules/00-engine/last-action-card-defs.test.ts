@@ -234,7 +234,7 @@ describe('discard-card — opponent must not learn the discarded card', () => {
     // Precondition: the card moved from hand to the owner's private
     // discard pile, and was never in a public location.
     expect(after.players[0].discardPile.map(c => c.instanceId)).toContain(discardedId);
-    expect(after.revealedInstances[discardedId as string]).toBeUndefined();
+    expect(after.revealedInstances[discardedId]).toBeUndefined();
 
     // The action map broadcast to the opponent omits the card's identity.
     const defs = extractActionCardDefs(after, action);
@@ -289,7 +289,7 @@ describe('place-on-guard — resource player must not learn the placed card', ()
     // never in a public location.
     const onGuard = after.players[0].companies[0].onGuardCards.find(c => c.instanceId === cardId);
     expect(onGuard?.revealed).toBe(false);
-    expect(after.revealedInstances[cardId as string]).toBeUndefined();
+    expect(after.revealedInstances[cardId]).toBeUndefined();
 
     // The action map broadcast to the resource player omits the card's
     // identity.
@@ -354,7 +354,7 @@ describe('fetch-from-pile — opponent must not learn which card was fetched', (
     // Precondition: the card is now in the private play deck and the instance
     // was in revealedInstances before the fetch.
     expect(afterFetch.players[1].playDeck.map(c => c.instanceId)).toContain(orcPatrolId);
-    expect(afterFetch.revealedInstances[orcPatrolId as string]).toBe(ORC_PATROL);
+    expect(afterFetch.revealedInstances[orcPatrolId]).toBe(ORC_PATROL);
 
     // The broadcast map must NOT name the fetched card — its destination is
     // the private play deck, so the opponent only learns "a card was fetched".
@@ -428,8 +428,8 @@ describe('exchange-sideboard — opponent must not learn which cards were swappe
     const after = dispatch(state, action);
 
     // Both cards remain in revealedInstances (the map only grows).
-    expect(after.revealedInstances[discardCard.instanceId as string]).toBe(ORC_PATROL);
-    expect(after.revealedInstances[sideboardCard.instanceId as string]).toBe(ASSASSIN);
+    expect(after.revealedInstances[discardCard.instanceId]).toBe(ORC_PATROL);
+    expect(after.revealedInstances[sideboardCard.instanceId]).toBe(ASSASSIN);
 
     // The broadcast map must NOT name either card — the opponent must only
     // learn that an exchange happened, not which cards were involved.

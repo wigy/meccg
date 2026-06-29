@@ -340,8 +340,8 @@ describe('Stinker (le-154)', () => {
 
     // Capture Stinker / Ring instance IDs before dispatch so we can assert on
     // where the specific instances end up.
-    const stinkerInstId = withRing.players[0].characters[hostId as string].allies[0].instanceId;
-    const ringInstId = withRing.players[1].characters[aragornId as string].items[0].instanceId;
+    const stinkerInstId = withRing.players[0].characters[hostId].allies[0].instanceId;
+    const ringInstId = withRing.players[1].characters[aragornId].items[0].instanceId;
 
     const actions = viableActions(withRing, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'stinker-discard-with-ring');
@@ -350,11 +350,11 @@ describe('Stinker (le-154)', () => {
     const next = dispatch(withRing, actions[0].action);
 
     // Stinker is no longer attached and sits in the minion player's discard.
-    expect(next.players[0].characters[hostId as string].allies).toHaveLength(0);
+    expect(next.players[0].characters[hostId].allies).toHaveLength(0);
     expectInDiscardPile(next, RESOURCE_PLAYER, stinkerInstId);
 
     // The One Ring is no longer on Aragorn and sits in the hero player's discard.
-    expect(next.players[1].characters[aragornId as string].items).toHaveLength(0);
+    expect(next.players[1].characters[aragornId].items).toHaveLength(0);
     expectInDiscardPile(next, HAZARD_PLAYER, ringInstId);
   });
 
@@ -387,8 +387,8 @@ describe('Stinker (le-154)', () => {
     const withRing = attachItemToChar(withStinker, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT, THE_ONE_RING);
 
     const hostId = findCharInstanceId(withRing, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT);
-    const stinkerInstId = withRing.players[0].characters[hostId as string].allies[0].instanceId;
-    const ringInstId = withRing.players[0].characters[hostId as string].items
+    const stinkerInstId = withRing.players[0].characters[hostId].allies[0].instanceId;
+    const ringInstId = withRing.players[0].characters[hostId].items
       .find(i => i.definitionId === THE_ONE_RING)!.instanceId;
 
     const actions = viableActions(withRing, PLAYER_1, 'activate-granted-action')
@@ -398,7 +398,7 @@ describe('Stinker (le-154)', () => {
     const next = dispatch(withRing, actions[0].action);
 
     // Both cards end up in the minion player's own discard pile.
-    const host = next.players[0].characters[hostId as string];
+    const host = next.players[0].characters[hostId];
     expect(host.allies).toHaveLength(0);
     expect(host.items.some(i => i.instanceId === ringInstId)).toBe(false);
     expectInDiscardPile(next, RESOURCE_PLAYER, stinkerInstId);
@@ -424,7 +424,7 @@ describe('Stinker (le-154)', () => {
     expect(cancelActions.length).toBe(1);
 
     const hostId = findCharInstanceId(combatState, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT);
-    const stinker = combatState.players[RESOURCE_PLAYER].characters[hostId as string].allies[0];
+    const stinker = combatState.players[RESOURCE_PLAYER].characters[hostId].allies[0];
     const cancel = cancelActions[0].action as CancelAttackAction;
     expect(cancel.cardInstanceId).toBe(stinker.instanceId);
   });
@@ -511,7 +511,7 @@ describe('Stinker (le-154)', () => {
     });
     base = attachAllyToChar(base, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT, STINKER);
     const hostId = findCharInstanceId(base, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT);
-    const host = base.players[RESOURCE_PLAYER].characters[hostId as string];
+    const host = base.players[RESOURCE_PLAYER].characters[hostId];
     const updatedChars = {
       ...base.players[RESOURCE_PLAYER].characters,
       [hostId as string]: {
@@ -554,7 +554,7 @@ describe('Stinker (le-154)', () => {
 
     // Stinker ally is now tapped on its host.
     const hostId = findCharInstanceId(after, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT);
-    const stinker = after.players[RESOURCE_PLAYER].characters[hostId as string].allies[0];
+    const stinker = after.players[RESOURCE_PLAYER].characters[hostId].allies[0];
     expect(stinker.status).toBe(CardStatus.Tapped);
 
     // Orc-patrol lands in the hazard player's discard pile.

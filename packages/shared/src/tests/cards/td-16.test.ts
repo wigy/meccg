@@ -123,10 +123,10 @@ describe("Dragon’s Curse (td-16)", () => {
     });
 
     const aragornId = charIdAt(base, RESOURCE_PLAYER);
-    expect(base.players[0].characters[aragornId as string].effectiveStats.corruptionPoints).toBe(0);
+    expect(base.players[0].characters[aragornId].effectiveStats.corruptionPoints).toBe(0);
 
     const withCurse = recomputeDerived(attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, DRAGONS_CURSE));
-    expect(withCurse.players[0].characters[aragornId as string].effectiveStats.corruptionPoints).toBe(2);
+    expect(withCurse.players[0].characters[aragornId].effectiveStats.corruptionPoints).toBe(2);
   });
 
   test('untap → org transition enqueues a corruption check regardless of site (non-haven)', () => {
@@ -272,7 +272,7 @@ describe("Dragon’s Curse (td-16)", () => {
 
     // Curse leaves Aragorn's hazards and lands in the hazard player's discard pile.
     const aragornId = findCharInstanceId(next, RESOURCE_PLAYER, ARAGORN);
-    expect(next.players[RESOURCE_PLAYER].characters[aragornId as string].hazards).toHaveLength(0);
+    expect(next.players[RESOURCE_PLAYER].characters[aragornId].hazards).toHaveLength(0);
     expectInDiscardPile(next, HAZARD_PLAYER, DRAGONS_CURSE);
   });
 
@@ -296,7 +296,7 @@ describe("Dragon’s Curse (td-16)", () => {
     expectCharStatus(next, RESOURCE_PLAYER, ELROND, CardStatus.Tapped);
 
     const aragornId = findCharInstanceId(next, RESOURCE_PLAYER, ARAGORN);
-    const hazards = next.players[RESOURCE_PLAYER].characters[aragornId as string].hazards;
+    const hazards = next.players[RESOURCE_PLAYER].characters[aragornId].hazards;
     expect(hazards).toHaveLength(1);
     expect(hazards[0].definitionId).toBe(DRAGONS_CURSE);
   });
@@ -340,7 +340,7 @@ describe("Dragon’s Curse (td-16)", () => {
     const next = dispatch(state, plays[0].action);
 
     // Curse attached to Aragorn's hazards.
-    expect(next.players[RESOURCE_PLAYER].characters[aragornId as string].hazards.map(h => h.definitionId))
+    expect(next.players[RESOURCE_PLAYER].characters[aragornId].hazards.map(h => h.definitionId))
       .toContain(DRAGONS_CURSE);
 
     // The current strike's defender prowess bonus picks up +1 — the engine
@@ -368,7 +368,7 @@ describe("Dragon’s Curse (td-16)", () => {
     expect(plays).toHaveLength(1);
     const next = dispatch(state, plays[0].action);
 
-    expect(next.players[RESOURCE_PLAYER].characters[aragornId as string].hazards).toHaveLength(0);
+    expect(next.players[RESOURCE_PLAYER].characters[aragornId].hazards).toHaveLength(0);
     expectInDiscardPile(next, HAZARD_PLAYER, DRAGONS_CURSE);
     // Strike prowess is untouched — the curse never attached.
     expect(next.combat!.strikeAssignments[0].strikeProwessBonus ?? 0).toBe(0);

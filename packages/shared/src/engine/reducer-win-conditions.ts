@@ -52,7 +52,7 @@ function countSagesInCompany(state: GameState, player: PlayerState, avatarCharId
   if (!company) return 0;
   let count = 0;
   for (const charId of company.characters) {
-    const char = player.characters[charId as string];
+    const char = player.characters[charId];
     if (!char) continue;
     const def = defById(state, char.definitionId);
     if (def && isCharacterCard(def) && (def.skills as readonly string[]).includes(Skill.Sage)) count++;
@@ -107,11 +107,11 @@ function matchBand(total: number, bands: readonly RollBand[]): RollBand | undefi
  */
 function eliminateAvatar(state: GameState, playerIndex: number, avatarCharId: CardInstanceId): GameState {
   const player = state.players[playerIndex];
-  const avatar = player.characters[avatarCharId as string];
+  const avatar = player.characters[avatarCharId];
   if (!avatar) return state;
 
   const newCharacters = { ...player.characters };
-  delete newCharacters[avatarCharId as string];
+  delete newCharacters[avatarCharId];
 
   const discarded = [
     ...avatar.items.map(toCardInstance),
@@ -142,7 +142,7 @@ function discardSourceFromAvatar(
   sourceInstanceId: CardInstanceId,
 ): GameState {
   const player = state.players[playerIndex];
-  const avatar = player.characters[avatarCharId as string];
+  const avatar = player.characters[avatarCharId];
   if (!avatar) return state;
   const card = avatar.items.find(i => i.instanceId === sourceInstanceId);
   if (!card) return state;

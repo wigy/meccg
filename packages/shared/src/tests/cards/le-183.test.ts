@@ -290,7 +290,7 @@ describe('Fell Rider (le-183)', () => {
     expect(avatar.allies.some(a => a.definitionId === WAR_WOLF)).toBe(false);
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === WAR_WOLF)).toBe(true);
     // The follower character was discarded and removed from the company.
-    expect(after.players[RESOURCE_PLAYER].characters[gorbagId as string]).toBeUndefined();
+    expect(after.players[RESOURCE_PLAYER].characters[gorbagId]).toBeUndefined();
     expect(after.players[RESOURCE_PLAYER].companies[0].characters).not.toContain(gorbagId);
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === GORBAG)).toBe(true);
     // The avatar itself stays.

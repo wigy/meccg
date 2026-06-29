@@ -117,7 +117,7 @@ function supportActions(
   if (company) {
     for (const charId of company.characters) {
       if (charId === pending.characterId) continue;
-      const charInPlay = player.characters[charId as string];
+      const charInPlay = player.characters[charId];
       if (!charInPlay) continue;
       if (charInPlay.status !== CardStatus.Untapped) continue;
 

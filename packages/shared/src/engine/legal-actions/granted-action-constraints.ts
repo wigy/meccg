@@ -66,7 +66,7 @@ export function emitGrantedActionConstraintActions(
 
     for (const charInstId of company.characters) {
       const charId: CardInstanceId = charInstId;
-      const char = player.characters[charId as string];
+      const char = player.characters[charId];
       if (!char) continue;
 
       if (!canPayCost(kind.cost, char)) continue;

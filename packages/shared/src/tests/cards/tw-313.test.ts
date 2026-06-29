@@ -200,7 +200,7 @@ describe('Red Book of Westmarch (tw-313)', () => {
     });
     const state = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, RED_BOOK);
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
-    const aragornChar = state.players[0].characters[aragornId as string];
+    const aragornChar = state.players[0].characters[aragornId];
 
     const aragornDef = pool[ARAGORN as string] as CharacterCard;
     const ctx: ResolverContext = {
@@ -233,7 +233,7 @@ describe('Red Book of Westmarch (tw-313)', () => {
     });
     const state = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, RED_BOOK);
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
-    const aragornChar = state.players[0].characters[aragornId as string];
+    const aragornChar = state.players[0].characters[aragornId];
 
     const aragornDef = pool[ARAGORN as string] as CharacterCard;
     const ctx: ResolverContext = {

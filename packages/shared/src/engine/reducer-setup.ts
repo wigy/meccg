@@ -529,7 +529,7 @@ function handleItemDraft(
       e => e.type === 'recruitment-vehicle',
     ) ?? false;
     const targetCharId = action.targetCharacterInstanceId;
-    const targetChar = targetCharId ? player.characters[targetCharId as string] : undefined;
+    const targetChar = targetCharId ? player.characters[targetCharId] : undefined;
 
     const stateWithCard = (isRecruitmentVehicle && targetChar)
       ? updatePlayer(state, playerIndex, p => ({
@@ -588,7 +588,7 @@ function handleItemDraft(
   if (!allCharIds.includes(action.characterInstanceId)) {
     return { state, error: 'Character is not in your starting company' };
   }
-  const charKey = action.characterInstanceId as string;
+  const charKey = action.characterInstanceId;
   const existingChar = player.characters[charKey];
   if (!existingChar) {
     return { state, error: 'Character not found' };
@@ -970,7 +970,7 @@ function handleCharacterPlacement(
   const player = state.players[playerIndex];
 
   // Validate character belongs to this player
-  if (!player.characters[action.characterInstanceId as string]) {
+  if (!player.characters[action.characterInstanceId]) {
     return { state, error: 'Character not found' };
   }
 

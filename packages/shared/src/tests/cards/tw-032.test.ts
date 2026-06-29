@@ -120,7 +120,7 @@ describe('Eye of Sauron (tw-32)', () => {
     });
 
     // All effects on Eye of Sauron should target "all-automatic-attacks", not "all-attacks"
-    const eosDef = state.cardPool[EYE_OF_SAURON as string] as { effects?: Array<{ type: string; target?: string }> };
+    const eosDef = state.cardPool[EYE_OF_SAURON] as { effects?: Array<{ type: string; target?: string }> };
     expect(eosDef.effects).toBeDefined();
     for (const effect of eosDef.effects!) {
       if (effect.type === 'stat-modifier') {

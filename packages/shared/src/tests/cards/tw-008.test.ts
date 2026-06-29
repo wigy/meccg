@@ -233,7 +233,7 @@ describe('Assassin (tw-8)', () => {
     expect(r3.combat!.strikeAssignments).toHaveLength(2);
     expect(r3.combat!.strikesTotal).toBe(2);
     // Legolas is now tapped
-    expect(r3.players[0].characters[legolasCharId as string].status).toBe('tapped');
+    expect(r3.players[0].characters[legolasCharId].status).toBe('tapped');
   });
 
   test('cancel-by-tap respects maxCancels limit (max 2)', () => {

@@ -135,7 +135,7 @@ function handleDeclareCorruptionCheck(
   if (company) {
     for (const cid of company.characters) {
       if (cid === action.characterId) continue;
-      const c = player.characters[cid as string];
+      const c = player.characters[cid];
       if (c && c.status === CardStatus.Untapped) {
         hasEligibleSupporter = true;
         break;
@@ -220,7 +220,7 @@ function resolveCorruptionCheck(
   }
 
   const player = state.players[playerIndex];
-  const char = player.characters[pending.characterId as string];
+  const char = player.characters[pending.characterId];
   const charDef = resolveDef(state, pending.characterId);
   const charName = charDef?.name ?? '?';
   const cp = pending.corruptionPoints;
@@ -251,9 +251,9 @@ function resolveCorruptionCheck(
       // Only an untapped character changes state — an already-tapped or wounded
       // character stays as it is (you cannot tap it "further").
       const tappedChars = { ...newPlayers[playerIndex].characters };
-      const tappedChar = tappedChars[pending.characterId as string];
+      const tappedChar = tappedChars[pending.characterId];
       if (tappedChar && tappedChar.status === CardStatus.Untapped) {
-        tappedChars[pending.characterId as string] = { ...tappedChar, status: CardStatus.Tapped };
+        tappedChars[pending.characterId] = { ...tappedChar, status: CardStatus.Tapped };
       }
       newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: tappedChars };
       logDetail(`Free Council corruption check (${total} within 1 of ${cp}) — ${charName} taps and the check is considered successful (CoE 7.1)`);
@@ -273,7 +273,7 @@ function resolveCorruptionCheck(
 
   // Failed — character is discarded or eliminated
   const newCharacters = { ...player.characters };
-  delete newCharacters[pending.characterId as string];
+  delete newCharacters[pending.characterId];
 
   const newCompanies = player.companies.map(c => ({
     ...c,
@@ -282,9 +282,9 @@ function resolveCorruptionCheck(
 
   // Followers promoted to general influence
   for (const followerId of char.followers) {
-    const follower = newCharacters[followerId as string];
+    const follower = newCharacters[followerId];
     if (follower) {
-      newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
     }
   }
 

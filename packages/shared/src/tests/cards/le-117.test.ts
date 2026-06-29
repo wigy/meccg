@@ -137,7 +137,7 @@ describe('Long Winter (le-117)', () => {
     expect(withChain.chain!.priority).toBe(PLAYER_1);
 
     const aragornId = findCharInstanceId(withChain, RESOURCE_PLAYER, ARAGORN);
-    const goldberryInstanceId = withChain.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const goldberryInstanceId = withChain.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
     const cancelActions = computeLegalActions(withChain, PLAYER_1)

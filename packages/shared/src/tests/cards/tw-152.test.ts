@@ -100,7 +100,7 @@ describe('Frodo (tw-152)', () => {
     for (const action of viable) {
       const siteInst = state.players[0].siteDeck.find(c => c.instanceId === action.atSite);
       expect(siteInst).toBeDefined();
-      const siteDef = state.cardPool[siteInst!.definitionId as string];
+      const siteDef = state.cardPool[siteInst!.definitionId];
       expect((siteDef as { name: string }).name).toBe('Bag End');
     }
   });

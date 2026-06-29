@@ -110,7 +110,7 @@ describe('Rule 9.22 — Gold Ring Auto-Test at Darkhaven', () => {
     const afterPlay = dispatch(withOffer, playAction);
 
     // The Lesser Ring should now be in Aragorn's items
-    const lesserRingItem = afterPlay.players[RESOURCE_PLAYER].characters[aragornId as string].items.find(
+    const lesserRingItem = afterPlay.players[RESOURCE_PLAYER].characters[aragornId].items.find(
       i => i.definitionId === LESSER_RING,
     );
     expect(lesserRingItem).toBeDefined();

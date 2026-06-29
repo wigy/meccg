@@ -352,7 +352,7 @@ function playOptionActionsForShortEvent(
     : eligibleCharacterTargets(state, player, playTarget);
   const hasTapCost = playTarget.cost?.tap === 'character';
   for (const targetId of targets) {
-    const char = player.characters[targetId as string];
+    const char = player.characters[targetId];
     if (!char) continue;
     const ctx = buildPlayOptionContext(state, char, player, currentPhase);
     if (options.length === 0) {

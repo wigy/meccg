@@ -18,6 +18,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardInstanceId } from '../../../index.js';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI, FRODO, BILBO,
@@ -161,7 +162,7 @@ describe('Rule 8.06 — Step 2: Defending Player Assigns Strikes', () => {
 
     // Find the Gwaihir assign action
     const frodoChar = afterPass.players[0].characters;
-    const frodoId = Object.keys(frodoChar).find(
+    const frodoId = (Object.keys(frodoChar) as CardInstanceId[]).find(
       k => frodoChar[k].definitionId === FRODO,
     )!;
     const gwaihirAlly = frodoChar[frodoId].allies.find(a => a.definitionId === GWAIHIR);

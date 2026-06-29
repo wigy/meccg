@@ -70,10 +70,10 @@ describe('The Least of Gold Rings (le-315)', () => {
     });
 
     const gorbagId = charIdAt(base, RESOURCE_PLAYER);
-    expect(base.players[0].characters[gorbagId as string].effectiveStats.corruptionPoints).toBe(0);
+    expect(base.players[0].characters[gorbagId].effectiveStats.corruptionPoints).toBe(0);
 
     const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, GORBAG, LEAST_OF_GOLD_RINGS));
-    expect(withRing.players[0].characters[gorbagId as string].effectiveStats.corruptionPoints).toBe(4);
+    expect(withRing.players[0].characters[gorbagId].effectiveStats.corruptionPoints).toBe(4);
   });
 
   // ── Effect: corruption check at end of each untap phase ────────────

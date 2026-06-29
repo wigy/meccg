@@ -31,6 +31,7 @@ import { matchesCondition, matchesContext } from '../../effects/condition-matche
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard } from '../../types/cards.js';
 import { CardStatus, Skill, cardStatusToName } from '../../types/common.js';
+import type { CardDefinitionId } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -327,7 +328,7 @@ function cancelInfluenceActions(
       if (cancelEffect.requiredRace || cancelEffect.requiredSkill) {
         for (const company of player.companies) {
           for (const charId of company.characters) {
-            const charData = player.characters[charId as string];
+            const charData = player.characters[charId];
             if (!charData) continue;
             const charDef = resolveDef(state, charId);
             if (!charDef || !isCharacterCard(charDef)) continue;
@@ -384,7 +385,7 @@ function factionInfluenceRollActions(
   const def = defById(state, factionDefinitionId);
   if (!def || !isFactionCard(def)) return [];
 
-  const charInPlay = player.characters[influencingCharacterId as string];
+  const charInPlay = player.characters[influencingCharacterId];
   if (!charInPlay) return [];
 
   const charDef = defById(state, charInPlay.definitionId);
@@ -520,7 +521,7 @@ function flateryAttemptRollActions(
   const player = playerById(state, playerId);
   if (!player) return [];
 
-  const charInPlay = player.characters[characterInstanceId as string];
+  const charInPlay = player.characters[characterInstanceId];
   if (!charInPlay) return [];
 
   const charDef = defById(state, charInPlay.definitionId);
@@ -568,7 +569,7 @@ function callOfHomeRollActions(
   const player = playerById(state, playerId);
   if (!player) return [];
 
-  const charInPlay = player.characters[targetCharacterId as string];
+  const charInPlay = player.characters[targetCharacterId];
   if (!charInPlay) return [];
 
   const charDef = defById(state, charInPlay.definitionId);
@@ -609,7 +610,7 @@ function seizedByTerrorRollActions(
   const player = playerById(state, playerId);
   if (!player) return [];
 
-  const charInPlay = player.characters[targetCharacterId as string];
+  const charInPlay = player.characters[targetCharacterId];
   if (!charInPlay) return [];
 
   const charDef = defById(state, charInPlay.definitionId);
@@ -726,7 +727,7 @@ function bodyCheckCompanyActions(
   const player = playerById(state, playerId);
   if (!player) return [];
 
-  const charInPlay = player.characters[characterId as string];
+  const charInPlay = player.characters[characterId];
   if (!charInPlay) return [];
 
   const charDef = defById(state, charInPlay.definitionId);
@@ -822,7 +823,7 @@ function wizardSearchOnStoreActions(
     }
   }
   for (const defId of deckWizardDefIds) {
-    const def = state.cardPool[defId];
+    const def = state.cardPool[defId as CardDefinitionId];
     logDetail(`Wizard-search: found ${def?.name ?? defId} in play deck`);
     actions.push({
       action: {
@@ -883,7 +884,7 @@ function corruptionCheckActions(
   // the actor, but the actor may not be the active player in all cases).
   const player = playerById(state, playerId);
   if (!player) return [];
-  const char = player.characters[characterId as string];
+  const char = player.characters[characterId];
   if (!char) {
     // Character was eliminated — auto-resolve via pass.
     logDetail(`Corruption check (${reason}): character ${characterId as string} no longer in play — pass to skip`);
@@ -921,7 +922,7 @@ function corruptionCheckActions(
   const company = findCharacterCompany(player.companies, characterId);
   const companyCharCount = company ? company.characters.length : 1;
   const hasTrollLeader = company?.characters.some(cid => {
-    const compChar = player.characters[cid as string];
+    const compChar = player.characters[cid];
     if (!compChar) return false;
     const def = resolveDef(state, compChar.instanceId);
     return isCharacterCard(def) && def.race === 'troll' && (def.keywords ?? []).includes('Leader');
@@ -1308,7 +1309,7 @@ function applyGrantedActionConstraint(
 
   const result = [...base];
   for (const charId of company.characters) {
-    const char = player.characters[charId as string];
+    const char = player.characters[charId];
     if (!char) continue;
     if (!canPayCost(kind.cost, char)) continue;
 
@@ -1532,7 +1533,7 @@ function selectCardBearerActions(
   const cardLabel = cardName(state, cardDefId!, '?');
 
   for (const charId of company.characters) {
-    const ch = defPlayer.characters[charId as string];
+    const ch = defPlayer.characters[charId];
     if (!ch || ch.status !== CardStatus.Untapped) continue;
     logDetail(`select-card-bearer: offering ${charId as string} as bearer for "${cardLabel}"`);
     actions.push({
@@ -1574,7 +1575,7 @@ function discardOneCompanyItemActions(
 
   const actions: EvaluatedAction[] = [];
   for (const charId of company.characters) {
-    const ch = defPlayer.characters[charId as string];
+    const ch = defPlayer.characters[charId];
     if (!ch) continue;
     for (const item of ch.items) {
       const itemDef = defById(state, item.definitionId);
@@ -1704,7 +1705,7 @@ function ringPlayOfferActions(
     const charDupLimit = findDuplicationLimitEffect(def, 'character');
     if (charDupLimit) {
       const { characterInstanceId } = top.kind as { characterInstanceId: CardInstanceId };
-      const targetChar = player.characters[characterInstanceId as string];
+      const targetChar = player.characters[characterInstanceId];
       const copiesOnChar = targetChar?.items.filter(item => {
         const iDef = defById(state, item.definitionId);
         return iDef?.name === def.name;
@@ -1747,7 +1748,7 @@ function ringPlayOfferActions(
         const charDupLimit = findDuplicationLimitEffect(def, 'character');
         if (charDupLimit) {
           const { characterInstanceId } = top.kind as { characterInstanceId: CardInstanceId };
-          const targetChar = player.characters[characterInstanceId as string];
+          const targetChar = player.characters[characterInstanceId];
           const copiesOnChar = targetChar?.items.filter(item => {
             const iDef = defById(state, item.definitionId);
             return iDef?.name === def.name;
@@ -1843,7 +1844,7 @@ function tapOneCharacterActions(
 
   const actions: EvaluatedAction[] = [];
   for (const charId of company.characters) {
-    const ch = ownerPlayer.characters[charId as string];
+    const ch = ownerPlayer.characters[charId];
     if (!ch || ch.status !== CardStatus.Untapped) continue;
     const charDef = defById(state, ch.definitionId);
     const charName = (charDef as { name?: string })?.name ?? (charId as string);
@@ -1888,7 +1889,7 @@ function havenRestoreCharacterActions(
 
   const actions: EvaluatedAction[] = [];
   for (const charId of company.characters) {
-    const ch = ownerPlayer.characters[charId as string];
+    const ch = ownerPlayer.characters[charId];
     if (!ch) continue;
     if (ch.status !== CardStatus.Tapped && ch.status !== CardStatus.Inverted) continue;
     const charName = (defById(state, ch.definitionId) as { name?: string })?.name ?? (charId as string);

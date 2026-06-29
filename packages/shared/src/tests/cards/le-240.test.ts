@@ -167,7 +167,7 @@ describe("That Ain't No Secret (le-240)", () => {
           characters: {
             ...state.players[RESOURCE_PLAYER].characters,
             [gorbagId as string]: {
-              ...state.players[RESOURCE_PLAYER].characters[gorbagId as string],
+              ...state.players[RESOURCE_PLAYER].characters[gorbagId],
               status: CardStatus.Tapped,
             },
           },
@@ -201,7 +201,7 @@ describe("That Ain't No Secret (le-240)", () => {
     expect(actions.length).toBeGreaterThan(0);
     const afterResolve = resolveChain(dispatch(state, actions[0].action));
 
-    expect(afterResolve.players[RESOURCE_PLAYER].characters[gorbagId as string].status)
+    expect(afterResolve.players[RESOURCE_PLAYER].characters[gorbagId].status)
       .toBe(CardStatus.Tapped);
     expect(afterResolve.players[RESOURCE_PLAYER].companies[0].currentSite?.status)
       .toBe(CardStatus.Untapped);
@@ -212,7 +212,7 @@ describe("That Ain't No Secret (le-240)", () => {
     const gorbagId = findCharInstanceId(state, RESOURCE_PLAYER, GORBAG);
     const afterResolve = resolveChain(dispatch(state, viableActions(state, PLAYER_1, 'play-permanent-event')[0].action));
 
-    const char = afterResolve.players[RESOURCE_PLAYER].characters[gorbagId as string];
+    const char = afterResolve.players[RESOURCE_PLAYER].characters[gorbagId];
     expect(char.items.some(i => i.definitionId === THAT_AINT_NO_SECRET)).toBe(true);
   });
 
@@ -237,7 +237,7 @@ describe("That Ain't No Secret (le-240)", () => {
     const afterResolve = resolveChain(dispatch(state, viableActions(state, PLAYER_1, 'play-permanent-event')[0].action));
 
     // Character is tapped from playing the card.
-    expect(afterResolve.players[RESOURCE_PLAYER].characters[gorbagId as string].status)
+    expect(afterResolve.players[RESOURCE_PLAYER].characters[gorbagId].status)
       .toBe(CardStatus.Tapped);
 
     const inUntap = {
@@ -255,7 +255,7 @@ describe("That Ain't No Secret (le-240)", () => {
     const afterUntap = dispatch(inUntap, { type: 'untap', player: PLAYER_1 });
 
     // No untap lock → Gorbag untaps despite still bearing the card.
-    expect(afterUntap.players[RESOURCE_PLAYER].characters[gorbagId as string].status)
+    expect(afterUntap.players[RESOURCE_PLAYER].characters[gorbagId].status)
       .toBe(CardStatus.Untapped);
   });
 

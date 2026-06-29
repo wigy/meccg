@@ -17,6 +17,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardDefinitionId } from '../../index.js';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, BILBO, FATTY_BOLGER, SAM_GAMGEE, GLORFINDEL_II, SARUMAN,
@@ -98,7 +99,7 @@ describe('Fatty Bolger (tw-495)', () => {
     const actions = viablePlayCharacterActions(state, PLAYER_1);
     const fattyActions = actions.filter(a => {
       const siteDef = state.cardPool[
-        state.players[0].siteDeck.find(c => c.instanceId === a.atSite)?.definitionId as string
+        state.players[0].siteDeck.find(c => c.instanceId === a.atSite)?.definitionId as CardDefinitionId
       ];
       return siteDef && 'name' in siteDef && siteDef.name === 'Bag End';
     });
@@ -241,7 +242,7 @@ describe('Fatty Bolger (tw-495)', () => {
     const r6 = dispatch(r5, cancelStrikeActions[0].action);
 
     // Fatty should be tapped
-    expect(r6.players[0].characters[fattyId as string].status).toBe('tapped');
+    expect(r6.players[0].characters[fattyId].status).toBe('tapped');
     // Bilbo's strike should be resolved (canceled)
     const bilboStrike = r6.combat!.strikeAssignments.find(sa => sa.characterId === bilboId);
     expect(bilboStrike!.resolved).toBe(true);

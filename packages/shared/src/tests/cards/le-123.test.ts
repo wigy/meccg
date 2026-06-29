@@ -253,7 +253,7 @@ describe('Lure of Nature (le-123)', () => {
     }
     expect(current.chain).toBeNull();
 
-    const aragornData = current.players[0].characters[aragornId as string];
+    const aragornData = current.players[0].characters[aragornId];
     expect(aragornData.hazards).toHaveLength(1);
     expect(aragornData.hazards[0].definitionId).toBe(LURE_OF_NATURE);
   });
@@ -429,7 +429,7 @@ describe('Lure of Nature (le-123)', () => {
           characters: {
             ...withCard.players[0].characters,
             [aragornId as string]: {
-              ...withCard.players[0].characters[aragornId as string],
+              ...withCard.players[0].characters[aragornId],
               status: CardStatus.Tapped,
             },
           },

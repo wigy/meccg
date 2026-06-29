@@ -178,7 +178,7 @@ describe('Dwar the Ringwraith (le-52)', () => {
 
     // Manually tap Dwar.
     const dwarId = findCharInstanceId(state, RESOURCE_PLAYER, DWAR);
-    const dwarChar = state.players[RESOURCE_PLAYER].characters[dwarId as string];
+    const dwarChar = state.players[RESOURCE_PLAYER].characters[dwarId];
     const updatedChars = {
       ...state.players[RESOURCE_PLAYER].characters,
       [dwarId as string]: { ...dwarChar, status: CardStatus.Tapped },

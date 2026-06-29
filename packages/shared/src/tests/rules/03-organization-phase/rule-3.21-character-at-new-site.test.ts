@@ -14,6 +14,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardDefinitionId } from '../../../index.js';
 import {
   buildTestState, resetMint, viablePlayCharacterActions, nonViablePlayCharacterActions, Phase,
   PLAYER_1, PLAYER_2,
@@ -81,7 +82,7 @@ describe('Rule 3.21 — Character at New Site', () => {
     // Without Bree in the siteDeck there must be no play action targeting Bree.
     expect(allPlays.every(a => {
       const siteDef = noBree.cardPool[
-        noBree.players[0].siteDeck.find(s => s.instanceId === a.atSite)?.definitionId as string ?? ''
+        noBree.players[0].siteDeck.find(s => s.instanceId === a.atSite)?.definitionId as CardDefinitionId ?? ('' as CardDefinitionId)
       ];
       return !siteDef || (siteDef as { name?: string }).name !== 'Bree';
     })).toBe(true);

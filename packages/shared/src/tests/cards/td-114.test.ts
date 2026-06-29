@@ -24,6 +24,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardInstanceId } from '../../index.js';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, FRODO, LEGOLAS, GIMLI,
@@ -220,7 +221,7 @@ describe('Enruned Shield (td-114)', () => {
     const r3 = dispatch(r2, cancelStrikeActions[0].action);
 
     // Shield is tapped; Gimli is NOT tapped
-    const gimliAfter = r3.players[0].characters[gimliId as string];
+    const gimliAfter = r3.players[0].characters[gimliId];
     const shieldAfter = gimliAfter.items.find(i => i.instanceId === shieldId)!;
     expect(shieldAfter.status).toBe(CardStatus.Tapped);
     expect(gimliAfter.status).toBe(CardStatus.Untapped);
@@ -327,7 +328,7 @@ describe('Enruned Shield (td-114)', () => {
     });
 
     // Tap the shield.
-    const gimliKey = Object.keys(baseState.players[0].characters)[0];
+    const gimliKey = (Object.keys(baseState.players[0].characters) as CardInstanceId[])[0];
     const gimliChar = baseState.players[0].characters[gimliKey];
     const tappedShield = { ...gimliChar.items[0], status: CardStatus.Tapped };
     const state = {

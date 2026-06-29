@@ -11,6 +11,7 @@ import type {
   PlayerId,
   EvaluatedAction,
   CardInstanceId,
+  CardDefinitionId,
   HeroResourceEventCard,
   MinionResourceEventCard,
   HazardEventCard,
@@ -40,7 +41,7 @@ function companyHasOrcOrTroll(
   player: import('../../index.js').PlayerState,
 ): boolean {
   return company.characters.some(cId => {
-    const ch = player.characters[cId as string];
+    const ch = player.characters[cId];
     if (!ch) return false;
     const def = defById(state, ch.definitionId);
     return !!def && 'race' in def
@@ -59,7 +60,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
 
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
-    const def = state.cardPool[handCard.definitionId as string] as HeroResourceEventCard | MinionResourceEventCard | undefined;
+    const def = state.cardPool[handCard.definitionId] as HeroResourceEventCard | MinionResourceEventCard | undefined;
     if (!def || (def.cardType !== 'hero-resource-event' && def.cardType !== 'minion-resource-event') || def.eventType !== 'permanent') continue;
 
     // Rule 5.F1 [FALLEN-WIZARD]: Stage resource permanent-events can only be
@@ -253,7 +254,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           const racePresent = player.companies.some(otherCompany => {
             if (!companySiteId || otherCompany.currentSite?.definitionId !== companySiteId) return false;
             return otherCompany.characters.some(cId => {
-              const ch = player.characters[cId as string];
+              const ch = player.characters[cId];
               if (!ch) return false;
               const cDef = defById(state, ch.definitionId);
               return cDef && 'race' in cDef && (cDef as { race?: string }).race === requiredRace;
@@ -272,7 +273,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           }
         }
         const companySkills = company.characters.flatMap(cId => {
-          const ch = player.characters[cId as string];
+          const ch = player.characters[cId];
           if (!ch) return [];
           const cDef = defById(state, ch.definitionId);
           return cDef && isCharacterCard(cDef) ? [...cDef.skills, ...getItemGrantedSkills(state, ch)] : [];
@@ -280,7 +281,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         // True if the company contains any character who can use shadow-magic:
         // ringwraiths can use it by default; others need the "shadow-magic" skill.
         const hasShadowMagicUser = company.characters.some(cId => {
-          const ch = player.characters[cId as string];
+          const ch = player.characters[cId];
           if (!ch) return false;
           const cDef = defById(state, ch.definitionId);
           if (!cDef || !isCharacterCard(cDef)) return false;
@@ -288,7 +289,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           return [...(cDef as { skills?: readonly string[] }).skills ?? [], ...getItemGrantedSkills(state, ch)].includes('shadow-magic');
         });
         for (const charId of company.characters) {
-          const charData = player.characters[charId as string];
+          const charData = player.characters[charId];
           if (!charData) continue;
           const charDef = defById(state, charData.definitionId);
           if (!charDef || !isCharacterCard(charDef)) continue;
@@ -358,7 +359,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         const siteType = (siteDef as { siteType: string }).siteType;
         // Count members: characters + allies attached to all characters
         const allyCount = company.characters.reduce((sum, cId) => {
-          const ch = player.characters[cId as string];
+          const ch = player.characters[cId];
           return sum + (ch ? ch.allies.length : 0);
         }, 0);
         const memberCount = company.characters.length + allyCount;
@@ -373,7 +374,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         if (playTarget.filter) {
           const overt = !isCovertCompany(company, player, state);
           const orcCount = company.characters.reduce((n, cId) => {
-            const ch = player.characters[cId as string];
+            const ch = player.characters[cId];
             if (!ch) return n;
             const cDef = defById(state, ch.definitionId);
             return n + (cDef && 'race' in cDef && (cDef as { race: string }).race === Race.Orc ? 1 : 0);
@@ -419,7 +420,7 @@ export function playShortEventActions(state: GameState, playerId: PlayerId): Eva
 
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
-    const def = state.cardPool[handCard.definitionId as string] as HazardEventCard | undefined;
+    const def = state.cardPool[handCard.definitionId] as HazardEventCard | undefined;
     if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') continue;
 
     // Only cards with the playable-as-resource flag
@@ -429,7 +430,7 @@ export function playShortEventActions(state: GameState, playerId: PlayerId): Eva
     // like Doors of Night / Gates of Morning), or declared earlier in the
     // same chain of effects.
     const isEnv = (defId: string): boolean => {
-      const d = state.cardPool[defId];
+      const d = state.cardPool[defId as CardDefinitionId];
       return !!d && 'keywords' in d
         && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
     };
@@ -461,7 +462,7 @@ export function playShortEventActions(state: GameState, playerId: PlayerId): Eva
     }
 
     for (const target of envTargets) {
-      const targetDef = state.cardPool[target.definitionId];
+      const targetDef = state.cardPool[target.definitionId as CardDefinitionId];
       logDetail(`Short event ${def.name}: can cancel environment ${targetDef?.name ?? target.definitionId}`);
       actions.push({
         action: {

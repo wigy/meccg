@@ -137,7 +137,7 @@ export interface CollectedEffect {
 export function resolveDef(state: GameState, instanceId: CardInstanceId): CardDefinition | undefined {
   const defId = resolveInstanceId(state, instanceId);
   if (!defId) return undefined;
-  return state.cardPool[defId as string];
+  return state.cardPool[defId];
 }
 
 /**
@@ -471,7 +471,7 @@ function collectCompanyItemEffects(
   if (!found) return results;
   const { player, company } = found;
   for (const companyCharId of company.characters) {
-    const companyChar = player.characters[companyCharId as string];
+    const companyChar = player.characters[companyCharId];
     if (!companyChar) continue;
     const active = pickActiveItemsForCharacter(state, companyChar);
     for (const item of companyChar.items) {
@@ -509,7 +509,7 @@ export function collectCompanyAllyEffects(
   if (!found) return results;
   const { player, company } = found;
   for (const companyCharId of company.characters) {
-    const companyChar = player.characters[companyCharId as string];
+    const companyChar = player.characters[companyCharId];
     if (!companyChar) continue;
     for (const ally of companyChar.allies) {
       const allyDef = resolveDef(state, ally.instanceId);
@@ -536,7 +536,7 @@ function collectCompanyStatModifierEffects(
     if (constraint.target.kind !== 'company') continue;
     const company = findCompanyById(state, constraint.target.companyId);
     if (!company || !company.characters.includes(char.instanceId)) continue;
-    const sourceDef = state.cardPool[constraint.sourceDefinitionId as string];
+    const sourceDef = state.cardPool[constraint.sourceDefinitionId];
     if (!sourceDef) continue;
     const synthesized: StatModifierEffect = {
       type: 'stat-modifier',
@@ -567,7 +567,7 @@ function collectCharacterStatModifierEffects(
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'character-stat-modifier') continue;
     if (constraint.kind.characterId !== char.instanceId) continue;
-    const sourceDef = state.cardPool[constraint.sourceDefinitionId as string];
+    const sourceDef = state.cardPool[constraint.sourceDefinitionId];
     if (!sourceDef) continue;
     const synthesized: StatModifierEffect = {
       type: 'stat-modifier',
@@ -632,7 +632,7 @@ function collectCreatureAttackBoostEffects(
     if (creatureRace && constraint.kind.race !== creatureRace) continue;
     const value = stat === 'prowess' ? constraint.kind.prowess : constraint.kind.strikes;
     if (value === 0) continue;
-    const sourceDef = state.cardPool[constraint.sourceDefinitionId as string];
+    const sourceDef = state.cardPool[constraint.sourceDefinitionId];
     if (!sourceDef) continue;
     const synthesized: StatModifierEffect = { type: 'stat-modifier', stat, value };
     results.push({ effect: synthesized, sourceDef, sourceInstance: constraint.source });
@@ -1121,7 +1121,7 @@ export function resolveHandSize(state: GameState, playerIndex: number): number {
     let siteName: string | undefined;
     let atDarkhaven = false;
     if (company.currentSite) {
-      const siteDef = state.cardPool[company.currentSite.definitionId as string];
+      const siteDef = state.cardPool[company.currentSite.definitionId];
       if (siteDef && 'name' in siteDef) {
         siteName = (siteDef as SiteCard).name;
         const site = siteDef as SiteCard;
@@ -1131,7 +1131,7 @@ export function resolveHandSize(state: GameState, playerIndex: number): number {
     }
 
     for (const charInstanceId of company.characters) {
-      const char = player.characters[charInstanceId as string];
+      const char = player.characters[charInstanceId];
       if (!char) continue;
 
       const charDef = resolveDef(state, char.instanceId);
@@ -1183,7 +1183,7 @@ export function getItemGrantedSkills(
 ): readonly string[] {
   const granted: string[] = [];
   for (const item of charData.items) {
-    const itemDef = state.cardPool[item.definitionId as string];
+    const itemDef = state.cardPool[item.definitionId];
     for (const eff of getCardEffects(itemDef)) {
       if (eff.type === 'grant-skill') {
         granted.push(eff.skill);

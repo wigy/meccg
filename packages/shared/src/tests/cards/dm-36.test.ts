@@ -190,28 +190,28 @@ describe('The Under-courts (dm-36)', () => {
 
   test('dm-36 is in the card pool', () => {
     const state = buildSitePhaseState({ site: THE_UNDER_COURTS });
-    const def = state.cardPool[THE_UNDER_COURTS as string];
+    const def = state.cardPool[THE_UNDER_COURTS];
     expect(def).toBeDefined();
     expect((def as { name: string }).name).toBe('The Under-courts');
   });
 
   test('tw-113 (Witch-king) is in the card pool', () => {
     const state = buildSitePhaseState({ site: THE_UNDER_COURTS });
-    const def = state.cardPool[WITCH_KING as string];
+    const def = state.cardPool[WITCH_KING];
     expect(def).toBeDefined();
     expect((def as { name: string }).name).toBe('Witch-king of Angmar');
   });
 
   test('tw-47 (Khamûl) is in the card pool', () => {
     const state = buildSitePhaseState({ site: THE_UNDER_COURTS });
-    const def = state.cardPool[KHAMUL as string];
+    const def = state.cardPool[KHAMUL];
     expect(def).toBeDefined();
     expect((def as { name: string }).name).toBe('Khamûl the Easterling');
   });
 
   test('tw-2 (Adûnaphel) is in the card pool', () => {
     const state = buildSitePhaseState({ site: THE_UNDER_COURTS });
-    const def = state.cardPool[ADUNAPHEL as string];
+    const def = state.cardPool[ADUNAPHEL];
     expect(def).toBeDefined();
     expect((def as { name: string }).name).toBe('Adûnaphel');
   });

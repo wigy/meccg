@@ -150,7 +150,7 @@ describe('The Mouth (le-24)', () => {
     const next = dispatch(state, mouthAction.action);
 
     const mouthId = findCharInstanceId(next, RESOURCE_PLAYER, THE_MOUTH);
-    expect(next.players[0].characters[mouthId as string].status).toBe(CardStatus.Tapped);
+    expect(next.players[0].characters[mouthId].status).toBe(CardStatus.Tapped);
 
     expect(next.pendingEffects).toHaveLength(1);
     expect(next.pendingEffects[0].type).toBe('card-effect');

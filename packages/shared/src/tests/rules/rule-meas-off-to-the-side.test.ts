@@ -68,7 +68,7 @@ describe('MEAS §1 — Placement of cards off to the side', () => {
     const after = setAsideCompanyCharacter(state, HOST_ID, aragorn);
 
     // No longer an active character / company member.
-    expect(after.players[0].characters[aragorn as string]).toBeUndefined();
+    expect(after.players[0].characters[aragorn]).toBeUndefined();
     expect(after.players[0].companies[0].characters).not.toContain(aragorn);
 
     // Host now lists it; the child carries the back-reference and is in play.

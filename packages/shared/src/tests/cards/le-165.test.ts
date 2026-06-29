@@ -197,7 +197,7 @@ describe('Awaiting the Call (le-165)', () => {
     const afterResourcePass = dispatch(stateAtMH, { type: 'pass', player: PLAYER_1 });
     const afterHazardPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
 
-    const charAfter = afterHazardPass.players[RESOURCE_PLAYER].characters[charId as string];
+    const charAfter = afterHazardPass.players[RESOURCE_PLAYER].characters[charId];
     expect(charAfter.items.some(i => i.definitionId === AWAITING_THE_CALL)).toBe(false);
     expect(afterHazardPass.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === AWAITING_THE_CALL)).toBe(true);
   });

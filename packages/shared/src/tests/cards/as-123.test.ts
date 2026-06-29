@@ -112,7 +112,7 @@ describe('Dwarven Ring of Thélor\'s Tribe (as-123)', () => {
     const base = buildMinionOrgPhase({ characters: [GORBAG] });
     const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, GORBAG, DWARVEN_RING));
     const gorbagId = findCharInstanceId(withRing, RESOURCE_PLAYER, GORBAG);
-    const char = withRing.players[RESOURCE_PLAYER].characters[gorbagId as string];
+    const char = withRing.players[RESOURCE_PLAYER].characters[gorbagId];
     expect(char.effectiveStats.corruptionPoints).toBe(3);
   });
 
@@ -120,7 +120,7 @@ describe('Dwarven Ring of Thélor\'s Tribe (as-123)', () => {
     const base = buildMinionOrgPhase({ characters: [DROR] });
     const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, DROR, DWARVEN_RING));
     const drorId = findCharInstanceId(withRing, RESOURCE_PLAYER, DROR);
-    const char = withRing.players[RESOURCE_PLAYER].characters[drorId as string];
+    const char = withRing.players[RESOURCE_PLAYER].characters[drorId];
     // 3 base + 2 (Dwarf bonus from stat-modifier effect) = 5
     expect(char.effectiveStats.corruptionPoints).toBe(5);
   });
@@ -173,7 +173,7 @@ describe('Dwarven Ring of Thélor\'s Tribe (as-123)', () => {
     const afterActivation = dispatch(withRing, ringActivation!.action);
 
     const drorId = findCharInstanceId(afterActivation, RESOURCE_PLAYER, DROR);
-    const char = afterActivation.players[RESOURCE_PLAYER].characters[drorId as string];
+    const char = afterActivation.players[RESOURCE_PLAYER].characters[drorId];
     expect(char.status).toBe('tapped');
   });
 

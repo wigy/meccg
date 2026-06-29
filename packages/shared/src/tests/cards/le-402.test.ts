@@ -231,7 +231,7 @@ describe("Shelob's Lair (le-402)", () => {
     expect(result.state.combat).toBeNull();
     const p0 = result.state.players[0];
     expect(p0.outOfPlayPile.some(c => c.definitionId === (GORBAG as string))).toBe(true);
-    expect(p0.characters[gorbagId as string]).toBeUndefined();
+    expect(p0.characters[gorbagId]).toBeUndefined();
   });
 
   test('Spider strike that is defeated does NOT eliminate the character', () => {
@@ -245,8 +245,8 @@ describe("Shelob's Lair (le-402)", () => {
     expect(result.state.combat).toBeNull();
     const p0 = result.state.players[0];
     expect(p0.outOfPlayPile.some(c => c.definitionId === (GORBAG as string))).toBe(false);
-    expect(p0.characters[gorbagId as string]).toBeDefined();
-    expect(p0.characters[gorbagId as string].status).toBe(CardStatus.Tapped);
+    expect(p0.characters[gorbagId]).toBeDefined();
+    expect(p0.characters[gorbagId].status).toBe(CardStatus.Tapped);
   });
 
   // ─── Contrast: a normal (Orc) wound goes through a body check ────────────────
@@ -265,8 +265,8 @@ describe("Shelob's Lair (le-402)", () => {
     const p0 = result.state.players[0];
     // Survived the body check: still in play and wounded (inverted), not eliminated.
     expect(p0.outOfPlayPile.some(c => c.definitionId === (GORBAG as string))).toBe(false);
-    expect(p0.characters[gorbagId as string]).toBeDefined();
-    expect(p0.characters[gorbagId as string].status).toBe(CardStatus.Inverted);
+    expect(p0.characters[gorbagId]).toBeDefined();
+    expect(p0.characters[gorbagId].status).toBe(CardStatus.Inverted);
   });
 
   // ─── Spider: "cannot be canceled" ───────────────────────────────────────────

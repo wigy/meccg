@@ -169,7 +169,7 @@ describe('Vanishment (tw-356)', () => {
 
     // Tap Gandalf before combat
     const gandalfId = base.players[0].companies[0].characters[0];
-    const gandalfData = base.players[0].characters[gandalfId as string];
+    const gandalfData = base.players[0].characters[gandalfId];
     const p0 = {
       ...base.players[0],
       characters: {

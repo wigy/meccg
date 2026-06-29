@@ -217,7 +217,7 @@ describe('Giant Spiders (tw-40)', () => {
     expect(s.combat).toBeNull();
 
     // Aragorn is still in play (wounded)
-    expect(s.players[RESOURCE_PLAYER].characters[aragornId as string]).toBeDefined();
+    expect(s.players[RESOURCE_PLAYER].characters[aragornId]).toBeDefined();
     expect(s.players[RESOURCE_PLAYER].discardPile.find(c => c.instanceId === aragornId)).toBeUndefined();
     expect(s.players[RESOURCE_PLAYER].outOfPlayPile.find(c => c.instanceId === aragornId)).toBeUndefined();
   });
@@ -240,7 +240,7 @@ describe('Giant Spiders (tw-40)', () => {
     expect(s.combat).toBeNull();
 
     // Gandalf should still be in play (survived body check)
-    expect(s.players[RESOURCE_PLAYER].characters[gandalfId as string]).toBeDefined();
+    expect(s.players[RESOURCE_PLAYER].characters[gandalfId]).toBeDefined();
     expect(s.players[RESOURCE_PLAYER].discardPile.find(c => c.instanceId === gandalfId)).toBeUndefined();
     expect(s.players[RESOURCE_PLAYER].outOfPlayPile.find(c => c.instanceId === gandalfId)).toBeUndefined();
   });

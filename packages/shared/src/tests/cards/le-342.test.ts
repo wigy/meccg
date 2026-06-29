@@ -55,10 +55,10 @@ describe('Saw-toothed Blade (le-342)', () => {
     const gorbagId = charIdAt(base, RESOURCE_PLAYER);
     const gorbagDef = pool[GORBAG as string] as CharacterCard;
     expect(gorbagDef.prowess).toBe(6);
-    expect(base.players[0].characters[gorbagId as string].effectiveStats.prowess).toBe(6);
+    expect(base.players[0].characters[gorbagId].effectiveStats.prowess).toBe(6);
 
     const withBlade = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, GORBAG, SAW_TOOTHED_BLADE));
-    expect(withBlade.players[0].characters[gorbagId as string].effectiveStats.prowess).toBe(7);
+    expect(withBlade.players[0].characters[gorbagId].effectiveStats.prowess).toBe(7);
   });
 
   test('prowess reaches exactly 8 when bearer is one below cap (Lt of Dol Guldur, base 7 → 8)', () => {
@@ -77,7 +77,7 @@ describe('Saw-toothed Blade (le-342)', () => {
     expect(charDef.prowess).toBe(7);
 
     const withBlade = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, LIEUTENANT_OF_DOL_GULDUR, SAW_TOOTHED_BLADE));
-    expect(withBlade.players[0].characters[charId as string].effectiveStats.prowess).toBe(8);
+    expect(withBlade.players[0].characters[charId].effectiveStats.prowess).toBe(8);
   });
 
   test('prowess capped at 8 when bearer already at 8 (Lt of Morgul, base 8 → 8)', () => {
@@ -96,7 +96,7 @@ describe('Saw-toothed Blade (le-342)', () => {
     expect(charDef.prowess).toBe(8);
 
     const withBlade = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, LIEUTENANT_OF_MORGUL, SAW_TOOTHED_BLADE));
-    expect(withBlade.players[0].characters[charId as string].effectiveStats.prowess).toBe(8);
+    expect(withBlade.players[0].characters[charId].effectiveStats.prowess).toBe(8);
   });
 
 });

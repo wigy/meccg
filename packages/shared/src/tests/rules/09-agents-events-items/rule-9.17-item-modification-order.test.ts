@@ -47,7 +47,7 @@ describe('Rule 9.17 — Item Modification Order', () => {
     });
 
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
-    const aragorn = state.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragorn = state.players[RESOURCE_PLAYER].characters[aragornId];
     // Glamdring DSL effect: +3 prowess, max 8 (non-combat context) → 8
     expect(aragorn.effectiveStats.prowess).toBe(8);
   });
@@ -76,7 +76,7 @@ describe('Rule 9.17 — Item Modification Order', () => {
     });
 
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
-    const aragorn = state.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragorn = state.players[RESOURCE_PLAYER].characters[aragornId];
     // Mithril-coat DSL effect: +3 body, max 10 → 10
     expect(aragorn.effectiveStats.body).toBe(10);
   });

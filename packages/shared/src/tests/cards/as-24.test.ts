@@ -211,7 +211,7 @@ describe('Alone and Unadvised (as-24)', () => {
     }
     expect(current.chain).toBeNull();
 
-    const aragornData = current.players[0].characters[aragornId as string];
+    const aragornData = current.players[0].characters[aragornId];
     expect(aragornData.hazards).toHaveLength(1);
     expect(aragornData.hazards[0].definitionId).toBe(ALONE_AND_UNADVISED);
   });
@@ -435,7 +435,7 @@ describe('Alone and Unadvised (as-24)', () => {
     // ARAGORN should be gone from characters after the wound
     const p1 = afterFirstCheck.players.find(p => p.id === PLAYER_1)!;
     const aragornId = findCharInstanceId(withCard, RESOURCE_PLAYER, ARAGORN);
-    expect(p1.characters[aragornId as string]).toBeUndefined();
+    expect(p1.characters[aragornId]).toBeUndefined();
 
     // One corruption check still pending for the now-gone ARAGORN
     expect(afterFirstCheck.pendingResolutions.filter(r => r.kind.type === 'corruption-check')).toHaveLength(1);
@@ -472,7 +472,7 @@ describe('Alone and Unadvised (as-24)', () => {
     expect(playActions).toHaveLength(1);
 
     const aragornId = findCharInstanceId(withCard, RESOURCE_PLAYER, ARAGORN);
-    const hazardId = withCard.players[0].characters[aragornId as string].hazards[0].instanceId;
+    const hazardId = withCard.players[0].characters[aragornId].hazards[0].instanceId;
     expect((playActions[0].action as { discardTargetInstanceId?: unknown }).discardTargetInstanceId).toBe(hazardId);
   });
 });

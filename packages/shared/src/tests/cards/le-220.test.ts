@@ -74,7 +74,7 @@ describe('Ready to His Will (le-220)', () => {
     const tapped = {
       ...state,
       players: state.players.map((p, i) => i === RESOURCE_PLAYER
-        ? { ...p, characters: { ...p.characters, [firstCharId as string]: { ...p.characters[firstCharId as string], status: CardStatus.Tapped } } }
+        ? { ...p, characters: { ...p.characters, [firstCharId]: { ...p.characters[firstCharId], status: CardStatus.Tapped } } }
         : p) as unknown as typeof state.players,
     };
     const remaining = viableActions(tapped, PLAYER_1, 'convert-creature-to-ally');
@@ -127,7 +127,7 @@ describe('Ready to His Will (le-220)', () => {
     expect(after.players[HAZARD_PLAYER].cardsInPlay.some(c => c.instanceId === creatureInstanceId)).toBe(false);
 
     // Creature is now an ally on the controlling character, which has tapped.
-    const controller = after.players[RESOURCE_PLAYER].characters[controllerId as string];
+    const controller = after.players[RESOURCE_PLAYER].characters[controllerId];
     expect(controller.status).toBe(CardStatus.Tapped);
     expect(controller.allies).toHaveLength(1);
     const ally = controller.allies[0];

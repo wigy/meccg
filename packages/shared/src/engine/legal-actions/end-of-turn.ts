@@ -239,7 +239,7 @@ function havenReturnActions(state: GameState, playerId: PlayerId): GameAction[] 
  */
 function allowStoreEot(state: GameState, playerIndex: number): boolean {
   return state.players[playerIndex].cardsInPlay.some(card => {
-    const def = state.cardPool[card.definitionId as string] as { readonly effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined;
+    const def = state.cardPool[card.definitionId] as { readonly effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined;
     return hasPlayFlag(def, 'allow-store-eot');
   });
 }

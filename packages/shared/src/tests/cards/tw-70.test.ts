@@ -258,7 +258,7 @@ describe('Old Man Willow (tw-70)', () => {
     // Body check 5 < body 9 → Frodo survives, wounded.
     s = executeAction(s, PLAYER_2, 'body-check-roll', 5);
     expect(s.combat).toBeNull();
-    expect(s.players[RESOURCE_PLAYER].characters[frodoId as string].status).toBe(CardStatus.Inverted);
+    expect(s.players[RESOURCE_PLAYER].characters[frodoId].status).toBe(CardStatus.Inverted);
   });
 
   test('against a non-Hobbit: prowess stays 13 — the same effective bonus does not apply', () => {
@@ -275,7 +275,7 @@ describe('Old Man Willow (tw-70)', () => {
 
     // Strike defeated, no body (creature) → combat ends, Aragorn unharmed.
     expect(s.combat).toBeNull();
-    expect(s.players[RESOURCE_PLAYER].characters[aragornId as string].status).not.toBe(CardStatus.Inverted);
+    expect(s.players[RESOURCE_PLAYER].characters[aragornId].status).not.toBe(CardStatus.Inverted);
     expect(s.players[RESOURCE_PLAYER].outOfPlayPile.find(c => c.instanceId === aragornId)).toBeUndefined();
   });
 });

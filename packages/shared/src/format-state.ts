@@ -576,7 +576,7 @@ function renderState(input: RenderInput): string {
  * Formats the full omniscient GameState. Used by server logs and unit tests.
  */
 export function formatGameState(state: GameState): string {
-  const defOf: CardLookup = (id) => state.cardPool[id as string];
+  const defOf: CardLookup = (id) => state.cardPool[id];
   const instOf: InstanceLookup = (id) => resolveInstanceId(state, id);
 
   return stripCardMarkers(renderState({

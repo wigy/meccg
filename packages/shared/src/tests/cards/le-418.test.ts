@@ -505,7 +505,7 @@ describe('The Arkenstone (le-418)', () => {
     const next = dispatch(state, action);
 
     // Gimli is gone from PLAYER_2's characters.
-    expect(next.players[HAZARD_PLAYER].characters[gimliId as string]).toBeUndefined();
+    expect(next.players[HAZARD_PLAYER].characters[gimliId]).toBeUndefined();
     // Gimli's definition ID is in PLAYER_2's discard pile.
     expectInDiscardPile(next, HAZARD_PLAYER, GIMLI);
 
@@ -601,7 +601,7 @@ describe('The Arkenstone (le-418)', () => {
     expect(kiliInDiscard).toBe(false);
 
     // Kíli should still be in PLAYER_2's characters (now under general influence).
-    const kiliChar = next.players[HAZARD_PLAYER].characters[kiliId as string];
+    const kiliChar = next.players[HAZARD_PLAYER].characters[kiliId];
     expect(kiliChar).toBeDefined();
     expect(kiliChar.controlledBy).toBe('general');
   });

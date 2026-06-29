@@ -14,6 +14,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardInstanceId } from '../../../index.js';
 import { CardStatus } from '../../../index.js';
 import { computeLegalActions } from '../../../index.js';
 import type { GameState, CombatState } from '../../../index.js';
@@ -91,6 +92,6 @@ describe('Rule 8.05 — Multiple Strikes Assignment', () => {
     // Combat ends — the remaining strike is not faced separately.
     expect(eliminated.combat).toBeNull();
     expect(eliminated.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === characterId)).toBe(true);
-    expect(eliminated.players[RESOURCE_PLAYER].characters[characterId]).toBeUndefined();
+    expect(eliminated.players[RESOURCE_PLAYER].characters[characterId as CardInstanceId]).toBeUndefined();
   });
 });

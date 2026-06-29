@@ -249,7 +249,7 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
 
   const charInstId = action.characterInstanceId;
   const handCard = findById(player.hand, charInstId)!;
-  const charDef = state.cardPool[handCard.definitionId as string] as import('../types/cards.js').CharacterCard;
+  const charDef = state.cardPool[handCard.definitionId] as import('../types/cards.js').CharacterCard;
 
   logDetail(`Play character: ${charDef.name} (mind ${charDef.mind ?? 'null'}) at site ${action.atSite as string}, controlledBy ${action.controlledBy as string}`);
 
@@ -315,7 +315,7 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
   } else {
     const siteInstId = action.atSite;
     const siteCard = findById(player.siteDeck, siteInstId)!;
-    const siteDef = state.cardPool[siteCard.definitionId as string] as import('../types/cards.js').SiteCard;
+    const siteDef = state.cardPool[siteCard.definitionId] as import('../types/cards.js').SiteCard;
 
     logDetail(`  Creating new company at ${siteDef.name} (from site deck)`);
 
@@ -339,14 +339,15 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
   }
 
   // If controlled by DI, add as follower of the controlling character
-  const newCharacters = { ...player.characters, [charInstId as string]: newChar };
+  const newCharacters: Record<CardInstanceId, CharacterInPlay> = { ...player.characters };
+  newCharacters[charInstId] = newChar;
   if (action.controlledBy !== 'general') {
     const controllerId = action.controlledBy;
-    const controller = newCharacters[controllerId as string];
+    const controller = newCharacters[controllerId];
     if (!controller) {
       return { state, error: 'Controlling character not found' };
     }
-    newCharacters[controllerId as string] = {
+    newCharacters[controllerId] = {
       ...controller,
       followers: [...controller.followers, charInstId],
     };
@@ -424,7 +425,7 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const charInstId = action.characterInstanceId;
-  const char = player.characters[charInstId as string];
+  const char = player.characters[charInstId];
   if (!char) return { state, error: 'Character not found' };
 
   const charDef = resolveDef(state, charInstId);
@@ -437,23 +438,23 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
   if (action.controlledBy === 'general') {
     // Remove from old controller's followers list
     const oldControllerId = char.controlledBy;
-    const oldController = newCharacters[oldControllerId as string];
+    const oldController = newCharacters[oldControllerId as CardInstanceId];
     if (oldController) {
-      newCharacters[oldControllerId as string] = {
+      newCharacters[oldControllerId as CardInstanceId] = {
         ...oldController,
         followers: oldController.followers.filter(id => id !== charInstId),
       };
     }
 
     // Set character to GI
-    newCharacters[charInstId as string] = {
+    newCharacters[charInstId] = {
       ...char,
       controlledBy: 'general',
     };
   } else {
     // Moving from GI to DI (become follower)
     const controllerId = action.controlledBy;
-    const controller = newCharacters[controllerId as string];
+    const controller = newCharacters[controllerId];
     if (!controller) return { state, error: 'Controlling character not found' };
 
     // Enforce any control-source restriction on the moved character (e.g.
@@ -465,9 +466,9 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
     // If already a follower of someone else, remove from old controller first
     if (char.controlledBy !== 'general') {
       const oldControllerId = char.controlledBy;
-      const oldController = newCharacters[oldControllerId as string];
+      const oldController = newCharacters[oldControllerId];
       if (oldController) {
-        newCharacters[oldControllerId as string] = {
+        newCharacters[oldControllerId] = {
           ...oldController,
           followers: oldController.followers.filter(id => id !== charInstId),
         };
@@ -475,13 +476,13 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
     }
 
     // Add to new controller's followers
-    newCharacters[controllerId as string] = {
+    newCharacters[controllerId] = {
       ...controller,
       followers: [...controller.followers, charInstId],
     };
 
     // Set character's controlledBy
-    newCharacters[charInstId as string] = {
+    newCharacters[charInstId] = {
       ...char,
       controlledBy: controllerId,
     };
@@ -520,8 +521,8 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   const toCharId = action.toCharacterId;
   const itemInstId = action.itemInstanceId;
 
-  if (!player.characters[fromCharId as string]) return { state, error: 'Source character not found' };
-  if (!player.characters[toCharId as string]) return { state, error: 'Target character not found' };
+  if (!player.characters[fromCharId]) return { state, error: 'Source character not found' };
+  if (!player.characters[toCharId]) return { state, error: 'Target character not found' };
 
   const removed = removeAttachment(player, 'items', itemInstId);
   if (!removed || removed.charId !== fromCharId) return { state, error: 'Item not found on source character' };
@@ -581,7 +582,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const charId = action.characterId;
   const itemInstId = action.itemInstanceId;
 
-  if (!player.characters[charId as string]) return { state, error: 'Character not found' };
+  if (!player.characters[charId]) return { state, error: 'Character not found' };
   const removed = removeAttachment(player, 'items', itemInstId);
   if (!removed || removed.charId !== charId) return { state, error: 'Item not found on character' };
   const item = removed.attachment;
@@ -733,7 +734,7 @@ function handleStartSideboard(state: GameState, action: GameAction): ReducerResu
   const destination = action.type === 'start-sideboard-to-deck' ? 'deck' : 'discard';
 
   // Tap the avatar
-  const avatarKey = action.characterInstanceId as string;
+  const avatarKey = action.characterInstanceId;
   const avatarChar = state.players[playerIndex].characters[avatarKey];
   if (avatarChar) {
     const charDef = defById(state, avatarChar.definitionId);
@@ -843,7 +844,7 @@ function handleTestRingAtSite(state: GameState, action: GameAction): ReducerResu
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const sage = player.characters[action.characterId as string];
+  const sage = player.characters[action.characterId];
   if (!sage) return { state, error: 'test-ring-at-site: sage not found' };
   if (sage.status !== CardStatus.Untapped) return { state, error: 'test-ring-at-site: sage is tapped' };
 
@@ -868,7 +869,7 @@ function handleTestRingAtSite(state: GameState, action: GameAction): ReducerResu
   // Locate the gold-ring item and its bearer within the same company.
   let bearerId: CardInstanceId | null = null;
   for (const charInstId of company.characters) {
-    const char = player.characters[charInstId as string];
+    const char = player.characters[charInstId];
     if (!char) continue;
     const item = char.items.find(i => i.instanceId === action.targetCardId);
     if (!item) continue;
@@ -1025,7 +1026,7 @@ function runGrantApply(
     if (!company.characters.includes(targetCardId)) {
       return { error: `set-character-status target-character: target ${targetCardId as string} not in ${ctx.charName}'s company` };
     }
-    const targetChar = bearerPlayer.characters[targetCardId as string];
+    const targetChar = bearerPlayer.characters[targetCardId];
     if (!targetChar) {
       return { error: `set-character-status target-character: target ${targetCardId as string} not found` };
     }
@@ -1060,7 +1061,7 @@ function runGrantApply(
     // Find the target across all players
     for (let pi = 0; pi < newPlayers.length; pi++) {
       const p = newPlayers[pi];
-      const targetChar = p.characters[targetCardId as string];
+      const targetChar = p.characters[targetCardId];
       if (!targetChar) continue;
       const targetDef = defById(state, targetChar.definitionId);
       const targetName = targetDef && 'name' in targetDef ? (targetDef as { name: string }).name : '?';
@@ -1222,7 +1223,7 @@ function runGrantApply(
     let modifier = 0;
     const checkContext = { reason: checkName };
     for (const compCharId of company.characters) {
-      const compChar = bearerPlayer.characters[compCharId as string];
+      const compChar = bearerPlayer.characters[compCharId];
       if (!compChar) continue;
       const charEffects = collectCharacterEffects(state, compChar, checkContext);
       modifier += resolveCheckModifier(charEffects, checkName);
@@ -1232,7 +1233,7 @@ function runGrantApply(
     let targetName = '';
     if (ctx.action.targetCardId) {
       for (const compCharId of company.characters) {
-        const compChar = bearerPlayer.characters[compCharId as string];
+        const compChar = bearerPlayer.characters[compCharId];
         if (!compChar) continue;
         const targetItem = compChar.items.find(i => i.instanceId === ctx.action.targetCardId);
         if (targetItem) {
@@ -1602,7 +1603,7 @@ function runGrantApply(
     }
     let targetPlayerIndex = -1;
     for (let i = 0; i < newPlayers.length; i++) {
-      if (newPlayers[i].characters[targetCharId as string]) {
+      if (newPlayers[i].characters[targetCharId]) {
         targetPlayerIndex = i;
         break;
       }
@@ -1611,7 +1612,7 @@ function runGrantApply(
       return { error: `${ctx.sourceName}: target character ${targetCharId as string} not found` };
     }
     const targetPlayerData = newPlayers[targetPlayerIndex];
-    const targetChar = targetPlayerData.characters[targetCharId as string];
+    const targetChar = targetPlayerData.characters[targetCharId];
     if (!targetChar) {
       return { error: `${ctx.sourceName}: target character ${targetCharId as string} missing` };
     }
@@ -1653,10 +1654,10 @@ function runGrantApply(
     }
 
     // Remove character from characters map and revert followers to GI
-    const { [targetCharId as string]: _removed, ...remainingChars } = targetPlayerData.characters;
+    const { [targetCharId]: _removed, ...remainingChars } = targetPlayerData.characters;
     let updatedChars = remainingChars;
     for (const followerId of targetChar.followers) {
-      const follower = updatedChars[followerId as string];
+      const follower = updatedChars[followerId];
       if (follower && follower.controlledBy === targetCharId) {
         logDetail(`Grant-action ${ctx.action.actionId}: reverting follower ${followerId as string} to general influence`);
         updatedChars = {
@@ -1821,7 +1822,7 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
 
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const char = player.characters[action.characterId as string];
+  const char = player.characters[action.characterId];
   if (!char) return { state, error: 'Character not found' };
 
   const charDef = resolveDef(state, action.characterId);
@@ -1876,12 +1877,12 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   if ('error' in costResult) return { state, error: `${sourceName}: ${costResult.error}` };
 
   const newPlayers = clonePlayers(costResult.state);
-  let updatedChar: CharacterInPlay = newPlayers[playerIndex].characters[action.characterId as string] ?? char;
+  let updatedChar: CharacterInPlay = newPlayers[playerIndex].characters[action.characterId] ?? char;
 
   // For sage-and-scout-in-company cost: `applyCost` taps the sage (characterId).
   // Also tap the scout (secondCharacterId) here.
   if (resolved.cost.tap === 'sage-and-scout-in-company' && action.secondCharacterId) {
-    const scout = newPlayers[playerIndex].characters[action.secondCharacterId as string];
+    const scout = newPlayers[playerIndex].characters[action.secondCharacterId];
     if (!scout) return { state, error: `sage-and-scout-in-company: scout ${action.secondCharacterId as string} not found` };
     logDetail(`Grant-action ${action.actionId}: tapping scout ${action.secondCharacterId as string}`);
     newPlayers[playerIndex] = {
@@ -1958,7 +1959,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   const sourceCompany = player.companies[sourceCompanyIndex];
 
   // Expand to include followers automatically
-  const char = player.characters[action.characterId as string];
+  const char = player.characters[action.characterId];
   if (!char) return { state, error: `Character ${action.characterId as string} not found` };
   const allMovingIds: CardInstanceId[] = [action.characterId, ...char.followers];
   const movingIds = new Set(allMovingIds.map(id => id as string));
@@ -2066,7 +2067,7 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
   }
 
   const charInstId = action.characterInstanceId;
-  const char = player.characters[charInstId as string];
+  const char = player.characters[charInstId];
   if (!char) return { state, error: 'Character not found' };
   if (char.controlledBy !== 'general') return { state, error: 'Only characters under general influence can move between companies' };
 
@@ -2188,7 +2189,7 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
   // Reverse: split each GI character from the source back out of the target
   const reverses: GameAction[] = sourceCompany.characters
     .filter(id => {
-      const c = player.characters[id as string];
+      const c = player.characters[id];
       return c && c.controlledBy === 'general';
     })
     .map(charId => ({
@@ -2200,7 +2201,7 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
 
   // Check if any character in the source company is a leader
   const sourceHasLeader = sourceCompany.characters.some(id => {
-    const c = player.characters[id as string];
+    const c = player.characters[id];
     return c && isLeaderCharacter(defById(state, c.definitionId));
   });
 

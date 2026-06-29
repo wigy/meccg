@@ -111,10 +111,10 @@ describe('Gleaming Gold Ring (le-311)', () => {
     });
 
     const gorbagId = charIdAt(base, RESOURCE_PLAYER);
-    expect(base.players[0].characters[gorbagId as string].effectiveStats.corruptionPoints).toBe(0);
+    expect(base.players[0].characters[gorbagId].effectiveStats.corruptionPoints).toBe(0);
 
     const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, GORBAG, GLEAMING_GOLD_RING));
-    expect(withRing.players[0].characters[gorbagId as string].effectiveStats.corruptionPoints).toBe(4);
+    expect(withRing.players[0].characters[gorbagId].effectiveStats.corruptionPoints).toBe(4);
   });
 
   // ── Effect 2: Play restriction — border-hold with gold rings only ─────────

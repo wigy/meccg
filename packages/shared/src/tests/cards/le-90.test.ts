@@ -228,7 +228,7 @@ describe('Slayer (le-90)', () => {
     // One strike canceled; one strike remains
     expect(r3.combat!.strikeAssignments).toHaveLength(1);
     expect(r3.combat!.strikesTotal).toBe(1);
-    expect(r3.players[0].characters[legolasCharId as string].status).toBe('tapped');
+    expect(r3.players[0].characters[legolasCharId].status).toBe('tapped');
     // maxCancels is 1, so the cancel allowance is exhausted (becomes undefined)
     // and combat advances past cancel-by-tap to resolve the remaining strike.
     expect(r3.combat!.cancelByTapRemaining).toBeUndefined();
@@ -483,7 +483,7 @@ describe('Slayer (le-90)', () => {
     });
     expect(r3.combat!.strikeAssignments).toHaveLength(1);
     expect(r3.combat!.strikesTotal).toBe(1);
-    expect(r3.players[0].characters[aragornCharId as string].status).toBe('tapped');
+    expect(r3.players[0].characters[aragornCharId].status).toBe('tapped');
     expect(r3.combat!.phase).toBe('resolve-strike');
   });
 });

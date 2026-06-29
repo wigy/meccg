@@ -46,7 +46,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
 
   const handCard = findById(player.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'Card not found in hand' };
-  const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
+  const def = state.cardPool[handCard.definitionId] as import('../types/cards-resources.js').HeroResourceEventCard;
 
   logDetail(`Playing permanent event: ${def.name} → enters chain`);
 
@@ -115,7 +115,7 @@ export function handlePlayShortEvent(state: GameState, action: GameAction): Redu
 
   const handCard = findById(player.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'Card not found in hand' };
-  const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-hazards.js').HazardEventCard;
+  const def = state.cardPool[handCard.definitionId] as import('../types/cards-hazards.js').HazardEventCard;
 
   const targetDef = resolveDef(state, action.targetInstanceId!);
   logDetail(`Playing short event ${def.name}: targeting environment ${targetDef?.name ?? action.targetInstanceId} (chain will resolve the cancel)`);
@@ -273,7 +273,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
 
   const handCard = findById(player.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'Card not found in hand' };
-  const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
+  const def = state.cardPool[handCard.definitionId] as import('../types/cards-resources.js').HeroResourceEventCard;
 
   logDetail(`Playing resource short-event: ${def.name} (${action.cardInstanceId as string})`);
 
@@ -387,7 +387,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     : undefined;
 
   if (selectedOption && action.targetCharacterId && selectedOption.apply.type === 'set-character-status') {
-    const targetId = action.targetCharacterId as string;
+    const targetId = action.targetCharacterId;
     const targetChar = newCharacters[targetId];
     const nextStatus = selectedOption.apply.status;
     if (nextStatus === undefined) {
@@ -407,9 +407,9 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       const company = findCharacterCompany(player.companies, action.targetCharacterId);
       if (company) {
         const hasCompanyFlag = company.characters.some(charId => {
-          const ch = newCharacters[charId as string];
+          const ch = newCharacters[charId];
           if (!ch) return false;
-          const charDef = state.cardPool[ch.definitionId as string] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+          const charDef = state.cardPool[ch.definitionId] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
           return hasPlayFlag(charDef, 'healing-affects-all');
         });
         let hasSiteRule = false;
@@ -423,7 +423,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         if (hasCompanyFlag || hasSiteRule) {
           const source = hasCompanyFlag ? 'play-flag' : 'site-rule';
           for (const charId of company.characters) {
-            const cid = charId as string;
+            const cid = charId;
             if (cid === targetId) continue;
             const ch = newCharacters[cid];
             if (ch && ch.status === CardStatus.Inverted) {
@@ -535,7 +535,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       const idx = newState.players[oi].cardsInPlay.findIndex(c => c.instanceId === targetId);
       if (idx !== -1) { foundOwnerIndex = oi; foundCardsInPlayIdx = idx; break; }
       const chars = newState.players[oi].characters;
-      for (const charId of Object.keys(chars)) {
+      for (const charId of Object.keys(chars) as CardInstanceId[]) {
         const hIdx = chars[charId].hazards.findIndex(h => h.instanceId === targetId);
         if (hIdx !== -1) { foundOwnerIndex = oi; foundCharId = charId; foundHazardIdx = hIdx; break; }
       }
@@ -555,7 +555,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         discardPile: [...p.discardPile, targetInstance],
       }));
     } else {
-      const charId = foundCharId!;
+      const charId = foundCharId! as CardInstanceId;
       const char = owner.characters[charId];
       const haz = char.hazards[foundHazardIdx];
       targetInstance = toCardInstance(haz);
@@ -584,7 +584,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       // the skill-only active condition that let them tap (e.g. a sage ally
       // tapping for Marvels Told). When the sage is an ally the discard is
       // still implemented but the corruption check is skipped entirely.
-      const sageIsAlly = !newState.players[playerIndex].characters[action.targetScoutInstanceId as string]
+      const sageIsAlly = !newState.players[playerIndex].characters[action.targetScoutInstanceId]
         && findAttachment(newState.players[playerIndex], 'allies', action.targetScoutInstanceId) != null;
       if (sageIsAlly) {
         logDetail(`${def.name}: sage ${action.targetScoutInstanceId as string} is an ally — corruption check skipped (rule 7.4)`);
@@ -613,7 +613,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     const company = newState.players[playerIndex].companies[sitePhaseState.activeCompanyIndex];
     if (company) {
       for (const charId of company.characters) {
-        const char = newState.players[playerIndex].characters[charId as string];
+        const char = newState.players[playerIndex].characters[charId];
         if (!char) continue;
         for (const hazard of char.hazards) {
           const hazDef = defById(newState, hazard.definitionId);
@@ -658,7 +658,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       const bouncedCards: CardInstance[] = [];
 
       for (const charId of company.characters) {
-        const char = newState.players[playerIndex].characters[charId as string];
+        const char = newState.players[playerIndex].characters[charId];
         if (!char) continue;
         const remaining: import('../index.js').CardInPlay[] = [];
         for (const haz of char.hazards) {
@@ -717,7 +717,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       if (company) {
         for (const boostEffect of companyCombatBoosts) {
           for (const charId of company.characters) {
-            const char = defPlayer.characters[charId as string];
+            const char = defPlayer.characters[charId];
             if (!char) continue;
             const charCardDef = defById(newState, char.definitionId);
             if (!charCardDef) continue;
@@ -780,7 +780,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     // Scan deck for first non-special item whose uniqueness constraint is met
     let foundIdx = -1;
     for (let i = 0; i < deck.length; i++) {
-      const cardDef = newState.cardPool[deck[i].definitionId as string];
+      const cardDef = newState.cardPool[deck[i].definitionId];
       if (!cardDef || !('cardType' in cardDef)) continue;
       const ct = (cardDef as { cardType: string }).cardType;
       if (!ct.endsWith('-item')) continue;
@@ -998,7 +998,7 @@ function applyPlayOptionAddConstraint(
       let constraintValue: number;
       if (typeof apply.valueExpr === 'string') {
         const charPlayerIdx = state.players.findIndex(p => targetCharacterId as string in p.characters);
-        const charInPlay = charPlayerIdx >= 0 ? state.players[charPlayerIdx].characters[targetCharacterId as string] : undefined;
+        const charInPlay = charPlayerIdx >= 0 ? state.players[charPlayerIdx].characters[targetCharacterId] : undefined;
         const charDef = charInPlay ? defById(state, charInPlay.definitionId) : undefined;
         const baseProwess = charDef && isCharacterCard(charDef) ? charDef.prowess : 0;
         const targetCompany = charPlayerIdx >= 0
@@ -1161,7 +1161,7 @@ function applyShortEventOnEntersPlay(
       // character's definition. Used e.g. by Deeper Shadow to skip the check
       // for Ringwraith characters ("Unless he is a Ringwraith, ...").
       if (onEvent.when) {
-        const charInPlay = state.players[playerIndex].characters[characterId as string];
+        const charInPlay = state.players[playerIndex].characters[characterId];
         const charDef = charInPlay ? defById(state, charInPlay.definitionId) : undefined;
         const targetRace = charDef && isCharacterCard(charDef) ? charDef.race : undefined;
         const whenCtx = { target: { race: targetRace } };
@@ -1206,7 +1206,7 @@ function applyShortEventOnEntersPlay(
         logDetail(`"${def.name}": set-character-status — no target character — fizzle`);
         continue;
       }
-      const targetChar = state.players[playerIndex].characters[characterId as string];
+      const targetChar = state.players[playerIndex].characters[characterId];
       if (!targetChar) {
         logDetail(`"${def.name}": set-character-status — target character not found — fizzle`);
         continue;
@@ -1490,7 +1490,7 @@ function handlePlayLongEvent(state: GameState, action: GameAction): ReducerResul
 
   const handCard = findById(player.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'Card not found in hand' };
-  const def = state.cardPool[handCard.definitionId as string] as import('../types/cards-resources.js').HeroResourceEventCard;
+  const def = state.cardPool[handCard.definitionId] as import('../types/cards-resources.js').HeroResourceEventCard;
 
   logDetail(`Playing resource long-event: ${def.name} → enters chain`);
 

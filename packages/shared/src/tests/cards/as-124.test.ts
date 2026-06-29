@@ -179,7 +179,7 @@ describe('Dwarven Ring of Thrár\'s Tribe (as-124)', () => {
 
     // Bearer should be tapped
     const drorId = findCharInstanceId(afterActivate, RESOURCE_PLAYER, DROR);
-    expect(afterActivate.players[0].characters[drorId as string].status).toBe(CardStatus.Tapped);
+    expect(afterActivate.players[0].characters[drorId].status).toBe(CardStatus.Tapped);
 
     // Pending effect should be a fetch-to-deck
     expect(afterActivate.pendingEffects).toHaveLength(1);

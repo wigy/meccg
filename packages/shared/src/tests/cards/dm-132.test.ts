@@ -235,7 +235,7 @@ describe('Forewarned Is Forearmed (dm-132)', () => {
     const state = withForewarnedInPlay(base);
 
     // Patch the card pool: give Caves of Ûlund a second auto-attack
-    const siteDef = state.cardPool[CAVES_OF_ULUND as string] as SiteCard;
+    const siteDef = state.cardPool[CAVES_OF_ULUND] as SiteCard;
     const patchedSite = {
       ...siteDef,
       automaticAttacks: [

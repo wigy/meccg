@@ -129,7 +129,7 @@ describe('Rule 8.37 — Trophies', () => {
     const afterBodyCheck = dispatch(state, bodyCheckAction.action);
 
     // Should be in trophy-offer phase now if Orc-guard has kill-MP > 0
-    const orcGuardDef = state.cardPool['tw-072' as string] as { killMarshallingPoints: number } | undefined;
+    const orcGuardDef = state.cardPool['tw-072' as CardDefinitionId] as { killMarshallingPoints: number } | undefined;
     if (!orcGuardDef || orcGuardDef.killMarshallingPoints === 0) {
       // Orc-guard has 0 kill-MP — no trophy offer; combat finalized directly
       expect(afterBodyCheck.combat).toBeNull();
@@ -151,7 +151,7 @@ describe('Rule 8.37 — Trophies', () => {
     expect(afterTrophy.combat).toBeNull();
 
     // Trophy is on the character
-    const char = afterTrophy.players[0].characters[orcId as string];
+    const char = afterTrophy.players[0].characters[orcId];
     expect(char?.trophies?.some(t => t.instanceId === creatureInstanceId)).toBe(true);
 
     // Regression (no-disappear invariant): a creature taken as a trophy lives
@@ -196,7 +196,7 @@ describe('Rule 8.37 — Trophies', () => {
       ...base,
       players: base.players.map((p, i) => {
         if (i !== RESOURCE_PLAYER) return p;
-        const char = p.characters[orcId as string];
+        const char = p.characters[orcId];
         return {
           ...p,
           characters: {
@@ -208,15 +208,15 @@ describe('Rule 8.37 — Trophies', () => {
     };
 
     const recomputed = recomputeDerived(stateWithTrophy);
-    const char = recomputed.players[RESOURCE_PLAYER].characters[orcId as string];
+    const char = recomputed.players[RESOURCE_PLAYER].characters[orcId];
 
     // Orc-guard has kill-MP. Check if stat bonus applies.
-    const orcGuardDef = base.cardPool['tw-072' as string] as
+    const orcGuardDef = base.cardPool['tw-072' as CardDefinitionId] as
       { killMarshallingPoints?: number; prowess?: number; directInfluence?: number } | undefined;
 
     if (orcGuardDef && (orcGuardDef.killMarshallingPoints ?? 0) >= 1) {
       // At least 1 trophy MP → +1 DI
-      const baseDef = base.cardPool['le-31' as string] as { directInfluence: number };
+      const baseDef = base.cardPool['le-31' as CardDefinitionId] as { directInfluence: number };
       expect(char?.effectiveStats.directInfluence).toBeGreaterThan(baseDef.directInfluence);
     }
   });

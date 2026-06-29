@@ -37,7 +37,7 @@ function rollTotalFor(alignment: Alignment, ring: CardDefinitionId, cheatRollTot
   });
   const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
   const withRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, ring);
-  const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId as string].items[0].instanceId;
+  const ringId = withRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
 
   const withPending = enqueueGoldRingTest(withRing, PLAYER_1, ringId, aragornId);
   const afterRoll = dispatch(

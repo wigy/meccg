@@ -100,8 +100,8 @@ describe('Wizard Uncloaked (td-169)', () => {
     // Characters should have no hazards attached
     const gandalfId = findCharInstanceId(after, RESOURCE_PLAYER, GANDALF);
     const aragornId = findCharInstanceId(after, RESOURCE_PLAYER, ARAGORN);
-    expect(after.players[0].characters[gandalfId as string].hazards).toHaveLength(0);
-    expect(after.players[0].characters[aragornId as string].hazards).toHaveLength(0);
+    expect(after.players[0].characters[gandalfId].hazards).toHaveLength(0);
+    expect(after.players[0].characters[aragornId].hazards).toHaveLength(0);
   });
 
   test('playing enqueues corruption check on wizard with -2 modifier', () => {
@@ -193,6 +193,6 @@ describe('Wizard Uncloaked (td-169)', () => {
     // Aragorn's hazard should NOT be bounced (different company)
     expect(after.players[1].hand).toHaveLength(0);
     const aragornId = findCharInstanceId(after, RESOURCE_PLAYER, ARAGORN);
-    expect(after.players[0].characters[aragornId as string].hazards).toHaveLength(1);
+    expect(after.players[0].characters[aragornId].hazards).toHaveLength(1);
   });
 });

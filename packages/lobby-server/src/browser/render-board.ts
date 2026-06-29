@@ -217,7 +217,7 @@ function renderPlacementCompanies(
         placeAction ? 'drafted-card drafted-card-selectable' : 'drafted-card', charInstId as string);
       if (!img) continue;
 
-      const char = view.self.characters[charInstId as string];
+      const char = view.self.characters[charInstId];
       const hasItems = char && char.items.length > 0;
 
       const group = hasItems ? document.createElement('div') : null;
@@ -293,7 +293,7 @@ function renderItemDraftTargets(
       targetAction ? 'drafted-card drafted-card-target' : 'drafted-card', charInstId as string);
     if (!img) continue;
 
-    const char = view.self.characters[charIdStr];
+    const char = view.self.characters[charIdStr as CardInstanceId];
     const hasItems = char && char.items.length > 0;
 
     const group = hasItems ? document.createElement('div') : null;

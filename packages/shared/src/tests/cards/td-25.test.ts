@@ -215,7 +215,7 @@ describe('Foolish Words (td-25)', () => {
 
     // Foolish Words should be removed from character's hazards
     const aragornId = charIdAt(next, RESOURCE_PLAYER);
-    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(0);
+    expect(next.players[0].characters[aragornId].hazards).toHaveLength(0);
 
     // Foolish Words should be in opponent's discard pile (hazard belongs to opponent)
     expectInDiscardPile(next, HAZARD_PLAYER, FOOLISH_WORDS);
@@ -245,8 +245,8 @@ describe('Foolish Words (td-25)', () => {
 
     // Foolish Words should still be attached
     const aragornId = charIdAt(next, RESOURCE_PLAYER);
-    expect(next.players[0].characters[aragornId as string].hazards).toHaveLength(1);
-    expect(next.players[0].characters[aragornId as string].hazards[0].definitionId).toBe(FOOLISH_WORDS);
+    expect(next.players[0].characters[aragornId].hazards).toHaveLength(1);
+    expect(next.players[0].characters[aragornId].hazards[0].definitionId).toBe(FOOLISH_WORDS);
 
     // Opponent's discard pile should not have Foolish Words
     expect(next.players[1].discardPile.some(c => c.definitionId === FOOLISH_WORDS)).toBe(false);

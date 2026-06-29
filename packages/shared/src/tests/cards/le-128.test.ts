@@ -263,8 +263,8 @@ describe('Nothing to Eat or Drink (le-128)', () => {
       ],
     }));
 
-    const gorbagBody = (state.cardPool[GORBAG as string] as { body: number }).body;
-    const asternakBody = (state.cardPool[ASTERNAK as string] as { body: number }).body;
+    const gorbagBody = (state.cardPool[GORBAG] as { body: number }).body;
+    const asternakBody = (state.cardPool[ASTERNAK] as { body: number }).body;
 
     expect(getCharacter(state, RESOURCE_PLAYER, GORBAG).effectiveStats.body).toBe(gorbagBody - 1);
     expect(getCharacter(state, RESOURCE_PLAYER, ASTERNAK).effectiveStats.body).toBe(asternakBody - 1);

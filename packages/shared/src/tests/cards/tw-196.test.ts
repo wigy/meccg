@@ -57,10 +57,10 @@ describe('Beautiful Gold Ring (tw-196)', () => {
     });
 
     const frodoId = findCharInstanceId(base, RESOURCE_PLAYER, FRODO);
-    expect(base.players[RESOURCE_PLAYER].characters[frodoId as string].effectiveStats.corruptionPoints).toBe(0);
+    expect(base.players[RESOURCE_PLAYER].characters[frodoId].effectiveStats.corruptionPoints).toBe(0);
 
     const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, FRODO, BEAUTIFUL_GOLD_RING));
-    expect(withRing.players[RESOURCE_PLAYER].characters[frodoId as string].effectiveStats.corruptionPoints).toBe(1);
+    expect(withRing.players[RESOURCE_PLAYER].characters[frodoId].effectiveStats.corruptionPoints).toBe(1);
   });
 
   test('Gandalf can activate test-gold-ring targeting Beautiful Gold Ring', () => {

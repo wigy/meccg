@@ -338,7 +338,7 @@ describe('Lucky Search (tw-269)', () => {
     expect(s.combat).toBeNull();
 
     // Aragorn should now have the Dagger attached
-    const aragorn = s.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragorn = s.players[RESOURCE_PLAYER].characters[aragornId];
     expect(aragorn.items).toHaveLength(1);
     expect(aragorn.items[0].definitionId).toBe(DAGGER_OF_WESTERNESSE);
 
@@ -380,7 +380,7 @@ describe('Lucky Search (tw-269)', () => {
 
     // Frodo should have NO items (Dagger discarded due to wound)
     const frodoId = findCharInstanceId(s, RESOURCE_PLAYER, FRODO);
-    const frodo = s.players[RESOURCE_PLAYER].characters[frodoId as string];
+    const frodo = s.players[RESOURCE_PLAYER].characters[frodoId];
     expect(frodo.items).toHaveLength(0);
 
     // Dagger should be in discard pile

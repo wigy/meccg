@@ -190,7 +190,7 @@ describe('Troll-purse (dm-95)', () => {
     const result = dispatch(state, tapAction.action);
 
     // Not wounded — taken prisoner instead.
-    expect(result.players[RESOURCE_PLAYER].characters[aragornId as string].status).not.toBe(CardStatus.Inverted);
+    expect(result.players[RESOURCE_PLAYER].characters[aragornId].status).not.toBe(CardStatus.Inverted);
     // Prisoner record created at the bound site.
     expect(result.hazardHosts).toHaveLength(1);
     expect(result.hazardHosts[0].prisoners).toContain(aragornId);

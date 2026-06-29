@@ -190,7 +190,7 @@ describe('The Warg-king (le-158)', () => {
 
     const cancelAction = cancelActions[0].action as CancelAttackAction;
     const ally = combatState.players[RESOURCE_PLAYER]
-      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK) as string]
+      .characters[findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK)]
       .allies[0];
     expect(cancelAction.cardInstanceId).toBe(ally.instanceId);
     expect(cancelAction.scoutInstanceId).toBeUndefined();
@@ -242,7 +242,7 @@ describe('The Warg-king (le-158)', () => {
     });
     let withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, WARG_KING);
     const charId = findCharInstanceId(withAlly, RESOURCE_PLAYER, ASTERNAK);
-    const char = withAlly.players[RESOURCE_PLAYER].characters[charId as string];
+    const char = withAlly.players[RESOURCE_PLAYER].characters[charId];
     const updatedChars = {
       ...withAlly.players[RESOURCE_PLAYER].characters,
       [charId as string]: {
@@ -285,7 +285,7 @@ describe('The Warg-king (le-158)', () => {
 
     // Warg-king ally is now tapped on its host.
     const charId = findCharInstanceId(after, RESOURCE_PLAYER, ASTERNAK);
-    const ally = after.players[RESOURCE_PLAYER].characters[charId as string].allies[0];
+    const ally = after.players[RESOURCE_PLAYER].characters[charId].allies[0];
     expect(ally.status).toBe(CardStatus.Tapped);
 
     // Wolves creature lands in the hazard player's discard pile.

@@ -423,7 +423,7 @@ export function siteSageRingTestActivations(state: GameState, playerId: PlayerId
     // Gold-ring items borne by any character in this company.
     const ringInstanceIds: CardInstanceId[] = [];
     for (const charInstId of company.characters) {
-      const char = player.characters[charInstId as string];
+      const char = player.characters[charInstId];
       if (!char) continue;
       for (const item of char.items) {
         const itemDef = defById(state, item.definitionId);
@@ -439,7 +439,7 @@ export function siteSageRingTestActivations(state: GameState, playerId: PlayerId
 
     // One activation per untapped sage × gold-ring.
     for (const charInstId of company.characters) {
-      const sage = player.characters[charInstId as string];
+      const sage = player.characters[charInstId];
       if (!sage || sage.status !== CardStatus.Untapped) continue;
       const sageDef = defById(state, sage.definitionId);
       if (!sageDef || !isCharacterCard(sageDef)) continue;
@@ -532,7 +532,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           }
           let emitted = 0;
           for (const companionId of bearerCompany.characters) {
-            const companion = player.characters[companionId as string];
+            const companion = player.characters[companionId];
             if (!companion) continue;
             if (companion.status !== CardStatus.Untapped) continue;
             const companionDef = defById(state, companion.definitionId);
@@ -657,7 +657,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             let emitted = 0;
             for (const compId of company.characters) {
               if (compId === charId) continue;
-              const companion = player.characters[compId as string];
+              const companion = player.characters[compId];
               if (!companion || companion.status !== CardStatus.Tapped) continue;
               const compDef = defById(state, companion.definitionId);
               if (!compDef || !isCharacterCard(compDef)) continue;
@@ -886,7 +886,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           }
           const wounded: import('../../index.js').CharacterInPlay[] = [];
           for (const compCharId of company.characters) {
-            const compChar = player.characters[compCharId as string];
+            const compChar = player.characters[compCharId];
             if (compChar && compChar.status === CardStatus.Inverted) wounded.push(compChar);
           }
           if (wounded.length === 0) {
@@ -943,7 +943,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
                 : '';
               if (coSiteName !== siteName) continue;
               for (const coCharId of co.characters) {
-                const coChar = p.characters[coCharId as string];
+                const coChar = p.characters[coCharId];
                 if (!coChar) continue;
                 const coCharDef = defById(state, coChar.definitionId);
                 if (!coCharDef || !isCharacterCard(coCharDef)) continue;
@@ -990,7 +990,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           const boostTargets: { instanceId: import('../../index.js').CardInstanceId; name: string }[] = [];
           for (const compCharId of company.characters) {
             if (compCharId === charId) continue;
-            const compChar = player.characters[compCharId as string];
+            const compChar = player.characters[compCharId];
             if (!compChar || compChar.status !== CardStatus.Untapped) continue;
             const compCharDef = defById(state, compChar.definitionId);
             boostTargets.push({ instanceId: compCharId, name: compCharDef?.name ?? (compCharId as string) });
@@ -1136,7 +1136,7 @@ function siteHasItemWithKeyword(
       const compSiteName = compSite && 'name' in compSite ? (compSite as { name: string }).name : '';
       if (compSiteName !== siteName) continue;
       for (const charInstId of company.characters) {
-        const char = p.characters[charInstId as string];
+        const char = p.characters[charInstId];
         if (!char) continue;
         for (const item of char.items) {
           const def = defById(state, item.definitionId);
@@ -1216,7 +1216,7 @@ function enumerateGrantActionTargets(
         for (const memberId of company.characters) {
           // Exclude the bearer themselves
           if (memberId === charId) continue;
-          const member = p.characters[memberId as string];
+          const member = p.characters[memberId];
           if (!member) continue;
           // Restrict to specified definition IDs if given
           if (allowedDefIds.length > 0 && !allowedDefIds.includes(member.definitionId as string)) continue;
@@ -1276,7 +1276,7 @@ export function modifyCorruptionCheckGrantActions(
   if (!company) return actions;
 
   for (const charId of company.characters) {
-    const bearer = player.characters[charId as string];
+    const bearer = player.characters[charId];
     if (!bearer) continue;
     // Cost taps the bearer — only untapped bearers may activate.
     if (bearer.status !== CardStatus.Untapped) continue;
@@ -1390,7 +1390,7 @@ export function endOfOrgEligibility(
       if (playTarget.cost?.tap === 'character') {
         // Tap-cost: emit one action per untapped character (player chooses tapper).
         for (const charInstId of company.characters) {
-          const char = player.characters[charInstId as string];
+          const char = player.characters[charInstId];
           if (!char || char.status !== CardStatus.Untapped) continue;
           eligibleTargets.push(charInstId);
         }
@@ -1418,7 +1418,7 @@ export function endOfOrgEligibility(
   for (const company of player.companies) {
     const matchesInCompany: CardInstanceId[] = [];
     for (const charInstId of company.characters) {
-      const char = player.characters[charInstId as string];
+      const char = player.characters[charInstId];
       if (!char) continue;
       const charDef = defById(state, char.definitionId);
       if (!charDef || !isCharacterCard(charDef)) continue;
@@ -1478,7 +1478,7 @@ export function collectDiscardInPlayTargets(
         targets.push(c.instanceId);
       }
     }
-    for (const charId of Object.keys(p.characters)) {
+    for (const charId of Object.keys(p.characters) as CardInstanceId[]) {
       const char = p.characters[charId];
       for (const haz of char.hazards) {
         const hDef = defById(state, haz.definitionId);
@@ -1577,7 +1577,7 @@ export function buildPlayOptionContext(
     }
     if (charCompany) {
       containsDiplomat = charCompany.characters.some(memberId => {
-        const memberChar = player.characters[memberId as string];
+        const memberChar = player.characters[memberId];
         if (!memberChar) return false;
         const memberDef = defById(state, memberChar.definitionId);
         if (!isCharacterCard(memberDef)) return false;
@@ -1672,7 +1672,7 @@ function buildActiveCompanyContext(
   const itemNames: string[] = [];
   const allyNames: string[] = [];
   for (const charId of company.characters) {
-    const char = player.characters[charId as string];
+    const char = player.characters[charId];
     if (!char) continue;
     const cn = defById(state, char.definitionId)?.name;
     if (cn != null) characterNames.push(cn);
@@ -1831,7 +1831,7 @@ function playOptionActionsForCard(
   const activeCheckLimit = findDuplicationLimitEffect(sourceDef, 'active-check');
 
   for (const targetId of targets) {
-    const char = player.characters[targetId as string];
+    const char = player.characters[targetId];
     if (!char) continue;
     const charDef = defById(state, char.definitionId);
     const targetName = isCharacterCard(charDef) ? charDef.name : String(targetId);
@@ -2094,7 +2094,7 @@ export function playResourceShortEventActions(
         const company = activePlayer?.companies[sitePhaseState.activeCompanyIndex];
         if (company) {
           companyHasItem = company.characters.some(charId => {
-            const char = player.characters[charId as string];
+            const char = player.characters[charId];
             return char?.items.some(item => {
               const itemDef = defById(state, item.definitionId);
               return itemDef && 'subtype' in itemDef
@@ -2251,7 +2251,7 @@ export function playResourceShortEventActions(
           const goldRings: CardInstanceId[] = [];
           if (sageCompany) {
             for (const charId of sageCompany.characters) {
-              const char = player.characters[charId as string];
+              const char = player.characters[charId];
               if (!char) continue;
               for (const item of char.items) {
                 const itemDef = defById(state, item.definitionId);

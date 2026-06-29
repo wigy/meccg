@@ -166,8 +166,8 @@ describe('Great Lord of Goblin-gate (as-75)', () => {
 
     const gorbag = getCharacter(state, RESOURCE_PLAYER, GORBAG);
     const asternak = getCharacter(state, RESOURCE_PLAYER, ASTERNAK);
-    const gorbagDef = state.cardPool[gorbag.definitionId as string] as CharacterCard;
-    const asternakDef = state.cardPool[asternak.definitionId as string] as CharacterCard;
+    const gorbagDef = state.cardPool[gorbag.definitionId] as CharacterCard;
+    const asternakDef = state.cardPool[asternak.definitionId] as CharacterCard;
 
     // Before tapping: both at base prowess.
     expect(computeCombatProwess(state, gorbag, gorbagDef, 'orc')).toBe(gorbagDef.prowess);

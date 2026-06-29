@@ -50,7 +50,7 @@ describe('Call of Home (tw-18)', () => {
       ],
     });
 
-    const def = state.cardPool[CALL_OF_HOME as string] as HazardEventCard;
+    const def = state.cardPool[CALL_OF_HOME] as HazardEventCard;
     expect(def).toBeDefined();
     expect(def.cardType).toBe('hazard-event');
     expect(def.eventType).toBe('short');
@@ -297,7 +297,7 @@ describe('Call of Home (tw-18)', () => {
 
     // Beretar should have fallen to GI (since Beorn was removed, GI used
     // drops to 12 and Beretar's mind 2 fits within remaining 8 GI).
-    const beretar = s.players[0].characters[beretarId as string];
+    const beretar = s.players[0].characters[beretarId];
     expect(beretar).toBeDefined();
     expect(beretar.controlledBy).toBe('general');
   });

@@ -10,6 +10,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardDefinitionId } from '../../index.js';
 import {
   PLAYER_1, PLAYER_2, P1_COMPANY,
   ARAGORN,
@@ -31,8 +32,8 @@ describe('An Unexpected Outpost (dm-45)', () => {
     const actions = viableActions(state, PLAYER_2, 'play-hazard');
     const shortEventActions = actions.filter(ea => {
       const instId = actionAs<PlayHazardAction>(ea.action).cardInstanceId;
-      const def = state.cardPool[instId as unknown as string]
-        ?? state.cardPool[state.players[1].hand.find(c => c.instanceId === instId)?.definitionId as string];
+      const def = state.cardPool[instId as unknown as CardDefinitionId]
+        ?? state.cardPool[state.players[1].hand.find(c => c.instanceId === instId)?.definitionId as CardDefinitionId];
       return def && 'eventType' in def && def.eventType === 'short';
     });
     expect(shortEventActions.length).toBeGreaterThanOrEqual(1);

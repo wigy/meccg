@@ -116,7 +116,7 @@ describe('Goldberry (tw-245)', () => {
     });
 
     const goldberryId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const aragornData = withCombat.players[RESOURCE_PLAYER].characters[goldberryId as string];
+    const aragornData = withCombat.players[RESOURCE_PLAYER].characters[goldberryId];
     const goldberryInstanceId = aragornData?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
@@ -145,7 +145,7 @@ describe('Goldberry (tw-245)', () => {
     });
 
     const aragornId = findCharInstanceId(withDefenderCombat, RESOURCE_PLAYER, ARAGORN);
-    const aragornData = withDefenderCombat.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragornData = withDefenderCombat.players[RESOURCE_PLAYER].characters[aragornId];
     const goldberryInstanceId = aragornData?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
@@ -227,7 +227,7 @@ describe('Goldberry (tw-245)', () => {
     });
 
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const goldberryInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const goldberryInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
     const cancelActions = computeLegalActions(withCombat, PLAYER_1)
@@ -253,7 +253,7 @@ describe('Goldberry (tw-245)', () => {
     });
 
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const goldberryInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const goldberryInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
     const cancelActions = computeLegalActions(withCombat, PLAYER_1)
@@ -279,7 +279,7 @@ describe('Goldberry (tw-245)', () => {
     });
 
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const goldberryInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const goldberryInstanceId = withCombat.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
     const cancelActions = computeLegalActions(withCombat, PLAYER_1)
@@ -305,7 +305,7 @@ describe('Goldberry (tw-245)', () => {
     });
 
     const aragornId = findCharInstanceId(withCombat, RESOURCE_PLAYER, ARAGORN);
-    const aragornData = withCombat.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragornData = withCombat.players[RESOURCE_PLAYER].characters[aragornId];
     const goldberryInstanceId = aragornData?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
@@ -354,7 +354,7 @@ describe('Goldberry (tw-245)', () => {
     expect(withChain.chain!.priority).toBe(PLAYER_1);
 
     const aragornId = findCharInstanceId(withChain, RESOURCE_PLAYER, ARAGORN);
-    const goldberryInstanceId = withChain.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const goldberryInstanceId = withChain.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
     const cancelActions = computeLegalActions(withChain, PLAYER_1)
@@ -385,7 +385,7 @@ describe('Goldberry (tw-245)', () => {
     );
 
     const aragornId = findCharInstanceId(withChain, RESOURCE_PLAYER, ARAGORN);
-    const goldberryInstanceId = withChain.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const goldberryInstanceId = withChain.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
     expect(goldberryInstanceId).toBeDefined();
 
     const cancelActions = computeLegalActions(withChain, PLAYER_1)
@@ -417,7 +417,7 @@ describe('Goldberry (tw-245)', () => {
 
     // Tap Goldberry before computing actions
     const aragornId = findCharInstanceId(withChain, RESOURCE_PLAYER, ARAGORN);
-    const aragornData = withChain.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragornData = withChain.players[RESOURCE_PLAYER].characters[aragornId];
     const tappedGoldberry = { ...aragornData.allies[0], status: CardStatus.Tapped };
     const updatedChars = {
       ...withChain.players[RESOURCE_PLAYER].characters,
@@ -485,7 +485,7 @@ describe('Goldberry (tw-245)', () => {
     );
 
     const aragornId = findCharInstanceId(withChain, RESOURCE_PLAYER, ARAGORN);
-    const goldberryInstanceId = withChain.players[RESOURCE_PLAYER].characters[aragornId as string]?.allies[0]?.instanceId;
+    const goldberryInstanceId = withChain.players[RESOURCE_PLAYER].characters[aragornId]?.allies[0]?.instanceId;
 
     const action: CancelReturnToOriginAction = {
       type: 'cancel-return-to-origin',
@@ -499,7 +499,7 @@ describe('Goldberry (tw-245)', () => {
 
     // Goldberry must be tapped
     const goldberryAfter = result.state.players[RESOURCE_PLAYER]
-      .characters[aragornId as string]?.allies[0];
+      .characters[aragornId]?.allies[0];
     expect(goldberryAfter?.status).toBe(CardStatus.Tapped);
 
     // The chain entry must be negated

@@ -171,7 +171,7 @@ export function accrueRevealedInstances(state: GameState): GameState {
   // Fast-path: nothing new.
   let changed = false;
   for (const id in additions) {
-    if (state.revealedInstances[id] !== additions[id]) {
+    if (state.revealedInstances[id as CardInstanceId] !== additions[id as CardInstanceId]) {
       changed = true;
       break;
     }

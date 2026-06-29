@@ -59,7 +59,7 @@ describe('Rule 3.32 — Storing Cards', () => {
     });
 
     const bilboId = findCharInstanceId(atHaven, RESOURCE_PLAYER, BILBO);
-    const bookInstId = atHaven.players[RESOURCE_PLAYER].characters[bilboId as string].items[0].instanceId;
+    const bookInstId = atHaven.players[RESOURCE_PLAYER].characters[bilboId].items[0].instanceId;
 
     const stores = viableFor(atHaven, PLAYER_1)
       .filter(a => a.action.type === 'store-item') as { action: StoreItemAction }[];
@@ -118,7 +118,7 @@ describe('Rule 3.32 — Storing Cards', () => {
     });
 
     const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
-    const scrollInstId = state.players[RESOURCE_PLAYER].characters[bilboId as string].items[0].instanceId;
+    const scrollInstId = state.players[RESOURCE_PLAYER].characters[bilboId].items[0].instanceId;
 
     const stores = viableFor(state, PLAYER_1)
       .filter(a => a.action.type === 'store-item') as { action: StoreItemAction }[];
@@ -178,7 +178,7 @@ describe('Rule 3.32 — Storing Cards', () => {
     });
 
     const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
-    const bookInstId = state.players[RESOURCE_PLAYER].characters[bilboId as string].items[0].instanceId;
+    const bookInstId = state.players[RESOURCE_PLAYER].characters[bilboId].items[0].instanceId;
 
     const storeAction = viableFor(state, PLAYER_1)
       .filter(a => a.action.type === 'store-item')

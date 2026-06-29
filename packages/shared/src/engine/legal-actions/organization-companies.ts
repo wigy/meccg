@@ -159,11 +159,11 @@ function collectPassiveMovementBonus(
   let bonus = 0;
 
   for (const charId of characterIds) {
-    const char = player.characters[charId as string];
+    const char = player.characters[charId];
     if (!char) continue;
 
     for (const ally of char.allies) {
-      const allyDef = state.cardPool[ally.definitionId as string] as { effects?: readonly CardEffect[] } | undefined;
+      const allyDef = state.cardPool[ally.definitionId] as { effects?: readonly CardEffect[] } | undefined;
       if (!allyDef?.effects) continue;
 
       for (const eff of allyDef.effects) {
@@ -173,9 +173,9 @@ function collectPassiveMovementBonus(
         seenKeys.add(key);
 
         const allQualify = characterIds.every(cId => {
-          const c = player.characters[cId as string];
+          const c = player.characters[cId];
           return c?.allies.some(a => {
-            const aDef = state.cardPool[a.definitionId as string] as { name?: string } | undefined;
+            const aDef = state.cardPool[a.definitionId] as { name?: string } | undefined;
             return aDef?.name !== undefined && eff.allyNames.includes(aDef.name);
           });
         });
@@ -353,7 +353,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     // MELE §1.2: Ringwraith movement restrictions.
     // Check whether this company has a Ringwraith avatar.
     const hasRingwraithAvatar = player.alignment === 'ringwraith' && company.characters.some(cId => {
-      const char = player.characters[cId as string];
+      const char = player.characters[cId];
       if (!char) return false;
       const def = defById(state, char.definitionId);
       return def && isCharacterCard(def) && isAvatarCharacter(def) && def.race === Race.Ringwraith;
@@ -459,7 +459,7 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
 
   for (const company of player.companies) {
     for (const charInstId of company.characters) {
-      const char = player.characters[charInstId as string];
+      const char = player.characters[charInstId];
       if (!char) continue;
       const charDef = resolveDef(state, char.instanceId);
       if (!isCharacterCard(charDef)) continue;
@@ -478,7 +478,7 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
         const controlCost = controlCostOf(state, char, charDef.mind) ?? charDef.mind;
         for (const ctrlInstId of company.characters) {
           if (ctrlInstId === charInstId) continue;
-          const ctrl = player.characters[ctrlInstId as string];
+          const ctrl = player.characters[ctrlInstId];
           if (!ctrl) continue;
           // Controller must be under GI (non-follower)
           if (ctrl.controlledBy !== 'general') continue;
@@ -554,7 +554,7 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
     const charsAtSite = siteToCharacters.get(siteKey) ?? [];
 
     for (const charInstId of company.characters) {
-      const char = player.characters[charInstId as string];
+      const char = player.characters[charInstId];
       if (!char || char.items.length === 0) continue;
 
       const charDef = resolveDef(state, char.instanceId);
@@ -566,7 +566,7 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
 
         for (const targetInstId of charsAtSite) {
           if (targetInstId === charInstId) continue;
-          const target = player.characters[targetInstId as string];
+          const target = player.characters[targetInstId];
           if (!target) continue;
 
           const targetDef = resolveDef(state, target.instanceId);
@@ -620,7 +620,7 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
     const siteType = siteDef.siteType;
 
     for (const charInstId of company.characters) {
-      const char = player.characters[charInstId as string];
+      const char = player.characters[charInstId];
       if (!char || char.items.length === 0) continue;
 
       const charDef = resolveDef(state, char.instanceId);
@@ -684,7 +684,7 @@ export function splitCompanyActions(state: GameState, playerId: PlayerId): Evalu
 
     // Count GI characters (non-followers) in this company
     const giChars = company.characters.filter(id => {
-      const c = player.characters[id as string];
+      const c = player.characters[id];
       return c && c.controlledBy === 'general';
     });
 
@@ -692,7 +692,7 @@ export function splitCompanyActions(state: GameState, playerId: PlayerId): Evalu
     if (giChars.length < 2) continue;
 
     for (const charInstId of giChars) {
-      const char = player.characters[charInstId as string];
+      const char = player.characters[charInstId];
       if (!char) continue;
       const charDef = resolveDef(state, char.instanceId);
       if (!isCharacterCard(charDef)) continue;
@@ -741,7 +741,7 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
 
     // Count GI characters in this company
     const giChars = company.characters.filter(id => {
-      const c = player.characters[id as string];
+      const c = player.characters[id];
       return c && c.controlledBy === 'general';
     });
 
@@ -749,7 +749,7 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
     if (giChars.length < 2) continue;
 
     for (const charInstId of giChars) {
-      const char = player.characters[charInstId as string];
+      const char = player.characters[charInstId];
       if (!char) continue;
       const charDef = resolveDef(state, char.instanceId);
       if (!isCharacterCard(charDef)) continue;
@@ -874,10 +874,10 @@ function wouldViolateLeaderRestriction(
     // Also check attached items for grant-keyword: 'Leader' effects
     if (!isLeader) {
       for (const player of state.players) {
-        const char = player.characters[id as string];
+        const char = player.characters[id];
         if (!char) continue;
         for (const item of char.items) {
-          const itemDef = state.cardPool[item.definitionId as string];
+          const itemDef = state.cardPool[item.definitionId];
           const effects = getCardEffects(itemDef);
           if (effects.some(e => e.type === 'grant-keyword' && (e as { keyword: string }).keyword === 'Leader')) {
             isLeader = true;
@@ -900,7 +900,7 @@ function wouldViolateLeaderRestriction(
     const hasExtraSlot = state.players.some(p =>
       p.cardsInPlay.some(card => {
         if ((card.companyId as string | undefined) !== (companyId as string)) return false;
-        const def = state.cardPool[card.definitionId as string];
+        const def = state.cardPool[card.definitionId];
         return getCardEffects(def).some(e => e.type === 'extra-troll-leader-slot');
       }),
     );

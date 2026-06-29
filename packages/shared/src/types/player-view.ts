@@ -25,6 +25,7 @@ import {
   WizardName,
   Alignment,
   TwoDiceSix,
+  ById,
 } from './common.js';
 // Re-export ViewCard from common so existing imports from player-view still work.
 export type { ViewCard } from './common.js';
@@ -131,7 +132,7 @@ export interface OpponentView {
    */
   readonly agents: readonly OpponentAgentView[];
   /** The opponent's characters in play (public information). */
-  readonly characters: Readonly<Record<string, CharacterInPlay>>;
+  readonly characters: ById<CharacterInPlay>;
   /** General cards the opponent has in play (permanent resources, factions, etc.). */
   readonly cardsInPlay: readonly CardInPlay[];
   /** The opponent's current marshalling point totals (public information). */
@@ -191,7 +192,7 @@ export interface SelfView {
   /** All agents this player has in play as hazards, with full state visibility. */
   readonly agents: readonly AgentInPlay[];
   /** All characters this player has in play. */
-  readonly characters: Readonly<Record<string, CharacterInPlay>>;
+  readonly characters: ById<CharacterInPlay>;
   /** General cards in play on the table (permanent resources, factions, etc.). */
   readonly cardsInPlay: readonly CardInPlay[];
   /** Current marshalling point totals by category. */

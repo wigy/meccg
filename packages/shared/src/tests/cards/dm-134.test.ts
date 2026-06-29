@@ -150,7 +150,7 @@ describe('Hall of Fire (dm-134)', () => {
 
     // Resolving on Legolas untaps him.
     const resolved = dispatch(after, { type: 'restore-character-by-effect', player: PLAYER_1, characterInstanceId: legolasId });
-    expect(resolved.players[RESOURCE_PLAYER].characters[legolasId as string].status).toBe(CardStatus.Untapped);
+    expect(resolved.players[RESOURCE_PLAYER].characters[legolasId].status).toBe(CardStatus.Untapped);
     expect(resolved.pendingResolutions.some(r => r.kind.type === 'haven-restore-character')).toBe(false);
   });
 
@@ -168,7 +168,7 @@ describe('Hall of Fire (dm-134)', () => {
 
     const resolved = dispatch(after, { type: 'restore-character-by-effect', player: PLAYER_1, characterInstanceId: gimliId });
     // Heals one step: wounded (inverted) → tapped, NOT untapped.
-    expect(resolved.players[RESOURCE_PLAYER].characters[gimliId as string].status).toBe(CardStatus.Tapped);
+    expect(resolved.players[RESOURCE_PLAYER].characters[gimliId].status).toBe(CardStatus.Tapped);
   });
 
   test('only one character is restored per Hall of Fire — the resolution clears after one choice', () => {
@@ -179,8 +179,8 @@ describe('Hall of Fire (dm-134)', () => {
 
     const resolved = dispatch(after, { type: 'restore-character-by-effect', player: PLAYER_1, characterInstanceId: legolasId });
     // Legolas untapped; Gimli stays wounded (only one may be chosen).
-    expect(resolved.players[RESOURCE_PLAYER].characters[legolasId as string].status).toBe(CardStatus.Untapped);
-    expect(resolved.players[RESOURCE_PLAYER].characters[gimliId as string].status).toBe(CardStatus.Inverted);
+    expect(resolved.players[RESOURCE_PLAYER].characters[legolasId].status).toBe(CardStatus.Untapped);
+    expect(resolved.players[RESOURCE_PLAYER].characters[gimliId].status).toBe(CardStatus.Inverted);
     expect(resolved.pendingResolutions.some(r => r.kind.type === 'haven-restore-character')).toBe(false);
   });
 
@@ -193,8 +193,8 @@ describe('Hall of Fire (dm-134)', () => {
     const gimliId = findCharInstanceId(after, RESOURCE_PLAYER, GIMLI);
 
     const passed = dispatch(after, { type: 'pass', player: PLAYER_1 });
-    expect(passed.players[RESOURCE_PLAYER].characters[legolasId as string].status).toBe(CardStatus.Tapped);
-    expect(passed.players[RESOURCE_PLAYER].characters[gimliId as string].status).toBe(CardStatus.Inverted);
+    expect(passed.players[RESOURCE_PLAYER].characters[legolasId].status).toBe(CardStatus.Tapped);
+    expect(passed.players[RESOURCE_PLAYER].characters[gimliId].status).toBe(CardStatus.Inverted);
     expect(passed.pendingResolutions.some(r => r.kind.type === 'haven-restore-character')).toBe(false);
   });
 

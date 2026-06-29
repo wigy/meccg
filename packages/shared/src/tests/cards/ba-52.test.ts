@@ -125,7 +125,7 @@ describe('Challenge the Power (ba-52)', () => {
     const after = playWithRoll(state, 8);
 
     expect(after.phaseState.phase).not.toBe(Phase.GameOver);
-    const avatar = after.players[RESOURCE_PLAYER].characters[avatarId as string];
+    const avatar = after.players[RESOURCE_PLAYER].characters[avatarId];
     expect(avatar).toBeDefined();
     expect(avatar?.items.some(i => i.definitionId === CHALLENGE_THE_POWER)).toBe(false);
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === CHALLENGE_THE_POWER)).toBe(true);
@@ -137,7 +137,7 @@ describe('Challenge the Power (ba-52)', () => {
     const after = playWithRoll(state, 6);
 
     expect(after.phaseState.phase).not.toBe(Phase.GameOver);
-    expect(after.players[RESOURCE_PLAYER].characters[avatarId as string]).toBeUndefined();
+    expect(after.players[RESOURCE_PLAYER].characters[avatarId]).toBeUndefined();
     expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === avatarId)).toBe(true);
   });
 
@@ -147,7 +147,7 @@ describe('Challenge the Power (ba-52)', () => {
     const after = playWithRoll(state, 10);
 
     expect(after.phaseState.phase).not.toBe(Phase.GameOver);
-    const avatar = after.players[RESOURCE_PLAYER].characters[avatarId as string];
+    const avatar = after.players[RESOURCE_PLAYER].characters[avatarId];
     expect(avatar?.items.some(i => i.definitionId === CHALLENGE_THE_POWER)).toBe(true);
     // The card's 2 misc MP stand for "gain 2 marshalling points".
     expect(after.players[RESOURCE_PLAYER].marshallingPoints.misc).toBeGreaterThanOrEqual(2);

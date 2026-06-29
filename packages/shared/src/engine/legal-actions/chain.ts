@@ -13,7 +13,7 @@
  * `'declaring'` mode for the player who currently has priority.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, HazardEventCard } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, PassChainPriorityAction, CardInstanceId, CardDefinitionId, HazardEventCard } from '../../index.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { getPlayerIndex } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
@@ -108,13 +108,13 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
 
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
-    const def = state.cardPool[handCard.definitionId as string] as HazardEventCard | undefined;
+    const def = state.cardPool[handCard.definitionId] as HazardEventCard | undefined;
     if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') continue;
     if (!hasPlayFlag(def, 'playable-as-resource')) continue;
 
     // Collect environment targets
     const isEnv = (defId: string): boolean => {
-      const d = state.cardPool[defId];
+      const d = state.cardPool[defId as CardDefinitionId];
       return !!d && 'keywords' in d
         && !!(d as { keywords?: readonly string[] }).keywords?.includes('environment');
     };
@@ -135,7 +135,7 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
     }
 
     for (const target of envTargets) {
-      const targetDef = state.cardPool[target.definitionId];
+      const targetDef = state.cardPool[target.definitionId as CardDefinitionId];
       logDetail(`Chain response: ${def.name} can cancel ${targetDef?.name ?? target.definitionId}`);
       actions.push({
         action: {
@@ -251,7 +251,7 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
   const player = state.players[playerIndex];
 
   for (const charId of company.characters) {
-    const charData = player.characters[charId as string];
+    const charData = player.characters[charId];
     if (!charData) continue;
     for (const ally of charData.allies ?? []) {
       const allyDef = defById(state, ally.definitionId);

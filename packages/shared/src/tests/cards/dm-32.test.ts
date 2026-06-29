@@ -174,7 +174,7 @@ describe("Hermit's Hill (dm-32)", () => {
     expect(playActions.length).toBeGreaterThan(0);
 
     const glamdringInstanceId = afterDiscard.players[0].hand.find(c => {
-      const def = afterDiscard.cardPool[c.definitionId as string];
+      const def = afterDiscard.cardPool[c.definitionId];
       return def?.name === 'Glamdring';
     })?.instanceId;
     expect(glamdringInstanceId).toBeDefined();

@@ -97,7 +97,7 @@ describe('When You Know More (dm-163)', () => {
     const after = resolveChain(dispatch(state, action));
 
     const celebornId = findCharInstanceId(after, RESOURCE_PLAYER, CELEBORN);
-    const celeborn = after.players[RESOURCE_PLAYER].characters[celebornId as string];
+    const celeborn = after.players[RESOURCE_PLAYER].characters[celebornId];
     expect(celeborn.status).toBe(CardStatus.Tapped);
     expect(after.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Tapped);
     // The enchantment is now attached to the sage (resource permanent-event → items slot).
@@ -169,7 +169,7 @@ describe('When You Know More (dm-163)', () => {
     const after = dispatch(state, action);
 
     // Bearer (sage) taps.
-    expect(after.players[RESOURCE_PLAYER].characters[celebornId as string].status).toBe(CardStatus.Tapped);
+    expect(after.players[RESOURCE_PLAYER].characters[celebornId].status).toBe(CardStatus.Tapped);
 
     // +2 influence check-modifier targeting the chosen company-mate, turn-scoped.
     const infConstraints = after.activeConstraints.filter(

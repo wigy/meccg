@@ -241,7 +241,7 @@ describe('Seized by Terror (dm-88)', () => {
     expect(newCompany!.destinationSite).toBeNull();
 
     // Aragorn is still in play (not discarded)
-    expect(s.players[RESOURCE_PLAYER].characters[aragornId as string]).toBeDefined();
+    expect(s.players[RESOURCE_PLAYER].characters[aragornId]).toBeDefined();
   });
 
   test('single-character company returns to origin (no split) on roll failure', () => {

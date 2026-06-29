@@ -91,7 +91,7 @@ describe('Return of the King (tw-316)', () => {
           cardType: 'hero-character',
           id: MOCK_DENETHOR_DEF,
           name: 'Denethor II',
-        } as unknown as typeof base.cardPool[string],
+        } as unknown as typeof base.cardPool[CardDefinitionId],
       },
       players: [
         {
@@ -129,7 +129,7 @@ describe('Return of the King (tw-316)', () => {
     const withCard = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, RETURN_OF_THE_KING);
     const state = recomputeDerived(withCard);
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
-    const aragornChar = state.players[RESOURCE_PLAYER].characters[aragornId as string];
+    const aragornChar = state.players[RESOURCE_PLAYER].characters[aragornId];
     expect(aragornChar.effectiveStats.directInfluence).toBe(6);
   });
 

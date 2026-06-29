@@ -245,7 +245,7 @@ describe('Magical Harp (td-130)', () => {
     const withHarp = attachItemToChar(base, RESOURCE_PLAYER, GANDALF, MAGICAL_HARP);
 
     const gandalfId = charIdAt(withHarp, RESOURCE_PLAYER, 0, 0);
-    const gandalfInPlay = withHarp.players[RESOURCE_PLAYER].characters[gandalfId as string];
+    const gandalfInPlay = withHarp.players[RESOURCE_PLAYER].characters[gandalfId];
     const harpInstId = gandalfInPlay.items[0].instanceId;
 
     // Harp starts untapped
@@ -262,7 +262,7 @@ describe('Magical Harp (td-130)', () => {
     // Harp (the item) is now tapped — the `cost: { tap: "self" }` taps
     // the item itself, not the bearer (Gandalf remains untapped and
     // could still act in combat this turn).
-    const gandalfAfter = after.players[RESOURCE_PLAYER].characters[gandalfId as string];
+    const gandalfAfter = after.players[RESOURCE_PLAYER].characters[gandalfId];
     const harpAfter = gandalfAfter.items.find(i => i.instanceId === harpInstId)!;
     expect(harpAfter.status).toBe(CardStatus.Tapped);
     expectCharStatus(after, RESOURCE_PLAYER, GANDALF, CardStatus.Untapped);
@@ -299,7 +299,7 @@ describe('Magical Harp (td-130)', () => {
 
     // Pre-tap the harp
     const gandalfId = charIdAt(withHarp, RESOURCE_PLAYER, 0, 0);
-    const gandalfInPlay = withHarp.players[RESOURCE_PLAYER].characters[gandalfId as string];
+    const gandalfInPlay = withHarp.players[RESOURCE_PLAYER].characters[gandalfId];
     const harpInstId = gandalfInPlay.items[0].instanceId;
     const tapped = {
       ...withHarp,

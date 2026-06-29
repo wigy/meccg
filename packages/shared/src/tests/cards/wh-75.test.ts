@@ -513,12 +513,12 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
 
     // A revealed Stage resource is public the moment it is drafted, before any
     // pairing is chosen.
-    expect(state.revealedInstances[hhInst as string]).toBe(HIDDEN_HAVEN);
+    expect(state.revealedInstances[hhInst]).toBe(HIDDEN_HAVEN);
 
     const siteInst = siteDeckInstId(state, 0, WORTHY_HILLS);
     // The paired site is still in the (private) site deck — its identity is only
     // public if it has been accrued into revealedInstances.
-    expect(state.revealedInstances[siteInst as string]).toBeUndefined();
+    expect(state.revealedInstances[siteInst]).toBeUndefined();
 
     state = runActions(state, [{
       type: 'select-stage-resource-site', player: PLAYER_1,
@@ -527,8 +527,8 @@ describe('Hidden Haven (wh-75) — draft site pairing (CRF 22)', () => {
 
     // Pairing "brings out" the site (CRF 22): the opponent can now see which
     // Ruins & Lairs the Hidden Haven names.
-    expect(state.revealedInstances[siteInst as string]).toBe(WORTHY_HILLS);
-    expect(state.revealedInstances[hhInst as string]).toBe(HIDDEN_HAVEN);
+    expect(state.revealedInstances[siteInst]).toBe(WORTHY_HILLS);
+    expect(state.revealedInstances[hhInst]).toBe(HIDDEN_HAVEN);
   });
 
   test('cannot stop drafting while a pairable Hidden Haven is unpaired', () => {

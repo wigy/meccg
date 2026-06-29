@@ -117,8 +117,8 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
     expect(endedWith.phaseState.phase).toBe(Phase.GameOver);
     expect(endedWithout.phaseState.phase).toBe(Phase.GameOver);
 
-    const scoreWith = phaseStateAs<GameOverPhaseState>(endedWith).finalScores[PLAYER_1 as string];
-    const scoreWithout = phaseStateAs<GameOverPhaseState>(endedWithout).finalScores[PLAYER_1 as string];
+    const scoreWith = phaseStateAs<GameOverPhaseState>(endedWith).finalScores[PLAYER_1];
+    const scoreWithout = phaseStateAs<GameOverPhaseState>(endedWithout).finalScores[PLAYER_1];
     expect(scoreWithout - scoreWith).toBe(5);
   });
 

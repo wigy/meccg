@@ -140,7 +140,7 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
 
     // Adûnaphel is now tapped.
     const adunaphelId = findCharInstanceId(after, RESOURCE_PLAYER, ADUNAPHEL_RW);
-    const adunaphel = after.players[RESOURCE_PLAYER].characters[adunaphelId as string];
+    const adunaphel = after.players[RESOURCE_PLAYER].characters[adunaphelId];
     expect(adunaphel.status).toBe(CardStatus.Tapped);
 
     // The hazard creature lands in the hazard player's discard pile.
@@ -275,7 +275,7 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
     });
 
     const adunaphelId = findCharInstanceId(base, RESOURCE_PLAYER, ADUNAPHEL_RW);
-    const adunaphelChar = base.players[RESOURCE_PLAYER].characters[adunaphelId as string];
+    const adunaphelChar = base.players[RESOURCE_PLAYER].characters[adunaphelId];
     const updatedChars = {
       ...base.players[RESOURCE_PLAYER].characters,
       [adunaphelId as string]: { ...adunaphelChar, status: CardStatus.Tapped },

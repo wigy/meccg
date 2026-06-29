@@ -78,11 +78,11 @@ describe('Rule 8.35 — Prisoners', () => {
           characters: {
             ...p.characters,
             [aragornId as string]: {
-              ...p.characters[aragornId as string],
+              ...p.characters[aragornId],
               followers: [bilboId],
             },
             [bilboId as string]: {
-              ...p.characters[bilboId as string],
+              ...p.characters[bilboId],
               controlledBy: aragornId,
             },
           },
@@ -137,7 +137,7 @@ describe('Rule 8.35 — Prisoners', () => {
 
     // Assert: Dagger is in discard pile (non-ring item discarded by prisoner rule).
     const aragornPlayer = afterStrike.players[RESOURCE_PLAYER];
-    const aragornChar = aragornPlayer.characters[aragornId as string];
+    const aragornChar = aragornPlayer.characters[aragornId];
     expect(aragornChar.items).toHaveLength(0);
     expect(aragornPlayer.discardPile.some(c => c.definitionId === DAGGER)).toBe(true);
 
@@ -145,7 +145,7 @@ describe('Rule 8.35 — Prisoners', () => {
     expect(aragornChar.status).toBe(CardStatus.Untapped);
 
     // Assert: Bilbo reverted to general influence.
-    expect(aragornPlayer.characters[bilboId as string]?.controlledBy).toBe('general');
+    expect(aragornPlayer.characters[bilboId]?.controlledBy).toBe('general');
 
     // Assert: rescue site removed from hazard player's location deck.
     const hazardPlayer = afterStrike.players[HAZARD_PLAYER];

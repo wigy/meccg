@@ -53,8 +53,8 @@ describe('Kíli (tw-167)', () => {
       ],
     });
     const kiliId = findCharInstanceId(state, RESOURCE_PLAYER, KILI);
-    const kili = state.players[RESOURCE_PLAYER].characters[kiliId as string];
-    const kiliDef = state.cardPool[kili.definitionId as string] as CharacterCard;
+    const kili = state.players[RESOURCE_PLAYER].characters[kiliId];
+    const kiliDef = state.cardPool[kili.definitionId] as CharacterCard;
 
     expect(computeCombatProwess(state, kili, kiliDef, 'orc')).toBe(kiliDef.prowess + 1);
   });
@@ -70,8 +70,8 @@ describe('Kíli (tw-167)', () => {
       ],
     });
     const kiliId = findCharInstanceId(state, RESOURCE_PLAYER, KILI);
-    const kili = state.players[RESOURCE_PLAYER].characters[kiliId as string];
-    const kiliDef = state.cardPool[kili.definitionId as string] as CharacterCard;
+    const kili = state.players[RESOURCE_PLAYER].characters[kiliId];
+    const kiliDef = state.cardPool[kili.definitionId] as CharacterCard;
 
     expect(computeCombatProwess(state, kili, kiliDef, 'troll')).toBe(kiliDef.prowess);
     expect(computeCombatProwess(state, kili, kiliDef, 'undead')).toBe(kiliDef.prowess);

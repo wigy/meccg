@@ -83,8 +83,8 @@ describe('Rule 10.49 — Step 6: Avatar Elimination Penalty', () => {
 
     // P1 (eliminated avatar) has -5 penalty applied: 10 - 5 = 5
     // P2 (no eliminated avatar) has no penalty: 10
-    const p1Score = gameOver.finalScores[PLAYER_1 as string];
-    const p2Score = gameOver.finalScores[PLAYER_2 as string];
+    const p1Score = gameOver.finalScores[PLAYER_1];
+    const p2Score = gameOver.finalScores[PLAYER_2];
     expect(p1Score).toBe(p2Score - 5);
     // P2 wins
     expect(gameOver.winner).toBe(PLAYER_2);

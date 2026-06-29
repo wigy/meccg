@@ -53,7 +53,7 @@ describe('Elladan (tw-143)', () => {
   test('+1 prowess in combat against Orcs', () => {
     const state = makeElladanState();
     const elladanId = findCharInstanceId(state, RESOURCE_PLAYER, ELLADAN);
-    const elladan = state.players[RESOURCE_PLAYER].characters[elladanId as string];
+    const elladan = state.players[RESOURCE_PLAYER].characters[elladanId];
     const elladanDef = pool[ELLADAN as string] as CharacterCard;
 
     const prowessVsOrc = computeCombatProwess(state, elladan, elladanDef, 'orc');
@@ -64,7 +64,7 @@ describe('Elladan (tw-143)', () => {
   test('no prowess bonus against non-Orc enemies', () => {
     const state = makeElladanState();
     const elladanId = findCharInstanceId(state, RESOURCE_PLAYER, ELLADAN);
-    const elladan = state.players[RESOURCE_PLAYER].characters[elladanId as string];
+    const elladan = state.players[RESOURCE_PLAYER].characters[elladanId];
     const elladanDef = pool[ELLADAN as string] as CharacterCard;
 
     expect(computeCombatProwess(state, elladan, elladanDef, 'troll')).toBe(elladanDef.prowess);

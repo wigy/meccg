@@ -30,6 +30,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import type { CardInstanceId } from '../../index.js';
 import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
@@ -100,7 +101,7 @@ describe('Ruse (le-225) — Mode B: scout protection', () => {
       c => c.definitionId === OSTISEN,
     );
     expect(ostChar).toBeDefined();
-    expect(protectAction.targetCharacterId).toBe(ostChar!.instanceId ?? Object.keys(defPlayer.characters).find(k => defPlayer.characters[k]?.definitionId === OSTISEN));
+    expect(protectAction.targetCharacterId).toBe(ostChar!.instanceId ?? Object.keys(defPlayer.characters).find(k => defPlayer.characters[k as CardInstanceId]?.definitionId === OSTISEN));
   });
 
   test('protect-from-assignment NOT offered when defending company has no scout', () => {
@@ -181,7 +182,7 @@ describe('Ruse (le-225) — Mode B: scout protection', () => {
     const protectedList = afterRuse.combat!.protectedFromStrikeAssignment ?? [];
     const defPlayer = afterRuse.players[RESOURCE_PLAYER];
     const ostInstanceId = Object.keys(defPlayer.characters).find(
-      k => defPlayer.characters[k]?.definitionId === OSTISEN,
+      k => defPlayer.characters[k as CardInstanceId]?.definitionId === OSTISEN,
     );
     expect(ostInstanceId).toBeDefined();
     expect(protectedList).toContain(ostInstanceId);
@@ -214,7 +215,7 @@ describe('Ruse (le-225) — Mode B: scout protection', () => {
     const assignActions = viableActions(afterRuse, PLAYER_1, 'assign-strike');
     const defPlayer = afterRuse.players[RESOURCE_PLAYER];
     const ostInstanceId = Object.keys(defPlayer.characters).find(
-      k => defPlayer.characters[k]?.definitionId === OSTISEN,
+      k => defPlayer.characters[k as CardInstanceId]?.definitionId === OSTISEN,
     );
     const strikeTargetIds = assignActions.map(ea => (ea.action as { characterId?: unknown }).characterId);
     expect(strikeTargetIds).not.toContain(ostInstanceId);
@@ -245,10 +246,10 @@ describe('Ruse (le-225) — Mode B: scout protection', () => {
     const assignBefore = viableActions(combatState, PLAYER_1, 'assign-strike');
     const defPlayer0 = combatState.players[RESOURCE_PLAYER];
     const ostId = Object.keys(defPlayer0.characters).find(
-      k => defPlayer0.characters[k]?.definitionId === OSTISEN,
+      k => defPlayer0.characters[k as CardInstanceId]?.definitionId === OSTISEN,
     );
     const lagdufId = Object.keys(defPlayer0.characters).find(
-      k => defPlayer0.characters[k]?.definitionId === LAGDUF,
+      k => defPlayer0.characters[k as CardInstanceId]?.definitionId === LAGDUF,
     );
     expect(assignBefore.some(ea => (ea.action as { characterId?: unknown }).characterId === ostId)).toBe(true);
     expect(assignBefore.some(ea => (ea.action as { characterId?: unknown }).characterId === lagdufId)).toBe(true);

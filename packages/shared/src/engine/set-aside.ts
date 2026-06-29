@@ -113,14 +113,14 @@ export function setAsideCompanyCharacter(
   characterInstanceId: CardInstanceId,
   keepOnHostRemoval = false,
 ): GameState {
-  const ownerIdx = state.players.findIndex(p => p.characters[characterInstanceId as string] !== undefined);
+  const ownerIdx = state.players.findIndex(p => p.characters[characterInstanceId] !== undefined);
   if (ownerIdx === -1) {
     logDetail(`setAsideCompanyCharacter: character ${characterInstanceId as string} not in play — no-op`);
     return state;
   }
 
   const owner = state.players[ownerIdx];
-  const char = owner.characters[characterInstanceId as string];
+  const char = owner.characters[characterInstanceId];
 
   // Cards that go off to the side with the character: the character itself plus
   // its borne items and allies.
@@ -132,7 +132,7 @@ export function setAsideCompanyCharacter(
 
   // Detach the character from its owner's characters map and company.
   const newCharacters = { ...owner.characters };
-  delete newCharacters[characterInstanceId as string];
+  delete newCharacters[characterInstanceId];
   const newCompanies = owner.companies.map(c => ({
     ...c,
     characters: c.characters.filter(id => id !== characterInstanceId),

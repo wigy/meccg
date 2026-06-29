@@ -600,8 +600,8 @@ describe('Marvels Told (td-134)', () => {
     ));
 
     const chars = state.players[0].characters;
-    const aragornKey = Object.keys(chars).find(k => chars[k].definitionId === ARAGORN)!;
-    const elrondKey = Object.keys(chars).find(k => chars[k].definitionId === ELROND)!;
+    const aragornKey = (Object.keys(chars) as CardInstanceId[]).find(k => chars[k].definitionId === ARAGORN)!;
+    const elrondKey = (Object.keys(chars) as CardInstanceId[]).find(k => chars[k].definitionId === ELROND)!;
     const attachedHazardIds = chars[aragornKey].hazards.map(h => h.instanceId);
     expect(attachedHazardIds).toHaveLength(2);
     for (const hid of attachedHazardIds) {
@@ -654,7 +654,7 @@ describe('Marvels Told (td-134)', () => {
     // Playing it taps the ally, discards the hazard, and discards Marvels Told.
     const next = dispatch(state, action);
     const legolasAfter = next.players[0].characters[
-      Object.keys(next.players[0].characters).find(
+      (Object.keys(next.players[0].characters) as CardInstanceId[]).find(
         k => next.players[0].characters[k].definitionId === LEGOLAS,
       )!
     ];
@@ -683,7 +683,7 @@ describe('Marvels Told (td-134)', () => {
     });
     const withTreebeard = attachAllyToChar(base, RESOURCE_PLAYER, LEGOLAS, TREEBEARD);
     const treebeardId = findAllyInstanceId(withTreebeard, RESOURCE_PLAYER, LEGOLAS, TREEBEARD)!;
-    const legolasKey = Object.keys(withTreebeard.players[0].characters).find(
+    const legolasKey = (Object.keys(withTreebeard.players[0].characters) as CardInstanceId[]).find(
       k => withTreebeard.players[0].characters[k].definitionId === LEGOLAS,
     )!;
     const legolas = withTreebeard.players[0].characters[legolasKey];

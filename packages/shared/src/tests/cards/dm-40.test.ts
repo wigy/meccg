@@ -229,14 +229,14 @@ describe('The Under-leas (dm-40)', () => {
 
   test('dm-40 is in the card pool', () => {
     const state = buildSitePhaseState({ site: THE_UNDER_LEAS });
-    const def = state.cardPool[THE_UNDER_LEAS as string];
+    const def = state.cardPool[THE_UNDER_LEAS];
     expect(def).toBeDefined();
     expect((def as { name: string }).name).toBe('The Under-leas');
   });
 
   test('tw-113 (Witch-king of Angmar) is in the card pool', () => {
     const state = buildSitePhaseState({ site: THE_UNDER_LEAS });
-    const def = state.cardPool[WITCH_KING as string];
+    const def = state.cardPool[WITCH_KING];
     expect(def).toBeDefined();
     expect((def as { name: string }).name).toBe('Witch-king of Angmar');
   });

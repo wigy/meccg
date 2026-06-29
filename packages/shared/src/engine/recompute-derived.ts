@@ -290,7 +290,7 @@ export function collectRegionMovementReduction(state: GameState): { reduction: n
   let floor = 0;
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
-      const def = state.cardPool[card.definitionId as string];
+      const def = state.cardPool[card.definitionId];
       if (!def) continue;
       for (const eff of getCardEffects(def)) {
         if (eff.type !== 'region-movement-limit') continue;
@@ -410,7 +410,7 @@ function resolveCompanyRingwraithMode(
   if (companyId === undefined) return undefined;
   for (const card of player.cardsInPlay) {
     if (card.companyId !== companyId) continue;
-    const def = state.cardPool[card.definitionId as string];
+    const def = state.cardPool[card.definitionId];
     const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
     if (!effects) continue;
     for (const eff of effects) {
@@ -542,7 +542,7 @@ function computeEffectiveStats(
   if (char.trophies && char.trophies.length > 0) {
     let totalTrophyMp = 0;
     for (const trophy of char.trophies) {
-      const trophyDef = state.cardPool[trophy.definitionId as string];
+      const trophyDef = state.cardPool[trophy.definitionId];
       if (trophyDef && 'killMarshallingPoints' in trophyDef) {
         totalTrophyMp += (trophyDef as { killMarshallingPoints: number }).killMarshallingPoints;
       }
@@ -675,16 +675,16 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // Collect all names in this company first
     const namesInCompany: string[] = [];
     for (const cid of company.characters) {
-      const ch = player.characters[cid as string];
+      const ch = player.characters[cid];
       if (!ch) continue;
-      const def = state.cardPool[ch.definitionId as string];
+      const def = state.cardPool[ch.definitionId];
       if (def && 'name' in def) namesInCompany.push((def as { name: string }).name);
     }
     // For each character, store the names of the OTHER company members
     for (const cid of company.characters) {
-      const ch = player.characters[cid as string];
+      const ch = player.characters[cid];
       if (!ch) continue;
-      const def = state.cardPool[ch.definitionId as string];
+      const def = state.cardPool[ch.definitionId];
       const ownName = def && 'name' in def ? (def as { name: string }).name : null;
       companionNamesMap.set(cid as string, namesInCompany.filter(n => n !== ownName));
     }
@@ -711,7 +711,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const companionDefinitionIds = (charCompany?.characters ?? [])
       .filter(id => id !== char.instanceId)
       .map(id => {
-        const compChar = player.characters[id as string];
+        const compChar = player.characters[id];
         if (!compChar) return null;
         return compChar.definitionId as string;
       })
@@ -743,7 +743,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // MPs are credited normally to `mp` (final tally) but also mirrored into
     // `underDeepsMp` so they can be removed from the call threshold.
     const charSiteDefId = charCompany?.currentSite?.definitionId;
-    const charSiteDef = charSiteDefId ? state.cardPool[charSiteDefId as string] : undefined;
+    const charSiteDef = charSiteDefId ? state.cardPool[charSiteDefId] : undefined;
     const atUnderDeeps = !!(charSiteDef && 'keywords' in charSiteDef
       && (charSiteDef as { keywords?: readonly string[] }).keywords?.includes('under-deeps'));
 

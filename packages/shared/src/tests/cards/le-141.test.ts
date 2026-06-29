@@ -214,7 +214,7 @@ describe('Stench of Mordor (le-141)', () => {
     expect((afterTap.phaseState as SitePhaseState).step).toBe('enter-or-skip');
     // The tapped character instance is now Tapped
     const charId = (tapAction as { characterInstanceId: CardInstanceId }).characterInstanceId;
-    expect(afterTap.players[RESOURCE_PLAYER].characters[charId as string].status).toBe(CardStatus.Tapped);
+    expect(afterTap.players[RESOURCE_PLAYER].characters[charId].status).toBe(CardStatus.Tapped);
   });
 
   // ── Effect 3b: fires at Shadow-land site WITH Doors of Night ─────────────────

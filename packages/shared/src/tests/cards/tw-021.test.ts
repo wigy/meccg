@@ -51,7 +51,7 @@ describe('Choking Shadows (tw-21)', () => {
       ],
     });
 
-    const def = state.cardPool[CHOKING_SHADOWS as string] as HazardEventCard;
+    const def = state.cardPool[CHOKING_SHADOWS] as HazardEventCard;
     expect(def).toBeDefined();
     expect(def.cardType).toBe('hazard-event');
     expect(def.eventType).toBe('short');

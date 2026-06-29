@@ -173,7 +173,7 @@ describe('Abductor (tw-1)', () => {
     s = executeAction(s, PLAYER_1, 'resolve-strike', 12); // Aragorn wins
 
     expect(s.combat).toBeNull();
-    expect(s.players[RESOURCE_PLAYER].characters[aragornId as string]).toBeDefined();
+    expect(s.players[RESOURCE_PLAYER].characters[aragornId]).toBeDefined();
     expect(s.players[RESOURCE_PLAYER].discardPile.find(c => c.instanceId === aragornId)).toBeUndefined();
   });
 
@@ -190,7 +190,7 @@ describe('Abductor (tw-1)', () => {
 
     expect(s.combat).toBeNull();
     // Gandalf must remain in play (not discarded by Abductor)
-    expect(s.players[RESOURCE_PLAYER].characters[gandalfId as string]).toBeDefined();
+    expect(s.players[RESOURCE_PLAYER].characters[gandalfId]).toBeDefined();
     expect(s.players[RESOURCE_PLAYER].discardPile.find(c => c.instanceId === gandalfId)).toBeUndefined();
     expect(s.players[RESOURCE_PLAYER].outOfPlayPile.find(c => c.instanceId === gandalfId)).toBeUndefined();
   });

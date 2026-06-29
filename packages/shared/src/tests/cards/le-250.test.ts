@@ -511,7 +511,7 @@ describe('Voices of Malice (le-250)', () => {
     ));
 
     const chars = state.players[0].characters;
-    const ciryaherKey = Object.keys(chars).find(k => chars[k].definitionId === CIRYAHER)!;
+    const ciryaherKey = (Object.keys(chars) as CardInstanceId[]).find(k => chars[k].definitionId === CIRYAHER)!;
     const attachedHazardIds = chars[ciryaherKey].hazards.map(h => h.instanceId);
     expect(attachedHazardIds).toHaveLength(2);
     for (const hid of attachedHazardIds) {
@@ -521,7 +521,7 @@ describe('Voices of Malice (le-250)', () => {
     // Dispatching the action for the first attached hazard moves that
     // hazard to the owner's discard pile and leaves the other attached.
     const voicesId = handCardId(state, RESOURCE_PLAYER);
-    const layosKey = Object.keys(chars).find(k => chars[k].definitionId === LAYOS)!;
+    const layosKey = (Object.keys(chars) as CardInstanceId[]).find(k => chars[k].definitionId === LAYOS)!;
     const firstTargetId = attachedHazardIds[0];
     const next = dispatch(state, {
       type: 'play-short-event',
@@ -574,10 +574,10 @@ describe('Voices of Malice (le-250)', () => {
     // The two hazard instance IDs must correspond to the two Foolish Words
     // attached to characters on opposite sides of the table.
     const p1Chars = state.players[0].characters;
-    const ciryaherKey = Object.keys(p1Chars).find(k => p1Chars[k].definitionId === CIRYAHER)!;
+    const ciryaherKey = (Object.keys(p1Chars) as CardInstanceId[]).find(k => p1Chars[k].definitionId === CIRYAHER)!;
     const p1HazardId = p1Chars[ciryaherKey].hazards[0].instanceId;
     const p2Chars = state.players[1].characters;
-    const ostisenKey = Object.keys(p2Chars).find(k => p2Chars[k].definitionId === OSTISEN)!;
+    const ostisenKey = (Object.keys(p2Chars) as CardInstanceId[]).find(k => p2Chars[k].definitionId === OSTISEN)!;
     const p2HazardId = p2Chars[ostisenKey].hazards[0].instanceId;
     expect(new Set(discardTargetIds)).toEqual(new Set([p1HazardId, p2HazardId]));
   });

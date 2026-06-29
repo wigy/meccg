@@ -145,7 +145,7 @@ function handleHavenJoinAttack(state: GameState, action: GameAction, combat: Com
   const targetCompany = companyById(player.companies, offer.targetCompanyId);
   if (!originCompany || !targetCompany) return { state, error: 'Company not found' };
 
-  const charInPlay = player.characters[action.characterId as string];
+  const charInPlay = player.characters[action.characterId];
   if (!charInPlay) return { state, error: 'Character not in play' };
 
   // Discard attached allies if configured
@@ -603,7 +603,7 @@ function resolveStrikeCore(
   // Look up combatant stats — may be a character or an ally (CoE rule 2.V.2.2)
   const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defPlayer = preAppliedDefender ?? state.players[defPlayerIndex];
-  const charData = defPlayer.characters[strike.characterId as string];
+  const charData = defPlayer.characters[strike.characterId];
   const company = companyById(defPlayer.companies, combat.companyId);
   const allyMatch = !charData && company
     ? findAllyInCompany(defPlayer, company.characters, strike.characterId)
@@ -734,7 +734,7 @@ function resolveStrikeCore(
   // rolls to determine whether the shield is discarded.
   const absorbWoundItem = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && !takePrisonerResult && !trollPursePrisoner && charData
     ? charData.items.find(item => {
-        const def = state.cardPool[item.definitionId as string] as { effects?: readonly AbsorbWoundEffect[] } | undefined;
+        const def = state.cardPool[item.definitionId] as { effects?: readonly AbsorbWoundEffect[] } | undefined;
         return (def?.effects ?? []).some(e => e.type === 'absorb-wound');
       })
     : null;
@@ -797,7 +797,7 @@ function resolveStrikeCore(
   const newCharacters = { ...workingDefender.characters };
 
   if (allyMatch) {
-    const hostChar = newCharacters[allyMatch.hostCharId as string];
+    const hostChar = newCharacters[allyMatch.hostCharId];
     if (hostChar) {
       let newAllyStatus = allyMatch.ally.status;
       if (tapOnNonWounded && newAllyStatus === CardStatus.Untapped) {
@@ -811,7 +811,7 @@ function resolveStrikeCore(
       const newAllies = hostChar.allies.map(a =>
         a.instanceId === strike.characterId ? { ...a, status: newAllyStatus } : a,
       );
-      newCharacters[allyMatch.hostCharId as string] = { ...hostChar, allies: newAllies };
+      newCharacters[allyMatch.hostCharId] = { ...hostChar, allies: newAllies };
     }
   } else {
     if (takePrisonerResult || trollPursePrisoner) {
@@ -821,16 +821,16 @@ function resolveStrikeCore(
       logDetail(`take-prisoner: ${strike.characterId as string} is taken prisoner by ${captor as string}`);
     } else {
       if (tapOnNonWounded && charData.status === CardStatus.Untapped) {
-        newCharacters[strike.characterId as string] = { ...charData, status: CardStatus.Tapped };
+        newCharacters[strike.characterId] = { ...charData, status: CardStatus.Tapped };
       }
       if (result === 'wounded' && !combat.detainment) {
-        newCharacters[strike.characterId as string] = {
-          ...(newCharacters[strike.characterId as string] ?? charData),
+        newCharacters[strike.characterId] = {
+          ...(newCharacters[strike.characterId] ?? charData),
           status: CardStatus.Inverted,
         };
       } else if (result === 'wounded' && combat.detainment) {
-        newCharacters[strike.characterId as string] = {
-          ...(newCharacters[strike.characterId as string] ?? charData),
+        newCharacters[strike.characterId] = {
+          ...(newCharacters[strike.characterId] ?? charData),
           status: CardStatus.Tapped,
         };
       }
@@ -841,10 +841,10 @@ function resolveStrikeCore(
       // allies) regardless of strike outcome; wounded characters are now
       // inverted (not untapped) so are unaffected, as are avatars (mind null).
       if (combat.tapLowMindAfterStrike && charDef && isCharacterCard(charDef) && charDef.mind !== null) {
-        const finalChar = newCharacters[strike.characterId as string] ?? charData;
+        const finalChar = newCharacters[strike.characterId] ?? charData;
         if (charDef.mind <= combat.strikeProwess && finalChar.status === CardStatus.Untapped) {
           logDetail(`tap-low-mind: ${charLabel} mind ${charDef.mind} ≤ strike prowess ${combat.strikeProwess} — tapping following the strike`);
-          newCharacters[strike.characterId as string] = { ...finalChar, status: CardStatus.Tapped };
+          newCharacters[strike.characterId] = { ...finalChar, status: CardStatus.Tapped };
         }
       }
     }
@@ -900,7 +900,7 @@ function resolveStrikeCore(
     if (discardItemEffect) {
       const companyCharIds = company?.characters ?? [];
       const allItems: ItemInPlay[] = companyCharIds.flatMap(charId => {
-        const ch = newPlayers[defPlayerIndex].characters[charId as string];
+        const ch = newPlayers[defPlayerIndex].characters[charId];
         return ch ? [...ch.items] : [];
       });
       if (allItems.length > 0) {
@@ -950,7 +950,7 @@ function eliminateCombatantFromStrike(
   const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
   const strike = combat.strikeAssignments[combat.currentStrikeIndex];
-  const charData = defPlayer.characters[strike.characterId as string];
+  const charData = defPlayer.characters[strike.characterId];
   const company = companyById(defPlayer.companies, combat.companyId);
   const allyMatch = !charData && company
     ? findAllyInCompany(defPlayer, company.characters, strike.characterId)
@@ -973,7 +973,7 @@ function eliminateCombatantFromStrike(
 
   if (allyMatch) {
     // Ally eliminated — remove from host character and send to eliminated pile.
-    const hostChar = newPlayerData.characters[allyMatch.hostCharId as string];
+    const hostChar = newPlayerData.characters[allyMatch.hostCharId];
     if (hostChar) {
       const newAllies = hostChar.allies.filter(a => a.instanceId !== strike.characterId);
       newPlayerData.characters = {
@@ -1019,7 +1019,7 @@ function eliminateCombatantFromStrike(
   }
   newPlayers2[1 - defPlayerIndex] = { ...hazardPlayerElim, discardPile: hazardDiscardElim };
 
-  const { [strike.characterId as string]: _, ...remainingChars } = newPlayers2[defPlayerIndex].characters;
+  const { [strike.characterId]: _, ...remainingChars } = newPlayers2[defPlayerIndex].characters;
   const prunedChars = pruneLeaderFollowers(remainingChars, strike.characterId, charData.controlledBy);
   newPlayers2[defPlayerIndex] = { ...newPlayers2[defPlayerIndex], characters: prunedChars };
 
@@ -1030,7 +1030,7 @@ function eliminateCombatantFromStrike(
     ? company.characters
       .filter(ch => ch !== strike.characterId)
       .filter(ch => {
-        const cd = newPlayerData.characters[ch as string];
+        const cd = newPlayerData.characters[ch];
         return cd && cd.status !== CardStatus.Inverted;
       })
     : [];
@@ -1122,7 +1122,7 @@ function resolveStrikeCvCC(
   // Look up attacker character
   const atkPlayerIdx = getPlayerIndex(state, combat.attackingPlayerId);
   const atkPlayer = state.players[atkPlayerIdx];
-  const atkCharData = atkPlayer.characters[strike.attackingCharacterId as string];
+  const atkCharData = atkPlayer.characters[strike.attackingCharacterId];
   if (!atkCharData) return { state, error: `Attacking character ${strike.attackingCharacterId as string} not found` };
   const atkCharDef = defById(state, atkCharData.definitionId);
   const atkCharName = (atkCharDef as { name?: string } | undefined)?.name ?? (strike.attackingCharacterId as string);
@@ -1130,7 +1130,7 @@ function resolveStrikeCvCC(
   // Look up defender character
   const defPlayerIdx = getPlayerIndex(state, combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIdx];
-  const defCharData = defPlayer.characters[strike.characterId as string];
+  const defCharData = defPlayer.characters[strike.characterId];
   if (!defCharData) return { state, error: `Defending character ${strike.characterId as string} not found` };
   const defCharDef = defById(state, defCharData.definitionId);
   const defCharName = (defCharDef as { name?: string } | undefined)?.name ?? (strike.characterId as string);
@@ -1270,7 +1270,7 @@ function updatePlayerCharacterStatus(
   charId: CardInstanceId,
   status: CardStatus,
 ): import('../types/state-player.js').PlayerState {
-  const ch = player.characters[charId as string];
+  const ch = player.characters[charId];
   if (!ch) return player;
   return {
     ...player,
@@ -1331,7 +1331,7 @@ function handleSupportStrike(state: GameState, action: GameAction, combat: Comba
   const newCombat: CombatState = { ...combat, strikeAssignments: newAssignments };
 
   // Check if supporter is a character
-  const supporterChar = defPlayer.characters[action.supportingCharacterId as string];
+  const supporterChar = defPlayer.characters[action.supportingCharacterId];
   if (supporterChar) {
     const nextState = updatePlayer(state, defPlayerIndex, p =>
       updateCharacter(p, action.supportingCharacterId, c => ({ ...c, status: CardStatus.Tapped })),
@@ -1362,7 +1362,7 @@ function handleCancelStrike(state: GameState, action: GameAction, combat: Combat
   const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
 
-  const cancellerChar = defPlayer.characters[action.cancellerInstanceId as string];
+  const cancellerChar = defPlayer.characters[action.cancellerInstanceId];
   const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
 
   let nextState: GameState;
@@ -1510,7 +1510,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     const strike2 = combat.strikeAssignments[combat.currentStrikeIndex];
     if (strike2 && combat.creatureRace) {
       const defIdx2 = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
-      const charData2 = stateWithRoll.players[defIdx2].characters[strike2.characterId as string];
+      const charData2 = stateWithRoll.players[defIdx2].characters[strike2.characterId];
       if (charData2) {
         const inPlayNames2 = buildInPlayNames(stateWithRoll);
         const enemy2 = { race: combat.creatureRace, name: '', prowess: combat.strikeProwess, body: combat.creatureBody };
@@ -1550,7 +1550,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
     const defPlayerIndex = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
     const defPlayer = stateWithRoll.players[defPlayerIndex];
-    const charData = defPlayer.characters[strike.characterId as string];
+    const charData = defPlayer.characters[strike.characterId];
     const company = companyById(defPlayer.companies, combat.companyId);
     const allyMatch = !charData && company
       ? findAllyInCompany(defPlayer, company.characters, strike.characterId)
@@ -1558,7 +1558,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
     if (!charData && !allyMatch) return { state, error: 'Character not found for body check' };
 
     const targetDefId = charData?.definitionId ?? allyMatch!.ally.definitionId;
-    const charDef2 = stateWithRoll.cardPool[targetDefId as string] as { body?: number } | undefined;
+    const charDef2 = stateWithRoll.cardPool[targetDefId] as { body?: number } | undefined;
     // Allies with an instance stat override (e.g. a creature converted by
     // Ready to His Will) use that body; otherwise fall back to the definition.
     const allyOverrideBody = allyMatch ? allyEffectiveBody(stateWithRoll, allyMatch.ally) : undefined;
@@ -1629,12 +1629,12 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
           hazardDiscardRW = [...hazardDiscardRW, toCardInstance(hazard)];
         }
         newPlayersRW[1 - defPlayerIndex] = { ...hazardPlayerRW, discardPile: hazardDiscardRW };
-        const { [strike.characterId as string]: _rw, ...remainingCharsRW } = newPlayerDataRW.characters;
+        const { [strike.characterId]: _rw, ...remainingCharsRW } = newPlayerDataRW.characters;
         // Revert followers to general influence
         const updatedCharsRW = { ...remainingCharsRW };
         for (const followerId of charData.followers) {
-          const follower = updatedCharsRW[followerId as string];
-          if (follower) updatedCharsRW[followerId as string] = { ...follower, controlledBy: 'general' };
+          const follower = updatedCharsRW[followerId];
+          if (follower) updatedCharsRW[followerId] = { ...follower, controlledBy: 'general' };
         }
         newPlayerDataRW.characters = pruneLeaderFollowers(updatedCharsRW, strike.characterId, charData.controlledBy);
         // Record the returned Ringwraith's definition ID for reveal restrictions
@@ -1661,7 +1661,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         : [];
       if ((discardBodyCheckValues).includes(effectiveRoll)) {
         const isProtected = charData.items.some(item => {
-          const itemDef = state.cardPool[item.definitionId as string];
+          const itemDef = state.cardPool[item.definitionId];
           return getCardEffects(itemDef).some(e => e.type === 'protect-from-body-check');
         });
         if (isProtected) {
@@ -1712,12 +1712,12 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
           hazardDiscardDiscard = [...hazardDiscardDiscard, toCardInstance(hazard)];
         }
         newPlayersDiscard[1 - defPlayerIndex] = { ...hazardPlayerDiscard, discardPile: hazardDiscardDiscard };
-        const { [strike.characterId as string]: _dchar, ...remainingCharsDiscard } = newPlayerDataDiscard.characters;
+        const { [strike.characterId]: _dchar, ...remainingCharsDiscard } = newPlayerDataDiscard.characters;
         // Revert followers to general influence
         const updatedCharsDiscard = { ...remainingCharsDiscard };
         for (const followerId of charData.followers) {
-          const follower = updatedCharsDiscard[followerId as string];
-          if (follower) updatedCharsDiscard[followerId as string] = { ...follower, controlledBy: 'general' };
+          const follower = updatedCharsDiscard[followerId];
+          if (follower) updatedCharsDiscard[followerId] = { ...follower, controlledBy: 'general' };
         }
         newPlayerDataDiscard.characters = pruneLeaderFollowers(updatedCharsDiscard, strike.characterId, charData.controlledBy);
         newPlayersDiscard[defPlayerIndex] = newPlayerDataDiscard;
@@ -1779,12 +1779,12 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
             logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
             newPlayers3[1 - defPlayerIndex] = { ...newPlayers3[1 - defPlayerIndex], discardPile: [...newPlayers3[1 - defPlayerIndex].discardPile, toCardInstance(hazard)] };
           }
-          const { [strike.characterId as string]: _disc, ...remainingCharsDisc } = newPlayerData2.characters;
+          const { [strike.characterId]: _disc, ...remainingCharsDisc } = newPlayerData2.characters;
           // Revert followers to general influence
           const updatedCharsDisc = { ...remainingCharsDisc };
           for (const followerId of charData.followers) {
-            const follower = updatedCharsDisc[followerId as string];
-            if (follower) updatedCharsDisc[followerId as string] = { ...follower, controlledBy: 'general' };
+            const follower = updatedCharsDisc[followerId];
+            if (follower) updatedCharsDisc[followerId] = { ...follower, controlledBy: 'general' };
           }
           newPlayerData2.characters = pruneLeaderFollowers(updatedCharsDisc, strike.characterId, charData.controlledBy);
           newPlayers3[defPlayerIndex] = newPlayerData2;
@@ -1813,7 +1813,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
 
     const atkPlayerIdx = getPlayerIndex(stateWithRoll, combat.attackingPlayerId);
     const atkPlayer = stateWithRoll.players[atkPlayerIdx];
-    const charData = atkPlayer.characters[strike.attackingCharacterId as string];
+    const charData = atkPlayer.characters[strike.attackingCharacterId];
     if (!charData) return { state, error: 'CvCC body check: attacking character not found' };
 
     const charDef = defById(stateWithRoll, charData.definitionId);
@@ -1910,7 +1910,7 @@ function handleShieldDiscardRoll(state: GameState, action: GameAction, combat: C
     const defPlayerIndex = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
     const defPlayer = stateWithRoll.players[defPlayerIndex];
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
-    const charData = defPlayer.characters[strike.characterId as string];
+    const charData = defPlayer.characters[strike.characterId];
 
     if (charData) {
       const shieldItem = charData.items.find(i => i.instanceId === combat.shieldAbsorbItemId);
@@ -1922,7 +1922,7 @@ function handleShieldDiscardRoll(state: GameState, action: GameAction, combat: C
           ...p,
           characters: {
             ...p.characters,
-            [strike.characterId as string]: { ...charData, items: newItems },
+            [strike.characterId]: { ...charData, items: newItems },
           },
           discardPile: newDiscardPile,
         }));
@@ -2010,7 +2010,7 @@ function handleCancelAttackByInPlayCharacter(
   const company = companyById(defPlayer.companies, combat.companyId);
   if (!company) return { state, error: 'Defending company not found' };
 
-  const charData = defPlayer.characters[action.cardInstanceId as string];
+  const charData = defPlayer.characters[action.cardInstanceId];
   if (!charData) return { state, error: 'Cancel-attack source character not found' };
   if (!company.characters.includes(action.cardInstanceId)) {
     return { state, error: 'Cancel-attack character is not in the defending company' };
@@ -2051,7 +2051,7 @@ function handleCancelAttackByInPlayItem(
 
   const { item, hostCharId } = found;
 
-  const itemDef = state.cardPool[item.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+  const itemDef = state.cardPool[item.definitionId] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
   const itemName = itemDef?.name ?? (item.definitionId as string);
   const cancelEffect = itemDef?.effects?.find(
     (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
@@ -2067,7 +2067,7 @@ function handleCancelAttackByInPlayItem(
     return { state, error: 'Item must be untapped to cancel attack' };
   }
 
-  const bearerData = defPlayer.characters[hostCharId as string];
+  const bearerData = defPlayer.characters[hostCharId];
   if (!bearerData) return { state, error: 'Bearer character not found' };
   if (tapsBearer && bearerData.status !== CardStatus.Untapped) {
     return { state, error: 'Bearer must be untapped to cancel attack with this item' };
@@ -2124,7 +2124,7 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
     // Source may be an in-play character tapping to cancel (e.g. Adûnaphel
     // the Ringwraith's Darkhaven tap), an in-play ally (e.g. The Warg-king),
     // or an in-play item with self-and-bearer cost (e.g. Torque of Hues).
-    if (defPlayer.characters[action.cardInstanceId as string]) {
+    if (defPlayer.characters[action.cardInstanceId]) {
       return handleCancelAttackByInPlayCharacter(state, action, combat);
     }
     // Check items before falling through to ally handler.
@@ -2150,7 +2150,7 @@ function handleCancelAttack(state: GameState, action: GameAction, combat: Combat
   const exemptRace = cancelEffect?.costExemptRace;
   let costExempt = false;
   if (action.scoutInstanceId && exemptRace) {
-    const scoutChar = defPlayer.characters[action.scoutInstanceId as string];
+    const scoutChar = defPlayer.characters[action.scoutInstanceId];
     const scoutDef = scoutChar ? defById(state, scoutChar.definitionId) : undefined;
     if (scoutDef && isCharacterCard(scoutDef) && scoutDef.race === exemptRace) {
       costExempt = true;
@@ -2276,7 +2276,7 @@ function handleConvertCreatureToAlly(state: GameState, action: GameAction, comba
   if (!company || !company.characters.includes(action.controllingCharacterId)) {
     return { state, error: 'Controlling character not in defending company' };
   }
-  const controller = defPlayer.characters[action.controllingCharacterId as string];
+  const controller = defPlayer.characters[action.controllingCharacterId];
   if (!controller) return { state, error: 'Controlling character not found' };
   if (effect.controllerTaps && controller.status !== CardStatus.Untapped) {
     return { state, error: 'Controlling character must be untapped to take control' };
@@ -2466,7 +2466,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
       const company = companyById(defPlayer.companies, combat.companyId);
       const anyUntapped = company
         ? company.characters.some(charId => {
-            const ch = defPlayer.characters[charId as string];
+            const ch = defPlayer.characters[charId];
             return ch && ch.status === CardStatus.Untapped;
           })
         : false;
@@ -2600,7 +2600,7 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
     return { state, error: 'Cannot tap the defending character to cancel' };
   }
 
-  const charData = defPlayer.characters[action.characterId as string];
+  const charData = defPlayer.characters[action.characterId];
   if (!charData || charData.status !== CardStatus.Untapped) {
     return { state, error: 'Character must be untapped' };
   }
@@ -2610,7 +2610,7 @@ function handleCancelByTap(state: GameState, action: GameAction, combat: CombatS
   // Tap the character
   const newPlayers = clonePlayers(state);
   const newCharacters = { ...defPlayer.characters };
-  newCharacters[action.characterId as string] = { ...charData, status: CardStatus.Tapped };
+  newCharacters[action.characterId] = { ...charData, status: CardStatus.Tapped };
   newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
 
   // Remove one full attack's worth of strike assignments.
@@ -2684,7 +2684,7 @@ function handleHalveStrikes(state: GameState, action: GameAction, combat: Combat
   if (!discardedCard) return { state, error: 'Card not in hand' };
 
   const originalStrikes = combat.strikesTotal;
-  const cardDef = state.cardPool[discardedCard.definitionId as string];
+  const cardDef = state.cardPool[discardedCard.definitionId];
   const halveEffect = getCardEffects(cardDef).find(
     (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
   );
@@ -2731,7 +2731,7 @@ function handleProtectFromStrikeAssignment(state: GameState, action: GameAction,
   const playedCard = findById(defPlayer.hand, action.cardInstanceId);
   if (!playedCard) return { state, error: 'Card not in hand' };
 
-  const targetChar = defPlayer.characters[action.targetCharacterId as string];
+  const targetChar = defPlayer.characters[action.targetCharacterId];
   if (!targetChar) return { state, error: 'Target character not in defending company' };
 
   const cardName_ = cardName(state, playedCard.definitionId);
@@ -2774,7 +2774,7 @@ function handleTapItemForStrike(state: GameState, action: GameAction, combat: Co
   const defPlayerIndex = getPlayerIndex(state, action.player);
   const defPlayer = state.players[defPlayerIndex];
 
-  if (!defPlayer.characters[action.characterInstanceId as string]) return { state, error: 'Character not found' };
+  if (!defPlayer.characters[action.characterInstanceId]) return { state, error: 'Character not found' };
 
   const tapped = updateAttachment(defPlayer, 'items', action.cardInstanceId, it => ({ ...it, status: CardStatus.Tapped }));
   if (!tapped || tapped.charId !== action.characterInstanceId) return { state, error: 'Item not found on character' };
@@ -2856,7 +2856,7 @@ function handleTapAllyCombatBoost(state: GameState, action: GameAction, combat: 
   let applied = 0;
   for (const boostEffect of boostEffects) {
     for (const charId of company.characters) {
-      const charData = newState.players[playerIndex].characters[charId as string];
+      const charData = newState.players[playerIndex].characters[charId];
       if (!charData) continue;
       const charCardDef = defById(newState, charData.definitionId);
       if (!charCardDef) continue;
@@ -2966,7 +2966,7 @@ function handleModifyAttack(state: GameState, action: GameAction, combat: Combat
   // --- In-play item path ---
   if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can modify attack with an item' };
 
-  const charData = player.characters[action.characterInstanceId as string];
+  const charData = player.characters[action.characterInstanceId];
   if (!charData) return { state, error: 'Character not found' };
 
   const itemIndex = charData.items.findIndex(it => it.instanceId === action.cardInstanceId);
@@ -3141,14 +3141,14 @@ function handleSalvageItem(state: GameState, action: GameAction, combat: CombatS
   const item = salvageItems[itemIndex];
   const newPlayers = clonePlayers(state);
   const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
-  const recipientChar = newPlayers[defIdx].characters[action.recipientCharacterId as string];
+  const recipientChar = newPlayers[defIdx].characters[action.recipientCharacterId];
   if (!recipientChar) return { state, error: 'Recipient character not found' };
 
   logDetail(`Salvaging item ${item.instanceId as string} to character ${action.recipientCharacterId as string}`);
 
   // Transfer the item to the recipient character
   const newCharacters = { ...newPlayers[defIdx].characters };
-  newCharacters[action.recipientCharacterId as string] = {
+  newCharacters[action.recipientCharacterId] = {
     ...recipientChar,
     items: [...recipientChar.items, item],
   };
@@ -3291,7 +3291,7 @@ function handleTakeTrophy(state: GameState, action: GameAction, combat: CombatSt
 
   const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
-  const char = defPlayer.characters[action.characterId as string];
+  const char = defPlayer.characters[action.characterId];
   if (!char) return { state, error: 'Trophy character not found' };
 
   // Find the creature instance in the kill pile (it was moved there in finalizeCombat)
@@ -3532,7 +3532,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
         const defPlayer = stateAfterCombat.players[actorIndex];
         const company = companyById(defPlayer?.companies ?? [], companyId);
         const hasItems = (company?.characters ?? []).some(charId => {
-          const ch = defPlayer.characters[charId as string];
+          const ch = defPlayer.characters[charId];
           return ch && ch.items.length > 0;
         });
         if (hasItems) {
@@ -3569,7 +3569,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     if (company) {
       const scope = companySubphaseScope(state.phaseState.phase, company.id);
       for (const bearerInstId of company.characters) {
-        const bearer = defPlayer.characters[bearerInstId as string];
+        const bearer = defPlayer.characters[bearerInstId];
         if (!bearer) continue;
         for (const hazard of bearer.hazards) {
           const hazardDef = defById(stateAfterCombat, hazard.definitionId) as
@@ -3605,7 +3605,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     let defPlayer = stateAfterCombat.players[defPlayerIdx];
     let anyDiscarded = false;
     for (const charId of woundedCharIds) {
-      const charData = defPlayer.characters[charId as string];
+      const charData = defPlayer.characters[charId];
       if (!charData) continue;
       const alliesToDiscard: (typeof charData.allies)[number][] = [];
       for (const ally of charData.allies) {
@@ -3641,7 +3641,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
   if (combat.attackSource.type === 'stay-her-appetite-attack' && !allDefeated) {
     const { allyInstanceId, allyOwnerPlayerIndex, hostCharacterInstanceId } = combat.attackSource;
     stateAfterCombat = updatePlayer(stateAfterCombat, allyOwnerPlayerIndex, p => {
-      const hostChar = p.characters[hostCharacterInstanceId as string];
+      const hostChar = p.characters[hostCharacterInstanceId];
       if (!hostChar) {
         logDetail(`LE-140 Stay Her Appetite: host character ${hostCharacterInstanceId as string} not found — cannot discard ally`);
         return p;
@@ -3748,7 +3748,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       const toDiscard: import('../types/state-cards.js').CardInPlay[] = [];
       const remaining: import('../types/state-cards.js').CardInPlay[] = [];
       for (const card of player.cardsInPlay) {
-        const def = stateAfterCombat.cardPool[card.definitionId as string] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+        const def = stateAfterCombat.cardPool[card.definitionId] as { name?: string; effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
         const defeatedEvents = getOnEventEffects(def, 'attack-defeated');
         let shouldDiscard = false;
         for (const ev of defeatedEvents) {
@@ -3922,7 +3922,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       const company = companyById(defPlayer.companies, combat.companyId);
       const anyUntapped = company
         ? company.characters.some(charId => {
-            const ch = defPlayer.characters[charId as string];
+            const ch = defPlayer.characters[charId];
             return ch && ch.status === CardStatus.Untapped;
           })
         : false;
@@ -4100,8 +4100,8 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
     const defIdx3 = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
     const defPlayer3 = stateAfterCombat.players[defIdx3];
     // Find Orc/Troll (not half-orc) characters that faced at least one strike
-    const facedStrikeCharIds = new Set<string>(
-      combat.strikeAssignments.map(a => a.characterId as string),
+    const facedStrikeCharIds = new Set<CardInstanceId>(
+      combat.strikeAssignments.map(a => a.characterId),
     );
     const trophyEligible: import('../types/common.js').CardInstanceId[] = [];
     for (const charId of facedStrikeCharIds) {
@@ -4112,7 +4112,7 @@ function finalizeCombat(state: GameState, effects: GameEffect[] = []): ReducerRe
       // Half-orcs count as Orcs for most purposes but may NOT take trophies
       // (CoE 3.IV.1.1; glossary "Half-orc").
       if ((def.race === Race.Orc || def.race === Race.Troll) && !isHalfOrc(def)) {
-        trophyEligible.push(charId as import('../types/common.js').CardInstanceId);
+        trophyEligible.push(charId);
       }
     }
     if (trophyEligible.length > 0) {
@@ -4185,7 +4185,7 @@ function applyPostAttackEffects(
   for (const effect of effects) {
     // Tap if untapped
     if (effect.tapIfUntapped) {
-      const char = s.players[defIdx].characters[effect.targetCharacterId as string];
+      const char = s.players[defIdx].characters[effect.targetCharacterId];
       if (char && char.status === CardStatus.Untapped) {
         const newPlayers: [PlayerState, PlayerState] = [s.players[0], s.players[1]];
         newPlayers[defIdx] = {
@@ -4287,7 +4287,7 @@ function discardWoundedItems(
   const discarded: { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] = [];
 
   for (const charId of woundedCharIds) {
-    const charData = newCharacters[charId as string];
+    const charData = newCharacters[charId];
     if (!charData) continue;
 
     const matching = charData.items.filter(item => {
@@ -4300,7 +4300,7 @@ function discardWoundedItems(
     if (matching.length === 0) continue;
 
     const remaining = charData.items.filter(item => !matching.some(m => m.instanceId === item.instanceId));
-    newCharacters[charId as string] = { ...charData, items: remaining };
+    newCharacters[charId] = { ...charData, items: remaining };
 
     for (const item of matching) {
       discarded.push(toCardInstance(item));
@@ -4338,7 +4338,7 @@ function discardWoundedCharacters(
 
   for (const charId of woundedCharIds) {
     const player = stateOut.players[defIdx];
-    const charData = player?.characters[charId as string];
+    const charData = player?.characters[charId];
     if (!charData) continue;
 
     const charDefId = resolveInstanceId(stateOut, charId);
@@ -4375,12 +4375,12 @@ function discardWoundedCharacters(
       logDetail(`${sourceName}: discarding hazard ${hazard.instanceId as string} from discarded character`);
       cloned[1 - defIdx] = { ...cloned[1 - defIdx], discardPile: [...cloned[1 - defIdx].discardPile, toCardInstance(hazard)] };
     }
-    const { [charId as string]: _removed, ...remainingChars } = newPlayerData.characters;
+    const { [charId]: _removed, ...remainingChars } = newPlayerData.characters;
     // Revert followers to general influence
     const updatedChars = { ...remainingChars };
     for (const followerId of charData.followers) {
-      const follower = updatedChars[followerId as string];
-      if (follower) updatedChars[followerId as string] = { ...follower, controlledBy: 'general' };
+      const follower = updatedChars[followerId];
+      if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general' };
     }
     newPlayerData.characters = updatedChars;
 
@@ -4406,7 +4406,7 @@ function recordHazardEncountered(
   const creatureDefId = resolveInstanceId(originalState, combat.attackSource.instanceId);
   if (!creatureDefId) return stateAfterCombat;
 
-  const creatureDef = originalState.cardPool[creatureDefId as string] as { name?: string } | undefined;
+  const creatureDef = originalState.cardPool[creatureDefId] as { name?: string } | undefined;
   const creatureName = creatureDef?.name;
   if (!creatureName) return stateAfterCombat;
 
@@ -4440,7 +4440,7 @@ function getAttackSourceCard(
   if (combat.attackSource.type === 'creature' || combat.attackSource.type === 'played-auto-attack') {
     const creatureDefId = resolveInstanceId(state, combat.attackSource.instanceId);
     if (!creatureDefId) return undefined;
-    return state.cardPool[creatureDefId as string] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+    return state.cardPool[creatureDefId] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
   }
   return undefined;
 }
@@ -4484,7 +4484,7 @@ function handleCombatPlayHazard(
   const defenderPlayer = state.players[defenderIndex];
   const targetCharId = action.targetCharacterId;
   if (!targetCharId) return { state, error: 'targetCharacterId required for combat hazard play' };
-  const targetChar = defenderPlayer.characters[targetCharId as string];
+  const targetChar = defenderPlayer.characters[targetCharId];
   if (!targetChar) return { state, error: 'target character not in defending player' };
 
   // Remove card from hand
@@ -4601,7 +4601,7 @@ function applyTakePrisoner(
   ];
 
   const defPlayer = state.players[defPlayerIndex];
-  const charData = defPlayer.characters[charInstanceId as string];
+  const charData = defPlayer.characters[charInstanceId];
   if (!charData) return state;
 
   // Discard all non-ring items from the prisoner (rule 8.35).
@@ -4634,11 +4634,12 @@ function applyTakePrisoner(
 
   let newState = updatePlayer(state, defPlayerIndex, p => {
     // Revert each follower to general influence.
-    const updatedChars = { ...p.characters, [charInstanceId as string]: newCharData };
+    const updatedChars: Record<CardInstanceId, CharacterInPlay> = { ...p.characters };
+    updatedChars[charInstanceId] = newCharData;
     for (const followerId of followerIds) {
-      const follower = updatedChars[followerId as string];
+      const follower = updatedChars[followerId];
       if (follower && follower.controlledBy === charInstanceId) {
-        updatedChars[followerId as string] = { ...follower, controlledBy: 'general' };
+        updatedChars[followerId] = { ...follower, controlledBy: 'general' };
       }
     }
     return {
@@ -4697,7 +4698,7 @@ function applyTakePrisonerAtSite(
   const hazardPlayerIndex = 1 - defPlayerIndex;
   const hazardPlayerState = state.players[hazardPlayerIndex];
   const defPlayer = state.players[defPlayerIndex];
-  const charData = defPlayer.characters[charInstanceId as string];
+  const charData = defPlayer.characters[charInstanceId];
   if (!charData) return state;
 
   // The host (Troll-purse) stays in the hazard player's cardsInPlay.
@@ -4736,11 +4737,12 @@ function applyTakePrisonerAtSite(
   };
 
   let newState = updatePlayer(state, defPlayerIndex, p => {
-    const updatedChars = { ...p.characters, [charInstanceId as string]: newCharData };
+    const updatedChars: Record<CardInstanceId, CharacterInPlay> = { ...p.characters };
+    updatedChars[charInstanceId] = newCharData;
     for (const followerId of followerIds) {
-      const follower = updatedChars[followerId as string];
+      const follower = updatedChars[followerId];
       if (follower && follower.controlledBy === charInstanceId) {
-        updatedChars[followerId as string] = { ...follower, controlledBy: 'general' };
+        updatedChars[followerId] = { ...follower, controlledBy: 'general' };
       }
     }
     return {

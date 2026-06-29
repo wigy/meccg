@@ -52,7 +52,7 @@ describe('Gildor Inglorion (tw-158)', () => {
   test('+2 prowess in combat against Orcs', () => {
     const state = makeGildorState();
     const gildorId = findCharInstanceId(state, RESOURCE_PLAYER, GILDOR_INGLORION);
-    const gildor = state.players[RESOURCE_PLAYER].characters[gildorId as string];
+    const gildor = state.players[RESOURCE_PLAYER].characters[gildorId];
     const gildorDef = pool[GILDOR_INGLORION as string] as CharacterCard;
 
     const prowessVsOrc = computeCombatProwess(state, gildor, gildorDef, 'orc');
@@ -63,7 +63,7 @@ describe('Gildor Inglorion (tw-158)', () => {
   test('no prowess bonus against non-Orc enemies', () => {
     const state = makeGildorState();
     const gildorId = findCharInstanceId(state, RESOURCE_PLAYER, GILDOR_INGLORION);
-    const gildor = state.players[RESOURCE_PLAYER].characters[gildorId as string];
+    const gildor = state.players[RESOURCE_PLAYER].characters[gildorId];
     const gildorDef = pool[GILDOR_INGLORION as string] as CharacterCard;
 
     expect(computeCombatProwess(state, gildor, gildorDef, 'troll')).toBe(gildorDef.prowess);

@@ -244,7 +244,7 @@ describe('Indûr the Ringwraith (le-54)', () => {
 
     // Sanity: Indûr really is controlled by Khamûl (a follower).
     const indurId = findCharInstanceId(state, RESOURCE_PLAYER, INDUR);
-    expect(state.players[RESOURCE_PLAYER].characters[indurId as string].controlledBy).not.toBe('general');
+    expect(state.players[RESOURCE_PLAYER].characters[indurId].controlledBy).not.toBe('general');
 
     const actions = viableActions(state, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === fetchActionId);
@@ -269,7 +269,7 @@ describe('Indûr the Ringwraith (le-54)', () => {
     });
 
     const indurId = findCharInstanceId(state, RESOURCE_PLAYER, INDUR);
-    expect(state.players[RESOURCE_PLAYER].characters[indurId as string].controlledBy).toBe('general');
+    expect(state.players[RESOURCE_PLAYER].characters[indurId].controlledBy).toBe('general');
 
     const actions = viableActions(state, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === fetchActionId);

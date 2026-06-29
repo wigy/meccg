@@ -16,6 +16,8 @@ import {
   SiteType,
   MovementType,
   WinReason,
+  ById,
+  ByPlayerId,
 } from './common.js';
 // ViewCard is used indirectly via SiteSelectionPlayerState
 import type {
@@ -501,7 +503,7 @@ export interface MovementHazardPhaseState {
    * on them during this turn (CoE rule 7.2.1: only one corruption card per character per turn).
    * Persists across all companies' M/H phases within the same turn.
    */
-  readonly corruptionCardsPlayedPerChar: Readonly<Record<string, true>>;
+  readonly corruptionCardsPlayedPerChar: ById<true>;
 }
 
 /**
@@ -823,7 +825,7 @@ export interface GameOverPhaseState {
   /** The winning player's ID, or null if the game ended in a draw. */
   readonly winner: PlayerId | null;
   /** Final marshalling point totals for each player, keyed by PlayerId. */
-  readonly finalScores: Readonly<Record<string, number>>;
+  readonly finalScores: ByPlayerId<number>;
   /** Players who have acknowledged the result by sending 'finished'. */
   readonly finishedPlayers: readonly string[];
   /**

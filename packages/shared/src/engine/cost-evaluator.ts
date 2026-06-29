@@ -107,7 +107,7 @@ export function applyCost(
       logDetail(`Cost (${label}): tap skipped (no-tap variant)`);
       return { state };
     }
-    const actor = player.characters[actorId as string];
+    const actor = player.characters[actorId];
 
     if (cost.tap === 'self' && sourceCardId && sourceCardId !== actorId) {
       if (!actor) return { error: `applyCost: actor ${actorId as string} not found` };
@@ -151,7 +151,7 @@ export function applyCost(
     if (!sourceCardId || !sourceCardDefId) {
       return { error: `applyCost: discard-self requires sourceCardId and sourceCardDefId in context` };
     }
-    const actor = player.characters[actorId as string];
+    const actor = player.characters[actorId];
     if (!actor) return { error: `applyCost: actor ${actorId as string} not found` };
     return applyDiscardSelf(state, actor, actorId, sourceCardId, sourceCardDefId, playerIndex, label);
   }
@@ -174,7 +174,7 @@ export function applyCost(
   }
 
   if (cost.wound) {
-    const actor = player.characters[actorId as string];
+    const actor = player.characters[actorId];
     if (!actor) return { error: `applyCost: actor ${actorId as string} not found` };
     const newState = updatePlayer(state, playerIndex, p => ({
       ...p,

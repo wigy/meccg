@@ -307,7 +307,7 @@ function checkOneRingWin(state: GameState): PlayerId | null {
 
     // Company is at Barad-dûr — check for The One Ring in any character's items
     for (const charId of company.characters) {
-      const char = activePlayer.characters[charId as string];
+      const char = activePlayer.characters[charId];
       if (!char) continue;
       for (const item of char.items) {
         if ((item.definitionId as string) === oneRingId) {

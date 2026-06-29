@@ -39,7 +39,7 @@ describe('Rule 8.32 — Detainment Attacks', () => {
     const after = executeAction(state, PLAYER_1, 'resolve-strike', 3, false);
 
     // Character is tapped, not inverted.
-    expect(after.players[RESOURCE_PLAYER].characters[characterId as string].status).toBe(CardStatus.Tapped);
+    expect(after.players[RESOURCE_PLAYER].characters[characterId].status).toBe(CardStatus.Tapped);
     // No body-check phase entered.
     expect(after.combat?.phase).not.toBe('body-check');
   });
@@ -79,7 +79,7 @@ describe('Rule 8.32 — Detainment Attacks', () => {
     // Tap mode: non-wounded tie taps the character.
     const { state, characterId } = makeDetainmentStrikeState({ detainment: true, strikeProwess: 10 });
     const after = executeAction(state, PLAYER_1, 'resolve-strike', 1, true);
-    expect(after.players[RESOURCE_PLAYER].characters[characterId as string].status).toBe(CardStatus.Tapped);
+    expect(after.players[RESOURCE_PLAYER].characters[characterId].status).toBe(CardStatus.Tapped);
   });
 
   test('3.II.1.1 — pre-Inverted character hit by detainment strike is not re-wounded / eliminated and no body check runs', () => {
@@ -95,7 +95,7 @@ describe('Rule 8.32 — Detainment Attacks', () => {
     const after = executeAction(state, PLAYER_1, 'resolve-strike', 3, false);
 
     // Character remains present (not eliminated); no body check phase.
-    expect(after.players[RESOURCE_PLAYER].characters[characterId as string]).toBeDefined();
+    expect(after.players[RESOURCE_PLAYER].characters[characterId]).toBeDefined();
     expect(after.combat).toBeNull();
   });
 });

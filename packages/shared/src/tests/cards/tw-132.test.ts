@@ -60,7 +60,7 @@ describe('Bofur (tw-132)', () => {
       ],
     });
     const bofurId = findCharInstanceId(state, RESOURCE_PLAYER, BOFUR);
-    const bofur = state.players[RESOURCE_PLAYER].characters[bofurId as string];
+    const bofur = state.players[RESOURCE_PLAYER].characters[bofurId];
     const bofurDef = pool[BOFUR as string] as CharacterCard;
 
     const prowessVsOrc = computeCombatProwess(state, bofur, bofurDef, 'orc');
@@ -79,7 +79,7 @@ describe('Bofur (tw-132)', () => {
       ],
     });
     const bofurId = findCharInstanceId(state, RESOURCE_PLAYER, BOFUR);
-    const bofur = state.players[RESOURCE_PLAYER].characters[bofurId as string];
+    const bofur = state.players[RESOURCE_PLAYER].characters[bofurId];
     const bofurDef = pool[BOFUR as string] as CharacterCard;
 
     expect(computeCombatProwess(state, bofur, bofurDef, 'troll')).toBe(bofurDef.prowess);

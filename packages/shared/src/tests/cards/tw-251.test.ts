@@ -109,7 +109,7 @@ describe('Gwaihir (tw-251)', () => {
 
     // Gwaihir should be removed from character's allies
     const aragornId = charIdAt(nextState, RESOURCE_PLAYER);
-    expect(nextState.players[0].characters[aragornId as string].allies).toHaveLength(0);
+    expect(nextState.players[0].characters[aragornId].allies).toHaveLength(0);
 
     // Gwaihir should be in player's own discard pile (ally is owned by resource player)
     expectInDiscardPile(nextState, RESOURCE_PLAYER, GWAIHIR);
