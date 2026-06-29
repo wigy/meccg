@@ -5,7 +5,7 @@
  * Includes MP breakdown tooltips and GI (general influence) tooltips.
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay, MarshallingPointTotals } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay, MarshallingPointTotals, CardEffect } from '@meccg/shared';
 import { GENERAL_INFLUENCE, isCharacterCard, computeTournamentScore, computeTournamentBreakdown, Phase } from '@meccg/shared';
 import { seedDiceFromState, restoreDice, clearDice } from './dice.js';
 import { hasRealCards } from './render-debug-panels.js';
@@ -47,14 +47,41 @@ function buildMPTooltip(
 }
 
 /**
- * Build the HTML for the General Influence tooltip table.
- * Shows each character under general influence with their effective mind value
- * (the cost actually counted against GI). When a stat-modifier changes a
- * character's mind from its printed value, the effective mind is shown with the
- * printed mind in parentheses — mirroring the MP breakdown's `adjusted (raw)`
- * format — so the tooltip total matches the engine's GI calculation.
+ * Influence-to-control cost override carried by a character via an attached
+ * `control-restriction` effect (a resource permanent-event played on the
+ * character, e.g. Wizard's Myrmidon wh-84 → cost 3). Mirrors the engine's
+ * `controlCostOf`: when present, this `cost` replaces the bearer's mind for
+ * influence-to-control accounting. Returns `undefined` when no such override is
+ * attached. Resolves item definitions from the card pool by `definitionId` so it
+ * works against the redacted player view (no game state required).
  */
-function buildGITooltip(
+function controlRestrictionCost(
+  char: CharacterInPlay,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): number | undefined {
+  for (const item of char.items) {
+    const def = cardPool[item.definitionId as string];
+    const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
+    if (!effects) continue;
+    for (const e of effects) {
+      if (e.type === 'control-restriction' && typeof e.cost === 'number') return e.cost;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Build the HTML for the General Influence tooltip table.
+ * Shows each character under general influence with the cost actually counted
+ * against GI. A `control-restriction` override (e.g. Wizard's Myrmidon, which
+ * makes its bearer require only 3 influence to control) replaces the bearer's
+ * mind — matching the engine's GI accounting. Otherwise the effective mind is
+ * used. When the counted cost differs from the printed mind (a stat-modifier or
+ * a control-restriction override), it is shown with the printed mind in
+ * parentheses — mirroring the MP breakdown's `adjusted (raw)` format — so the
+ * tooltip total matches the engine's GI calculation.
+ */
+export function buildGITooltip(
   characters: Readonly<Record<string, CharacterInPlay>>,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string {
@@ -63,7 +90,7 @@ function buildGITooltip(
     if (char.controlledBy !== 'general' || char.influenceUnsubtracted) continue;
     const def = cardPool[char.definitionId as string];
     if (!def || !('mind' in def) || def.mind === null) continue;
-    const mind = char.effectiveStats.mind ?? def.mind;
+    const mind = controlRestrictionCost(char, cardPool) ?? char.effectiveStats.mind ?? def.mind;
     entries.push({ name: def.name, mind, raw: def.mind });
   }
   entries.sort((a, b) => b.mind - a.mind);
