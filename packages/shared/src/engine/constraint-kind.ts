@@ -19,6 +19,25 @@ import { activePlayerState } from './reducer-utils.js';
 import { resolveInstanceId } from '../types/state.js';
 
 /**
+ * Site-bound constraint kinds that bind to the site the card is played on
+ * (the explicit play-action site, else the active site-phase company's
+ * current site). All share the same `{ type, siteDefinitionId }` shape and
+ * resolution and differ only in the kind type — e.g. Double-dealing (wh-66),
+ * Guarded Haven (wh-74) / Fortress of Isen (wh-68), Saruman's Machinery (wh-120).
+ */
+const SITE_BOUND_CONSTRAINTS: Record<
+  string,
+  (siteDefinitionId: import('../types/common.js').CardDefinitionId) => import('../types/pending.js').ActiveConstraint['kind']
+> = {
+  'wizardhaven-conversion': siteDefinitionId => ({ type: 'wizardhaven-conversion', siteDefinitionId }),
+  'site-nothing-playable': siteDefinitionId => ({ type: 'site-nothing-playable-as-written', siteDefinitionId }),
+  'cancel-attacks-at-site': siteDefinitionId => ({ type: 'cancel-attacks-at-site', siteDefinitionId }),
+  'cross-alignment-resources-unlocked': siteDefinitionId => ({ type: 'cross-alignment-resources-unlocked', siteDefinitionId }),
+  'site-protected': siteDefinitionId => ({ type: 'site-protected', siteDefinitionId }),
+  'technology-item-unlocked': siteDefinitionId => ({ type: 'technology-item-unlocked', siteDefinitionId }),
+};
+
+/**
  * Build the {@link ActiveConstraint} `kind` payload for a supported
  * constraint name. Returns null when the constraint name is unknown or
  * when required fields are missing from the effect. Shared between the
@@ -30,6 +49,13 @@ export function buildConstraintKind(
   constraintKind: string,
   explicitSiteDefId?: import('../types/common.js').CardDefinitionId,
 ): import('../types/pending.js').ActiveConstraint['kind'] | null {
+  // Site-bound kinds all resolve the played-at site and differ only in type.
+  const siteBoundFactory = SITE_BOUND_CONSTRAINTS[constraintKind];
+  if (siteBoundFactory) {
+    const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
+    if (!siteDefId) return null;
+    return siteBoundFactory(siteDefId);
+  }
   switch (constraintKind) {
     case 'site-phase-do-nothing':
       return { type: 'site-phase-do-nothing' };
@@ -164,46 +190,6 @@ export function buildConstraintKind(
       }
       if (!siteDefId) return null;
       return { type: 'skip-automatic-attacks', siteDefinitionId: siteDefId };
-    }
-    case 'wizardhaven-conversion': {
-      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
-      if (!siteDefId) return null;
-      return { type: 'wizardhaven-conversion', siteDefinitionId: siteDefId };
-    }
-    case 'site-nothing-playable': {
-      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
-      if (!siteDefId) return null;
-      return { type: 'site-nothing-playable-as-written', siteDefinitionId: siteDefId };
-    }
-    case 'cancel-attacks-at-site': {
-      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
-      if (!siteDefId) return null;
-      return { type: 'cancel-attacks-at-site', siteDefinitionId: siteDefId };
-    }
-    case 'cross-alignment-resources-unlocked': {
-      // Double-dealing (wh-66): bind to the site the card is played on. The play
-      // action carries the bound site (`explicitSiteDefId`); these site-targeting
-      // Stage resources are played during the organization phase (rule 5.F1),
-      // where there is no active site-phase company, so prefer the explicit site.
-      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
-      if (!siteDefId) return null;
-      return { type: 'cross-alignment-resources-unlocked', siteDefinitionId: siteDefId };
-    }
-    case 'site-protected': {
-      // Guarded Haven (wh-74) / The Fortress of Isen (wh-68) / Fortress of the
-      // Towers (wh-69): bind to the Wizardhaven the card is played on so the
-      // opponent may not play marshalling-point cards at any version of it.
-      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
-      if (!siteDefId) return null;
-      return { type: 'site-protected', siteDefinitionId: siteDefId };
-    }
-    case 'technology-item-unlocked': {
-      // Saruman's Machinery (wh-120): bind to the protected Isengard / The
-      // White Towers the card is played on so one Technology item may be played
-      // there whether the site is tapped or untapped.
-      const siteDefId = explicitSiteDefId ?? activeCompanySiteDefId(state);
-      if (!siteDefId) return null;
-      return { type: 'technology-item-unlocked', siteDefinitionId: siteDefId };
     }
     default:
       return null;
