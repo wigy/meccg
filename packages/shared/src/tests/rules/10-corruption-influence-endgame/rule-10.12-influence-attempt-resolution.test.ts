@@ -33,9 +33,10 @@ import {
   ARAGORN, LEGOLAS, GIMLI, BILBO, EOWYN,
   GLAMDRING, RESOURCE_PLAYER, HAZARD_PLAYER,
   expectCharStatus, expectCharInPlay, expectCharNotInPlay, getCharacter,
-  expectInDiscardPile, expectNotInHand,
+  expectInDiscardPile, expectNotInHand, attachHazardToChar,
 } from '../../test-helpers.js';
 import type { SitePhaseState, OpponentInfluenceAttemptAction } from '../../test-helpers.js';
+import type { CardDefinitionId } from '../../../index.js';
 
 describe('Rule 10.12 — Resolving an Influence Attempt', () => {
   test('attacker roll taps the influencing character', () => {
@@ -235,5 +236,28 @@ describe('Rule 10.12 — Resolving an Influence Attempt', () => {
     // Eowyn should still be in play, now under GI
     expectCharInPlay(afterDefend, HAZARD_PLAYER, eowynId);
     expect(getCharacter(afterDefend, HAZARD_PLAYER, EOWYN).controlledBy).toBe('general');
+  });
+
+  test('successful influence does not drop a hazard-player-owned hazard on the target (no card disappears)', () => {
+    // Regression: discardInfluencedCard dispatched the influenced character's
+    // hazards by mutating `players[...]` directly, but the final write
+    // overwrote the hazard player's discard with the never-appended
+    // `newHazardDiscard` — so a hazard-player-owned hazard on the character
+    // vanished entirely, violating the "no card instance disappears" invariant.
+    const ORC_GUARD = 'tw-072' as CardDefinitionId; // a hazard-creature
+    const base = buildResolutionState({ attackerCheatRoll: 12 });
+    // Attach a hazard owned by the influencing (hazard) player to the target.
+    const withHazard = attachHazardToChar(base, HAZARD_PLAYER, LEGOLAS, ORC_GUARD, RESOURCE_PLAYER);
+    const legolasId = findCharInstanceId(withHazard, HAZARD_PLAYER, LEGOLAS);
+    const hazardId = withHazard.players[HAZARD_PLAYER].characters[legolasId].hazards[0].instanceId;
+
+    const { state: afterAttempt } = attemptInfluence(withHazard, LEGOLAS);
+    const { state: afterDefend } = defendInfluence({ ...afterAttempt, cheatRollTotal: 2 });
+
+    // The character is influenced away...
+    expectCharNotInPlay(afterDefend, HAZARD_PLAYER, legolasId);
+    // ...and its hazard lands in the hazard owner's discard exactly once.
+    const copies = afterDefend.players[RESOURCE_PLAYER].discardPile.filter(c => c.instanceId === hazardId);
+    expect(copies).toHaveLength(1);
   });
 });
