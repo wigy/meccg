@@ -1317,18 +1317,6 @@ function rollThresholdFor(effect: import('../../types/effects.js').GrantActionEf
 }
 
 /**
- * Returns true if the given resource event card declares itself as an
- * end-of-organization play (e.g. Stealth, with `play-window` phase
- * `organization`, step `end-of-org`).
- */
-export function isEndOfOrgPlay(def: ResourceEventCard): boolean {
-  const playWindow = def.effects?.find(
-    e => e.type === 'play-window',
-  ) as { phase?: string; step?: string } | undefined;
-  return playWindow?.phase === 'organization' && playWindow.step === 'end-of-org';
-}
-
-/**
  * Result of an end-of-org play eligibility check. When `eligible` is
  * false, `reason` carries a UI-friendly explanation of why the card
  * cannot currently be played. When `eligible` is true and the card has

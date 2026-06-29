@@ -84,33 +84,6 @@ import type {
 } from './cards-sites.js';
 
 /**
- * All hero resource card types -- beneficial cards played by the active player.
- * Discriminated by `cardType`: `'hero-resource-item'`, `'hero-resource-faction'`,
- * `'hero-resource-ally'`, or `'hero-resource-event'`.
- */
-export type HeroResourceCard = HeroItemCard | HeroFactionCard | HeroAllyCard | HeroResourceEventCard;
-
-/**
- * All hazard card types -- hostile cards played by the opponent.
- * Discriminated by `cardType`: `'hazard-creature'`, `'hazard-event'`, or `'hazard-corruption'`.
- */
-export type HazardCard = CreatureCard | HazardEventCard | CorruptionCard;
-
-/**
- * Cards that go into the shared play deck (resources + hazards).
- * Both players draw from this deck; they play resources on their own turn
- * and hazards on the opponent's turn.
- */
-export type PlayDeckCard = HeroResourceCard | HazardCard;
-
-/**
- * All minion resource card types -- beneficial cards played by the minion player.
- * Discriminated by `cardType`: `'minion-resource-item'`, `'minion-resource-faction'`,
- * `'minion-resource-ally'`, or `'minion-resource-event'`.
- */
-export type MinionResourceCard = MinionItemCard | MinionFactionCard | MinionAllyCard | MinionResourceEventCard;
-
-/**
  * Union of all character card types (hero and minion). Use this when code
  * needs to handle characters generically regardless of alignment.
  */

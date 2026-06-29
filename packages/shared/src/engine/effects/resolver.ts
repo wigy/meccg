@@ -19,7 +19,6 @@
 
 import type {
   GameState,
-  PlayerState,
   CharacterInPlay,
   CardDefinition,
   CharacterCard,
@@ -178,52 +177,6 @@ function collectFromDef(
   }
 }
 
-/**
- * Collects all matching effects from all cards a player has in play.
- *
- * Walks through all characters, their items, allies, corruption cards,
- * and any events in play, gathering effects whose `when` conditions
- * match the given context.
- */
-export function collectEffects(
-  state: GameState,
-  player: PlayerState,
-  context: ResolverContext,
-): CollectedEffect[] {
-  const results: CollectedEffect[] = [];
-
-  for (const char of Object.values(player.characters)) {
-    // Character's own effects
-    const charDef = resolveDef(state, char.instanceId);
-    if (charDef) collectFromDef(charDef, char.instanceId, context, results);
-
-    // Item effects
-    for (const item of char.items) {
-      const itemDef = resolveDef(state, item.instanceId);
-      if (itemDef) collectFromDef(itemDef, item.instanceId, context, results);
-    }
-
-    // Ally effects
-    for (const ally of char.allies) {
-      const allyDef = resolveDef(state, ally.instanceId);
-      if (allyDef) collectFromDef(allyDef, ally.instanceId, context, results);
-    }
-
-    // Hazard card effects (corruption cards, Foolish Words, etc.)
-    for (const hazard of char.hazards) {
-      const hDef = resolveDef(state, hazard.instanceId);
-      if (hDef) collectFromDef(hDef, hazard.instanceId, context, results);
-    }
-  }
-
-  // Cards in play (permanent events, long-events, factions, etc.)
-  for (const card of player.cardsInPlay) {
-    const cardDef = resolveDef(state, card.instanceId);
-    if (cardDef) collectFromDef(cardDef, card.instanceId, context, results);
-  }
-
-  return results;
-}
 
 /**
  * Collects global effects from all events and cards in play across both players.
