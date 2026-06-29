@@ -5,7 +5,7 @@
  * strike resolution, support strikes, body checks, and combat finalization.
  */
 
-import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, CardDefinition, HazardHost } from '../index.js';
+import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, CardDefinition, Company, HazardHost } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
 import { formatSignedNumber } from '../format-helpers.js';
@@ -1487,6 +1487,75 @@ function bodyCheckRollModifier(state: GameState, charData: CharacterInPlay): num
   return total;
 }
 
+/**
+ * Discard a character defeated by a body check: mark its strike eliminated
+ * (auto-resolving its other unresolved strikes, CoE 3.i.5), remove it from
+ * its company, move it plus its allies/items to the defender's discard and
+ * its hazards to the hazard player's discard, revert its followers to general
+ * influence, and advance to the next strike (or finalize). Shared by the
+ * `discardBodyCheck` (roll matches) and `character-body-check-equals-body`
+ * (roll equals body) paths.
+ */
+function discardCharacterAfterBodyCheck(
+  stateWithRoll: GameState,
+  state: GameState,
+  combat: CombatState,
+  strike: StrikeAssignment,
+  charData: CharacterInPlay,
+  defPlayer: PlayerState,
+  defPlayerIndex: number,
+  company: Company | undefined,
+  effects: GameEffect[],
+): ReducerResult {
+  const assignments = combat.strikeAssignments.map((a, i) => {
+    if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
+    if (!a.resolved && a.characterId === strike.characterId) {
+      logDetail(`Strike ${i} auto-resolved (discarded combatant, CoE 3.i.5)`);
+      return { ...a, resolved: true, result: 'success' as const };
+    }
+    return a;
+  });
+  const newPlayers = clonePlayers(stateWithRoll);
+  const newPlayerData = { ...defPlayer };
+  const combatWithDiscard = { ...combat, strikeAssignments: assignments };
+  if (company) {
+    newPlayerData.companies = newPlayerData.companies.map(c =>
+      c.id === combat.companyId
+        ? { ...c, characters: c.characters.filter(ch => ch !== strike.characterId) }
+        : c,
+    );
+  }
+  const discardedCharDefId = resolveInstanceId(state, strike.characterId);
+  newPlayerData.discardPile = [...newPlayerData.discardPile, { instanceId: strike.characterId, definitionId: discardedCharDefId! }];
+  for (const ally of charData.allies) {
+    logDetail(`Discarding ally ${ally.instanceId as string} from discarded character`);
+    newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
+  }
+  for (const item of charData.items) {
+    logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
+    newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(item)];
+  }
+  let hazardDiscard = [...newPlayers[1 - defPlayerIndex].discardPile];
+  for (const hazard of charData.hazards) {
+    logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
+    hazardDiscard = [...hazardDiscard, toCardInstance(hazard)];
+  }
+  newPlayers[1 - defPlayerIndex] = { ...newPlayers[1 - defPlayerIndex], discardPile: hazardDiscard };
+  const { [strike.characterId]: _removed, ...remainingChars } = newPlayerData.characters;
+  const updatedChars = { ...remainingChars };
+  for (const followerId of charData.followers) {
+    const follower = updatedChars[followerId];
+    if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general' };
+  }
+  newPlayerData.characters = pruneLeaderFollowers(updatedChars, strike.characterId, charData.controlledBy);
+  newPlayers[defPlayerIndex] = newPlayerData;
+  const next = nextStrikePhase(combatWithDiscard);
+  if (next) {
+    return { state: { ...stateWithRoll, players: newPlayers, combat: { ...combatWithDiscard, ...next } }, effects };
+  }
+  return finalizeCombat({ ...stateWithRoll, players: newPlayers, combat: combatWithDiscard }, effects);
+}
+
 function handleBodyCheckRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'body-check-roll') return wrongActionType(state, action, 'body-check-roll');
 
@@ -1677,55 +1746,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
           return finalizeCombat(stateWithRoll, effects);
         }
         logDetail(`Body check roll ${effectiveRoll} matches discardBodyCheck — character discarded to discard pile`);
-        const discardAssignments = combat.strikeAssignments.map((a, i) => {
-          if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
-          if (!a.resolved && a.characterId === strike.characterId) {
-            logDetail(`Strike ${i} auto-resolved (discarded combatant, CoE 3.i.5)`);
-            return { ...a, resolved: true, result: 'success' as const };
-          }
-          return a;
-        });
-        const newPlayersDiscard = clonePlayers(stateWithRoll);
-        const newPlayerDataDiscard = { ...defPlayer };
-        const combatWithBodyCheckDiscard = { ...combat, strikeAssignments: discardAssignments };
-        if (company) {
-          newPlayerDataDiscard.companies = newPlayerDataDiscard.companies.map(c =>
-            c.id === combat.companyId
-              ? { ...c, characters: c.characters.filter(ch => ch !== strike.characterId) }
-              : c,
-          );
-        }
-        const discardedCharDefId = resolveInstanceId(state, strike.characterId);
-        newPlayerDataDiscard.discardPile = [...newPlayerDataDiscard.discardPile, { instanceId: strike.characterId, definitionId: discardedCharDefId! }];
-        for (const ally of charData.allies) {
-          logDetail(`Discarding ally ${ally.instanceId as string} from discarded character`);
-          newPlayerDataDiscard.discardPile = [...newPlayerDataDiscard.discardPile, toCardInstance(ally)];
-        }
-        for (const item of charData.items) {
-          logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
-          newPlayerDataDiscard.discardPile = [...newPlayerDataDiscard.discardPile, toCardInstance(item)];
-        }
-        const hazardPlayerDiscard = newPlayersDiscard[1 - defPlayerIndex];
-        let hazardDiscardDiscard = [...hazardPlayerDiscard.discardPile];
-        for (const hazard of charData.hazards) {
-          logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
-          hazardDiscardDiscard = [...hazardDiscardDiscard, toCardInstance(hazard)];
-        }
-        newPlayersDiscard[1 - defPlayerIndex] = { ...hazardPlayerDiscard, discardPile: hazardDiscardDiscard };
-        const { [strike.characterId]: _dchar, ...remainingCharsDiscard } = newPlayerDataDiscard.characters;
-        // Revert followers to general influence
-        const updatedCharsDiscard = { ...remainingCharsDiscard };
-        for (const followerId of charData.followers) {
-          const follower = updatedCharsDiscard[followerId];
-          if (follower) updatedCharsDiscard[followerId] = { ...follower, controlledBy: 'general' };
-        }
-        newPlayerDataDiscard.characters = pruneLeaderFollowers(updatedCharsDiscard, strike.characterId, charData.controlledBy);
-        newPlayersDiscard[defPlayerIndex] = newPlayerDataDiscard;
-        const nextBodyCheckDiscard = nextStrikePhase(combatWithBodyCheckDiscard);
-        if (nextBodyCheckDiscard) {
-          return { state: { ...stateWithRoll, players: newPlayersDiscard, combat: { ...combatWithBodyCheckDiscard, ...nextBodyCheckDiscard } }, effects };
-        }
-        return finalizeCombat({ ...stateWithRoll, players: newPlayersDiscard, combat: combatWithBodyCheckDiscard }, effects);
+        return discardCharacterAfterBodyCheck(stateWithRoll, state, combat, strike, charData, defPlayer, defPlayerIndex, company, effects);
       }
     }
 
@@ -1747,52 +1768,7 @@ function handleBodyCheckRoll(state: GameState, action: GameAction, combat: Comba
         const conditionMet = !equalsBodyEvent.when || matchesCondition(equalsBodyEvent.when, condContext);
         if (conditionMet && equalsBodyEvent.apply.type === 'discard-character') {
           logDetail(`Body check equals body — character discarded to discard pile (not eliminated)`);
-          const newAssignments2 = combat.strikeAssignments.map((a, i) => {
-            if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
-            if (!a.resolved && a.characterId === strike.characterId) {
-              logDetail(`Strike ${i} auto-resolved (discarded combatant, CoE 3.i.5)`);
-              return { ...a, resolved: true, result: 'success' as const };
-            }
-            return a;
-          });
-          const newPlayers3 = clonePlayers(stateWithRoll);
-          const newPlayerData2 = { ...defPlayer };
-          const combatWithDiscard = { ...combat, strikeAssignments: newAssignments2 };
-          if (company) {
-            newPlayerData2.companies = newPlayerData2.companies.map(c =>
-              c.id === combat.companyId
-                ? { ...c, characters: c.characters.filter(ch => ch !== strike.characterId) }
-                : c,
-            );
-          }
-          const discardedCharDefId = resolveInstanceId(state, strike.characterId);
-          newPlayerData2.discardPile = [...newPlayerData2.discardPile, { instanceId: strike.characterId, definitionId: discardedCharDefId! }];
-          for (const ally of charData.allies) {
-            logDetail(`Discarding ally ${ally.instanceId as string} from discarded character`);
-            newPlayerData2.discardPile = [...newPlayerData2.discardPile, toCardInstance(ally)];
-          }
-          for (const item of charData.items) {
-            logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
-            newPlayerData2.discardPile = [...newPlayerData2.discardPile, toCardInstance(item)];
-          }
-          for (const hazard of charData.hazards) {
-            logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
-            newPlayers3[1 - defPlayerIndex] = { ...newPlayers3[1 - defPlayerIndex], discardPile: [...newPlayers3[1 - defPlayerIndex].discardPile, toCardInstance(hazard)] };
-          }
-          const { [strike.characterId]: _disc, ...remainingCharsDisc } = newPlayerData2.characters;
-          // Revert followers to general influence
-          const updatedCharsDisc = { ...remainingCharsDisc };
-          for (const followerId of charData.followers) {
-            const follower = updatedCharsDisc[followerId];
-            if (follower) updatedCharsDisc[followerId] = { ...follower, controlledBy: 'general' };
-          }
-          newPlayerData2.characters = pruneLeaderFollowers(updatedCharsDisc, strike.characterId, charData.controlledBy);
-          newPlayers3[defPlayerIndex] = newPlayerData2;
-          const next4 = nextStrikePhase(combatWithDiscard);
-          if (next4) {
-            return { state: { ...stateWithRoll, players: newPlayers3, combat: { ...combatWithDiscard, ...next4 } }, effects };
-          }
-          return finalizeCombat({ ...stateWithRoll, players: newPlayers3, combat: combatWithDiscard }, effects);
+          return discardCharacterAfterBodyCheck(stateWithRoll, state, combat, strike, charData, defPlayer, defPlayerIndex, company, effects);
         }
       }
     }
