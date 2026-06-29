@@ -6,7 +6,7 @@
  * and hand reset sub-steps.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction, SiteCard } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CombatState, CharacterInPlay, CharacterCard, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction, SiteCard } from '../index.js';
 import type { AhuntAttackEffect, CallCouncilEffect, TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect } from '../types/effects.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
@@ -1032,6 +1032,107 @@ function handleAgentInfluenceAttempt(
  * - Prowess computed before reveal (rule 9.06).
  * - Agent is revealed if face-down, then tapped.
  */
+/**
+ * Pre-reveal agent attack stats (rule 9.06): prowess from face-down/at-home/
+ * wounded modifiers + the effect's bonus, plus the active company and its
+ * destination site (for the reveal). Shared by the tap-attack and
+ * tap-agent-at-site paths.
+ */
+function computeAgentAttackProwess(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  agent: AgentInPlay,
+  agentDef: CharacterCard,
+  prowessBonus: number,
+): { prowess: number; body: number; isFaceDown: boolean; isAtHome: boolean; destSiteInst: SiteInPlay | null; company: Company } {
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[mhState.activeCompanyIndex];
+  const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
+  let destSiteName: string | undefined;
+  if (destSiteInst) {
+    const destSiteDef = defById(state, destSiteInst.definitionId);
+    if (destSiteDef && isSiteCard(destSiteDef)) destSiteName = destSiteDef.name;
+  }
+  const isFaceDown = !agent.revealed;
+  const isWounded = agent.character.status === CardStatus.Inverted;
+  const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
+  const isAtHome = destSiteName !== undefined && homesiteNames.includes(destSiteName);
+
+  let prowess = agentDef.prowess;
+  if (isWounded) prowess -= 2;
+  if (isFaceDown && !isAtHome) prowess += 2;
+  if (isFaceDown && isAtHome) prowess += 5;
+  if (!isFaceDown && isAtHome) prowess += 2;
+  prowess += prowessBonus;
+  return { prowess, body: agentDef.body, isFaceDown, isAtHome, destSiteInst, company };
+}
+
+/**
+ * Reveal a face-down agent for an attack (returning prior stack sites to the
+ * deck, binding the chosen home site or flagging EOT-discard when none), or
+ * just tap an already-revealed agent. `markActed` additionally zeroes the
+ * agent's `remainingActions` (the tap-agent-at-site path consumes the action;
+ * the tap-attack path does not). Returns the new state or an error.
+ */
+function revealAgentForAttack(
+  state: GameState,
+  hazardIndex: number,
+  hazardPlayer: GameState['players'][number],
+  agent: AgentInPlay,
+  agentInstanceId: CardInstanceId,
+  isFaceDown: boolean,
+  destSiteInst: SiteInPlay | null,
+  homeSiteInstanceId: CardInstanceId | undefined,
+  markActed: boolean,
+): GameState | { error: string } {
+  const acted = markActed ? { remainingActions: 0 } : {};
+  if (!isFaceDown) {
+    return updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      agents: p.agents.map(a => a.character.instanceId === agentInstanceId
+        ? { ...a, character: { ...a.character, status: CardStatus.Tapped as const }, ...acted }
+        : a,
+      ),
+    }));
+  }
+  const currentSiteEntry = agent.siteStack.length > 0
+    ? agent.siteStack[agent.siteStack.length - 1]
+    : destSiteInst;
+  const emptyStack = agent.siteStack.length === 0;
+  if (homeSiteInstanceId) {
+    const homeSiteCard = findById(hazardPlayer.siteDeck, homeSiteInstanceId);
+    if (!homeSiteCard) {
+      return { error: `Home site ${homeSiteInstanceId as string} not in hazard player's site deck` };
+    }
+    const priorStackSites = agent.siteStack.slice(0, -1);
+    const newSiteStack = emptyStack
+      ? [{ instanceId: homeSiteCard.instanceId, definitionId: homeSiteCard.definitionId, status: CardStatus.Untapped as const }]
+      : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
+    const returnedSites = emptyStack ? [] : priorStackSites;
+    return updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      agents: p.agents.map(a => a.character.instanceId === agentInstanceId
+        ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped as const }, siteStack: newSiteStack, ...acted }
+        : a,
+      ),
+      siteDeck: [...removeById(p.siteDeck, homeSiteCard.instanceId), ...returnedSites],
+    }));
+  }
+  // No home site — reveal without site, discard at EOT (rule 9.04)
+  const priorStackSites = emptyStack ? [] : agent.siteStack.slice(0, -1);
+  const newSiteStack = emptyStack
+    ? []
+    : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
+  return updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    agents: p.agents.map(a => a.character.instanceId === agentInstanceId
+      ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped as const }, siteStack: newSiteStack, ...acted, discardAtEndOfTurn: true }
+      : a,
+    ),
+    siteDeck: [...p.siteDeck, ...priorStackSites],
+  }));
+}
+
 function handleAgentTapAttack(
   state: GameState,
   action: GameAction,
@@ -1054,83 +1155,17 @@ function handleAgentTapAttack(
   );
   if (!tapAttackEff) return { state, error: 'Agent does not have agent-tap-attack effect' };
 
-  // Get destination site name for prowess/home-site checks
-  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
-  const company = state.players[activePlayerIndex].companies[mhState.activeCompanyIndex];
-  const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
-  let destSiteName: string | undefined;
-  if (destSiteInst) {
-    const destSiteDef = defById(state, destSiteInst.definitionId);
-    if (destSiteDef && isSiteCard(destSiteDef)) destSiteName = destSiteDef.name;
-  }
-
-  // Compute prowess BEFORE reveal (rule 9.06)
-  const isFaceDown = !agent.revealed;
-  const isWounded = agent.character.status === CardStatus.Inverted;
-  const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
-  const isAtHome = destSiteName !== undefined && homesiteNames.includes(destSiteName);
-
-  let prowess = agentDef.prowess;
-  const body = agentDef.body;
-  if (isWounded) prowess -= 2;
-  if (isFaceDown && !isAtHome) prowess += 2;
-  if (isFaceDown && isAtHome) prowess += 5;
-  if (!isFaceDown && isAtHome) prowess += 2;
-  prowess += tapAttackEff.prowessBonus;
-
+  const { prowess, body, isFaceDown, isAtHome, destSiteInst, company } =
+    computeAgentAttackProwess(state, mhState, agent, agentDef, tapAttackEff.prowessBonus);
   logDetail(`Agent tap-attack "${agentDef.name}": prowess ${prowess} (faceDown: ${isFaceDown}, atHome: ${isAtHome}, bonus: +${tapAttackEff.prowessBonus})`);
 
-  // Reveal agent if face-down (same logic as handleTapAgentAtSite)
-  let newState: GameState;
-  if (isFaceDown) {
-    const currentSiteEntry = agent.siteStack.length > 0
-      ? agent.siteStack[agent.siteStack.length - 1]
-      : destSiteInst;
-    const emptyStack = agent.siteStack.length === 0;
-
-    if (action.homeSiteInstanceId) {
-      const homeSiteCard = findById(hazardPlayer.siteDeck, action.homeSiteInstanceId);
-      if (!homeSiteCard) {
-        return { state, error: `Home site ${action.homeSiteInstanceId as string} not in hazard player's site deck` };
-      }
-      const priorStackSites = agent.siteStack.slice(0, -1);
-      const newSiteStack = emptyStack
-        ? [{ instanceId: homeSiteCard.instanceId, definitionId: homeSiteCard.definitionId, status: CardStatus.Untapped as const }]
-        : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
-      const returnedSites = emptyStack ? [] : priorStackSites;
-      newState = updatePlayer(state, hazardIndex, p => ({
-        ...p,
-        agents: p.agents.map(a => a.character.instanceId === agent.character.instanceId
-          ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped as const }, siteStack: newSiteStack }
-          : a,
-        ),
-        siteDeck: [...removeById(p.siteDeck, homeSiteCard.instanceId), ...returnedSites],
-      }));
-    } else {
-      // No home site — reveal without site, discard at EOT (rule 9.04)
-      const priorStackSites = emptyStack ? [] : agent.siteStack.slice(0, -1);
-      const newSiteStack = emptyStack
-        ? []
-        : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
-      newState = updatePlayer(state, hazardIndex, p => ({
-        ...p,
-        agents: p.agents.map(a => a.character.instanceId === agent.character.instanceId
-          ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped as const }, siteStack: newSiteStack, discardAtEndOfTurn: true }
-          : a,
-        ),
-        siteDeck: [...p.siteDeck, ...priorStackSites],
-      }));
-    }
-  } else {
-    // Already face-up: just tap (do NOT set remainingActions — not an agent action)
-    newState = updatePlayer(state, hazardIndex, p => ({
-      ...p,
-      agents: p.agents.map(a => a.character.instanceId === agent.character.instanceId
-        ? { ...a, character: { ...a.character, status: CardStatus.Tapped as const } }
-        : a,
-      ),
-    }));
-  }
+  // Reveal agent if face-down; tap-attack does NOT consume an agent action.
+  const revealed = revealAgentForAttack(
+    state, hazardIndex, hazardPlayer, agent, agent.character.instanceId,
+    isFaceDown, destSiteInst, action.homeSiteInstanceId, false,
+  );
+  if ('error' in revealed) return { state, error: revealed.error };
+  const newState = revealed;
 
   // Build CombatState
   const combat: CombatState = {
@@ -1459,96 +1494,17 @@ function handleTapAgentAtSite(
     return { state, error: `Agent definition not found for ${agentInstanceId as string}` };
   }
 
-  // Get active company and its new site for prowess/home-site checks
-  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
-  const company = state.players[activePlayerIndex].companies[mhState.activeCompanyIndex];
-  const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
-  let destSiteName: string | undefined;
-  if (destSiteInst) {
-    const destSiteDef = defById(state, destSiteInst.definitionId);
-    if (destSiteDef && isSiteCard(destSiteDef)) destSiteName = destSiteDef.name;
-  }
-
-  // --- Compute prowess NOW, before any reveal (rule 9.06) ---
-  const isFaceDown = !agent.revealed;
-  const isWounded = agent.character.status === CardStatus.Inverted;
-  const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
-  const isAtHome = destSiteName !== undefined && homesiteNames.includes(destSiteName);
-
-  let prowess = agentDef.prowess;
-  const body = agentDef.body;
-  if (isWounded) prowess -= 2;
-  if (isFaceDown && !isAtHome) prowess += 2;
-  if (isFaceDown && isAtHome) prowess += 5;
-  if (!isFaceDown && isAtHome) prowess += 2;
-  prowess += tapAgentEff.prowessBonus;
-
+  const { prowess, body, isFaceDown, isAtHome, destSiteInst, company } =
+    computeAgentAttackProwess(state, mhState, agent, agentDef, tapAgentEff.prowessBonus);
   logDetail(`Tap-agent-at-site "${def.name}": agent "${agentDef.name}" prowess ${prowess} (faceDown: ${isFaceDown}, atHome: ${isAtHome}, bonus: +${tapAgentEff.prowessBonus})`);
 
-  // --- Reveal agent if face-down ---
-  let stateAfterReveal: GameState;
-  if (isFaceDown) {
-    const currentSiteEntry = agent.siteStack.length > 0
-      ? agent.siteStack[agent.siteStack.length - 1]
-      : destSiteInst;
-    const emptyStack = agent.siteStack.length === 0;
-
-    if (action.homeSiteInstanceId) {
-      const homeSiteCard = findById(hazardPlayer.siteDeck, action.homeSiteInstanceId);
-      if (!homeSiteCard) {
-        return { state, error: `Home site ${action.homeSiteInstanceId as string} not in hazard player's site deck` };
-      }
-      const priorStackSites = agent.siteStack.slice(0, -1);
-      const newSiteStack = emptyStack
-        ? [{ instanceId: homeSiteCard.instanceId, definitionId: homeSiteCard.definitionId, status: CardStatus.Untapped as const }]
-        : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
-      const returnedSites = emptyStack ? [] : priorStackSites;
-      stateAfterReveal = updatePlayer(state, hazardIndex, p => ({
-        ...p,
-        agents: p.agents.map(a => a.character.instanceId === agentInstanceId
-          ? {
-              ...a,
-              revealed: true,
-              character: { ...a.character, status: CardStatus.Tapped as const },
-              siteStack: newSiteStack,
-              remainingActions: 0,
-            }
-          : a,
-        ),
-        siteDeck: [...removeById(p.siteDeck, homeSiteCard.instanceId), ...returnedSites],
-      }));
-    } else {
-      // No home site — reveal without site, discard at EOT (rule 9.04)
-      const priorStackSites = emptyStack ? [] : agent.siteStack.slice(0, -1);
-      const newSiteStack = emptyStack
-        ? []
-        : [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
-      stateAfterReveal = updatePlayer(state, hazardIndex, p => ({
-        ...p,
-        agents: p.agents.map(a => a.character.instanceId === agentInstanceId
-          ? {
-              ...a,
-              revealed: true,
-              character: { ...a.character, status: CardStatus.Tapped as const },
-              siteStack: newSiteStack,
-              remainingActions: 0,
-              discardAtEndOfTurn: true,
-            }
-          : a,
-        ),
-        siteDeck: [...p.siteDeck, ...priorStackSites],
-      }));
-    }
-  } else {
-    // Already face-up: just tap and mark acted
-    stateAfterReveal = updatePlayer(state, hazardIndex, p => ({
-      ...p,
-      agents: p.agents.map(a => a.character.instanceId === agentInstanceId
-        ? { ...a, character: { ...a.character, status: CardStatus.Tapped as const }, remainingActions: 0 }
-        : a,
-      ),
-    }));
-  }
+  // Reveal agent if face-down; playing the card consumes the agent's action.
+  const revealed = revealAgentForAttack(
+    state, hazardIndex, hazardPlayer, agent, agentInstanceId,
+    isFaceDown, destSiteInst, action.homeSiteInstanceId, true,
+  );
+  if ('error' in revealed) return { state, error: revealed.error };
+  let stateAfterReveal = revealed;
 
   // --- Remove card from hand, add to discard ---
   const newHand = removeById(stateAfterReveal.players[hazardIndex].hand, handCard.instanceId);
