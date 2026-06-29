@@ -284,25 +284,32 @@ read_skill_stats() {
   fi
 }
 
-# Deterministic safety net for a skill that ends its turn with a dirty
-# working tree. Without this, the next iteration of run-ai (and the guard at
-# the top of this script) sees uncommitted changes and refuses ALL further
-# mail until a human cleans up — one aborted turn blocks the whole inbox.
+# Deterministic finalizer for a skill that ends its turn with a dirty working
+# tree. The skill's own "commit + push + open a PR" step is prose handed to a
+# probabilistic agent, so it can be (and regularly is) skipped. This function
+# is the bash backstop that cannot forget: whatever the model did, it commits
+# the leftovers onto a branch, pushes, and opens a PR, returning the tree to a
+# clean state so run-ai is never blocked.
 #
-# Rather than strand the work, we salvage it onto a branch and push it as a
-# recovery PR — exactly what an operator would do by hand (see step 14/15 of
-# handle-certify-card.md). This is deliberately NOT `git stash`: stashing
-# hides half-finished work across runs; a pushed branch + PR surfaces it.
-# The caller still reports the request as failed/needs-review — recovery only
-# unblocks the loop, it does not turn a failure into a success.
+# This is deliberately NOT `git stash`: stashing hides half-finished work
+# across runs; a pushed branch + PR surfaces it.
+#
+# Whether the *request* is then reported as success or failure is the caller's
+# decision, based on the skill's declared intent (success flag / status), NOT
+# on whether the tree happened to be dirty. A run that verified and declared
+# success but merely skipped its git step is finalized here and reported as a
+# success; a run the skill flagged as failure becomes a "needs review" PR.
 #
 #   $1 = branch base (a unique suffix is appended), e.g. "certify-tw-156"
 #   $2 = human label for the commit/PR body, e.g. "tw-156"
 # Prints the recovery PR URL on stdout (may be empty if `gh` is unavailable).
 # Returns 0 only if the working tree is CLEAN afterwards; non-zero means
 # recovery failed and the caller must fall back to leaving the tree dirty.
+#   $3 = skill intent: "success" (the skill verified and declared success;
+#        the finalize PR is a normal, reviewable fix) or "failure" (default;
+#        the skill did not declare success — label the PR "needs review").
 recover_dirty_tree() {
-  local base="$1" label="$2"
+  local base="$1" label="$2" intent="${3:-failure}"
   cd "$PROJECT_DIR" || return 1
   [ -z "$(git status --porcelain)" ] && return 0
 
@@ -319,12 +326,29 @@ recover_dirty_tree() {
     rec_branch="$cur"
   fi
 
-  [ "$ok" = 1 ] && { git add -A >&2 2>&1 || ok=0; }
-  [ "$ok" = 1 ] && { git commit -m "Recover uncommitted ${label} work (handler ended mid-step)
+  # Commit message and PR text depend on intent: a verified-success run that
+  # only skipped its git step gets a normal fix PR; an unflagged/failed run
+  # gets an explicit "needs review" warning.
+  local commit_msg pr_title pr_body
+  if [ "$intent" = "success" ]; then
+    commit_msg="Finalize ${label} (handle-mail closed the skill's git step)
+
+The skill verified this work and declared success but did not run its own
+commit/push/PR step, so handle-mail finalized it deterministically."
+    pr_title="${label}"
+    pr_body="Finalized by handle-mail: the skill verified this work and declared success but skipped its own commit/push/PR step. Review as a normal change."
+  else
+    commit_msg="Recover uncommitted ${label} work (handler ended mid-step)
 
 The handler turn ended before committing. handle-mail salvaged these
 changes onto a branch so the run-ai loop is not blocked. This work is
-NOT verified and NOT certified — review and finish, or close, this PR." >&2 2>&1 || ok=0; }
+NOT verified — review and finish, or close, this PR."
+    pr_title="RECOVERED (needs review): ${label}"
+    pr_body="Auto-recovered uncommitted work left by a handler that ended its turn early. NOT verified — review and finish, or close, this PR."
+  fi
+
+  [ "$ok" = 1 ] && { git add -A >&2 2>&1 || ok=0; }
+  [ "$ok" = 1 ] && { git commit -m "$commit_msg" >&2 2>&1 || ok=0; }
   [ "$ok" = 1 ] && { git push -u origin "$rec_branch" >&2 2>&1 || ok=0; }
 
   local pr_url=""
@@ -332,8 +356,7 @@ NOT verified and NOT certified — review and finish, or close, this PR." >&2 2>
     pr_url=$(gh pr list --state open --head "$rec_branch" --json url -q '.[0].url // empty' 2>/dev/null || true)
     if [ -z "$pr_url" ]; then
       gh pr create --head "$rec_branch" --base master \
-        --title "RECOVERED (needs review): ${label}" \
-        --body "Auto-recovered uncommitted work left by a handler that ended its turn early. NOT verified, NOT certified — review and finish, or close, this PR." >&2 2>&1 || true
+        --title "$pr_title" --body "$pr_body" >&2 2>&1 || true
       pr_url=$(gh pr list --state open --head "$rec_branch" --json url -q '.[0].url // empty' 2>/dev/null || true)
     fi
   fi
@@ -759,59 +782,51 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
       CARD_NAME=$(lookup_card_name "$CARD_ID")
       GIT_HASH=$(echo "$SKILL_OUTPUT" | grep -oP '[0-9a-f]{40}' | tail -1 || true)
 
-      # Safety net: the certify skill is required to leave the working
-      # tree clean (either no changes, or all changes committed on its
-      # certify-<cardId>-* branch). If it didn't, salvage the leftovers
-      # onto a branch + recovery PR (recover_dirty_tree) instead of leaving
-      # them in place — a stranded diff halts the entire run-ai loop, while
-      # a recovery PR is reviewable and keeps the inbox moving. This is NOT
-      # stashing: the work becomes a visible PR, not a hidden stash. If
-      # recovery fails, fall back to leaving the tree dirty (loop halts).
+      # ---- DETERMINISTIC FINALIZE (certification) -------------------------
+      # The certify skill's "commit + push + open a PR" step is prose a
+      # probabilistic agent can skip. We do not trust it to have pushed: if it
+      # left the tree dirty we finish the job here, in bash, which cannot
+      # forget. recover_dirty_tree commits the leftovers onto the certify
+      # branch (or a new one), pushes, opens a PR, and returns the tree clean.
+      # A dirty tree is no longer automatically a failure — a run that verified
+      # (status=success) but skipped only its git step is finalized into a real
+      # certify PR; only a finalize that itself fails halts the loop.
       cd "$PROJECT_DIR"
       DIRTY_FILES=""
       REC_PR_URL=""
       if [ -n "$(git status --porcelain)" ]; then
         DIRTY_FILES=$(git status --porcelain)
-        log "WARNING: skill left $(echo "$DIRTY_FILES" | wc -l) uncommitted file(s). Attempting recovery."
+        log "WARNING: skill left $(echo "$DIRTY_FILES" | wc -l) uncommitted file(s) — finalizing in bash (skill skipped its commit/push/PR step)."
         echo "$DIRTY_FILES" | sed 's/^/[handle-mail]   /'
-        if REC_PR_URL=$(recover_dirty_tree "certify-${CARD_ID}" "$CARD_ID"); then
-          log "Recovered uncommitted work onto a branch (PR: ${REC_PR_URL:-none}); run-ai not blocked."
+        if REC_PR_URL=$(recover_dirty_tree "certify-${CARD_ID}" "$CARD_ID" "$([ "${SKILL_STATUS:-}" = success ] && echo success || echo failure)"); then
+          log "Finalized uncommitted work onto a branch (PR: ${REC_PR_URL:-none}); tree clean, run-ai not blocked."
         else
-          log "ERROR: recovery failed — leaving dirty tree in place (run-ai will halt for manual cleanup)."
+          log "ERROR: finalize failed — leaving dirty tree in place (run-ai will halt for manual cleanup)."
         fi
       fi
 
-      # Look up the PR by its head branch. The skill creates the branch
-      # certify-<cardId>-<slug>. We list PRs and match by headRefName
-      # prefix client-side — safer than --head (exact match) or --search
-      # (fuzzy GitHub search).
+      # Resolve the certification PR. Prefer the skill's own certify-<id>-*
+      # branch; fall back to the PR we just finalized for it.
       PR_URL=$(cd "$PROJECT_DIR" && gh pr list --state all --limit 500 \
         --json url,headRefName \
         -q "[.[] | select(.headRefName | startswith(\"certify-${CARD_ID}-\")) | .url][0] // empty" \
         2>/dev/null || true)
+      [ -z "$PR_URL" ] && [ -n "$REC_PR_URL" ] && PR_URL="$REC_PR_URL"
 
-      # Artifact-based success detection. No prose parsing: we trust
-      # (a) the stream-json terminal success marker captured by
-      # run_skill, (b) the existence of a PR on the certify branch,
-      # and (c) a clean working tree. Any uncommitted leftovers mean
-      # the skill abandoned its turn mid-step and the reply must say so.
+      # Artifact-based success detection. Success requires (a) the stream-json
+      # terminal success marker (status=success), (b) a clean working tree —
+      # the skill's PR or the one we just finalized — and (c) a PR URL. A
+      # skipped git step no longer fails the card; only a still-dirty tree does.
       CERT_FAIL_REASON=""
-      if [ -n "$DIRTY_FILES" ]; then
-        if [ -z "$(git status --porcelain)" ]; then
-          CERT_FAIL_REASON="Skill ended its turn with uncommitted changes — it did not reach the certify step, so the card is NOT certified. The leftover work was auto-recovered onto a branch${REC_PR_URL:+ (PR: $REC_PR_URL)} so the mail loop is not blocked; review and finish, or close, that PR.
+      if [ -n "$DIRTY_FILES" ] && [ -n "$(git status --porcelain)" ]; then
+        CERT_FAIL_REASON="Skill left uncommitted changes and automatic finalize (commit/push/PR) failed. The run-ai loop will refuse to handle more mail until these files are turned into a PR or reverted.
 
 Uncommitted files:
 $DIRTY_FILES"
-        else
-          CERT_FAIL_REASON="Skill exited with uncommitted changes — it ended its turn before reaching the certify step, and automatic recovery onto a branch failed. The run-ai loop will refuse to handle more mail until these files are turned into a PR or reverted.
-
-Uncommitted files:
-$DIRTY_FILES"
-        fi
       elif [ "${SKILL_STATUS:-}" != "success" ]; then
         CERT_FAIL_REASON="Skill did not reach a successful terminal result (status=${SKILL_STATUS:-unknown})."
       elif [ -z "$PR_URL" ]; then
-        CERT_FAIL_REASON="No PR was opened for certify-${CARD_ID}-* (skill step 14 not completed)."
+        CERT_FAIL_REASON="No PR was opened for certify-${CARD_ID}-* and no work was finalized."
       fi
 
       if [ -z "$CERT_FAIL_REASON" ]; then
@@ -868,67 +883,70 @@ $(echo "$SKILL_OUTPUT" | tail -40)"
     read_skill_stats
     log "Handler completed (exit $RC)."
 
-    # Post-skill dirty-tree check. These skills must either (a) commit +
-    # push + open a PR and leave the working tree clean, or (b) revert
-    # any edits they made and emit success:false. If the tree is dirty,
-    # the skill failed either way — override whatever it printed and
-    # report the real state. We salvage the leftovers onto a recovery
-    # branch + PR (recover_dirty_tree) rather than leaving them in place:
-    # a stranded diff halts the whole run-ai loop, a recovery PR does not.
-    # Not stashing — the work becomes a visible PR. If recovery fails, fall
-    # back to leaving the tree dirty so the loop halts for manual cleanup.
+    # ---- Parse the skill's structured result FIRST (its declared intent) ----
+    # We need to know whether the skill *intended* success before deciding how
+    # to finalize the tree. A dirty tree is no longer automatically a failure:
+    # if the skill verified and declared success but merely skipped its git
+    # step, that is a success we finish in bash (see DETERMINISTIC FINALIZE).
     cd "$PROJECT_DIR"
-    SKILL_DIRTY_FILES=""
-    SKILL_REC_PR_URL=""
-    SKILL_REC_OK=false
-    if [ -n "$(git status --porcelain)" ]; then
-      SKILL_DIRTY_FILES=$(git status --porcelain)
-      log "WARNING: $SKILL_FILE left $(echo "$SKILL_DIRTY_FILES" | wc -l) uncommitted file(s). Attempting recovery."
-      echo "$SKILL_DIRTY_FILES" | sed 's/^/[handle-mail]   /'
-      if SKILL_REC_PR_URL=$(recover_dirty_tree "recover-${TOPIC}-${MSG_ID}" "$TOPIC ($MSG_ID)"); then
-        SKILL_REC_OK=true
-        log "Recovered uncommitted work onto a branch (PR: ${SKILL_REC_PR_URL:-none}); run-ai not blocked."
-      else
-        log "ERROR: recovery failed — leaving dirty tree in place (run-ai will halt for manual cleanup)."
-      fi
-    fi
-
     REPLY_RECIPIENT="$DEFAULT_RECIPIENT"
     REPLY_TOPIC="${TOPIC/request/reply}"
     REPLY_TOPIC="${REPLY_TOPIC/bug-report/bug-reply}"
 
     RESULT_JSON=$(extract_handler_result "$SKILL_OUTPUT")
     HAS_VALID_RESULT=false
+    SKILL_INTENT_SUCCESS=false
     if [ -n "$RESULT_JSON" ] && echo "$RESULT_JSON" | jq -e . >/dev/null 2>&1; then
       HAS_VALID_RESULT=true
+      [ "$(echo "$RESULT_JSON" | jq -r '.success // false')" = "true" ] && SKILL_INTENT_SUCCESS=true
     fi
 
-    if [ -n "$SKILL_DIRTY_FILES" ]; then
-      # Dirty tree overrides whatever the skill said — it didn't finish.
-      log "ERROR: Skill left the working tree dirty — reporting as failure."
-      REPLY_SUBJECT="Failed: $SUBJECT"
-      if $SKILL_REC_OK; then
-        REPLY_BODY="The handler for this request did not commit or push its work; it left $(echo "$SKILL_DIRTY_FILES" | wc -l) file(s) uncommitted:
-
-$SKILL_DIRTY_FILES
-
-The leftover work was auto-recovered onto a branch${SKILL_REC_PR_URL:+ (PR: $SKILL_REC_PR_URL)} so the mail loop is not blocked. This work is unverified — review and finish, or close, that PR."
+    # ---- DETERMINISTIC FINALIZE -------------------------------------------
+    # The skill's "commit + push + open a PR" step is prose handed to a
+    # probabilistic agent — it can be skipped, and regularly is. So we do NOT
+    # trust the model to have pushed: if it left the tree dirty we finish the
+    # job here, in bash, which cannot forget. recover_dirty_tree commits the
+    # leftovers onto a branch, pushes, opens a PR, and returns the tree clean.
+    # This runs whether the skill declared success or failure; what differs is
+    # only how the *request* is reported afterward (below).
+    SKILL_DIRTY_FILES=""
+    SKILL_REC_PR_URL=""
+    SKILL_REC_OK=false
+    if [ -n "$(git status --porcelain)" ]; then
+      SKILL_DIRTY_FILES=$(git status --porcelain)
+      log "WARNING: $SKILL_FILE left $(echo "$SKILL_DIRTY_FILES" | wc -l) uncommitted file(s) — finalizing in bash (skill skipped its commit/push/PR step)."
+      echo "$SKILL_DIRTY_FILES" | sed 's/^/[handle-mail]   /'
+      if SKILL_REC_PR_URL=$(recover_dirty_tree "recover-${TOPIC}-${MSG_ID}" "$TOPIC ($MSG_ID)" "$($SKILL_INTENT_SUCCESS && echo success || echo failure)"); then
+        SKILL_REC_OK=true
+        log "Finalized uncommitted work onto a branch (PR: ${SKILL_REC_PR_URL:-none}); tree clean, run-ai not blocked."
       else
-        REPLY_BODY="The handler for this request did not commit or push its work. It left $(echo "$SKILL_DIRTY_FILES" | wc -l) file(s) uncommitted in the working tree:
-
-$SKILL_DIRTY_FILES
-
-No PR was opened and automatic recovery failed. The run-ai loop will refuse to handle more mail until these files are turned into a PR or reverted manually."
+        log "ERROR: finalize failed — leaving dirty tree in place (run-ai will halt for manual cleanup)."
       fi
+    fi
+
+    if [ -n "$SKILL_DIRTY_FILES" ] && ! $SKILL_REC_OK; then
+      # Tree is STILL dirty — finalize itself failed (push/gh unavailable).
+      # This is the only path that halts run-ai; report it plainly.
+      log "ERROR: working tree still dirty after finalize — reporting failure."
+      REPLY_SUBJECT="Failed: $SUBJECT"
+      REPLY_BODY="The handler left $(echo "$SKILL_DIRTY_FILES" | wc -l) file(s) uncommitted and automatic finalize (commit/push/PR) failed. The run-ai loop will halt until these are turned into a PR or reverted manually:
+
+$SKILL_DIRTY_FILES"
     elif ! $HAS_VALID_RESULT; then
       log "ERROR: Skill did not produce a valid HANDLE_MAIL_RESULT block."
       REPLY_SUBJECT="Failed: $SUBJECT"
       REPLY_BODY="The handler did not produce structured output. Output tail:
 $(echo "$SKILL_OUTPUT" | tail -20)"
-    else
-      if [ "$(echo "$RESULT_JSON" | jq -r '.success // false')" = "true" ]; then
-        SUCCESS=true
+      if [ -n "$SKILL_DIRTY_FILES" ] && $SKILL_REC_OK; then
+        REPLY_BODY="$REPLY_BODY
+
+(Uncommitted leftovers were auto-finalized into a review PR: ${SKILL_REC_PR_URL:-none} — review and finish, or close, it.)"
       fi
+    else
+      # Valid result block AND the tree is clean (the skill pushed its own PR,
+      # or we just finalized one above). Honor the skill's declared intent —
+      # a forgotten git step no longer downgrades a verified success.
+      if $SKILL_INTENT_SUCCESS; then SUCCESS=true; fi
       REPLY_RECIPIENT=$(echo "$RESULT_JSON" | jq -r '.reply.recipient // empty')
       [ -z "$REPLY_RECIPIENT" ] && REPLY_RECIPIENT="$DEFAULT_RECIPIENT"
       REPLY_TOPIC=$(echo "$RESULT_JSON" | jq -r '.reply.topic // empty')
@@ -941,6 +959,24 @@ $(echo "$SKILL_OUTPUT" | tail -20)"
       REVIEW_BODY=$(echo "$RESULT_JSON" | jq -r '.review.body // empty')
       REVIEW_RECIPIENTS=$(echo "$RESULT_JSON" | jq -c '.review.recipients // empty')
       REVIEW_KEYWORDS=$(echo "$RESULT_JSON" | jq -c '.review.keywords // {}')
+
+      # If WE finalized the PR (skill left it dirty but intended success), the
+      # model's result block cannot carry the real PR URL — inject the
+      # authoritative one so the reply/review point at the actual PR and the
+      # step-6 PR-review gate (which keys on review.keywords.prUrl) fires.
+      if [ -n "$SKILL_DIRTY_FILES" ] && $SKILL_REC_OK && [ -n "$SKILL_REC_PR_URL" ]; then
+        REPLY_BODY="$REPLY_BODY
+
+PR: $SKILL_REC_PR_URL"
+        REPLY_KEYWORDS=$(echo "$REPLY_KEYWORDS" | jq -c --arg pr "$SKILL_REC_PR_URL" '. + {prUrl: $pr}')
+        if [ -n "$REVIEW_TOPIC" ]; then
+          REVIEW_BODY="$REVIEW_BODY
+
+PR: $SKILL_REC_PR_URL"
+          REVIEW_KEYWORDS=$(echo "$REVIEW_KEYWORDS" | jq -c --arg pr "$SKILL_REC_PR_URL" '. + {prUrl: $pr}')
+        fi
+        log "Injected finalized PR URL into reply/review: $SKILL_REC_PR_URL"
+      fi
     fi
     ;;
 

@@ -9,7 +9,7 @@ You MUST leave the repo working tree CLEAN when your turn ends. `git status --po
 - **Success path:** every edit is committed on the existing PR branch and pushed. Tree clean.
 - **Failure path:** if you cannot address the review — comments are ambiguous, fix requires architectural changes you can't make, tests won't pass, etc. — you MUST revert all edits before ending the turn: `git checkout -- .` and delete any new files/directories you created. Then emit the result block with `"success": false`.
 
-If you end the turn with uncommitted changes, `bin/handle-mail` overrides your result block, reports the job as failed, and run-ai refuses to handle any further mail until a human cleans up. Do not leave leftovers — they block every subsequent AI request, not just yours.
+Always finish the success path by committing your work to a branch, pushing it, and opening a PR yourself — that is the only way it gets a clean, well-described PR with your own summary. As a deterministic backstop, if you end the turn with uncommitted changes `bin/handle-mail` will finalize them for you (commit + push + open a PR) so the run-ai loop is never blocked — but that PR carries a generic message, not yours, so do not rely on it. If you are reporting `success: false`, revert your edits first (`git checkout -- .` and delete any new files) so the backstop does not push a half-finished change.
 
 ## Result-block contract — also read
 
