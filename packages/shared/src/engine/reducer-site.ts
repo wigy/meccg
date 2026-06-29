@@ -2598,15 +2598,6 @@ function discardInfluencedCard(
     logDetail(`Discarded ally ${ally.instanceId} from influenced character`);
   }
 
-  // Dispatch hazards to their owner's discard pile
-  for (const haz of targetChar.hazards) {
-    const hazOwner = ownerOf(haz.instanceId);
-    const hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
-    const safeIdx = hazOwnerIdx !== -1 ? hazOwnerIdx : 1 - opponentIndex;
-    players[safeIdx] = { ...players[safeIdx], discardPile: [...players[safeIdx].discardPile, toCardInstance(haz)] };
-    logDetail(`discardInfluencedCard: hazard ${haz.instanceId as string} dispatched to ${players[safeIdx].name}`);
-  }
-
   // Discard the character itself
   newDiscard.push(toCardInstance(targetChar));
   logDetail(`Discarded influenced character ${targetChar.instanceId}`);
@@ -2620,7 +2611,7 @@ function discardInfluencedCard(
     if (hazOwnerIdx === opponentIndex) {
       newDiscard.push(toCardInstance(hazard));
     } else {
-      players[hazOwnerIdx] = { ...players[hazOwnerIdx], discardPile: [...players[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+      newHazardDiscard.push(toCardInstance(hazard));
     }
   }
 
@@ -2655,10 +2646,11 @@ function discardInfluencedCard(
       // Dispatch follower hazards to their owner's discard pile
       for (const haz of follower.hazards) {
         const hazOwner = ownerOf(haz.instanceId);
-        const hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
-        const safeIdx = hazOwnerIdx !== -1 ? hazOwnerIdx : 1 - opponentIndex;
-        players[safeIdx] = { ...players[safeIdx], discardPile: [...players[safeIdx].discardPile, toCardInstance(haz)] };
-        logDetail(`discardInfluencedCard: follower hazard ${haz.instanceId as string} dispatched to ${players[safeIdx].name}`);
+        let hazOwnerIdx = players.findIndex(p => (p.id as string) === (hazOwner as string));
+        if (hazOwnerIdx === -1) hazOwnerIdx = opponentIndex === 0 ? 1 : 0;
+        if (hazOwnerIdx === opponentIndex) newDiscard.push(toCardInstance(haz));
+        else newHazardDiscard.push(toCardInstance(haz));
+        logDetail(`discardInfluencedCard: follower hazard ${haz.instanceId as string} dispatched`);
       }
       newDiscard.push(toCardInstance(follower));
       delete newCharacters[followerId];
