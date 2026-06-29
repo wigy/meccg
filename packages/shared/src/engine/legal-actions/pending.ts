@@ -45,71 +45,13 @@ import { canPayCost } from '../cost-evaluator.js';
 import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence } from '../reducer-utils.js';
 import { asViable as viable } from './evaluated.js';
 
-/**
- * Compute the (single) set of legal actions for the actor while the
- * given resolution is at the top of the queue. Dispatches on
- * `top.kind.type`. Each handler is added in the migration step that
- * moves its old per-phase short-circuit over.
- */
-export function resolutionLegalActions(
-  state: GameState,
-  actor: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  switch (top.kind.type) {
-    case 'corruption-check':
-      return corruptionCheckActions(state, actor, top);
-    case 'order-effects':
-      return [];
-    case 'on-guard-window':
-      return onGuardWindowActions(state, actor, top);
-    case 'opponent-influence-defend':
-      return opponentInfluenceDefendActions(state, actor, top);
-    case 'faction-influence-roll':
-      return factionInfluenceRollActions(state, actor, top);
-    case 'muster-roll':
-      return musterRollActions(state, actor, top);
-    case 'flattery-attempt':
-      return flateryAttemptRollActions(state, actor, top);
-    case 'call-of-home-roll':
-      return callOfHomeRollActions(state, actor, top);
-    case 'seized-by-terror-roll':
-      return seizedByTerrorRollActions(state, actor, top);
-    case 'gold-ring-test':
-      return goldRingTestActions(state, actor, top);
-    case 'body-check-company':
-      return bodyCheckCompanyActions(state, actor, top);
-    case 'resource-play-offer':
-      return resourcePlayOfferActions(state, actor, top);
-    case 'wizard-search-on-store':
-      return wizardSearchOnStoreActions(state, actor, top);
-    case 'select-card-bearer':
-      return selectCardBearerActions(state, actor, top);
-    case 'glamour-hazard-roll':
-      return glamourHazardRollActions(state, actor, top);
-    case 'discard-one-company-item':
-      return discardOneCompanyItemActions(state, actor, top);
-    case 'hazard-event-maintenance':
-      return hazardEventMaintenanceActions(state, actor, top);
-    case 'ring-play-offer':
-      return ringPlayOfferActions(state, actor, top);
-    case 'cvcc-ally-discard-roll':
-      return cvccAllyDiscardRollActions(state, actor, top);
-    case 'tap-one-character':
-      return tapOneCharacterActions(state, actor, top);
-    case 'haven-restore-character':
-      return havenRestoreCharacterActions(state, actor, top);
-    case 'stay-her-appetite-roll':
-      return stayHerAppetiteRollActions(state, actor, top);
-  }
-}
 
 /**
  * Legal actions while a `stay-her-appetite-roll` pending resolution is at the
  * top of the queue. The hazard player rolls 2d6 to see if the ally detainment
  * attack triggers.
  */
-function stayHerAppetiteRollActions(
+export function stayHerAppetiteRollActions(
   state: GameState,
   actor: PlayerId,
   _top: PendingResolution,
@@ -130,7 +72,7 @@ function stayHerAppetiteRollActions(
  *   has resolved), the only legal action is `pass`, which runs the
  *   deferred action.
  */
-function onGuardWindowActions(
+export function onGuardWindowActions(
   state: GameState,
   actor: PlayerId,
   top: PendingResolution,
@@ -250,7 +192,7 @@ function onGuardWindowActions(
  * cancel-influence card from hand (e.g. Wizard's Laughter) to
  * automatically cancel the influence attempt.
  */
-function opponentInfluenceDefendActions(
+export function opponentInfluenceDefendActions(
   state: GameState,
   actor: PlayerId,
   top: PendingResolution,
@@ -371,7 +313,7 @@ function cancelInfluenceActions(
  * current game state (post-chain) so the UI can display a full breakdown
  * before the player commits to rolling.
  */
-function factionInfluenceRollActions(
+export function factionInfluenceRollActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
@@ -472,7 +414,7 @@ function factionInfluenceRollActions(
  * rolls 2d6; if the roll + unused general influence < 11, the
  * faction is discarded.
  */
-function musterRollActions(
+export function musterRollActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
@@ -510,7 +452,7 @@ function musterRollActions(
  * (+ diplomatBonus if the character has the diplomat skill). Success if
  * total > threshold (the roll threshold varies by creature race).
  */
-function flateryAttemptRollActions(
+export function flateryAttemptRollActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
@@ -558,7 +500,7 @@ function flateryAttemptRollActions(
  * `call-of-home-roll` resolution. The character's player rolls 2d6;
  * if roll + unused general influence < threshold, character returns to hand.
  */
-function callOfHomeRollActions(
+export function callOfHomeRollActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
@@ -599,7 +541,7 @@ function callOfHomeRollActions(
  * if roll + character mind < threshold (12), the character splits off into
  * a new company that returns to the original company's site of origin.
  */
-function seizedByTerrorRollActions(
+export function seizedByTerrorRollActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
@@ -641,7 +583,7 @@ function seizedByTerrorRollActions(
  * Darkhaven). The ring's owner rolls 2d6 with the site's modifier; the
  * ring is discarded regardless of the result.
  */
-function goldRingTestActions(
+export function goldRingTestActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
@@ -685,7 +627,7 @@ function goldRingTestActions(
  * The resource player rolls 2d6; if the result exceeds the hazard's
  * removalThreshold, the hazard permanent-event is discarded.
  */
-function glamourHazardRollActions(
+export function glamourHazardRollActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
@@ -716,7 +658,7 @@ function glamourHazardRollActions(
  * `body-check-company` resolution (from a mass-body-check hazard).
  * The resource player rolls 2d6 for the named character.
  */
-function bodyCheckCompanyActions(
+export function bodyCheckCompanyActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
@@ -757,7 +699,7 @@ function bodyCheckCompanyActions(
  * any resource card from their hand with the in-play Crown of Flowers,
  * or pass (leaving Crown of Flowers with no paired resource this turn).
  */
-function resourcePlayOfferActions(
+export function resourcePlayOfferActions(
   state: GameState,
   actor: PlayerId,
   top: PendingResolution,
@@ -802,7 +744,7 @@ function resourcePlayOfferActions(
  * play deck or discard pile, plus a `skip-wizard-search` action to pass.
  * Wizards are identified by `isAvatarCharacter` (mind === null).
  */
-function wizardSearchOnStoreActions(
+export function wizardSearchOnStoreActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
@@ -872,7 +814,7 @@ function wizardSearchOnStoreActions(
  * both the CP total and the possessions list, even though it has already
  * physically moved to its new bearer.
  */
-function corruptionCheckActions(
+export function corruptionCheckActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
@@ -1511,7 +1453,7 @@ function applyDenyScoutResources(
  * A `pass` action is also offered to allow declining the bearer assignment,
  * which discards the card.
  */
-function selectCardBearerActions(
+export function selectCardBearerActions(
   state: GameState,
   actor: PlayerId,
   top: PendingResolution,
@@ -1560,7 +1502,7 @@ function selectCardBearerActions(
  * company to discard. One `discard-item-from-company` action is emitted
  * per available item.
  */
-function discardOneCompanyItemActions(
+export function discardOneCompanyItemActions(
   state: GameState,
   actor: PlayerId,
   top: PendingResolution,
@@ -1613,7 +1555,7 @@ function discardOneCompanyItemActions(
  * At minimum, option 1 is always offered. Options 2 are offered for each
  * qualifying hand card that matches the effect's `handCardFilter`.
  */
-function hazardEventMaintenanceActions(
+export function hazardEventMaintenanceActions(
   state: GameState,
   actor: PlayerId,
   top: PendingResolution,
@@ -1674,7 +1616,7 @@ function hazardEventMaintenanceActions(
  * rings, and ringwraith gold rings with ringwraith rings. Fallen-wizard
  * exception is not yet in scope.
  */
-function ringPlayOfferActions(
+export function ringPlayOfferActions(
   state: GameState,
   actor: PlayerId,
   top: PendingResolution,
@@ -1787,7 +1729,7 @@ export function eligibleRingCategories(table: RingTestTableEffect['table'], roll
  * resolution (Bow of the Galadhrim, as-68). The attacking player rolls 2d6;
  * if roll > ally.mind + threshold, the ally is discarded.
  */
-function cvccAllyDiscardRollActions(
+export function cvccAllyDiscardRollActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
@@ -1829,7 +1771,7 @@ function cvccAllyDiscardRollActions(
  * One `tap-character-by-effect` action is emitted per untapped character.
  * A `pass` action is always emitted (required when no untapped characters remain).
  */
-function tapOneCharacterActions(
+export function tapOneCharacterActions(
   state: GameState,
   actor: PlayerId,
   top: PendingResolution,
@@ -1874,7 +1816,7 @@ function tapOneCharacterActions(
  * wounded/inverted (heal to tapped) character. The benefit is optional, so
  * `pass` is always available.
  */
-function havenRestoreCharacterActions(
+export function havenRestoreCharacterActions(
   state: GameState,
   actor: PlayerId,
   top: PendingResolution,

@@ -28,7 +28,8 @@ import { logEvaluated, logHeading, logResult } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { asViable } from './evaluated.js';
 import { topResolutionFor } from '../pending.js';
-import { resolutionLegalActions, applyConstraints } from './pending.js';
+import { applyConstraints } from './pending.js';
+import { resolutionLegalActions } from '../pending-handlers.js';
 
 /**
  * Computes legal actions when a pending card effect is being resolved.
