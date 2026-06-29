@@ -15,10 +15,12 @@ import type {
   GameState,
   GameAction,
   PendingResolution,
+  PlayerState,
   CardInstance,
   CardInstanceId,
   GameEffect,
   CharacterInPlay,
+  TwoDiceSix,
 } from '../index.js';
 import type { CardInPlay } from '../types/state-cards.js';
 import type { ChainEntry } from '../types/state-combat.js';
@@ -724,6 +726,56 @@ export function applyFactionInfluenceRollResolution(
   );
 }
 
+/** `ok` with the validated actor + `kind` narrowed to `K`, or the early-return the caller propagates. */
+type RollGuard<K extends PendingResolution['kind']['type']> =
+  | { readonly ok: true; readonly actorIndex: number; readonly player: PlayerState; readonly kind: Extract<PendingResolution['kind'], { readonly type: K }> }
+  | { readonly ok: false; readonly result: ReducerResult | null };
+
+/**
+ * Shared entry guard for the 2d6 roll-resolution reducers: check the action
+ * type, defer (`null`) unless this kind heads the queue, reject a wrong
+ * player, and return the actor with `kind` narrowed to `K` (no re-narrowing).
+ */
+function guardRollResolution<K extends PendingResolution['kind']['type']>(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+  actionType: GameAction['type'],
+  kindType: K,
+): RollGuard<K> {
+  if (action.type !== actionType) {
+    return { ok: false, result: { state, error: `Pending ${kindType} requires '${actionType}', got '${action.type}'` } };
+  }
+  if (top.kind.type !== kindType) return { ok: false, result: null };
+  if (action.player !== top.actor) {
+    return { ok: false, result: { state, error: `Wrong player for pending ${kindType}` } };
+  }
+  const actorIndex = getPlayerIndex(state, action.player);
+  return {
+    ok: true,
+    actorIndex,
+    player: state.players[actorIndex],
+    kind: top.kind as Extract<PendingResolution['kind'], { readonly type: K }>,
+  };
+}
+
+/**
+ * Roll 2d6 for a resolution: build the {@link diceRollEffect} toast and store
+ * the roll as `rollerIndex`'s `lastDiceRoll` (advancing the RNG / cheat roll).
+ * The caller applies any modifier, compares to its threshold, and dequeues.
+ */
+function rollForResolution(
+  state: GameState,
+  rollerIndex: number,
+  label: string,
+): { readonly roll: TwoDiceSix; readonly total: number; readonly rollEffect: GameEffect; readonly state: GameState } {
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2;
+  const rollEffect = diceRollEffect(state.players[rollerIndex].name, roll, label);
+  const rolledState = updatePlayer({ ...state, rng, cheatRollTotal }, rollerIndex, p => ({ ...p, lastDiceRoll: roll }));
+  return { roll, total, rollEffect, state: rolledState };
+}
+
 /**
  * Resolve a queued `muster-roll` resolution (Muster Disperses). The
  * faction's owner rolls 2d6 + unused general influence. If the total
@@ -734,16 +786,9 @@ export function applyMusterRollResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (action.type !== 'muster-roll') {
-    return { state, error: `Pending muster-roll requires that action, got '${action.type}'` };
-  }
-  if (top.kind.type !== 'muster-roll') return null;
-
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending muster-roll' };
-  }
-
-  const { factionInstanceId, factionDefinitionId, factionOwner } = top.kind;
+  const g = guardRollResolution(state, action, top, 'muster-roll', 'muster-roll');
+  if (!g.ok) return g.result;
+  const { factionInstanceId, factionDefinitionId, factionOwner } = g.kind;
   const ownerIndex = getPlayerIndex(state, factionOwner);
   const owner = state.players[ownerIndex];
 
@@ -753,41 +798,33 @@ export function applyMusterRollResolution(
   }
 
   const unusedGI = effectiveGeneralInfluence(state, owner.id) - owner.generalInfluenceUsed;
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const total = roll.die1 + roll.die2 + unusedGI;
+  const rolled = rollForResolution(state, ownerIndex, `Muster: ${def.name}`);
+  const total = rolled.total + unusedGI;
+  logDetail(`Muster roll: ${def.name} — rolled ${rolled.roll.die1} + ${rolled.roll.die2} + unused GI ${unusedGI} = ${total} vs 11`);
 
-  logDetail(`Muster roll: ${def.name} — rolled ${roll.die1} + ${roll.die2} + unused GI ${unusedGI} = ${total} vs 11`);
-
-  const rollEffect = diceRollEffect(owner.name, roll, `Muster: ${def.name}`);
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[ownerIndex] = { ...newPlayers[ownerIndex], lastDiceRoll: roll };
-
+  let postState = rolled.state;
   if (total < 11) {
     logDetail(`Muster disperses: ${def.name} discarded (${total} < 11)`);
-    const factionIdx = owner.cardsInPlay.findIndex(c => c.instanceId === factionInstanceId);
-    if (factionIdx !== -1) {
-      const factionCard = owner.cardsInPlay[factionIdx];
-      const newCardsInPlay = [...owner.cardsInPlay];
+    postState = updatePlayer(postState, ownerIndex, p => {
+      const factionIdx = p.cardsInPlay.findIndex(c => c.instanceId === factionInstanceId);
+      if (factionIdx === -1) return p;
+      const factionCard = p.cardsInPlay[factionIdx];
+      const newCardsInPlay = [...p.cardsInPlay];
       newCardsInPlay.splice(factionIdx, 1);
-      newPlayers[ownerIndex] = {
-        ...newPlayers[ownerIndex],
-        cardsInPlay: newCardsInPlay,
-        discardPile: [...newPlayers[ownerIndex].discardPile, factionCard],
-      };
-    }
+      return { ...p, cardsInPlay: newCardsInPlay, discardPile: [...p.discardPile, factionCard] };
+    });
   } else {
     logDetail(`Muster holds: ${def.name} stays in play (${total} >= 11)`);
   }
 
-  const postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+  const postRoll = dequeueResolution(postState, top.id);
 
   // Re-enter chain auto-resolution if the chain is still active, marking the
   // muster short-event entry resolved.
   return resolveChainEntryAndContinue(
     postRoll,
     e => e.payload.type === 'short-event' && e.payload.targetFactionInstanceId === factionInstanceId,
-    [rollEffect],
+    [rolled.rollEffect],
   );
 }
 
@@ -803,19 +840,10 @@ export function applyFlateryAttemptResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (action.type !== 'flattery-attempt') {
-    return { state, error: `Pending flattery-attempt requires that action, got '${action.type}'` };
-  }
-  if (top.kind.type !== 'flattery-attempt') return null;
-
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending flattery-attempt' };
-  }
-
-  const { characterInstanceId, creatureRace, threshold, diplomatBonus, hazardLimitReduction } = top.kind;
-
-  const actorIndex = getPlayerIndex(state, action.player);
-  const player = state.players[actorIndex];
+  const g = guardRollResolution(state, action, top, 'flattery-attempt', 'flattery-attempt');
+  if (!g.ok) return g.result;
+  const { actorIndex, player, kind } = g;
+  const { characterInstanceId, creatureRace, threshold, diplomatBonus, hazardLimitReduction } = kind;
 
   const charInPlay = player.characters[characterInstanceId];
   if (!charInPlay) {
@@ -875,17 +903,10 @@ export function applyCallOfHomeRollResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (action.type !== 'call-of-home-roll') {
-    return { state, error: `Pending call-of-home-roll requires that action, got '${action.type}'` };
-  }
-  if (top.kind.type !== 'call-of-home-roll') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending call-of-home-roll' };
-  }
-
-  const { targetCharacterId, threshold } = top.kind;
-  const actorIndex = getPlayerIndex(state, action.player);
-  const player = state.players[actorIndex];
+  const g = guardRollResolution(state, action, top, 'call-of-home-roll', 'call-of-home-roll');
+  if (!g.ok) return g.result;
+  const { actorIndex, player, kind } = g;
+  const { targetCharacterId, threshold } = kind;
   const charInPlay = player.characters[targetCharacterId];
   if (!charInPlay) {
     return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
@@ -895,18 +916,12 @@ export function applyCallOfHomeRollResolution(
   const charName = isCharacterCard(charDef) ? charDef.name : (targetCharacterId as string);
   const unusedGI = effectiveGeneralInfluence(state, player.id) - player.generalInfluenceUsed;
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const total = roll.die1 + roll.die2;
-  const checkValue = total + unusedGI;
+  const rolled = rollForResolution(state, actorIndex, `Call of Home: ${charName}`);
+  const checkValue = rolled.total + unusedGI;
   const passed = checkValue >= threshold;
+  logDetail(`Call of Home on ${charName}: rolled ${rolled.total} + unused GI ${unusedGI} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'RETURNS TO HAND'}`);
 
-  const rollEffect = diceRollEffect(player.name, roll, `Call of Home: ${charName}`);
-  const effects: GameEffect[] = [rollEffect];
-  logDetail(`Call of Home on ${charName}: rolled ${total} + unused GI ${unusedGI} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'RETURNS TO HAND'}`);
-
-  // Update RNG state and store the roll on the player
-  const stateAfterRoll = updatePlayer(state, actorIndex, p => ({ ...p, lastDiceRoll: roll }));
-  let postRoll = dequeueResolution({ ...stateAfterRoll, rng, cheatRollTotal }, top.id);
+  let postRoll = dequeueResolution(rolled.state, top.id);
 
   if (!passed) {
     postRoll = returnCharacterToHand(postRoll, actorIndex, targetCharacterId, charInPlay);
@@ -916,7 +931,7 @@ export function applyCallOfHomeRollResolution(
   return resolveChainEntryAndContinue(
     postRoll,
     e => e.payload.type === 'short-event' && e.payload.targetCharacterId === targetCharacterId,
-    effects,
+    [rolled.rollEffect],
   );
 }
 
@@ -1125,17 +1140,10 @@ export function applyBodyCheckCompanyResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (action.type !== 'body-check-company-roll') {
-    return { state, error: `Pending body-check-company requires body-check-company-roll, got '${action.type}'` };
-  }
-  if (top.kind.type !== 'body-check-company') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending body-check-company' };
-  }
-
-  const { characterId, modifier, sourceDefinitionId } = top.kind;
-  const actorIndex = getPlayerIndex(state, action.player);
-  const player = state.players[actorIndex];
+  const g = guardRollResolution(state, action, top, 'body-check-company-roll', 'body-check-company');
+  if (!g.ok) return g.result;
+  const { actorIndex, player, kind } = g;
+  const { characterId, modifier, sourceDefinitionId } = kind;
   const charInPlay = player.characters[characterId];
   if (!charInPlay) {
     return { state: dequeueResolution(state, top.id), error: 'Target character not found for body check' };
@@ -1218,17 +1226,10 @@ export function applySeizedByTerrorRollResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (action.type !== 'seized-by-terror-roll') {
-    return { state, error: `Pending seized-by-terror-roll requires that action, got '${action.type}'` };
-  }
-  if (top.kind.type !== 'seized-by-terror-roll') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending seized-by-terror-roll' };
-  }
-
-  const { targetCharacterId, threshold, originSiteInstanceId } = top.kind;
-  const actorIndex = getPlayerIndex(state, action.player);
-  const player = state.players[actorIndex];
+  const g = guardRollResolution(state, action, top, 'seized-by-terror-roll', 'seized-by-terror-roll');
+  if (!g.ok) return g.result;
+  const { actorIndex, player, kind } = g;
+  const { targetCharacterId, threshold, originSiteInstanceId } = kind;
   const charInPlay = player.characters[targetCharacterId];
   if (!charInPlay) {
     return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
@@ -1238,17 +1239,12 @@ export function applySeizedByTerrorRollResolution(
   const charName = isCharacterCard(charDef) ? charDef.name : (targetCharacterId as string);
   const mind = charDef && isCharacterCard(charDef) && charDef.mind !== null ? charDef.mind : 0;
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const total = roll.die1 + roll.die2;
-  const checkValue = total + mind;
+  const rolled = rollForResolution(state, actorIndex, `Seized by Terror: ${charName}`);
+  const checkValue = rolled.total + mind;
   const passed = checkValue >= threshold;
+  logDetail(`Seized by Terror on ${charName}: rolled ${rolled.total} + mind ${mind} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'SPLITS OFF TO ORIGIN'}`);
 
-  const rollEffect = diceRollEffect(player.name, roll, `Seized by Terror: ${charName}`);
-  const effects: import('../index.js').GameEffect[] = [rollEffect];
-  logDetail(`Seized by Terror on ${charName}: rolled ${total} + mind ${mind} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'SPLITS OFF TO ORIGIN'}`);
-
-  const stateAfterRoll = updatePlayer(state, actorIndex, p => ({ ...p, lastDiceRoll: roll }));
-  let postRoll = dequeueResolution({ ...stateAfterRoll, rng, cheatRollTotal }, top.id);
+  let postRoll = dequeueResolution(rolled.state, top.id);
 
   if (!passed) {
     postRoll = splitCharacterToOrigin(postRoll, actorIndex, targetCharacterId, originSiteInstanceId);
@@ -1257,7 +1253,7 @@ export function applySeizedByTerrorRollResolution(
   return resolveChainEntryAndContinue(
     postRoll,
     e => e.payload.type === 'short-event' && e.payload.targetCharacterId === targetCharacterId,
-    effects,
+    [rolled.rollEffect],
   );
 }
 
@@ -1342,17 +1338,10 @@ export function applyGoldRingTestResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (action.type !== 'gold-ring-test-roll') {
-    return { state, error: `Pending gold-ring-test requires a gold-ring-test-roll action, got '${action.type}'` };
-  }
-  if (top.kind.type !== 'gold-ring-test') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending gold-ring-test' };
-  }
-
-  const { goldRingInstanceId, rollModifier, characterInstanceId } = top.kind;
-  const actorIndex = getPlayerIndex(state, action.player);
-  const player = state.players[actorIndex];
+  const g = guardRollResolution(state, action, top, 'gold-ring-test-roll', 'gold-ring-test');
+  if (!g.ok) return g.result;
+  const { actorIndex, player, kind } = g;
+  const { goldRingInstanceId, rollModifier, characterInstanceId } = kind;
 
   // Locate the gold ring. Org-phase store-item path: ring is in killPile (the
   // MP pile). Site-phase auto-test path: ring was just played and sits in a
@@ -1965,32 +1954,21 @@ export function applyGlamourHazardRollResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (action.type !== 'glamour-hazard-roll') {
-    return { state, error: `Pending glamour-hazard-roll requires that action, got '${action.type}'` };
-  }
-  if (top.kind.type !== 'glamour-hazard-roll') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending glamour-hazard-roll' };
-  }
-
-  const { hazardInstanceId, hazardDefinitionId, removalThreshold, sourceDefinitionId } = top.kind;
-  const actorIndex = getPlayerIndex(state, action.player);
-  const player = state.players[actorIndex];
+  const g = guardRollResolution(state, action, top, 'glamour-hazard-roll', 'glamour-hazard-roll');
+  if (!g.ok) return g.result;
+  const { actorIndex, kind } = g;
+  const { hazardInstanceId, hazardDefinitionId, removalThreshold, sourceDefinitionId } = kind;
 
   const hazDef = defById(state, hazardDefinitionId);
   const hazName = hazDef?.name ?? '?';
   const sourceDef = defById(state, sourceDefinitionId);
   const sourceName = sourceDef?.name ?? '?';
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const rollTotal = roll.die1 + roll.die2;
-  const discarded = rollTotal > removalThreshold;
+  const rolled = rollForResolution(state, actorIndex, `${sourceName}: ${hazName} (need > ${removalThreshold})`);
+  const discarded = rolled.total > removalThreshold;
+  logDetail(`${sourceName} glamour roll for ${hazName}: roll ${rolled.total} vs threshold >${removalThreshold} → ${discarded ? 'DISCARD' : 'KEEP'}`);
 
-  const rollEffect = diceRollEffect(player.name, roll, `${sourceName}: ${hazName} (need > ${removalThreshold})`);
-  logDetail(`${sourceName} glamour roll for ${hazName}: roll ${rollTotal} vs threshold >${removalThreshold} → ${discarded ? 'DISCARD' : 'KEEP'}`);
-
-  let postRoll = dequeueResolution({ ...state, rng, cheatRollTotal }, top.id);
-  postRoll = updatePlayer(postRoll, actorIndex, p => ({ ...p, lastDiceRoll: roll }));
+  let postRoll = dequeueResolution(rolled.state, top.id);
 
   if (discarded) {
     // Find the hazard instance attached to any character on either player
@@ -2024,7 +2002,7 @@ export function applyGlamourHazardRollResolution(
     }
   }
 
-  return { state: postRoll, effects: [rollEffect] };
+  return { state: postRoll, effects: [rolled.rollEffect] };
 }
 
 /**
@@ -2179,17 +2157,12 @@ export function applyCvccAllyDiscardRollResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (action.type !== 'cvcc-ally-discard-roll') {
-    return { state, error: `Pending cvcc-ally-discard-roll requires that action, got '${action.type}'` };
-  }
-  if (top.kind.type !== 'cvcc-ally-discard-roll') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending cvcc-ally-discard-roll' };
-  }
-
-  const { allyInstanceId, allyMind, threshold, allyOwnerPlayerIndex } = top.kind;
-  const bowDef = top.kind.sourceItemInstanceId
-    ? resolveDef(state, top.kind.sourceItemInstanceId)
+  const g = guardRollResolution(state, action, top, 'cvcc-ally-discard-roll', 'cvcc-ally-discard-roll');
+  if (!g.ok) return g.result;
+  const { kind } = g;
+  const { allyInstanceId, allyMind, threshold, allyOwnerPlayerIndex } = kind;
+  const bowDef = kind.sourceItemInstanceId
+    ? resolveDef(state, kind.sourceItemInstanceId)
     : undefined;
   const bowName = (bowDef as { name?: string })?.name ?? 'Bow of the Galadhrim';
 
@@ -2398,19 +2371,13 @@ export function applyStayHerAppetiteRollResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (action.type !== 'stay-her-appetite-roll') {
-    return { state, error: `Pending stay-her-appetite-roll requires that action, got '${action.type}'` };
-  }
-  if (top.kind.type !== 'stay-her-appetite-roll') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending stay-her-appetite-roll' };
-  }
-
+  const g = guardRollResolution(state, action, top, 'stay-her-appetite-roll', 'stay-her-appetite-roll');
+  if (!g.ok) return g.result;
   const {
     allyInstanceId, allyOwnerPlayerIndex, hostCharacterInstanceId,
     allyMind, allyProwess, opponentUnusedGI, controllerUnusedDI,
     companyId, sourceDefinitionId,
-  } = top.kind;
+  } = g.kind;
 
   const sourceName = (defById(state, sourceDefinitionId) as { name?: string })?.name ?? 'Stay Her Appetite';
 
