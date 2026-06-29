@@ -593,13 +593,46 @@ function updateAgent(
  *
  * Pushes destination site onto `siteStack`, taps agent, increments hazard count.
  */
+/**
+ * Locate the acting agent for an agent action. Returns the hazard player's
+ * index, the player, the agent's index, and the agent — or an error if no
+ * agent matches. Shared opening for every `agent-*` handler.
+ */
+function resolveAgent(
+  state: GameState,
+  playerId: import('../types/common.js').PlayerId,
+  agentId: string,
+): { hazardIndex: number; hazardPlayer: GameState['players'][number]; agentIdx: number; agent: AgentInPlay } | { error: string } {
+  const hazardIndex = getPlayerIndex(state, playerId);
+  const hazardPlayer = state.players[hazardIndex];
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === agentId);
+  if (agentIdx === -1) return { error: 'Agent not found' };
+  return { hazardIndex, hazardPlayer, agentIdx, agent: hazardPlayer.agents[agentIdx] };
+}
+
+/**
+ * Shared tail for the simple status-change agent actions: apply `mutate` to
+ * the agent, decrement its remaining actions, and charge the agent action
+ * (extra-action aware). The action is "extra" when the agent's remaining
+ * actions are already within the granted-extra count.
+ */
+function chargeAgentActionTail(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  agentRef: { hazardIndex: number; agentIdx: number; agent: AgentInPlay },
+  mutate: (a: AgentInPlay) => AgentInPlay,
+): ReducerResult {
+  const isExtra = agentRef.agent.remainingActions <= countExtraAgentActions(state);
+  const newState = updateAgent(state, agentRef.hazardIndex, agentRef.agentIdx,
+    a => ({ ...mutate(a), remainingActions: a.remainingActions - 1 }));
+  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtra) } };
+}
+
 function handleAgentMove(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
   if (action.type !== 'agent-move') return wrongActionType(state, action, 'agent-move');
-
-  const hazardIndex = getPlayerIndex(state, action.player);
-  const hazardPlayer = state.players[hazardIndex];
-  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
-  if (agentIdx === -1) return { state, error: 'Agent not found' };
+  const r = resolveAgent(state, action.player, action.agentId);
+  if ('error' in r) return { state, error: r.error };
+  const { hazardIndex, hazardPlayer, agentIdx, agent: agentBeforeMove } = r;
 
   const destCard = findById(hazardPlayer.siteDeck, action.destinationSiteInstanceId);
   if (!destCard) return { state, error: 'Destination site not in location deck' };
@@ -614,7 +647,6 @@ function handleAgentMove(state: GameState, action: GameAction, mhState: Movement
     status: CardStatus.Untapped,
   };
 
-  const agentBeforeMove = hazardPlayer.agents[agentIdx];
   const isExtraMove = agentBeforeMove.remainingActions <= countExtraAgentActions(state);
 
   const newState = updatePlayer(state, hazardIndex, p => ({
@@ -638,13 +670,9 @@ function handleAgentMove(state: GameState, action: GameAction, mhState: Movement
  */
 function handleAgentMoveBack(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
   if (action.type !== 'agent-move-back') return wrongActionType(state, action, 'agent-move-back');
-
-  const hazardIndex = getPlayerIndex(state, action.player);
-  const hazardPlayer = state.players[hazardIndex];
-  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
-  if (agentIdx === -1) return { state, error: 'Agent not found' };
-
-  const agent = hazardPlayer.agents[agentIdx];
+  const r = resolveAgent(state, action.player, action.agentId);
+  if ('error' in r) return { state, error: r.error };
+  const { hazardIndex, agentIdx, agent } = r;
   if (agent.siteStack.length <= 1) return { state, error: 'Cannot move back: no prior site in stack' };
 
   const topSite = agent.siteStack[agent.siteStack.length - 1];
@@ -682,13 +710,9 @@ function handleAgentMoveBack(state: GameState, action: GameAction, mhState: Move
  */
 function handleAgentReturnHome(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
   if (action.type !== 'agent-return-home') return wrongActionType(state, action, 'agent-return-home');
-
-  const hazardIndex = getPlayerIndex(state, action.player);
-  const hazardPlayer = state.players[hazardIndex];
-  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
-  if (agentIdx === -1) return { state, error: 'Agent not found' };
-
-  const agent = hazardPlayer.agents[agentIdx];
+  const r = resolveAgent(state, action.player, action.agentId);
+  if ('error' in r) return { state, error: r.error };
+  const { hazardIndex, hazardPlayer, agentIdx, agent } = r;
 
   if (agent.revealed) {
     // Face-up: home site card must be placed with agent
@@ -741,26 +765,11 @@ function handleAgentReturnHome(state: GameState, action: GameAction, mhState: Mo
  */
 function handleAgentHeal(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
   if (action.type !== 'agent-heal') return wrongActionType(state, action, 'agent-heal');
-
-  const hazardIndex = getPlayerIndex(state, action.player);
-  const hazardPlayer = state.players[hazardIndex];
-  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
-  if (agentIdx === -1) return { state, error: 'Agent not found' };
-
-  if (hazardPlayer.agents[agentIdx].character.status !== CardStatus.Inverted) {
-    return { state, error: 'Agent is not wounded' };
-  }
-
+  const r = resolveAgent(state, action.player, action.agentId);
+  if ('error' in r) return { state, error: r.error };
+  if (r.agent.character.status !== CardStatus.Inverted) return { state, error: 'Agent is not wounded' };
   logDetail(`Agent ${action.agentId as string}: healed (inverted → tapped)`);
-
-  const isExtraHeal = hazardPlayer.agents[agentIdx].remainingActions <= countExtraAgentActions(state);
-  const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
-    ...a,
-    character: { ...a.character, status: CardStatus.Tapped },
-    remainingActions: a.remainingActions - 1,
-  }));
-
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraHeal) } };
+  return chargeAgentActionTail(state, mhState, r, a => ({ ...a, character: { ...a.character, status: CardStatus.Tapped } }));
 }
 
 /**
@@ -768,26 +777,11 @@ function handleAgentHeal(state: GameState, action: GameAction, mhState: Movement
  */
 function handleAgentUntap(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
   if (action.type !== 'agent-untap') return wrongActionType(state, action, 'agent-untap');
-
-  const hazardIndex = getPlayerIndex(state, action.player);
-  const hazardPlayer = state.players[hazardIndex];
-  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
-  if (agentIdx === -1) return { state, error: 'Agent not found' };
-
-  if (hazardPlayer.agents[agentIdx].character.status !== CardStatus.Tapped) {
-    return { state, error: 'Agent is not tapped' };
-  }
-
+  const r = resolveAgent(state, action.player, action.agentId);
+  if ('error' in r) return { state, error: r.error };
+  if (r.agent.character.status !== CardStatus.Tapped) return { state, error: 'Agent is not tapped' };
   logDetail(`Agent ${action.agentId as string}: untapped`);
-
-  const isExtraUntap = hazardPlayer.agents[agentIdx].remainingActions <= countExtraAgentActions(state);
-  const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
-    ...a,
-    character: { ...a.character, status: CardStatus.Untapped },
-    remainingActions: a.remainingActions - 1,
-  }));
-
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraUntap) } };
+  return chargeAgentActionTail(state, mhState, r, a => ({ ...a, character: { ...a.character, status: CardStatus.Untapped } }));
 }
 
 /**
@@ -797,26 +791,12 @@ function handleAgentUntap(state: GameState, action: GameAction, mhState: Movemen
  */
 function handleAgentTurnFaceDown(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
   if (action.type !== 'agent-turn-face-down') return wrongActionType(state, action, 'agent-turn-face-down');
-
-  const hazardIndex = getPlayerIndex(state, action.player);
-  const hazardPlayer = state.players[hazardIndex];
-  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
-  if (agentIdx === -1) return { state, error: 'Agent not found' };
-
-  const agent = hazardPlayer.agents[agentIdx];
-  if (!agent.revealed) return { state, error: 'Agent is not revealed' };
-  if (agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped to turn face-down' };
-
+  const r = resolveAgent(state, action.player, action.agentId);
+  if ('error' in r) return { state, error: r.error };
+  if (!r.agent.revealed) return { state, error: 'Agent is not revealed' };
+  if (r.agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped to turn face-down' };
   logDetail(`Agent ${action.agentId as string}: turned face-down`);
-
-  const isExtraTurnDown = hazardPlayer.agents[agentIdx].remainingActions <= countExtraAgentActions(state);
-  const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
-    ...a,
-    revealed: false,
-    remainingActions: a.remainingActions - 1,
-  }));
-
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraTurnDown) } };
+  return chargeAgentActionTail(state, mhState, r, a => ({ ...a, revealed: false }));
 }
 
 /**
@@ -827,26 +807,11 @@ function handleAgentTurnFaceDown(state: GameState, action: GameAction, mhState: 
  */
 function handleAgentKeyCreatures(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
   if (action.type !== 'agent-key-creatures') return wrongActionType(state, action, 'agent-key-creatures');
-
-  const hazardIndex = getPlayerIndex(state, action.player);
-  const hazardPlayer = state.players[hazardIndex];
-  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
-  if (agentIdx === -1) return { state, error: 'Agent not found' };
-
-  if (hazardPlayer.agents[agentIdx].character.status !== CardStatus.Untapped) {
-    return { state, error: 'Agent must be untapped to key creatures' };
-  }
-
+  const r = resolveAgent(state, action.player, action.agentId);
+  if ('error' in r) return { state, error: r.error };
+  if (r.agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped to key creatures' };
   logDetail(`Agent ${action.agentId as string}: tapped to key creatures to its site`);
-
-  const isExtraKeyCreatures = hazardPlayer.agents[agentIdx].remainingActions <= countExtraAgentActions(state);
-  const newState = updateAgent(state, hazardIndex, agentIdx, a => ({
-    ...a,
-    character: { ...a.character, status: CardStatus.Tapped },
-    remainingActions: a.remainingActions - 1,
-  }));
-
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraKeyCreatures) } };
+  return chargeAgentActionTail(state, mhState, r, a => ({ ...a, character: { ...a.character, status: CardStatus.Tapped } }));
 }
 
 /**
