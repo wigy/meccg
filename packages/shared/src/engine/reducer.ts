@@ -47,7 +47,7 @@ export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedConvertedAllyEvents } from './reducer-utils.js';
 import { topResolutionFor } from './pending.js';
-import { applyResolution } from './pending-reducers.js';
+import { applyResolution } from './pending-handlers.js';
 import { handleSetup } from './reducer-setup.js';
 import { handleUntap } from './reducer-untap.js';
 import { handleOrganization } from './reducer-organization.js';

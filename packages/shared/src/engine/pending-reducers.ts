@@ -69,69 +69,6 @@ function resolveChainEntryAndContinue(
   return { state: continued.state, effects: [...effects, ...(continued.effects ?? [])] };
 }
 
-/**
- * Resolve the top pending resolution for the action's actor by dispatching
- * to the kind-specific handler. The handler is responsible for dequeuing
- * the resolution it consumed (via {@link dequeueResolution}).
- *
- * Returns the resulting {@link ReducerResult}, or an `error` if the
- * incoming action does not satisfy the pending resolution. The caller in
- * `reducer.ts` falls through to the per-phase reducer when this function
- * returns `null` to indicate "no resolution applies — let the phase
- * reducer handle it."
- */
-export function applyResolution(
-  state: GameState,
-  action: GameAction,
-  top: PendingResolution,
-): ReducerResult | null {
-  switch (top.kind.type) {
-    case 'corruption-check':
-      return applyCorruptionCheckResolution(state, action, top);
-    case 'order-effects':
-      return applyOrderEffectsResolution(state, action, top);
-    case 'on-guard-window':
-      return applyOnGuardWindowResolution(state, action, top);
-    case 'opponent-influence-defend':
-      return applyOpponentInfluenceDefendResolution(state, action, top);
-    case 'faction-influence-roll':
-      return applyFactionInfluenceRollResolution(state, action, top);
-    case 'muster-roll':
-      return applyMusterRollResolution(state, action, top);
-    case 'flattery-attempt':
-      return applyFlateryAttemptResolution(state, action, top);
-    case 'call-of-home-roll':
-      return applyCallOfHomeRollResolution(state, action, top);
-    case 'seized-by-terror-roll':
-      return applySeizedByTerrorRollResolution(state, action, top);
-    case 'gold-ring-test':
-      return applyGoldRingTestResolution(state, action, top);
-    case 'body-check-company':
-      return applyBodyCheckCompanyResolution(state, action, top);
-    case 'ring-play-offer':
-      return applyRingPlayOfferResolution(state, action, top);
-    case 'resource-play-offer':
-      return applyResourcePlayOfferResolution(state, action, top);
-    case 'wizard-search-on-store':
-      return applyWizardSearchOnStoreResolution(state, action, top);
-    case 'select-card-bearer':
-      return applySelectCardBearerResolution(state, action, top);
-    case 'glamour-hazard-roll':
-      return applyGlamourHazardRollResolution(state, action, top);
-    case 'discard-one-company-item':
-      return applyDiscardOneCompanyItemResolution(state, action, top);
-    case 'hazard-event-maintenance':
-      return applyHazardEventMaintenanceResolution(state, action, top);
-    case 'cvcc-ally-discard-roll':
-      return applyCvccAllyDiscardRollResolution(state, action, top);
-    case 'tap-one-character':
-      return applyTapOneCharacterResolution(state, action, top);
-    case 'haven-restore-character':
-      return applyHavenRestoreCharacterResolution(state, action, top);
-    case 'stay-her-appetite-roll':
-      return applyStayHerAppetiteRollResolution(state, action, top);
-  }
-}
 
 // ---- Per-kind handlers (filled in during migration) ----
 //
@@ -157,7 +94,7 @@ export function applyResolution(
  * item from its new bearer (since the transfer didn't "stick"). The item
  * is included in the discard via `action.possessions`.
  */
-function applyCorruptionCheckResolution(
+export function applyCorruptionCheckResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -440,7 +377,7 @@ function applyCorruptionCheckResolution(
   };
 }
 
-function applyOrderEffectsResolution(
+export function applyOrderEffectsResolution(
   _state: GameState,
   _action: GameAction,
   _top: PendingResolution,
@@ -541,7 +478,7 @@ function tryCancelDeferredOnReveal(
   return { ...state, players: newPlayers };
 }
 
-function applyOnGuardWindowResolution(
+export function applyOnGuardWindowResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -616,7 +553,7 @@ function applyOnGuardWindowResolution(
  * card to automatically cancel the attempt. The standard roll-and-resolve
  * logic lives in `reducer-site.ts:resolveOpponentInfluenceDefend`.
  */
-function applyOpponentInfluenceDefendResolution(
+export function applyOpponentInfluenceDefendResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -748,7 +685,7 @@ function applyCancelInfluence(
  * The actual roll-and-resolve logic lives in
  * `reducer-site.ts:resolveInfluenceAttemptRoll`.
  */
-function applyFactionInfluenceRollResolution(
+export function applyFactionInfluenceRollResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -792,7 +729,7 @@ function applyFactionInfluenceRollResolution(
  * faction's owner rolls 2d6 + unused general influence. If the total
  * is less than 11, the faction is discarded; otherwise it stays in play.
  */
-function applyMusterRollResolution(
+export function applyMusterRollResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -861,7 +798,7 @@ function applyMusterRollResolution(
  * the current attack and decrease the company's hazard limit by
  * `hazardLimitReduction`.
  */
-function applyFlateryAttemptResolution(
+export function applyFlateryAttemptResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -933,7 +870,7 @@ function applyFlateryAttemptResolution(
  * rolls 2d6. If roll + unused general influence < threshold, the character
  * returns to hand. Items/allies/hazards are discarded; followers fall to GI.
  */
-function applyCallOfHomeRollResolution(
+export function applyCallOfHomeRollResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -1183,7 +1120,7 @@ function discardCharacter(
  * - Other races, untapped, and roll fails: character becomes tapped.
  * - Other races, already tapped, roll fails: no effect.
  */
-function applyBodyCheckCompanyResolution(
+export function applyBodyCheckCompanyResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -1276,7 +1213,7 @@ function applyBodyCheckCompanyResolution(
  * If the character is alone in their company, the whole company returns to
  * the site of origin (destinationSite is cleared).
  */
-function applySeizedByTerrorRollResolution(
+export function applySeizedByTerrorRollResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -1400,7 +1337,7 @@ function splitCharacterToOrigin(
  * gold-ring item is discarded regardless of the result. Then a
  * `ring-play-offer` is enqueued so the player may play a matching special ring.
  */
-function applyGoldRingTestResolution(
+export function applyGoldRingTestResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -1559,7 +1496,7 @@ function applyGoldRingTestResolution(
  * character who bore the gold ring; if `storedPlacement` is true the ring
  * enters play in stored state (Rule 9.22 Darkhaven path).
  */
-function applyRingPlayOfferResolution(
+export function applyRingPlayOfferResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -1663,7 +1600,7 @@ function applyRingPlayOfferResolution(
  *    `assumeNotInPlay: ['Doors of Night']`. Crown of Flowers is updated to
  *    record the link as well.
  */
-function applyResourcePlayOfferResolution(
+export function applyResourcePlayOfferResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -1750,7 +1687,7 @@ function applyResourcePlayOfferResolution(
  * The Windlord Found Me (dm-164): playing the wizard here does NOT count
  * toward the one-character-per-turn limit.
  */
-function applyWizardSearchOnStoreResolution(
+export function applyWizardSearchOnStoreResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -1851,7 +1788,7 @@ function applyWizardSearchOnStoreResolution(
  *   items, and add a `bearer-cannot-untap` constraint.
  * - `pass`: decline the bearer assignment — discard the card from cardsInPlay.
  */
-function applySelectCardBearerResolution(
+export function applySelectCardBearerResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -2023,7 +1960,7 @@ function applySelectCardBearerResolution(
  * exceeds `removalThreshold` (the hazard's `removalNumber` or 8 by default),
  * the hazard permanent-event is discarded from the character it is attached to.
  */
-function applyGlamourHazardRollResolution(
+export function applyGlamourHazardRollResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -2097,7 +2034,7 @@ function applyGlamourHazardRollResolution(
  * via a `discard-item-from-company` action. The item is removed from its
  * bearer and moved to the defending player's discard pile.
  */
-function applyDiscardOneCompanyItemResolution(
+export function applyDiscardOneCompanyItemResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -2162,7 +2099,7 @@ function applyDiscardOneCompanyItemResolution(
  *
  * Used by *Thrice Outnumbered* (le-142).
  */
-function applyHazardEventMaintenanceResolution(
+export function applyHazardEventMaintenanceResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -2237,7 +2174,7 @@ function applyHazardEventMaintenanceResolution(
  * The attacking player rolls 2d6. If roll > ally.mind + threshold (5),
  * the ally is discarded from the defending company to the ally owner's discard pile.
  */
-function applyCvccAllyDiscardRollResolution(
+export function applyCvccAllyDiscardRollResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -2332,7 +2269,7 @@ function applyCvccAllyDiscardRollResolution(
  * via a `tap-character-by-effect` action, or passes if no untapped characters
  * are available. Used by *Stench of Mordor* (le-141).
  */
-function applyTapOneCharacterResolution(
+export function applyTapOneCharacterResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -2388,7 +2325,7 @@ function applyTapOneCharacterResolution(
  * `restore-character-by-effect` action. A tapped character is untapped; a
  * wounded (inverted) character is healed one step to tapped.
  */
-function applyHavenRestoreCharacterResolution(
+export function applyHavenRestoreCharacterResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
@@ -2456,7 +2393,7 @@ function applyHavenRestoreCharacterResolution(
  * ally's controlling character. The ally is discarded after combat if the
  * attack was not fully defeated.
  */
-function applyStayHerAppetiteRollResolution(
+export function applyStayHerAppetiteRollResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
