@@ -14,7 +14,7 @@
  * Effects:
  * | # | Effect Type       | Status | Notes                                                 |
  * |---|-------------------|--------|-------------------------------------------------------|
- * | 1 | combat-detainment | OK     | Hero or covert fallen-wizard defender → detainment    |
+ * | 1 | combat-detainment | OK     | Hero or fallen-wizard defender → detainment (2.IV.vii.F1) |
  *
  * keyedTo (canonical playable: {w}{w}{b}{f}):
  * | # | Entry                                 | When                         |
@@ -90,6 +90,46 @@ describe('Ent in Search of the Entwives (le-71)', () => {
 
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.strikesTotal).toBe(1);
+    expect(afterChain.combat!.strikeProwess).toBe(14);
+    expect(afterChain.combat!.detainment).toBe(true);
+  });
+
+  test('attack on Fallen-wizard company: detainment (FW treated as hero per rule 2.IV.vii.F1)', () => {
+    // Regression: a Fallen-wizard player's companies are considered hero
+    // companies when determining detainment (CoE 2.IV.vii.F1; 2026-02-07
+    // clarification: covert/overt status is irrelevant). The Ent's
+    // "detainment against covert and hero companies" must therefore fire,
+    // so the struck character is tapped — not body-checked and killed.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [ENT_IN_SEARCH],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
+    const entId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, entId, companyId, WILDERNESS_KEYING,
+    );
+
+    expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.strikeProwess).toBe(14);
     expect(afterChain.combat!.detainment).toBe(true);
   });

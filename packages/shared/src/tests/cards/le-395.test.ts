@@ -3,7 +3,10 @@
  *
  * Card test: Mount Gundabad (le-395)
  * Type: minion-site (shadow-hold) in Gundabad
- * Effects: 1 (combat-detainment against fallen-wizard alignment)
+ * Effects: 0 (the "detainment against overt company" qualifier is fully
+ *   covered by §3.II.2.R1/B1 for its only valid targets — minion companies at
+ *   a shadow-hold; FW and hero companies are never overt for detainment, per
+ *   rule 2.IV.vii.F1)
  *
  * Text:
  *   "Nearest Darkhaven: Carn Dûm
@@ -32,7 +35,7 @@
  * | 4 | Auto-attack (each-character)    | IMPLEMENTED | strikesTotal = company.characters.length, pre-assigned       |
  * | 5 | Detainment vs Ringwraith        | IMPLEMENTED | §3.II.2.R1 — shadow-hold → always detainment                 |
  * | 6 | Detainment vs Balrog            | IMPLEMENTED | §3.II.2.B1 — shadow-hold → always detainment                 |
- * | 7 | Detainment vs fallen-wizard     | IMPLEMENTED | combat-detainment site effect with defender.alignment cond.  |
+ * | 7 | Not detainment vs fallen-wizard | IMPLEMENTED | FW is a hero company for detainment (rule 2.IV.vii.F1)        |
  * | 8 | Not detainment vs hero          | IMPLEMENTED | default — no matching rule fires                             |
  *
  * Playable: YES
@@ -120,11 +123,14 @@ describe('Mount Gundabad (le-395)', () => {
     expect(detainment).toBe(true);
   });
 
-  test('fallen-wizard defender at Mount Gundabad: Orc auto-attack is detainment (site effect — overt company)', () => {
-    // The card text says "detainment against overt company". The engine
-    // currently treats all fallen-wizard companies as overt (covert tracking
-    // is not yet implemented). The combat-detainment site effect gates on
-    // defender.alignment === "fallen-wizard", which fires here.
+  test('fallen-wizard defender at Mount Gundabad: Orc auto-attack is NOT detainment (FW is hero for detainment, rule 2.IV.vii.F1)', () => {
+    // The card text says "detainment against overt company". Per rule
+    // 2.IV.vii.F1 (2026-02-07 clarification), a Fallen-wizard player's
+    // companies are considered HERO companies when determining detainment,
+    // and their covert/overt status does not apply. A hero company is not
+    // overt, so the "overt company" qualifier does not detain a FW company —
+    // the Orcs fight normally and may wound/kill. (Minion companies are still
+    // detained here via §3.II.2.R1/B1 since Mount Gundabad is a shadow-hold.)
     const siteDef = pool[MOUNT_GUNDABAD as string] as SiteCard;
     const detainment = isDetainmentAttack({
       attackRace: 'orc' as Race,
@@ -133,12 +139,12 @@ describe('Mount Gundabad (le-395)', () => {
       attackEffects: siteDef.effects,
       defendingSiteEffects: siteDef.effects,
     });
-    expect(detainment).toBe(true);
+    expect(detainment).toBe(false);
   });
 
   test('hero defender at Mount Gundabad: Orc auto-attack is NOT detainment', () => {
-    // Standard rules don't apply (R1/B1 require minion/balrog alignment).
-    // No site effect fires because the condition is "fallen-wizard" only.
+    // Standard rules don't apply (R1/B1 require minion/balrog alignment) and a
+    // hero company is not overt, so the "overt company" qualifier never fires.
     const siteDef = pool[MOUNT_GUNDABAD as string] as SiteCard;
     const detainment = isDetainmentAttack({
       attackRace: 'orc' as Race,
@@ -151,7 +157,8 @@ describe('Mount Gundabad (le-395)', () => {
   });
 
   test('baseline: without site effects, fallen-wizard vs Orc is NOT detainment', () => {
-    // Confirms the site effect is what makes it detainment for fallen-wizard.
+    // A FW company is a hero company for detainment (rule 2.IV.vii.F1), so an
+    // Orc shadow-hold attack is not detainment via the R1/B1 minion rules.
     const detainment = isDetainmentAttack({
       attackRace: 'orc' as Race,
       attackKeyedTo: [{ siteTypes: [SiteType.ShadowHold] }],
