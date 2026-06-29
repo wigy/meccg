@@ -576,6 +576,86 @@ function resolveEnvironmentCancel(state: GameState, targetInstanceId: CardInstan
 }
 
 /**
+ * Map a DSL constraint-scope name to a {@link ConstraintScope}, using
+ * `companyId` for the company-bound scopes. Returns null for an unknown
+ * scope, or a company-bound scope with no company to bind to.
+ */
+function parseConstraintScope(
+  scopeName: string,
+  companyId: import('../types/common.js').CompanyId | null,
+): import('../types/pending.js').ConstraintScope | null {
+  switch (scopeName) {
+    case 'turn':
+      return { kind: 'turn' };
+    case 'until-cleared':
+      return { kind: 'until-cleared' };
+    case 'company-site-phase':
+    case 'company-mh-phase':
+      return companyId ? { kind: scopeName, companyId } : null;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Resolve and add one declared `add-constraint` apply (scope → kind →
+ * target → {@link addConstraint}) to the state. Shared by the chain's
+ * short-event arrival trigger and the self-enters-play constraint path so
+ * that plumbing lives in one place; each caller supplies the company it
+ * resolved (its own way) and its target policy.
+ *
+ * `effectForKind` is the on-event effect carrying the specific apply — a
+ * caller flattening a `sequence` passes `{ ...onEvent, apply }`. When
+ * `untilClearedPlayerId` is given and the scope is `until-cleared`, the
+ * constraint targets that player (used by self-enters-play cards whose
+ * effect is global rather than company-bound); otherwise it targets the
+ * resolved company. Returns whether a constraint was actually added, so
+ * callers can implement first-match-wins across modes.
+ */
+function addDeclaredConstraint(
+  state: GameState,
+  source: { readonly instanceId: CardInstanceId; readonly definitionId: import('../types/common.js').CardDefinitionId },
+  effectForKind: import('../types/effects.js').OnEventEffect,
+  constraintKind: string,
+  scopeName: string,
+  companyId: import('../types/common.js').CompanyId | null,
+  opts: {
+    readonly boundSiteDefId?: import('../types/common.js').CardDefinitionId;
+    readonly untilClearedPlayerId?: PlayerId;
+  } = {},
+): { readonly state: GameState; readonly added: boolean } {
+  const scope = parseConstraintScope(scopeName, companyId);
+  if (!scope) {
+    logDetail(`add-constraint(${constraintKind}): unsupported scope "${scopeName}" — fizzle`);
+    return { state, added: false };
+  }
+  const kind = buildConstraintKind(state, effectForKind, constraintKind, opts.boundSiteDefId);
+  if (!kind) {
+    logDetail(`add-constraint: unsupported constraint kind "${constraintKind}" — fizzle`);
+    return { state, added: false };
+  }
+  let target: import('../types/pending.js').ActiveConstraint['target'];
+  if (scopeName === 'until-cleared' && opts.untilClearedPlayerId) {
+    target = { kind: 'player', playerId: opts.untilClearedPlayerId };
+  } else if (companyId) {
+    target = { kind: 'company', companyId };
+  } else {
+    logDetail(`add-constraint(${constraintKind}): no target — fizzle`);
+    return { state, added: false };
+  }
+  return {
+    state: addConstraint(state, {
+      source: source.instanceId,
+      sourceDefinitionId: source.definitionId,
+      scope,
+      target,
+      kind,
+    }),
+    added: true,
+  };
+}
+
+/**
  * Fire any `on-event company-arrives-at-site → add-constraint` effect
  * carried by a resolving short-event. The target company is the active
  * M/H company (the only company the hazard can be played against), so
@@ -652,32 +732,15 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
       const scopeName = apply.scope;
       if (!constraintKind || !scopeName) continue;
 
-      let scope: import('../types/pending.js').ConstraintScope;
-      switch (scopeName) {
-        case 'company-site-phase':
-          scope = { kind: 'company-site-phase', companyId: targetCompany.id };
-          break;
-        case 'turn':
-          scope = { kind: 'turn' };
-          break;
-        case 'until-cleared':
-          scope = { kind: 'until-cleared' };
-          break;
-        default:
-          continue;
+      // Arrival constraints always target the active moving company; the
+      // company is the resolution context, so `until-cleared` keeps the
+      // company target (no player override).
+      const r = addDeclaredConstraint(state, card, { ...onEvent, apply }, constraintKind, scopeName, targetCompany.id);
+      state = r.state;
+      if (r.added) {
+        logDetail(`Short-event "${def.name}" resolves → added ${constraintKind} constraint on company ${targetCompany.id as string}`);
+        addedAny = true;
       }
-      const builtKind = buildConstraintKind(state, { ...onEvent, apply }, constraintKind);
-      if (!builtKind) continue;
-
-      logDetail(`Short-event "${def.name}" resolves → adding ${constraintKind} constraint on company ${targetCompany.id as string}`);
-      state = addConstraint(state, {
-        source: card.instanceId,
-        sourceDefinitionId: card.definitionId,
-        scope,
-        target: { kind: 'company', companyId: targetCompany.id },
-        kind: builtKind,
-      });
-      addedAny = true;
     }
 
     // Preserve first-match semantics: once one on-event effect has
@@ -1278,28 +1341,6 @@ function applyAddConstraintFromOnEvent(
     }
   }
 
-  // Map the scope name to a ConstraintScope discriminant.
-  let scope: import('../types/pending.js').ConstraintScope;
-  switch (scopeName) {
-    case 'company-site-phase':
-      if (!companyId) { logDetail(`add-constraint(${constraintKind}): no active company — fizzle`); return state; }
-      scope = { kind: 'company-site-phase', companyId };
-      break;
-    case 'company-mh-phase':
-      if (!companyId) { logDetail(`add-constraint(${constraintKind}): no active company — fizzle`); return state; }
-      scope = { kind: 'company-mh-phase', companyId };
-      break;
-    case 'turn':
-      scope = { kind: 'turn' };
-      break;
-    case 'until-cleared':
-      scope = { kind: 'until-cleared' };
-      break;
-    default:
-      logDetail(`add-constraint(${constraintKind}): unknown scope "${scopeName}" — fizzle`);
-      return state;
-  }
-
   // Site-targeting permanent events carry the site they were played on in the
   // chain payload (set by the play action's `targetSiteDefinitionId`). Pass it
   // through so site-bound constraints resolve correctly even outside the site
@@ -1308,32 +1349,18 @@ function applyAddConstraintFromOnEvent(
   const boundSiteDefId = entry.payload?.type === 'permanent-event'
     ? entry.payload.targetSiteDefinitionId
     : undefined;
-  const kind = buildConstraintKind(state, effect, constraintKind, boundSiteDefId);
-  if (!kind) {
-    logDetail(`add-constraint: unsupported constraint kind "${constraintKind}" — fizzle`);
-    return state;
-  }
 
-  // For until-cleared scope, use player target (the effect applies
-  // globally, not to a specific company that may later disband).
-  let target: import('../types/pending.js').ActiveConstraint['target'];
-  if (scopeName === 'until-cleared' && activePlayer !== null) {
-    target = { kind: 'player', playerId: activePlayer };
-  } else if (companyId) {
-    target = { kind: 'company', companyId };
-  } else {
-    logDetail(`add-constraint(${constraintKind}): no target — fizzle`);
-    return state;
-  }
-
-  logDetail(`"${cardName}" entered play — adding constraint ${constraintKind}, scope ${scopeName}`);
-  return addConstraint(state, {
-    source: entry.card!.instanceId,
-    sourceDefinitionId: entry.card!.definitionId,
-    scope,
-    target,
-    kind,
+  // For `until-cleared` scope, target the active player (the effect applies
+  // globally, not to a specific company that may later disband); other scopes
+  // target the resolved company.
+  const r = addDeclaredConstraint(state, entry.card!, effect, constraintKind, scopeName, companyId, {
+    boundSiteDefId,
+    untilClearedPlayerId: activePlayer ?? undefined,
   });
+  if (r.added) {
+    logDetail(`"${cardName}" entered play — added constraint ${constraintKind}, scope ${scopeName}`);
+  }
+  return r.state;
 }
 
 /**
