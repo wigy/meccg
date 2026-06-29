@@ -136,8 +136,8 @@ One system, built bottom-up. Each component names the engine API it wraps.
   one-hot, MP-by-category, GI, deck-exhaust counts, hazard limit) + set/attention
   encoders over variable zones (hand, companies, characters+items, sites,
   on-guard). Never consumes raw `GameState`.
-- **Action featurizer + masker** — encode each `EvaluatedAction` (type embedding
-  + referenced instance/site/company features); `viable` is the mask. This is
+- **Action featurizer + masker** — encode each `EvaluatedAction` (type embedding +
+  referenced instance/site/company features); `viable` is the mask. This is
   the fix for the 125-type / variable-branching problem.
 
 **Learning:**
