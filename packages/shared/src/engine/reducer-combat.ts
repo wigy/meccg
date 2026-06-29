@@ -4543,6 +4543,66 @@ function findTakePrisonerHazard(
  * 6. Remove the host card from the character's `hazards` list
  *    (it now lives in the HazardHost record).
  */
+/**
+ * Bind a defeated character as a prisoner (CoE 8.35): discard its non-ring
+ * items, revert its followers (and itself) to general influence, add a
+ * `character-is-prisoner` constraint pointing at `hostCard`, and append a
+ * {@link HazardHost} record. Shared by the location-deck rescue-site path
+ * ({@link applyTakePrisoner}) and the Troll-purse at-site path
+ * ({@link applyTakePrisonerAtSite}); `removeHostFromHazards` strips the host
+ * from the prisoner's hazards when the host moves into the HazardHost record
+ * (the at-site host stays in cardsInPlay instead).
+ */
+function bindPrisoner(
+  state: GameState,
+  defPlayerIndex: number,
+  charInstanceId: CardInstanceId,
+  charData: CharacterInPlay,
+  hostCard: import('../types/state-cards.js').CardInstance,
+  rescueSiteCard: import('../types/state-cards.js').CardInstance,
+  ownedBy: import('../types/common.js').PlayerId,
+  removeHostFromHazards: boolean,
+  logPrefix: string,
+): GameState {
+  const retainedItems = charData.items.filter(item => {
+    const itemDef = defById(state, item.definitionId);
+    return itemDef && 'cardType' in itemDef
+      && typeof (itemDef as { cardType: string }).cardType === 'string'
+      && (itemDef as { cardType: string }).cardType.includes('ring-item');
+  });
+  const discardedItems = charData.items.filter(item => !retainedItems.includes(item));
+  if (discardedItems.length > 0) {
+    logDetail(`${logPrefix}: discarding ${discardedItems.length} non-ring item(s) from prisoner ${charInstanceId as string}`);
+  }
+  const followerIds = charData.followers;
+  const newCharData = {
+    ...charData,
+    items: retainedItems,
+    ...(removeHostFromHazards ? { hazards: charData.hazards.filter(h => h.instanceId !== hostCard.instanceId) } : {}),
+    controlledBy: 'general' as const,
+  };
+  let newState = updatePlayer(state, defPlayerIndex, p => {
+    const updatedChars: Record<CardInstanceId, CharacterInPlay> = { ...p.characters };
+    updatedChars[charInstanceId] = newCharData;
+    for (const followerId of followerIds) {
+      const follower = updatedChars[followerId];
+      if (follower && follower.controlledBy === charInstanceId) {
+        updatedChars[followerId] = { ...follower, controlledBy: 'general' };
+      }
+    }
+    return { ...p, characters: updatedChars, discardPile: [...p.discardPile, ...discardedItems.map(i => toCardInstance(i))] };
+  });
+  newState = addConstraint(newState, {
+    source: hostCard.instanceId,
+    sourceDefinitionId: hostCard.definitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'character', characterId: charInstanceId },
+    kind: { type: 'character-is-prisoner', hostInstanceId: hostCard.instanceId },
+  });
+  const newHost: HazardHost = { hostCard, rescueSiteCard, prisoners: [charInstanceId], ownedBy };
+  return { ...newState, hazardHosts: [...newState.hazardHosts, newHost] };
+}
+
 function applyTakePrisoner(
   state: GameState,
   defPlayerIndex: number,
@@ -4579,72 +4639,12 @@ function applyTakePrisoner(
   const charData = defPlayer.characters[charInstanceId];
   if (!charData) return state;
 
-  // Discard all non-ring items from the prisoner (rule 8.35).
-  const retainedItems = charData.items.filter(item => {
-    const itemDef = defById(state, item.definitionId);
-    return itemDef && 'cardType' in itemDef
-      && typeof (itemDef as { cardType: string }).cardType === 'string'
-      && (itemDef as { cardType: string }).cardType.includes('ring-item');
-  });
-  const discardedItems = charData.items.filter(item => !retainedItems.includes(item));
-  if (discardedItems.length > 0) {
-    logDetail(`take-prisoner: discarding ${discardedItems.length} non-ring item(s) from prisoner ${charInstanceId as string}`);
-  }
-
-  // Remove host card from the character's hazards list (it moves to HazardHost record).
-  const updatedHazards = charData.hazards.filter(h => h.instanceId !== hostCard.instanceId);
-
-  // Revert followers to general influence (rule 8.35).
-  // Followers are referenced by CardInstanceId in charData.followers; their
-  // controlledBy is updated on their own CharacterInPlay entries.
-  const followerIds = charData.followers;
-
-  // Update the prisoner character.
-  const newCharData = {
-    ...charData,
-    items: retainedItems,
-    hazards: updatedHazards,
-    controlledBy: 'general' as const,
-  };
-
-  let newState = updatePlayer(state, defPlayerIndex, p => {
-    // Revert each follower to general influence.
-    const updatedChars: Record<CardInstanceId, CharacterInPlay> = { ...p.characters };
-    updatedChars[charInstanceId] = newCharData;
-    for (const followerId of followerIds) {
-      const follower = updatedChars[followerId];
-      if (follower && follower.controlledBy === charInstanceId) {
-        updatedChars[followerId] = { ...follower, controlledBy: 'general' };
-      }
-    }
-    return {
-      ...p,
-      characters: updatedChars,
-      discardPile: [...p.discardPile, ...discardedItems.map(i => (toCardInstance(i)))],
-    };
-  });
-  newState = updatePlayer(newState, hazardPlayerIndex, p => ({
-    ...p,
-    siteDeck: newHazardSiteDeck,
-  }));
-
-  // Add character-is-prisoner active constraint.
-  newState = addConstraint(newState, {
-    source: hostCard.instanceId,
-    sourceDefinitionId: hostCard.definitionId,
-    scope: { kind: 'until-cleared' },
-    target: { kind: 'character', characterId: charInstanceId },
-    kind: { type: 'character-is-prisoner', hostInstanceId: hostCard.instanceId },
-  });
-
-  // Create HazardHost record.
-  const newHost: HazardHost = {
-    hostCard,
-    rescueSiteCard: toCardInstance(rescueSiteCard),
-    prisoners: [charInstanceId],
-    ownedBy: hazardPlayer.id,
-  };
-  newState = { ...newState, hazardHosts: [...newState.hazardHosts, newHost] };
+  let newState = bindPrisoner(
+    state, defPlayerIndex, charInstanceId, charData,
+    hostCard, toCardInstance(rescueSiteCard), hazardPlayer.id, true, 'take-prisoner',
+  );
+  // Remove the rescue site from the hazard player's location deck.
+  newState = updatePlayer(newState, hazardPlayerIndex, p => ({ ...p, siteDeck: newHazardSiteDeck }));
 
   logDetail(`take-prisoner: ${charInstanceId as string} is now a prisoner of ${hostCard.instanceId as string} at rescue site ${rescueSiteCard.definitionId as string}`);
   return newState;
@@ -4692,58 +4692,10 @@ function applyTakePrisonerAtSite(
   }
   const rescueSiteCard = { instanceId: siteInstanceId, definitionId: siteDefId };
 
-  // Discard all non-ring items from the prisoner (rule 8.35).
-  const retainedItems = charData.items.filter(item => {
-    const itemDef = defById(state, item.definitionId);
-    return itemDef && 'cardType' in itemDef
-      && typeof (itemDef as { cardType: string }).cardType === 'string'
-      && (itemDef as { cardType: string }).cardType.includes('ring-item');
-  });
-  const discardedItems = charData.items.filter(item => !retainedItems.includes(item));
-  if (discardedItems.length > 0) {
-    logDetail(`take-prisoner (Troll-purse): discarding ${discardedItems.length} non-ring item(s) from prisoner ${charInstanceId as string}`);
-  }
-
-  const followerIds = charData.followers;
-  const newCharData = {
-    ...charData,
-    items: retainedItems,
-    controlledBy: 'general' as const,
-  };
-
-  let newState = updatePlayer(state, defPlayerIndex, p => {
-    const updatedChars: Record<CardInstanceId, CharacterInPlay> = { ...p.characters };
-    updatedChars[charInstanceId] = newCharData;
-    for (const followerId of followerIds) {
-      const follower = updatedChars[followerId];
-      if (follower && follower.controlledBy === charInstanceId) {
-        updatedChars[followerId] = { ...follower, controlledBy: 'general' };
-      }
-    }
-    return {
-      ...p,
-      characters: updatedChars,
-      discardPile: [...p.discardPile, ...discardedItems.map(i => toCardInstance(i))],
-    };
-  });
-
-  // Add character-is-prisoner active constraint pointing to the Troll-purse.
-  newState = addConstraint(newState, {
-    source: hostInstanceId,
-    sourceDefinitionId: hostInPlay.definitionId,
-    scope: { kind: 'until-cleared' },
-    target: { kind: 'character', characterId: charInstanceId },
-    kind: { type: 'character-is-prisoner', hostInstanceId },
-  });
-
-  // Create the HazardHost record (rescue site = the bound site).
-  const newHost: HazardHost = {
-    hostCard,
-    rescueSiteCard,
-    prisoners: [charInstanceId],
-    ownedBy: hazardPlayerState.id,
-  };
-  newState = { ...newState, hazardHosts: [...newState.hazardHosts, newHost] };
+  const newState = bindPrisoner(
+    state, defPlayerIndex, charInstanceId, charData,
+    hostCard, rescueSiteCard, hazardPlayerState.id, false, 'take-prisoner (Troll-purse)',
+  );
 
   logDetail(`take-prisoner (Troll-purse): ${charInstanceId as string} is now a prisoner at site ${siteDefId as string}`);
   return newState;
