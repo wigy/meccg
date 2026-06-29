@@ -179,7 +179,7 @@ export function resolveWinConditionRoll(
   const bands = (apply.bands ?? []) as readonly RollBand[];
   const modifiers = (apply.rollModifiers ?? []) as readonly RollModifier[];
   const sourceDef = defById(state, sourceDefinitionId);
-  const cardName = sourceDef && 'name' in sourceDef ? (sourceDef as { name: string }).name : (sourceDefinitionId as string);
+  const cardName = sourceDef?.name ?? (sourceDefinitionId as string);
 
   const modifier = sumModifiers(state, player, avatarCharId, sourceDefinitionId, modifiers);
   const { roll, rng, cheatRollTotal } = roll2d6(state);

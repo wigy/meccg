@@ -28,6 +28,7 @@ import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './reducer-organization.js';
 import { isCharacterCard } from '../types/cards.js';
+import type { CardDefinition } from '../types/cards.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -453,7 +454,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       const company = findCharacterCompany(p.companies, targetCharId);
       if (!company?.currentSite) continue;
       const siteDef = defById(workingState, company.currentSite.definitionId);
-      return siteDef && 'name' in siteDef ? (siteDef as { name: string }).name : undefined;
+      return siteDef?.name;
     }
     return undefined;
   })();
@@ -725,7 +726,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               const ctx = {
                 target: {
                   race: ('race' in charCardDef ? (charCardDef as { race?: string }).race : undefined) ?? '',
-                  name: ('name' in charCardDef ? (charCardDef as { name?: string }).name : undefined) ?? '',
+                  name: (charCardDef?.name) ?? '',
                   skills: ('skills' in charCardDef ? (charCardDef as { skills?: readonly string[] }).skills : undefined) ?? [],
                 },
               };
@@ -1126,7 +1127,7 @@ function applyPlayOptionAddConstraint(
  */
 function applyShortEventOnEntersPlay(
   state: GameState,
-  def: { name: string; effects?: readonly import('../types/effects.js').CardEffect[] },
+  def: CardDefinition,
   handCard: CardInstance,
   action: GameAction,
   playerIndex: number,
@@ -1418,7 +1419,7 @@ function applyShortEventOnEntersPlay(
       } else {
         eligibleCategories = [];
       }
-      logDetail(`"${def.name}": enqueue-ring-play-offer — ring ${String(ringDef && 'name' in (ringDef as object) ? (ringDef as { name: string }).name : goldRingInstanceId)}, eligible: ${eligibleCategories.join(', ') || 'none'}`);
+      logDetail(`"${def.name}": enqueue-ring-play-offer — ring ${String(ringDef?.name ?? goldRingInstanceId)}, eligible: ${eligibleCategories.join(', ') || 'none'}`);
 
       // Discard the gold ring from the bearer.
       state = updatePlayer(state, playerIndex, () => ({

@@ -723,7 +723,7 @@ function applyCancelInfluence(
     const activeCompanyIndex = (state.phaseState as { activeCompanyIndex?: number }).activeCompanyIndex ?? 0;
     const activePlayer = activePlayerState(state);
     const companyId = activePlayer?.companies[activeCompanyIndex]?.id ?? '' as import('../index.js').CompanyId;
-    const charName = charDef && 'name' in charDef ? charDef.name : 'cancel-influence';
+    const charName = charDef?.name ?? 'cancel-influence';
 
     const costResult = applyCost(resultState, cancelEffect.cost, action.characterId, {
       playerIndex,
@@ -1949,7 +1949,7 @@ function applySelectCardBearerResolution(
       const currentSiteDef = company?.currentSite
         ? defById(s, company.currentSite.definitionId)
         : undefined;
-      const siteName = currentSiteDef && 'name' in currentSiteDef ? (currentSiteDef as { name: string }).name : undefined;
+      const siteName = currentSiteDef?.name;
       const siteType = currentSiteDef && 'siteType' in currentSiteDef ? (currentSiteDef as { siteType: string }).siteType : undefined;
 
       if (siteName || siteType) {
@@ -2135,7 +2135,7 @@ function applyDiscardOneCompanyItemResolution(
   }
 
   const itemDef = defById(state, removedItem.definitionId);
-  const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (itemInstanceId as string);
+  const itemName = itemDef?.name ?? (itemInstanceId as string);
   logDetail(`discard-one-company-item: defender discards "${itemName}"`);
 
   const newPlayers = clonePlayers(state);

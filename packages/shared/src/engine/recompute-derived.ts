@@ -678,14 +678,14 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       const ch = player.characters[cid];
       if (!ch) continue;
       const def = state.cardPool[ch.definitionId];
-      if (def && 'name' in def) namesInCompany.push((def as { name: string }).name);
+      if (def) namesInCompany.push(def.name);
     }
     // For each character, store the names of the OTHER company members
     for (const cid of company.characters) {
       const ch = player.characters[cid];
       if (!ch) continue;
       const def = state.cardPool[ch.definitionId];
-      const ownName = def && 'name' in def ? (def as { name: string }).name : null;
+      const ownName = def?.name ?? null;
       companionNamesMap.set(cid as string, namesInCompany.filter(n => n !== ownName));
     }
   }

@@ -1579,7 +1579,7 @@ function discardOneCompanyItemActions(
     if (!ch) continue;
     for (const item of ch.items) {
       const itemDef = defById(state, item.definitionId);
-      const itemName = itemDef && 'name' in itemDef ? (itemDef as { name: string }).name : (item.instanceId as string);
+      const itemName = itemDef?.name ?? (item.instanceId as string);
       // A character's `items` list may hold non-item cards placed "with" the
       // character (e.g. the permanent event Thrall of the Voice). Brigands' text
       // forces the company to discard one *item*, so only genuine item cards are

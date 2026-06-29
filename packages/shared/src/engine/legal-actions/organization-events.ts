@@ -93,7 +93,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     if (requiredWizard) {
       const avatar = findPlayerAvatar(state, player);
       const avatarDef = avatar ? defById(state, avatar.definitionId) : undefined;
-      const avatarName = avatarDef && 'name' in avatarDef ? (avatarDef as { name: string }).name : undefined;
+      const avatarName = avatarDef?.name;
       if (avatarName !== requiredWizard) {
         logDetail(`Permanent event ${def.name}: ${requiredWizard}-specific, but player's avatar is ${avatarName ?? 'none'}`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} is ${requiredWizard}-specific`));
