@@ -33,7 +33,8 @@ import { grantedActionActivations } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
-import { countExtraAgentActions, currentHazardLimit } from '../reducer-movement-hazard.js';
+import { countExtraAgentActions } from '../reducer-movement-hazard.js';
+import { currentHazardLimit } from '../hazard-limit.js';
 import { collectRegionKeyingBoosts, regionPathsWithBoosts } from '../region-keying.js';
 import { asViable as viable } from './evaluated.js';
 

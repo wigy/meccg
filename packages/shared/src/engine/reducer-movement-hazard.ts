@@ -25,6 +25,7 @@ import type { ResolverContext } from './effects/index.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, initiateOrPushChain } from './chain-reducer.js';
+import { currentHazardLimit } from './hazard-limit.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
@@ -3358,21 +3359,6 @@ function snapshotHazardLimit(
  * in resolution order; they do not retroactively cancel hazards already
  * announced.
  */
-export function currentHazardLimit(
-  state: GameState,
-  mhState: MovementHazardPhaseState,
-  companyId: import('../types/common.js').CompanyId,
-): number {
-  let limit = mhState.hazardLimitAtReveal;
-  for (const constraint of state.activeConstraints) {
-    if (constraint.kind.type !== 'hazard-limit-modifier') continue;
-    if (constraint.target.kind !== 'company') continue;
-    if (constraint.target.companyId !== companyId) continue;
-    if (mhState.preRevealHazardLimitConstraintIds.includes(constraint.id)) continue;
-    limit += constraint.kind.value;
-  }
-  return Math.max(limit, 0);
-}
 
 /**
  * Collect all ahunt-attack effects from both players' cardsInPlay that
