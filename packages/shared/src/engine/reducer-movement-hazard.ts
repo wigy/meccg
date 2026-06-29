@@ -26,6 +26,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, initiateOrPushChain } from './chain-reducer.js';
 import { currentHazardLimit } from './hazard-limit.js';
+import { buildConstraintKind } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
@@ -2160,34 +2161,8 @@ function fireCompanyArrivesAtSite(
           default:
             continue;
         }
-        let kind: import('../types/pending.js').ActiveConstraint['kind'];
-        switch (constraintKind) {
-          case 'site-phase-do-nothing':
-            kind = { type: 'site-phase-do-nothing' };
-            break;
-          case 'no-creature-hazards-on-company':
-            kind = { type: 'no-creature-hazards-on-company' };
-            break;
-          case 'deny-scout-resources':
-            kind = { type: 'deny-scout-resources' };
-            break;
-          case 'granted-action': {
-            const payload = effect.apply.grantedAction;
-            if (!payload) continue;
-            kind = {
-              type: 'granted-action',
-              action: payload.action,
-              phase: payload.phase as import('../types/state-phases.js').Phase | undefined,
-              window: payload.window,
-              cost: payload.cost,
-              when: payload.when,
-              apply: payload.apply,
-            };
-            break;
-          }
-          default:
-            continue;
-        }
+        const kind = buildConstraintKind(state, effect, constraintKind);
+        if (!kind) continue;
         logDetail(`company-arrives-at-site: "${def?.name}" fires → adding constraint ${constraintKind} on company ${arrivingCompanyId as string}`);
         newState = addConstraint(newState, {
           source: card.instanceId,
