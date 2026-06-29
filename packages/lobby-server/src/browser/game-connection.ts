@@ -244,7 +244,12 @@ function describeRollOutcome(
   const diceChanged = (a: import('@meccg/shared').TwoDiceSix | null, b: import('@meccg/shared').TwoDiceSix | null) =>
     !a || !b || a.die1 !== b.die1 || a.die2 !== b.die2;
 
-  if (action.type !== 'resolve-strike' && action.type !== 'body-check-roll' && action.type !== 'agent-strike-roll') {
+  // Body-check outcomes are no longer derived here: the engine emits a
+  // `text-notification` effect describing the result (see handleBodyCheckRoll).
+  // Deriving it client-side failed when the body check finalized combat —
+  // `view.combat` becomes null, so the resolved strike assignment is gone and
+  // the outcome line was silently dropped from the text log.
+  if (action.type !== 'resolve-strike' && action.type !== 'agent-strike-roll') {
     return [];
   }
 
@@ -263,25 +268,6 @@ function describeRollOutcome(
   const just = (combat && newResolved > prevResolvedCount)
     ? combat.strikeAssignments.filter(sa => sa.resolved).at(-1)
     : undefined;
-
-  if (action.type === 'body-check-roll') {
-    // The roll itself is shown via the effect notification; here we add the result.
-    if (!just) return [];
-    const sa = just;
-    let resultLine: string;
-    if (sa.result === 'eliminated') {
-      resultLine = `${instanceToName(sa.characterId)} eliminated`;
-    } else if (sa.attackerResult === 'eliminated') {
-      resultLine = `${instanceToName(sa.attackingCharacterId!)} eliminated`;
-    } else if (sa.result === 'wounded') {
-      resultLine = `${instanceToName(sa.characterId)} survives body check`;
-    } else if (sa.attackerResult === 'wounded') {
-      resultLine = `${instanceToName(sa.attackingCharacterId!)} survives body check`;
-    } else {
-      return [];
-    }
-    return [{ line: resultLine, isSelf: false }];
-  }
 
   // CvCC resolve-strike: both dice changed — produce only the result line.
   // The roll lines already came from the effect notifications.

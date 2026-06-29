@@ -91,6 +91,58 @@ describe('Rule 8.28 — Body Check', () => {
     expect(diceEffect!.label).toContain('Body check');
   });
 
+  test('body-check that finalizes combat still emits a text-notification describing the outcome', () => {
+    // Regression for the "Body check" bug report (game mqzhpuzp-hvmzds, seq
+    // 214): a character body check that defeats the last pending strike ends
+    // combat. The clients used to derive the wounded/eliminated outcome by
+    // diffing `view.combat`, but once combat finalizes `view.combat` is null,
+    // so the outcome line silently vanished from the text log. The engine now
+    // broadcasts the outcome as a `text-notification` effect.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+
+    // Single pending strike → the body check finalizes combat. A low forced
+    // roll (4) is at or below Aragorn's body, so the character survives.
+    const cheated = {
+      ...state,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: aragornId }),
+      cheatRollTotal: 4,
+    };
+
+    const actions = viableActions(cheated, PLAYER_2, 'body-check-roll');
+    expect(actions.length).toBe(1);
+
+    const result = dispatchResult(cheated, actions[0].action);
+
+    // The body check ended combat — this is the scenario where the old
+    // client-side outcome derivation broke.
+    expect(result.state.combat).toBeNull();
+
+    // The raw roll is still broadcast as a dice-roll effect…
+    expect(result.effects!.some(e => e.effect === 'dice-roll')).toBe(true);
+
+    // …and the outcome is now broadcast as a text-notification so every
+    // client's text log records the actual result.
+    const note = result.effects!.find(e => e.effect === 'text-notification');
+    expect(note).toBeDefined();
+    expect(note!.effect).toBe('text-notification');
+    if (note!.effect === 'text-notification') {
+      expect(note!.message).toContain('survives the body check');
+      expect(note!.message).toContain('rolled 4');
+    }
+  });
+
   test('Body-check chain admits only the body-check-roll — unrelated cards in hand are not playable', () => {
     // While a body check is pending, the only declarable action is the
     // dice roll itself (per rule 8.28). Even though both players hold
