@@ -560,9 +560,6 @@ function runGrantApply(
   }
 
   if (apply.type === 'roll-then-apply') {
-    if (apply.threshold === undefined) {
-      return { error: `roll-then-apply missing threshold on ${ctx.sourceName}` };
-    }
     const { roll, rng, cheatRollTotal } = roll2d6({ ...state, rng: rngRef.rng, cheatRollTotal: rngRef.cheatRollTotal });
     rngRef.rng = rng;
     rngRef.cheatRollTotal = cheatRollTotal;
@@ -838,6 +835,10 @@ function buildPayloadConstraintKind(
   name: string,
   apply: import('../types/effects.js').TriggeredAction,
 ): import('../types/pending.js').ActiveConstraint['kind'] | null {
+  // These payload kinds are only built for add-constraint applies; narrowing
+  // here makes the Legacy payload fields (stat/value/siteType/subtype/check)
+  // available without a cast.
+  if (apply.type !== 'add-constraint') return null;
   if (name === 'company-stat-modifier') {
     if (apply.stat !== 'prowess' && apply.stat !== 'body') return null;
     if (typeof apply.value !== 'number') return null;
