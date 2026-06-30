@@ -849,6 +849,18 @@ function applyDiceCheckBranch(
     }
     return { state: r.state };
   }
+  if (branch.type === 'return-character-to-hand') {
+    if (!ctx.targetCharacterId) {
+      logDetail(`dice-check return-character-to-hand: no target character — no-op`);
+      return { state };
+    }
+    const charInPlay = state.players[ctx.rollerIndex]?.characters[ctx.targetCharacterId];
+    if (!charInPlay) {
+      logDetail(`dice-check return-character-to-hand: ${ctx.targetCharacterId as string} no longer in play — no-op`);
+      return { state };
+    }
+    return { state: returnCharacterToHand(state, ctx.rollerIndex, ctx.targetCharacterId, charInPlay) };
+  }
   logDetail(`dice-check: branch verb "${branch.type}" not handled in resolution context — no-op`);
   return { state };
 }
@@ -978,48 +990,6 @@ export function applyFlateryAttemptResolution(
   }
 
   return { state: postRoll, effects: [rollEffect] };
-}
-
-/**
- * Resolve a queued `call-of-home-roll` resolution. The character's player
- * rolls 2d6. If roll + unused general influence < threshold, the character
- * returns to hand. Items/allies/hazards are discarded; followers fall to GI.
- */
-export function applyCallOfHomeRollResolution(
-  state: GameState,
-  action: GameAction,
-  top: PendingResolution,
-): ReducerResult | null {
-  const g = guardRollResolution(state, action, top, 'call-of-home-roll', 'call-of-home-roll');
-  if (!g.ok) return g.result;
-  const { actorIndex, player, kind } = g;
-  const { targetCharacterId, threshold } = kind;
-  const charInPlay = player.characters[targetCharacterId];
-  if (!charInPlay) {
-    return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
-  }
-
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : (targetCharacterId as string);
-  const unusedGI = effectiveGeneralInfluence(state, player.id) - player.generalInfluenceUsed;
-
-  const rolled = rollForResolution(state, actorIndex, `Call of Home: ${charName}`);
-  const checkValue = rolled.total + unusedGI;
-  const passed = checkValue >= threshold;
-  logDetail(`Call of Home on ${charName}: rolled ${rolled.total} + unused GI ${unusedGI} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'RETURNS TO HAND'}`);
-
-  let postRoll = dequeueResolution(rolled.state, top.id);
-
-  if (!passed) {
-    postRoll = returnCharacterToHand(postRoll, actorIndex, targetCharacterId, charInPlay);
-  }
-
-  // Mark the chain entry as resolved and continue auto-resolution.
-  return resolveChainEntryAndContinue(
-    postRoll,
-    e => e.payload.type === 'short-event' && e.payload.targetCharacterId === targetCharacterId,
-    [rolled.rollEffect],
-  );
 }
 
 /**

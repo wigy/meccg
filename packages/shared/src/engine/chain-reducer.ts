@@ -2087,16 +2087,25 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     );
     if (cohEffect) {
       const resourcePlayerId = current.activePlayer!;
-      logDetail(`Enqueuing call-of-home-roll pending resolution for character ${entry.payload.targetCharacterId as string}`);
+      const cohCharDefId = resolveInstanceId(current, entry.payload.targetCharacterId);
+      const cohCharDef = cohCharDefId ? defById(current, cohCharDefId) : undefined;
+      const cohCharName = cohCharDef && 'name' in cohCharDef ? cohCharDef.name : (entry.payload.targetCharacterId as string);
+      logDetail(`Enqueuing dice-check (call-of-home) pending resolution for character ${entry.payload.targetCharacterId as string}`);
       current = enqueueResolution(current, {
         source: entry.card.instanceId,
         actor: resourcePlayerId,
         scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
         kind: {
-          type: 'call-of-home-roll',
-          targetCharacterId: entry.payload.targetCharacterId,
-          hazardDefinitionId: entry.card.definitionId,
+          type: 'dice-check',
+          label: `Call of Home: ${cohCharName}`,
+          modifiers: [{ kind: 'unused-gi', player: resourcePlayerId }],
           threshold: cohEffect.threshold,
+          comparison: 'gte',
+          // roll + unused GI < threshold → character returns to hand.
+          onFail: { type: 'return-character-to-hand' },
+          continuation: { kind: 'chain-entry', match: 'target-character' },
+          requireTargetPresent: true,
+          targetCharacterId: entry.payload.targetCharacterId,
         },
       });
       return { state: current, needsInput: true };

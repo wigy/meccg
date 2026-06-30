@@ -496,46 +496,6 @@ export function flateryAttemptRollActions(
 }
 
 /**
- * Compute the single call-of-home-roll action that resolves a queued
- * `call-of-home-roll` resolution. The character's player rolls 2d6;
- * if roll + unused general influence < threshold, character returns to hand.
- */
-export function callOfHomeRollActions(
-  state: GameState,
-  playerId: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  if (top.kind.type !== 'call-of-home-roll') return [];
-  const { targetCharacterId, hazardDefinitionId, threshold } = top.kind;
-
-  const player = playerById(state, playerId);
-  if (!player) return [];
-
-  const charInPlay = player.characters[targetCharacterId];
-  if (!charInPlay) return [];
-
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : '?';
-  const hazardDef = defById(state, hazardDefinitionId);
-  const hazardName = hazardDef?.name ?? '?';
-
-  const unusedGI = effectiveGeneralInfluence(state, playerId) - player.generalInfluenceUsed;
-  const need = threshold - unusedGI;
-  logDetail(`Pending call-of-home-roll for ${charName} (${hazardName}): need 2d6 >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`);
-
-  return [{
-    action: {
-      type: 'call-of-home-roll' as const,
-      player: playerId,
-      targetCharacterId,
-      need,
-      explanation: `${charName} resists ${hazardName}: need roll >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`,
-    },
-    viable: true,
-  }];
-}
-
-/**
  * Compute the single seized-by-terror-roll action that resolves a queued
  * `seized-by-terror-roll` resolution. The character's player rolls 2d6;
  * if roll + character mind < threshold (12), the character splits off into

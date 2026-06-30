@@ -414,8 +414,6 @@ export function describeAction(
       return action.explanation;
     case 'flattery-attempt':
       return `Flattery attempt by ${instName(action.characterInstanceId)}: need ${action.need}`;
-    case 'call-of-home-roll':
-      return `Roll for Call of Home on ${instName(action.targetCharacterId)} (need ${action.need})`;
     case 'seized-by-terror-roll':
       return `Roll for Seized by Terror on ${instName(action.targetCharacterId)} (need ${action.need})`;
     case 'gold-ring-test-roll':

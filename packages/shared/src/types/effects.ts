@@ -850,6 +850,7 @@ export type TriggeredActionType =
   | 'enqueue-pending-fetch'
   | 'enqueue-ring-play-offer'
   | 'heal-target-character'
+  | 'return-character-to-hand'
   | 'increment-company-extra-region-distance'
   | 'modify-current-strike-prowess'
   | 'move'
@@ -1057,6 +1058,11 @@ export interface HealTargetCharacterAction extends TriggeredActionBase {
   readonly type: 'heal-target-character';
 }
 
+/** `return-character-to-hand` — return the target character to its owner's hand (Call of Home onFail); type-only marker. */
+export interface ReturnCharacterToHandAction extends TriggeredActionBase {
+  readonly type: 'return-character-to-hand';
+}
+
 /** `tap-one-character` — enqueue a "tap one character in the company" resolution; type-only marker. */
 export interface TapOneCharacterAction extends TriggeredActionBase {
   readonly type: 'tap-one-character';
@@ -1211,6 +1217,7 @@ export type TriggeredAction =
   | ForceDiscardOneCompanyItemAction
   | SetCharacterStatusAction
   | HealTargetCharacterAction
+  | ReturnCharacterToHandAction
   | TapOneCharacterAction
   | PlaceItemOnCharacterAction
   | RollDiscardOpponentNonUniqueAllyAction
