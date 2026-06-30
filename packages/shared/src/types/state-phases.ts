@@ -193,6 +193,14 @@ export interface OrganizationPhaseState {
    */
   readonly characterPlayedThisTurn: boolean;
   /**
+   * MEBA §characters: count of characters brought into play this organization
+   * phase. A Balrog player may bring up to **two** characters into play per
+   * organization phase (the second must be non-unique), so the engine tracks
+   * the running count rather than just the one-character boolean. Optional —
+   * treated as `characterPlayedThisTurn ? 1 : 0` when absent.
+   */
+  readonly charactersBroughtIntoPlayThisTurn?: number;
+  /**
    * Definition IDs of characters belonging to a buddy-play group that has
    * been played this turn. When a character carrying the `buddy-play` flag
    * is played, all definition IDs in its `companions` list (and its own ID)
