@@ -38,7 +38,7 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, playerById, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, playerById, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -1145,7 +1145,7 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
 
   // --- Step 8a-2: Fire bearer-company-moves discard ---
   // When a company has moved, discard any character items with an
-  // on-event: bearer-company-moves + discard-self effect (e.g. Align Palantír).
+  // on-event: bearer-company-moves + self-discard move effect (e.g. Align Palantír).
   if (company.destinationSite && !mhStateLocal.returnedToOrigin) {
     const movedCompany = newPlayers[activeIndex].companies[mhState.activeCompanyIndex];
     let discardedAny = false;
@@ -1157,7 +1157,7 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       for (const item of charData.items) {
         const itemDef = defById(state, item.definitionId);
         const hasTrigger = getOnEventEffects(itemDef, 'bearer-company-moves').some(
-          e => e.apply.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard',
+          e => isSelfDiscardMove(e.apply),
         );
         if (hasTrigger) {
           logDetail(`bearer-company-moves: discarding "${itemDef?.name ?? item.definitionId}" from ${charId as string}`);
@@ -1386,7 +1386,7 @@ export function fireCompanyArrivesAtSite(
     }
   }
 
-  // Scan allies in the arriving company for discard-self on-event effects.
+  // Scan allies in the arriving company for self-discard move on-event effects.
   newState = fireAllyArrivalEffects(newState, arrivingCompanyId, siteInstanceId);
 
   return newState;
@@ -1394,7 +1394,7 @@ export function fireCompanyArrivesAtSite(
 
 /**
  * Scan allies attached to characters in the arriving company for
- * `on-event: company-arrives-at-site` effects with `discard-self`.
+ * `on-event: company-arrives-at-site` effects with a self-discard `move`.
  * When the effect's `when` condition matches the arrival site context,
  * the ally is discarded from its bearer to the owning player's discard pile.
  */
@@ -1421,8 +1421,7 @@ export function fireAllyArrivalEffects(
         const def = defById(newState, ally.definitionId);
         const context: Record<string, unknown> = { site: { region: siteRegion } };
         const trigger = getOnEventEffects(def, 'company-arrives-at-site').find(
-          e => e.apply.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard'
-            && (!e.when || matchesCondition(e.when, context)),
+          e => isSelfDiscardMove(e.apply) && (!e.when || matchesCondition(e.when, context)),
         );
         if (trigger) {
           logDetail(`company-arrives-at-site: ally "${def?.name}" move(self→discard) triggered (site region: ${siteRegion})`);

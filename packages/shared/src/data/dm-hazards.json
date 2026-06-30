@@ -218,7 +218,10 @@
         "type": "on-event",
         "event": "attack-defeated",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         },
         "when": {
           "enemy.race": "undead"
@@ -295,7 +298,10 @@
         "type": "on-event",
         "event": "attack-defeated",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         },
         "when": {
           "$or": [
@@ -560,7 +566,12 @@
       {
         "type": "on-event",
         "event": "play-deck-exhausted",
-        "apply": { "type": "discard-self" }
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       },
       {
         "type": "duplication-limit",
@@ -742,7 +753,10 @@
         "type": "on-event",
         "event": "play-deck-exhausted",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         }
       },
       {
@@ -854,7 +868,10 @@
         "type": "on-event",
         "event": "attack-defeated",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         },
         "when": {
           "attack.isAutomaticAttack": true,

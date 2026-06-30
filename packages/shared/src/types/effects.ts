@@ -844,7 +844,6 @@ export type TriggeredActionType =
   | 'remove-constraint'
   | 'cancel-chain-entry'
   | 'discard-character'
-  | 'discard-self'
   | 'discard-target-character'
   | 'discard-cards-in-play'
   | 'discard-named-card-from-company'
@@ -864,8 +863,146 @@ export type TriggeredActionType =
   | 'win-condition-roll'
   | 'win-game';
 
-/** An action performed by a triggered effect. */
-export interface TriggeredAction {
+/**
+ * One threshold band of a {@link WinConditionRollAction.bands} roll table.
+ * Lives with the card-effect schema (the engine reducer imports it from here).
+ */
+export interface RollBand {
+  /** Match when the modified total is strictly less than this. */
+  readonly lt?: number;
+  /** Match when the modified total is ≤ this. */
+  readonly lte?: number;
+  /** Match when the modified total is strictly greater than this. */
+  readonly gt?: number;
+  /** Match when the modified total is ≥ this. */
+  readonly gte?: number;
+  /** What happens when this band matches. */
+  readonly outcome: 'eliminate-avatar' | 'discard-self' | 'keep' | 'win-game';
+}
+
+/** Dynamic roll modifiers summed into a {@link WinConditionRollAction} 2d6 total. */
+export type RollModifier = 'sages-in-company' | 'copies-in-play' | 'other-copies-in-play';
+
+/**
+ * Common base for every discriminated {@link TriggeredAction} member. Mirrors
+ * the already-migrated {@link MoveEffect} (which extends {@link EffectBase}) so
+ * every member shares the optional `when` guard. The `type` discriminant is a
+ * string literal declared on each member — never here — so narrowing works.
+ */
+export type TriggeredActionBase = EffectBase;
+
+/** `force-check` — enqueue one corruption check on the event-context character. */
+export interface ForceCheckAction extends TriggeredActionBase {
+  readonly type: 'force-check';
+  /** Which check to force; handlers guard `=== 'corruption'`. */
+  readonly check: string;
+  /** Modifier to the forced check (read as `?? 0`). */
+  readonly modifier?: number;
+  /** Covetous Thoughts: one check per item borne by other company characters. */
+  readonly perOthersItem?: boolean;
+  /** @deprecated Documented historically but never read; kept for data-compat. */
+  readonly target?: string;
+}
+
+/** `force-check-all-company` — a corruption/body check for every company character. */
+export interface ForceCheckAllCompanyAction extends TriggeredActionBase {
+  readonly type: 'force-check-all-company';
+  /** Which check to force (corruption for Corpse-candle, body for Veils Flung Away). */
+  readonly check: string;
+  readonly modifier?: number;
+}
+
+/** `enqueue-corruption-check` — single corruption check on the bearer/attached character. */
+export interface EnqueueCorruptionCheckAction extends TriggeredActionBase {
+  readonly type: 'enqueue-corruption-check';
+  readonly modifier?: number;
+  /** e.g. `'company-shadow-magic-user'` to pick the non-Ringwraith shadow user. */
+  readonly target?: string;
+  /** Apply run if the check succeeds (Cracks of Doom: succeed → win-game). Recursive. */
+  readonly onSuccess?: TriggeredAction;
+}
+
+/** `roll-check` — roll 2d6, sum check modifiers, emit a labelled dice GameEffect. */
+export interface RollCheckAction extends TriggeredActionBase {
+  readonly type: 'roll-check';
+  /** Which check's modifiers are summed into the roll. */
+  readonly check: string;
+  /** Human-readable dice label; defaults to the check name. */
+  readonly label?: string;
+}
+
+/**
+ * `roll-then-apply` — roll 2d6; run `onSuccess` when the total ≥ `threshold`,
+ * else `onFailure`. Recursive (the branches are themselves triggered actions).
+ */
+export interface RollThenApplyAction extends TriggeredActionBase {
+  readonly type: 'roll-then-apply';
+  /** The 2d6 total at or above which `onSuccess` fires. */
+  readonly threshold: number;
+  /** Apply run when the roll meets `threshold`. */
+  readonly onSuccess?: TriggeredAction;
+  /** Apply run when the roll is below `threshold`. */
+  readonly onFailure?: TriggeredAction;
+}
+
+/** `win-condition-roll` — CoE 10.39 dice-roll win cards (A New Ringlord, Challenge the Power). */
+export interface WinConditionRollAction extends TriggeredActionBase {
+  readonly type: 'win-condition-roll';
+  /** Ordered threshold table; the first band the modified 2d6 total satisfies decides the outcome. */
+  readonly bands: readonly RollBand[];
+  /** Dynamic modifiers summed into the 2d6 total. */
+  readonly rollModifiers?: readonly RollModifier[];
+}
+
+/** `win-game` — immediate One Ring win (CoE 10.39); carries no payload. */
+export interface WinGameAction extends TriggeredActionBase {
+  readonly type: 'win-game';
+  /** @deprecated Documented historically but never read in the engine. */
+  readonly via?: 'one-ring';
+}
+
+/**
+ * The verbs not yet migrated to discriminated members. Computed as the
+ * complement of the migrated discriminants, so adding a verb to
+ * {@link TriggeredActionType} (or migrating one) can never silently leave it
+ * matchable as both a member and the catch-all.
+ */
+export type LegacyTriggeredActionType = Exclude<
+  TriggeredActionType,
+  | ForceCheckAction['type']
+  | ForceCheckAllCompanyAction['type']
+  | EnqueueCorruptionCheckAction['type']
+  | RollCheckAction['type']
+  | RollThenApplyAction['type']
+  | WinConditionRollAction['type']
+  | WinGameAction['type']
+>;
+
+/**
+ * A triggered effect's apply payload — a recursive discriminated union.
+ * Members are migrated out of {@link LegacyTriggeredAction} one family per PR
+ * (P05); {@link LegacyTriggeredAction} is the shrinking all-optional catch-all
+ * for the verbs not yet discriminated, deleted when the last family migrates.
+ */
+export type TriggeredAction =
+  | ForceCheckAction
+  | ForceCheckAllCompanyAction
+  | EnqueueCorruptionCheckAction
+  | RollCheckAction
+  | RollThenApplyAction
+  | WinConditionRollAction
+  | WinGameAction
+  | LegacyTriggeredAction;
+
+/**
+ * All-optional field bag for the {@link LegacyTriggeredActionType} verbs not yet
+ * given a discriminated member. The dice-family-only fields (modifier,
+ * perOthersItem, label, onSuccess, onFailure, bands, rollModifiers, via) have
+ * been pruned now that those verbs are discriminated; `check` / `target` /
+ * `threshold` remain because un-migrated verbs (add-constraint,
+ * set-character-status, roll-discard-opponent-non-unique-ally) still read them.
+ */
+export interface LegacyTriggeredAction extends EffectBase {
   /**
    * The verb selecting which triggered action runs; see
    * {@link TriggeredActionType} for the closed set.
@@ -889,19 +1026,18 @@ export interface TriggeredAction {
    *   Implemented in `reducer-organization.ts` `runGrantApply()`.
    * (Other types documented inline on their respective fields.)
    */
-  readonly type: TriggeredActionType;
+  readonly type: LegacyTriggeredActionType;
   /**
    * For `set-site-phase-flag` type: the `SitePhaseState` boolean key to set to `true`.
    * Supported values: `"hoardBountyAvailable"`, `"thoroughSearchAvailable"`.
    */
   readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable';
   /**
-   * Which check to force (for `force-check` / `force-check-all-company`) or which
-   * check's modifiers to sum into a 2d6 roll (for `roll-check`).
+   * For `add-constraint` with `constraint: "check-modifier"`: which check the
+   * modifier applies to. (The dice verbs that also read `check` —
+   * force-check / force-check-all-company / roll-check — are discriminated members.)
    */
   readonly check?: string;
-  /** Modifier to the forced check. */
-  readonly modifier?: number;
   /**
    * Filter condition for `discard-cards-in-play` and `enqueue-pending-fetch`
    * — matches against card definitions. For fetch apply, restricts which
@@ -978,13 +1114,6 @@ export interface TriggeredAction {
    */
   readonly status?: 'untapped' | 'tapped' | 'inverted';
   /**
-   * For `force-check` with `perOthersItem: true`: enqueue one corruption
-   * check per item borne by other characters in the bearer's company.
-   * The modifier for each check is the negative corruption-point value of
-   * the item. Used by *Covetous Thoughts* (le-107).
-   */
-  readonly perOthersItem?: boolean;
-  /**
    * For `add-constraint` with `constraint: "site-resource-unlocked"`: the
    * site type at which a resource category becomes playable for the rest
    * of the constraint's scope (e.g. `"shadow-hold"`). Used by Records
@@ -1005,14 +1134,11 @@ export interface TriggeredAction {
    */
   readonly target?: string;
   /**
-   * For `roll-then-apply` type: the 2d6 total at or above which
-   * `onSuccess` fires. Otherwise `onFailure` fires (if present).
+   * For `roll-discard-opponent-non-unique-ally` type: the 2d6 total at or above
+   * which the discard happens. (`roll-then-apply`, which also reads `threshold`,
+   * is a discriminated member.)
    */
   readonly threshold?: number;
-  /** For `roll-then-apply` type: apply run when the roll meets `threshold`. */
-  readonly onSuccess?: TriggeredAction;
-  /** For `roll-then-apply` type: apply run when the roll is below `threshold`. */
-  readonly onFailure?: TriggeredAction;
   /**
    * For `set-company-special-movement` type: which special-movement
    * mode to flag on the bearer's company. The engine's movement code
@@ -1050,14 +1176,6 @@ export interface TriggeredAction {
    * concatenated in declaration order.
    */
   readonly apps?: readonly TriggeredAction[];
-  /**
-   * For `roll-check` type: human-readable label for the dice-roll
-   * GameEffect. The handler appends `": ${bearerName} tests
-   * ${targetCardName}"` when the action carries a target, or
-   * `": ${bearerName}"` otherwise. See also {@link TriggeredAction.check}
-   * for the check whose modifiers are summed into the roll.
-   */
-  readonly label?: string;
   /**
    * For `cancel-chain-entry` type: which chain entry to negate.
    *  - `most-recent-unresolved-hazard`: the latest unresolved hazard
@@ -1129,38 +1247,6 @@ export interface TriggeredAction {
    * The One Ring alongside the ally.
    */
   readonly cardName?: string;
-  /**
-   * For `win-game` type: how the game is won. Currently only `'one-ring'`
-   * (CoE rule 10.39). Resolves to a forced win for the controller of the
-   * source card via the shared `endGame` primitive; the recorded
-   * {@link WinReason} carries the controller's alignment and the source
-   * card id. Shared by Cracks of Doom (tw-205), Gollum's Fate (tw-247),
-   * A New Ringlord (wh-60), and Challenge the Power (ba-52) — each card
-   * declares only its conditions and roll thresholds, never bespoke win
-   * plumbing. May be nested under a corruption-check `onSuccess` or a
-   * `roll-then-apply` `onSuccess`.
-   */
-  readonly via?: 'one-ring';
-  /**
-   * For `win-condition-roll` type (CoE 10.39 dice-roll win cards — A New
-   * Ringlord wh-60, Challenge the Power ba-52): the ordered threshold table.
-   * The first band whose bounds the modified 2d6 total satisfies decides the
-   * outcome (`eliminate-avatar` / `discard-self` / `keep` / `win-game`).
-   */
-  readonly bands?: readonly {
-    readonly lt?: number;
-    readonly lte?: number;
-    readonly gt?: number;
-    readonly gte?: number;
-    readonly outcome: 'eliminate-avatar' | 'discard-self' | 'keep' | 'win-game';
-  }[];
-  /**
-   * For `win-condition-roll` type: dynamic modifiers summed into the 2d6
-   * total — `sages-in-company` (+1 per sage in the avatar's company),
-   * `copies-in-play` (+1 per copy of this card in play, including itself),
-   * `other-copies-in-play` (+1 per *other* copy in play).
-   */
-  readonly rollModifiers?: readonly ('sages-in-company' | 'copies-in-play' | 'other-copies-in-play')[];
   /**
    * For `offer-char-join-attack` type (fired under
    * `on-event: creature-attack-begins`): when true, allies attached to

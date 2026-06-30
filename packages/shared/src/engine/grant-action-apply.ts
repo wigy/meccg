@@ -456,10 +456,9 @@ function runGrantApply(
   }
 
   if (apply.type === 'move') {
-    // Generic card-movement primitive. Phase 1 lands the wiring; no
-    // card JSON uses `move` yet. Later phases migrate per-move effect
-    // types (discard-self, fetch-to-deck, bounce-hazard-events, …)
-    // onto this single branch. See
+    // Generic card-movement primitive. The legacy per-move effect types
+    // (discard-self, fetch-to-deck, bounce-hazard-events, …) have been
+    // migrated onto this single branch. See
     // `specs/2026-04-23-card-move-primitive-plan.md`.
     if (!apply.select || !apply.from || !apply.to) {
       return { error: `move apply missing select/from/to on ${ctx.sourceName}` };
@@ -561,9 +560,6 @@ function runGrantApply(
   }
 
   if (apply.type === 'roll-then-apply') {
-    if (apply.threshold === undefined) {
-      return { error: `roll-then-apply missing threshold on ${ctx.sourceName}` };
-    }
     const { roll, rng, cheatRollTotal } = roll2d6({ ...state, rng: rngRef.rng, cheatRollTotal: rngRef.cheatRollTotal });
     rngRef.rng = rng;
     rngRef.cheatRollTotal = cheatRollTotal;
@@ -839,6 +835,10 @@ function buildPayloadConstraintKind(
   name: string,
   apply: import('../types/effects.js').TriggeredAction,
 ): import('../types/pending.js').ActiveConstraint['kind'] | null {
+  // These payload kinds are only built for add-constraint applies; narrowing
+  // here makes the Legacy payload fields (stat/value/siteType/subtype/check)
+  // available without a cast.
+  if (apply.type !== 'add-constraint') return null;
   if (name === 'company-stat-modifier') {
     if (apply.stat !== 'prowess' && apply.stat !== 'body') return null;
     if (typeof apply.value !== 'number') return null;
@@ -939,7 +939,8 @@ function resolveConstraintTarget(
  *
  * Supported applies (each extends the primitive as cards demand it):
  *  - `set-character-status` with `target: 'bearer'` — set bearer status.
- *  - `discard-self` — detach the source from the bearer and discard it.
+ *  - `move` (`select: 'self', to: 'discard'`) — detach the source from the
+ *    bearer and discard it.
  *  - `roll-then-apply` with `threshold`, `onSuccess`, `onFailure` —
  *    roll 2d6; run the matching branch (recursive apply).
  */

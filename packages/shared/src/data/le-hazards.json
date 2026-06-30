@@ -662,7 +662,10 @@
         "type": "on-event",
         "event": "organization-phase-start",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         },
         "when": {
           "company.siteType": "haven"
@@ -759,7 +762,10 @@
         "type": "on-event",
         "event": "play-deck-exhausted",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         }
       },
       {
@@ -807,7 +813,10 @@
         "type": "on-event",
         "event": "play-deck-exhausted",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         }
       },
       {
