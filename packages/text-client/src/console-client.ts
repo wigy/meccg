@@ -264,6 +264,9 @@ function connect(): void {
         if (msg.effect.effect === 'dice-roll') {
           const { playerName, die1, die2, label } = msg.effect;
           console.log(`  ${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}`);
+        } else if (msg.effect.effect === 'text-notification') {
+          // Game events with no interactive action (e.g. body-check outcomes).
+          console.log(`  ${msg.effect.message}`);
         }
         break;
 
