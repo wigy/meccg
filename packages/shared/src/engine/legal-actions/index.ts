@@ -11,8 +11,10 @@
  * The function is pure: `(GameState, PlayerId) → EvaluatedAction[]`.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInstanceId } from '../../index.js';
+import { Alignment } from '../../types/common.js';
 import { matchesDefinition, playerById, defById, getCardEffects } from '../reducer-utils.js';
+import { resolveInstanceId } from '../../types/state.js';
 import { getPlayerIndex } from '../../state-utils.js';
 import { setupActions } from './setup.js';
 import { untapActions } from './untap.js';
@@ -143,6 +145,47 @@ function fillNotPlayable(state: GameState, playerId: PlayerId, evaluated: Evalua
 }
 
 /**
+ * MEBA: cards an opponent of a Balrog player may not play. "If you are a Balrog
+ * player, your opponent may not play any of the following cards: The Balrog
+ * (Ally), The Black Council, Durin's Bane, Balrog of Moria, Reluctant Final
+ * Parting." This is an opponent-conditional *play* ban (distinct from the
+ * unconditional deck-build bans in deck-validation), enforced at runtime.
+ */
+const BANNED_VS_BALROG_OPPONENT: ReadonlySet<string> = new Set([
+  'as-71',  // The Balrog (ally)
+  'wh-41',  // The Black Council
+  'dm-107', // Durin's Bane
+  'tw-12',  // Balrog of Moria
+  'dm-84',  // Reluctant Final Parting
+]);
+
+/**
+ * Rewrites any `play-*` action that would play a {@link BANNED_VS_BALROG_OPPONENT}
+ * card into a not-playable entry, when the acting player's opponent is a Balrog
+ * player. Pass-through for every other situation.
+ */
+function applyBalrogOpponentBans(
+  state: GameState,
+  playerId: PlayerId,
+  evaluated: EvaluatedAction[],
+): EvaluatedAction[] {
+  const opponent = state.players.find(p => p.id !== playerId);
+  if (!opponent || opponent.alignment !== Alignment.Balrog) return evaluated;
+  return evaluated.map(ea => {
+    const a = ea.action as unknown as Record<string, unknown>;
+    const type = a['type'];
+    if (typeof type !== 'string' || !type.startsWith('play')) return ea;
+    const instId = (a['cardInstanceId'] ?? a['characterInstanceId'] ?? a['instanceId']) as string | undefined;
+    if (typeof instId !== 'string') return ea;
+    const defId = resolveInstanceId(state, instId as CardInstanceId);
+    if (!defId || !BANNED_VS_BALROG_OPPONENT.has(defId as string)) return ea;
+    const def = defById(state, defId);
+    const name = def ? (def as unknown as Record<string, unknown>)['name'] as string : (defId as string);
+    return notPlayable(playerId, instId as CardInstanceId, `${name}: cannot be played against a Balrog player (MEBA)`);
+  });
+}
+
+/**
  * Returns every candidate action the given player could take in the current
  * game state, annotated with viability. Non-viable actions include a
  * human-readable reason explaining why they cannot be taken.
@@ -190,7 +233,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
       return [];
     }
     logHeading(`Combat active (phase: ${state.combat.phase}) — delegating to combat actions`);
-    return logEvaluated(combatActions(state, playerId));
+    return logEvaluated(applyBalrogOpponentBans(state, playerId, combatActions(state, playerId)));
   }
 
   // Pending card effects take priority over phase actions
@@ -257,5 +300,5 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   // not-playable so the UI can show a tooltip for every dimmed card.
   evaluated = fillNotPlayable(state, playerId, evaluated);
 
-  return logEvaluated(evaluated);
+  return logEvaluated(applyBalrogOpponentBans(state, playerId, evaluated));
 }
