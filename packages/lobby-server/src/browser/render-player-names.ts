@@ -5,7 +5,7 @@
  * Includes MP breakdown tooltips and GI (general influence) tooltips.
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay, MarshallingPointTotals, CardEffect } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay, CardInPlay, MarshallingPointTotals, CardEffect } from '@meccg/shared';
 import { GENERAL_INFLUENCE, isCharacterCard, computeTournamentScore, computeTournamentBreakdown, Phase } from '@meccg/shared';
 import { seedDiceFromState, restoreDice, clearDice } from './dice.js';
 import { hasRealCards } from './render-debug-panels.js';
@@ -109,6 +109,90 @@ export function buildGITooltip(
 }
 
 /**
+ * Total stage points printed on a card definition (MEWH §1): the sum of its
+ * `stage-points` effect values. Mirrors the engine's `stagePointsOfCard`, but
+ * reads the definition's effects directly so it works against the redacted
+ * player view (no game state required). Returns 0 for cards with no such effect.
+ */
+function stagePointsOfDef(def: CardDefinition | undefined): number {
+  const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
+  if (!effects) return 0;
+  let total = 0;
+  for (const e of effects) {
+    if (e.type === 'stage-points' && typeof e.value === 'number') total += e.value;
+  }
+  return total;
+}
+
+/**
+ * Build the HTML for the Stage-points (SP) breakdown tooltip table.
+ * Lists each in-play card contributing stage points and the amount it adds,
+ * matching the engine's Fallen-wizard SP accounting (MEWH §1): stage
+ * permanent-events sit in `cardsInPlay`, while a stage event played "on a
+ * character" (Wizard's Myrmidon wh-84, The Forge-master wh-117) is attached to
+ * the bearer's `items`, so both sources are summed.
+ */
+export function buildSPTooltip(
+  cardsInPlay: readonly CardInPlay[],
+  characters: Readonly<Record<string, CharacterInPlay>>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  const entries: { name: string; points: number }[] = [];
+  for (const card of cardsInPlay) {
+    const def = cardPool[card.definitionId as string];
+    const points = stagePointsOfDef(def);
+    if (def && points !== 0) entries.push({ name: def.name, points });
+  }
+  for (const char of Object.values(characters)) {
+    for (const item of char.items) {
+      const def = cardPool[item.definitionId as string];
+      const points = stagePointsOfDef(def);
+      if (def && points !== 0) entries.push({ name: def.name, points });
+    }
+  }
+  entries.sort((a, b) => b.points - a.points);
+
+  if (entries.length === 0) return '<div class="gi-tooltip-empty">No stage resources in play</div>';
+  let rows = '';
+  for (const e of entries) {
+    rows += `<tr><td class="mp-label">${e.name}</td><td class="mp-value">${e.points}</td></tr>`;
+  }
+  const total = entries.reduce((sum, e) => sum + e.points, 0);
+  return `<table class="mp-tooltip-table">
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td class="mp-label">Total</td><td class="mp-value mp-total">${total}</td></tr></tfoot>
+  </table>`;
+}
+
+/**
+ * Build the SP tooltip for the character draft phase.
+ * During the draft a Fallen-wizard's stage resources are not yet in play; they
+ * are tracked in `draftedStageResources` but already count toward the running
+ * stage-point total (MEWH §1 / CoE 1.7.F1), so list them from there.
+ */
+function buildDraftSPTooltip(
+  draftedStageResources: readonly CardDefinitionId[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string {
+  const entries: { name: string; points: number }[] = [];
+  for (const defId of draftedStageResources) {
+    const def = cardPool[defId as string];
+    const points = stagePointsOfDef(def);
+    if (def && points !== 0) entries.push({ name: def.name, points });
+  }
+  if (entries.length === 0) return '<div class="gi-tooltip-empty">No stage resources drafted</div>';
+  let rows = '';
+  for (const e of entries) {
+    rows += `<tr><td class="mp-label">${e.name}</td><td class="mp-value">${e.points}</td></tr>`;
+  }
+  const total = entries.reduce((sum, e) => sum + e.points, 0);
+  return `<table class="mp-tooltip-table">
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td class="mp-label">Total</td><td class="mp-value mp-total">${total}</td></tr></tfoot>
+  </table>`;
+}
+
+/**
  * Build the GI tooltip for the character draft phase.
  * Uses drafted character definition IDs instead of in-play characters.
  */
@@ -180,6 +264,8 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
   let oppGI: number;
   let selfGITooltip: string;
   let oppGITooltip: string;
+  let selfSPTooltip: string;
+  let oppSPTooltip: string;
   if (view.phaseState.phase === 'setup' && view.phaseState.setupStep.step === 'character-draft') {
     const draft = view.phaseState.setupStep;
     const selfIdx = hasRealCards(draft.draftState[0].pool) ? 0 : 1;
@@ -192,11 +278,15 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
     oppGI = GENERAL_INFLUENCE - oppMind;
     selfGITooltip = buildDraftGITooltip(selfDrafted, cardPool);
     oppGITooltip = buildDraftGITooltip(oppDrafted, cardPool);
+    selfSPTooltip = buildDraftSPTooltip(draft.draftState[selfIdx].draftedStageResources.map(c => c.definitionId), cardPool);
+    oppSPTooltip = buildDraftSPTooltip(draft.draftState[oppIdx].draftedStageResources.map(c => c.definitionId), cardPool);
   } else {
     selfGI = GENERAL_INFLUENCE - view.self.generalInfluenceUsed;
     oppGI = GENERAL_INFLUENCE - view.opponent.generalInfluenceUsed;
     selfGITooltip = buildGITooltip(view.self.characters, cardPool);
     oppGITooltip = buildGITooltip(view.opponent.characters, cardPool);
+    selfSPTooltip = buildSPTooltip(view.self.cardsInPlay, view.self.characters, cardPool);
+    oppSPTooltip = buildSPTooltip(view.opponent.cardsInPlay, view.opponent.characters, cardPool);
   }
 
   // Populate the individual metric cells (MP / GI / SP). The dice tray is a
@@ -208,8 +298,9 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
   const selfGiEl = document.getElementById('self-gi');
   if (selfGiEl) selfGiEl.innerHTML = `<span class="metric-label">GI</span>${selfGI}<span class="mp-tooltip mp-tooltip--above">${selfGITooltip}</span>`;
   const selfSpEl = document.getElementById('self-sp');
-  const selfSP = view.self.alignment === 'fallen-wizard' ? String(view.self.stagePoints) : '–';
-  if (selfSpEl) selfSpEl.innerHTML = `<span class="metric-label">SP</span>${selfSP}`;
+  const selfIsFW = view.self.alignment === 'fallen-wizard';
+  const selfSP = selfIsFW ? String(view.self.stagePoints) : '–';
+  if (selfSpEl) selfSpEl.innerHTML = `<span class="metric-label">SP</span>${selfSP}${selfIsFW ? `<span class="mp-tooltip mp-tooltip--above">${selfSPTooltip}</span>` : ''}`;
 
   const oppScoreEl = document.getElementById('opponent-score');
   const oppHazardLimitEl = document.getElementById('opponent-hazard-limit');
@@ -219,8 +310,9 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
   const oppGiEl = document.getElementById('opponent-gi');
   if (oppGiEl) oppGiEl.innerHTML = `<span class="metric-label">GI</span>${oppGI}<span class="mp-tooltip mp-tooltip--below">${oppGITooltip}</span>`;
   const oppSpEl = document.getElementById('opponent-sp');
-  const oppSP = view.opponent.alignment === 'fallen-wizard' ? String(view.opponent.stagePoints) : '–';
-  if (oppSpEl) oppSpEl.innerHTML = `<span class="metric-label">SP</span>${oppSP}`;
+  const oppIsFW = view.opponent.alignment === 'fallen-wizard';
+  const oppSP = oppIsFW ? String(view.opponent.stagePoints) : '–';
+  if (oppSpEl) oppSpEl.innerHTML = `<span class="metric-label">SP</span>${oppSP}${oppIsFW ? `<span class="mp-tooltip mp-tooltip--below">${oppSPTooltip}</span>` : ''}`;
   if (oppHazardLimitEl) {
     if (hazardLimit) {
       oppHazardLimitEl.innerHTML = `<span class="metric-label">HL</span>${hazardLimit}`;
