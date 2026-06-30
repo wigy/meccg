@@ -1078,6 +1078,56 @@ export interface RollDiscardOpponentNonUniqueAllyAction extends TriggeredActionB
   readonly threshold?: number;
 }
 
+/** `offer-char-join-attack` — offer a haven character the option to join the attack (Alatar). */
+export interface OfferCharJoinAttackAction extends TriggeredActionBase {
+  readonly type: 'offer-char-join-attack';
+  /** When true, allies the bearer controls are discarded on joining. */
+  readonly discardOwnedAllies?: boolean;
+  /** When true, the attacking creature directs one strike at the bearer. */
+  readonly forceStrike?: boolean;
+  /** Effects applied to the bearer at combat finalization. */
+  readonly postAttack?: {
+    readonly tapIfUntapped?: boolean;
+    readonly corruptionCheck?: { readonly modifier?: number };
+  };
+}
+
+/** `offer-resource-play` — enqueue a resource-play offer linked to the entering card; type-only marker. */
+export interface OfferResourcePlayAction extends TriggeredActionBase {
+  readonly type: 'offer-resource-play';
+}
+
+/** `offer-restore-character` — offer to untap/heal one company character at a haven; type-only marker. */
+export interface OfferRestoreCharacterAction extends TriggeredActionBase {
+  readonly type: 'offer-restore-character';
+}
+
+/** `enqueue-pending-fetch` — schedule a fetch (from pile to deck/hand) as a pending effect. */
+export interface EnqueuePendingFetchAction extends TriggeredActionBase {
+  readonly type: 'enqueue-pending-fetch';
+  /** Which pile(s) to fetch from. */
+  readonly fetchFrom?: readonly ('discard-pile' | 'deck' | 'hand' | 'sideboard')[];
+  /** How many cards to fetch (default 1). */
+  readonly fetchCount?: number;
+  /** Reshuffle the play deck after the fetch. */
+  readonly fetchShuffle?: boolean;
+  /** Where to place the fetched card (default `'deck'`). */
+  readonly fetchTo?: 'deck' | 'hand';
+  /** Enqueue a corruption check on the bearer after the fetch completes. */
+  readonly postCorruptionCheck?: boolean;
+  /** Modifier for the post-fetch corruption check (default 0). */
+  readonly postCorruptionCheckModifier?: number;
+  /** Restricts which cards may be fetched. */
+  readonly filter?: Condition;
+}
+
+/** `enqueue-ring-play-offer` — bypass the gold-ring roll and offer ring categories from the test table. */
+export interface EnqueueRingPlayOfferAction extends TriggeredActionBase {
+  readonly type: 'enqueue-ring-play-offer';
+  /** Ring categories to exclude from the offered set. */
+  readonly excludeCategories?: readonly string[];
+}
+
 /**
  * The verbs not yet migrated to discriminated members. Computed as the
  * complement of the migrated discriminants, so adding a verb to
@@ -1105,6 +1155,11 @@ export type LegacyTriggeredActionType = Exclude<
   | TapOneCharacterAction['type']
   | PlaceItemOnCharacterAction['type']
   | RollDiscardOpponentNonUniqueAllyAction['type']
+  | OfferCharJoinAttackAction['type']
+  | OfferResourcePlayAction['type']
+  | OfferRestoreCharacterAction['type']
+  | EnqueuePendingFetchAction['type']
+  | EnqueueRingPlayOfferAction['type']
 >;
 
 /**
@@ -1133,6 +1188,11 @@ export type TriggeredAction =
   | TapOneCharacterAction
   | PlaceItemOnCharacterAction
   | RollDiscardOpponentNonUniqueAllyAction
+  | OfferCharJoinAttackAction
+  | OfferResourcePlayAction
+  | OfferRestoreCharacterAction
+  | EnqueuePendingFetchAction
+  | EnqueueRingPlayOfferAction
   | LegacyTriggeredAction;
 
 /**
@@ -1169,19 +1229,8 @@ export interface LegacyTriggeredAction extends EffectBase {
    */
   readonly type: LegacyTriggeredActionType;
   /**
-   * Filter condition for `discard-cards-in-play` and `enqueue-pending-fetch`
-   * — matches against card definitions. For fetch apply, restricts which
-   * discard-pile cards the player may pick (e.g. resource or character only).
-   */
-  readonly filter?: Condition;
-  /**
-   * For `add-constraint` type with `constraint: "check-modifier"`: numeric
-   * bonus (or penalty if negative) applied to the target's next check of
-   * the matching type.
-   *
-   * Also used by `add-constraint` with `constraint: "company-stat-modifier"`
-   * to carry the flat bonus applied to every character in the target
-   * company (e.g. Orc-draughts: `+1`).
+   * For `modify-current-strike-prowess` type: numeric bonus applied to the
+   * current strike's prowess.
    */
   readonly value?: number;
   /**
@@ -1251,67 +1300,10 @@ export interface LegacyTriggeredAction extends EffectBase {
    * chain entries).
    */
   readonly requiredSkill?: string;
-  /**
-   * For `enqueue-pending-fetch` type: which pile to fetch from.
-   * Matches the `source` field on `FetchToDeckEffect`. The
-   * `place-item-on-character` apply additionally accepts `'sideboard'`.
-   */
-  readonly fetchFrom?: readonly ('discard-pile' | 'deck' | 'hand' | 'sideboard')[];
-  /** For `enqueue-pending-fetch` type: how many cards to fetch. Defaults to 1. */
-  readonly fetchCount?: number;
-  /** For `enqueue-pending-fetch` type: reshuffle play deck after fetch. */
-  readonly fetchShuffle?: boolean;
-  /**
-   * For `enqueue-pending-fetch` type: where to place the fetched card.
-   * Defaults to `'deck'` (shuffled into play deck).
-   */
-  readonly fetchTo?: 'deck' | 'hand';
-  /**
-   * For `enqueue-pending-fetch` type: when true, enqueue a corruption
-   * check on the bearer after the fetch completes. Used by Palantír
-   * grant-actions.
-   */
-  readonly postCorruptionCheck?: boolean;
-  /**
-   * For `enqueue-pending-fetch` type: modifier applied to the corruption
-   * check roll when `postCorruptionCheck` is true. Defaults to 0.
-   * Positive = easier (roll bonus); negative = harder.
-   */
-  readonly postCorruptionCheckModifier?: number;
-  /**
-   * For `offer-char-join-attack` type (fired under
-   * `on-event: creature-attack-begins`): when true, allies attached to
-   * the bearer are discarded when the bearer joins the attacked company.
-   * (Alatar — "discard allies he controls".)
-   */
-  readonly discardOwnedAllies?: boolean;
-  /**
-   * For `offer-char-join-attack` type: when true, accepting the offer
-   * forces the attacking creature to direct one strike at the bearer
-   * regardless of the defender's normal assignment priorities.
-   */
-  readonly forceStrike?: boolean;
-  /**
-   * For `offer-char-join-attack` type: effects applied to the bearer
-   * at combat finalization (win or lose). Composable — future cards
-   * can toggle tap, corruption check, or both without a new apply type.
-   */
-  readonly postAttack?: {
-    readonly tapIfUntapped?: boolean;
-    readonly corruptionCheck?: { readonly modifier?: number };
-  };
   /** For `shuffle-deck-top` type: how many top cards to shuffle (default 5). */
   readonly count?: number;
   /** For `shuffle-deck-top` type: whose deck — `'source-owner'` (default) or `'opponent'`. */
   readonly toOwner?: 'source-owner' | 'opponent' | 'defender';
-  /**
-   * For `enqueue-ring-play-offer` type: ring categories to exclude from
-   * the eligible set (e.g. `["the-one-ring"]`). Defaults to no exclusions.
-   * The eligible categories are derived from the gold ring's
-   * `ring-test-table` with all roll bounds ignored (all categories
-   * in the table are eligible, minus those listed here).
-   */
-  readonly excludeCategories?: readonly string[];
 }
 
 /**
