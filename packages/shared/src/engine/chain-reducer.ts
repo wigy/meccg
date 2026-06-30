@@ -863,83 +863,78 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
   logDetail(`Permanent event resolves: "${def?.name ?? card.definitionId}" enters play for player ${entry.declaredBy as string}`);
 
-  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
-
-  // "Playable on a character" — attach to target character
+  // Place the resolving card via the move primitive. The card lives only on
+  // the chain entry (removed from hand at declaration), so every destination
+  // sources it with `from: 'chain'` (ctx.chainCard, no-op removal).
   const targetCharId = entry.payload.type === 'permanent-event' ? entry.payload.targetCharacterId : undefined;
+  const moveCtx: import('./reducer-move.js').MoveContext = {
+    sourceCardId: card.instanceId,
+    sourcePlayerIndex: playerIndex,
+    chainCard: toCardInstance(card),
+    ...(targetCharId ? { targetCharacterId: targetCharId } : {}),
+  };
+  const placeMove = (to: import('../types/effects.js').MoveZone): GameState => {
+    const r = applyMove(state, { type: 'move', select: 'self', from: 'chain', to }, moveCtx);
+    if ('error' in r) {
+      logDetail(`Permanent event "${def?.name ?? card.definitionId}" placement failed (${r.error}) — card not placed`);
+      return state;
+    }
+    return r.state;
+  };
+
+  let working: GameState;
   if (targetCharId) {
-    // Resource permanent events (e.g. Align Palantír) go into items;
-    // hazard permanent events go into hazards.
+    // "Playable on a character" — attach to the target character. Resource
+    // permanent events (e.g. Align Palantír) go into items; hazard permanent
+    // events into hazards (the `in-play-on-character` destination picks the
+    // slot by card type via the shared `inPlayOnCharacterSlot` helper).
     const isResource = def && (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event');
-    const slot = isResource ? 'items' : 'hazards';
-    // Find which player owns the target character
+    let bearerPi = -1;
     for (let pi = 0; pi < 2; pi++) {
-      const charInPlay = state.players[pi].characters[targetCharId];
-      if (charInPlay) {
-        // Ward check: a hazard permanent-event attaching to a character
-        // with a matching ward (e.g. Adamant Helmet vs. dark enchantments)
-        // is cancelled — the card goes straight to its owner's discard
-        // pile instead of ending up in `character.hazards`.
-        if (!isResource && def && isWardedAgainst(state, pi, targetCharId, def)) {
-          logDetail(`Ward on ${targetCharId as string} cancels incoming "${def.name}" — routing to owner's discard`);
-          newPlayers[playerIndex] = {
-            ...newPlayers[playerIndex],
-            discardPile: [
-              ...newPlayers[playerIndex].discardPile,
-              toCardInstance(card),
-            ],
-          };
-          break;
-        }
-        logDetail(`Attaching "${def?.name ?? card.definitionId}" to character ${targetCharId as string} (${slot})`);
-        newPlayers[pi] = {
-          ...newPlayers[pi],
-          characters: {
-            ...newPlayers[pi].characters,
-            [targetCharId as string]: {
-              ...charInPlay,
-              [slot]: [...charInPlay[slot], {
-                instanceId: card.instanceId,
-                definitionId: card.definitionId,
-                status: CardStatus.Untapped,
-              }],
-            },
-          },
-        };
-        break;
-      }
+      if (state.players[pi].characters[targetCharId]) { bearerPi = pi; break; }
+    }
+    // Ward check: a hazard permanent-event attaching to a character with a
+    // matching ward (e.g. Adamant Helmet vs. dark enchantments) is cancelled —
+    // the card goes straight to its owner's discard pile instead of attaching.
+    if (!isResource && def && bearerPi >= 0 && isWardedAgainst(state, bearerPi, targetCharId, def)) {
+      logDetail(`Ward on ${targetCharId as string} cancels incoming "${def.name}" — routing to owner's discard`);
+      working = placeMove('discard');
+    } else {
+      logDetail(`Attaching "${def?.name ?? card.definitionId}" to character ${targetCharId as string} (${isResource ? 'items' : 'hazards'})`);
+      working = placeMove('in-play-on-character');
     }
   } else {
-    // General permanent event — just add to cardsInPlay. Site-targeting
-    // permanent hazards carry their site binding through the chain
-    // payload; record it on the CardInPlay entry so the
-    // company-arrives-at-site event hook can match arrivals against
-    // the bound site location. Company-targeting permanent events
-    // (e.g. Fellowship) store the company ID so company-modifier
-    // effects are scoped to that company only.
-    const targetSiteDefId = entry.payload.type === 'permanent-event'
-      ? entry.payload.targetSiteDefinitionId
-      : undefined;
-    const targetCompanyId = entry.payload.type === 'permanent-event'
-      ? entry.payload.targetCompanyId
-      : undefined;
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      cardsInPlay: [...newPlayers[playerIndex].cardsInPlay, {
-        instanceId: card.instanceId,
-        definitionId: card.definitionId,
-        status: CardStatus.Untapped,
-        ...(targetSiteDefId ? { attachedToSite: targetSiteDefId } : {}),
-        ...(targetCompanyId ? { companyId: targetCompanyId } : {}),
-      }],
-    };
-    if (targetSiteDefId) {
-      logDetail(`"${def?.name ?? card.definitionId}" attached to site ${targetSiteDefId as string}`);
-    }
-    if (targetCompanyId) {
-      logDetail(`"${def?.name ?? card.definitionId}" bound to company ${targetCompanyId as string}`);
+    // General permanent event — add to cardsInPlay. Site-targeting permanent
+    // hazards carry their site binding through the chain payload; record it on
+    // the CardInPlay entry so the company-arrives-at-site event hook can match
+    // arrivals against the bound site location. Company-targeting permanent
+    // events (e.g. Fellowship) store the company ID so company-modifier effects
+    // are scoped to that company only. The bindings are stamped onto the
+    // just-placed entry (the move primitive carries no card-data bindings).
+    working = placeMove('in-play-general');
+    const targetSiteDefId = entry.payload.type === 'permanent-event' ? entry.payload.targetSiteDefinitionId : undefined;
+    const targetCompanyId = entry.payload.type === 'permanent-event' ? entry.payload.targetCompanyId : undefined;
+    if (targetSiteDefId || targetCompanyId) {
+      working = updatePlayer(working, playerIndex, p => ({
+        ...p,
+        cardsInPlay: p.cardsInPlay.map(c => c.instanceId === card.instanceId
+          ? {
+              ...c,
+              ...(targetSiteDefId ? { attachedToSite: targetSiteDefId } : {}),
+              ...(targetCompanyId ? { companyId: targetCompanyId } : {}),
+            }
+          : c),
+      }));
+      if (targetSiteDefId) {
+        logDetail(`"${def?.name ?? card.definitionId}" attached to site ${targetSiteDefId as string}`);
+      }
+      if (targetCompanyId) {
+        logDetail(`"${def?.name ?? card.definitionId}" bound to company ${targetCompanyId as string}`);
+      }
     }
   }
+
+  const newPlayers: [PlayerState, PlayerState] = [working.players[0], working.players[1]];
 
   // no-direct-influence flag — revert DI to GI on attach.
   // Per CoE 2.II.2.2.3, a follower removed from direct-influence control outside
@@ -982,7 +977,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   }
 
-  let newState: GameState = { ...state, players: newPlayers };
+  let newState: GameState = { ...working, players: newPlayers };
 
   // Apply play-target character tap cost for permanent events (e.g. That's Been
   // Heard Before Tonight taps the targeted character on play). The cost is declared
