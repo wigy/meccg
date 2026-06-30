@@ -190,7 +190,7 @@ export function buildConstraintKind(
       return { type: 'auto-attack-race-duplicate', race };
     }
     case 'granted-action': {
-      const payload = onEvent.apply.grantedAction;
+      const payload = (onEvent.apply as { grantedAction?: import('../types/effects.js').GrantedActionConstraintPayload }).grantedAction;
       if (!payload) return null;
       return {
         type: 'granted-action',

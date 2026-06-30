@@ -464,7 +464,10 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // blocking fetch-from-pile resolution with an active pendingResolution.
   // We embed it as `postCorruptionCheck` on the pending effect entry instead.
   const enqueueCorruptionCheckEffect = targetCharId
-    ? getOnEventEffects(def, 'self-enters-play').find(e => e.apply.type === 'enqueue-corruption-check')
+    ? getOnEventEffects(def, 'self-enters-play').find(
+        (e): e is import('../types/effects.js').OnEventEffect & { apply: import('../types/effects.js').EnqueueCorruptionCheckAction } =>
+          e.apply.type === 'enqueue-corruption-check',
+      )
     : undefined;
 
   const interactiveEffects: PendingEffect[] = (def.effects ?? [])
@@ -945,6 +948,9 @@ function applyPlayOptionAddConstraint(
   targetCharacterId: import('../types/common.js').CardInstanceId,
 ): { state: GameState } | { error: string } {
   const apply = option.apply;
+  if (apply.type !== 'add-constraint') {
+    return { error: `${def.name} option '${option.id}': expected an add-constraint apply` };
+  }
   const constraintName = apply.constraint;
   const scopeName = apply.scope;
   if (!constraintName || !scopeName) {

@@ -22,29 +22,17 @@ import type { GameState, CardDefinitionId, CardInstanceId } from '../index.js';
 import { isCharacterCard, isSiteCard } from '../types/cards.js';
 import { Skill, SiteType } from '../types/common.js';
 import type { PlayerState } from '../types/state-player.js';
-import type { TriggeredAction, OnEventEffect } from '../types/effects.js';
+import type { OnEventEffect, WinConditionRollAction, RollBand, RollModifier } from '../types/effects.js';
 import { THE_ONE_RING } from '../card-ids.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { defById, diceRollEffect, findPlayerAvatar, getCardEffects, roll2d6, toCardInstance } from './reducer-utils.js';
 import { oneRingWin } from './reducer-free-council.js';
 import type { ReducerResult } from './reducer-utils.js';
 
-/** One threshold band of a {@link TriggeredAction.bands} roll table. */
-export interface RollBand {
-  /** Match when the modified total is strictly less than this. */
-  readonly lt?: number;
-  /** Match when the modified total is ≤ this. */
-  readonly lte?: number;
-  /** Match when the modified total is strictly greater than this. */
-  readonly gt?: number;
-  /** Match when the modified total is ≥ this. */
-  readonly gte?: number;
-  /** What happens when this band matches. */
-  readonly outcome: 'eliminate-avatar' | 'discard-self' | 'keep' | 'win-game';
-}
-
-/** Dynamic roll modifiers summed into the 2d6 total. */
-export type RollModifier = 'sages-in-company' | 'copies-in-play' | 'other-copies-in-play';
+// `RollBand` / `RollModifier` now live with the card-effect schema in
+// types/effects.ts (a `win-condition-roll` is a discriminated TriggeredAction
+// member). Re-exported here so existing importers keep their path.
+export type { RollBand, RollModifier } from '../types/effects.js';
 
 /** Count untapped-or-not characters in the avatar's company with the sage skill. */
 function countSagesInCompany(state: GameState, player: PlayerState, avatarCharId: CardInstanceId): number {
@@ -171,13 +159,13 @@ export function resolveWinConditionRoll(
     readonly sourceDefinitionId: CardDefinitionId;
     readonly ownerPlayerIndex: number;
     readonly avatarCharId: CardInstanceId;
-    readonly apply: TriggeredAction;
+    readonly apply: WinConditionRollAction;
   },
 ): ReducerResult {
   const { sourceInstanceId, sourceDefinitionId, ownerPlayerIndex, avatarCharId, apply } = opts;
   const player = state.players[ownerPlayerIndex];
-  const bands = (apply.bands ?? []) as readonly RollBand[];
-  const modifiers = (apply.rollModifiers ?? []) as readonly RollModifier[];
+  const bands: readonly RollBand[] = apply.bands;
+  const modifiers: readonly RollModifier[] = apply.rollModifiers ?? [];
   const sourceDef = defById(state, sourceDefinitionId);
   const cardName = sourceDef?.name ?? (sourceDefinitionId as string);
 
@@ -251,7 +239,7 @@ export function scanEndOfTurnWinConditions(state: GameState): ReducerResult | nu
     const def = defById(state, item.definitionId);
     if (!def) continue;
     const onEvent = getCardEffects(def).find(
-      (e): e is OnEventEffect => e.type === 'on-event'
+      (e): e is OnEventEffect & { apply: WinConditionRollAction } => e.type === 'on-event'
         && e.event === 'owner-end-of-turn'
         && e.apply.type === 'win-condition-roll',
     );

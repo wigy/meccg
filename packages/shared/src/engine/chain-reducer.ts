@@ -1148,7 +1148,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         // When apply.target === "company-shadow-magic-user", find the non-Ringwraith shadow-magic
         // user in the target character's company; Ringwraiths are exempt from the check.
         // Without a target specifier, target the attached character (targetCharId).
-        const applyTarget = (effect.apply as { target?: string }).target;
+        const applyTarget = effect.apply.target;
         let corrCheckCharId: import('../types/common.js').CardInstanceId | undefined;
         if (applyTarget === 'company-shadow-magic-user' && targetCharId) {
           outer: for (let pi = 0; pi < 2; pi++) {
@@ -1176,7 +1176,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           corrCheckCharId = targetCharId;
         }
         if (corrCheckCharId) {
-          const modifier = (effect.apply as { modifier?: number }).modifier ?? 0;
+          const modifier = effect.apply.modifier ?? 0;
           logDetail(`"${def?.name ?? '?'}" enqueue-corruption-check on ${corrCheckCharId as string} (modifier ${modifier})`);
           newState = enqueueCorruptionCheck(newState, {
             source: card.instanceId,
@@ -1288,6 +1288,7 @@ function applyAddConstraintFromOnEvent(
   effect: import('../types/effects.js').OnEventEffect,
   cardName: string,
 ): GameState {
+  if (effect.apply.type !== 'add-constraint') return state;
   const constraintKind = effect.apply.constraint;
   const scopeName = effect.apply.scope;
   if (!constraintKind || !scopeName) return state;

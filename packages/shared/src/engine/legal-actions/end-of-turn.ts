@@ -315,7 +315,7 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
         }
       }
 
-      const filter: Condition | undefined = fetchApply.filter;
+      const filter: Condition | undefined = (fetchApply as { filter?: Condition }).filter;
 
       // Cost check. 'self' only makes sense when the source IS the bearer
       // character (Saruman); for attached items the cost is 'bearer'.
