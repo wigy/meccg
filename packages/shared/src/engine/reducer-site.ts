@@ -3102,7 +3102,7 @@ function fireCvccPreStrikeEffects(
           continue;
         }
 
-        const threshold = (effect.apply as { threshold?: number }).threshold ?? 5;
+        const threshold = effect.apply.threshold ?? 5;
         const itemName = (itemDef as { name?: string }).name ?? (item.definitionId as string);
         logDetail(`CvCC pre-strike: ${itemName} fires — enqueuing ${defMinionAllies.length} ally-discard roll(s)`);
 
