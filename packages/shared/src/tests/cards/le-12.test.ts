@@ -53,7 +53,7 @@ import {
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { Phase, RegionType, Alignment } from '../../index.js';
-import type { GameState, MovementHazardPhaseState, CardDefinitionId, BodyCheckCompanyRollAction } from '../../index.js';
+import type { GameState, MovementHazardPhaseState, CardDefinitionId, ResolveDiceCheckAction } from '../../index.js';
 
 const GRISHNAKH = 'le-12' as CardDefinitionId;
 const VEILS_FLUNG_AWAY = 'le-146' as CardDefinitionId;
@@ -102,18 +102,24 @@ describe('Grishnákh (le-12)', () => {
 
     // Body check pending resolution queued for resource player
     expect(s.pendingResolutions).toHaveLength(1);
-    expect(s.pendingResolutions[0].kind.type).toBe('body-check-company');
+    expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
     expect(s.pendingResolutions[0].actor).toBe(PLAYER_1);
+
+    // discardBodyCheck [8] + modifier −1 → pre-resolved threshold 7, target Grishnákh.
+    const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && r.kind.targetCharacterId === grishnakhId);
+    expect(dc).toBeDefined();
+    if (dc?.kind.type === 'dice-check') {
+      expect(dc.kind.targetCharacterId).toBe(grishnakhId);
+      expect(dc.kind.threshold).toBe(7);
+    }
 
     // Force roll of 6 (< effectiveThreshold 7) → fail
     s = { ...s, cheatRollTotal: 6 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
 
-    const rollAction = rollActions[0].action as BodyCheckCompanyRollAction;
-    expect(rollAction.characterId).toBe(grishnakhId);
-
+    const rollAction = rollActions[0].action as ResolveDiceCheckAction;
     s = dispatch(s, rollAction);
 
     // Grishnákh must be removed from play and sent to discard pile
@@ -149,7 +155,7 @@ describe('Grishnákh (le-12)', () => {
     // Force roll of 7 (= effectiveThreshold 7) → pass
     s = { ...s, cheatRollTotal: 7 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     s = dispatch(s, rollActions[0].action);
 
     // Grishnákh must still be in play

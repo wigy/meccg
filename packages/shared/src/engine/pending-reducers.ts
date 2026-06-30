@@ -50,6 +50,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { eligibleRingCategories } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
 
 /**
@@ -833,6 +834,22 @@ function applyDiceCheckBranch(
     }
     return { state: s };
   }
+  // `when` guard (leaf verbs): evaluate against the target character's
+  // race/status so e.g. a "tap if untapped" branch leaves wounded/inverted
+  // characters untouched (body-check). Skipped when the branch has no `when`.
+  if (branch.when && ctx.targetCharacterId) {
+    const tChar = state.players[ctx.rollerIndex]?.characters[ctx.targetCharacterId];
+    const tDef = tChar ? defById(state, tChar.definitionId) : undefined;
+    const guardCtx = {
+      target: {
+        race: tDef && isCharacterCard(tDef) ? tDef.race : '',
+        status: tChar?.status,
+      },
+    };
+    if (!matchesCondition(branch.when, guardCtx)) {
+      return { state };
+    }
+  }
   if (branch.type === 'move') {
     const moveCtx: MoveContext = {
       // sourceCardId is only consulted for select:'self'/'self-location' moves;
@@ -860,6 +877,19 @@ function applyDiceCheckBranch(
       return { state };
     }
     return { state: returnCharacterToHand(state, ctx.rollerIndex, ctx.targetCharacterId, charInPlay) };
+  }
+  if (branch.type === 'discard-character') {
+    if (!ctx.targetCharacterId) return { state };
+    const charInPlay = state.players[ctx.rollerIndex]?.characters[ctx.targetCharacterId];
+    if (!charInPlay) return { state };
+    return { state: discardCharacter(state, ctx.rollerIndex, ctx.targetCharacterId, charInPlay) };
+  }
+  if (branch.type === 'set-character-status') {
+    if (!ctx.targetCharacterId || !branch.status) return { state };
+    const statusEnum = branch.status === 'untapped' ? CardStatus.Untapped
+      : branch.status === 'tapped' ? CardStatus.Tapped : CardStatus.Inverted;
+    const targetCharacterId = ctx.targetCharacterId;
+    return { state: updatePlayer(state, ctx.rollerIndex, p => updateCharacter(p, targetCharacterId, c => ({ ...c, status: statusEnum }))) };
   }
   logDetail(`dice-check: branch verb "${branch.type}" not handled in resolution context — no-op`);
   return { state };
@@ -1177,96 +1207,6 @@ function discardCharacter(
     result = sweepLeaderLeavesCompanyEvents(result, affectedCompanies);
   }
   return result;
-}
-
-/**
- * Resolve a queued `body-check-company` resolution (from a mass-body-check
- * hazard, e.g. Veils Flung Away). The resource player rolls 2d6.
- *
- * - For Orc/Troll: uses `discardBodyCheck` array from card data as the threshold;
- *   min(array) is the pass threshold so all listed results trigger discard.
- *   Discarded characters go to the resource player's discard pile (not hand).
- * - For other races: uses `body` as the threshold.
- * - If roll >= (min(discardBodyCheck) + modifier): no effect (pass).
- * - Orc or Troll and roll fails: character is discarded (to discard pile).
- * - Other races, untapped, and roll fails: character becomes tapped.
- * - Other races, already tapped, roll fails: no effect.
- */
-export function applyBodyCheckCompanyResolution(
-  state: GameState,
-  action: GameAction,
-  top: PendingResolution,
-): ReducerResult | null {
-  const g = guardRollResolution(state, action, top, 'body-check-company-roll', 'body-check-company');
-  if (!g.ok) return g.result;
-  const { actorIndex, player, kind } = g;
-  const { characterId, modifier, sourceDefinitionId } = kind;
-  const charInPlay = player.characters[characterId];
-  if (!charInPlay) {
-    return { state: dequeueResolution(state, top.id), error: 'Target character not found for body check' };
-  }
-
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : (characterId as string);
-  const body = isCharacterCard(charDef) && charDef.body != null ? charDef.body : 9;
-  const race = isCharacterCard(charDef) ? charDef.race : '';
-  const isOrcOrTroll = race === 'orc' || race === 'troll';
-  // Orc/Troll use their card-stated discard threshold (may differ from body);
-  // other races use body for the fail/tap comparison.
-  // Orc/Troll use their card-stated discard threshold array (may differ from body);
-  // the minimum value sets the pass threshold so all listed results trigger discard.
-  const discardValues = isOrcOrTroll && isCharacterCard(charDef) && charDef.cardType === 'minion-character' && charDef.discardBodyCheck != null
-    ? charDef.discardBodyCheck
-    : [body];
-  const discardCheck = Math.min(...discardValues);
-  const effectiveThreshold = discardCheck + modifier;
-
-  const sourceDef = defById(state, sourceDefinitionId);
-  const sourceName = sourceDef?.name ?? '?';
-
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const rollTotal = roll.die1 + roll.die2;
-  const passed = rollTotal >= effectiveThreshold;
-
-  const rollEffect = diceRollEffect(player.name, roll, `Body check (${sourceName}): ${charName}`);
-  logDetail(`${sourceName} body check on ${charName}: roll ${rollTotal} vs discard threshold ${discardCheck}${modifier < 0 ? modifier : `+${modifier}`} = ${effectiveThreshold} → ${passed ? 'PASS' : 'FAIL'} (race: ${race ?? 'unknown'})`);
-
-  const stateAfterRoll = updatePlayer(
-    { ...state, rng, cheatRollTotal },
-    actorIndex,
-    p => ({ ...p, lastDiceRoll: roll }),
-  );
-  let postRoll = dequeueResolution(stateAfterRoll, top.id);
-
-  if (!passed) {
-    if (isOrcOrTroll) {
-      logDetail(`${sourceName}: ${charName} (${race}) failed body check — discarded to discard pile`);
-      postRoll = discardCharacter(postRoll, actorIndex, characterId, charInPlay);
-    } else if (charInPlay.status === 'untapped') {
-      logDetail(`${sourceName}: ${charName} failed body check while untapped — tapped`);
-      postRoll = updatePlayer(postRoll, actorIndex, p =>
-        updateCharacter(p, characterId, c => ({ ...c, status: CardStatus.Tapped })),
-      );
-    } else {
-      logDetail(`${sourceName}: ${charName} failed body check but was already tapped — no effect`);
-    }
-  }
-
-  // Once all body-check resolutions from this same source are dequeued,
-  // mark the originating short-event chain entry as resolved and let the
-  // chain finish normally (so the card lands in the hazard discard pile).
-  const remainingBodyChecks = postRoll.pendingResolutions.filter(
-    r => r.kind.type === 'body-check-company' && r.source === top.source,
-  );
-  if (remainingBodyChecks.length === 0) {
-    return resolveChainEntryAndContinue(
-      postRoll,
-      e => e.payload.type === 'short-event' && e.card?.instanceId === top.source,
-      [rollEffect],
-    );
-  }
-
-  return { state: postRoll, effects: [rollEffect] };
 }
 
 /**

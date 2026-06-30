@@ -10,7 +10,7 @@
  * | # | Feature                             | Status | Notes                                    |
  * |---|-------------------------------------|--------|------------------------------------------|
  * | 1 | keywords: ["Uruk-hai"]              | DATA   | classification label, no current gate    |
- * | 2 | discardBodyCheck [8] — mass check   | OK     | body-check-company resolution            |
+ * | 2 | discardBodyCheck [8] — mass check   | OK     | dice-check (body-check) resolution       |
  *
  * Playable: YES
  *
@@ -43,7 +43,7 @@ import {
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { Phase, RegionType } from '../../index.js';
-import type { GameState, MovementHazardPhaseState, CardDefinitionId, BodyCheckCompanyRollAction } from '../../index.js';
+import type { GameState, MovementHazardPhaseState, CardDefinitionId, ResolveDiceCheckAction } from '../../index.js';
 
 const LAGDUF = 'le-18' as CardDefinitionId;
 const VEILS_FLUNG_AWAY = 'le-146' as CardDefinitionId;
@@ -92,18 +92,24 @@ describe('Lagduf (le-18)', () => {
 
     // Body check pending resolution queued for resource player
     expect(s.pendingResolutions).toHaveLength(1);
-    expect(s.pendingResolutions[0].kind.type).toBe('body-check-company');
+    expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
     expect(s.pendingResolutions[0].actor).toBe(PLAYER_1);
+
+    // discardBodyCheck [8] + modifier −1 → pre-resolved threshold 7, target Lagduf.
+    const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && r.kind.targetCharacterId === lagdufId);
+    expect(dc).toBeDefined();
+    if (dc?.kind.type === 'dice-check') {
+      expect(dc.kind.targetCharacterId).toBe(lagdufId);
+      expect(dc.kind.threshold).toBe(7);
+    }
 
     // Force roll of 6 (< effectiveThreshold 7) → fail
     s = { ...s, cheatRollTotal: 6 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
 
-    const rollAction = rollActions[0].action as BodyCheckCompanyRollAction;
-    expect(rollAction.characterId).toBe(lagdufId);
-
+    const rollAction = rollActions[0].action as ResolveDiceCheckAction;
     s = dispatch(s, rollAction);
 
     // Lagduf must be removed from play and sent to discard pile
@@ -139,7 +145,7 @@ describe('Lagduf (le-18)', () => {
     // Force roll of 7 (= effectiveThreshold 7) → pass
     s = { ...s, cheatRollTotal: 7 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     s = dispatch(s, rollActions[0].action);
 
     // Lagduf must still be in play

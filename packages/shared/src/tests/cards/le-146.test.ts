@@ -49,7 +49,7 @@ import {
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { Phase, RegionType, CardStatus } from '../../index.js';
-import type { GameState, MovementHazardPhaseState, CardDefinitionId, BodyCheckCompanyRollAction } from '../../index.js';
+import type { GameState, MovementHazardPhaseState, CardDefinitionId, ResolveDiceCheckAction } from '../../index.js';
 
 const VEILS_FLUNG_AWAY = 'le-146' as CardDefinitionId;
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;   // orc, body 8
@@ -218,18 +218,24 @@ describe('Veils Flung Away (le-146)', () => {
 
     // Body check pending resolution should be queued for PLAYER_1
     expect(s.pendingResolutions).toHaveLength(1);
-    expect(s.pendingResolutions[0].kind.type).toBe('body-check-company');
+    expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
     expect(s.pendingResolutions[0].actor).toBe(PLAYER_1);
+
+    // Orc Captain: discardBodyCheck [8] + modifier −1 → pre-resolved threshold 7.
+    const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && r.kind.targetCharacterId === orcId);
+    expect(dc).toBeDefined();
+    if (dc?.kind.type === 'dice-check') {
+      expect(dc.kind.targetCharacterId).toBe(orcId);
+      expect(dc.kind.threshold).toBe(7);
+    }
 
     // Force roll of 6 (< 7 effective body) → fail
     s = { ...s, cheatRollTotal: 6 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
 
-    const rollAction = rollActions[0].action as BodyCheckCompanyRollAction;
-    expect(rollAction.characterId).toBe(orcId);
-
+    const rollAction = rollActions[0].action as ResolveDiceCheckAction;
     s = dispatch(s, rollAction);
 
     // Orc Captain should be discarded (to discard pile, not hand)
@@ -256,12 +262,12 @@ describe('Veils Flung Away (le-146)', () => {
     s = dispatch(s, { type: 'play-hazard', player: PLAYER_2, cardInstanceId: veilId, targetCompanyId: P1_COMPANY });
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
-    expect(s.pendingResolutions[0].kind.type).toBe('body-check-company');
+    expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
 
     // Force roll of 7 (= effective body) → passes
     s = { ...s, cheatRollTotal: 7 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     s = dispatch(s, rollActions[0].action);
 
     // Orc Captain should still be in play
@@ -292,7 +298,7 @@ describe('Veils Flung Away (le-146)', () => {
     // Force roll of 5 (< 6 effective body) → fail
     s = { ...s, cheatRollTotal: 5 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
 
     s = dispatch(s, rollActions[0].action);
@@ -327,7 +333,7 @@ describe('Veils Flung Away (le-146)', () => {
     // Force roll of 2 (clearly < 6) → fail
     s = { ...s, cheatRollTotal: 2 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     s = dispatch(s, rollActions[0].action);
 
     // Asternak should still be in play and still tapped (no change)
@@ -357,7 +363,7 @@ describe('Veils Flung Away (le-146)', () => {
     // Force roll of 10 (>= 6 effective body) → passes
     s = { ...s, cheatRollTotal: 10 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     s = dispatch(s, rollActions[0].action);
 
     expectCharInPlay(s, RESOURCE_PLAYER, astarId);
@@ -383,8 +389,8 @@ describe('Veils Flung Away (le-146)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
-    // Two body-check-company pending resolutions should be queued
-    expect(s.pendingResolutions.filter(r => r.kind.type === 'body-check-company')).toHaveLength(2);
+    // Two dice-check (body-check) pending resolutions should be queued
+    expect(s.pendingResolutions.filter(r => r.kind.type === 'dice-check')).toHaveLength(2);
   });
 
   test('short event is discarded after all body checks resolve', () => {
@@ -407,7 +413,7 @@ describe('Veils Flung Away (le-146)', () => {
     // Resolve the body check with a passing roll
     s = { ...s, cheatRollTotal: 12 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
     s = dispatch(s, rollActions[0].action);
 

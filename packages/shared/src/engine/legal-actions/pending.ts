@@ -582,45 +582,6 @@ export function goldRingTestActions(
 }
 
 /**
- * Compute the single body-check-company-roll action for a queued
- * `body-check-company` resolution (from a mass-body-check hazard).
- * The resource player rolls 2d6 for the named character.
- */
-export function bodyCheckCompanyActions(
-  state: GameState,
-  playerId: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  if (top.kind.type !== 'body-check-company') return [];
-  const { characterId, modifier, sourceDefinitionId } = top.kind;
-
-  const player = playerById(state, playerId);
-  if (!player) return [];
-
-  const charInPlay = player.characters[characterId];
-  if (!charInPlay) return [];
-
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : '?';
-  const body = isCharacterCard(charDef) && charDef.body != null ? charDef.body : 9;
-  const effectiveBody = body + modifier;
-  const sourceDef = defById(state, sourceDefinitionId);
-  const sourceName = sourceDef?.name ?? '?';
-
-  logDetail(`Pending body-check-company for ${charName} (body ${body}, modifier ${modifier}, threshold ${effectiveBody}) from ${sourceName}`);
-
-  return [{
-    action: {
-      type: 'body-check-company-roll' as const,
-      player: playerId,
-      characterId,
-      explanation: `${charName}: body check for ${sourceName} (need 2d6 >= ${effectiveBody})`,
-    },
-    viable: true,
-  }];
-}
-
-/**
  * Compute legal actions for a queued `resource-play-offer` resolution.
  *
  * Offered when Crown of Flowers enters play: the active player may pair

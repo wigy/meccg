@@ -27,7 +27,7 @@
  * Fixtures:
  *   ORC_VETERAN (le-35)        - minion orc warrior, body 8, discardBodyCheck [8]
  *   RED_BOOK (le-339)          - minion resource item, 2 corruption points (triggers check)
- *   VEILS_FLUNG_AWAY (le-146)  - minion hazard event, body-check-company (modifier −1)
+ *   VEILS_FLUNG_AWAY (le-146)  - minion hazard event, mass body check (modifier −1)
  *   DOL_GULDUR (le-367)        - minion haven (home site)
  *   MINAS_MORGUL (le-390)      - minion haven (opponent site)
  *   ASTERNAK (le-1)            - minion man character (filler for opponent company)
@@ -128,12 +128,12 @@ describe('Orc Veteran (le-35)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
     expect(s.pendingResolutions).toHaveLength(1);
-    expect(s.pendingResolutions[0].kind.type).toBe('body-check-company');
+    expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
 
     // Force roll of 6 (< 7 effective threshold) → fail → discard
     s = { ...s, cheatRollTotal: 6 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
 
     s = dispatch(s, rollActions[0].action);
@@ -168,7 +168,7 @@ describe('Orc Veteran (le-35)', () => {
     // Force roll of 7 (= 7 effective threshold, passes) → safe
     s = { ...s, cheatRollTotal: 7 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     s = dispatch(s, rollActions[0].action);
 
     expectCharInPlay(s, RESOURCE_PLAYER, vetId);

@@ -422,8 +422,6 @@ export function describeAction(
       return `${instName(action.characterId)} taps to test ring ${instName(action.targetCardId)} at this site`;
     case 'play-ring-after-test':
       return `Play ${instName(action.ringInstanceId)} as replacement ring after test`;
-    case 'body-check-company-roll':
-      return `Body check (${action.explanation})`;
     case 'haven-join-attack':
       return `${instName(action.characterId)} joins attacked company from haven`;
     case 'cancel-return-to-origin':

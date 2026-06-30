@@ -568,25 +568,6 @@ export interface FlateryAttemptRollAction {
 }
 
 /**
- * Execute the dice roll for a single body check queued by a
- * `mass-body-check` hazard effect (e.g. Veils Flung Away).
- *
- * Created by the pending-resolution system after a hazard short event with
- * a `mass-body-check` effect resolves. One action is emitted per queued
- * resolution; the resource player rolls 2d6 for each character in turn.
- */
-export interface BodyCheckCompanyRollAction {
-  /** Action discriminant. */
-  readonly type: 'body-check-company-roll';
-  /** The resource player (who rolls). */
-  readonly player: PlayerId;
-  /** The character being checked. */
-  readonly characterId: CardInstanceId;
-  /** Human-readable description of the check. */
-  readonly explanation: string;
-}
-
-/**
  * Roll 2d6 for the Under-deeps movement check.
  *
  * Required when a company moves from an Under-deeps site to an adjacent
