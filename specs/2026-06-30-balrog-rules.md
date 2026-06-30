@@ -158,7 +158,7 @@ Currently item effects apply regardless of bearer alignment. `rule-9.20`
 
 - Add a predicate `itemHasNoEffect(state, bearerInstanceId)` →
   `true` when the bearer is the Balrog avatar character (`isAvatarCharacter`
-  + `alignment === Balrog`). Place it next to `control-cost.ts`'s
+  and `alignment === Balrog`). Place it next to `control-cost.ts`'s
   `isAvatarCharacter` usage.
 - In every place that reads a character's borne-item modifiers — prowess/body
   derivation in `recompute-derived.ts`, weapon/armour application in combat,
@@ -727,4 +727,5 @@ deep crossing requires the (impossible) roll and stays put on failure.
   §25 only tracks the MEBA-specific roll-13 confirmation).
 - Optional / variant tournament formats.
 </content>
+
 </invoke>
