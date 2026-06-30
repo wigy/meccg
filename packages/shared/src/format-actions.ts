@@ -426,8 +426,6 @@ export function describeAction(
       return `Play ${instName(action.ringInstanceId)} as replacement ring after test`;
     case 'body-check-company-roll':
       return `Body check (${action.explanation})`;
-    case 'glamour-hazard-roll':
-      return `Glamour roll: ${action.explanation}`;
     case 'haven-join-attack':
       return `${instName(action.characterId)} joins attacked company from haven`;
     case 'cancel-return-to-origin':
@@ -488,8 +486,6 @@ export function describeAction(
       return `${action.player as string} declares company attack on ${action.targetCompanyId as string}`;
     case 'take-trophy':
       return `${action.player as string} takes creature ${action.creatureInstanceId as string} as trophy for ${action.characterId as string}`;
-    case 'cvcc-ally-discard-roll':
-      return `${action.player as string} rolls for CvCC ally discard (${action.allyInstanceId as string})`;
     case 'shield-discard-roll':
       return `${action.player as string} rolls to determine if shield ${action.itemInstanceId as string} is discarded`;
     case 'tap-character-by-effect':

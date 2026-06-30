@@ -3043,7 +3043,7 @@ function handleDeclareCompanyAttack(
 /**
  * Scan attacking company characters' items for `on-event: cvc-combat-pre-strike`
  * effects. For each qualifying item (condition met), collect non-unique minion
- * allies from the defending company and enqueue one `cvcc-ally-discard-roll`
+ * allies from the defending company and enqueue one `dice-check` (cvcc ally-discard)
  * pending resolution per ally per qualifying item.
  */
 function fireCvccPreStrikeEffects(
@@ -3112,12 +3112,20 @@ function fireCvccPreStrikeEffects(
             actor: attackingPlayer.id,
             scope: { kind: 'phase', phase: Phase.Site },
             kind: {
-              type: 'cvcc-ally-discard-roll',
-              allyInstanceId,
-              allyMind,
-              threshold,
-              allyOwnerPlayerIndex: defPlayerIndex,
-              sourceItemInstanceId: item.instanceId,
+              type: 'dice-check',
+              label: `${itemName}: discard ally (roll > mind ${allyMind} + ${threshold})`,
+              // The ally's owner (defending player) rolls, though the attacker
+              // is the resolution actor.
+              roller: newState.players[defPlayerIndex].id,
+              modifiers: [],
+              threshold: allyMind + threshold,
+              comparison: 'gt',
+              // Skip the roll (and chain) if the ally is already gone.
+              requireTargetPresent: true,
+              // total > mind+threshold → ally discarded to its owner's discard.
+              onPass: { type: 'move', select: 'target', from: 'attached-to-character', to: 'discard', toOwner: 'source-owner' },
+              continuation: { kind: 'dequeue-only' },
+              targetInstanceId: allyInstanceId,
             },
           });
         }

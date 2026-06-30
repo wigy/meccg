@@ -622,38 +622,6 @@ export function goldRingTestActions(
 }
 
 /**
- * Compute the single glamour-hazard-roll action for a queued
- * `glamour-hazard-roll` resolution (Glamour of Surpassing Excellance, as-49).
- * The resource player rolls 2d6; if the result exceeds the hazard's
- * removalThreshold, the hazard permanent-event is discarded.
- */
-export function glamourHazardRollActions(
-  state: GameState,
-  playerId: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  if (top.kind.type !== 'glamour-hazard-roll') return [];
-  const { hazardInstanceId, hazardDefinitionId, removalThreshold, sourceDefinitionId } = top.kind;
-
-  const hazDef = defById(state, hazardDefinitionId);
-  const hazName = hazDef?.name ?? '?';
-  const sourceDef = defById(state, sourceDefinitionId);
-  const sourceName = sourceDef?.name ?? '?';
-
-  logDetail(`Pending glamour-hazard-roll for ${hazName} (threshold >${removalThreshold}) from ${sourceName}`);
-
-  return [{
-    action: {
-      type: 'glamour-hazard-roll' as const,
-      player: playerId,
-      hazardInstanceId,
-      explanation: `${hazName}: roll 2d6, discard if result > ${removalThreshold} (${sourceName})`,
-    },
-    viable: true,
-  }];
-}
-
-/**
  * Compute the single body-check-company-roll action for a queued
  * `body-check-company` resolution (from a mass-body-check hazard).
  * The resource player rolls 2d6 for the named character.
@@ -1696,46 +1664,6 @@ export function eligibleRingCategories(table: RingTestTableEffect['table'], roll
   return table
     .filter(row => (row.min === null || rollTotal >= row.min) && (row.max === null || rollTotal <= row.max))
     .map(row => row.category);
-}
-
-/**
- * Compute the single `cvcc-ally-discard-roll` action for a queued ally-discard
- * resolution (Bow of the Galadhrim, as-68). The attacking player rolls 2d6;
- * if roll > ally.mind + threshold, the ally is discarded.
- */
-export function cvccAllyDiscardRollActions(
-  state: GameState,
-  playerId: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  if (top.kind.type !== 'cvcc-ally-discard-roll') return [];
-  const { allyInstanceId, allyMind, threshold } = top.kind;
-
-  // Find the ally definition for its name
-  let allyName = allyInstanceId as string;
-  for (let pi = 0; pi < 2; pi++) {
-    for (const char of Object.values(state.players[pi].characters)) {
-      const ally = char.allies.find(a => a.instanceId === allyInstanceId);
-      if (ally) {
-        const def = defById(state, ally.definitionId);
-        allyName = (def as { name?: string })?.name ?? allyName;
-        break;
-      }
-    }
-  }
-
-  const need = allyMind + threshold;
-  logDetail(`Pending cvcc-ally-discard-roll for ally "${allyName}": roll must be > ${need} (mind ${allyMind} + threshold ${threshold})`);
-
-  return [{
-    action: {
-      type: 'cvcc-ally-discard-roll' as const,
-      player: playerId,
-      allyInstanceId,
-      explanation: `Roll for ${allyName}: discard if roll > ${need} (mind ${allyMind} + 5)`,
-    },
-    viable: true,
-  }];
 }
 
 /**

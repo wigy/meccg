@@ -456,23 +456,6 @@ export interface PendingResolution {
       }
     | {
         /**
-         * Glamour of Surpassing Excellence (as-49): roll 2d6 for one hazard
-         * permanent-event. If the result exceeds `removalThreshold`, the hazard
-         * is discarded. One resolution is enqueued per hazard permanent-event
-         * found on the company's characters.
-         */
-        readonly type: 'glamour-hazard-roll';
-        /** The hazard permanent-event instance being rolled for. */
-        readonly hazardInstanceId: CardInstanceId;
-        /** Definition ID of the hazard (for look-up and UI). */
-        readonly hazardDefinitionId: CardDefinitionId;
-        /** Roll must exceed this value to discard the hazard (from removalNumber, or 8). */
-        readonly removalThreshold: number;
-        /** Definition ID of the source resource event (for UI / logging). */
-        readonly sourceDefinitionId: CardDefinitionId;
-      }
-    | {
-        /**
          * Brigands-style wound effect: the defending company must discard
          * one item of the defender's choice. Fires once per Brigands attack
          * in which at least one character was wounded. The defender picks
@@ -501,26 +484,6 @@ export interface PendingResolution {
         /** The permanent event card requiring maintenance payment. */
         readonly sourceInstanceId: CardInstanceId;
         readonly sourceDefinitionId: CardDefinitionId;
-      }
-    | {
-        /**
-         * Bow of the Galadhrim CvCC pre-strike roll (as-68).
-         *
-         * In company-versus-company combat, before strikes are assigned, the
-         * attacking player rolls 2d6 for each non-unique minion ally in the
-         * defending company. If roll > allyMind + threshold, the ally is discarded.
-         */
-        readonly type: 'cvcc-ally-discard-roll';
-        /** Instance ID of the ally being tested. */
-        readonly allyInstanceId: CardInstanceId;
-        /** Mind value of the ally (from its card definition). */
-        readonly allyMind: number;
-        /** Fixed threshold added to ally mind (card's threshold field). */
-        readonly threshold: number;
-        /** Player index (0 or 1) who owns the ally (to remove it from their state). */
-        readonly allyOwnerPlayerIndex: number;
-        /** Instance ID of the source item (Bow of the Galadhrim) for logging. */
-        readonly sourceItemInstanceId: CardInstanceId;
       }
     | {
         /**

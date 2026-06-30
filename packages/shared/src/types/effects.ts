@@ -2553,7 +2553,7 @@ export interface CompanyStrikeEffect extends EffectBase {
  * When this resource short-event resolves on a company, roll 2d6 for each
  * hazard permanent-event attached to characters in that company. If the roll
  * exceeds the hazard's `removalNumber` (or 8 if not set), the hazard is
- * discarded. One {@link PendingResolution} of kind `glamour-hazard-roll` is
+ * discarded. One {@link PendingResolution} of kind `dice-check` is
  * enqueued per hazard permanent-event found.
  *
  * Used by Glamour of Surpassing Excellence (as-49).
@@ -2855,6 +2855,11 @@ export type MoveZone =
   | 'items-on-target'
   | 'items-on-wounded'
   | 'attached-to-target-company'
+  /** Source: a single instance attached to ANY character's `hazards` or
+   *  `allies` (located by `select: 'target'` + `targetCardId`). Owner is
+   *  resolved from the instance-id prefix (fallback: hazards → the holder's
+   *  opponent, allies → the holder). Used by dice-check ally/hazard discards. */
+  | 'attached-to-character'
   /** Source: the event card resolving on the chain (held on the chain entry,
    *  not in any pile). Used when an event "enters play". Removal is a no-op. */
   | 'chain'

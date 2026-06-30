@@ -679,24 +679,6 @@ export interface SeizedByTerrorRollAction {
 }
 
 /**
- * Roll 2d6 for a Bow of the Galadhrim CvCC pre-strike ally-discard check.
- *
- * In CvCC combat, before strikes are assigned, the attacking player rolls
- * for each non-unique minion ally in the defending company. If roll >
- * ally.mind + threshold (5), the ally is discarded.
- */
-export interface CvccAllyDiscardRollAction {
-  /** Action discriminant. */
-  readonly type: 'cvcc-ally-discard-roll';
-  /** The attacking player (who rolls). */
-  readonly player: PlayerId;
-  /** The ally instance being tested. */
-  readonly allyInstanceId: CardInstanceId;
-  /** Human-readable breakdown of the check. */
-  readonly explanation: string;
-}
-
-/**
  * Play an agent character card from hand as a face-down hazard.
  *
  * The hazard player plays an agent character (identified by the `agent` keyword)

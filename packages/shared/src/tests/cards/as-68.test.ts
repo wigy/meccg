@@ -128,12 +128,16 @@ describe('Bow of the Galadhrim (as-68)', () => {
       targetCompanyId: P2_COMPANY,
     });
 
-    // A cvcc-ally-discard-roll resolution should be enqueued for Great Bats
-    const resolution = state.pendingResolutions.find(r => r.kind.type === 'cvcc-ally-discard-roll');
+    // A dice-check (cvcc ally-discard) resolution should be enqueued for Great Bats
+    const batsInst = Object.values(state.players[1].characters)[0].allies[0].instanceId;
+    const resolution = state.pendingResolutions.find(r => r.kind.type === 'dice-check');
     expect(resolution).toBeDefined();
-    if (resolution?.kind.type === 'cvcc-ally-discard-roll') {
-      expect(resolution.kind.allyMind).toBe(1);
-      expect(resolution.kind.threshold).toBe(5);
+    if (resolution?.kind.type === 'dice-check') {
+      // The check targets Great Bats; threshold = ally mind 1 + 5.
+      expect(resolution.kind.targetInstanceId).toBe(batsInst);
+      expect(resolution.kind.threshold).toBe(6);
+      // The ally's owner (defending player) rolls; the attacker is the actor.
+      expect(resolution.kind.roller).toBe(PLAYER_2);
       expect(resolution.actor).toBe(PLAYER_1);
     }
   });
@@ -156,7 +160,7 @@ describe('Bow of the Galadhrim (as-68)', () => {
     });
 
     // Get the roll action and dispatch with roll = 7 (> 1+5=6 → discard)
-    const rollActions = viableActions(state, PLAYER_1, 'cvcc-ally-discard-roll');
+    const rollActions = viableActions(state, PLAYER_1, 'resolve-dice-check');
     expect(rollActions.length).toBe(1);
 
     state = dispatch({ ...state, cheatRollTotal: 7 }, rollActions[0].action);
@@ -166,7 +170,7 @@ describe('Bow of the Galadhrim (as-68)', () => {
     expect(perchAfter.allies.find(a => a.instanceId === batsInst)).toBeUndefined();
     expect(state.players[1].discardPile.some(c => c.instanceId === batsInst)).toBe(true);
     // No more pending ally-discard rolls
-    expect(state.pendingResolutions.filter(r => r.kind.type === 'cvcc-ally-discard-roll')).toHaveLength(0);
+    expect(state.pendingResolutions.filter(r => r.kind.type === 'dice-check')).toHaveLength(0);
   });
 
   test('CvCC: roll <= mind+5 leaves the ally in play', () => {
@@ -185,7 +189,7 @@ describe('Bow of the Galadhrim (as-68)', () => {
       targetCompanyId: P2_COMPANY,
     });
 
-    const rollActions = viableActions(state, PLAYER_1, 'cvcc-ally-discard-roll');
+    const rollActions = viableActions(state, PLAYER_1, 'resolve-dice-check');
     // Roll = 6: not > 6 (mind 1 + threshold 5), so ally survives
     state = dispatch({ ...state, cheatRollTotal: 6 }, rollActions[0].action);
 
@@ -207,7 +211,7 @@ describe('Bow of the Galadhrim (as-68)', () => {
       targetCompanyId: P2_COMPANY,
     });
 
-    const resolution = state.pendingResolutions.find(r => r.kind.type === 'cvcc-ally-discard-roll');
+    const resolution = state.pendingResolutions.find(r => r.kind.type === 'dice-check');
     expect(resolution).toBeUndefined();
   });
 
@@ -224,7 +228,7 @@ describe('Bow of the Galadhrim (as-68)', () => {
       targetCompanyId: P2_COMPANY,
     });
 
-    const resolution = state.pendingResolutions.find(r => r.kind.type === 'cvcc-ally-discard-roll');
+    const resolution = state.pendingResolutions.find(r => r.kind.type === 'dice-check');
     expect(resolution).toBeUndefined();
   });
 });
