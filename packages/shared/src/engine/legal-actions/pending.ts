@@ -409,38 +409,38 @@ export function factionInfluenceRollActions(
 }
 
 /**
- * Compute the single muster-roll action that resolves a queued
- * `muster-roll` resolution (Muster Disperses). The faction's owner
- * rolls 2d6; if the roll + unused general influence < 11, the
- * faction is discarded.
+ * Compute the single `resolve-dice-check` action for a queued generic
+ * `dice-check` resolution (P08). Sums the kind's modifiers for the UI
+ * breakdown (same computation the resolver does) and emits one roll action.
  */
-export function musterRollActions(
+export function diceCheckActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
 ): EvaluatedAction[] {
-  if (top.kind.type !== 'muster-roll') return [];
-  const { factionInstanceId, factionDefinitionId } = top.kind;
+  if (top.kind.type !== 'dice-check') return [];
+  const kind = top.kind;
 
-  const player = playerById(state, playerId);
-  if (!player) return [];
+  let mod = 0;
+  for (const m of kind.modifiers) {
+    if (m.kind === 'constant') {
+      mod += m.value;
+    } else {
+      const p = playerById(state, m.player);
+      if (p) mod += effectiveGeneralInfluence(state, m.player) - p.generalInfluenceUsed;
+    }
+  }
+  const cmp = kind.comparison === 'gt' ? '>' : '>=';
+  const need = kind.threshold - mod;
+  const modText = mod ? ` ${mod >= 0 ? '+' : ''}${mod}` : '';
 
-  const def = defById(state, factionDefinitionId);
-  if (!def || !isFactionCard(def)) return [];
-
-  const unusedGI = effectiveGeneralInfluence(state, playerId) - player.generalInfluenceUsed;
-  const threshold = 11;
-  const need = threshold - unusedGI;
-
-  logDetail(`Pending muster-roll for ${def.name}: need 2d6 >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`);
+  logDetail(`Pending dice-check "${kind.label}": need 2d6 ${cmp} ${need} (threshold ${kind.threshold}, modifiers${modText || ' 0'})`);
 
   return [{
     action: {
-      type: 'muster-roll' as const,
+      type: 'resolve-dice-check' as const,
       player: playerId,
-      factionInstanceId,
-      need,
-      explanation: `Muster check for ${def.name}: roll + unused GI (${unusedGI}) must be >= ${threshold} (need roll >= ${need})`,
+      explanation: `${kind.label}: roll${modText} must be ${cmp} ${kind.threshold} (need roll ${cmp} ${need})`,
     },
     viable: true,
   }];

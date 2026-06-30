@@ -2035,7 +2035,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   }
 
   // Faction-targeting short events (e.g. Muster Disperses): enqueue a
-  // muster-roll pending resolution so the faction's owner rolls 2d6 +
+  // dice-check (muster) pending resolution so the faction's owner rolls 2d6 +
   // unused GI vs 11. The entry stays resolved on the chain; the pending
   // resolution drives the actual roll + discard.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.payload.targetFactionInstanceId) {
@@ -2051,16 +2051,22 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         }
       }
       if (factionOwner) {
-        logDetail(`Enqueuing muster-roll pending resolution for faction ${factionDefId as string}`);
+        logDetail(`Enqueuing dice-check (muster) pending resolution for faction ${factionDefId as string}`);
         current = enqueueResolution(current, {
           source: entry.card!.instanceId,
           actor: factionOwner,
           scope: { kind: 'phase', phase: Phase.MovementHazard },
           kind: {
-            type: 'muster-roll',
-            factionInstanceId: factionInstId,
-            factionDefinitionId: factionDefId,
-            factionOwner,
+            type: 'dice-check',
+            label: `Muster: ${defById(current, factionDefId)?.name ?? (factionDefId as string)}`,
+            roller: factionOwner,
+            modifiers: [{ kind: 'unused-gi', player: factionOwner }],
+            threshold: 11,
+            comparison: 'gte',
+            // total >= 11 → faction stays (no onPass); < 11 → discarded.
+            onFail: { type: 'move', select: 'target', from: 'in-play', to: 'discard', toOwner: 'source-owner' },
+            continuation: { kind: 'chain-entry', match: 'target-faction' },
+            targetInstanceId: factionInstId,
           },
         });
         return { state: current, needsInput: true };

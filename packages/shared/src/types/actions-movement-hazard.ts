@@ -514,22 +514,17 @@ export interface PlayStrikeEventAction {
 }
 
 /**
- * Execute the dice roll for a Muster Disperses muster check.
- *
- * Created by the pending-resolution system when a faction-targeting
- * hazard short-event resolves. The faction's owner rolls 2d6 + unused
- * general influence; if the total is less than 11, the faction is
- * discarded.
+ * Resolve a pending generic `dice-check` resolution (P08): roll 2d6, apply the
+ * kind's modifiers/threshold/comparison, and run its onPass/onFail. Shared by
+ * every collapsed roll-vs-threshold check (muster, glamour, cvcc-ally-discard,
+ * call-of-home, body-check) — the kind on the pending resolution carries all
+ * the per-check data, so this action only identifies the rolling player.
  */
-export interface MusterRollAction {
-  readonly type: 'muster-roll';
-  /** The faction owner rolling. */
+export interface ResolveDiceCheckAction {
+  readonly type: 'resolve-dice-check';
+  /** The player rolling (the resolution's actor). */
   readonly player: PlayerId;
-  /** The targeted faction card instance. */
-  readonly factionInstanceId: CardInstanceId;
-  /** The 2d6 value needed for the faction to survive (roll + unused GI >= 11). */
-  readonly need: number;
-  /** Human-readable breakdown of the muster check. */
+  /** Human-readable breakdown of the check (roll target vs threshold). */
   readonly explanation: string;
 }
 

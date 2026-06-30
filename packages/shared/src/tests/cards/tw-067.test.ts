@@ -29,7 +29,7 @@ import {
   handCardId, companyIdAt, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, reduce, Phase, CardStatus, GENERAL_INFLUENCE } from '../../index.js';
-import type { CardInPlay, CardInstanceId, CardDefinitionId, PlayHazardAction, MusterRollAction } from '../../index.js';
+import type { CardInPlay, CardInstanceId, CardDefinitionId, PlayHazardAction, ResolveDiceCheckAction } from '../../index.js';
 
 const MUSTER_DISPERSES = 'tw-67' as CardDefinitionId;
 
@@ -200,16 +200,20 @@ describe('Muster Disperses (tw-067)', () => {
     // Resolve chain — both pass, then the muster-roll pending resolution fires
     const afterChain = resolveChain(result.state);
 
-    // Should now have a muster-roll pending resolution
+    // Should now have a dice-check (muster) pending resolution
     const musterActions = computeLegalActions(afterChain, PLAYER_1);
     const rollAction = musterActions.find(
-      a => a.viable && a.action.type === 'muster-roll',
+      a => a.viable && a.action.type === 'resolve-dice-check',
     );
     expect(rollAction).toBeDefined();
-    const muster = rollAction!.action as MusterRollAction;
-    expect(muster.factionInstanceId).toBe(factionInPlay.instanceId);
-    // need = 11 - 11 = 0 (easy — any roll succeeds)
-    expect(muster.need).toBe(0);
+    const muster = rollAction!.action as ResolveDiceCheckAction;
+    // The pending dice-check targets the faction with threshold 11.
+    const dc = afterChain.pendingResolutions.find(r => r.kind.type === 'dice-check');
+    expect(dc?.kind.type).toBe('dice-check');
+    if (dc?.kind.type === 'dice-check') {
+      expect(dc.kind.targetInstanceId).toBe(factionInPlay.instanceId);
+      expect(dc.kind.threshold).toBe(11);
+    }
 
     // Cheat the roll to 2 (minimum): 2 + 11 = 13 >= 11, faction survives
     const afterRoll = reduce(
@@ -270,11 +274,10 @@ describe('Muster Disperses (tw-067)', () => {
 
     const musterActions = computeLegalActions(afterChain, PLAYER_1);
     const rollAction = musterActions.find(
-      a => a.viable && a.action.type === 'muster-roll',
+      a => a.viable && a.action.type === 'resolve-dice-check',
     );
     expect(rollAction).toBeDefined();
-    const muster = rollAction!.action as MusterRollAction;
-    expect(muster.need).toBe(6);
+    const muster = rollAction!.action as ResolveDiceCheckAction;
 
     // Cheat the roll to 5 (fail): 5 + 5 = 10 < 11 → faction discarded
     const afterFail = reduce(
@@ -330,10 +333,10 @@ describe('Muster Disperses (tw-067)', () => {
 
     const musterActions = computeLegalActions(afterChain, PLAYER_1);
     const rollAction = musterActions.find(
-      a => a.viable && a.action.type === 'muster-roll',
+      a => a.viable && a.action.type === 'resolve-dice-check',
     );
     expect(rollAction).toBeDefined();
-    const muster = rollAction!.action as MusterRollAction;
+    const muster = rollAction!.action as ResolveDiceCheckAction;
 
     // Cheat the roll to 6 (pass): 6 + 5 = 11 >= 11 → faction survives
     const afterPass = reduce(
