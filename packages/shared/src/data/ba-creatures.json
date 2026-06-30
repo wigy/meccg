@@ -1,0 +1,90 @@
+[
+  {
+    "cardType": "hazard-creature",
+    "id": "ba-10",
+    "name": "Beorning Skin-changers",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/BeorningSkinchangers.jpg",
+    "unique": false,
+    "strikes": 2,
+    "prowess": 10,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "animals,men,bears",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Animals. Men. Bears. Two strikes. As a creature, playable only against minion companies. May also be keyed to Anduin Vales, Western Mirkwood, Wold & Foothills; and to sites in these regions. Alternatively, playable as a short-event against a moving hero company. Unless the company contains Beorn or an untapped warrior with prowess greater than 4, it must return to its site of origin."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "ba-11",
+    "name": "Carrion Feeders",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/CarrionFeeders.jpg",
+    "unique": false,
+    "strikes": 1,
+    "prowess": 9,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "animals",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "wilderness",
+          "shadow"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Animals. Each wounded character faces one strike. All body checks resulting from successful strikes are modified by an additional +1. Each untapped character in the company may tap to cancel a strike against a wounded character."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "ba-12",
+    "name": "Olog Warlords",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/OlogWarlords.jpg",
+    "unique": false,
+    "strikes": 3,
+    "prowess": 10,
+    "body": 4,
+    "killMarshallingPoints": 2,
+    "race": "trolls",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "shadow",
+          "dark"
+        ],
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ]
+      }
+    ],
+    "effects": [],
+    "text": "Trolls. Three strikes (playable only against hero companies)."
+  },
+  {
+    "cardType": "hazard-creature",
+    "id": "ba-13",
+    "name": "Shelob’s Brood",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/ShelobsBrood.jpg",
+    "unique": false,
+    "strikes": 4,
+    "prowess": 8,
+    "body": null,
+    "killMarshallingPoints": 1,
+    "race": "spiders",
+    "keyedTo": [],
+    "effects": [],
+    "text": "Spiders. Four strikes. Playable at any Under-deeps site or surface site thereof."
+  }
+]

@@ -6,13 +6,18 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/MonstrosityofDiverseShape.jpg",
     "unique": true,
     "eventType": "permanent",
-    "keywords": ["Spawn"],
+    "keywords": [
+      "Spawn"
+    ],
     "marshallingPoints": 4,
     "marshallingPointsType": "kill",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
-        "siteIds": ["ba-89", "ba-95"],
+        "siteIds": [
+          "ba-89",
+          "ba-95"
+        ],
         "attack": {
           "creatureType": "Spawn",
           "strikes": 2,
@@ -30,13 +35,20 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/SpawnofUngoliant.jpg",
     "unique": true,
     "eventType": "permanent",
-    "keywords": ["Spawn"],
+    "keywords": [
+      "Spawn"
+    ],
     "marshallingPoints": 4,
     "marshallingPointsType": "kill",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
-        "siteIds": ["ba-94", "ba-90", "dm-34", "dm-30"],
+        "siteIds": [
+          "ba-94",
+          "ba-90",
+          "dm-34",
+          "dm-30"
+        ],
         "attack": {
           "creatureType": "Spawn",
           "strikes": 3,
@@ -54,13 +66,18 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/UngoliantsProgeny.jpg",
     "unique": true,
     "eventType": "permanent",
-    "keywords": ["Spawn"],
+    "keywords": [
+      "Spawn"
+    ],
     "marshallingPoints": 4,
     "marshallingPointsType": "kill",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
-        "siteIds": ["ba-104", "ba-96"],
+        "siteIds": [
+          "ba-104",
+          "ba-96"
+        ],
         "attack": {
           "creatureType": "Spawn",
           "strikes": 2,
@@ -78,13 +95,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/UngoliantsFoulIssue.jpg",
     "unique": true,
     "eventType": "permanent",
-    "keywords": ["Spawn"],
+    "keywords": [
+      "Spawn"
+    ],
     "marshallingPoints": 4,
     "marshallingPointsType": "kill",
     "effects": [
       {
         "type": "permanent-event-auto-attack",
-        "siteIds": ["ba-83"],
+        "siteIds": [
+          "ba-83"
+        ],
         "attack": {
           "creatureType": "Spawn",
           "strikes": 2,
@@ -94,5 +115,121 @@
       }
     ],
     "text": "Unique. Spawn. Ancient Deep-hold has an additional automatic-attack: Spawn — 2 strikes with 17/7 prowess/body."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-14",
+    "name": "Black Vapour",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/BlackVapour.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Target any effect (declared earlier in the same chain of effects) that would cancel a Spider attack. Make a roll and add the attack’s prowess. If the result is greater than 14, the effect is canceled and the attack receives +1 prowess. Alternatively, +1 prowess to a Spider attack. This card may be revealed as an on-guard card for either effect."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-15",
+    "name": "Darkness Made by Malice",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DarknessMadebyMalice.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a company at or moving to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn cards in play than characters in the company. Eliminated Spawn do not count. The company must do nothing during its site phase this turn."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-16",
+    "name": "Desire All for Thy Belly",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DesireAllforThyBelly.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "To play this card, you must discard a Spawn card from your hand. Reveal to yourself a number of cards from the top of opponent’s play deck equal to the number of Spawn cards in play. Eliminated spawn do not count. Choose one card and show it to your opponent. He must choose to either: remove the card from the game or decrease the number of cards he may hold in his hand by one for the rest of the game. Shuffle and replace all remaining cards back on top of his play deck. Remove this card from the game."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-17",
+    "name": "Diminish and Depart",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DiminishandDepart.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable on an Elf, Hobbit, or Wizard. All Elves and Hobbits in the target’s company have +1 mind, and a Wizard in the company has -1 direct influence. Tap target character at a Haven [{H}] during the organization phase to discard this card. Cannot be duplicated in a given company."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-18",
+    "name": "Fled into Darkness",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/FledintoDarkness.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable before the strike sequence on The Balrog facing a strike with a prowess higher than his. The strike is canceled and The Balrog taps, if untapped. The next time The Balrog would otherwise untap, make him tapped instead and discard this card. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-19",
+    "name": "Glance of Arien",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/GlanceofArien.jpg",
+    "unique": false,
+    "eventType": "short",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. Playable on The Balrog at or moving to a non-Under-deeps site. -2/-1 to his prowess/body until the end of the turn. This modification is -4/-2 if Gates of Morning is in play. Cannot be duplicated on a given turn."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-20",
+    "name": "Imprisoned and Mocked",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/ImprisonedandMocked.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "Playable before strikes are assigned on a non-detainment Orc or Troll attack with more strikes than characters and allies in the company. If the attack is not canceled or defeated, make a roll following the attack adding two for each excess strike. If the result minus five is greater than the prowess of the highest mind character in the company (of your choice), place that character “off to the side” with this card and discard all cards on that character. Otherwise, discard this card. During that character’s next long-event phase, discard this card and return the character to its owner’s hand."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-22",
+    "name": "Press-gang",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Pressgang.jpg",
+    "unique": false,
+    "eventType": "permanent",
+    "effects": [],
+    "text": "When a character would otherwise be discarded from play, discard all cards on him, place him “off to the side” with this card, and return any character already with this card to its owner’s hand. A character with this card gives his player negative character marshalling points. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-23",
+    "name": "The Reek",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheReek.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on a company at or moving to a Ruins & Lairs [{R}] or Under-deeps site if you discard an Animal or Spider creature from your hand. Tap all untapped characters in the company with a mind less than 2 plus the number of Spawn cards in play. Eliminated Spawn do not count. Does not affect Wizards or Ringwraiths."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-25",
+    "name": "The Sun Shone Fiercely",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheSunShoneFiercely.jpg",
+    "unique": false,
+    "eventType": "long",
+    "keywords": [
+      "environment"
+    ],
+    "effects": [],
+    "text": "Environment. -1 prowess to all Orc, Troll, Dwarf, and Ringwraith characters not at, nor moving to or from, an Under-deeps site. This modification is -2 if Doors of Night is not in play. Cannot be duplicated."
+  },
+  {
+    "cardType": "hazard-event",
+    "id": "ba-26",
+    "name": "Unabated in Malice",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/UnabatedinMalice.jpg",
+    "unique": false,
+    "eventType": "short",
+    "effects": [],
+    "text": "Playable on an automatic-attack or an attack from Shelob; does not count against the hazard limit. The attack receives +1 strike, +1 prowess, and -2 body. The first attempt to cancel this attack instead cancels the effects of this card. Cannot be duplicated on a given attack."
   }
 ]

@@ -17,7 +17,9 @@
         "prowess": 11
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "Blue Mountain Dwarf-hold": 13,
       "The Under-vaults": 8,
@@ -32,7 +34,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "regionTypes": ["coastal"]
+          "regionTypes": [
+            "coastal"
+          ]
         }
       }
     ]
@@ -55,7 +59,9 @@
         "prowess": 9
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "Glittering Caves": 0,
       "The Pûkel-deeps": 8,
@@ -70,7 +76,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["shadow-hold"]
+          "siteTypes": [
+            "shadow-hold"
+          ]
         }
       }
     ]
@@ -93,7 +101,9 @@
         "prowess": 9
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "Carn Dûm": 0,
       "The Under-leas": 6,
@@ -108,7 +118,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["ruins-and-lairs"]
+          "siteTypes": [
+            "ruins-and-lairs"
+          ]
         }
       }
     ]
@@ -129,8 +141,15 @@
     "hazardDraws": 1,
     "text": "Any gold ring stored at this site is automatically tested (modify the roll by -2). Creatures keyed to this site are detainment. If one of your companies is at this site, all attacks against it are canceled.",
     "effects": [
-      { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 },
-      { "type": "site-rule", "rule": "cancel-attacks" }
+      {
+        "type": "site-rule",
+        "rule": "auto-test-gold-ring",
+        "rollModifier": -2
+      },
+      {
+        "type": "site-rule",
+        "rule": "cancel-attacks"
+      }
     ]
   },
   {
@@ -151,7 +170,9 @@
         "prowess": 11
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "Dunharrow": 0,
       "The Gem-deeps": 8,
@@ -166,7 +187,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["shadow-hold"]
+          "siteTypes": [
+            "shadow-hold"
+          ]
         }
       }
     ]
@@ -189,7 +212,9 @@
         "prowess": 12
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "The Drowning-deeps": 9
     },
@@ -202,7 +227,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "regionTypes": ["coastal"]
+          "regionTypes": [
+            "coastal"
+          ]
         }
       }
     ]
@@ -225,7 +252,9 @@
         "prowess": 11
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "Iron Hill Dwarf-hold": 13,
       "The Wind-deeps": 8
@@ -239,7 +268,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["shadow-hold"]
+          "siteTypes": [
+            "shadow-hold"
+          ]
         }
       }
     ]
@@ -262,7 +293,9 @@
         "prowess": 9
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "Dol Guldur": 0,
       "The Under-gates": 6,
@@ -279,7 +312,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["shadow-hold"]
+          "siteTypes": [
+            "shadow-hold"
+          ]
         }
       }
     ]
@@ -302,7 +337,9 @@
         "prowess": 10
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "Barad-dûr": 0,
       "The Under-galleries": 6,
@@ -317,7 +354,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["shadow-hold"]
+          "siteTypes": [
+            "shadow-hold"
+          ]
         }
       }
     ]
@@ -340,7 +379,9 @@
         "prowess": 9
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "*region:Udûn": 0,
       "The Under-courts": 6,
@@ -355,7 +396,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["shadow-hold"]
+          "siteTypes": [
+            "shadow-hold"
+          ]
         }
       }
     ]
@@ -372,7 +415,9 @@
     "region": "Redhorn Gate",
     "playableResources": [],
     "automaticAttacks": [],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "Moria": 0,
       "The Gem-deeps": 6,
@@ -384,8 +429,15 @@
     "hazardDraws": 1,
     "text": "Adjacent Sites: Moria (0), The Gem-deeps (6), The Sulfur-deeps (6), The Under-leas (4), The Under-grottos (6)\nAny gold ring stored at this site is automatically tested (modify the roll by -2). Creatures keyed to this site attack as detainment. If one of your companies is at this site, all attacks against it are canceled.",
     "effects": [
-      { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 },
-      { "type": "site-rule", "rule": "cancel-attacks" }
+      {
+        "type": "site-rule",
+        "rule": "auto-test-gold-ring",
+        "rollModifier": -2
+      },
+      {
+        "type": "site-rule",
+        "rule": "cancel-attacks"
+      }
     ]
   },
   {
@@ -406,7 +458,9 @@
         "prowess": 7
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "Goblin-gate": 0,
       "The Under-leas": 6,
@@ -421,7 +475,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["shadow-hold"]
+          "siteTypes": [
+            "shadow-hold"
+          ]
         }
       }
     ]
@@ -442,10 +498,14 @@
         "creatureType": "Orcs",
         "strikes": 5,
         "prowess": 7,
-        "combatRules": ["detainment"]
+        "combatRules": [
+          "detainment"
+        ]
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "Mount Gundabad": 0,
       "The Wind-deeps": 5,
@@ -463,7 +523,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["ruins-and-lairs"]
+          "siteTypes": [
+            "ruins-and-lairs"
+          ]
         }
       }
     ]
@@ -486,7 +548,9 @@
         "prowess": 8
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "Mount Gram": 0,
       "The Iron-deeps": 7,
@@ -502,7 +566,9 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["shadow-hold"]
+          "siteTypes": [
+            "shadow-hold"
+          ]
         }
       }
     ]
@@ -525,7 +591,9 @@
         "prowess": 7
       }
     ],
-    "keywords": ["under-deeps"],
+    "keywords": [
+      "under-deeps"
+    ],
     "adjacentSites": {
       "The Wind Throne": 0,
       "The Under-leas": 5,
@@ -540,9 +608,123 @@
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
         "keying": {
-          "siteTypes": ["shadow-hold"]
+          "siteTypes": [
+            "shadow-hold"
+          ]
         }
       }
     ]
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-83",
+    "name": "Ancient Deep-hold",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/AncientDeephold.jpg",
+    "siteType": "ruins-and-lairs",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 2,
+    "text": "Adjacent Sites: no surface site, one Under-deeps Ruins & Lairs [{R}] chosen by you when playing this card (8)Playable: Information, Items (minor, major, greater, gold ring)Automatic-attacks (3): (1st) Undead — 4 strikes with 7 prowess (2nd) Undead — 3 strikes with 8 prowess (3rd) Undead — 2 strikes with 10 prowess Each character wounded must make a corruption check modified by -2.Special: Any Undead and Spider creatures may be keyed to this site. This site is never discarded or returned to its location deck."
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-84",
+    "name": "Barad-dûr",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Baraddur.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Gorgoroth",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 4,
+    "text": "Playable: Items (minor, major, greater)Automatic-attacks (3): (1st) Orcs — 4 strikes with 7 prowess (2nd) Trolls — 3 strikes with 9 prowess (3rd) Maia (cannot be canceled) — 1 strike with 24 prowess. Any character wounded by the Maia’s attack is automatically eliminatedSpecial: Creatures keyed to this site attack normally, not as detainment."
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-85",
+    "name": "Carn Dûm",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/CarnDum.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Angmar",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Playable: Items (minor, major)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Nazgûl (cannot be canceled) — 1 strike with 15 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-86",
+    "name": "Cirith Gorgor",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/CirithGorgor.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Udûn",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 8 prowess (2nd) Trolls — 2 strikes with 10 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-87",
+    "name": "Cirith Ungol",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/CirithUngol.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Imlad Morgul",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Playable: Items (minor, major)Automatic-attacks (1): Orcs — 4 strikes with 7 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-88",
+    "name": "Dol Guldur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DolGuldur.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Southern Mirkwood",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 3,
+    "text": "Playable: Information, Items (minor, major)Automatic-attacks (3): (1st) Orcs — 3 strikes with 7 prowess (2nd) Trolls — 2 strikes with 8 prowess (3rd) Nazgûl (cannot be canceled) — 1 strike with 15 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+  },
+  {
+    "cardType": "balrog-site",
+    "alignment": "balrog",
+    "id": "ba-92",
+    "name": "Minas Morgul",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/MinasMorgul.jpg",
+    "siteType": "dark-hold",
+    "sitePath": [],
+    "nearestHaven": "",
+    "region": "Imlad Morgul",
+    "playableResources": [],
+    "automaticAttacks": [],
+    "resourceDraws": 2,
+    "hazardDraws": 4,
+    "text": "Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess (2nd) Nazgûl (cannot be canceled) — 1 strike with 15 prowess Special: Creatures keyed to this site attack normally, not as detainment."
   }
 ]

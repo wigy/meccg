@@ -117,5 +117,144 @@
     "discardBodyCheck": [
       9
     ]
+  },
+  {
+    "cardType": "hero-character",
+    "alignment": "wizard",
+    "id": "ba-1",
+    "name": "Strider",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Strider.jpg",
+    "unique": true,
+    "race": "dúnadan",
+    "skills": [
+      "warrior",
+      "scout",
+      "ranger"
+    ],
+    "prowess": 6,
+    "body": 9,
+    "mind": 8,
+    "directInfluence": 2,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Bree",
+    "effects": [],
+    "text": "Unique. Manifestation of Aragorn II. You may bring Aragorn II into play with Strider’s company, removing Strider from the game and automatically transferring all cards on Strider to Aragorn II. +3 direct influence against the Rangers of the North faction. Tap Strider to search your discard pile for any one item, ally, or faction playable at his current site. You may bring it to your hand. The site must be in Arthedain, Cardolan, Rhudaur, or The Shire."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "ba-5",
+    "name": "Bûthrakaur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Buthrakaur.jpg",
+    "unique": true,
+    "race": "troll",
+    "skills": [
+      "warrior",
+      "scout",
+      "ranger"
+    ],
+    "prowess": 8,
+    "body": 9,
+    "mind": 9,
+    "directInfluence": 0,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Moria, The Under-gates",
+    "effects": [],
+    "text": "Unique. Balrog specific. Leader. Manifestation of Bûthrakaur the Green. Discard on a body check result of 9. +3 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "ba-6",
+    "name": "Crook-legged Orc",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/CrookleggedOrc.jpg",
+    "unique": false,
+    "race": "orc",
+    "skills": [
+      "warrior",
+      "ranger"
+    ],
+    "prowess": 3,
+    "body": 7,
+    "mind": 2,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "any non-Dark-hold Under-deeps site",
+    "effects": [],
+    "text": "Balrog specific. Discard on a body check result of 7."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "ba-7",
+    "name": "Hill-troll",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Hilltroll.jpg",
+    "unique": false,
+    "race": "troll",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 5,
+    "body": 7,
+    "mind": 3,
+    "directInfluence": 0,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "any non-Dark-hold Under-deeps site",
+    "effects": [],
+    "text": "Balrog specific. Discard on a body check result of 7."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "ba-8",
+    "name": "Mountain-maggot",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Mountainmaggot.jpg",
+    "unique": false,
+    "race": "orc",
+    "skills": [
+      "warrior"
+    ],
+    "prowess": 3,
+    "body": 7,
+    "mind": 1,
+    "directInfluence": 0,
+    "marshallingPoints": 0,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "any non-Dark-hold Under-deeps site",
+    "effects": [],
+    "text": "Balrog specific. Discard on a body check result of 7."
+  },
+  {
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
+    "id": "ba-9",
+    "name": "Umagaur",
+    "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Umagaur.jpg",
+    "unique": true,
+    "race": "troll",
+    "skills": [
+      "warrior",
+      "diplomat",
+      "sage"
+    ],
+    "prowess": 7,
+    "body": 9,
+    "mind": 9,
+    "directInfluence": 2,
+    "marshallingPoints": 3,
+    "marshallingCategory": "character",
+    "corruptionModifier": 0,
+    "homesite": "Moria, The Under-gates",
+    "effects": [],
+    "text": "Unique. Balrog specific. Leader. Manifestation of Umagaur the Pale. Discard on a body check result of 9. +2 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters."
   }
 ]
