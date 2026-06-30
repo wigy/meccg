@@ -465,7 +465,7 @@ function runGrantApply(
     }
     const moveEffect: import('../types/effects.js').MoveEffect = {
       type: 'move',
-      select: apply.select as 'self' | 'target' | 'filter-all' | 'named',
+      select: apply.select,
       from: apply.from,
       to: apply.to,
       ...(apply.toOwner !== undefined ? { toOwner: apply.toOwner } : {}),
