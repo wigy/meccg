@@ -14,7 +14,7 @@
  * types that fire on chain resolution today; later phases broaden both
  * the dispatcher and the predicate one apply type at a time, porting the
  * chain's remaining bespoke branches (environment cancel, fetch-to-deck
- * enqueue, muster-roll / call-of-home, permanent/long-event resolve).
+ * enqueue, dice-check / call-of-home, permanent/long-event resolve).
  *
  * Invariant: `applyEffect` never mutates its input state. It either
  * returns a new state, or `{ state, needsInput: true }` when the effect

@@ -48,7 +48,8 @@ import {
 import { autoResolve } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { eligibleRingCategories } from './legal-actions/pending.js';
-import type { RingTestTableEffect, RingTestSearchEffect } from '../types/effects.js';
+import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
+import { applyMove, type MoveContext } from './reducer-move.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
 
 /**
@@ -776,56 +777,142 @@ function rollForResolution(
   return { roll, total, rollEffect, state: rolledState };
 }
 
+/** True when the `dice-check` kind's referenced target still exists. */
+function diceCheckTargetPresent(
+  state: GameState,
+  kind: Extract<PendingResolution['kind'], { readonly type: 'dice-check' }>,
+): boolean {
+  if (kind.targetCharacterId) {
+    return state.players.some(p => !!p.characters[kind.targetCharacterId!]);
+  }
+  if (kind.targetInstanceId) {
+    return resolveInstanceId(state, kind.targetInstanceId) !== null;
+  }
+  return true;
+}
+
+/** Build the chain-entry matcher for a `dice-check` continuation. */
+function diceCheckChainMatcher(
+  match: 'target-faction' | 'target-character' | 'source',
+  top: PendingResolution,
+  kind: Extract<PendingResolution['kind'], { readonly type: 'dice-check' }>,
+): (entry: ChainEntry) => boolean {
+  switch (match) {
+    case 'target-faction':
+      return e => e.payload.type === 'short-event' && e.payload.targetFactionInstanceId === kind.targetInstanceId;
+    case 'target-character':
+      return e => e.payload.type === 'short-event' && e.payload.targetCharacterId === kind.targetCharacterId;
+    case 'source':
+      return e => e.card?.instanceId === top.source;
+  }
+}
+
 /**
- * Resolve a queued `muster-roll` resolution (Muster Disperses). The
- * faction's owner rolls 2d6 + unused general influence. If the total
- * is less than 11, the faction is discarded; otherwise it stays in play.
+ * Run a `dice-check` onPass/onFail {@link TriggeredAction} in resolution
+ * context. Delegates to the shared engine helpers ({@link applyMove}, …) rather
+ * than the grant/chain dispatchers (which are bound to other contexts). Handles
+ * the verbs the collapsed roll kinds need; a `move` whose target can't be
+ * located fizzles (matching the originals' no-op on an already-gone target).
  */
-export function applyMusterRollResolution(
+function applyDiceCheckBranch(
+  state: GameState,
+  branch: TriggeredAction,
+  ctx: {
+    readonly targetCharacterId?: CardInstanceId;
+    readonly targetInstanceId?: CardInstanceId;
+    readonly source: CardInstanceId | null;
+    readonly rollerIndex: number;
+  },
+): ReducerResult {
+  if (branch.type === 'sequence') {
+    let s = state;
+    for (const sub of branch.apps ?? []) {
+      const r = applyDiceCheckBranch(s, sub, ctx);
+      if ('error' in r) return r;
+      s = r.state;
+    }
+    return { state: s };
+  }
+  if (branch.type === 'move') {
+    const moveCtx: MoveContext = {
+      // sourceCardId is only consulted for select:'self'/'self-location' moves;
+      // the dice-check moves use select:'target', so a missing source is inert.
+      sourceCardId: ctx.source ?? ('' as CardInstanceId),
+      sourcePlayerIndex: ctx.rollerIndex,
+      ...(ctx.targetInstanceId ? { targetCardId: ctx.targetInstanceId } : {}),
+      ...(ctx.targetCharacterId ? { targetCharacterId: ctx.targetCharacterId } : {}),
+    };
+    const r = applyMove(state, branch, moveCtx);
+    if ('error' in r) {
+      logDetail(`dice-check move fizzled (${r.error}) — target already gone`);
+      return { state };
+    }
+    return { state: r.state };
+  }
+  logDetail(`dice-check: branch verb "${branch.type}" not handled in resolution context — no-op`);
+  return { state };
+}
+
+/**
+ * Resolve a generic `dice-check` resolution (P08): roll 2d6, sum the kind's
+ * modifiers, compare to its threshold, then run onPass/onFail via
+ * {@link applyDiceCheckBranch} and apply the continuation. Replaces the former
+ * per-kind roll reducers (muster first).
+ */
+export function applyDiceCheckResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  const g = guardRollResolution(state, action, top, 'muster-roll', 'muster-roll');
+  const g = guardRollResolution(state, action, top, 'resolve-dice-check', 'dice-check');
   if (!g.ok) return g.result;
-  const { factionInstanceId, factionDefinitionId, factionOwner } = g.kind;
-  const ownerIndex = getPlayerIndex(state, factionOwner);
-  const owner = state.players[ownerIndex];
+  const { kind } = g;
+  const rollerIndex = getPlayerIndex(state, kind.roller ?? top.actor);
 
-  const def = defById(state, factionDefinitionId);
-  if (!def || !isFactionCard(def)) {
-    return { state, error: 'Targeted card is not a faction' };
+  // Pre-roll skip: kinds that don't roll when the target is gone (no RNG/cheat
+  // consumed, no chain continuation) — preserves cvcc/call-of-home/body-check.
+  if (kind.requireTargetPresent && !diceCheckTargetPresent(state, kind)) {
+    logDetail(`${kind.label}: target absent — skipping roll`);
+    return { state: dequeueResolution(state, top.id) };
   }
 
-  const unusedGI = effectiveGeneralInfluence(state, owner.id) - owner.generalInfluenceUsed;
-  const rolled = rollForResolution(state, ownerIndex, `Muster: ${def.name}`);
-  const total = rolled.total + unusedGI;
-  logDetail(`Muster roll: ${def.name} — rolled ${rolled.roll.die1} + ${rolled.roll.die2} + unused GI ${unusedGI} = ${total} vs 11`);
+  const rolled = rollForResolution(state, rollerIndex, kind.label);
+  let mod = 0;
+  for (const m of kind.modifiers) {
+    if (m.kind === 'constant') {
+      mod += m.value;
+    } else {
+      const pi = getPlayerIndex(state, m.player);
+      mod += effectiveGeneralInfluence(state, m.player) - state.players[pi].generalInfluenceUsed;
+    }
+  }
+  const total = rolled.total + mod;
+  const passed = kind.comparison === 'gt' ? total > kind.threshold : total >= kind.threshold;
+  logDetail(`${kind.label}: rolled ${rolled.total}${mod ? ` ${mod >= 0 ? '+' : ''}${mod}` : ''} = ${total} ${kind.comparison === 'gt' ? '>' : '>='} ${kind.threshold} → ${passed ? 'PASS' : 'FAIL'}`);
 
-  let postState = rolled.state;
-  if (total < 11) {
-    logDetail(`Muster disperses: ${def.name} discarded (${total} < 11)`);
-    postState = updatePlayer(postState, ownerIndex, p => {
-      const factionIdx = p.cardsInPlay.findIndex(c => c.instanceId === factionInstanceId);
-      if (factionIdx === -1) return p;
-      const factionCard = p.cardsInPlay[factionIdx];
-      const newCardsInPlay = [...p.cardsInPlay];
-      newCardsInPlay.splice(factionIdx, 1);
-      return { ...p, cardsInPlay: newCardsInPlay, discardPile: [...p.discardPile, factionCard] };
+  let post = dequeueResolution(rolled.state, top.id);
+  const branch = passed ? kind.onPass : kind.onFail;
+  if (branch) {
+    const r = applyDiceCheckBranch(post, branch, {
+      targetCharacterId: kind.targetCharacterId,
+      targetInstanceId: kind.targetInstanceId,
+      source: top.source,
+      rollerIndex,
     });
-  } else {
-    logDetail(`Muster holds: ${def.name} stays in play (${total} >= 11)`);
+    if ('error' in r) return r;
+    post = r.state;
   }
 
-  const postRoll = dequeueResolution(postState, top.id);
-
-  // Re-enter chain auto-resolution if the chain is still active, marking the
-  // muster short-event entry resolved.
-  return resolveChainEntryAndContinue(
-    postRoll,
-    e => e.payload.type === 'short-event' && e.payload.targetFactionInstanceId === factionInstanceId,
-    [rolled.rollEffect],
-  );
+  if (kind.continuation.kind === 'chain-entry') {
+    // drainSameSource: wait until all same-source dice-checks have resolved
+    // before continuing the chain (body-check's per-company-member rolls).
+    if (kind.continuation.drainSameSource
+      && post.pendingResolutions.some(r => r.kind.type === 'dice-check' && r.source === top.source)) {
+      return { state: post, effects: [rolled.rollEffect] };
+    }
+    return resolveChainEntryAndContinue(post, diceCheckChainMatcher(kind.continuation.match, top, kind), [rolled.rollEffect]);
+  }
+  return { state: post, effects: [rolled.rollEffect] };
 }
 
 /**

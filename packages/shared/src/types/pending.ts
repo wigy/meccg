@@ -39,6 +39,32 @@ export type ResolutionId = string & { readonly __brand: 'ResolutionId' };
 export type ConstraintId = string & { readonly __brand: 'ConstraintId' };
 
 /**
+ * A modifier term summed into a {@link PendingResolution} `dice-check`'s 2d6
+ * total at roll time (dynamic terms must be re-read at resolve, not snapshotted
+ * at enqueue). `constant` covers pre-resolved values (printed mind, card roll
+ * bonuses); `unused-gi` is a player's unused general influence.
+ */
+export type DiceCheckModifier =
+  | { readonly kind: 'constant'; readonly value: number }
+  | { readonly kind: 'unused-gi'; readonly player: PlayerId };
+
+/**
+ * What a `dice-check` resolver does AFTER running onPass/onFail and dequeuing.
+ * The chain re-entry is generic scaffold owned by the resolver, never a
+ * per-result TriggeredAction verb. `dequeue-only` just removes the resolution;
+ * `chain-entry` marks the matching chain entry resolved and continues
+ * auto-resolution (`drainSameSource` waits until all same-source dice-checks
+ * have resolved before continuing — the body-check "all company members" case).
+ */
+export type DiceCheckContinuation =
+  | { readonly kind: 'dequeue-only' }
+  | {
+      readonly kind: 'chain-entry';
+      readonly match: 'target-faction' | 'target-character' | 'source';
+      readonly drainSameSource?: boolean;
+    };
+
+/**
  * Closed set of attribute paths supported by the
  * `attribute-modifier` active constraint (see {@link ActiveConstraint}).
  * Each path maps to a single read site in the engine that consults
@@ -219,16 +245,43 @@ export interface PendingResolution {
       }
     | {
         /**
-         * Muster roll: a hazard short-event (Muster Disperses) targets an
-         * in-play faction. The faction's owner rolls 2d6 + unused general
-         * influence; if the total is less than 11, the faction is discarded.
+         * Generic dice-check (P08): roll 2d6, sum {@link DiceCheckModifier}s,
+         * compare to `threshold` (`gt`/`gte`), then run `onPass`/`onFail`
+         * ({@link TriggeredAction}s) via the resolution-context dispatcher.
+         * Collapses the former roll-vs-threshold family (muster, glamour,
+         * cvcc-ally-discard, call-of-home, body-check). The `continuation`
+         * carries the generic chain re-entry; bespoke roll resolutions
+         * (gold-ring table, seized-by-terror relocation, stay-her-appetite /
+         * flattery / faction-influence interaction windows) stay their own kinds.
          */
-        readonly type: 'muster-roll';
-        /** The targeted faction card instance. */
-        readonly factionInstanceId: CardInstanceId;
-        readonly factionDefinitionId: CardDefinitionId;
-        /** The player who owns the faction. */
-        readonly factionOwner: PlayerId;
+        readonly type: 'dice-check';
+        /** UI/log banner. */
+        readonly label: string;
+        /** Who rolls; defaults to the resolution `actor`. */
+        readonly roller?: PlayerId;
+        /** Terms summed into the 2d6 total at roll time. */
+        readonly modifiers: readonly DiceCheckModifier[];
+        /** Pre-resolved threshold the modified total is compared against. */
+        readonly threshold: number;
+        /** Pass condition: `'gt'` (strictly greater) or `'gte'` (≥). */
+        readonly comparison: 'gt' | 'gte';
+        /** Run when the check passes. */
+        readonly onPass?: TriggeredAction;
+        /** Run when the check fails. */
+        readonly onFail?: TriggeredAction;
+        /** Generic post-branch chain scaffold. */
+        readonly continuation: DiceCheckContinuation;
+        /**
+         * When true, skip the roll entirely (no RNG/cheat consumed, no
+         * continuation) if the target is absent — the cvcc/call-of-home/
+         * body-check pre-roll-skip semantics. Muster omits this (always rolls,
+         * no-ops on an already-gone faction).
+         */
+        readonly requireTargetPresent?: boolean;
+        /** Character the onPass/onFail verbs act on (call-of-home, body-check). */
+        readonly targetCharacterId?: CardInstanceId;
+        /** Instance the onPass/onFail verbs act on (muster faction, glamour hazard, cvcc ally). */
+        readonly targetInstanceId?: CardInstanceId;
       }
     | {
         /**
