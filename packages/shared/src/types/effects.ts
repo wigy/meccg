@@ -962,6 +962,70 @@ export interface WinGameAction extends TriggeredActionBase {
 }
 
 /**
+ * `add-constraint` — add an {@link ActiveConstraint} of the named kind to the
+ * target. `constraint` is the kind name; `scope` encodes the auto-clear
+ * boundary; the remaining fields are the per-kind payload read by the
+ * constraint-kind builders.
+ */
+export interface AddConstraintAction extends TriggeredActionBase {
+  readonly type: 'add-constraint';
+  /** The active-constraint kind name (maps to {@link ActiveConstraint}.kind.type). */
+  readonly constraint?: string;
+  /** The constraint scope, encoded as a string the on-event handler maps to {@link ConstraintScope}. */
+  readonly scope?: string;
+  /** Selector for the constrained entity (e.g. `'action-target-character'`, `'bearer'`) on grant-action applies. */
+  readonly target?: string;
+  /** Numeric payload (check-modifier, *-stat-modifier, hazard-limit-modifier, hand-size-modifier, …). */
+  readonly value?: number;
+  /** MathJS expression computing a dynamic numeric payload at play time (check-modifier). */
+  readonly valueExpr?: string;
+  /** Which check a check-modifier applies to. */
+  readonly check?: string;
+  /** Which stat a company/character-stat-modifier applies to. */
+  readonly stat?: 'prowess' | 'body' | 'direct-influence';
+  /** Creature race filter for creature-attack-boost. */
+  readonly race?: string;
+  /** Prowess bonus for creature-attack-boost. */
+  readonly prowess?: number;
+  /** Strike bonus for creature-attack-boost. */
+  readonly strikes?: number;
+  /** Site type for site-type-override / site-resource-unlocked / auto-attack-prowess-boost. */
+  readonly siteType?: string;
+  /** Resource category for site-resource-unlocked. */
+  readonly subtype?: string;
+  /** Override target type for site-type-override / region-type-override. */
+  readonly overrideType?: string;
+  /** Region name for region-type-override (token `"destination"` = active company's destination region). */
+  readonly regionName?: string;
+  /** Payload describing the action granted by a `granted-action` constraint. */
+  readonly grantedAction?: GrantedActionConstraintPayload;
+}
+
+/**
+ * `remove-constraint` — sweep active constraints. `select: 'constraint-source'`
+ * removes every constraint whose `source` matches the action's source card.
+ */
+export interface RemoveConstraintAction extends TriggeredActionBase {
+  readonly type: 'remove-constraint';
+  /**
+   * Which constraints to remove. Only `'constraint-source'` is supported (the
+   * handler rejects any other value from card data); typed as the full selector
+   * union so that runtime validation stays meaningful.
+   */
+  readonly select?: 'most-recent-unresolved-hazard' | 'constraint-source' | 'self' | 'target' | 'filter-all' | 'named';
+}
+
+/**
+ * `set-site-phase-flag` — under `on-event: self-enters-play`, set a named
+ * `SitePhaseState` boolean to `true` (fires only during the site phase).
+ */
+export interface SetSitePhaseFlagAction extends TriggeredActionBase {
+  readonly type: 'set-site-phase-flag';
+  /** The `SitePhaseState` boolean key to set. */
+  readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable';
+}
+
+/**
  * The verbs not yet migrated to discriminated members. Computed as the
  * complement of the migrated discriminants, so adding a verb to
  * {@link TriggeredActionType} (or migrating one) can never silently leave it
@@ -976,6 +1040,9 @@ export type LegacyTriggeredActionType = Exclude<
   | RollThenApplyAction['type']
   | WinConditionRollAction['type']
   | WinGameAction['type']
+  | AddConstraintAction['type']
+  | RemoveConstraintAction['type']
+  | SetSitePhaseFlagAction['type']
 >;
 
 /**
@@ -992,6 +1059,9 @@ export type TriggeredAction =
   | RollThenApplyAction
   | WinConditionRollAction
   | WinGameAction
+  | AddConstraintAction
+  | RemoveConstraintAction
+  | SetSitePhaseFlagAction
   | LegacyTriggeredAction;
 
 /**
@@ -1028,37 +1098,11 @@ export interface LegacyTriggeredAction extends EffectBase {
    */
   readonly type: LegacyTriggeredActionType;
   /**
-   * For `set-site-phase-flag` type: the `SitePhaseState` boolean key to set to `true`.
-   * Supported values: `"hoardBountyAvailable"`, `"thoroughSearchAvailable"`.
-   */
-  readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable';
-  /**
-   * For `add-constraint` with `constraint: "check-modifier"`: which check the
-   * modifier applies to. (The dice verbs that also read `check` —
-   * force-check / force-check-all-company / roll-check — are discriminated members.)
-   */
-  readonly check?: string;
-  /**
    * Filter condition for `discard-cards-in-play` and `enqueue-pending-fetch`
    * — matches against card definitions. For fetch apply, restricts which
    * discard-pile cards the player may pick (e.g. resource or character only).
    */
   readonly filter?: Condition;
-  /**
-   * For `add-constraint` type: which active-constraint kind to add to
-   * the target. Maps directly to {@link ActiveConstraint.kind.type}.
-   */
-  readonly constraint?: string;
-  /**
-   * For `add-constraint` type: the scope of the constraint, encoded as
-   * a string. The on-event handler maps it to {@link ConstraintScope}:
-   *  - `"company-site-phase"` → company-site-phase scoped to the target company
-   *  - `"company-mh-phase"` → company-mh-phase scoped to the target company
-   *  - `"phase: <name>"` → phase scoped
-   *  - `"turn"` → turn scoped
-   *  - `"until-cleared"` → never auto-swept
-   */
-  readonly scope?: string;
   /**
    * For `add-constraint` type with `constraint: "check-modifier"`: numeric
    * bonus (or penalty if negative) applied to the target's next check of
@@ -1070,62 +1114,10 @@ export interface LegacyTriggeredAction extends EffectBase {
    */
   readonly value?: number;
   /**
-   * For `add-constraint` type with `constraint: "check-modifier"`: MathJS
-   * expression evaluated at play time against target character context to
-   * compute a dynamic numeric bonus. The context exposes
-   * `target.baseProwess` (the character's base prowess).
-   * Use when the bonus depends on character attributes
-   * (e.g. `"min(target.baseProwess, 5)"` for Muster). Mutually exclusive
-   * with `value`.
-   */
-  readonly valueExpr?: string;
-  /**
-   * For `add-constraint` with `constraint: "company-stat-modifier"` or
-   * `"character-stat-modifier"`: which stat the bonus applies to.
-   */
-  readonly stat?: 'prowess' | 'body' | 'direct-influence';
-  /**
-   * For `add-constraint` with `constraint: "creature-attack-boost"`:
-   * the creature race to filter (e.g. `"undead"`).
-   */
-  readonly race?: string;
-  /**
-   * For `add-constraint` with `constraint: "creature-attack-boost"`:
-   * prowess bonus applied to matching creature attacks.
-   */
-  readonly prowess?: number;
-  /**
-   * For `add-constraint` with `constraint: "creature-attack-boost"`:
-   * strike bonus applied to matching creature attacks.
-   */
-  readonly strikes?: number;
-  /**
-   * For `add-constraint` with `constraint: "site-phase-do-nothing"`:
-   * optional DSL condition evaluated per-character in the target company.
-   * When a character's attributes satisfy the condition, that character
-   * may tap to cancel the constraint. Example (River): rangers may tap
-   * to cancel a do-nothing constraint via `{ "actor.skills": { "$includes":
-   * "ranger" } }`.
-   */
-  readonly cancelWhen?: Condition;
-  /**
    * For `set-character-status` type: the new status for the target
    * character (e.g. `"untapped"` to untap or heal).
    */
   readonly status?: 'untapped' | 'tapped' | 'inverted';
-  /**
-   * For `add-constraint` with `constraint: "site-resource-unlocked"`: the
-   * site type at which a resource category becomes playable for the rest
-   * of the constraint's scope (e.g. `"shadow-hold"`). Used by Records
-   * Unread (as-130): "make Information playable at any Shadow-hold".
-   */
-  readonly siteType?: string;
-  /**
-   * For `add-constraint` with `constraint: "site-resource-unlocked"`: the
-   * resource category being unlocked at {@link siteType} (e.g.
-   * `"information"`).
-   */
-  readonly subtype?: string;
   /**
    * Selector for which entity the apply acts on. Interpretation is
    * context-specific — for `grant-action` applies, `"bearer"` means the
@@ -1206,13 +1198,6 @@ export interface LegacyTriggeredAction extends EffectBase {
    * chain entries).
    */
   readonly requiredSkill?: string;
-  /**
-   * For `add-constraint` with `constraint: 'granted-action'`: payload
-   * describing the action to be granted by the constraint. Mirrors
-   * {@link GrantActionEffect} fields plus `phase`/`window` so the
-   * legal-action layer knows where to offer it.
-   */
-  readonly grantedAction?: GrantedActionConstraintPayload;
   /**
    * For `enqueue-pending-fetch` type: which pile to fetch from.
    * Matches the `source` field on `FetchToDeckEffect`. The
