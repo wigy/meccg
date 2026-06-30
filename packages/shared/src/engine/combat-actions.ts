@@ -412,6 +412,15 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
   const roller = combat.bodyCheckTarget === 'attacker-character' ? combat.defendingPlayerId : combat.attackingPlayerId;
   logDetail(`Body check roll: target=${combat.bodyCheckTarget} roller=${roller as string} roll=${roll.die1}+${roll.die2}=${rollTotal} (lastDiceRoll stored on attacker ${combat.attackingPlayerId as string})`);
   const effects: GameEffect[] = [diceRollEffect(state.players[atkPlayerIndex].name, roll, `Body check: ${combat.bodyCheckTarget}`)];
+  // Broadcast the body-check outcome as a text notification so the result is
+  // recorded in every client's text log. The dice-roll effect above only
+  // carries the raw roll; clients otherwise derive the wounded/eliminated
+  // outcome by diffing the combat state, which is impossible once this body
+  // check finalizes combat (`view.combat` becomes null). Emitting the outcome
+  // from the engine makes it visible regardless of whether combat continues.
+  const noteOutcome = (message: string): void => {
+    effects.push({ effect: 'text-notification', message });
+  };
 
   // Update lastDiceRoll on the attacking player
   const stateWithRoll: GameState = {
@@ -445,8 +454,10 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     let combatAfterBodyCheck = combat;
     if (rollTotal > body) {
       logDetail('Creature body check failed — strike defeated');
+      noteOutcome(`Body check failed — strike defeated (rolled ${rollTotal} vs body ${body})`);
     } else {
       logDetail('Creature body check passed — creature survives');
+      noteOutcome(`Body check passed — the creature survives (rolled ${rollTotal} vs body ${body})`);
       const survivedAssignments = combat.strikeAssignments.map((a, i) =>
         i === combat.currentStrikeIndex ? { ...a, result: 'survived' as const } : a,
       );
@@ -474,6 +485,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     if (!charData && !allyMatch) return { state, error: 'Character not found for body check' };
 
     const targetDefId = charData?.definitionId ?? allyMatch!.ally.definitionId;
+    const targetName = cardName(stateWithRoll, targetDefId, allyMatch ? 'ally' : 'character');
     const charDef2 = stateWithRoll.cardPool[targetDefId] as { body?: number } | undefined;
     // Allies with an instance stat override (e.g. a creature converted by
     // Ready to His Will) use that body; otherwise fall back to the definition.
@@ -506,6 +518,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       const rwDef = defById(stateWithRoll, charData.definitionId);
       if (rwDef && isCharacterCard(rwDef) && rwDef.race === Race.Ringwraith) {
         logDetail(`Ringwraith body check roll is ${rollTotal} (7 or 8 unmodified) — Ringwraith returned to hand (MELE §8.R1)`);
+        noteOutcome(`${targetName} returns to hand instead of being eliminated (body check ${rollTotal})`);
         const newAssignmentsRW = combat.strikeAssignments.map((a, i) => {
           if (i === combat.currentStrikeIndex) return { ...a, result: 'eliminated' as const };
           if (!a.resolved && a.characterId === strike.characterId) {
@@ -582,6 +595,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         });
         if (isProtected) {
           logDetail(`Body check roll ${effectiveRoll} matches discardBodyCheck — discard suppressed by protect-from-body-check; character survives wounded`);
+          noteOutcome(`${targetName} survives the body check (rolled ${effectiveRoll}, body ${body})`);
           const survivedAssignments = combat.strikeAssignments.map((a, i) =>
             i === combat.currentStrikeIndex ? { ...a, result: 'wounded' as const } : a,
           );
@@ -593,12 +607,14 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
           return finalizeCombat(stateWithRoll, effects);
         }
         logDetail(`Body check roll ${effectiveRoll} matches discardBodyCheck — character discarded to discard pile`);
+        noteOutcome(`${targetName} is discarded by the body check (rolled ${effectiveRoll})`);
         return discardCharacterAfterBodyCheck(stateWithRoll, state, combat, strike, charData, defPlayer, defPlayerIndex, company, effects);
       }
     }
 
     if (effectiveRoll > body) {
       logDetail(`${allyMatch ? 'Ally' : 'Character'} eliminated (body check roll ${effectiveRoll} > body ${body})`);
+      noteOutcome(`${targetName} is eliminated by the body check (rolled ${effectiveRoll}, body ${body})`);
       return eliminateCombatantFromStrike(stateWithRoll, combat, effects);
     }
 
@@ -615,12 +631,14 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         const conditionMet = !equalsBodyEvent.when || matchesCondition(equalsBodyEvent.when, condContext);
         if (conditionMet && equalsBodyEvent.apply.type === 'discard-character') {
           logDetail(`Body check equals body — character discarded to discard pile (not eliminated)`);
+          noteOutcome(`${targetName} is discarded by the body check (rolled ${effectiveRoll}, body ${body})`);
           return discardCharacterAfterBodyCheck(stateWithRoll, state, combat, strike, charData, defPlayer, defPlayerIndex, company, effects);
         }
       }
     }
 
     logDetail(`${allyMatch ? 'Ally' : 'Character'} survives body check`);
+    noteOutcome(`${targetName} survives the body check (rolled ${effectiveRoll}, body ${body})`);
     // Advance to next strike or finalize
     const next3 = nextStrikePhase(combat);
     if (next3) {
@@ -656,6 +674,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
 
     if (effectiveRoll > body) {
       logDetail(`CvCC: ${charName} eliminated (roll ${effectiveRoll} > body ${body})`);
+      noteOutcome(`${charName} is eliminated by the body check (rolled ${effectiveRoll}, body ${body})`);
       // Eliminate the attacking character
       const newPlayers = clonePlayers(stateWithRoll);
       const charInstance = toCardInstance(charData);
@@ -692,6 +711,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       return finalizeCombat({ ...stateWithRoll, players: newPlayers, combat: combatWithElim }, effects);
     } else {
       logDetail(`CvCC: ${charName} survives body check (roll ${effectiveRoll} <= body ${body})`);
+      noteOutcome(`${charName} survives the body check (rolled ${effectiveRoll}, body ${body})`);
       const nextA = nextStrikePhase(newCombat);
       if (nextA) {
         return { state: { ...stateWithRoll, combat: { ...newCombat, ...nextA } }, effects };
