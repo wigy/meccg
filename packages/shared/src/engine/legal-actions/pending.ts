@@ -496,46 +496,6 @@ export function flateryAttemptRollActions(
 }
 
 /**
- * Compute the single call-of-home-roll action that resolves a queued
- * `call-of-home-roll` resolution. The character's player rolls 2d6;
- * if roll + unused general influence < threshold, character returns to hand.
- */
-export function callOfHomeRollActions(
-  state: GameState,
-  playerId: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  if (top.kind.type !== 'call-of-home-roll') return [];
-  const { targetCharacterId, hazardDefinitionId, threshold } = top.kind;
-
-  const player = playerById(state, playerId);
-  if (!player) return [];
-
-  const charInPlay = player.characters[targetCharacterId];
-  if (!charInPlay) return [];
-
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : '?';
-  const hazardDef = defById(state, hazardDefinitionId);
-  const hazardName = hazardDef?.name ?? '?';
-
-  const unusedGI = effectiveGeneralInfluence(state, playerId) - player.generalInfluenceUsed;
-  const need = threshold - unusedGI;
-  logDetail(`Pending call-of-home-roll for ${charName} (${hazardName}): need 2d6 >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`);
-
-  return [{
-    action: {
-      type: 'call-of-home-roll' as const,
-      player: playerId,
-      targetCharacterId,
-      need,
-      explanation: `${charName} resists ${hazardName}: need roll >= ${need} (threshold ${threshold}, unused GI ${unusedGI})`,
-    },
-    viable: true,
-  }];
-}
-
-/**
  * Compute the single seized-by-terror-roll action that resolves a queued
  * `seized-by-terror-roll` resolution. The character's player rolls 2d6;
  * if roll + character mind < threshold (12), the character splits off into
@@ -616,77 +576,6 @@ export function goldRingTestActions(
       goldRingInstanceId,
       rollModifier,
       explanation: `Gold-ring auto-test for ${ringName}: 2d6 ${formatSignedNumber(rollModifier)}`,
-    },
-    viable: true,
-  }];
-}
-
-/**
- * Compute the single glamour-hazard-roll action for a queued
- * `glamour-hazard-roll` resolution (Glamour of Surpassing Excellance, as-49).
- * The resource player rolls 2d6; if the result exceeds the hazard's
- * removalThreshold, the hazard permanent-event is discarded.
- */
-export function glamourHazardRollActions(
-  state: GameState,
-  playerId: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  if (top.kind.type !== 'glamour-hazard-roll') return [];
-  const { hazardInstanceId, hazardDefinitionId, removalThreshold, sourceDefinitionId } = top.kind;
-
-  const hazDef = defById(state, hazardDefinitionId);
-  const hazName = hazDef?.name ?? '?';
-  const sourceDef = defById(state, sourceDefinitionId);
-  const sourceName = sourceDef?.name ?? '?';
-
-  logDetail(`Pending glamour-hazard-roll for ${hazName} (threshold >${removalThreshold}) from ${sourceName}`);
-
-  return [{
-    action: {
-      type: 'glamour-hazard-roll' as const,
-      player: playerId,
-      hazardInstanceId,
-      explanation: `${hazName}: roll 2d6, discard if result > ${removalThreshold} (${sourceName})`,
-    },
-    viable: true,
-  }];
-}
-
-/**
- * Compute the single body-check-company-roll action for a queued
- * `body-check-company` resolution (from a mass-body-check hazard).
- * The resource player rolls 2d6 for the named character.
- */
-export function bodyCheckCompanyActions(
-  state: GameState,
-  playerId: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  if (top.kind.type !== 'body-check-company') return [];
-  const { characterId, modifier, sourceDefinitionId } = top.kind;
-
-  const player = playerById(state, playerId);
-  if (!player) return [];
-
-  const charInPlay = player.characters[characterId];
-  if (!charInPlay) return [];
-
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : '?';
-  const body = isCharacterCard(charDef) && charDef.body != null ? charDef.body : 9;
-  const effectiveBody = body + modifier;
-  const sourceDef = defById(state, sourceDefinitionId);
-  const sourceName = sourceDef?.name ?? '?';
-
-  logDetail(`Pending body-check-company for ${charName} (body ${body}, modifier ${modifier}, threshold ${effectiveBody}) from ${sourceName}`);
-
-  return [{
-    action: {
-      type: 'body-check-company-roll' as const,
-      player: playerId,
-      characterId,
-      explanation: `${charName}: body check for ${sourceName} (need 2d6 >= ${effectiveBody})`,
     },
     viable: true,
   }];
@@ -1696,46 +1585,6 @@ export function eligibleRingCategories(table: RingTestTableEffect['table'], roll
   return table
     .filter(row => (row.min === null || rollTotal >= row.min) && (row.max === null || rollTotal <= row.max))
     .map(row => row.category);
-}
-
-/**
- * Compute the single `cvcc-ally-discard-roll` action for a queued ally-discard
- * resolution (Bow of the Galadhrim, as-68). The attacking player rolls 2d6;
- * if roll > ally.mind + threshold, the ally is discarded.
- */
-export function cvccAllyDiscardRollActions(
-  state: GameState,
-  playerId: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  if (top.kind.type !== 'cvcc-ally-discard-roll') return [];
-  const { allyInstanceId, allyMind, threshold } = top.kind;
-
-  // Find the ally definition for its name
-  let allyName = allyInstanceId as string;
-  for (let pi = 0; pi < 2; pi++) {
-    for (const char of Object.values(state.players[pi].characters)) {
-      const ally = char.allies.find(a => a.instanceId === allyInstanceId);
-      if (ally) {
-        const def = defById(state, ally.definitionId);
-        allyName = (def as { name?: string })?.name ?? allyName;
-        break;
-      }
-    }
-  }
-
-  const need = allyMind + threshold;
-  logDetail(`Pending cvcc-ally-discard-roll for ally "${allyName}": roll must be > ${need} (mind ${allyMind} + threshold ${threshold})`);
-
-  return [{
-    action: {
-      type: 'cvcc-ally-discard-roll' as const,
-      player: playerId,
-      allyInstanceId,
-      explanation: `Roll for ${allyName}: discard if roll > ${need} (mind ${allyMind} + 5)`,
-    },
-    viable: true,
-  }];
 }
 
 /**

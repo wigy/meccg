@@ -90,22 +90,6 @@ export interface ReshuffleCardFromHandAction {
 }
 
 /**
- * Roll 2d6 for one queued glamour-hazard-roll resolution (Glamour of Surpassing
- * Excellence, as-49). If the total exceeds the hazard's removal threshold, the
- * hazard permanent-event is discarded.
- */
-export interface GlamourHazardRollAction {
-  /** Action discriminant. */
-  readonly type: 'glamour-hazard-roll';
-  /** The resource player rolling. */
-  readonly player: PlayerId;
-  /** The hazard permanent-event instance being rolled for. */
-  readonly hazardInstanceId: CardInstanceId;
-  /** Human-readable description (shown in the UI). */
-  readonly explanation: string;
-}
-
-/**
  * Select a card from the sideboard or discard pile to fetch into the play deck or hand.
  *
  * This action is part of the fetch-to-deck sub-flow initiated by resource

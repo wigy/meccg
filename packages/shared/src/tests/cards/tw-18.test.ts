@@ -32,7 +32,7 @@ import {
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { Phase } from '../../index.js';
-import type { GameState, HazardEventCard, CardDefinitionId, PlayHazardAction, CallOfHomeRollAction } from '../../index.js';
+import type { GameState, HazardEventCard, CardDefinitionId, PlayHazardAction, ResolveDiceCheckAction } from '../../index.js';
 
 const CALL_OF_HOME = 'tw-18' as CardDefinitionId;
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;
@@ -150,21 +150,27 @@ describe('Call of Home (tw-18)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
-    // Now a pending call-of-home-roll should be queued for PLAYER_1
+    // Now a pending dice-check (call-of-home) should be queued for PLAYER_1
     expect(s.pendingResolutions).toHaveLength(1);
-    expect(s.pendingResolutions[0].kind.type).toBe('call-of-home-roll');
+    expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
+
+    // The pending dice-check targets Aragorn with threshold 10.
+    const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check');
+    expect(dc?.kind.type).toBe('dice-check');
+    if (dc?.kind.type === 'dice-check') {
+      expect(dc.kind.targetCharacterId).toBe(aragornId);
+      expect(dc.kind.threshold).toBe(10);
+    }
 
     // Aragorn mind=6, unused GI = 20 - 6 = 14. Need roll >= 10 - 14 = -4.
     // Any roll passes. Force roll = 2 (minimum).
     s = { ...s, cheatRollTotal: 2 };
 
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'call-of-home-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
 
-    const rollAction = rollActions[0].action as CallOfHomeRollAction;
-    expect(rollAction.targetCharacterId).toBe(aragornId);
-
+    const rollAction = rollActions[0].action as ResolveDiceCheckAction;
     s = dispatch(s, rollAction);
 
     // Character should still be in play
@@ -213,13 +219,13 @@ describe('Call of Home (tw-18)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
     expect(s.pendingResolutions).toHaveLength(1);
-    expect(s.pendingResolutions[0].kind.type).toBe('call-of-home-roll');
+    expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
 
     // Force a low roll (3) so 3 + 6 = 9 < 10 → character returns to hand
     s = { ...s, cheatRollTotal: 3 };
 
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'call-of-home-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
 
     s = dispatch(s, rollActions[0].action);
@@ -285,7 +291,7 @@ describe('Call of Home (tw-18)', () => {
     // Force low roll: 2 + 1 = 3 < 10 → fails
     s = { ...s, cheatRollTotal: 2 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'call-of-home-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
 
     s = dispatch(s, rollActions[0].action);

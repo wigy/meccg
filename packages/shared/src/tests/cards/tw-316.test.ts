@@ -154,21 +154,26 @@ describe('Return of the King (tw-316)', () => {
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const withCard = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, RETURN_OF_THE_KING);
 
-    // Enqueue a call-of-home-roll for Aragorn with threshold=24 (guaranteed to fail).
+    // Enqueue a dice-check (call-of-home) for Aragorn with threshold=24 (guaranteed to fail).
     // Aragorn mind=9 → unusedGI=20-9=11. Roll=2: 2+11=13 < 24 → returns to hand.
     const stateWithPending = enqueueResolution(withCard, {
       source: null,
       actor: PLAYER_1,
       scope: { kind: 'phase', phase: Phase.Organization },
       kind: {
-        type: 'call-of-home-roll',
-        targetCharacterId: aragornId,
-        hazardDefinitionId: 'tw-18' as CardDefinitionId,
+        type: 'dice-check',
+        label: 'Call of Home: Aragorn II',
+        modifiers: [{ kind: 'unused-gi', player: PLAYER_1 }],
         threshold: 24,
+        comparison: 'gte',
+        onFail: { type: 'return-character-to-hand' },
+        continuation: { kind: 'chain-entry', match: 'target-character' },
+        requireTargetPresent: true,
+        targetCharacterId: aragornId,
       },
     });
 
-    const rollActions = viableActions({ ...stateWithPending, cheatRollTotal: 2 }, PLAYER_1, 'call-of-home-roll');
+    const rollActions = viableActions({ ...stateWithPending, cheatRollTotal: 2 }, PLAYER_1, 'resolve-dice-check');
     expect(rollActions.length).toBe(1);
 
     const finalState = dispatch({ ...stateWithPending, cheatRollTotal: 2 }, rollActions[0].action);

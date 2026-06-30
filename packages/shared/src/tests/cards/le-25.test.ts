@@ -47,7 +47,7 @@ import {
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { Phase, RegionType } from '../../index.js';
-import type { GameState, MovementHazardPhaseState, CardDefinitionId, BodyCheckCompanyRollAction } from '../../index.js';
+import type { GameState, MovementHazardPhaseState, CardDefinitionId, ResolveDiceCheckAction } from '../../index.js';
 
 const MUZGASH = 'le-25' as CardDefinitionId;
 const ASTERNAK = 'le-1' as CardDefinitionId;   // man, body 7 — hazard player placeholder
@@ -92,17 +92,23 @@ describe('Muzgash (le-25)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
     expect(s.pendingResolutions).toHaveLength(1);
-    expect(s.pendingResolutions[0].kind.type).toBe('body-check-company');
+    expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
     expect(s.pendingResolutions[0].actor).toBe(PLAYER_1);
+
+    // discardBodyCheck [8] + modifier −1 → pre-resolved threshold 7, target Muzgash.
+    const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && r.kind.targetCharacterId === muzgashId);
+    expect(dc).toBeDefined();
+    if (dc?.kind.type === 'dice-check') {
+      expect(dc.kind.targetCharacterId).toBe(muzgashId);
+      expect(dc.kind.threshold).toBe(7);
+    }
 
     s = { ...s, cheatRollTotal: 6 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
 
-    const rollAction = rollActions[0].action as BodyCheckCompanyRollAction;
-    expect(rollAction.characterId).toBe(muzgashId);
-
+    const rollAction = rollActions[0].action as ResolveDiceCheckAction;
     s = dispatch(s, rollAction);
 
     expectCharNotInPlay(s, RESOURCE_PLAYER, muzgashId);
@@ -131,7 +137,7 @@ describe('Muzgash (le-25)', () => {
 
     s = { ...s, cheatRollTotal: 7 };
     const rollActions = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'body-check-company-roll');
+      .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     s = dispatch(s, rollActions[0].action);
 
     expectCharInPlay(s, RESOURCE_PLAYER, muzgashId);

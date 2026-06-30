@@ -393,6 +393,38 @@ function locateInZone(
       }
       return null;
     }
+    case 'attached-to-character': {
+      // A single instance attached to any character's hazards or allies.
+      // Owner is resolved from the instance-id prefix (`<playerId>-<counter>`),
+      // falling back to the convention when the prefix doesn't match a player
+      // (hazards → the holder's opponent, allies → the holder).
+      const prefixOwner = state.players.findIndex(p => (p.id as string) === (instanceId as string).split('-')[0]);
+      for (let pi = 0; pi < state.players.length; pi++) {
+        const player = state.players[pi];
+        for (const charId of characterIds(player)) {
+          const char = player.characters[charId];
+          const hazIdx = char.hazards.findIndex(h => h.instanceId === instanceId);
+          if (hazIdx >= 0) {
+            return {
+              instance: toCardInstance(char.hazards[hazIdx]),
+              ownerIndex: prefixOwner >= 0 ? prefixOwner : 1 - pi,
+              zone: 'attached-to-character',
+              remove: s => removeFromCharacterHazards(s, pi, charId, instanceId),
+            };
+          }
+          const allyIdx = char.allies.findIndex(a => a.instanceId === instanceId);
+          if (allyIdx >= 0) {
+            return {
+              instance: toCardInstance(char.allies[allyIdx]),
+              ownerIndex: prefixOwner >= 0 ? prefixOwner : pi,
+              zone: 'attached-to-character',
+              remove: s => removeFromCharacterAllies(s, pi, charId, instanceId),
+            };
+          }
+        }
+      }
+      return null;
+    }
     default:
       return null;
   }
@@ -678,6 +710,28 @@ function removeFromCharacterHazards(
     characters: {
       ...player.characters,
       [charId as string]: { ...char, hazards: filtered },
+    },
+  };
+  return { ...state, players: newPlayers };
+}
+
+function removeFromCharacterAllies(
+  state: GameState,
+  pi: number,
+  charId: CardInstanceId,
+  allyId: CardInstanceId,
+): GameState {
+  const player = state.players[pi];
+  const char = player.characters[charId];
+  if (!char) return state;
+  const filtered = char.allies.filter(a => a.instanceId !== allyId);
+  if (filtered.length === char.allies.length) return state;
+  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  newPlayers[pi] = {
+    ...player,
+    characters: {
+      ...player.characters,
+      [charId as string]: { ...char, allies: filtered },
     },
   };
   return { ...state, players: newPlayers };

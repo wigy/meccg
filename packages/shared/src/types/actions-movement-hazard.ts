@@ -547,27 +547,6 @@ export interface HavenJoinAttackAction {
 }
 
 /**
- * Execute the dice roll for a Call of Home check on a character.
- *
- * Created by the pending-resolution system after a hazard short event
- * with a `call-of-home-check` effect resolves. The character's player
- * rolls 2d6; if roll + unused general influence < threshold, the
- * character returns to hand.
- */
-export interface CallOfHomeRollAction {
-  /** Action discriminant. */
-  readonly type: 'call-of-home-roll';
-  /** The character's player (who rolls). */
-  readonly player: PlayerId;
-  /** The targeted character instance. */
-  readonly targetCharacterId: CardInstanceId;
-  /** The 2d6 value needed for the character to stay (roll + GI >= this). */
-  readonly need: number;
-  /** Human-readable breakdown of the check. */
-  readonly explanation: string;
-}
-
-/**
  * Execute the dice roll for a flattery attempt (td-116 Flatter a Foe).
  *
  * Created by the pending-resolution system after Flatter a Foe's chain
@@ -585,25 +564,6 @@ export interface FlateryAttemptRollAction {
   /** roll >= need means success (already accounts for DI and diplomat bonus). */
   readonly need: number;
   /** Human-readable breakdown of the check. */
-  readonly explanation: string;
-}
-
-/**
- * Execute the dice roll for a single body check queued by a
- * `mass-body-check` hazard effect (e.g. Veils Flung Away).
- *
- * Created by the pending-resolution system after a hazard short event with
- * a `mass-body-check` effect resolves. One action is emitted per queued
- * resolution; the resource player rolls 2d6 for each character in turn.
- */
-export interface BodyCheckCompanyRollAction {
-  /** Action discriminant. */
-  readonly type: 'body-check-company-roll';
-  /** The resource player (who rolls). */
-  readonly player: PlayerId;
-  /** The character being checked. */
-  readonly characterId: CardInstanceId;
-  /** Human-readable description of the check. */
   readonly explanation: string;
 }
 
@@ -674,24 +634,6 @@ export interface SeizedByTerrorRollAction {
   readonly targetCharacterId: CardInstanceId;
   /** The 2d6 value needed for the character to stay (roll + mind >= this). */
   readonly need: number;
-  /** Human-readable breakdown of the check. */
-  readonly explanation: string;
-}
-
-/**
- * Roll 2d6 for a Bow of the Galadhrim CvCC pre-strike ally-discard check.
- *
- * In CvCC combat, before strikes are assigned, the attacking player rolls
- * for each non-unique minion ally in the defending company. If roll >
- * ally.mind + threshold (5), the ally is discarded.
- */
-export interface CvccAllyDiscardRollAction {
-  /** Action discriminant. */
-  readonly type: 'cvcc-ally-discard-roll';
-  /** The attacking player (who rolls). */
-  readonly player: PlayerId;
-  /** The ally instance being tested. */
-  readonly allyInstanceId: CardInstanceId;
   /** Human-readable breakdown of the check. */
   readonly explanation: string;
 }

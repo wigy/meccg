@@ -607,7 +607,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   }
 
   // roll-remove-hazard-events (Glamour of Surpassing Excellance, as-49): enqueue one
-  // glamour-hazard-roll pending resolution per hazard permanent-event found on characters
+  // dice-check (glamour) pending resolution per hazard permanent-event found on characters
   // in the active company. The player rolls for each; a roll exceeding the hazard's
   // removalThreshold (removalNumber on the card, or 8 by default) discards it.
   const rollRemoveEffect = def.effects?.find(
@@ -624,17 +624,21 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
           const hazDef = defById(newState, hazard.definitionId);
           if (!hazDef || !('eventType' in hazDef) || (hazDef as { eventType?: string }).eventType !== 'permanent') continue;
           const removalThreshold = (hazDef as { removalNumber?: number }).removalNumber ?? 8;
-          logDetail(`${def.name}: enqueueing glamour-hazard-roll for ${hazDef.name} (threshold ${removalThreshold})`);
+          logDetail(`${def.name}: enqueueing dice-check (glamour) for ${hazDef.name} (threshold >${removalThreshold})`);
           newState = enqueueResolution(newState, {
             source: handCard.instanceId,
             actor: action.player,
             scope: { kind: 'company-site-subphase', companyId: company.id },
             kind: {
-              type: 'glamour-hazard-roll',
-              hazardInstanceId: hazard.instanceId,
-              hazardDefinitionId: hazard.definitionId,
-              removalThreshold,
-              sourceDefinitionId: handCard.definitionId,
+              type: 'dice-check',
+              label: `${def.name}: ${hazDef.name} (need > ${removalThreshold})`,
+              modifiers: [],
+              threshold: removalThreshold,
+              comparison: 'gt',
+              // total > threshold → hazard removed to its owner's discard.
+              onPass: { type: 'move', select: 'target', from: 'attached-to-character', to: 'discard', toOwner: 'source-owner' },
+              continuation: { kind: 'dequeue-only' },
+              targetInstanceId: hazard.instanceId,
             },
           });
         }
@@ -923,7 +927,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     };
   }
 
-  // Discard the card and return. If glamour-hazard-roll resolutions were
+  // Discard the card and return. If dice-check (glamour) resolutions were
   // enqueued, the legal-action system will automatically surface only roll
   // actions until all resolutions are cleared.
   return {

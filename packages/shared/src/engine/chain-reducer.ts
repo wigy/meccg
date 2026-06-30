@@ -18,7 +18,7 @@ import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceC
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
-import { isSiteCard, isAvatarCharacter, isAllyCard } from '../types/cards.js';
+import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard } from '../types/cards.js';
 import { CardStatus, SiteType, Race, RegionType } from '../types/common.js';
 import { resolveInstanceId } from '../types/state.js';
 import { formatSignedNumber } from '../format-helpers.js';
@@ -2087,16 +2087,25 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     );
     if (cohEffect) {
       const resourcePlayerId = current.activePlayer!;
-      logDetail(`Enqueuing call-of-home-roll pending resolution for character ${entry.payload.targetCharacterId as string}`);
+      const cohCharDefId = resolveInstanceId(current, entry.payload.targetCharacterId);
+      const cohCharDef = cohCharDefId ? defById(current, cohCharDefId) : undefined;
+      const cohCharName = cohCharDef && 'name' in cohCharDef ? cohCharDef.name : (entry.payload.targetCharacterId as string);
+      logDetail(`Enqueuing dice-check (call-of-home) pending resolution for character ${entry.payload.targetCharacterId as string}`);
       current = enqueueResolution(current, {
         source: entry.card.instanceId,
         actor: resourcePlayerId,
         scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
         kind: {
-          type: 'call-of-home-roll',
-          targetCharacterId: entry.payload.targetCharacterId,
-          hazardDefinitionId: entry.card.definitionId,
+          type: 'dice-check',
+          label: `Call of Home: ${cohCharName}`,
+          modifiers: [{ kind: 'unused-gi', player: resourcePlayerId }],
           threshold: cohEffect.threshold,
+          comparison: 'gte',
+          // roll + unused GI < threshold → character returns to hand.
+          onFail: { type: 'return-character-to-hand' },
+          continuation: { kind: 'chain-entry', match: 'target-character' },
+          requireTargetPresent: true,
+          targetCharacterId: entry.payload.targetCharacterId,
         },
       });
       return { state: current, needsInput: true };
@@ -2265,17 +2274,42 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const activeIndex = getPlayerIndex(current, activePlayerId);
       const targetCompany = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
       if (targetCompany) {
-        logDetail(`force-check-all-company (body) "${(cardDef as { name?: string }).name ?? '?'}": enqueuing body checks (modifier ${fcacEffect.modifier ?? 0}) for ${targetCompany.characters.length} characters`);
+        const bodyCheckSourceName = (cardDef as { name?: string }).name ?? '?';
+        const bodyModifier = fcacEffect.modifier ?? 0;
+        logDetail(`force-check-all-company (body) "${bodyCheckSourceName}": enqueuing body checks (modifier ${bodyModifier}) for ${targetCompany.characters.length} characters`);
         for (const charId of targetCompany.characters) {
+          const cChar = current.players[activeIndex].characters[charId];
+          const cDef = cChar ? defById(current, cChar.definitionId) : undefined;
+          // Race-derived discard threshold, computed at enqueue (the card def is
+          // static): Orc/Troll minions use their stated discardBodyCheck array
+          // (min value), others use body. Pre-resolved into the dice-check.
+          const cBody = cDef && isCharacterCard(cDef) && cDef.body != null ? cDef.body : 9;
+          const cRace = cDef && isCharacterCard(cDef) ? cDef.race : '';
+          const cOrcTroll = cRace === 'orc' || cRace === 'troll';
+          const cDiscardValues = cOrcTroll && cDef && isCharacterCard(cDef) && cDef.cardType === 'minion-character' && cDef.discardBodyCheck != null
+            ? cDef.discardBodyCheck
+            : [cBody];
+          const cThreshold = Math.min(...cDiscardValues) + bodyModifier;
+          const cName = cDef && isCharacterCard(cDef) ? cDef.name : (charId as string);
+          // onFail by race: Orc/Troll are discarded; others are tapped only if
+          // currently untapped (the `when` leaves wounded/inverted untouched).
+          const onFail = cOrcTroll
+            ? { type: 'discard-character' as const }
+            : { type: 'set-character-status' as const, status: 'tapped' as const, when: { 'target.status': 'untapped' } };
           current = enqueueResolution(current, {
             source: entry.card.instanceId,
             actor: activePlayerId,
             scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
             kind: {
-              type: 'body-check-company',
-              characterId: charId,
-              modifier: fcacEffect.modifier ?? 0,
-              sourceDefinitionId: entry.card.definitionId,
+              type: 'dice-check',
+              label: `Body check (${bodyCheckSourceName}): ${cName}`,
+              modifiers: [],
+              threshold: cThreshold,
+              comparison: 'gte',
+              onFail,
+              continuation: { kind: 'chain-entry', match: 'source', drainSameSource: true },
+              requireTargetPresent: true,
+              targetCharacterId: charId,
             },
           });
         }

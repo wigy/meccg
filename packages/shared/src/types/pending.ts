@@ -285,20 +285,6 @@ export interface PendingResolution {
       }
     | {
         /**
-         * Call of Home roll: a hazard short event has resolved against a
-         * character. The character's player rolls 2d6; if roll + unused
-         * general influence < threshold, the character returns to hand.
-         */
-        readonly type: 'call-of-home-roll';
-        /** The targeted character instance. */
-        readonly targetCharacterId: CardInstanceId;
-        /** The hazard card that caused this check. */
-        readonly hazardDefinitionId: CardDefinitionId;
-        /** Roll + unused GI must meet or exceed this to keep the character. */
-        readonly threshold: number;
-      }
-    | {
-        /**
          * Flattery attempt (td-116 Flatter a Foe): a resource short event has
          * resolved against a creature attack. The defending player rolls 2d6;
          * total = roll + unusedDI (+ diplomatBonus if the character is a diplomat).
@@ -378,26 +364,6 @@ export interface PendingResolution {
       }
     | {
         /**
-         * Body check for a single character in the company, queued by a
-         * `mass-body-check` hazard effect (e.g. Veils Flung Away).
-         *
-         * The character's player rolls 2d6. If the roll is less than
-         * (character.body + modifier), the check fails:
-         * - Orc or Troll: character is discarded (returned to hand).
-         * - Other races: if the character was untapped, they become tapped.
-         *
-         * One resolution is enqueued per character in the active company.
-         */
-        readonly type: 'body-check-company';
-        /** The character being checked. */
-        readonly characterId: CardInstanceId;
-        /** Modifier added to the body threshold (typically negative). */
-        readonly modifier: number;
-        /** Definition ID of the source hazard card (for UI / logging). */
-        readonly sourceDefinitionId: CardDefinitionId;
-      }
-    | {
-        /**
          * Crown of Flowers resource-play offer: the active player may pair
          * one resource card from their hand with the in-play Crown of Flowers.
          * The paired resource enters play linked to Crown of Flowers, and is
@@ -456,23 +422,6 @@ export interface PendingResolution {
       }
     | {
         /**
-         * Glamour of Surpassing Excellence (as-49): roll 2d6 for one hazard
-         * permanent-event. If the result exceeds `removalThreshold`, the hazard
-         * is discarded. One resolution is enqueued per hazard permanent-event
-         * found on the company's characters.
-         */
-        readonly type: 'glamour-hazard-roll';
-        /** The hazard permanent-event instance being rolled for. */
-        readonly hazardInstanceId: CardInstanceId;
-        /** Definition ID of the hazard (for look-up and UI). */
-        readonly hazardDefinitionId: CardDefinitionId;
-        /** Roll must exceed this value to discard the hazard (from removalNumber, or 8). */
-        readonly removalThreshold: number;
-        /** Definition ID of the source resource event (for UI / logging). */
-        readonly sourceDefinitionId: CardDefinitionId;
-      }
-    | {
-        /**
          * Brigands-style wound effect: the defending company must discard
          * one item of the defender's choice. Fires once per Brigands attack
          * in which at least one character was wounded. The defender picks
@@ -501,26 +450,6 @@ export interface PendingResolution {
         /** The permanent event card requiring maintenance payment. */
         readonly sourceInstanceId: CardInstanceId;
         readonly sourceDefinitionId: CardDefinitionId;
-      }
-    | {
-        /**
-         * Bow of the Galadhrim CvCC pre-strike roll (as-68).
-         *
-         * In company-versus-company combat, before strikes are assigned, the
-         * attacking player rolls 2d6 for each non-unique minion ally in the
-         * defending company. If roll > allyMind + threshold, the ally is discarded.
-         */
-        readonly type: 'cvcc-ally-discard-roll';
-        /** Instance ID of the ally being tested. */
-        readonly allyInstanceId: CardInstanceId;
-        /** Mind value of the ally (from its card definition). */
-        readonly allyMind: number;
-        /** Fixed threshold added to ally mind (card's threshold field). */
-        readonly threshold: number;
-        /** Player index (0 or 1) who owns the ally (to remove it from their state). */
-        readonly allyOwnerPlayerIndex: number;
-        /** Instance ID of the source item (Bow of the Galadhrim) for logging. */
-        readonly sourceItemInstanceId: CardInstanceId;
       }
     | {
         /**

@@ -50,6 +50,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { eligibleRingCategories } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
 
 /**
@@ -833,6 +834,22 @@ function applyDiceCheckBranch(
     }
     return { state: s };
   }
+  // `when` guard (leaf verbs): evaluate against the target character's
+  // race/status so e.g. a "tap if untapped" branch leaves wounded/inverted
+  // characters untouched (body-check). Skipped when the branch has no `when`.
+  if (branch.when && ctx.targetCharacterId) {
+    const tChar = state.players[ctx.rollerIndex]?.characters[ctx.targetCharacterId];
+    const tDef = tChar ? defById(state, tChar.definitionId) : undefined;
+    const guardCtx = {
+      target: {
+        race: tDef && isCharacterCard(tDef) ? tDef.race : '',
+        status: tChar?.status,
+      },
+    };
+    if (!matchesCondition(branch.when, guardCtx)) {
+      return { state };
+    }
+  }
   if (branch.type === 'move') {
     const moveCtx: MoveContext = {
       // sourceCardId is only consulted for select:'self'/'self-location' moves;
@@ -848,6 +865,31 @@ function applyDiceCheckBranch(
       return { state };
     }
     return { state: r.state };
+  }
+  if (branch.type === 'return-character-to-hand') {
+    if (!ctx.targetCharacterId) {
+      logDetail(`dice-check return-character-to-hand: no target character — no-op`);
+      return { state };
+    }
+    const charInPlay = state.players[ctx.rollerIndex]?.characters[ctx.targetCharacterId];
+    if (!charInPlay) {
+      logDetail(`dice-check return-character-to-hand: ${ctx.targetCharacterId as string} no longer in play — no-op`);
+      return { state };
+    }
+    return { state: returnCharacterToHand(state, ctx.rollerIndex, ctx.targetCharacterId, charInPlay) };
+  }
+  if (branch.type === 'discard-character') {
+    if (!ctx.targetCharacterId) return { state };
+    const charInPlay = state.players[ctx.rollerIndex]?.characters[ctx.targetCharacterId];
+    if (!charInPlay) return { state };
+    return { state: discardCharacter(state, ctx.rollerIndex, ctx.targetCharacterId, charInPlay) };
+  }
+  if (branch.type === 'set-character-status') {
+    if (!ctx.targetCharacterId || !branch.status) return { state };
+    const statusEnum = branch.status === 'untapped' ? CardStatus.Untapped
+      : branch.status === 'tapped' ? CardStatus.Tapped : CardStatus.Inverted;
+    const targetCharacterId = ctx.targetCharacterId;
+    return { state: updatePlayer(state, ctx.rollerIndex, p => updateCharacter(p, targetCharacterId, c => ({ ...c, status: statusEnum }))) };
   }
   logDetail(`dice-check: branch verb "${branch.type}" not handled in resolution context — no-op`);
   return { state };
@@ -978,48 +1020,6 @@ export function applyFlateryAttemptResolution(
   }
 
   return { state: postRoll, effects: [rollEffect] };
-}
-
-/**
- * Resolve a queued `call-of-home-roll` resolution. The character's player
- * rolls 2d6. If roll + unused general influence < threshold, the character
- * returns to hand. Items/allies/hazards are discarded; followers fall to GI.
- */
-export function applyCallOfHomeRollResolution(
-  state: GameState,
-  action: GameAction,
-  top: PendingResolution,
-): ReducerResult | null {
-  const g = guardRollResolution(state, action, top, 'call-of-home-roll', 'call-of-home-roll');
-  if (!g.ok) return g.result;
-  const { actorIndex, player, kind } = g;
-  const { targetCharacterId, threshold } = kind;
-  const charInPlay = player.characters[targetCharacterId];
-  if (!charInPlay) {
-    return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
-  }
-
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : (targetCharacterId as string);
-  const unusedGI = effectiveGeneralInfluence(state, player.id) - player.generalInfluenceUsed;
-
-  const rolled = rollForResolution(state, actorIndex, `Call of Home: ${charName}`);
-  const checkValue = rolled.total + unusedGI;
-  const passed = checkValue >= threshold;
-  logDetail(`Call of Home on ${charName}: rolled ${rolled.total} + unused GI ${unusedGI} = ${checkValue} vs threshold ${threshold} → ${passed ? 'STAYS' : 'RETURNS TO HAND'}`);
-
-  let postRoll = dequeueResolution(rolled.state, top.id);
-
-  if (!passed) {
-    postRoll = returnCharacterToHand(postRoll, actorIndex, targetCharacterId, charInPlay);
-  }
-
-  // Mark the chain entry as resolved and continue auto-resolution.
-  return resolveChainEntryAndContinue(
-    postRoll,
-    e => e.payload.type === 'short-event' && e.payload.targetCharacterId === targetCharacterId,
-    [rolled.rollEffect],
-  );
 }
 
 /**
@@ -1207,96 +1207,6 @@ function discardCharacter(
     result = sweepLeaderLeavesCompanyEvents(result, affectedCompanies);
   }
   return result;
-}
-
-/**
- * Resolve a queued `body-check-company` resolution (from a mass-body-check
- * hazard, e.g. Veils Flung Away). The resource player rolls 2d6.
- *
- * - For Orc/Troll: uses `discardBodyCheck` array from card data as the threshold;
- *   min(array) is the pass threshold so all listed results trigger discard.
- *   Discarded characters go to the resource player's discard pile (not hand).
- * - For other races: uses `body` as the threshold.
- * - If roll >= (min(discardBodyCheck) + modifier): no effect (pass).
- * - Orc or Troll and roll fails: character is discarded (to discard pile).
- * - Other races, untapped, and roll fails: character becomes tapped.
- * - Other races, already tapped, roll fails: no effect.
- */
-export function applyBodyCheckCompanyResolution(
-  state: GameState,
-  action: GameAction,
-  top: PendingResolution,
-): ReducerResult | null {
-  const g = guardRollResolution(state, action, top, 'body-check-company-roll', 'body-check-company');
-  if (!g.ok) return g.result;
-  const { actorIndex, player, kind } = g;
-  const { characterId, modifier, sourceDefinitionId } = kind;
-  const charInPlay = player.characters[characterId];
-  if (!charInPlay) {
-    return { state: dequeueResolution(state, top.id), error: 'Target character not found for body check' };
-  }
-
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : (characterId as string);
-  const body = isCharacterCard(charDef) && charDef.body != null ? charDef.body : 9;
-  const race = isCharacterCard(charDef) ? charDef.race : '';
-  const isOrcOrTroll = race === 'orc' || race === 'troll';
-  // Orc/Troll use their card-stated discard threshold (may differ from body);
-  // other races use body for the fail/tap comparison.
-  // Orc/Troll use their card-stated discard threshold array (may differ from body);
-  // the minimum value sets the pass threshold so all listed results trigger discard.
-  const discardValues = isOrcOrTroll && isCharacterCard(charDef) && charDef.cardType === 'minion-character' && charDef.discardBodyCheck != null
-    ? charDef.discardBodyCheck
-    : [body];
-  const discardCheck = Math.min(...discardValues);
-  const effectiveThreshold = discardCheck + modifier;
-
-  const sourceDef = defById(state, sourceDefinitionId);
-  const sourceName = sourceDef?.name ?? '?';
-
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const rollTotal = roll.die1 + roll.die2;
-  const passed = rollTotal >= effectiveThreshold;
-
-  const rollEffect = diceRollEffect(player.name, roll, `Body check (${sourceName}): ${charName}`);
-  logDetail(`${sourceName} body check on ${charName}: roll ${rollTotal} vs discard threshold ${discardCheck}${modifier < 0 ? modifier : `+${modifier}`} = ${effectiveThreshold} → ${passed ? 'PASS' : 'FAIL'} (race: ${race ?? 'unknown'})`);
-
-  const stateAfterRoll = updatePlayer(
-    { ...state, rng, cheatRollTotal },
-    actorIndex,
-    p => ({ ...p, lastDiceRoll: roll }),
-  );
-  let postRoll = dequeueResolution(stateAfterRoll, top.id);
-
-  if (!passed) {
-    if (isOrcOrTroll) {
-      logDetail(`${sourceName}: ${charName} (${race}) failed body check — discarded to discard pile`);
-      postRoll = discardCharacter(postRoll, actorIndex, characterId, charInPlay);
-    } else if (charInPlay.status === 'untapped') {
-      logDetail(`${sourceName}: ${charName} failed body check while untapped — tapped`);
-      postRoll = updatePlayer(postRoll, actorIndex, p =>
-        updateCharacter(p, characterId, c => ({ ...c, status: CardStatus.Tapped })),
-      );
-    } else {
-      logDetail(`${sourceName}: ${charName} failed body check but was already tapped — no effect`);
-    }
-  }
-
-  // Once all body-check resolutions from this same source are dequeued,
-  // mark the originating short-event chain entry as resolved and let the
-  // chain finish normally (so the card lands in the hazard discard pile).
-  const remainingBodyChecks = postRoll.pendingResolutions.filter(
-    r => r.kind.type === 'body-check-company' && r.source === top.source,
-  );
-  if (remainingBodyChecks.length === 0) {
-    return resolveChainEntryAndContinue(
-      postRoll,
-      e => e.payload.type === 'short-event' && e.card?.instanceId === top.source,
-      [rollEffect],
-    );
-  }
-
-  return { state: postRoll, effects: [rollEffect] };
 }
 
 /**
@@ -2031,68 +1941,6 @@ export function applySelectCardBearerResolution(
 }
 
 /**
- * Resolve a queued `glamour-hazard-roll` resolution (Glamour of Surpassing
- * Excellance, as-49). The resource player rolls 2d6. If the result strictly
- * exceeds `removalThreshold` (the hazard's `removalNumber` or 8 by default),
- * the hazard permanent-event is discarded from the character it is attached to.
- */
-export function applyGlamourHazardRollResolution(
-  state: GameState,
-  action: GameAction,
-  top: PendingResolution,
-): ReducerResult | null {
-  const g = guardRollResolution(state, action, top, 'glamour-hazard-roll', 'glamour-hazard-roll');
-  if (!g.ok) return g.result;
-  const { actorIndex, kind } = g;
-  const { hazardInstanceId, hazardDefinitionId, removalThreshold, sourceDefinitionId } = kind;
-
-  const hazDef = defById(state, hazardDefinitionId);
-  const hazName = hazDef?.name ?? '?';
-  const sourceDef = defById(state, sourceDefinitionId);
-  const sourceName = sourceDef?.name ?? '?';
-
-  const rolled = rollForResolution(state, actorIndex, `${sourceName}: ${hazName} (need > ${removalThreshold})`);
-  const discarded = rolled.total > removalThreshold;
-  logDetail(`${sourceName} glamour roll for ${hazName}: roll ${rolled.total} vs threshold >${removalThreshold} → ${discarded ? 'DISCARD' : 'KEEP'}`);
-
-  let postRoll = dequeueResolution(rolled.state, top.id);
-
-  if (discarded) {
-    // Find the hazard instance attached to any character on either player
-    let foundOwnerIdx = -1;
-    let foundCharId: CardInstanceId | null = null;
-    let foundHazardIdx = -1;
-    for (let oi = 0; oi < postRoll.players.length; oi++) {
-      const chars = postRoll.players[oi].characters;
-      for (const charId of Object.keys(chars) as CardInstanceId[]) {
-        const hIdx = chars[charId].hazards.findIndex(h => h.instanceId === hazardInstanceId);
-        if (hIdx !== -1) { foundOwnerIdx = oi; foundCharId = charId; foundHazardIdx = hIdx; break; }
-      }
-      if (foundOwnerIdx !== -1) break;
-    }
-
-    if (foundOwnerIdx !== -1 && foundCharId !== null) {
-      const haz = postRoll.players[foundOwnerIdx].characters[foundCharId].hazards[foundHazardIdx];
-      const newHazards = postRoll.players[foundOwnerIdx].characters[foundCharId].hazards.filter((_, i) => i !== foundHazardIdx);
-      postRoll = updatePlayer(postRoll, foundOwnerIdx, p =>
-        updateCharacter(p, foundCharId, c => ({ ...c, hazards: newHazards })),
-      );
-      // Discard to hazard owner's discard pile (owner resolved by instance ID prefix in production)
-      const hazOwner = (haz.instanceId as string).split('-')[0];
-      let hazOwnerIdx = postRoll.players.findIndex(p => (p.id as string) === hazOwner);
-      if (hazOwnerIdx === -1) hazOwnerIdx = (actorIndex + 1) % postRoll.players.length;
-      postRoll = updatePlayer(postRoll, hazOwnerIdx, p => ({
-        ...p,
-        discardPile: [...p.discardPile, toCardInstance(haz)],
-      }));
-      logDetail(`${sourceName}: ${hazName} discarded from ${foundCharId}`);
-    }
-  }
-
-  return { state: postRoll, effects: [rolled.rollEffect] };
-}
-
-/**
  * Resolve a `discard-one-company-item` pending resolution.
  *
  * The defending player selects one item from any character in the company
@@ -2231,95 +2079,6 @@ export function applyHazardEventMaintenanceResolution(
   }
 
   return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
-}
-
-/**
- * Resolve a queued `cvcc-ally-discard-roll` resolution (Bow of the Galadhrim, as-68).
- *
- * The attacking player rolls 2d6. If roll > ally.mind + threshold (5),
- * the ally is discarded from the defending company to the ally owner's discard pile.
- */
-export function applyCvccAllyDiscardRollResolution(
-  state: GameState,
-  action: GameAction,
-  top: PendingResolution,
-): ReducerResult | null {
-  const g = guardRollResolution(state, action, top, 'cvcc-ally-discard-roll', 'cvcc-ally-discard-roll');
-  if (!g.ok) return g.result;
-  const { kind } = g;
-  const { allyInstanceId, allyMind, threshold, allyOwnerPlayerIndex } = kind;
-  const bowDef = kind.sourceItemInstanceId
-    ? resolveDef(state, kind.sourceItemInstanceId)
-    : undefined;
-  const bowName = (bowDef as { name?: string })?.name ?? 'Bow of the Galadhrim';
-
-  const allyOwner = state.players[allyOwnerPlayerIndex];
-  if (!allyOwner) {
-    return { state: dequeueResolution(state, top.id), error: 'Ally owner player not found' };
-  }
-
-  // Find the character hosting this ally
-  let hostCharId: string | null = null;
-  let allyName = allyInstanceId as string;
-  for (const [charId, char] of Object.entries(allyOwner.characters)) {
-    const ally = char.allies.find(a => a.instanceId === allyInstanceId);
-    if (ally) {
-      hostCharId = charId;
-      const allyDef = defById(state, ally.definitionId);
-      allyName = (allyDef as { name?: string })?.name ?? allyName;
-      break;
-    }
-  }
-
-  if (hostCharId === null) {
-    logDetail(`${bowName}: ally ${allyName} no longer in play — skipping roll`);
-    return { state: dequeueResolution(state, top.id) };
-  }
-
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const rollTotal = roll.die1 + roll.die2;
-  const discardThreshold = allyMind + threshold;
-  const doDiscard = rollTotal > discardThreshold;
-
-  const rollEffect = diceRollEffect(
-    allyOwner.name,
-    roll,
-    `${bowName}: ${allyName} (roll ${rollTotal} vs mind ${allyMind} + ${threshold} = ${discardThreshold})`,
-  );
-
-  logDetail(`${bowName}: rolled ${rollTotal} for ally "${allyName}" (mind ${allyMind} + ${threshold} = ${discardThreshold}) → ${doDiscard ? 'DISCARD' : 'SURVIVES'}`);
-
-  const stateAfterRoll = updatePlayer(
-    { ...state, rng, cheatRollTotal },
-    allyOwnerPlayerIndex,
-    p => ({ ...p, lastDiceRoll: roll }),
-  );
-
-  let postRoll = dequeueResolution(stateAfterRoll, top.id);
-
-  if (doDiscard) {
-    const hostChar = postRoll.players[allyOwnerPlayerIndex].characters[hostCharId as CardInstanceId];
-    if (hostChar) {
-      const allyCard = hostChar.allies.find(a => a.instanceId === allyInstanceId);
-      if (allyCard) {
-        logDetail(`${bowName}: discarding ally "${allyName}" from character ${hostCharId}`);
-        postRoll = updatePlayer(postRoll, allyOwnerPlayerIndex, p => ({
-          ...p,
-          characters: {
-            ...p.characters,
-             
-            [hostCharId]: {
-              ...hostChar,
-              allies: hostChar.allies.filter(a => a.instanceId !== allyInstanceId),
-            },
-          },
-          discardPile: [...p.discardPile, toCardInstance(allyCard)],
-        }));
-      }
-    }
-  }
-
-  return { state: postRoll, effects: [rollEffect] };
 }
 
 /**
