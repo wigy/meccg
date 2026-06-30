@@ -1128,45 +1128,71 @@ export interface EnqueueRingPlayOfferAction extends TriggeredActionBase {
   readonly excludeCategories?: readonly string[];
 }
 
-/**
- * The verbs not yet migrated to discriminated members. Computed as the
- * complement of the migrated discriminants, so adding a verb to
- * {@link TriggeredActionType} (or migrating one) can never silently leave it
- * matchable as both a member and the catch-all.
- */
-export type LegacyTriggeredActionType = Exclude<
-  TriggeredActionType,
-  | ForceCheckAction['type']
-  | ForceCheckAllCompanyAction['type']
-  | EnqueueCorruptionCheckAction['type']
-  | RollCheckAction['type']
-  | RollThenApplyAction['type']
-  | WinConditionRollAction['type']
-  | WinGameAction['type']
-  | AddConstraintAction['type']
-  | RemoveConstraintAction['type']
-  | SetSitePhaseFlagAction['type']
-  | MoveEffect['type']
-  | DiscardCharacterAction['type']
-  | DiscardTargetCharacterAction['type']
-  | ForceDiscardOneCompanyItemAction['type']
-  | SetCharacterStatusAction['type']
-  | HealTargetCharacterAction['type']
-  | TapOneCharacterAction['type']
-  | PlaceItemOnCharacterAction['type']
-  | RollDiscardOpponentNonUniqueAllyAction['type']
-  | OfferCharJoinAttackAction['type']
-  | OfferResourcePlayAction['type']
-  | OfferRestoreCharacterAction['type']
-  | EnqueuePendingFetchAction['type']
-  | EnqueueRingPlayOfferAction['type']
->;
+/** `sequence` — run an ordered list of sub-applies on the state each produces. Recursive. */
+export interface SequenceAction extends TriggeredActionBase {
+  readonly type: 'sequence';
+  /** The ordered sub-applies. */
+  readonly apps?: readonly TriggeredAction[];
+}
+
+/** `cancel-chain-entry` — negate a chain entry (most-recent unresolved hazard, or a skill-matched target). */
+export interface CancelChainEntryAction extends TriggeredActionBase {
+  readonly type: 'cancel-chain-entry';
+  /** Which entry to negate. */
+  readonly select?: 'most-recent-unresolved-hazard' | 'target';
+  /** For `select: 'target'`: restrict to entries whose source has a matching skill effect. */
+  readonly requiredSkill?: string;
+}
+
+/** `set-company-special-movement` — flag a special-movement mode (Gwaihir flight) on the bearer's company. */
+export interface SetCompanySpecialMovementAction extends TriggeredActionBase {
+  readonly type: 'set-company-special-movement';
+  /** The special-movement mode. */
+  readonly specialMovement?: 'gwaihir';
+}
+
+/** `shuffle-deck-top` — shuffle the top `count` cards of a player's play deck in place. */
+export interface ShuffleDeckTopAction extends TriggeredActionBase {
+  readonly type: 'shuffle-deck-top';
+  /** How many top cards to shuffle (default 5). */
+  readonly count?: number;
+  /** Whose deck — `'source-owner'` (default) or `'opponent'`. */
+  readonly toOwner?: 'source-owner' | 'opponent' | 'defender';
+}
+
+/** `increment-company-extra-region-distance` — add to the bearer's company `extraRegionDistance` (Cram). */
+export interface IncrementCompanyExtraRegionDistanceAction extends TriggeredActionBase {
+  readonly type: 'increment-company-extra-region-distance';
+  /** How much to add. */
+  readonly amount?: number;
+}
+
+/** `modify-current-strike-prowess` — apply a numeric bonus to the current strike's prowess. */
+export interface ModifyCurrentStrikeProwessAction extends TriggeredActionBase {
+  readonly type: 'modify-current-strike-prowess';
+  /** Prowess bonus. */
+  readonly value?: number;
+}
+
+/** `transform-site` — override all versions of the bearer's current site's type, optionally with a bespoke attack (Vile Fumes). */
+export interface TransformSiteAction extends TriggeredActionBase {
+  readonly type: 'transform-site';
+  /** The {@link SiteType} all versions of the site are overridden to. */
+  readonly overrideType?: string;
+  /** The bespoke automatic-attack replacing the site's printed attacks. */
+  readonly attack?: import('./cards-sites.js').BespokeAutoAttack;
+}
+
+/** `untap-site` — untap the bearer's company's current site; type-only marker. */
+export interface UntapSiteAction extends TriggeredActionBase {
+  readonly type: 'untap-site';
+}
 
 /**
- * A triggered effect's apply payload — a recursive discriminated union.
- * Members are migrated out of {@link LegacyTriggeredAction} one family per PR
- * (P05); {@link LegacyTriggeredAction} is the shrinking all-optional catch-all
- * for the verbs not yet discriminated, deleted when the last family migrates.
+ * A triggered effect's apply payload — a fully discriminated, recursive union.
+ * Every verb has its own member interface keyed by the `type` discriminant, so
+ * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
+ * completed: the former all-optional `LegacyTriggeredAction` catch-all is gone.)
  */
 export type TriggeredAction =
   | ForceCheckAction
@@ -1193,118 +1219,14 @@ export type TriggeredAction =
   | OfferRestoreCharacterAction
   | EnqueuePendingFetchAction
   | EnqueueRingPlayOfferAction
-  | LegacyTriggeredAction;
-
-/**
- * All-optional field bag for the {@link LegacyTriggeredActionType} verbs not yet
- * given a discriminated member. The dice-family-only fields (modifier,
- * perOthersItem, label, onSuccess, onFailure, bands, rollModifiers, via) have
- * been pruned now that those verbs are discriminated; `check` / `target` /
- * `threshold` remain because un-migrated verbs (add-constraint,
- * set-character-status, roll-discard-opponent-non-unique-ally) still read them.
- */
-export interface LegacyTriggeredAction extends EffectBase {
-  /**
-   * The verb selecting which triggered action runs; see
-   * {@link TriggeredActionType} for the closed set.
-   *
-   * Supported types include:
-   * - `force-check` — enqueue a single corruption check on the `target` character.
-   * - `force-check-all-company` — enqueue a corruption check on **every** character
-   *   in the attacked company. Used by Corpse-candle under `creature-attack-begins`
-   *   so that all characters make a corruption check before defenders are selected.
-   *   Uses `check` (must be `"corruption"`) and optional `modifier`.
-   * - `offer-char-join-attack` — offer a haven character the option to join the attack.
-   * - `set-site-phase-flag` — under `on-event: self-enters-play`, sets a named
-   *   boolean flag in `SitePhaseState` to `true`. Only fires during the site phase.
-   *   The `flag` field names the `SitePhaseState` key to set (e.g.
-   *   `"hoardBountyAvailable"` for *Bounty of the Hoard*, `"thoroughSearchAvailable"`
-   *   for *Thorough Search*). New "unlock-slot" mechanics only need a new flag name —
-   *   no additional handler code required.
-   * - `shuffle-deck-top` — shuffle the top `count` (default 5) cards of the target
-   *   player's play deck in place, keeping them at the top. `toOwner` selects the
-   *   player: omitted / `"source-owner"` = bearer's player; `"opponent"` = other player.
-   *   Implemented in `reducer-organization.ts` `runGrantApply()`.
-   * (Other types documented inline on their respective fields.)
-   */
-  readonly type: LegacyTriggeredActionType;
-  /**
-   * For `modify-current-strike-prowess` type: numeric bonus applied to the
-   * current strike's prowess.
-   */
-  readonly value?: number;
-  /**
-   * For `set-company-special-movement` type: which special-movement
-   * mode to flag on the bearer's company. The engine's movement code
-   * consults `Company.specialMovement` to alter planning and M/H rules
-   * for Gwaihir-granted flights.
-   */
-  readonly specialMovement?: 'gwaihir';
-  /**
-   * For `transform-site` type: the {@link SiteType} all versions of the
-   * bearer's current site are overridden to (e.g. `"ruins-and-lairs"`).
-   * Applied as an `until-cleared` `attribute-modifier` on `site.type`
-   * filtered by the site's definition ID ("all versions"). Used by
-   * *Vile Fumes* (wh-54).
-   */
-  readonly overrideType?: string;
-  /**
-   * For `transform-site` type: the bespoke automatic-attack that
-   * replaces the transformed site's printed attacks (via a
-   * `replace-automatic-attacks` constraint). Used by *Vile Fumes*
-   * (wh-54): "Gas—each character faces 1 strike with 7 prowess (cannot
-   * be canceled)".
-   */
-  readonly attack?: import('./cards-sites.js').BespokeAutoAttack;
-  /**
-   * For `increment-company-extra-region-distance` type: how much to
-   * add to the bearer's company `extraRegionDistance`. Movement code
-   * reads this counter when computing the maximum region path length
-   * for the turn (e.g. Cram adds 1).
-   */
-  readonly amount?: number;
-  /**
-   * For `sequence` type: the ordered list of sub-applies to run. Each
-   * runs on the character state produced by the previous, and all
-   * side-effects (constraints, pending resolutions, dice rolls) are
-   * concatenated in declaration order.
-   */
-  readonly apps?: readonly TriggeredAction[];
-  /**
-   * For `cancel-chain-entry` type: which chain entry to negate.
-   *  - `most-recent-unresolved-hazard`: the latest unresolved hazard
-   *    entry (hazard-creature or hazard-event) in the chain. Used by
-   *    Great Ship.
-   *  - `target`: the chain entry whose card matches the enclosing
-   *    short-event's `targetInstanceId`. Used by Searching Eye — the
-   *    emitter filters valid targets to entries whose source card has
-   *    an effect matching {@link TriggeredAction.requiredSkill}.
-   *
-   * For `remove-constraint` type: which constraint(s) to remove.
-   *  - `constraint-source`: remove every active constraint whose
-   *    `source` matches the action's `sourceCardId` (i.e. the source
-   *    card's constraints get swept). Used by River.
-   */
-  readonly select?:
-    | 'most-recent-unresolved-hazard'
-    | 'constraint-source'
-    | 'self'
-    | 'target'
-    | 'filter-all'
-    | 'named';
-  /**
-   * For `cancel-chain-entry` with `select: 'target'`: restrict valid
-   * targets to chain entries whose source card has at least one effect
-   * carrying a matching `requiredSkill` (e.g. Searching Eye matches
-   * `"scout"` to cancel Concealment / A Nice Place to Hide / Stealth
-   * chain entries).
-   */
-  readonly requiredSkill?: string;
-  /** For `shuffle-deck-top` type: how many top cards to shuffle (default 5). */
-  readonly count?: number;
-  /** For `shuffle-deck-top` type: whose deck — `'source-owner'` (default) or `'opponent'`. */
-  readonly toOwner?: 'source-owner' | 'opponent' | 'defender';
-}
+  | SequenceAction
+  | CancelChainEntryAction
+  | SetCompanySpecialMovementAction
+  | ShuffleDeckTopAction
+  | IncrementCompanyExtraRegionDistanceAction
+  | ModifyCurrentStrikeProwessAction
+  | TransformSiteAction
+  | UntapSiteAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`

@@ -176,7 +176,7 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
     const effects = (hazDef as { effects?: readonly CardEffect[] }).effects ?? [];
 
     const cancelEffect = effects.find(
-      (e): e is OnEventEffect & { apply: import('../../types/effects.js').LegacyTriggeredAction } =>
+      (e): e is OnEventEffect & { apply: import('../../types/effects.js').CancelChainEntryAction } =>
         e.type === 'on-event'
         && e.event === 'self-enters-play'
         && e.apply?.type === 'cancel-chain-entry'
