@@ -1417,20 +1417,22 @@ function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
 
   logDetail(`Long event resolves: "${def?.name ?? card.definitionId}" enters play for player ${entry.declaredBy as string}`);
 
-  // Add card to cardsInPlay
-  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
-  newPlayers[playerIndex] = {
-    ...newPlayers[playerIndex],
-    cardsInPlay: [...newPlayers[playerIndex].cardsInPlay, {
-      instanceId: card.instanceId,
-      definitionId: card.definitionId,
-      status: CardStatus.Untapped,
-    }],
-  };
+  // The resolving card lives only on the chain entry; route it into play via
+  // the move primitive (`from: 'chain'` → `in-play-general`), the same path a
+  // general permanent event uses. Equivalent to the former inline cardsInPlay
+  // push, but the placement now lives in one place (reducer-move's pushOne).
+  const moved = applyMove(state, { type: 'move', select: 'self', from: 'chain', to: 'in-play-general' }, {
+    sourceCardId: card.instanceId,
+    sourcePlayerIndex: playerIndex,
+    chainCard: toCardInstance(card),
+  });
+  const afterPlay = 'error' in moved
+    ? (logDetail(`Long event enters-play move failed (${moved.error}) — card not placed`), state)
+    : moved.state;
 
   // Apply any tap-sites-in-play clause now that the environment is in play
   // (e.g. Foul Fumes / Long Winter "if Doors of Night is in play, ... tapped").
-  return applyTapSitesInPlayOnResolve({ ...state, players: newPlayers }, def);
+  return applyTapSitesInPlayOnResolve(afterPlay, def);
 }
 
 /**
