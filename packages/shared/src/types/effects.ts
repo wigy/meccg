@@ -1039,6 +1039,46 @@ export interface ForceDiscardOneCompanyItemAction extends TriggeredActionBase {
 }
 
 /**
+ * `set-character-status` — set the target character's status. Distinct from
+ * the {@link SetCharacterStatusEffect} card-effect (which requires `status`):
+ * as a triggered apply, `status` may be omitted (some handlers default to
+ * `inverted` / error per their context).
+ */
+export interface SetCharacterStatusAction extends TriggeredActionBase {
+  readonly type: 'set-character-status';
+  /** New status; omitted at some sites (default/error is context-specific). */
+  readonly status?: 'untapped' | 'tapped' | 'inverted';
+  /** Selector for which character (`'bearer'` / `'target-character'` / `'target-instance'`). */
+  readonly target?: string;
+}
+
+/** `heal-target-character` — heal the target character one step (wounded → tapped); type-only marker. */
+export interface HealTargetCharacterAction extends TriggeredActionBase {
+  readonly type: 'heal-target-character';
+}
+
+/** `tap-one-character` — enqueue a "tap one character in the company" resolution; type-only marker. */
+export interface TapOneCharacterAction extends TriggeredActionBase {
+  readonly type: 'tap-one-character';
+}
+
+/** `place-item-on-character` — tap the bearer to place a fetched item on a chosen character (The Forge-master). */
+export interface PlaceItemOnCharacterAction extends TriggeredActionBase {
+  readonly type: 'place-item-on-character';
+  /** Piles the item may be fetched from (default discard-pile/sideboard/hand). */
+  readonly fetchFrom?: readonly ('discard-pile' | 'deck' | 'hand' | 'sideboard')[];
+  /** Restricts which items qualify. */
+  readonly filter?: Condition;
+}
+
+/** `roll-discard-opponent-non-unique-ally` — roll 2d6 ≥ threshold to discard a non-unique ally (CvCC pre-strike). */
+export interface RollDiscardOpponentNonUniqueAllyAction extends TriggeredActionBase {
+  readonly type: 'roll-discard-opponent-non-unique-ally';
+  /** 2d6 total at or above which the discard happens (default 5). */
+  readonly threshold?: number;
+}
+
+/**
  * The verbs not yet migrated to discriminated members. Computed as the
  * complement of the migrated discriminants, so adding a verb to
  * {@link TriggeredActionType} (or migrating one) can never silently leave it
@@ -1060,6 +1100,11 @@ export type LegacyTriggeredActionType = Exclude<
   | DiscardCharacterAction['type']
   | DiscardTargetCharacterAction['type']
   | ForceDiscardOneCompanyItemAction['type']
+  | SetCharacterStatusAction['type']
+  | HealTargetCharacterAction['type']
+  | TapOneCharacterAction['type']
+  | PlaceItemOnCharacterAction['type']
+  | RollDiscardOpponentNonUniqueAllyAction['type']
 >;
 
 /**
@@ -1083,6 +1128,11 @@ export type TriggeredAction =
   | DiscardCharacterAction
   | DiscardTargetCharacterAction
   | ForceDiscardOneCompanyItemAction
+  | SetCharacterStatusAction
+  | HealTargetCharacterAction
+  | TapOneCharacterAction
+  | PlaceItemOnCharacterAction
+  | RollDiscardOpponentNonUniqueAllyAction
   | LegacyTriggeredAction;
 
 /**
@@ -1134,24 +1184,6 @@ export interface LegacyTriggeredAction extends EffectBase {
    * company (e.g. Orc-draughts: `+1`).
    */
   readonly value?: number;
-  /**
-   * For `set-character-status` type: the new status for the target
-   * character (e.g. `"untapped"` to untap or heal).
-   */
-  readonly status?: 'untapped' | 'tapped' | 'inverted';
-  /**
-   * Selector for which entity the apply acts on. Interpretation is
-   * context-specific — for `grant-action` applies, `"bearer"` means the
-   * character holding the source card. Absent selectors fall back to
-   * the enclosing effect's implicit target.
-   */
-  readonly target?: string;
-  /**
-   * For `roll-discard-opponent-non-unique-ally` type: the 2d6 total at or above
-   * which the discard happens. (`roll-then-apply`, which also reads `threshold`,
-   * is a discriminated member.)
-   */
-  readonly threshold?: number;
   /**
    * For `set-company-special-movement` type: which special-movement
    * mode to flag on the bearer's company. The engine's movement code
