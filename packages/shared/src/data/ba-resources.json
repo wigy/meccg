@@ -28,6 +28,11 @@
         }
       },
       {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
+      {
         "type": "on-event",
         "event": "self-enters-play",
         "apply": {
@@ -47,7 +52,8 @@
             },
             {
               "lte": 10,
-              "outcome": "keep"
+              "outcome": "gain-mp",
+              "mp": 2
             },
             {
               "gt": 10,

@@ -976,6 +976,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   }
 
+  // MEBA: one-time bonus misc MP (Challenge the Power 9–10 band) is held on the
+  // player rather than on a card in play, so fold it into the misc tally here.
+  if (player.bonusMiscMarshallingPoints) {
+    mp = { ...mp, misc: mp.misc + player.bonusMiscMarshallingPoints };
+  }
+
   // MEAS §6e: callable totals = full tally minus Under-deeps company-held MPs.
   // Reuse the `mp` reference when nothing is excluded (the common case) so the
   // no-allocation fast path below still holds.
