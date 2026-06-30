@@ -1,0 +1,845 @@
+/**
+ * @module combat-strike
+ *
+ * The strike-resolution core of a combat: resolving individual strikes
+ * (`resolveStrikeCore`, `resolveStrikeCvCC`), the `handleResolveStrike` action
+ * handler, strike-phase advancement (`nextStrikePhase`), combatant elimination
+ * (`eliminateCombatantFromStrike`), follower pruning (`pruneLeaderFollowers`),
+ * the creature prowess delta and character-status update helpers. Extracted
+ * from `reducer-combat.ts` as the full, provably-closed transitive closure of
+ * `handleResolveStrike`/`resolveStrikeCore` — it calls no other `reducer-combat`
+ * function. `reducer-combat` imports the entry points it still dispatches
+ * one-way from here; this module imports only shared leaves plus `finalizeCombat`
+ * (combat-finalize) and the `combat-hazard-play` helpers (also one-way), so no
+ * cycle forms.
+ *
+ * Pure relocation: the logic is unchanged from its previous home.
+ */
+
+import type { GameState, CombatState, GameAction, GameEffect, CardInstanceId, CardDefinition } from '../index.js';
+import type { PlayerState } from '../types/state-player.js';
+import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
+import type { ReducerResult } from './reducer-utils.js';
+import type { AbsorbWoundEffect } from '../types/effects.js';
+import { formatSignedNumber } from '../format-helpers.js';
+import { getPlayerIndex } from '../state-utils.js';
+import { isCharacterCard } from '../types/cards.js';
+import { CardStatus } from '../types/common.js';
+import { matchesContext } from '../effects/condition-matcher.js';
+import { logDetail } from './legal-actions/log.js';
+import { findAllyInCompany } from './legal-actions/combat.js';
+import { allyEffectiveProwess } from './ally-stats.js';
+import { resolveInstanceId } from '../types/state.js';
+import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, roll2d6, toCardInstance, wrongActionType } from './reducer-utils.js';
+import { defenderAlignmentLabel } from './detainment.js';
+import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
+import { findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
+import { finalizeCombat } from './combat-finalize.js';
+
+/**
+ * When a follower character leaves play, removes their ID from their leader's
+ * followers list. This prevents stale follower references after elimination.
+ */
+export function pruneLeaderFollowers(
+  chars: Record<string, CharacterInPlay>,
+  eliminatedId: CardInstanceId,
+  controlledBy: 'general' | CardInstanceId,
+): Record<string, CharacterInPlay> {
+  if (controlledBy === 'general') return chars;
+  const leaderId = controlledBy as string;
+  const leader = chars[leaderId];
+  if (!leader) return chars;
+  return { ...chars, [leaderId]: { ...leader, followers: leader.followers.filter(f => f !== eliminatedId) } };
+}
+
+/**
+ * Dispatch a combat action to the appropriate handler based on the
+ * current combat sub-phase.
+ */
+/**
+ * Compute the next combat phase after all strikes are assigned or a strike finishes resolving.
+ * If multiple unresolved strikes remain, enters choose-strike-order so the defender picks.
+ * If exactly one remains, auto-selects it and goes to resolve-strike.
+ * Returns null if all strikes are resolved (caller should finalize combat).
+ */
+export function nextStrikePhase(combat: CombatState): Partial<CombatState> | null {
+  const unresolvedIndices: number[] = [];
+  for (let i = 0; i < combat.strikeAssignments.length; i++) {
+    if (!combat.strikeAssignments[i].resolved) unresolvedIndices.push(i);
+  }
+  if (unresolvedIndices.length === 0) return null;
+  if (unresolvedIndices.length === 1) {
+    logDetail(`One unresolved strike remaining (index ${unresolvedIndices[0]}) — auto-selecting`);
+    // Reset the attacker's Step 1 window and agent roll for the new strike sequence.
+    return { phase: 'resolve-strike', currentStrikeIndex: unresolvedIndices[0], bodyCheckTarget: null, attackerStep1Done: false, agentRollTotal: undefined };
+  }
+  logDetail(`${unresolvedIndices.length} unresolved strikes — defender chooses order`);
+  return { phase: 'choose-strike-order', bodyCheckTarget: null };
+}
+
+/**
+ * Computes the per-strike prowess adjustment a creature gains against the
+ * specific defending character based on its own `stat-modifier` self-effects
+ * that are gated on the defender's race (e.g. Old Man Willow's "15 prowess
+ * against Hobbits", encoded as `+2 when defender.race = hobbit`).
+ *
+ * Such modifiers cannot be folded into `combat.strikeProwess` at combat
+ * initiation: the struck character — and therefore its race — is not known
+ * until strike assignment. The defending company's *alignment* IS known at
+ * initiation, so alignment-gated self-modifiers (e.g. Elf-lord Revealed in
+ * Wrath's "+4 vs Ringwraith") are already baked into `strikeProwess`. To avoid
+ * double-counting them, a modifier contributes here only when it matches the
+ * struck character's race context but did NOT already match the race-less
+ * (initiation-equivalent) context.
+ *
+ * Returns the extra prowess for this strike (0 when the source is not a
+ * creature hazard, or no defender-race-gated modifier matches).
+ */
+export function creatureDefenderProwessDelta(
+  state: GameState,
+  combat: CombatState,
+  charDef: CardDefinition | undefined,
+): number {
+  if (combat.attackSource.type !== 'creature') return 0;
+  if (!charDef || !isCharacterCard(charDef)) return 0;
+  const creatureDefId = resolveInstanceId(state, combat.attackSource.instanceId);
+  const creatureDef = creatureDefId ? defById(state, creatureDefId) : undefined;
+  if (!creatureDef) return 0;
+  const effects = getCardEffects(creatureDef);
+  if (!effects.length) return 0;
+
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defenderAlignment = defenderAlignmentLabel(state.players[defPlayerIndex].alignment);
+  const enemy = { race: combat.creatureRace ?? '', name: creatureDef.name ?? '', prowess: combat.strikeProwess, body: combat.creatureBody };
+  // Race-less context mirrors what was available at combat initiation: the
+  // defending company's alignment is known, an individual character's race is not.
+  const baseCtx = {
+    reason: 'combat' as const,
+    inPlay: buildInPlayNames(state),
+    enemy,
+    defender: { alignment: defenderAlignment },
+  };
+  // Context augmented with the struck character's race.
+  const raceCtx = { ...baseCtx, defender: { alignment: defenderAlignment, race: charDef.race } };
+
+  let delta = 0;
+  for (const effect of effects) {
+    if (effect.type !== 'stat-modifier' || effect.stat !== 'prowess') continue;
+    if (effect.target) continue; // company/all-* scoped modifiers are not the creature's own strike bonus
+    if (!effect.when) continue; // unconditional modifiers are already in strikeProwess
+    if (typeof effect.value !== 'number') continue;
+    if (matchesContext(effect.when, raceCtx) && !matchesContext(effect.when, baseCtx)) {
+      delta += effect.value;
+      logDetail(`Creature "${creatureDef.name}" prowess ${formatSignedNumber(effect.value)} against ${charDef.race}${charDef.name ? ` (${charDef.name})` : ''}`);
+    }
+  }
+  return delta;
+}
+
+/**
+ * Core strike resolution shared by `resolve-strike`, `play-dodge`, and
+ * `play-reroll-strike`.
+ *
+ * Rolls 2d6 + prowess vs strike prowess, determines the outcome, applies
+ * tap/wound to the character or ally, and advances combat to body-check or
+ * the next strike. The four resolution modes differ only in:
+ * - prowess modifier (stay-untapped takes -3; tap, dodge, and reroll are full)
+ * - whether the character taps on success/tie (reroll taps like tap mode)
+ * - dodge adds a body penalty for the resulting body check
+ * - reroll makes two 2d6 rolls and keeps the better total
+ *
+ * `preAppliedDefender` lets callers pre-mutate the defender (e.g. dodge
+ * discards a card from hand before resolving); this must NOT alter
+ * characters or companies, only piles.
+ */
+export function resolveStrikeCore(
+  state: GameState,
+  combat: CombatState,
+  mode: 'tap' | 'untap' | 'dodge' | 'reroll',
+  dodgeBodyPenalty: number,
+  preAppliedDefender: PlayerState | null,
+): ReducerResult {
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!strike || strike.resolved) return { state, error: 'Current strike already resolved' };
+
+  // Look up combatant stats — may be a character or an ally (CoE rule 2.V.2.2)
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = preAppliedDefender ?? state.players[defPlayerIndex];
+  const charData = defPlayer.characters[strike.characterId];
+  const company = companyById(defPlayer.companies, combat.companyId);
+  const allyMatch = !charData && company
+    ? findAllyInCompany(defPlayer, company.characters, strike.characterId)
+    : undefined;
+  if (!charData && !allyMatch) return { state, error: 'Character not found' };
+
+  const targetDefId = charData?.definitionId ?? allyMatch!.ally.definitionId;
+  const targetStatus = charData?.status ?? allyMatch!.ally.status;
+  const charDef = defById(state, targetDefId);
+
+  // Compute effective prowess
+  let prowess: number;
+  if (combat.defenderProwessFromMind && !allyMatch && charDef && isCharacterCard(charDef) && charDef.mind !== null) {
+    // Neeker-breekers: use the character's mind attribute as base prowess
+    prowess = charDef.mind;
+    logDetail(`Defender prowess from mind: ${charDef.mind} (${charDef.name ?? targetDefId as string})`);
+  } else if (allyMatch) {
+    prowess = allyEffectiveProwess(state, allyMatch.ally);
+  } else if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
+    prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace);
+  } else {
+    prowess = charData.effectiveStats.prowess;
+  }
+  if (mode === 'untap') prowess -= 3; // Stay untapped penalty
+  if (targetStatus === CardStatus.Tapped) prowess -= 1;
+  if (targetStatus === CardStatus.Inverted) prowess -= 2; // Wounded
+  if (strike.excessStrikes > 0) prowess -= strike.excessStrikes;
+  const supportBonus = strike.supportCount ?? 0;
+  prowess += supportBonus; // CoE rule 3.iv.4: +1 per supporting character/ally
+  const modifyStrikeBonus = strike.strikeProwessBonus ?? 0;
+  if (modifyStrikeBonus !== 0) {
+    logDetail(`Strike event prowess modifier: ${formatSignedNumber(modifyStrikeBonus)}`);
+    prowess += modifyStrikeBonus;
+  }
+
+  // Roll dice. Reroll mode makes two rolls and keeps the better total; the
+  // discarded roll is logged and emitted as an effect so both rolls appear
+  // in history.
+  let roll;
+  let rng;
+  let cheatRollTotal;
+  const rollLabel = mode === 'dodge' ? 'Strike (dodge)' : mode === 'reroll' ? 'Strike (reroll)' : 'Strike';
+  const charLabel = charDef?.name ?? (targetDefId as string);
+  const effects: GameEffect[] = [];
+
+  if (mode === 'reroll') {
+    const r1 = roll2d6(state);
+    const r2 = roll2d6({ ...state, rng: r1.rng, cheatRollTotal: r1.cheatRollTotal });
+    const t1 = r1.roll.die1 + r1.roll.die2;
+    const t2 = r2.roll.die1 + r2.roll.die2;
+    const firstBetter = t1 >= t2;
+    const kept = firstBetter ? r1 : r2;
+    const discarded = firstBetter ? r2 : r1;
+    roll = kept.roll;
+    rng = r2.rng;
+    cheatRollTotal = r2.cheatRollTotal;
+    logDetail(`${rollLabel}: rolled ${r1.roll.die1}+${r1.roll.die2}=${t1} and ${r2.roll.die1}+${r2.roll.die2}=${t2} → keeping ${kept.roll.die1}+${kept.roll.die2}=${kept.roll.die1 + kept.roll.die2}`);
+    effects.push(diceRollEffect(defPlayer.name, discarded.roll, `${rollLabel} (discarded): ${charLabel}`));
+    effects.push(diceRollEffect(defPlayer.name, kept.roll, `${rollLabel}: ${charLabel}`));
+  } else {
+    const single = roll2d6(state);
+    roll = single.roll;
+    rng = single.rng;
+    cheatRollTotal = single.cheatRollTotal;
+    effects.push(diceRollEffect(defPlayer.name, roll, `${rollLabel}: ${charLabel}`));
+  }
+
+  const rollTotal = roll.die1 + roll.die2;
+  const characterTotal = rollTotal + prowess;
+  // For agent attacks, compare against the agent's rolled total (rule 3.iv.6.1).
+  // A creature may gain prowess against the specific character it strikes
+  // (e.g. Old Man Willow's "15 prowess against Hobbits"). This depends on the
+  // defender's race, unknown until now, so it is applied per strike here.
+  const defenderProwessDelta = combat.attackSource.type === 'agent' ? 0 : creatureDefenderProwessDelta(state, combat, charDef);
+  const effectiveProwess = (combat.attackSource.type === 'agent' && combat.agentRollTotal !== undefined
+    ? combat.agentRollTotal
+    : combat.strikeProwess) + defenderProwessDelta;
+  logDetail(`${rollLabel} resolution: ${targetDefId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs ${combat.attackSource.type === 'agent' ? `agent roll ${effectiveProwess}` : `creature prowess ${effectiveProwess}`}`);
+
+  // Determine outcome
+  let result: 'success' | 'wounded' | 'eliminated';
+  let bodyCheckTarget: 'character' | 'creature' | null = null;
+  if (characterTotal > effectiveProwess) {
+    result = 'success';
+    if (combat.creatureBody !== null) bodyCheckTarget = 'creature';
+    logDetail(`Character defeats strike — ${bodyCheckTarget ? 'body check vs creature' : 'creature has no body'}`);
+  } else if (characterTotal < effectiveProwess) {
+    result = 'wounded';
+    if (combat.detainment) {
+      logDetail('Strike succeeds — detainment: character tapped, no body check');
+    } else {
+      bodyCheckTarget = 'character';
+      logDetail('Strike succeeds — character wounded, body check vs character');
+    }
+  } else {
+    result = 'success';
+    logDetail(`Tie — ineffectual${mode === 'dodge' ? ' (dodge: no tap)' : ', character taps'}`);
+  }
+
+  // An Article Missing (dm-43): on a successful agent strike the defender is not
+  // wounded; the company must instead discard one item of their choice.
+  const discardItemEffect = result === 'wounded' && !combat.detainment && combat.strikeEffect === 'discard-item';
+  if (discardItemEffect) {
+    logDetail('An Article Missing: successful strike — character not wounded; company must discard one item');
+    result = 'success';
+    bodyCheckTarget = null;
+  }
+
+  // take-prisoner (e.g. Flies and Spiders dm-58): if the strike succeeds
+  // against a character (not an ally) who has a hazard with a take-prisoner
+  // effect, the character is taken prisoner instead of wounded.
+  // Rule 8.35: allies cannot be taken prisoner — this only fires for characters.
+  const takePrisonerResult = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && charData
+    ? findTakePrisonerHazard(state, defPlayerIndex, charData.hazards)
+    : null;
+
+  // Troll-purse (dm-95): a successful strike from a re-faced automatic-attack
+  // takes the character prisoner at the bound site instead of wounding. Carried
+  // on the combat as `trollPursePrisoner` (set by buildSiteReFaceCombat).
+  const trollPursePrisoner = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && !takePrisonerResult && charData
+    ? combat.trollPursePrisoner ?? null
+    : null;
+
+  // absorb-wound (e.g. Sable Shield le-341): if a successful strike would wound
+  // the bearer (not an ally, not detainment, not already handled), check if any
+  // item on the character has an absorb-wound effect. If so, the wound is
+  // prevented; the combat transitions to shield-discard-roll so the attacker
+  // rolls to determine whether the shield is discarded.
+  const absorbWoundItem = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && !takePrisonerResult && !trollPursePrisoner && charData
+    ? charData.items.find(item => {
+        const def = state.cardPool[item.definitionId] as { effects?: readonly AbsorbWoundEffect[] } | undefined;
+        return (def?.effects ?? []).some(e => e.type === 'absorb-wound');
+      })
+    : null;
+
+  if (absorbWoundItem) {
+    logDetail(`absorb-wound: ${absorbWoundItem.instanceId as string} absorbs strike — ${strike.characterId as string} not wounded`);
+    // Use 'success' locally so the character taps (not wounds) in the status
+    // application block below. The assignment records 'absorbed' so finalizeCombat
+    // does not count this as a creature defeat.
+    result = 'success';
+    bodyCheckTarget = null;
+  }
+
+  // Whether the combatant taps on a non-wounded outcome:
+  //  - tap:    always (success or tie)
+  //  - reroll: always (same as tap)
+  //  - untap:  only on tie
+  //  - dodge:  never
+  const tapOnNonWounded =
+    mode === 'tap' ||
+    mode === 'reroll' ||
+    (mode === 'untap' && characterTotal === effectiveProwess);
+
+  // Record strike assignment. Dodge tags the strike so the body check picks
+  // up the body penalty (CoE rule 3.I +1 for already-wounded still applies).
+  // absorb-wound: record 'absorbed' (not 'success') so finalizeCombat does not
+  // treat the absorb as a creature defeat.
+  const wasAlreadyWounded = targetStatus === CardStatus.Inverted;
+  const assignmentResult = absorbWoundItem ? ('absorbed' as const) : result;
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex
+      ? {
+          ...a,
+          resolved: true,
+          result: assignmentResult,
+          wasAlreadyWounded,
+          ...(mode === 'dodge' ? { dodged: true, dodgeBodyPenalty } : {}),
+        }
+      : a,
+  );
+
+  // wound-eliminates (Shelob's Lair spider, le-402): a wound dealt by this
+  // attack eliminates the combatant immediately — no body check. Effects that
+  // replace the wound entirely (absorb-wound and discard-item set result to
+  // 'success'; take-prisoner is excluded explicitly) were handled above, so
+  // only a genuine wound reaches here. Detainment strikes tap, never wound.
+  if (combat.woundEliminates && result === 'wounded' && !combat.detainment && !takePrisonerResult && !trollPursePrisoner) {
+    logDetail(`wound-eliminates: ${strike.characterId as string} wounded by ${combat.creatureRace ?? 'attack'} — immediately eliminated (no body check)`);
+    return eliminateCombatantFromStrike(
+      { ...state, rng, cheatRollTotal },
+      { ...combat, strikeAssignments: newAssignments },
+      effects,
+    );
+  }
+
+  // Apply tap/wound to character or ally
+  const newPlayers = clonePlayers(state);
+  if (preAppliedDefender) newPlayers[defPlayerIndex] = preAppliedDefender;
+  const workingDefender = newPlayers[defPlayerIndex];
+  const newCharacters = { ...workingDefender.characters };
+
+  if (allyMatch) {
+    const hostChar = newCharacters[allyMatch.hostCharId];
+    if (hostChar) {
+      let newAllyStatus = allyMatch.ally.status;
+      if (tapOnNonWounded && newAllyStatus === CardStatus.Untapped) {
+        newAllyStatus = CardStatus.Tapped;
+      }
+      if (result === 'wounded' && !combat.detainment) {
+        newAllyStatus = CardStatus.Inverted;
+      } else if (result === 'wounded' && combat.detainment) {
+        newAllyStatus = CardStatus.Tapped;
+      }
+      const newAllies = hostChar.allies.map(a =>
+        a.instanceId === strike.characterId ? { ...a, status: newAllyStatus } : a,
+      );
+      newCharacters[allyMatch.hostCharId] = { ...hostChar, allies: newAllies };
+    }
+  } else {
+    if (takePrisonerResult || trollPursePrisoner) {
+      // take-prisoner: character is not wounded; instead they become a prisoner.
+      // Status stays as-is (not tapped, not wounded). Rule 8.35.
+      const captor = takePrisonerResult?.hostCard.instanceId ?? trollPursePrisoner?.hostInstanceId;
+      logDetail(`take-prisoner: ${strike.characterId as string} is taken prisoner by ${captor as string}`);
+    } else {
+      if (tapOnNonWounded && charData.status === CardStatus.Untapped) {
+        newCharacters[strike.characterId] = { ...charData, status: CardStatus.Tapped };
+      }
+      if (result === 'wounded' && !combat.detainment) {
+        newCharacters[strike.characterId] = {
+          ...(newCharacters[strike.characterId] ?? charData),
+          status: CardStatus.Inverted,
+        };
+      } else if (result === 'wounded' && combat.detainment) {
+        newCharacters[strike.characterId] = {
+          ...(newCharacters[strike.characterId] ?? charData),
+          status: CardStatus.Tapped,
+        };
+      }
+
+      // tap-low-mind (e.g. Wisp of Pale Sheen dm-113): "Any character facing a
+      // strike whose mind is equal to or lower than the strike's prowess must
+      // tap if untapped following the strike." Applies to characters (not
+      // allies) regardless of strike outcome; wounded characters are now
+      // inverted (not untapped) so are unaffected, as are avatars (mind null).
+      if (combat.tapLowMindAfterStrike && charDef && isCharacterCard(charDef) && charDef.mind !== null) {
+        const finalChar = newCharacters[strike.characterId] ?? charData;
+        if (charDef.mind <= combat.strikeProwess && finalChar.status === CardStatus.Untapped) {
+          logDetail(`tap-low-mind: ${charLabel} mind ${charDef.mind} ≤ strike prowess ${combat.strikeProwess} — tapping following the strike`);
+          newCharacters[strike.characterId] = { ...finalChar, status: CardStatus.Tapped };
+        }
+      }
+    }
+  }
+  newPlayers[defPlayerIndex] = { ...workingDefender, characters: newCharacters, lastDiceRoll: roll };
+
+  // Apply prisoner-taking: discard non-ring items, revert followers to GI,
+  // add character-is-prisoner constraint, create HazardHost record.
+  let postPrisonerState: GameState = { ...state, players: newPlayers, rng, cheatRollTotal };
+
+  if (takePrisonerResult && charData) {
+    postPrisonerState = applyTakePrisoner(
+      postPrisonerState,
+      defPlayerIndex,
+      strike.characterId,
+      takePrisonerResult,
+    );
+    // Override result and bodyCheckTarget: prisoner-taking skips wound/body-check
+    bodyCheckTarget = null;
+  } else if (trollPursePrisoner && charData) {
+    postPrisonerState = applyTakePrisonerAtSite(
+      postPrisonerState,
+      defPlayerIndex,
+      strike.characterId,
+      trollPursePrisoner.hostInstanceId,
+      trollPursePrisoner.siteInstanceId,
+    );
+    bodyCheckTarget = null;
+  }
+
+  // absorb-wound: shield absorbed the strike; transition to shield-discard-roll
+  // so the attacking player rolls to determine if the shield is discarded.
+  if (absorbWoundItem) {
+    const combatWithShieldRoll: CombatState = {
+      ...combat,
+      strikeAssignments: newAssignments,
+      phase: 'shield-discard-roll',
+      shieldAbsorbItemId: absorbWoundItem.instanceId,
+    };
+    return { state: { ...postPrisonerState, combat: combatWithShieldRoll }, effects };
+  }
+
+  // Advance combat: body check, next strike, or finalize
+  let newCombat: CombatState;
+  if (bodyCheckTarget) {
+    newCombat = { ...combat, strikeAssignments: newAssignments, phase: 'body-check', bodyCheckTarget };
+    return { state: { ...postPrisonerState, combat: newCombat }, effects };
+  } else {
+    const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
+
+    // An Article Missing: enter discard-item-from-company phase so the defender
+    // must choose one item to discard before combat continues.
+    if (discardItemEffect) {
+      const companyCharIds = company?.characters ?? [];
+      const allItems: ItemInPlay[] = companyCharIds.flatMap(charId => {
+        const ch = newPlayers[defPlayerIndex].characters[charId];
+        return ch ? [...ch.items] : [];
+      });
+      if (allItems.length > 0) {
+        logDetail(`Entering discard-item-from-company phase: ${allItems.length} item(s) available`);
+        newCombat = { ...combatWithAssignments, phase: 'discard-item-from-company', discardItemOptions: allItems };
+        return { state: { ...postPrisonerState, combat: newCombat }, effects };
+      }
+      logDetail('An Article Missing: no items in company — discard-item effect skipped');
+    }
+
+    const next = nextStrikePhase(combatWithAssignments);
+    if (!next) {
+      return finalizeCombat({ ...postPrisonerState, combat: combatWithAssignments }, effects);
+    }
+    newCombat = { ...combatWithAssignments, ...next };
+  }
+
+  return {
+    state: { ...postPrisonerState, combat: newCombat },
+    effects,
+  };
+}
+
+/**
+ * Eliminate the combatant (character or ally) targeted by the current strike,
+ * regardless of any body check. Shared by the failed-body-check path
+ * (`effectiveRoll > body`) and by "immediate elimination" attack rules such as
+ * the Spider at Shelob's Lair (le-402, `wound-eliminates`). Per CoE rule 3.i.5
+ * any remaining unresolved strikes against the same combatant auto-resolve as
+ * successful; per CoE rule 3.I.2 each unwounded companion may salvage one of the
+ * eliminated character's items. Allies are eliminated to the out-of-play pile
+ * (CoE 2.V.2.2); their host's other cards are untouched.
+ *
+ * The current strike assignment is marked `'eliminated'`; the caller is
+ * responsible for having already recorded it as `resolved` if needed.
+ *
+ * @param state - Current game state. For body checks this is the post-roll
+ *   state; for immediate elimination it is the post-strike state.
+ * @param combat - The active combat state (its `strikeAssignments` are rewritten).
+ * @param effects - Accumulated game effects (e.g. dice rolls) to thread through.
+ */
+export function eliminateCombatantFromStrike(
+  state: GameState,
+  combat: CombatState,
+  effects: GameEffect[],
+): ReducerResult {
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  const charData = defPlayer.characters[strike.characterId];
+  const company = companyById(defPlayer.companies, combat.companyId);
+  const allyMatch = !charData && company
+    ? findAllyInCompany(defPlayer, company.characters, strike.characterId)
+    : undefined;
+
+  // Per CoE rule 3.i.5: remaining unresolved strikes assigned to the same
+  // combatant are considered successful (defeated by the defender).
+  const newAssignments = combat.strikeAssignments.map((a, i) => {
+    if (i === combat.currentStrikeIndex) return { ...a, resolved: true, result: 'eliminated' as const };
+    if (!a.resolved && a.characterId === strike.characterId) {
+      logDetail(`Strike ${i} auto-resolved as successful (eliminated combatant, CoE 3.i.5)`);
+      return { ...a, resolved: true, result: 'success' as const };
+    }
+    return a;
+  });
+
+  const newPlayers2 = clonePlayers(state);
+  const newPlayerData = { ...defPlayer };
+  const combatWithElim = { ...combat, strikeAssignments: newAssignments };
+
+  if (allyMatch) {
+    // Ally eliminated — remove from host character and send to eliminated pile.
+    const hostChar = newPlayerData.characters[allyMatch.hostCharId];
+    if (hostChar) {
+      const newAllies = hostChar.allies.filter(a => a.instanceId !== strike.characterId);
+      newPlayerData.characters = {
+        ...newPlayerData.characters,
+        [allyMatch.hostCharId as string]: { ...hostChar, allies: newAllies },
+      };
+    }
+    newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, {
+      instanceId: strike.characterId,
+      definitionId: allyMatch.ally.definitionId,
+    }];
+    newPlayers2[defPlayerIndex] = newPlayerData;
+
+    const next2a = nextStrikePhase(combatWithElim);
+    if (next2a) {
+      return { state: { ...state, players: newPlayers2, combat: { ...combatWithElim, ...next2a } }, effects };
+    }
+    return finalizeCombat({ ...state, players: newPlayers2, combat: combatWithElim }, effects);
+  }
+
+  // Character eliminated — remove from company and add to eliminated pile
+  if (company) {
+    newPlayerData.companies = newPlayerData.companies.map(c =>
+      c.id === combat.companyId
+        ? { ...c, characters: c.characters.filter(ch => ch !== strike.characterId) }
+        : c,
+    );
+  }
+  const elimCharDefId = resolveInstanceId(state, strike.characterId);
+  newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
+
+  // Discard allies on the eliminated character immediately; hazards go to opposing (hazard) player
+  for (const ally of charData.allies) {
+    logDetail(`Discarding ally ${ally.instanceId as string} from eliminated character`);
+    newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
+  }
+  newPlayers2[defPlayerIndex] = newPlayerData;
+  const hazardPlayerElim = newPlayers2[1 - defPlayerIndex];
+  let hazardDiscardElim = [...hazardPlayerElim.discardPile];
+  for (const hazard of charData.hazards) {
+    logDetail(`Discarding hazard ${hazard.instanceId as string} from eliminated character`);
+    hazardDiscardElim = [...hazardDiscardElim, toCardInstance(hazard)];
+  }
+  newPlayers2[1 - defPlayerIndex] = { ...hazardPlayerElim, discardPile: hazardDiscardElim };
+
+  const { [strike.characterId]: _, ...remainingChars } = newPlayers2[defPlayerIndex].characters;
+  const prunedChars = pruneLeaderFollowers(remainingChars, strike.characterId, charData.controlledBy);
+  newPlayers2[defPlayerIndex] = { ...newPlayers2[defPlayerIndex], characters: prunedChars };
+
+  // Per CoE rule 3.I.2: for each unwounded character in the same company,
+  // an item the eliminated character controlled may be transferred (one per recipient).
+  const salvageItems = charData.items;
+  const unwoundedRecipients: CardInstanceId[] = company
+    ? company.characters
+      .filter(ch => ch !== strike.characterId)
+      .filter(ch => {
+        const cd = newPlayerData.characters[ch];
+        return cd && cd.status !== CardStatus.Inverted;
+      })
+    : [];
+
+  if (salvageItems.length > 0 && unwoundedRecipients.length > 0) {
+    logDetail(`Entering item-salvage phase: ${salvageItems.length} item(s) available, ${unwoundedRecipients.length} unwounded recipient(s)`);
+    const combatWithSalvage: CombatState = {
+      ...combatWithElim,
+      phase: 'item-salvage',
+      salvageItems,
+      salvageRecipients: unwoundedRecipients,
+    };
+    return { state: { ...state, players: newPlayers2, combat: combatWithSalvage }, effects };
+  }
+
+  // No items or no recipients — discard all items immediately
+  for (const item of salvageItems) {
+    logDetail(`Discarding item ${item.instanceId as string} (no salvage possible)`);
+    newPlayers2[defPlayerIndex] = {
+      ...newPlayers2[defPlayerIndex],
+      discardPile: [...newPlayers2[defPlayerIndex].discardPile, toCardInstance(item)],
+    };
+  }
+
+  // Advance to next strike or finalize
+  const next2 = nextStrikePhase(combatWithElim);
+  if (next2) {
+    return { state: { ...state, players: newPlayers2, combat: { ...combatWithElim, ...next2 } }, effects };
+  }
+  return finalizeCombat({ ...state, players: newPlayers2, combat: combatWithElim }, effects);
+}
+
+/** Resolve the current strike — roll dice and determine outcome. */
+export function handleResolveStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'resolve-strike') return wrongActionType(state, action, 'resolve-strike');
+
+  // CvCC two-step sub-phase
+  if (combat.isCvCC) {
+    const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+    if (!currentStrike) return { state, error: 'No current strike' };
+
+    if (currentStrike.attackerTapToFight === undefined) {
+      // Sub-step 1: attacker declares their -3 choice
+      logDetail(`CvCC sub-step 1: attacker ${action.tapToFight ? 'taps' : 'stays untapped (-3)'}`);
+      const newAssignments = combat.strikeAssignments.map((a, i) =>
+        i === combat.currentStrikeIndex
+          ? { ...a, attackerTapToFight: action.tapToFight }
+          : a,
+      );
+      return {
+        state: { ...state, combat: { ...combat, strikeAssignments: newAssignments } },
+      };
+    }
+
+    // Sub-step 2: defender resolves — both sides roll and compare
+    return resolveStrikeCvCC(state, combat, action.tapToFight);
+  }
+
+  return resolveStrikeCore(state, combat, action.tapToFight ? 'tap' : 'untap', 0, null);
+}
+
+/**
+ * CvCC dual-roll strike resolution (rule 8.38–8.39).
+ *
+ * Both sides roll 2d6 + prowess. Higher total wins; the loser is wounded
+ * (body check). On a tie, both tap (unless they chose to stay untapped).
+ *
+ * Attacker's tap choice was already stored in `attackerTapToFight`.
+ * Defender's tap choice is passed as `defenderTapToFight`.
+ *
+ * Prowess modifiers:
+ * - Attacker: effectiveStats.prowess, −3 if !attackerTapToFight, −1 if tapped, −2 if wounded
+ * - Defender: effectiveStats.prowess, −3 if !defenderTapToFight, −1 if tapped, −2 if wounded
+ * - Support bonus applied to each side separately via supportCount
+ */
+export function resolveStrikeCvCC(
+  state: GameState,
+  combat: CombatState,
+  defenderTapToFight: boolean,
+): ReducerResult {
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!strike || strike.resolved) return { state, error: 'Current strike already resolved or missing' };
+  if (strike.attackingCharacterId == null) return { state, error: 'CvCC strike has no attacking character' };
+  if (strike.attackerTapToFight === undefined) return { state, error: 'Attacker has not declared -3 choice' };
+
+  const atkSource = combat.attackSource;
+  if (atkSource.type !== 'company-attack') return { state, error: 'Not a CvCC attack' };
+
+  // Look up attacker character
+  const atkPlayerIdx = getPlayerIndex(state, combat.attackingPlayerId);
+  const atkPlayer = state.players[atkPlayerIdx];
+  const atkCharData = atkPlayer.characters[strike.attackingCharacterId];
+  if (!atkCharData) return { state, error: `Attacking character ${strike.attackingCharacterId as string} not found` };
+  const atkCharDef = defById(state, atkCharData.definitionId);
+  const atkCharName = (atkCharDef as { name?: string } | undefined)?.name ?? (strike.attackingCharacterId as string);
+
+  // Look up defender character
+  const defPlayerIdx = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIdx];
+  const defCharData = defPlayer.characters[strike.characterId];
+  if (!defCharData) return { state, error: `Defending character ${strike.characterId as string} not found` };
+  const defCharDef = defById(state, defCharData.definitionId);
+  const defCharName = (defCharDef as { name?: string } | undefined)?.name ?? (strike.characterId as string);
+
+  // Compute attacker prowess
+  let atkProwess = atkCharData.effectiveStats.prowess;
+  if (!strike.attackerTapToFight) atkProwess -= 3;
+  if (atkCharData.status === CardStatus.Tapped) atkProwess -= 1;
+  if (atkCharData.status === CardStatus.Inverted) atkProwess -= 2;
+
+  // Compute defender prowess
+  let defProwess = defCharData.effectiveStats.prowess;
+  if (!defenderTapToFight) defProwess -= 3;
+  if (defCharData.status === CardStatus.Tapped) defProwess -= 1;
+  if (defCharData.status === CardStatus.Inverted) defProwess -= 2;
+  defProwess += (strike.supportCount ?? 0);
+  defProwess += (strike.strikeProwessBonus ?? 0);
+
+  // Roll for attacker
+  const atkRollResult = roll2d6(state);
+  const atkRoll = atkRollResult.roll;
+  const atkTotal = atkRoll.die1 + atkRoll.die2 + atkProwess;
+
+  // Roll for defender using updated RNG state
+  const defState = { ...state, rng: atkRollResult.rng, cheatRollTotal: atkRollResult.cheatRollTotal };
+  const defRollResult = roll2d6(defState);
+  const defRoll = defRollResult.roll;
+  const defTotal = defRoll.die1 + defRoll.die2 + defProwess;
+
+  logDetail(`CvCC dual-roll: ${atkCharName} (${atkPlayer.name}) rolls ${atkRoll.die1}+${atkRoll.die2}=${atkRoll.die1 + atkRoll.die2} + prowess ${atkProwess} = ${atkTotal} (lastDiceRoll → players[${atkPlayerIdx}])`);
+  logDetail(`CvCC dual-roll: ${defCharName} (${defPlayer.name}) rolls ${defRoll.die1}+${defRoll.die2}=${defRoll.die1 + defRoll.die2} + prowess ${defProwess} = ${defTotal} (lastDiceRoll → players[${defPlayerIdx}])`);
+
+  const effects: GameEffect[] = [
+    diceRollEffect(atkPlayer.name, atkRoll, `CvCC Strike: ${atkCharName}`, atkTotal),
+    diceRollEffect(defPlayer.name, defRoll, `CvCC Strike: ${defCharName}`, defTotal),
+  ];
+
+  // Determine outcome
+  const newPlayers = clonePlayers(state);
+  // Store dice rolls so the UI can display them in the text log
+  newPlayers[atkPlayerIdx] = { ...newPlayers[atkPlayerIdx], lastDiceRoll: atkRoll };
+  newPlayers[defPlayerIdx] = { ...newPlayers[defPlayerIdx], lastDiceRoll: defRoll };
+
+  let defResult: 'success' | 'wounded' | 'eliminated';
+  let atkResult: 'success' | 'wounded' | 'eliminated';
+  let bodyCheckTarget: 'character' | 'attacker-character' | null = null;
+  const defWasAlreadyWounded = defCharData.status === CardStatus.Inverted;
+
+  if (atkTotal > defTotal) {
+    // Attacker wins: defender wounded, attacker taps (unless -3)
+    defResult = 'wounded';
+    atkResult = 'success';
+    bodyCheckTarget = 'character';
+    logDetail(`CvCC: attacker wins (${atkTotal} > ${defTotal}) — defender wounded`);
+    if (strike.attackerTapToFight && atkCharData.status === CardStatus.Untapped) {
+      newPlayers[atkPlayerIdx] = updatePlayerCharacterStatus(newPlayers[atkPlayerIdx], strike.attackingCharacterId, CardStatus.Tapped);
+      logDetail(`CvCC: attacker taps`);
+    }
+  } else if (defTotal > atkTotal) {
+    // Defender wins: attacker wounded, defender taps (unless -3)
+    defResult = 'success';
+    atkResult = 'wounded';
+    bodyCheckTarget = 'attacker-character';
+    logDetail(`CvCC: defender wins (${defTotal} > ${atkTotal}) — attacker wounded`);
+    if (defenderTapToFight && defCharData.status === CardStatus.Untapped) {
+      newPlayers[defPlayerIdx] = updatePlayerCharacterStatus(newPlayers[defPlayerIdx], strike.characterId, CardStatus.Tapped);
+      logDetail(`CvCC: defender taps`);
+    }
+  } else {
+    // Tie: both tap unless -3, no wound, no body check
+    defResult = 'success';
+    atkResult = 'success';
+    bodyCheckTarget = null;
+    logDetail(`CvCC: tie (${atkTotal} = ${defTotal}) — both tap (unless -3)`);
+    if (strike.attackerTapToFight && atkCharData.status === CardStatus.Untapped) {
+      newPlayers[atkPlayerIdx] = updatePlayerCharacterStatus(newPlayers[atkPlayerIdx], strike.attackingCharacterId, CardStatus.Tapped);
+    }
+    if (defenderTapToFight && defCharData.status === CardStatus.Untapped) {
+      newPlayers[defPlayerIdx] = updatePlayerCharacterStatus(newPlayers[defPlayerIdx], strike.characterId, CardStatus.Tapped);
+    }
+  }
+
+  // Apply wound to loser
+  if (defResult === 'wounded') {
+    newPlayers[defPlayerIdx] = updatePlayerCharacterStatus(newPlayers[defPlayerIdx], strike.characterId, CardStatus.Inverted);
+    logDetail(`CvCC: defending character ${defCharName} is wounded`);
+  }
+  if (atkResult === 'wounded') {
+    newPlayers[atkPlayerIdx] = updatePlayerCharacterStatus(newPlayers[atkPlayerIdx], strike.attackingCharacterId, CardStatus.Inverted);
+    logDetail(`CvCC: attacking character ${atkCharName} is wounded`);
+  }
+
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex
+      ? {
+          ...a,
+          resolved: bodyCheckTarget === null,
+          result: defResult,
+          attackerResult: atkResult,
+          wasAlreadyWounded: defWasAlreadyWounded,
+        }
+      : a,
+  );
+
+  const combatWithAssignments: CombatState = {
+    ...combat,
+    strikeAssignments: newAssignments,
+    bodyCheckTarget,
+    rng: defRollResult.rng,
+    cheatRollTotal: defRollResult.cheatRollTotal,
+  } as CombatState & { rng: unknown; cheatRollTotal: unknown };
+
+  const stateWithRoll: GameState = {
+    ...state,
+    rng: defRollResult.rng,
+    cheatRollTotal: defRollResult.cheatRollTotal,
+    players: newPlayers,
+    combat: combatWithAssignments,
+  };
+
+  if (bodyCheckTarget !== null) {
+    const combatInBodyCheck: CombatState = { ...combatWithAssignments, phase: 'body-check', bodyCheckTarget };
+    return { state: { ...stateWithRoll, combat: combatInBodyCheck }, effects };
+  }
+
+  // No body check — advance to next strike
+  const next = nextStrikePhase(combatWithAssignments);
+  if (!next) {
+    return finalizeCombat({ ...stateWithRoll, combat: combatWithAssignments }, effects);
+  }
+  return { state: { ...stateWithRoll, combat: { ...combatWithAssignments, ...next } }, effects };
+}
+
+/** Update a player's character to a new status (inline utility for CvCC). */
+export function updatePlayerCharacterStatus(
+  player: import('../types/state-player.js').PlayerState,
+  charId: CardInstanceId,
+  status: CardStatus,
+): import('../types/state-player.js').PlayerState {
+  const ch = player.characters[charId];
+  if (!ch) return player;
+  return {
+    ...player,
+    characters: {
+      ...player.characters,
+      [charId as string]: { ...ch, status },
+    },
+  };
+}
+

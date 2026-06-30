@@ -21,7 +21,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, diceRollEffect, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance } from './reducer-utils.js';
-import { handleGrantActionApply } from './reducer-organization.js';
+import { handleGrantActionApply } from './grant-action-apply.js';
 import { removeConstraint } from './pending.js';
 
 
