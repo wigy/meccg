@@ -107,7 +107,10 @@
         "type": "on-event",
         "event": "play-deck-exhausted",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         }
       }
     ],
@@ -176,7 +179,10 @@
         "type": "on-event",
         "event": "bearer-wounded",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         }
       },
       {
@@ -285,7 +291,10 @@
         "type": "on-event",
         "event": "untap-phase-end",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         },
         "when": {
           "bearer.atHaven": true
@@ -441,7 +450,10 @@
         "type": "on-event",
         "event": "play-deck-exhausted",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         }
       }
     ],
@@ -611,7 +623,10 @@
         "type": "on-event",
         "event": "bearer-wounded",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         }
       },
       {
@@ -816,7 +831,10 @@
           "player.avatarId": "le-56"
         },
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         }
       },
       {
@@ -826,7 +844,10 @@
         "type": "on-event",
         "event": "leader-leaves-company",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         }
       }
     ]

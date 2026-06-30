@@ -133,7 +133,10 @@
         "type": "on-event",
         "event": "attack-defeated",
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         },
         "when": {
           "enemy.race": {

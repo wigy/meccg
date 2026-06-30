@@ -844,7 +844,6 @@ export type TriggeredActionType =
   | 'remove-constraint'
   | 'cancel-chain-entry'
   | 'discard-character'
-  | 'discard-self'
   | 'discard-target-character'
   | 'discard-cards-in-play'
   | 'discard-named-card-from-company'

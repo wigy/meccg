@@ -456,10 +456,9 @@ function runGrantApply(
   }
 
   if (apply.type === 'move') {
-    // Generic card-movement primitive. Phase 1 lands the wiring; no
-    // card JSON uses `move` yet. Later phases migrate per-move effect
-    // types (discard-self, fetch-to-deck, bounce-hazard-events, …)
-    // onto this single branch. See
+    // Generic card-movement primitive. The legacy per-move effect types
+    // (discard-self, fetch-to-deck, bounce-hazard-events, …) have been
+    // migrated onto this single branch. See
     // `specs/2026-04-23-card-move-primitive-plan.md`.
     if (!apply.select || !apply.from || !apply.to) {
       return { error: `move apply missing select/from/to on ${ctx.sourceName}` };
@@ -939,7 +938,8 @@ function resolveConstraintTarget(
  *
  * Supported applies (each extends the primitive as cards demand it):
  *  - `set-character-status` with `target: 'bearer'` — set bearer status.
- *  - `discard-self` — detach the source from the bearer and discard it.
+ *  - `move` (`select: 'self', to: 'discard'`) — detach the source from the
+ *    bearer and discard it.
  *  - `roll-then-apply` with `threshold`, `onSuccess`, `onFailure` —
  *    roll 2d6; run the matching branch (recursive apply).
  */

@@ -16,7 +16,7 @@ import type { CardInstanceId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, defById, getCardEffects, isHavenForPlayer, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, defById, getCardEffects, isHavenForPlayer, isSelfDiscardMove, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
@@ -380,7 +380,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
     for (const charId of company.characters) charSiteType.set(charId as string, siteType);
   }
 
-  // Collect items to discard-self from untap-phase-end triggers (processed after scan).
+  // Collect items to self-discard from untap-phase-end triggers (processed after scan).
   const untapEndDiscards: Array<{ charId: CardInstanceId; slot: 'items' | 'hazards' | 'allies'; cardInstanceId: string }> = [];
 
   for (const [charId, char] of Object.entries(player.characters)) {
@@ -409,19 +409,19 @@ function advanceToOrganization(state: GameState): ReducerResult {
             modifier,
             reason: def?.name ?? 'Untap-phase-end',
           });
-        } else if (oe.apply.type === 'discard-self') {
+        } else if (isSelfDiscardMove(oe.apply)) {
           // Determine which slot (items/hazards/allies) the card lives in
           const slot: 'items' | 'hazards' | 'allies' =
             char.items.some(i => i.instanceId === card.instanceId) ? 'items'
             : char.hazards.some(h => h.instanceId === card.instanceId) ? 'hazards' : 'allies';
-          logDetail(`Untap-phase-end: queuing discard-self for ${def?.name ?? '?'} on ${charId} (slot=${slot})`);
+          logDetail(`Untap-phase-end: queuing self-discard for ${def?.name ?? '?'} on ${charId} (slot=${slot})`);
           untapEndDiscards.push({ charId: charId as CardInstanceId, slot, cardInstanceId: card.instanceId as string });
         }
       }
     }
   }
 
-  // Apply collected discard-self items after the scan loop to avoid mutation during iteration.
+  // Apply collected self-discard items after the scan loop to avoid mutation during iteration.
   for (const { charId, slot, cardInstanceId } of untapEndDiscards) {
     const char = advanced.players[activeIndex].characters[charId];
     if (!char) continue;
@@ -470,7 +470,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
         if (e.type !== 'on-event') continue;
         const oe = e;
         if (oe.event !== 'organization-phase-start') continue;
-        if (oe.apply?.type !== 'discard-self') continue;
+        if (!isSelfDiscardMove(oe.apply)) continue;
         const siteType = companyToSiteType.get(cid) ?? null;
         const ctx = { company: { siteType, atHaven: siteType === SiteType.Haven }, player: { avatarId: playerAvatarId } };
         if (oe.when && !matchesContext(oe.when, ctx)) continue;
