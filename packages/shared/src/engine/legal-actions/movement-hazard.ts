@@ -6,14 +6,14 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
+import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
 import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, HazardLimitSwapEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { buildMovementMap, findRegionPaths, getReachableSites } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
-import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, requirePhaseState } from '../../state-utils.js';
+import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, isBalrogAvatarDef, requirePhaseState } from '../../state-utils.js';
 import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter } from '../../types/cards.js';
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
@@ -193,8 +193,17 @@ function revealNewSiteActions(
   const destIsUD = destDef.keywords?.includes('under-deeps') ?? false;
   const isUnderDeepsMovement = originIsUD || destIsUD;
 
+  // MEBA: a company containing The Balrog avatar may not use starter or region
+  // movement ("as stated on his card") — only Under-deeps movement. Movement-
+  // expanding resources (Going Ever Under Dark ba-37, Gangways over the Fire
+  // ba-60), when certified, must explicitly grant an exception here.
+  const balrogMovementLocked = companyContainsBalrogAvatar(state, player, company);
+  if (balrogMovementLocked) {
+    logDetail(`Company ${company.id as string} contains The Balrog — starter/region movement suppressed (Under-deeps only)`);
+  }
+
   // --- Starter movement ---
-  if (!isUnderDeepsMovement && isStarterMovementPossible(movementMap, originDef, destDef)) {
+  if (!isUnderDeepsMovement && !balrogMovementLocked && isStarterMovementPossible(movementMap, originDef, destDef)) {
     logDetail(`Starter movement available: ${originDef.name} → ${destDef.name}`);
     actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.Starter });
   }
@@ -202,7 +211,7 @@ function revealNewSiteActions(
   // --- Region movement ---
   const originRegion = movementMap.siteRegion.get(originDef.name);
   const destRegion = movementMap.siteRegion.get(destDef.name);
-  if (!isUnderDeepsMovement && originRegion && destRegion) {
+  if (!isUnderDeepsMovement && !balrogMovementLocked && originRegion && destRegion) {
     // Build region name → definition ID map for converting path names to IDs
     const regionNameToId = buildRegionNameMap(state);
     const paths = findRegionPaths(movementMap, originRegion, destRegion, mhState.maxRegionDistance);
@@ -236,6 +245,18 @@ function revealNewSiteActions(
 
   logDetail(`${actions.length} possible movement path(s) for company ${company.id as string}`);
   return actions;
+}
+
+/**
+ * MEBA: true if the given company contains The Balrog avatar character.
+ * Such a company may not use starter or region movement.
+ */
+function companyContainsBalrogAvatar(state: GameState, player: PlayerState, company: Company): boolean {
+  return company.characters.some(charId => {
+    const charData = player.characters[charId];
+    if (!charData) return false;
+    return isBalrogAvatarDef(defById(state, charData.definitionId));
+  });
 }
 
 /**
