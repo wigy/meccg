@@ -14,6 +14,17 @@
 import { loadCardPool } from '../index.js';
 import type { PlayerId, CardDefinitionId, CompanyId } from '../index.js';
 
+/** The player-state pile collections a test may inspect or push cards into. */
+export type PileKey =
+  | 'hand'
+  | 'playDeck'
+  | 'discardPile'
+  | 'siteDeck'
+  | 'siteDiscardPile'
+  | 'sideboard'
+  | 'killPile'
+  | 'outOfPlayPile';
+
 export const PLAYER_1 = 'p1' as PlayerId;
 export const PLAYER_2 = 'p2' as PlayerId;
 

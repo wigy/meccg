@@ -12,7 +12,7 @@ import { reduce } from '../engine/reducer.js';
 import type { ReducerResult } from '../engine/reducer.js';
 import { autoMergeNonHavenCompanies as _autoMergeNonHavenCompanies, effectiveGeneralInfluence } from '../engine/reducer-utils.js';
 import { Phase, Alignment, RegionType, SiteType, computeLegalActions } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, SitePhaseState, MovementHazardPhaseState, InfluenceAttemptAction, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState, CharacterCard, ActivateGrantedAction, ActiveConstraint, CheckKind } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, SitePhaseState, MovementHazardPhaseState, InfluenceAttemptAction, OpponentInfluenceAttemptAction, LongEventPhaseState, CreatureKeyingMatch, CombatState, ActiveConstraint, CheckKind } from '../index.js';
 import type { EvaluatedAction } from '../rules/types.js';
 import { enqueueResolution, addConstraint } from '../engine/pending.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -20,6 +20,9 @@ import type { CollectedEffect } from '../engine/effects/index.js';
 import { ADRAZAR, ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR, EOWYN, BEREGOND, BARD_BOWMAN, ANBORN, SAM_GAMGEE, FATTY_BOLGER, PEATH, THEODEN, ELROND, CELEBORN, GALADRIEL, GLORFINDEL_II, HALDIR, GANDALF, BALIN, KILI, SARUMAN, IORETH, GLAMDRING, STING, THE_MITHRIL_COAT, DAGGER_OF_WESTERNESSE, HORN_OF_ANOR, PRECIOUS_GOLD_RING, HAUBERK_OF_BRIGHT_MAIL, CRAM, SCROLL_OF_ISILDUR, PALANTIR_OF_ORTHANC, SAPLING_OF_THE_WHITE_TREE, GWAIHIR, TREEBEARD, ASSASSIN, CAVE_DRAKE, ORC_GUARD, ORC_WARBAND, ORC_LIEUTENANT, ORC_PATROL, ORC_WATCH, BARROW_WIGHT, BERT_BURAT, TOM_TUMA, WILLIAM_WULUAG, HOBGOBLINS, FOOLISH_WORDS, LURE_OF_THE_SENSES, ALONE_AND_UNADVISED, LOST_IN_FREE_DOMAINS, STEALTH, RIVER, SUN, EYE_OF_SAURON, GATES_OF_MORNING, TWILIGHT, DOORS_OF_NIGHT, SMOKE_RINGS, CONCEALMENT, DODGE, DARK_QUARRELS, HALFLING_STRENGTH, MARVELS_TOLD, LITTLE_SNUFFLER, AND_FORTH_HE_HASTENED, WIZARDS_LAUGHTER, VANISHMENT, AN_UNEXPECTED_OUTPOST, TWO_OR_THREE_TRIBES_PRESENT, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, THRANDUILS_HALLS, BLUE_MOUNTAIN_DWARF_HOLD, DOL_AMROTH, BREE, PELARGIR, EDORAS, EAGLES_EYRIE, BANDIT_LAIR, DUNNISH_CLAN_HOLD, HENNETH_ANNUN, LOND_GALEN, TOLFALAS, EDHELLOND, WELLINGHALL, ISENGARD, WOOD_ELVES, BLUE_MOUNTAIN_DWARVES, KNIGHTS_OF_DOL_AMROTH, MEN_OF_ANORIEN, MEN_OF_ANFALAS, MEN_OF_LEBENNIN, RANGERS_OF_THE_NORTH, RANGERS_OF_ITHILIEN, RIDERS_OF_ROHAN, DUNLENDINGS } from '../index.js';
 export * from './test-helpers-constants.js';
 import { PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER, pool } from './test-helpers-constants.js';
+import type { PileKey } from './test-helpers-constants.js';
+export * from './test-helpers-queries.js';
+import { companyIdAt, draftInstId, findCharInstanceId, findHandCardId, findInPile, getOnGuardCard, handCardId, viableActions, viableFor } from './test-helpers-queries.js';
 
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;
 
@@ -111,32 +114,6 @@ export function runActions(
     state = result.state;
   }
   return state;
-}
-
-/**
- * Find the draft pool instance ID for a given character definition.
- * Looks up the pool in the current draft state for the given player.
- */
-export function draftInstId(state: GameState, playerIndex: number, defId: CardDefinitionId): CardInstanceId {
-  if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-draft') {
-    throw new Error('Not in character draft phase');
-  }
-  const draftPool = state.phaseState.setupStep.draftState[playerIndex].pool;
-  for (const inst of draftPool) {
-    if (inst.definitionId === defId) return inst.instanceId;
-  }
-  throw new Error(`Definition ${defId} not found in player ${playerIndex}'s draft pool`);
-}
-
-/**
- * Find the site-deck instance ID for a given site definition in a player's
- * site deck. Mirrors {@link draftInstId} for sites — used by tests that pair a
- * drafted Hidden Haven (wh-75) with a Ruins & Lairs from the site deck.
- */
-export function siteDeckInstId(state: GameState, playerIndex: number, defId: CardDefinitionId): CardInstanceId {
-  const siteCard = state.players[playerIndex].siteDeck.find(c => c.definitionId === defId);
-  if (!siteCard) throw new Error(`Definition ${defId} not found in player ${playerIndex}'s site deck`);
-  return siteCard.instanceId;
 }
 
 /**
@@ -721,20 +698,6 @@ export function eotState(opts?: {
 
 // ─── Shared test helpers ─────────────────────────────────────────────────────
 
-/** Find the instance ID of a character in play by definition ID. */
-export function findCharInstanceId(state: GameState, playerIdx: number, defId: CardDefinitionId): CardInstanceId {
-  for (const [key, char] of Object.entries(state.players[playerIdx].characters)) {
-    if (char.definitionId === defId) return key as CardInstanceId;
-  }
-  throw new Error(`Character ${defId} not found for player ${playerIdx}`);
-}
-
-/** Get all viable actions of a specific type for a player. */
-export function viableActions(state: GameState, playerId: PlayerId, actionType: string) {
-  return computeLegalActions(state, playerId)
-    .filter(ea => ea.viable && ea.action.type === actionType);
-}
-
 /**
  * Return the first viable `influence-attempt` action that targets the given
  * faction instance from the player's hand (first-play influence, not
@@ -802,45 +765,9 @@ export function firstOpponentInfluenceAttempt(
     .find(a => a.targetInstanceId === targetInstanceId && (opts?.revealOnly ? !!a.revealedCardInstanceId : !a.revealedCardInstanceId));
 }
 
-/** All viable actions (of any type) for a player. */
-export function viableFor(state: GameState, playerId: PlayerId) {
-  return computeLegalActions(state, playerId).filter(ea => ea.viable);
-}
-
-/**
- * Filter a pre-computed `EvaluatedAction[]` array to viable entries of
- * the given action type. Use when a test inspects both viable and
- * non-viable entries from the same `computeLegalActions` call.
- */
-export function viableOfType(
-  actions: readonly EvaluatedAction[],
-  actionType: string,
-): EvaluatedAction[] {
-  return actions.filter(ea => ea.viable && ea.action.type === actionType);
-}
-
-/**
- * Filter a pre-computed `EvaluatedAction[]` array to non-viable entries
- * of the given action type.
- */
-export function nonViableOfType(
-  actions: readonly EvaluatedAction[],
-  actionType: string,
-): EvaluatedAction[] {
-  return actions.filter(ea => !ea.viable && ea.action.type === actionType);
-}
-
 /** The action-type names of every viable action for a player. */
 export function viableActionTypes(state: GameState, playerId: PlayerId): string[] {
   return viableFor(state, playerId).map(ea => ea.action.type);
-}
-
-/**
- * Narrow `state.phaseState` to a specific phase-state shape without the
- * noisy inline cast. Callers pick the right type via the generic argument.
- */
-export function phaseStateAs<T extends GameState['phaseState']>(state: GameState): T {
-  return state.phaseState as T;
 }
 
 /**
@@ -850,20 +777,6 @@ export function phaseStateAs<T extends GameState['phaseState']>(state: GameState
  */
 export function actionAs<T extends GameAction>(action: GameAction): T {
   return action as T;
-}
-
-/** Get all viable play-character actions for a player. */
-export function viablePlayCharacterActions(state: GameState, playerId: PlayerId) {
-  return computeLegalActions(state, playerId)
-    .filter(ea => ea.viable && ea.action.type === 'play-character')
-    .map(ea => ea.action as PlayCharacterAction);
-}
-
-/** Get all non-viable play-character actions for a player. */
-export function nonViablePlayCharacterActions(state: GameState, playerId: PlayerId) {
-  return computeLegalActions(state, playerId)
-    .filter(ea => !ea.viable && ea.action.type === 'play-character')
-    .map(ea => ea.action as PlayCharacterAction);
 }
 
 /** Build a state in site phase at play-resources step with a company at a site. */
@@ -2548,42 +2461,6 @@ export const autoMergeNonHavenCompanies = _autoMergeNonHavenCompanies;
 // ─── Convenience lookups ────────────────────────────────────────────────────
 
 /** Which PlayerState pile to search in {@link findInPile}. */
-export type PileKey =
-  | 'hand'
-  | 'playDeck'
-  | 'discardPile'
-  | 'siteDeck'
-  | 'siteDiscardPile'
-  | 'sideboard'
-  | 'killPile'
-  | 'outOfPlayPile';
-
-/** Get the instance ID of a card in a player's hand by position (default: first card). */
-export function handCardId(
-  state: GameState,
-  playerIdx: number,
-  index = 0,
-): CardInstanceId {
-  const card = state.players[playerIdx].hand[index];
-  if (!card) throw new Error(`No card at hand[${index}] for player ${playerIdx}`);
-  return card.instanceId;
-}
-
-/**
- * Find the instance ID of a hand card by definition ID. Throws if no
- * matching card is in the player's hand. Preferred over the common
- * `state.players[X].hand.find(c => c.definitionId === DEF)!.instanceId`
- * boilerplate when you know the card is present.
- */
-export function findHandCardId(
-  state: GameState,
-  playerIdx: number,
-  defId: CardDefinitionId,
-): CardInstanceId {
-  const card = state.players[playerIdx].hand.find(c => c.definitionId === defId);
-  if (!card) throw new Error(`No hand card with definitionId ${defId as string} for player ${playerIdx}`);
-  return card.instanceId;
-}
 
 /** Assert the given instance ID is currently in the player's hand. */
 export function expectInHand(
@@ -2601,23 +2478,6 @@ export function expectNotInHand(
   instanceId: CardInstanceId,
 ): void {
   expect(state.players[playerIdx].hand.find(c => c.instanceId === instanceId)).toBeUndefined();
-}
-
-/**
- * Get an on-guard card placed on a company (defaults to the first company
- * and first on-guard card). Throws if the indices are out of range.
- */
-export function getOnGuardCard(
-  state: GameState,
-  playerIdx: number,
-  companyIdx = 0,
-  ogIdx = 0,
-): OnGuardCard {
-  const company = state.players[playerIdx].companies[companyIdx];
-  if (!company) throw new Error(`No company at companies[${companyIdx}] for player ${playerIdx}`);
-  const og = company.onGuardCards[ogIdx];
-  if (!og) throw new Error(`No on-guard card at [${companyIdx}][${ogIdx}] for player ${playerIdx}`);
-  return og;
 }
 
 /** Instance ID of a company's on-guard card (defaults to the first one). */
@@ -2654,31 +2514,6 @@ export function viableActionsForHandCard(
   });
 }
 
-/** Get the ID of a player's company (default: first company). */
-export function companyIdAt(
-  state: GameState,
-  playerIdx: number,
-  companyIdx = 0,
-): CompanyId {
-  const company = state.players[playerIdx].companies[companyIdx];
-  if (!company) throw new Error(`No company at companies[${companyIdx}] for player ${playerIdx}`);
-  return company.id;
-}
-
-/** Get the instance ID of a character by its position in a company. */
-export function charIdAt(
-  state: GameState,
-  playerIdx: number,
-  companyIdx = 0,
-  charIdx = 0,
-): CardInstanceId {
-  const company = state.players[playerIdx].companies[companyIdx];
-  if (!company) throw new Error(`No company at companies[${companyIdx}] for player ${playerIdx}`);
-  const id = company.characters[charIdx];
-  if (!id) throw new Error(`No character at companies[${companyIdx}].characters[${charIdx}] for player ${playerIdx}`);
-  return id;
-}
-
 /** Get the {@link CharacterInPlay} object for a character by definition ID. */
 export function getCharacter(
   state: GameState,
@@ -2688,22 +2523,6 @@ export function getCharacter(
   const id = findCharInstanceId(state, playerIdx, defId);
   return state.players[playerIdx].characters[id];
 }
-
-/**
- * Find the first card instance in a player's pile matching the given
- * definition or instance ID. Returns undefined if not found.
- */
-export function findInPile(
-  state: GameState,
-  playerIdx: number,
-  pile: PileKey,
-  idOrDefId: CardDefinitionId | CardInstanceId,
-): CardInstance | undefined {
-  const list = state.players[playerIdx][pile];
-  return list.find(c => c.definitionId === idOrDefId || c.instanceId === idOrDefId);
-}
-
-// ─── Convenience action helpers ─────────────────────────────────────────────
 
 /**
  * Apply an action and assert it produced no error. Returns the new state.
@@ -2736,35 +2555,6 @@ export function dispatchResult(state: GameState, action: GameAction): ReducerRes
  * Find the first viable action of a given type, optionally narrowed by a
  * predicate. Returns undefined if no match is found.
  */
-export function findAction<T extends GameAction = GameAction>(
-  state: GameState,
-  playerId: PlayerId,
-  actionType: string,
-  predicate?: (action: T) => boolean,
-): T | undefined {
-  const actions = viableActions(state, playerId, actionType);
-  const match = predicate
-    ? actions.find(ea => predicate(ea.action as T))
-    : actions[0];
-  return match ? (match.action as T) : undefined;
-}
-
-/**
- * Get the first viable action of a given type, optionally narrowed by a
- * predicate. Asserts that a match exists and returns the typed action.
- */
-export function firstAction<T extends GameAction = GameAction>(
-  state: GameState,
-  playerId: PlayerId,
-  actionType: string,
-  predicate?: (action: T) => boolean,
-): T {
-  const match = findAction<T>(state, playerId, actionType, predicate);
-  expect(match).toBeDefined();
-  return match!;
-}
-
-// ─── Convenience assertions ────────────────────────────────────────────────
 
 /** Assert a character (located by definition ID) currently has the expected status. */
 export function expectCharStatus(
@@ -2866,42 +2656,6 @@ export function setCharStatus(
 
 // ─── Convenience accessors ─────────────────────────────────────────────────
 
-/** Base prowess of a character card definition (before any effects/items). */
-export function baseProwess(defId: CardDefinitionId): number {
-  return (pool[defId as string] as CharacterCard).prowess;
-}
-
-/**
- * Viable `activate-granted-action` actions emitted for the given character
- * and action ID. Used to check which granted-action variants (e.g. the
- * standard tap and no-tap variants of `remove-self-on-roll`) are currently
- * on offer.
- */
-export function grantedActionsFor(
-  state: GameState,
-  characterId: CardInstanceId,
-  actionId: string,
-  playerId: PlayerId,
-): ActivateGrantedAction[] {
-  return computeLegalActions(state, playerId)
-    .filter(ea => ea.viable)
-    .map(ea => ea.action)
-    .filter((a): a is ActivateGrantedAction =>
-      a.type === 'activate-granted-action'
-      && a.characterId === characterId
-      && a.actionId === actionId);
-}
-
-/** Definition IDs of all permanent-type cards in play for a player. */
-export function definitionIdsInPlay(state: GameState, playerIdx: number): string[] {
-  return state.players[playerIdx].cardsInPlay.map(c => c.definitionId as string);
-}
-
-/** Instance IDs of all permanent-type cards in play for a player. */
-export function instanceIdsInPlay(state: GameState, playerIdx: number): CardInstanceId[] {
-  return state.players[playerIdx].cardsInPlay.map(c => c.instanceId);
-}
-
 /** Hazards attached to a character (located by definition ID). */
 export function getHazardsOn(
   state: GameState,
@@ -2982,12 +2736,6 @@ export function makeCheckModifierEffect(
     sourceDef: undefined as never,
     sourceInstance: 'src-1' as never,
   };
-}
-
-/** Predicate that matches an `activate-granted-action` with the given actionId. */
-export function isGrantedAction(actionId: string) {
-  return (action: { type: string; actionId?: string }): boolean =>
-    action.type === 'activate-granted-action' && action.actionId === actionId;
 }
 
 /**
@@ -3097,23 +2845,6 @@ export function makeGreatShipConstraint(
       apply: { type: 'cancel-chain-entry', select: 'most-recent-unresolved-hazard' },
     },
   };
-}
-
-/**
- * Return the first (and usually only) constraint on the active company.
- * Spells out a common assertion chain so call sites stay short.
- */
-export function singleActiveConstraint(state: GameState): ActiveConstraint {
-  expect(state.activeConstraints).toHaveLength(1);
-  return state.activeConstraints[0];
-}
-
-/** Return every active constraint sourced from the given card instance. */
-export function constraintsFromSource(
-  state: GameState,
-  source: CardInstanceId,
-): readonly ActiveConstraint[] {
-  return state.activeConstraints.filter(c => c.source === source);
 }
 
 /**
