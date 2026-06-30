@@ -27,7 +27,7 @@ import { getPlayerIndex } from '../state-utils.js';
 import type { CardEffect } from '../types/effects.js';
 import type { MoveContext } from './reducer-move.js';
 import { applyMove } from './reducer-move.js';
-import { resolveCancelAttackEntry, resolveChainStrikeModifier } from './reducer-combat.js';
+import { resolveCancelAttackEntry, resolveChainStrikeModifier } from './combat-cancel.js';
 import { logDetail } from './legal-actions/log.js';
 
 /**

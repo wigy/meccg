@@ -49,7 +49,7 @@ import { autoResolve } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { eligibleRingCategories } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect } from '../types/effects.js';
-import { resolveCancelAttackEntry } from './reducer-combat.js';
+import { resolveCancelAttackEntry } from './combat-cancel.js';
 
 /**
  * Shared tail of the roll-resolution handlers: mark every unresolved chain
