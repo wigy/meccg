@@ -31,6 +31,7 @@ import type {
 } from '../index.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { ownerOf } from '../types/state.js';
+import { isBalrogAvatarDef } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import { cardName, defById, toCardInstance } from './reducer-utils.js';
 
@@ -180,6 +181,16 @@ export function getActiveAutoAttacks(
   const peAugments = collectPermanentEventAttacks(state, siteDef);
   let combined: readonly AutomaticAttack[] = peAugments.length === 0 ? printed : [...printed, ...peAugments];
 
+  // MEBA: "If The Balrog is in play or has been defeated, ignore all Balrog
+  // automatic-attacks (i.e., at The Under-gates)." Strip Balrog-typed attacks
+  // (e.g. The Under-gates dm-38, 2×16) once the Balrog avatar has entered play
+  // or has been defeated/eliminated.
+  if (combined.some(a => a.creatureType === 'Balrog') && isBalrogInPlayOrDefeated(state)) {
+    const before = combined.length;
+    combined = combined.filter(a => a.creatureType !== 'Balrog');
+    logDetail(`MEBA: Balrog in play or defeated — ${before - combined.length} Balrog automatic-attack(s) at ${siteDef.name} ignored`);
+  }
+
   // Apply cancel-first-attack-if-in-play site rules: if the referenced card
   // is in any player's cardsInPlay, remove the first attack from the list.
   // Used by The Under-gates (dm-38) when Balrog of Moria is in play.
@@ -224,6 +235,24 @@ export function getActiveAutoAttacks(
   }
 
   return combined;
+}
+
+/**
+ * MEBA: true once The Balrog avatar has entered play (present in any player's
+ * `characters`) or has been defeated/eliminated (present in any player's
+ * `outOfPlayPile`). Backs the rule that Balrog automatic-attacks are ignored
+ * from that point on.
+ */
+function isBalrogInPlayOrDefeated(state: GameState): boolean {
+  for (const player of state.players) {
+    for (const char of Object.values(player.characters)) {
+      if (isBalrogAvatarDef(defById(state, char.definitionId))) return true;
+    }
+    for (const card of player.outOfPlayPile) {
+      if (isBalrogAvatarDef(defById(state, card.definitionId))) return true;
+    }
+  }
+  return false;
 }
 
 /**
