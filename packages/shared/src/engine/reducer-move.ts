@@ -26,11 +26,23 @@
  * migration plan.
  */
 
-import type { GameState, CardInstance, CardInstanceId, PlayerState } from '../index.js';
+import type { GameState, CardInstance, CardInstanceId, PlayerState, CardInPlay, ItemInPlay } from '../index.js';
 import type { MoveEffect, MoveZone, Condition } from '../types/effects.js';
+import { CardStatus } from '../types/common.js';
 import { characterIds, defById, matchesDefinition, toCardInstance } from './reducer-utils.js';
 import { shuffle } from '../rng.js';
 import { logDetail } from './legal-actions/log.js';
+
+/**
+ * Slot a card entering play attached to a character occupies: resource
+ * permanent events go into `items`, hazard permanent events into `hazards`.
+ * Shared by the `in-play-on-character` destination so the rule lives in one
+ * place (chain-reducer's resolvePermanentEvent uses the same logic until it
+ * migrates onto the move primitive).
+ */
+export function inPlayOnCharacterSlot(cardType: string | undefined): 'items' | 'hazards' {
+  return cardType === 'hero-resource-event' || cardType === 'minion-resource-event' ? 'items' : 'hazards';
+}
 
 /**
  * Runtime context passed to {@link applyMove}. Carries references
@@ -57,6 +69,13 @@ export interface MoveContext {
   readonly targetCompanyId?: CardInstanceId;
   readonly woundedCharacterId?: CardInstanceId;
   readonly defenderPlayerIndex?: number;
+  /**
+   * The card instance currently resolving on the chain (held on the chain
+   * entry, not in any pile). Source for `from: 'chain'` — used when an event
+   * "enters play" from the chain: it was removed from hand/on-guard at
+   * declaration, so it lives only on the chain entry. Its `remove` is a no-op.
+   */
+  readonly chainCard?: CardInstance;
 }
 
 /** A located source instance + the zone it came from. */
@@ -91,6 +110,15 @@ export function applyMove(
     return { state };
   }
 
+  // Fail closed: resolve the bearer for in-play-on-character BEFORE removing
+  // any source, so a missing bearer leaves state untouched (no card vanishes).
+  if (move.to === 'in-play-on-character') {
+    const bearerId = ctx.targetCharacterId ?? ctx.targetCardId;
+    if (!bearerId || !state.players.some(p => p.characters[bearerId])) {
+      return { error: `move: in-play-on-character bearer ${String(bearerId)} not found` };
+    }
+  }
+
   let next = state;
   for (const item of located.instances) {
     next = item.remove(next);
@@ -113,6 +141,15 @@ export function resolveMoveSource(
   const fromZones: readonly MoveZone[] = Array.isArray(move.from) ? move.from : [move.from as MoveZone];
 
   if (move.select === 'self') {
+    // The resolving event card is held on the chain entry, not in any pile —
+    // source it directly with a no-op removal (it was already removed from
+    // hand/on-guard at declaration).
+    if (fromZones.includes('chain')) {
+      if (!ctx.chainCard) {
+        return { error: `move: from=chain requires ctx.chainCard` };
+      }
+      return { instances: [{ instance: ctx.chainCard, ownerIndex: ctx.sourcePlayerIndex, zone: 'chain', remove: s => s }] };
+    }
     const located = locateSelf(state, ctx);
     if (!located) {
       return { error: `move: cannot locate source card ${ctx.sourceCardId as string}` };
@@ -189,7 +226,7 @@ export function pushToZone(
     const card = cards[i];
     const src = sources[i];
     const ownerIndex = resolveDestinationOwner(move, ctx, src);
-    const pushed = pushOne(next, move.to, ownerIndex, card);
+    const pushed = pushOne(next, move.to, ownerIndex, card, ctx);
     if ('error' in pushed) return pushed;
     next = pushed.state;
   }
@@ -496,7 +533,40 @@ function pushOne(
   zone: MoveZone,
   ownerIndex: number,
   card: CardInstance,
+  ctx: MoveContext,
 ): MoveResult {
+  // In-play destinations: the card enters play (not a flat pile), re-wrapped
+  // into a CardInPlay/ItemInPlay with default Untapped status.
+  if (zone === 'in-play-general') {
+    const player = state.players[ownerIndex];
+    const inPlay: CardInPlay = { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped };
+    const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+    newPlayers[ownerIndex] = { ...player, cardsInPlay: [...player.cardsInPlay, inPlay] };
+    return { state: { ...state, players: newPlayers } };
+  }
+  if (zone === 'in-play-on-character') {
+    // Attach to the bearer's controller (distinct from the move's owner
+    // routing); slot chosen by card type. Bearer existence was pre-flighted.
+    const bearerId = ctx.targetCharacterId ?? ctx.targetCardId;
+    const slot = inPlayOnCharacterSlot(defById(state, card.definitionId)?.cardType);
+    const attached: ItemInPlay = { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped };
+    for (let pi = 0; pi < state.players.length; pi++) {
+      const charInPlay = bearerId ? state.players[pi].characters[bearerId] : undefined;
+      if (charInPlay && bearerId) {
+        const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+        newPlayers[pi] = {
+          ...newPlayers[pi],
+          characters: {
+            ...newPlayers[pi].characters,
+            [bearerId as string]: { ...charInPlay, [slot]: [...charInPlay[slot], attached] },
+          },
+        };
+        return { state: { ...state, players: newPlayers } };
+      }
+    }
+    return { error: `move: in-play-on-character bearer ${String(bearerId)} not found` };
+  }
+
   const player = state.players[ownerIndex];
   const pile = readZone(player, zone);
   if (!pile) {

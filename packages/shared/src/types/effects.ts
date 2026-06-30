@@ -2834,7 +2834,16 @@ export type MoveZone =
   | 'in-play'
   | 'items-on-target'
   | 'items-on-wounded'
-  | 'attached-to-target-company';
+  | 'attached-to-target-company'
+  /** Source: the event card resolving on the chain (held on the chain entry,
+   *  not in any pile). Used when an event "enters play". Removal is a no-op. */
+  | 'chain'
+  /** Destination: into play attached to a character — a resource permanent
+   *  event into the bearer's `items`, a hazard permanent event into `hazards`
+   *  (chosen by card type via `inPlayOnCharacterSlot`). */
+  | 'in-play-on-character'
+  /** Destination: into a player's general `cardsInPlay`. */
+  | 'in-play-general';
 
 /**
  * Generic card-movement primitive. A move picks card instance(s) by
