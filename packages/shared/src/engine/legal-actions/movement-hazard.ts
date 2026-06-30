@@ -1572,7 +1572,7 @@ function playHazardsActions(
         // constraint's `source` — the original card that left the ongoing
         // effect behind, e.g. Stealth).
         const skillCancelEffect = def.effects?.find(
-          (e): e is import('../../types/effects.js').OnEventEffect & { apply: import('../../types/effects.js').LegacyTriggeredAction } =>
+          (e): e is import('../../types/effects.js').OnEventEffect & { apply: import('../../types/effects.js').CancelChainEntryAction } =>
             e.type === 'on-event'
             && e.event === 'self-enters-play'
             && e.apply?.type === 'cancel-chain-entry'
