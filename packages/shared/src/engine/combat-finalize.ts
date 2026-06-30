@@ -36,7 +36,7 @@ import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
-import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, matchesDefinition, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -340,7 +340,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
 
   // Check for on-event: bearer-wounded effects on allies attached to wounded characters.
   // When any characters are wounded (not eliminated), scan each wounded character's
-  // allies for this event. If an ally has bearer-wounded → discard-self, discard it.
+  // allies for this event. If an ally has bearer-wounded → self-discard move, discard it.
   // Used by Regiment of Black Crows (as-76) and Great Bats (as-74).
   if (woundedCharIds.length > 0) {
     const defPlayerIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
@@ -353,7 +353,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       for (const ally of charData.allies) {
         const allyDef = defById(stateAfterCombat, ally.definitionId);
         const bearerWoundedEvents = getOnEventEffects(allyDef, 'bearer-wounded');
-        if (bearerWoundedEvents.some(e => e.apply?.type === 'discard-self')) {
+        if (bearerWoundedEvents.some(e => isSelfDiscardMove(e.apply))) {
           const allyName = allyDef?.name ?? (ally.definitionId as string);
           logDetail(`bearer-wounded: discarding ally "${allyName}" from wounded character ${charId as string}`);
           alliesToDiscard.push(ally);
@@ -495,7 +495,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         let shouldDiscard = false;
         for (const ev of defeatedEvents) {
           if (!ev.when || matchesContext(ev.when, attackCtx)) {
-            if (ev.apply.type === 'discard-self') {
+            if (isSelfDiscardMove(ev.apply)) {
               shouldDiscard = true;
               break;
             }

@@ -1478,7 +1478,10 @@
           "company.atHaven": true
         },
         "apply": {
-          "type": "discard-self"
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
         }
       }
     ]

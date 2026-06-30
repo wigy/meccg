@@ -498,6 +498,23 @@ export function getOnEventEffects(
 }
 
 /**
+ * True when a triggered-action `apply` is a "discard this card" move — the
+ * `move` shape `{ select: 'self', to: 'discard' }` that replaced the legacy
+ * `discard-self` verb. Event sweepers and on-event handlers use this to detect
+ * "discard the bearer when the event fires" uniformly.
+ *
+ * The slot-specific removal stays inline in each sweeper, because the move
+ * locator (`reducer-move`) does not scan every attachment slot — e.g. allies.
+ * Matches `select`/`to` only (not `from`): the bearer is located by the calling
+ * sweeper, so the source zone is immaterial to the detection.
+ */
+export function isSelfDiscardMove(
+  apply: { readonly type?: string; readonly select?: string; readonly to?: string } | undefined,
+): boolean {
+  return apply?.type === 'move' && apply.select === 'self' && apply.to === 'discard';
+}
+
+/**
  * Returns the effects array from a card definition, or an empty array if the
  * card has no effects or the definition is absent.
  *
@@ -1207,8 +1224,8 @@ export function startDeckExhaust(state: GameState, playerIndex: 0 | 1): GameStat
  * increment exhaustion count, and clear the pending flag.
  *
  * Fires `play-deck-exhausted` — discards any permanent event in either
- * player's `cardsInPlay` that declares `on-event: play-deck-exhausted` with
- * `apply: { type: "discard-self" }` (e.g. Safe from the Shadow, Tokens to Show).
+ * player's `cardsInPlay` that declares `on-event: play-deck-exhausted` with a
+ * self-discard `move` apply (e.g. Safe from the Shadow, Tokens to Show).
  */
 export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameState {
   const player = state.players[playerIndex];
@@ -1236,7 +1253,7 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
     const toDiscard: typeof p.cardsInPlay[0][] = [];
     for (const card of p.cardsInPlay) {
       const def = defById(result, card.definitionId);
-      if (getOnEventEffects(def, 'play-deck-exhausted').some(e => e.apply?.type === 'discard-self')) {
+      if (getOnEventEffects(def, 'play-deck-exhausted').some(e => isSelfDiscardMove(e.apply))) {
         toDiscard.push(card);
       }
     }
@@ -1428,7 +1445,7 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
 
 /**
  * Fires the `company-composition-changed` event against every attached
- * hazard carrying an `on-event` + `discard-self` effect for that event.
+ * hazard carrying an `on-event` + self-discard `move` effect for that event.
  * When the effect's `when` condition is met, the hazard is discarded to
  * its owner's discard pile — the same pattern Treebeard uses for
  * `company-arrives-at-site`, reused here for hazards that care about
@@ -1448,16 +1465,14 @@ export function sweepAutoDiscardHazards(state: GameState): GameState {
         const toDiscard: CardInstanceId[] = [];
         for (const hazard of char.hazards) {
           const hDef = defById(state, hazard.definitionId);
-          // Match a move effect that discards self (the hazard itself)
-          // to its owner's discard pile. Legacy `discard-self` was
-          // migrated to `{ select: 'self', from: 'self-location', to: 'discard' }`.
+          // Match a self-discard `move` (the hazard discards itself to its
+          // owner's discard pile) gated on the company-size `when` condition.
           const ctx = { company: { characterCount: companyCharCount } };
           const trigger = getOnEventEffects(hDef, 'company-composition-changed').find(
-            e => e.apply?.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard'
-              && !!e.when && matchesCondition(e.when, ctx),
+            e => isSelfDiscardMove(e.apply) && !!e.when && matchesCondition(e.when, ctx),
           );
           if (trigger) {
-            logDetail(`discard-self: "${hDef?.name}" on ${charId as string} (company size ${companyCharCount})`);
+            logDetail(`self-discard move: "${hDef?.name}" on ${charId as string} (company size ${companyCharCount})`);
             toDiscard.push(hazard.instanceId);
           }
         }
@@ -1542,9 +1557,7 @@ export function sweepAutoDiscardResourceEvents(state: GameState): GameState {
         for (const item of char.items) {
           const itemDef = defById(state, item.definitionId);
           const trigger = getOnEventEffects(itemDef, 'company-composition-changed').find(
-            e => e.apply?.type === 'move' && (e.apply as { select?: string; to?: string }).select === 'self'
-              && (e.apply as { to?: string }).to === 'discard'
-              && !!e.when && matchesCondition(e.when, ctx),
+            e => isSelfDiscardMove(e.apply) && !!e.when && matchesCondition(e.when, ctx),
           );
           if (trigger) {
             logDetail(`sweepAutoDiscardResourceEvents: "${itemDef?.name}" on ${charId as string} (hasHigherMind=${hasHigherMindThanBearer})`);
@@ -1627,7 +1640,7 @@ export function discardCardsInPlayWhere(
 /**
  * Fires the `company-membership-changes` event against every company-targeted
  * permanent event (cardsInPlay with a matching `companyId`) that carries an
- * `on-event: company-membership-changes` + `discard-self` effect. Used by
+ * `on-event: company-membership-changes` + self-discard `move` effect. Used by
  * Fellowship, which must be discarded whenever any character or ally joins or
  * leaves the company it was played on.
  *
@@ -1646,7 +1659,7 @@ export function sweepCompanyMembershipChangedEvents(
       if (!affected.has(card.companyId as string)) return false;
       const def = defById(state, card.definitionId);
       return getOnEventEffects(def, 'company-membership-changes').some(
-        e => e.apply?.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard',
+        e => isSelfDiscardMove(e.apply),
       );
     },
     card => {
@@ -1659,7 +1672,7 @@ export function sweepCompanyMembershipChangedEvents(
 /**
  * Fires the `leader-leaves-company` event against every company-targeted
  * permanent event (cardsInPlay with a matching `companyId`) that carries an
- * `on-event: leader-leaves-company` + `discard-self` apply. Used by
+ * `on-event: leader-leaves-company` + self-discard `move` apply. Used by
  * *Orders from Lugbúrz* (as-94), which must be discarded whenever a leader
  * leaves the company it was played on.
  *
@@ -1678,7 +1691,7 @@ export function sweepLeaderLeavesCompanyEvents(
       if (!affected.has(card.companyId as string)) return false;
       const def = defById(state, card.definitionId);
       return getOnEventEffects(def, 'leader-leaves-company').some(
-        e => e.apply?.type === 'discard-self',
+        e => isSelfDiscardMove(e.apply),
       );
     },
     card => {
