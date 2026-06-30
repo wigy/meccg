@@ -6,8 +6,9 @@
  * index look-ups in one place so callers stay concise and consistent.
  */
 
-import type { GameState, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState, PhaseState } from './types/index.js';
+import type { CardDefinition, GameState, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState, PhaseState } from './types/index.js';
 import { Alignment, Phase } from './types/index.js';
+import { isCharacterCard } from './types/cards.js';
 import { FREE_COUNCIL_MP_THRESHOLD } from './constants.js';
 
 /**
@@ -166,6 +167,20 @@ export function computeTournamentScore(
  */
 export function isMinionOrBalrog(player: PlayerState): boolean {
   return player.alignment === Alignment.Ringwraith || player.alignment === Alignment.Balrog;
+}
+
+/**
+ * True if the given card definition is the Balrog avatar character (The Balrog,
+ * ba-3, or any manifestation thereof). The Balrog is the only avatar
+ * (`mind === null`) in a Balrog-alignment deck.
+ *
+ * Used wherever a MEBA rule applies specifically to The Balrog avatar rather
+ * than to every character in a Balrog player's company: he bears but cannot
+ * use items (MEBA §item rule), may not use region/starter movement, must enter
+ * at The Under-gates, and remaps "Any Dark-hold" home sites.
+ */
+export function isBalrogAvatarDef(def: CardDefinition | undefined): boolean {
+  return isCharacterCard(def) && def.mind === null && def.alignment === Alignment.Balrog;
 }
 
 /**
