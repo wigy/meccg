@@ -845,8 +845,6 @@ export type TriggeredActionType =
   | 'cancel-chain-entry'
   | 'discard-character'
   | 'discard-target-character'
-  | 'discard-cards-in-play'
-  | 'discard-named-card-from-company'
   | 'force-discard-one-company-item'
   | 'enqueue-corruption-check'
   | 'enqueue-pending-fetch'
@@ -1025,6 +1023,21 @@ export interface SetSitePhaseFlagAction extends TriggeredActionBase {
   readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable';
 }
 
+/** `discard-character` — discard the wound/body-check-context character (type-only marker). */
+export interface DiscardCharacterAction extends TriggeredActionBase {
+  readonly type: 'discard-character';
+}
+
+/** `discard-target-character` — discard the grant-action's target character (type-only marker). */
+export interface DiscardTargetCharacterAction extends TriggeredActionBase {
+  readonly type: 'discard-target-character';
+}
+
+/** `force-discard-one-company-item` — force the wounded character's company to discard one item (type-only marker). */
+export interface ForceDiscardOneCompanyItemAction extends TriggeredActionBase {
+  readonly type: 'force-discard-one-company-item';
+}
+
 /**
  * The verbs not yet migrated to discriminated members. Computed as the
  * complement of the migrated discriminants, so adding a verb to
@@ -1043,6 +1056,10 @@ export type LegacyTriggeredActionType = Exclude<
   | AddConstraintAction['type']
   | RemoveConstraintAction['type']
   | SetSitePhaseFlagAction['type']
+  | MoveEffect['type']
+  | DiscardCharacterAction['type']
+  | DiscardTargetCharacterAction['type']
+  | ForceDiscardOneCompanyItemAction['type']
 >;
 
 /**
@@ -1062,6 +1079,10 @@ export type TriggeredAction =
   | AddConstraintAction
   | RemoveConstraintAction
   | SetSitePhaseFlagAction
+  | MoveEffect
+  | DiscardCharacterAction
+  | DiscardTargetCharacterAction
+  | ForceDiscardOneCompanyItemAction
   | LegacyTriggeredAction;
 
 /**
@@ -1226,13 +1247,6 @@ export interface LegacyTriggeredAction extends EffectBase {
    */
   readonly postCorruptionCheckModifier?: number;
   /**
-   * For `discard-named-card-from-company` type: the name of the card to
-   * search for among the bearer's company's attached items/allies and
-   * move to the owner's discard pile. Used by Stinker / Gollum to discard
-   * The One Ring alongside the ally.
-   */
-  readonly cardName?: string;
-  /**
    * For `offer-char-join-attack` type (fired under
    * `on-event: creature-attack-begins`): when true, allies attached to
    * the bearer are discarded when the bearer joins the attacked company.
@@ -1254,21 +1268,10 @@ export interface LegacyTriggeredAction extends EffectBase {
     readonly tapIfUntapped?: boolean;
     readonly corruptionCheck?: { readonly modifier?: number };
   };
-  /** For `move` type: source zone(s) to locate instances in. */
-  readonly from?: MoveZone | readonly MoveZone[];
-  /** For `move` type: destination zone. */
-  readonly to?: MoveZone;
-  /** For `move` type: whose destination pile to push to. */
-  readonly toOwner?: 'source-owner' | 'opponent' | 'defender';
-  /** For `move` type: shuffle destination pile after pushing. */
-  readonly shuffleAfter?: boolean;
-  /**
-   * For `move` type: corruption check enqueued on the bearer after
-   * resolution (bounce-hazard-events migration).
-   */
-  readonly corruptionCheck?: { readonly modifier: number };
-  /** For `move` type with `count`: cap on how many instances to move. */
+  /** For `shuffle-deck-top` type: how many top cards to shuffle (default 5). */
   readonly count?: number;
+  /** For `shuffle-deck-top` type: whose deck — `'source-owner'` (default) or `'opponent'`. */
+  readonly toOwner?: 'source-owner' | 'opponent' | 'defender';
   /**
    * For `enqueue-ring-play-offer` type: ring categories to exclude from
    * the eligible set (e.g. `["the-one-ring"]`). Defaults to no exclusions.
