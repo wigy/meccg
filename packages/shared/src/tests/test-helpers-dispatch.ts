@@ -1,0 +1,230 @@
+/**
+ * @module test-helpers-dispatch
+ *
+ * Action-dispatch and execution helpers for tests: the low-level reduce wrappers
+ * (dispatch, dispatchResult, actionAs, executeAction), multi-action drivers
+ * (runActions, resolveChain), pending-resolution enqueue helpers
+ * (enqueueCorruptionCheck, enqueueTransferCorruptionCheck, enqueueGoldRingTest),
+ * and setupAutoAttackStep. Split out of test-helpers.ts (re-exported from the
+ * barrel); imports only engine modules and the base layers, so nothing imports
+ * it back (no cycle).
+ */
+
+import { expect } from 'vitest';
+import { reduce } from '../engine/reducer.js';
+import type { ReducerResult } from '../engine/reducer.js';
+import { Phase, computeLegalActions } from '../index.js';
+import type { PlayerId, GameState, CardInstanceId, GameAction, SitePhaseState } from '../index.js';
+import { enqueueResolution } from '../engine/pending.js';
+import { viableActions } from './test-helpers-queries.js';
+
+/**
+ * Run a sequence of actions, asserting no errors.
+ * Returns the final state.
+ */
+export function runActions(
+  state: GameState,
+  actions: readonly GameAction[],
+): GameState {
+  for (const action of actions) {
+    const result = reduce(state, action);
+    if (result.error) throw new Error(`Action ${action.type} failed: ${result.error}`);
+    state = result.state;
+  }
+  return state;
+}
+
+/**
+ * Narrow an {@link GameAction} to a specific shape. Used to reach into
+ * payload-specific fields (e.g. `cardInstanceId`) without repeating the
+ * cast at every call site.
+ */
+export function actionAs<T extends GameAction>(action: GameAction): T {
+  return action as T;
+}
+
+/**
+ * Enqueue a transfer-style corruption-check pending resolution onto the
+ * given state. Used by tests that simulate a just-completed item transfer
+ * without going through the full transfer reducer flow.
+ *
+ * Replaces the legacy pattern of poking
+ * `OrganizationPhaseState.pendingCorruptionCheck` directly.
+ */
+export function enqueueTransferCorruptionCheck(
+  state: GameState,
+  playerId: PlayerId,
+  characterId: CardInstanceId,
+  transferredItemId: CardInstanceId,
+): GameState {
+  return enqueueResolution(state, {
+    source: transferredItemId,
+    actor: playerId,
+    scope: { kind: 'phase', phase: Phase.Organization },
+    kind: {
+      type: 'corruption-check',
+      characterId,
+      modifier: 0,
+      reason: 'Transfer',
+      possessions: [],
+      transferredItemId,
+    },
+  });
+}
+
+/**
+ * Enqueue a generic corruption-check pending resolution for a character.
+ * Used by tests that need to trigger a corruption check in the pending
+ * resolution queue (outside of Free Council) without going through the
+ * full hazard-play flow.
+ */
+export function enqueueCorruptionCheck(
+  state: GameState,
+  playerId: PlayerId,
+  characterId: CardInstanceId,
+  modifier = 0,
+  possessions: CardInstanceId[] = [],
+): GameState {
+  return enqueueResolution(state, {
+    source: characterId,
+    actor: playerId,
+    scope: { kind: 'phase', phase: state.phaseState.phase as Phase },
+    kind: {
+      type: 'corruption-check',
+      characterId,
+      modifier,
+      reason: 'Test',
+      possessions,
+      transferredItemId: null,
+    },
+  });
+}
+
+/**
+ * Enqueue a `gold-ring-test` pending resolution for the given player,
+ * gold ring instance, and character. Used by ring-test rule tests to set
+ * up the state just before the player rolls.
+ */
+export function enqueueGoldRingTest(
+  state: GameState,
+  playerId: PlayerId,
+  goldRingInstanceId: CardInstanceId,
+  characterInstanceId: CardInstanceId,
+  rollModifier = 0,
+): GameState {
+  return enqueueResolution(state, {
+    source: goldRingInstanceId,
+    actor: playerId,
+    scope: { kind: 'phase', phase: Phase.Organization },
+    kind: {
+      type: 'gold-ring-test',
+      goldRingInstanceId,
+      characterInstanceId,
+      rollModifier,
+    },
+  });
+}
+
+/**
+ * Resolve an active chain by having both players pass priority until
+ * the chain is cleared. Returns the resulting state.
+ */
+export function resolveChain(state: GameState): GameState {
+  let current = state;
+  for (let i = 0; i < 20 && current.chain !== null; i++) {
+    const priorityPlayer = current.chain.priority;
+    const actions = computeLegalActions(current, priorityPlayer);
+    const pass = actions.find(ea => ea.viable && ea.action.type === 'pass-chain-priority');
+    if (!pass) break;
+    const result = reduce(current, pass.action);
+    if (result.error) break;
+    current = result.state;
+  }
+  return current;
+}
+
+// ─── Opponent influence helpers ─────────────────────────────────────────────
+
+/**
+ * Execute the first viable action of the given type for a player.
+ * Optionally sets a cheat dice roll. For `resolve-strike`, picks the
+ * tap or no-tap variant based on the `tapToFight` parameter (default false).
+ */
+export function executeAction(
+  state: GameState,
+  player: PlayerId,
+  actionType: string,
+  roll?: number,
+  tapToFight = false,
+): GameState {
+  const s = roll !== undefined ? { ...state, cheatRollTotal: roll } : state;
+  const actions = viableActions(s, player, actionType);
+  expect(actions.length).toBeGreaterThan(0);
+  let action = actions[0].action;
+  if (actionType === 'resolve-strike') {
+    const preferred = actions.find(a => 'tapToFight' in a.action && (a.action as { tapToFight: boolean }).tapToFight === tapToFight);
+    if (preferred) action = preferred.action;
+  }
+  const result = reduce(s, action);
+  expect(result.error).toBeUndefined();
+  return result.state;
+}
+
+/**
+ * Transitions a site phase state to the automatic-attacks step.
+ *
+ * @param state - A state with a SitePhaseState (e.g. from `buildSitePhaseState`).
+ */
+export function setupAutoAttackStep<T extends GameState>(state: T): T {
+  const base = state.phaseState as SitePhaseState;
+  const autoAttackState: SitePhaseState = {
+    phase: base.phase,
+    step: 'automatic-attacks',
+    activeCompanyIndex: base.activeCompanyIndex,
+    handledCompanyIds: base.handledCompanyIds,
+    siteEntered: false,
+    resourcePlayed: base.resourcePlayed,
+    minorItemAvailable: base.minorItemAvailable,
+    hoardBountyAvailable: base.hoardBountyAvailable,
+    thoroughSearchAvailable: base.thoroughSearchAvailable,
+    declaredAgentAttack: base.declaredAgentAttack,
+    automaticAttacksResolved: 0,
+    awaitingOnGuardReveal: base.awaitingOnGuardReveal,
+    pendingResourceAction: base.pendingResourceAction,
+    opponentInteractionThisTurn: base.opponentInteractionThisTurn,
+    pendingOpponentInfluence: base.pendingOpponentInfluence,
+  };
+  return { ...state, phaseState: autoAttackState };
+}
+
+/**
+ * Apply an action and assert it produced no error. Returns the new state.
+ *
+ * Replaces the common two-line pattern:
+ * ```
+ * const result = reduce(state, action);
+ * expect(result.error).toBeUndefined();
+ * state = result.state;
+ * ```
+ */
+export function dispatch(state: GameState, action: GameAction): GameState {
+  const result = reduce(state, action);
+  expect(result.error).toBeUndefined();
+  return result.state;
+}
+
+/**
+ * Apply an action and assert it produced no error. Returns the full
+ * {@link ReducerResult} so tests can inspect emitted effects. Use
+ * {@link dispatch} when only the next state is needed.
+ */
+export function dispatchResult(state: GameState, action: GameAction): ReducerResult {
+  const result = reduce(state, action);
+  expect(result.error).toBeUndefined();
+  return result;
+}
+
+/**
+ * Find the first viable action of a given type, optionally narrowed by a
+ * predicate. Returns undefined if no match is found.
+ */
