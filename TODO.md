@@ -13,8 +13,6 @@ Look for functions and features that are better implemented in DSL. Implement th
 FIXES
 -----
 
-Give copies of sites (or any other cards) presented in the UI different id from the original. Otherwise it has silly effects when animation kicks in (animate previous location of the card sliding to new location).
-
 FEATS
 -----
 
@@ -22,7 +20,6 @@ EPICS
 -----
 
 The Balrog Rules
-Define all BA cards
 Finalise tests section 01
 Finalise tests section 02
 Finalise tests section 03
