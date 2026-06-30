@@ -6,13 +6,13 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 327 | 214 | 113 | 65.4% |
+| 329 | 216 | 113 | 65.7% |
 
 ## Section Breakdown
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
-| 00 | [Engine](00-engine/) | 3 | 3 | 100.0% |
+| 00 | [Engine](00-engine/) | 4 | 4 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 41 | 69.5% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 11 | 84.6% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 27 | 56.3% |
@@ -24,7 +24,7 @@
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 26 | 83.9% |
 | 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 23 | 43.4% |
 | — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
-| — | The White Hand (MEWH) | 13 | 13 | 100.0% |
+| — | The White Hand (MEWH) | 14 | 14 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -33,6 +33,7 @@
 | — | Engine | [Active Constraints](00-engine/active-constraints.test.ts) | ☑ |
 | — | Engine | [Last Action Card Defs](00-engine/last-action-card-defs.test.ts) | ☑ |
 | — | Engine | [Pending Resolutions](00-engine/pending-resolutions.test.ts) | ☑ |
+| — | Engine | [Move Primitive](move-primitive.test.ts) | ☑ |
 | 1.01 | Deck Construction & Setup | [Game Length](01-deck-construction/rule-1.01-game-length.test.ts) | ☐ |
 | 1.02 | Deck Construction & Setup | [Player Type](01-deck-construction/rule-1.02-player-type.test.ts) | ☑ |
 | 1.03 | Deck Construction & Setup | [Deck Composition](01-deck-construction/rule-1.03-deck-composition.test.ts) | ☑ |
@@ -270,7 +271,7 @@
 | 9.11 | Agents, Events, Items & Rings | [Short Event Duplication](09-agents-events-items/rule-9.11-short-event-duplication.test.ts) | ☑ |
 | 9.12 | Agents, Events, Items & Rings | [Long Events](09-agents-events-items/rule-9.12-long-events.test.ts) | ☑ |
 | 9.13 | Agents, Events, Items & Rings | [Permanent Events](09-agents-events-items/rule-9.13-permanent-events.test.ts) | ☑ |
-| 9.14 | Agents, Events, Items & Rings | [Fw Stage Event Rules](09-agents-events-items/rule-9.14-fw-stage-event-rules.test.ts) | ☐ |
+| 9.14 | Agents, Events, Items & Rings | [Fw Stage Event Rules](09-agents-events-items/rule-9.14-fw-stage-event-rules.test.ts) | ◐ |
 | 9.15 | Agents, Events, Items & Rings | [Item Usage](09-agents-events-items/rule-9.15-item-usage.test.ts) | ☑ |
 | 9.16 | Agents, Events, Items & Rings | [Switching Items](09-agents-events-items/rule-9.16-switching-items.test.ts) | ☐ |
 | 9.17 | Agents, Events, Items & Rings | [Item Modification Order](09-agents-events-items/rule-9.17-item-modification-order.test.ts) | ☑ |
@@ -357,6 +358,7 @@
 | MEWH | The White Hand (MEWH) | [Stage Resources](rule-mewh-stage-resources.test.ts) | ☑ |
 | MEWH | The White Hand (MEWH) | [Wizard Leaves Play](rule-mewh-wizard-leaves-play.test.ts) | ☑ |
 | MEWH | The White Hand (MEWH) | [Wizardhavens](rule-mewh-wizardhavens.test.ts) | ☑ |
+| MEWH | The White Hand (MEWH) | [Fw Region Movement](rule-mewh-fw-region-movement.test.ts) | ☑ |
 
 ---
 *Legend: ☐ = todo, ☑ = implemented, ◐ = partial*

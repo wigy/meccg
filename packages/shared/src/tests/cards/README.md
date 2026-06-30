@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 595 | 585 | 10 | 98.3% |
+| 598 | 588 | 10 | 98.3% |
 
 ## Category Breakdown
 
@@ -14,8 +14,8 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 46 | 46 | 100.0% |
 | BA | 3 | 1 | 33.3% |
-| DM | 47 | 47 | 100.0% |
-| LE | 180 | 177 | 98.3% |
+| DM | 49 | 49 | 100.0% |
+| LE | 181 | 178 | 98.3% |
 | TD | 53 | 53 | 100.0% |
 | TW | 238 | 233 | 97.9% |
 | WH | 28 | 28 | 100.0% |
@@ -30,7 +30,7 @@
 | as-5 | Tûma | — | 12 | ☑ |
 | as-6 | Wûluag | — | 12 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
-| as-24 | Alone and Unadvised | — | 13 | ☑ |
+| as-24 | Alone and Unadvised | — | 14 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
 | as-34 | Power Built by Waiting | — | 13 | ☑ |
 | as-39 | Summons from Long Sleep | — | 9 | ☑ |
@@ -64,7 +64,7 @@
 | as-139 | Gobel Mírlond | — | 5 | ☑ |
 | as-140 | Nûrniag Camp | — | 5 | ☑ |
 | as-141 | Raider-hold | — | 5 | ☑ |
-| as-142 | The Worthy Hills | — | 12 | ☑ |
+| as-142 | The Worthy Hills | — | 13 | ☑ |
 | as-143 | Dancing Spire | — | 8 | ☑ |
 | as-144 | Eagles’ Eyrie | — | 8 | ☑ |
 | as-148 | Gold Hill | — | 9 | ☑ |
@@ -95,13 +95,15 @@
 | dm-45 | An Unexpected Outpost | — | 13 | ☑ |
 | dm-50 | Cunning Foes | — | 8 | ☑ |
 | dm-55 | Exhalation of Decay | — | 7 | ☑ |
-| dm-58 | Flies and Spiders | — | 3 | ☑ |
+| dm-56 | Eyes of the Shadow | — | 10 | ☑ |
+| dm-58 | Flies and Spiders | — | 5 | ☑ |
 | dm-62 | Great Need or Purpose | — | 5 | ☑ |
 | dm-71 | The Moon Is Dead | — | 8 | ☑ |
 | dm-75 | No Way Forward | — | 8 | ☑ |
 | dm-80 | Rank upon Rank | — | 10 | ☑ |
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-88 | Seized by Terror | — | 8 | ☑ |
+| dm-95 | Troll-purse | — | 10 | ☑ |
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
 | dm-108 | Little Snuffler | — | 5 | ☑ |
@@ -159,7 +161,7 @@
 | le-67 | Corpse-candle | — | 10 | ☑ |
 | le-68 | Dire Wolves | — | 5 | ☑ |
 | le-69 | Elf-lord Revealed in Wrath | — | 6 | ☑ |
-| le-71 | Ent in Search of the Entwives | — | 12 | ☑ |
+| le-71 | Ent in Search of the Entwives | — | 13 | ☑ |
 | le-72 | Ghosts | — | 6 | ☑ |
 | le-73 | Ghouls | — | 9 | ☑ |
 | le-75 | Giant Spiders | — | 8 | ☑ |
@@ -249,10 +251,10 @@
 | le-299 | Black Mace | — | 7 | ☑ |
 | le-302 | Blazon of the Eye | — | 4 | ☑ |
 | le-310 | Foul-smelling Paste | — | 11 | ☑ |
-| le-311 | Gleaming Gold Ring | — | 22 | ☑ |
+| le-311 | Gleaming Gold Ring | — | 24 | ☑ |
 | le-313 | High Helm | — | 11 | ☑ |
 | le-315 | The Least of Gold Rings | — | 6 | ☑ |
-| le-324 | Minor Ring | — | 8 | ☑ |
+| le-324 | Minor Ring | — | 9 | ☑ |
 | le-328 | Orc-draughts | — | 12 | ☑ |
 | le-333 | Palantír of Minas Tirith | — | 11 | ☑ |
 | le-334 | Palantír of Orthanc | — | 10 | ☑ |
@@ -264,17 +266,17 @@
 | le-350 | Bag End | — | 12 | ☑ |
 | le-351 | Bandit Lair | — | 12 | ☑ |
 | le-352 | Barad-dûr | — | 11 | ☑ |
-| le-354 | Beorn’s House | — | 4 | ☑ |
+| le-354 | Beorn’s House | — | 7 | ☑ |
 | le-359 | Carn Dûm | — | 18 | ☑ |
 | le-360 | Caves of Ûlund | — | 6 | ☑ |
 | le-361 | Cirith Gorgor | — | 5 | ☑ |
 | le-362 | Cirith Ungol | — | 9 | ☑ |
-| le-363 | Dale | — | 6 | ☑ |
+| le-363 | Dale | — | 9 | ☑ |
 | le-364 | Dead Marshes | — | 15 | ☑ |
 | le-365 | Dimrill Dale | — | 6 | ☑ |
 | le-367 | Dol Guldur | — | 15 | ☑ |
 | le-371 | Easterling Camp | — | 7 | ☑ |
-| le-372 | Edoras | — | 7 | ☑ |
+| le-372 | Edoras | — | 10 | ☑ |
 | le-373 | Ettenmoors | — | 10 | ☑ |
 | le-378 | Goblin-gate | — | 9 | ☑ |
 | le-379 | Gondmaeglom | — | 11 | ☑ |
@@ -283,20 +285,21 @@
 | le-390 | Minas Morgul | — | 14 | ☑ |
 | le-391 | Minas Tirith | — | 10 | ☑ |
 | le-392 | Moria | — | 12 | ☑ |
-| le-393 | Mount Doom | — | 11 | ☑ |
+| le-393 | Mount Doom | — | 13 | ☑ |
 | le-394 | Mount Gram | — | 9 | ☑ |
 | le-395 | Mount Gundabad | — | 10 | ☑ |
 | le-396 | Nûrniag Camp | — | 9 | ☑ |
 | le-397 | Ost-in-Edhil | — | 12 | ☑ |
-| le-399 | Raider-hold | — | 12 | ☑ |
+| le-399 | Raider-hold | — | 14 | ☑ |
 | le-400 | Ruined Signal Tower | — | 11 | ☑ |
 | le-401 | Sarn Goriwing | — | 6 | ☑ |
 | le-402 | Shelob’s Lair | — | 15 | ☑ |
 | le-404 | Southron Oasis | — | 7 | ☑ |
-| le-408 | Thranduil’s Halls | — | 6 | ☑ |
+| le-408 | Thranduil’s Halls | — | 9 | ☑ |
+| le-411 | Variag Camp | — | 5 | ☑ |
 | le-412 | The White Towers | — | 9 | ☑ |
 | le-413 | The Wind Throne | — | 12 | ☑ |
-| le-415 | The Worthy Hills | — | 12 | ☑ |
+| le-415 | The Worthy Hills | — | 19 | ☑ |
 | le-417 | Zarak Dûm | — | 5 | ☑ |
 | le-418 | The Arkenstone | — | 16 | ☑ |
 | le-pending-effects-parity | — | — | 1 | ☐ |
@@ -359,7 +362,7 @@
 | tw-12 | Balrog of Moria | — | 8 | ☑ |
 | tw-015 | Barrow-wight | — | 6 | ☑ |
 | tw-016 | “Bert” (Bûrat) | — | 7 | ☑ |
-| tw-17 | Brigands | — | 6 | ☑ |
+| tw-17 | Brigands | — | 7 | ☑ |
 | tw-18 | Call of Home | — | 8 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
 | tw-021 | — | — | 11 | ☑ |
@@ -606,13 +609,13 @@
 | wh-60 | A New Ringlord | — | 4 | ☑ |
 | wh-61 | A Strident Spawn | — | 10 | ☑ |
 | wh-66 | Double-dealing | — | 10 | ☑ |
-| wh-68 | The Fortress of Isen | — | 14 | ☑ |
+| wh-68 | The Fortress of Isen | — | 17 | ☑ |
 | wh-69 | Fortress of the Towers | — | 14 | ☑ |
 | wh-70 | Gatherer of Loyalties | — | 10 | ☑ |
 | wh-72 | Great Patron | — | 9 | ☑ |
 | wh-74 | Guarded Haven | — | 12 | ☑ |
-| wh-75 | Hidden Haven | — | 20 | ☑ |
-| wh-82 | Thrall of the Voice | — | 11 | ☑ |
+| wh-75 | Hidden Haven | — | 26 | ☑ |
+| wh-82 | Thrall of the Voice | — | 14 | ☑ |
 | wh-84 | Wizard’s Myrmidon | — | 7 | ☑ |
 | wh-87 | Half-orcs | — | 10 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |

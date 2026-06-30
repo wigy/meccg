@@ -21,11 +21,11 @@ For player information, see the [Player Guide](docs/player-guide.md).
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 214 | 327 | 65.4% |
-| Card tests | 585 | 595 | 98.3% |
-| Cards created | 1602 | 1683 | 95.2% |
-| Cards certified | 641 | 1602 | 40.0% |
-| **Total** | **3042** | **4207** | **72.3%** |
+| Rule tests | 216 | 329 | 65.7% |
+| Card tests | 588 | 598 | 98.3% |
+| Cards created | 1683 | 1683 | 100.0% |
+| Cards certified | 643 | 1683 | 38.2% |
+| **Total** | **3130** | **4293** | **72.9%** |
 
 ### Deck Catalog
 
@@ -41,7 +41,7 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 110 (100.0%) |
-| (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 108 (98.2%) |
+| (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 79 (71.8%) |
 | (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 80 (72.7%) |
 | (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 75 (68.2%) |

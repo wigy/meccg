@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.44.0 — 2026-07-01
+
+Challenge Deck O
+
+### Game Engine
+
+- Restrict Fallen-wizard avatar play to its declared home site (rule 2.II.2.1.F1) and count a Fallen-wizard as their declared avatar before it enters play
+- Treat Fallen-wizard companies as hero for detainment purposes (rule 2.IV.vii.F1)
+- Fix Fallen-wizard movement across mixed-alignment sites
+- Hidden Haven: pair its Ruins & Lairs site at draft time, force site selection before the draft proceeds, auto-skip starting-site selection when it set the site, keep factions/allies naming the site playable, and cancel M/H keyed-creature attacks at Hidden Haven sites
+- Thrall of the Voice: gate one drafted character per recruitment vehicle and draft it without spending a separate character pick
+- Draft a Fallen-wizard Stage resource as the round's action so the game proceeds, and play site-targeting Stage resources during the organization phase (rule 5.F1)
+- Restrict stage-resource permanent events to the organization phase
+- Implement Fallen-wizard free general influence and surface stage points in the player metrics
+- Add a generic dice-check resolution and collapse muster, glamour, cvcc ally-discards, call-of-home, and body-check onto it (P08); add a return-character-to-hand verb
+- Route long-event and permanent-event enters-play and the discard-self verb through the move primitive; add in-play destinations and a chain source (P06)
+- Generalize prisoner rescue to take-prisoner cards (Troll-purse dm-95, Flies and Spiders dm-58)
+- Offer a cancel window for each-character automatic attacks; fix The Worthy Hills (le-415) each-character auto-attack
+- Fix the trophy no-disappear bug and complete `resolveInstanceId` plus the no-card-disappears invariant check (P03)
+- Fix influenced characters' hazards being dropped instead of discarded, and Free Council corruption checks discarding attached hazards twice
+- Fix Brigands offering non-item cards as discard targets and Stone Trolls' leader-control influence variant
+- Default site-targeting permanent events (Double-dealing) to the focused company
+
+### Card Certifications & Data
+
+- Certify Eyes of the Shadow (dm-56), Troll-purse (dm-95), and Variag Camp (le-411)
+- Add the remaining 81 The Balrog (BA) cards via `add-card.mjs`
+
+### Web Client
+
+- Highlight the name of the player whose turn it is and fix browser focus when the opponent has the first turn
+- Add a stage-points (SP) breakdown tooltip to the view header and show effective mind in the GI tooltip with printed mind in parentheses
+- Fix the GI info-box tooltip ignoring the control-restriction cost (Wizard's Myrmidon)
+- Render on-guard cards above the site-attachment strip and site-bound cards beneath their site
+- Surface Power Built by Waiting tap/untap on the game board and render Thrall of the Voice beside its drafted character
+- Fix resolve-strike button labels for wounded and untapped characters
+- Reveal drafted Hidden Haven and its paired site to the opponent in the draft projection
+
+### Text Client
+
+- Emit body-check outcomes as text notifications so they show in the log
+
+### Infrastructure
+
+- Gate the card tests in CI (P01) and add an architecture roadmap planning doc
+- Break the engine↔barrel import cycle with a lint guard (P02) and invert the chain↔movement-hazard cycle (P09)
+- Close `TriggeredAction`'s `type` discriminant into a literal union and discriminate its verb families (P05)
+- Brand id-keyed state records with `ById<V>` (P12) and split the site-rule effect family out of `types/effects.ts` (P04)
+- Split `test-helpers` into a pure re-export barrel over focused modules (P13)
+- Extract combat, movement/hazard, agent, and prisoner subsystems out of the monolithic reducers (P09); colocate pending-resolution kinds in a registry (P07)
+- Delete dead engine code and consolidate many duplicated constraint, factory, and rendering helpers across engine and client
+- Make commit/push/PR deterministic so a skill can't leave work unpushed; harden `run-ai` and `handle-mail` against headless-auth (401) failures
+
 ## 0.43.0 — 2026-06-24
 
 The White Hand Rules
