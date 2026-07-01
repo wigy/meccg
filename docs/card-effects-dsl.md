@@ -2185,10 +2185,14 @@ Rules:
 - `auto-test-gold-ring` — storing a gold-ring item at this site enqueues
   a `gold-ring-test` pending resolution with the rule's `rollModifier`.
   The gold-ring-test handler rolls 2d6 + modifier, logs the outcome,
-  and discards the ring regardless of result (Rule 9.21 / 9.22).
-  Requires that the gold-ring item also declares `storable-at` for the
-  site. Rule 9.21's replacement-with-special-ring step is not yet
-  implemented.
+  and discards the ring regardless of result (Rule 9.21 / 9.22), then
+  unconditionally enqueues a `ring-play-offer` resolution so the player
+  may immediately play a matching special ring item in its place (or
+  pass), per the replacement step of Rule 9.21 — implemented in
+  `applyGoldRingTestResolution`/`applyRingPlayOfferResolution`
+  (`engine/pending-reducers.ts`) and `ringPlayOfferActions`
+  (`engine/legal-actions/pending.ts`). Requires that the gold-ring item
+  also declares `storable-at` for the site.
 
   ```json
   { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 }
@@ -2223,6 +2227,23 @@ Rules:
   ```json
   { "type": "site-rule", "rule": "attacks-not-detainment",
     "filter": { "attack.automatic": false } }
+  ```
+
+- `keyed-creatures-detainment` — forces attacks at this site to be
+  resolved as detainment whenever the attacking hazard creature is keyed
+  to the site *by name* (a `keyedTo` entry whose `siteNames` includes
+  this site's own name, e.g. Watcher in the Water's "May also be played
+  at Moria" alternate keying). Unlike the default CoE §3.II.2 R1-R3/B1-B3
+  rules (which only ever produce detainment for Ringwraith/Balrog
+  defenders), this rule applies regardless of the defending player's
+  alignment — the detainment status is a property of the site, not the
+  defender. Consumed by `engine/detainment.ts`
+  (`isDetainmentAttack`/hazard-creature call site in
+  `chain-reducer.ts::initiateCreatureCombat`). Used by Moria (ba-93):
+  "Creatures keyed to this site are/attack as detainment."
+
+  ```json
+  { "type": "site-rule", "rule": "keyed-creatures-detainment" }
   ```
 
 - `attacks-are-detainment` — mirror of `attacks-not-detainment`: forces

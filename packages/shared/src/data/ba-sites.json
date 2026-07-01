@@ -148,9 +148,14 @@
       },
       {
         "type": "site-rule",
+        "rule": "keyed-creatures-detainment"
+      },
+      {
+        "type": "site-rule",
         "rule": "cancel-attacks"
       }
-    ]
+    ],
+    "certified": "2026-07-01"
   },
   {
     "cardType": "balrog-site",

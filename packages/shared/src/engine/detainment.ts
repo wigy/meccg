@@ -76,6 +76,15 @@ export interface DetainmentContext {
    */
   readonly defendingSiteEffects?: readonly CardEffect[];
   /**
+   * Name of the defending company's effective site (destination if
+   * moving, else current). Consulted for `site-rule:
+   * keyed-creatures-detainment` entries, which force detainment whenever
+   * the attacking creature carries a `siteNames` keying entry naming
+   * this site (e.g. Moria's "Creatures keyed to this site are
+   * detainment").
+   */
+  readonly defendingSiteName?: string | null;
+  /**
    * True when this attack is the defending company's *current site's own*
    * listed automatic-attack (static or dynamically played via
    * `site-rule: dynamic-auto-attack`) rather than a hazard creature played
@@ -168,6 +177,26 @@ export function isDetainmentAttack(ctx: DetainmentContext): boolean {
     }
     logDetail(
       `Detainment: site-rule attacks-not-detainment skipped; filter rejected enemy race=${ctx.attackRace ?? 'none'}`,
+    );
+  }
+
+  const keyedDetainmentRule = (ctx.defendingSiteEffects ?? []).find(
+    e => e.type === 'site-rule' && e.rule === 'keyed-creatures-detainment',
+  );
+  if (keyedDetainmentRule && ctx.defendingSiteName) {
+    const keyingContextForSite = { inPlay: ctx.inPlayNames ?? [] };
+    const keyedToSite = (ctx.attackKeyedTo ?? []).some(
+      k => (k.siteNames ?? []).includes(ctx.defendingSiteName!)
+        && (!k.when || matchesCondition(k.when, keyingContextForSite)),
+    );
+    if (keyedToSite) {
+      logDetail(
+        `Detainment: site-rule keyed-creatures-detainment — creature keyed to ${ctx.defendingSiteName} by name`,
+      );
+      return true;
+    }
+    logDetail(
+      `Detainment: site-rule keyed-creatures-detainment present but creature not keyed to ${ctx.defendingSiteName} by name`,
     );
   }
 
