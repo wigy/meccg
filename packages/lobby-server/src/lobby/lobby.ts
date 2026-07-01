@@ -270,6 +270,10 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
 
 /** Launch a game against the Smart-AI (heuristic strategy). */
 async function startAiGame(player: OnlinePlayer, deckId?: string): Promise<void> {
+  if (!deckId) {
+    send(player.ws, { type: 'error', message: 'Select a deck for the AI before starting' });
+    return;
+  }
   player.inGame = true;
   const aiName = 'AI-Smart';
 

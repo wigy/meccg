@@ -150,8 +150,10 @@ export async function launchGame(player1: string, player2: string, options?: Lau
   if (options?.ai) {
     const isPseudo = options.pseudoAi ?? false;
     const aiScript = path.join(__dirname, '../../../text-client/src/', isPseudo ? 'pseudo-ai-client.ts' : 'ai-client.ts');
-    const aiDeck = options?.aiDeckId ?? 'development-proto-hero';
-    const aiArgs = ['tsx', aiScript, String(port), player2, tokens[1], '--deck', aiDeck];
+    if (!options.aiDeckId) {
+      throw new Error('aiDeckId is required to start an AI game');
+    }
+    const aiArgs = ['tsx', aiScript, String(port), player2, tokens[1], '--deck', options.aiDeckId];
     const aiChild = spawn('npx', aiArgs, {
       env: process.env,
       stdio: isPseudo ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],

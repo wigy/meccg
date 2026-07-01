@@ -318,7 +318,7 @@ export async function loadDecks(): Promise<void> {
   // Populate AI deck dropdown, preserving the user's current selection
   const aiSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
   if (aiSelect) {
-    const savedAiDeck = aiSelect.value || 'development-proto-hero';
+    const savedAiDeck = aiSelect.value;
     aiSelect.innerHTML = '';
     for (const deck of catalog) {
       const opt = document.createElement('option');
