@@ -537,7 +537,8 @@
           "attack.automatic": false
         }
       }
-    ]
+    ],
+    "certified": "2026-07-01"
   },
   {
     "cardType": "balrog-site",
