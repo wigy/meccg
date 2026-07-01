@@ -820,7 +820,8 @@
         "target": "wounded-character"
       }
     ],
-    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2."
+    "text": "Undead. One strike. After the attack, each character wounded by Barrow-wight makes a corruption check modified by -2.",
+    "certified": "2026-07-01"
   },
   {
     "cardType": "hazard-creature",
