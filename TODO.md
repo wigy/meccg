@@ -19,7 +19,6 @@ FEATS
 EPICS
 -----
 
-The Balrog Rules
 Finalise tests section 01
 Finalise tests section 02
 Finalise tests section 03
