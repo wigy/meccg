@@ -492,15 +492,14 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gundabad",
-    "playableResources": [],
+    "playableResources": [
+      "minor"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
         "strikes": 5,
-        "prowess": 7,
-        "combatRules": [
-          "detainment"
-        ]
+        "prowess": 7
       }
     ],
     "keywords": [
@@ -516,7 +515,7 @@
     },
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Adjacent Sites: Mount Gundabad (0), The Wind-deeps (5), The Iron-deeps (6), The Under-grottos (6), The Under-gates (4), The Under-vaults (5)\nPlayable: Items (minor)\nAutomatic-attacks (2): (1st) Orcs — 5 strikes with 7 prowess (detainment)\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins and Lairs.",
+    "text": "Adjacent Sites: Mount Gundabad (0), The Wind-deeps (5), The Iron-deeps (6), The Under-grottos (6), The Under-gates (4), The Under-vaults (5)\nPlayable: Items (minor)\nAutomatic-attacks (2): (1st) Orcs — 5 strikes with 7 prowess (detainment)\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins and Lairs.\nSpecial: Creatures keyed to this site attack normally, not as detainment.",
     "unique": true,
     "effects": [
       {
@@ -527,8 +526,19 @@
             "ruins-and-lairs"
           ]
         }
+      },
+      {
+        "type": "combat-detainment"
+      },
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment",
+        "filter": {
+          "attack.automatic": false
+        }
       }
-    ]
+    ],
+    "certified": "2026-07-01"
   },
   {
     "cardType": "balrog-site",
