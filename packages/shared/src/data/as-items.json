@@ -597,7 +597,8 @@
         "max": 1
       }
     ],
-    "text": "Mind Ring. -1 to mind to a minimum of 1, +1 to direct influence. Cannot be duplicated on a given character."
+    "text": "Mind Ring. -1 to mind to a minimum of 1, +1 to direct influence. Cannot be duplicated on a given character.",
+    "certified": "2026-07-01"
   },
   {
     "cardType": "minion-resource-item",
