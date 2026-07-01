@@ -1000,6 +1000,14 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly target?: string;
   /** Numeric payload (check-modifier, *-stat-modifier, hazard-limit-modifier, hand-size-modifier, …). */
   readonly value?: number;
+  /**
+   * For a `check-modifier` payload: when true, the targeted character's next
+   * matching check (e.g. corruption) succeeds unconditionally, regardless of
+   * the roll, instead of being adjusted by {@link value}. Used by Ancient
+   * Black Axe (as-122): "tap this item to make a character at the same site
+   * automatically pass a corruption check."
+   */
+  readonly autoPass?: boolean;
   /** MathJS expression computing a dynamic numeric payload at play time (check-modifier). */
   readonly valueExpr?: string;
   /** Which check a check-modifier applies to. */
