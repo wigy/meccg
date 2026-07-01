@@ -583,7 +583,8 @@
         "when": { "bearer.skills": { "$includes": "warrior" } }
       }
     ],
-    "text": "Shield. Playable at any Under-deeps Shadow-hold [{S}] or Ruins & Lairs [{R}]. +2 to all rolls required for bearer’s company to move to adjacent Under-deeps sites. Warrior only: tap this item to make one strike against its bearer ineffectual (i. e., the strike neither succeeds nor fails)."
+    "text": "Shield. Playable at any Under-deeps Shadow-hold [{S}] or Ruins & Lairs [{R}]. +2 to all rolls required for bearer’s company to move to adjacent Under-deeps sites. Warrior only: tap this item to make one strike against its bearer ineffectual (i. e., the strike neither succeeds nor fails).",
+    "certified": "2026-07-02"
   },
   {
     "cardType": "minion-resource-item",
