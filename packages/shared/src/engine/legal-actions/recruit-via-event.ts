@@ -31,6 +31,7 @@ import { resolveDef } from '../effects/index.js';
 import { characterEntries, defById, matchesDefinition, playerById, isUniqueCharacterInPlay } from '../reducer-utils.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
+import { isBalrogAvatarDef } from '../../state-utils.js';
 
 /**
  * Generates `play-character` actions enabled by an in-hand `recruit-character`
@@ -103,11 +104,13 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
 
       for (const company of qualifyingCompanies) {
         // Find controllers in this company with enough unused direct influence.
+        // The Balrog (ba-3) "may not have any followers" — excluded.
         for (const [key, char] of characterEntries(player)) {
           if (!company.characters.includes(key)) continue;
           if (char.controlledBy !== 'general') continue;
           const ctrlDef = resolveDef(state, char.instanceId);
           if (!isCharacterCard(ctrlDef)) continue;
+          if (isBalrogAvatarDef(ctrlDef)) continue;
           const avail = availableDI(state, key, player, recruitDef);
           if (avail < costMind) continue;
 

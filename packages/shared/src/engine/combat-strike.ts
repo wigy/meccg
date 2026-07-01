@@ -22,7 +22,7 @@ import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import type { AbsorbWoundEffect } from '../types/effects.js';
 import { formatSignedNumber } from '../format-helpers.js';
-import { getPlayerIndex } from '../state-utils.js';
+import { getPlayerIndex, stayUntappedPenalty } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
 import { CardStatus } from '../types/common.js';
 import { matchesContext } from '../effects/condition-matcher.js';
@@ -189,7 +189,7 @@ export function resolveStrikeCore(
   } else {
     prowess = charData.effectiveStats.prowess;
   }
-  if (mode === 'untap') prowess -= 3; // Stay untapped penalty
+  if (mode === 'untap') prowess -= stayUntappedPenalty(charDef); // Stay untapped penalty (MEBA: -1 for The Balrog)
   if (targetStatus === CardStatus.Tapped) prowess -= 1;
   if (targetStatus === CardStatus.Inverted) prowess -= 2; // Wounded
   if (strike.excessStrikes > 0) prowess -= strike.excessStrikes;
@@ -699,13 +699,13 @@ export function resolveStrikeCvCC(
 
   // Compute attacker prowess
   let atkProwess = atkCharData.effectiveStats.prowess;
-  if (!strike.attackerTapToFight) atkProwess -= 3;
+  if (!strike.attackerTapToFight) atkProwess -= stayUntappedPenalty(atkCharDef);
   if (atkCharData.status === CardStatus.Tapped) atkProwess -= 1;
   if (atkCharData.status === CardStatus.Inverted) atkProwess -= 2;
 
   // Compute defender prowess
   let defProwess = defCharData.effectiveStats.prowess;
-  if (!defenderTapToFight) defProwess -= 3;
+  if (!defenderTapToFight) defProwess -= stayUntappedPenalty(defCharDef);
   if (defCharData.status === CardStatus.Tapped) defProwess -= 1;
   if (defCharData.status === CardStatus.Inverted) defProwess -= 2;
   defProwess += (strike.supportCount ?? 0);

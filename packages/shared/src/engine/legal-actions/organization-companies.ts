@@ -28,6 +28,7 @@ import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeade
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
 import { viableWithRegress } from '../reverse-actions.js';
+import { isBalrogAvatarDef } from '../../state-utils.js';
 import { availableDI } from './organization.js';
 import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
 
@@ -482,9 +483,12 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
           if (!ctrl) continue;
           // Controller must be under GI (non-follower)
           if (ctrl.controlledBy !== 'general') continue;
+          // The Balrog (ba-3) "may not have any followers" — excluded even
+          // though he is under general influence.
+          const ctrlDef = resolveDef(state, ctrl.instanceId);
+          if (isBalrogAvatarDef(ctrlDef)) continue;
           // Enforce control-source restriction (e.g. "only by general influence
           // or a Fallen-wizard"): skip controllers the restriction disallows.
-          const ctrlDef = resolveDef(state, ctrl.instanceId);
           const ctrlName = isCharacterCard(ctrlDef) ? ctrlDef.name : '?';
           if (!directInfluenceControlAllowed(state, char, ctrl, player.alignment)) {
             logDetail(`  → blocked: ${charDef.name} may not be controlled by ${ctrlName} (control-source restriction)`);
