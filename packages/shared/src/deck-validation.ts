@@ -84,8 +84,7 @@ const FALLEN_WIZARD_BANNED_CARD_IDS = new Set([
 const BALROG_BANNED_CARD_IDS = new Set([
   'as-77',  // Above the Abyss
   'le-167', // Bade to Rule
-  'as-71',  // The Balrog (ally — AS version)
-  'ba-3',   // The Balrog (ally — BA version)
+  'as-71',  // The Balrog (ally)
   'tw-12',  // Balrog of Moria
   'wh-41',  // The Black Council
   'as-72',  // Black Horse

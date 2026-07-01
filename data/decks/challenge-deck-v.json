@@ -1,0 +1,388 @@
+{
+  "id": "challenge-deck-v",
+  "name": "(V) Great Shadow",
+  "alignment": "balrog",
+  "pool": [
+    {
+      "name": "Buthrakaur",
+      "card": "ba-5",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Thrall-ring",
+      "card": "as-133",
+      "qty": 1
+    },
+    {
+      "name": "Orc Veteran",
+      "card": "le-35",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Orders from the Great Demon",
+      "card": "ba-70",
+      "qty": 1
+    },
+    {
+      "name": "Troll Lout",
+      "card": "le-44",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Troll-chief",
+      "card": "le-45",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Burat",
+      "card": "as-1",
+      "qty": 1
+    },
+    {
+      "name": "Gorbag",
+      "card": "le-11",
+      "qty": 1
+    },
+    {
+      "name": "Grishnakh",
+      "card": "le-12",
+      "qty": 1
+    },
+    {
+      "name": "Lugdush",
+      "card": "wh-6",
+      "qty": 1
+    },
+    {
+      "name": "Tuma",
+      "card": "as-5",
+      "qty": 1
+    },
+    {
+      "name": "Wuluag",
+      "card": "as-6",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "The Balrog",
+        "card": "ba-3",
+        "qty": 3
+      }
+    ],
+    "hazards": [
+      {
+        "name": "Ambusher",
+        "card": "le-59",
+        "qty": 2
+      },
+      {
+        "name": "Barrow-wight",
+        "card": "le-61",
+        "qty": 1
+      },
+      {
+        "name": "Chill Douser",
+        "card": "dm-106",
+        "qty": 3
+      },
+      {
+        "name": "Ent in Search of the Entwives",
+        "card": "le-71",
+        "qty": 2
+      },
+      {
+        "name": "Marsh-drake",
+        "card": "le-84",
+        "qty": 2
+      },
+      {
+        "name": "Wild Trolls",
+        "card": "le-100",
+        "qty": 2
+      },
+      {
+        "name": "An Unexpected Outpost",
+        "card": "dm-45",
+        "qty": 3
+      },
+      {
+        "name": "Bairanax Ahunt",
+        "card": "td-4",
+        "qty": 1
+      },
+      {
+        "name": "Call of Home",
+        "card": "le-105",
+        "qty": 1
+      },
+      {
+        "name": "Itangast Ahunt",
+        "card": "td-37",
+        "qty": 1
+      },
+      {
+        "name": "Lost in Free-domains",
+        "card": "le-119",
+        "qty": 1
+      },
+      {
+        "name": "Lure of the Senses",
+        "card": "le-124",
+        "qty": 3
+      },
+      {
+        "name": "Muster Disperses",
+        "card": "le-126",
+        "qty": 1
+      },
+      {
+        "name": "Nothing to Eat or Drink",
+        "card": "le-128",
+        "qty": 2
+      },
+      {
+        "name": "River",
+        "card": "tw-84",
+        "qty": 2
+      },
+      {
+        "name": "Twilight",
+        "card": "tw-106",
+        "qty": 3
+      }
+    ],
+    "resources": [
+      {
+        "name": "High Helm",
+        "card": "le-313",
+        "qty": 1
+      },
+      {
+        "name": "Orcs of Moria",
+        "card": "le-278",
+        "qty": 1
+      },
+      {
+        "name": "Palantir of Orthanc",
+        "card": "le-334",
+        "qty": 1
+      },
+      {
+        "name": "Sable Shield",
+        "card": "le-341",
+        "qty": 1
+      },
+      {
+        "name": "Stinker",
+        "card": "le-154",
+        "qty": 1
+      },
+      {
+        "name": "War-warg",
+        "card": "le-156",
+        "qty": 3
+      },
+      {
+        "name": "War-wolf",
+        "card": "le-157",
+        "qty": 3
+      },
+      {
+        "name": "A Nice Place to Hide",
+        "card": "le-160",
+        "qty": 1
+      },
+      {
+        "name": "Awaiting the Call",
+        "card": "le-165",
+        "qty": 1
+      },
+      {
+        "name": "Catch an Elusive Scent",
+        "card": "le-175",
+        "qty": 1
+      },
+      {
+        "name": "Crept Along Cleverly",
+        "card": "wh-43",
+        "qty": 3
+      },
+      {
+        "name": "Dark Tryst",
+        "card": "as-80",
+        "qty": 3
+      },
+      {
+        "name": "Great Shadow",
+        "card": "ba-62",
+        "qty": 2
+      },
+      {
+        "name": "Hide in Dark Places",
+        "card": "le-192",
+        "qty": 3
+      },
+      {
+        "name": "Swift Strokes",
+        "card": "le-238",
+        "qty": 3
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Dimrill Dale",
+      "card": "le-365",
+      "qty": 1
+    },
+    {
+      "name": "Glittering Caves",
+      "card": "le-376",
+      "qty": 1
+    },
+    {
+      "name": "Isengard",
+      "card": "le-384",
+      "qty": 1
+    },
+    {
+      "name": "Moria",
+      "card": "ba-93",
+      "qty": 2
+    },
+    {
+      "name": "Mount Gundabad",
+      "card": "le-395",
+      "qty": 1
+    },
+    {
+      "name": "Ost-in-Edhil",
+      "card": "le-397",
+      "qty": 1
+    },
+    {
+      "name": "The Under-gates",
+      "card": "ba-100",
+      "qty": 2
+    },
+    {
+      "name": "The Under-leas",
+      "card": "ba-102",
+      "qty": 1
+    },
+    {
+      "name": "The Under-vaults",
+      "card": "ba-103",
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Ancient Black Axe",
+      "card": "as-122",
+      "qty": 1
+    },
+    {
+      "name": "Bold Thrust",
+      "card": "le-172",
+      "qty": 1
+    },
+    {
+      "name": "Broad-headed Spear",
+      "card": "le-304",
+      "qty": 1
+    },
+    {
+      "name": "Crook-legged Orc",
+      "card": "ba-6",
+      "qty": 3
+    },
+    {
+      "name": "Foul-smelling Paste",
+      "card": "le-310",
+      "qty": 1
+    },
+    {
+      "name": "Great Bats",
+      "card": "as-74",
+      "qty": 1
+    },
+    {
+      "name": "Hold Rebuilt and Repaired",
+      "card": "as-88",
+      "qty": 1
+    },
+    {
+      "name": "Iron Shield of Old",
+      "card": "as-127",
+      "qty": 1
+    },
+    {
+      "name": "Orc Quarrels",
+      "card": "le-216",
+      "qty": 1
+    },
+    {
+      "name": "Orc Tracker",
+      "card": "le-34",
+      "qty": 2
+    },
+    {
+      "name": "Snaga-hai",
+      "card": "le-286",
+      "qty": 2
+    },
+    {
+      "name": "Sudden Call",
+      "card": "le-235",
+      "qty": 1
+    },
+    {
+      "name": "Troll Lout",
+      "card": "le-44",
+      "qty": 1
+    },
+    {
+      "name": "Foolish Words",
+      "card": "td-25",
+      "qty": 1
+    },
+    {
+      "name": "Nameless Thing",
+      "card": "dm-109",
+      "qty": 1
+    },
+    {
+      "name": "Rain-drake",
+      "card": "td-57",
+      "qty": 1
+    },
+    {
+      "name": "Sellswords Between Charters",
+      "card": "le-89",
+      "qty": 1
+    },
+    {
+      "name": "Slayer",
+      "card": "tw-89",
+      "qty": 1
+    },
+    {
+      "name": "Stench of Mordor",
+      "card": "le-141",
+      "qty": 1
+    },
+    {
+      "name": "True Fire-drake",
+      "card": "le-95",
+      "qty": 1
+    }
+  ]
+}
