@@ -133,7 +133,7 @@ Follow these steps:
 
     **NEVER write tautological tests.** Do NOT add test blocks that load a card definition via `pool[ID]` and then `expect` its fields (`cardType`, `id`, `name`, `strikes`, `prowess`, `body`, `unique`, `race`, `effects[i].type`, `keyedTo`, `extended`, etc.) to match values that are literally in the card JSON. Those assertions verify JSON data against itself and prove nothing. Every test must build a game state, drive the reducer or legal-action computation, and assert on resulting state/actions. Document card shape in the module-level JSDoc comment, not in tests.
 
-**⚠️ Ordering principle for steps 12–15 — COMMIT EARLY, CERTIFY LAST.** A dirty working tree at the end of your turn is a bad outcome: although the mail handler will finalize any leftovers for you (commit + push + open a PR) as a backstop, that fallback PR carries a generic message instead of your own clean one, and — unless you had already reached a verified success — it is reported as a failure. An unverified PR you opened yourself, by contrast, is always recoverable with a follow-up commit. So you get your work onto a branch and pushed as soon as it type-checks, **before** the slow verification suite — never after. The slow checks (rules suite, nightly) and the `certified` field come *after* the branch exists, as follow-up commits. Do these steps strictly in order.
+**⚠️ Ordering principle for steps 12–15 — COMMIT EARLY, CERTIFY LAST.** A dirty working tree at the end of your turn is a bad outcome: although the mail handler will finalize any leftovers for you (commit + push + open a PR) as a backstop, that fallback PR carries a generic message instead of your own clean one, and — unless you had already reached a verified success — it is reported as a failure. An unverified PR you opened yourself, by contrast, is always recoverable with a follow-up commit. So you get your work onto a branch and pushed as soon as it type-checks, **before** running the card's own test — never after. The full rules suite, lint, and nightly card tests are **not** run as part of certification — the reviewer and branch CI cover those. The card's own test and the `certified` field come *after* the branch exists, as follow-up commits. Do these steps strictly in order.
 
 12. **Quick build gate (in-turn):** Run `npm run build` as a foreground Bash call and wait for it to finish. This is the only check that must pass *before* you commit, because broken TypeScript should never reach a branch. If it fails, fix it and re-run until green. (It is fast — do not skip ahead.)
 
@@ -145,20 +145,17 @@ Follow these steps:
 
     After this step the working tree is clean and the work is safe on a branch. If your turn ends for any reason (deadline, timeout, lost context) after this point, the loop is **not** blocked and a human can finish the PR. This is the whole reason the commit comes before the slow checks — never reorder it.
 
-14. **Run the full verification suite (in-turn), pushing follow-up commits:** Now run the remaining checks **sequentially as foreground Bash calls**, waiting for each to finish before the next:
+14. **Run the card's own test (in-turn), pushing a follow-up commit if needed:** Run, as a foreground Bash call:
 
-    1. `npx vitest run packages/shared/src/tests/cards/<cardId>.test.ts` — the card's own test file.
-    2. `npm test` — full rules test suite.
-    3. `npm run lint` — ESLint. If it fails, first try `npm run lint:fix`, re-run `npm run lint`, and only hand-fix what remains. The branch CI runs this exact command and will go red if you skip it.
-    4. `npm run test:nightly` — card tests. Must not introduce new failures compared to master. The branch CI runs this too.
+    ```sh
+    npx vitest run packages/shared/src/tests/cards/<cardId>.test.ts
+    ```
 
-    ⚠️ **Do NOT use `run_in_background=true` for any of these.** Each one must complete within the tool call that started it. The nightly suite is the slowest — budget for it, don't skip it.
+    This is the only check that gates certification now — it confirms the test you just wrote actually passes. Fix any failure and re-run until green, then **commit the fix to the branch and push it** before moving on.
 
-    Fix any failure, then **commit the fix to the branch and push it** before moving on — keep the tree clean after every change so a turn-end never strands work. Re-run until all four pass. Because the PR already exists (step 13), a follow-up commit is cheap; never let fixes pile up uncommitted while a long check runs.
+    **Do NOT run the full `npm test` suite, `npm run lint`, or `npm run test:nightly` as part of certification.** Those are the reviewer's responsibility during PR review (branch CI also runs them) — do not wait for them here.
 
-    ⚠️ **Do NOT end your turn while any of these is still running.** If you must stop, ensure any edits you made are committed and pushed first (step 13's branch already exists, so this is just `git add -A && git commit && git push`).
-
-15. **Certify on success — strict gate (final commit):** Only now, after step 14 is fully green, decide whether to certify. Before writing `"certified": "<date>"` on a card, ALL of the following must hold. If any one fails, **do not add the field** (and remove it if it was already present), leave the PR titled **NOT CERTIFIED** naming the missing mechanic, and stop:
+15. **Certify on success — strict gate (final commit):** Only now, after step 14 is green, decide whether to certify. Before writing `"certified": "<date>"` on a card, ALL of the following must hold. If any one fails, **do not add the field** (and remove it if it was already present), leave the PR titled **NOT CERTIFIED** naming the missing mechanic, and stop:
 
     - Step 7 classification is **YES** (not PARTIALLY, not NO).
     - Every rule in the card's `text` is represented either by an implemented effect in `effects[]` or by structural engine support (for sites: siteType, playableResources, haven paths, basic auto-attack list, etc.).
