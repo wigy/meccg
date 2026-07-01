@@ -641,7 +641,8 @@
     "keywords": [
       "balrog-specific",
       "demon-fana"
-    ]
+    ],
+    "certified": "2026-07-01"
   },
   {
     "cardType": "minion-resource-event",
