@@ -612,7 +612,19 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "max": 8,
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
+      }
+    ],
     "text": "Weapon. Warrior only: +2 to prowess to a maximum of 8."
   },
   {
