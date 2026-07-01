@@ -621,6 +621,7 @@ function handleSiteAutomaticAttacks(
           defendingAlignment: state.players[activePlayerIndex].alignment,
           defendingCovert,
           defendingSiteEffects: siteDef.effects,
+          isAutomaticAttack: true,
         });
         const dupCombatR: CombatState = makeCombatState({
           attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
@@ -669,6 +670,7 @@ function handleSiteAutomaticAttacks(
         defendingAlignment: state.players[activePlayerIndex].alignment,
         defendingCovert,
         defendingSiteEffects: siteDef.effects,
+        isAutomaticAttack: true,
       });
       const dupCombat: CombatState = makeCombatState({
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
@@ -774,6 +776,7 @@ function handleSiteAutomaticAttacks(
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingCovert,
       defendingSiteEffects: siteDef.effects,
+      isAutomaticAttack: true,
     }),
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
     // "cannot be canceled" (Vile Fumes' Gas wh-54, Shelob's Lair le-402)
@@ -856,6 +859,7 @@ function buildSiteRepeatedAttackCombat(
     defendingAlignment: state.players[activePlayerIndex].alignment,
     defendingCovert,
     defendingSiteEffects: siteDef.effects,
+    isAutomaticAttack: true,
   });
   const base: CombatState = {
     attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex },
@@ -1366,6 +1370,7 @@ function handleSitePlaySiteAutoAttack(
       inPlayNames,
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingSiteEffects: siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined,
+      isAutomaticAttack: true,
     }),
   });
 
