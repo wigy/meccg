@@ -11,7 +11,7 @@
  * Card shape (non-unique, race orc, prowess 5, body 8, mind 5, DI 0,
  * keyword Leader, homesite "Any Dark-hold") is documented here rather
  * than asserted in tests — verifying JSON against itself would prove
- * nothing. "Leader" is a descriptive keyword referenced by other cards;
+ * nothing. "leader" is a descriptive keyword referenced by other cards;
  * "Discard on a body check result of 8" is the standard semantic of
  * body 8 and needs no card-specific logic.
  *

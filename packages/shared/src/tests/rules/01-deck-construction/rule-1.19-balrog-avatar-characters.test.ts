@@ -50,5 +50,16 @@ describe('Rule 1.19 — Balrog Avatar Characters', () => {
     expect(avatarErrors[0].message).toContain('balrog');
   });
 
-  test.todo('[BALROG] Balrog deck with a Balrog avatar produces no error — no Balrog avatar cards in database yet');
+  test('[BALROG] Balrog deck with a Balrog avatar produces no error', () => {
+    // ba-3 = The Balrog, the Balrog avatar (alignment "balrog").
+    const deck: DeckList = {
+      ...baseBalrogDeck,
+      deck: {
+        ...baseBalrogDeck.deck,
+        characters: [{ name: 'The Balrog', card: 'ba-3' as CardDefinitionId, qty: 1 }],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.filter(e => e.section === 'characters' && e.card === ('ba-3' as CardDefinitionId))).toHaveLength(0);
+  });
 });

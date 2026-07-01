@@ -13,7 +13,8 @@
 
 import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInstanceId } from '../../index.js';
 import { Alignment } from '../../types/common.js';
-import { matchesDefinition, playerById, defById, getCardEffects } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName } from '../reducer-utils.js';
+import { isAvatarCharacter } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getPlayerIndex } from '../../state-utils.js';
 import { setupActions } from './setup.js';
@@ -159,18 +160,35 @@ const BANNED_VS_BALROG_OPPONENT: ReadonlySet<string> = new Set([
   'dm-84',  // Reluctant Final Parting
 ]);
 
+// CoE rule 1.35: cards with no effect on (and unplayable against) a
+// Ringwraith opponent. The "hazards that require an agent (as an active
+// condition)" clause is not yet covered — no hazard cards currently declare
+// a machine-readable agent-requirement.
+const BANNED_VS_RINGWRAITH_OPPONENT: ReadonlySet<string> = new Set([
+  'tw-13',  // Bane of the Ithil-stone
+  'dm-47',  // The Black Enemy's Wrath
+  'tw-36',  // Foul Fumes
+  'dm-67',  // In the Heart of his Realm
+  'dm-72',  // Mordor in Arms
+  'tw-66',  // Mûmak (Oliphant)
+  'td-89',  // Worn and Famished
+]);
+
 /**
- * Rewrites any `play-*` action that would play a {@link BANNED_VS_BALROG_OPPONENT}
- * card into a not-playable entry, when the acting player's opponent is a Balrog
- * player. Pass-through for every other situation.
+ * Rewrites any `play-*` action that would play a banned card into a
+ * not-playable entry, when the acting player's opponent has the given
+ * alignment. Pass-through for every other situation.
  */
-function applyBalrogOpponentBans(
+function applyOpponentAlignmentBans(
   state: GameState,
   playerId: PlayerId,
   evaluated: EvaluatedAction[],
+  opponentAlignment: Alignment,
+  banned: ReadonlySet<string>,
+  reasonSuffix: string,
 ): EvaluatedAction[] {
   const opponent = state.players.find(p => p.id !== playerId);
-  if (!opponent || opponent.alignment !== Alignment.Balrog) return evaluated;
+  if (!opponent || opponent.alignment !== opponentAlignment) return evaluated;
   return evaluated.map(ea => {
     const a = ea.action as unknown as Record<string, unknown>;
     const type = a['type'];
@@ -178,11 +196,57 @@ function applyBalrogOpponentBans(
     const instId = (a['cardInstanceId'] ?? a['characterInstanceId'] ?? a['instanceId']) as string | undefined;
     if (typeof instId !== 'string') return ea;
     const defId = resolveInstanceId(state, instId as CardInstanceId);
-    if (!defId || !BANNED_VS_BALROG_OPPONENT.has(defId as string)) return ea;
+    if (!defId || !banned.has(defId as string)) return ea;
     const def = defById(state, defId);
     const name = def ? (def as unknown as Record<string, unknown>)['name'] as string : (defId as string);
-    return notPlayable(playerId, instId as CardInstanceId, `${name}: cannot be played against a Balrog player (MEBA)`);
+    return notPlayable(playerId, instId as CardInstanceId, `${name}: ${reasonSuffix}`);
   });
+}
+
+/**
+ * CoE rule 1.37: "Wizard players cannot play the corresponding Wizard avatar
+ * of a Fallen-wizard avatar that has been declared by their opponent." Blocks
+ * any `play-character` action whose target is the Wizard-alignment avatar
+ * sharing a name with the opponent's declared/in-play Fallen-wizard avatar.
+ */
+function applyFwOpponentAvatarBan(
+  state: GameState,
+  playerId: PlayerId,
+  evaluated: EvaluatedAction[],
+): EvaluatedAction[] {
+  const opponent = state.players.find(p => p.id !== playerId);
+  if (!opponent || opponent.alignment !== Alignment.FallenWizard) return evaluated;
+  const fwAvatarName = findFallenWizardAvatarName(state, opponent);
+  if (!fwAvatarName) return evaluated;
+  return evaluated.map(ea => {
+    const a = ea.action as unknown as Record<string, unknown>;
+    if (a['type'] !== 'play-character') return ea;
+    const instId = a['characterInstanceId'] as string | undefined;
+    if (typeof instId !== 'string') return ea;
+    const defId = resolveInstanceId(state, instId as CardInstanceId);
+    const def = defId ? defById(state, defId) : undefined;
+    if (!def || !isAvatarCharacter(def) || (def as { alignment?: string }).alignment !== 'wizard' || def.name !== fwAvatarName) {
+      return ea;
+    }
+    return notPlayable(playerId, instId as CardInstanceId, `${def.name}: cannot be played — declared by your opponent as a Fallen-wizard avatar`);
+  });
+}
+
+/** Applies the Balrog-, Ringwraith-, and Fallen-wizard-avatar opponent play bans, in sequence. */
+function applyOpponentBans(
+  state: GameState,
+  playerId: PlayerId,
+  evaluated: EvaluatedAction[],
+): EvaluatedAction[] {
+  const afterBalrog = applyOpponentAlignmentBans(
+    state, playerId, evaluated, Alignment.Balrog, BANNED_VS_BALROG_OPPONENT,
+    'cannot be played against a Balrog player (MEBA)',
+  );
+  const afterRingwraith = applyOpponentAlignmentBans(
+    state, playerId, afterBalrog, Alignment.Ringwraith, BANNED_VS_RINGWRAITH_OPPONENT,
+    'cannot be played against a Ringwraith player',
+  );
+  return applyFwOpponentAvatarBan(state, playerId, afterRingwraith);
 }
 
 /**
@@ -233,7 +297,7 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
       return [];
     }
     logHeading(`Combat active (phase: ${state.combat.phase}) — delegating to combat actions`);
-    return logEvaluated(applyBalrogOpponentBans(state, playerId, combatActions(state, playerId)));
+    return logEvaluated(applyOpponentBans(state, playerId, combatActions(state, playerId)));
   }
 
   // Pending card effects take priority over phase actions
@@ -300,5 +364,5 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   // not-playable so the UI can show a tooltip for every dimmed card.
   evaluated = fillNotPlayable(state, playerId, evaluated);
 
-  return logEvaluated(applyBalrogOpponentBans(state, playerId, evaluated));
+  return logEvaluated(applyOpponentBans(state, playerId, evaluated));
 }

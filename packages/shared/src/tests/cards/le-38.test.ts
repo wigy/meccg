@@ -9,7 +9,7 @@
  * Card shape (unique, race orc, prowess 5, body 8, mind 4, DI 0, keyword
  * Uruk-hai, homesite "Any site in Imlad Morgul") is documented here rather
  * than asserted in tests — verifying JSON against itself proves nothing.
- * "Uruk-hai" is a descriptive keyword used by condition filters on other
+ * "uruk-hai" is a descriptive keyword used by condition filters on other
  * cards; it carries no card-specific engine logic on Radbug itself.
  * "Discard on a body check result of 8" is the standard semantic of body 8
  * for Orc characters and needs no card-specific test beyond what the

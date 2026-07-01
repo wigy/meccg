@@ -408,6 +408,34 @@ export function companyEffectiveSizeOf(state: GameState, charInstIds: readonly C
 }
 
 /**
+ * Variant of {@link companyEffectiveSizeOf} that exempts up to
+ * `exemptLeaderCount` Leader-keyword characters from the count before
+ * applying CoE rule 3.24's half-character rounding (used by *Orders from the
+ * Great Demon*, ba-70, whose `extra-leader-slot` effect exempts one Leader
+ * per copy in play from the company-size maximum).
+ */
+export function companyEffectiveSizeExemptingLeaders(
+  state: GameState,
+  charInstIds: readonly CardInstanceId[],
+  exemptLeaderCount: number,
+): number {
+  if (exemptLeaderCount <= 0) return companyEffectiveSizeOf(state, charInstIds);
+  let remaining = exemptLeaderCount;
+  const counted: CardInstanceId[] = [];
+  for (const charInstId of charInstIds) {
+    const defId = resolveInstanceId(state, charInstId);
+    const def = defId ? defById(state, defId) : undefined;
+    if (remaining > 0 && def && isCharacterCard(def) && (def.keywords?.includes('leader') ?? false)) {
+      remaining--;
+      logDetail(`  ${def.name} exempted from company-size maximum (extra-leader-slot)`);
+      continue;
+    }
+    counted.push(charInstId);
+  }
+  return companyEffectiveSizeOf(state, counted);
+}
+
+/**
  * Look up a card's display name from the card pool by its definition ID.
  *
  * Every {@link CardDefinition} carries a `name`, so the only failure case is

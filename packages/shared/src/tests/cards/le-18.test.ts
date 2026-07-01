@@ -9,7 +9,7 @@
  * Engine Support:
  * | # | Feature                             | Status | Notes                                    |
  * |---|-------------------------------------|--------|------------------------------------------|
- * | 1 | keywords: ["Uruk-hai"]              | DATA   | classification label, no current gate    |
+ * | 1 | keywords: ["uruk-hai"]              | DATA   | classification label, no current gate    |
  * | 2 | discardBodyCheck [8] — mass check   | OK     | dice-check (body-check) resolution       |
  *
  * Playable: YES

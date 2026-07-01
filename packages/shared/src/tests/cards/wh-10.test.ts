@@ -7,7 +7,7 @@
  * "Half-orc. Discard on a body check result of 9."
  *
  * Card shape (documented here, NOT asserted — see CLAUDE.md no-tautology rule):
- *   race: orc, keywords: ["Half-orc"], body 9, prowess 1, mind 2, skills
+ *   race: orc, keywords: ["half-orc"], body 9, prowess 1, mind 2, skills
  *   warrior/scout, discardBodyCheck [9]. Non-unique. Homesite "Any Dark-hold".
  *
  * Engine Support:

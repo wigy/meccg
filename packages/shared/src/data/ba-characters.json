@@ -19,8 +19,8 @@
     "marshallingCategory": "character",
     "homesite": "Moria",
     "keywords": [
-      "Leader",
-      "Balrog-specific"
+      "leader",
+      "balrog-specific"
     ],
     "effects": [
       {
@@ -67,10 +67,24 @@
     "marshallingCategory": "character",
     "homesite": "The Under-gates",
     "keywords": [
-      "Spawn"
+      "spawn"
     ],
     "manifestId": "tw-12",
-    "text": "Unique. Manifestation of Balrog of Moria. Discard all other manifestations of Balrog of Moria when this card comes into play. +3 to the roll for his company to move between adjacent Under-deeps sites. The Balrog’s prowess is only modified by -1 when not tapping to face a strike. He may not have any followers and may not use region or starter movement."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": ["in-play"],
+          "to": "discard",
+          "filter": { "manifestId": "tw-12" }
+        }
+      }
+    ],
+    "text": "Unique. Manifestation of Balrog of Moria. Discard all other manifestations of Balrog of Moria when this card comes into play. +3 to the roll for his company to move between adjacent Under-deeps sites. The Balrog’s prowess is only modified by -1 when not tapping to face a strike. He may not have any followers and may not use region or starter movement.",
+    "certified": "2026-07-01"
   },
   {
     "cardType": "minion-character",
@@ -92,8 +106,8 @@
     "marshallingCategory": "character",
     "homesite": "Moria",
     "keywords": [
-      "Leader",
-      "Balrog-specific"
+      "leader",
+      "balrog-specific"
     ],
     "effects": [
       {
@@ -166,8 +180,8 @@
     "corruptionModifier": 0,
     "homesite": "Moria, The Under-gates",
     "keywords": [
-      "Leader",
-      "Balrog-specific"
+      "leader",
+      "balrog-specific"
     ],
     "discardBodyCheck": [
       9
@@ -215,7 +229,7 @@
         "value": 3,
         "when": {
           "reason": "influence-check",
-          "target.keywords": { "$includes": "Balrog-specific" }
+          "target.keywords": { "$includes": "balrog-specific" }
         }
       }
     ],
@@ -243,7 +257,7 @@
     "corruptionModifier": 0,
     "homesite": "any non-Dark-hold Under-deeps site",
     "keywords": [
-      "Balrog-specific"
+      "balrog-specific"
     ],
     "effects": [],
     "text": "Balrog specific. Discard on a body check result of 7."
@@ -268,7 +282,7 @@
     "corruptionModifier": 0,
     "homesite": "any non-Dark-hold Under-deeps site",
     "keywords": [
-      "Balrog-specific"
+      "balrog-specific"
     ],
     "effects": [],
     "text": "Balrog specific. Discard on a body check result of 7."
@@ -293,7 +307,7 @@
     "corruptionModifier": 0,
     "homesite": "any non-Dark-hold Under-deeps site",
     "keywords": [
-      "Balrog-specific"
+      "balrog-specific"
     ],
     "effects": [],
     "text": "Balrog specific. Discard on a body check result of 7."
@@ -320,8 +334,8 @@
     "corruptionModifier": 0,
     "homesite": "Moria, The Under-gates",
     "keywords": [
-      "Leader",
-      "Balrog-specific"
+      "leader",
+      "balrog-specific"
     ],
     "effects": [],
     "text": "Unique. Balrog specific. Leader. Manifestation of Umagaur the Pale. Discard on a body check result of 9. +2 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters."

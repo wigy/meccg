@@ -6,7 +6,7 @@
  * index look-ups in one place so callers stay concise and consistent.
  */
 
-import type { CardDefinition, GameState, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState, PhaseState } from './types/index.js';
+import type { CardDefinition, Company, GameState, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState, PhaseState } from './types/index.js';
 import { Alignment, Phase } from './types/index.js';
 import { isCharacterCard } from './types/cards.js';
 import { FREE_COUNCIL_MP_THRESHOLD } from './constants.js';
@@ -181,6 +181,29 @@ export function isMinionOrBalrog(player: PlayerState): boolean {
  */
 export function isBalrogAvatarDef(def: CardDefinition | undefined): boolean {
   return isCharacterCard(def) && def.mind === null && def.alignment === Alignment.Balrog;
+}
+
+/**
+ * The prowess penalty applied when a character stays untapped to face a
+ * strike (CoE rule 3.iv.3: normally -3). The Balrog's own card text overrides
+ * this to -1 for himself only ("The Balrog's prowess is only modified by -1
+ * when not tapping to face a strike").
+ */
+export function stayUntappedPenalty(def: CardDefinition | undefined): number {
+  return isBalrogAvatarDef(def) ? 1 : 3;
+}
+
+/**
+ * True if the given company contains The Balrog avatar character. Such a
+ * company may not use starter or region movement (MEBA §6) and gets a +3
+ * roll bonus moving between adjacent Under-deeps sites (his own card text).
+ */
+export function companyContainsBalrogAvatar(state: GameState, player: PlayerState, company: Company): boolean {
+  return company.characters.some(charId => {
+    const charData = player.characters[charId];
+    if (!charData) return false;
+    return isBalrogAvatarDef(state.cardPool[charData.definitionId]);
+  });
 }
 
 /**

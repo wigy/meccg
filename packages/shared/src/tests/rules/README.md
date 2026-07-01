@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 329 | 216 | 113 | 65.7% |
+| 329 | 218 | 111 | 66.3% |
 
 ## Section Breakdown
 
@@ -14,7 +14,7 @@
 |:-:|:--------|:-----:|:----:|:-:|
 | 00 | [Engine](00-engine/) | 4 | 4 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 41 | 69.5% |
-| 02 | [Untap Phase](02-untap-phase/) | 13 | 11 | 84.6% |
+| 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 27 | 56.3% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 19 | 55.9% |
@@ -98,8 +98,8 @@
 | 2.03 | Untap Phase | [Hazard Player Actions](02-untap-phase/rule-2.03-hazard-player-actions.test.ts) | ☑ |
 | 2.04 | Untap Phase | [Uniqueness In Play](02-untap-phase/rule-2.04-uniqueness-in-play.test.ts) | ☑ |
 | 2.05 | Untap Phase | [Avatar Eliminated](02-untap-phase/rule-2.05-avatar-eliminated.test.ts) | ☑ |
-| 2.06 | Untap Phase | [Fw Avatar Leaves Play](02-untap-phase/rule-2.06-fw-avatar-leaves-play.test.ts) | ☐ |
-| 2.07 | Untap Phase | [Company Loses All Characters](02-untap-phase/rule-2.07-company-loses-all-characters.test.ts) | ◐ |
+| 2.06 | Untap Phase | [Fw Avatar Leaves Play](02-untap-phase/rule-2.06-fw-avatar-leaves-play.test.ts) | ☑ |
+| 2.07 | Untap Phase | [Company Loses All Characters](02-untap-phase/rule-2.07-company-loses-all-characters.test.ts) | ☑ |
 | 2.08 | Untap Phase | [Play Deck Exhaustion](02-untap-phase/rule-2.08-play-deck-exhaustion.test.ts) | ☑ |
 | 2.09 | Untap Phase | [Empty Play Deck And Discard](02-untap-phase/rule-2.09-empty-play-deck-and-discard.test.ts) | ☑ |
 | 2.10 | Untap Phase | [No Mechanical Tracking](02-untap-phase/rule-2.10-no-mechanical-tracking.test.ts) | ☑ |

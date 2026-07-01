@@ -870,7 +870,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     if (a.result !== 'eliminated') return false;
     const defId = resolveInstanceId(stateWithRule8_22, a.characterId);
     const def = defId ? defById(stateWithRule8_22, defId) : undefined;
-    return !!(def && isCharacterCard(def) && (def.keywords ?? []).includes('Leader'));
+    return !!(def && isCharacterCard(def) && (def.keywords ?? []).includes('leader'));
   });
   if (anyLeaderEliminated) {
     logDetail(`finalizeCombat: an eliminated character is a Leader — sweeping leader-leaves-company events on company ${combat.companyId as string}`);

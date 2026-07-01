@@ -2482,7 +2482,7 @@ export function resolveOpponentInfluenceDefend(
       const targetChar = opponent2.characters[attempt.targetInstanceId];
       if (targetChar) {
         const targetDef = defById(state, targetChar.definitionId);
-        influencedIsLeader = !!(targetDef && isCharacterCard(targetDef) && (targetDef.keywords ?? []).includes('Leader'));
+        influencedIsLeader = !!(targetDef && isCharacterCard(targetDef) && (targetDef.keywords ?? []).includes('leader'));
       }
     }
 

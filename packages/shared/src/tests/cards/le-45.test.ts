@@ -22,7 +22,7 @@
  *      Troll-chief to the discard pile (CoE 8.31), while a roll > body (10)
  *      eliminates it to the out-of-play pile.
  *
- * "Olog-hai" is a troll-subtype trait with no separate mechanical rule beyond
+ * "olog-hai" is a troll-subtype trait with no separate mechanical rule beyond
  * the keyword itself (the engine treats it like Uruk-hai / Half-troll labels),
  * so it carries no dedicated assertion.
  *

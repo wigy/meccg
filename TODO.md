@@ -21,9 +21,6 @@ Notes for deck in .md format.
 EPICS
 -----
 
-Finalise tests section 01
-Finalise tests section 02
-Finalise tests section 03
 Finalise tests section 05
 Finalise tests section 06
 Finalise tests section 07

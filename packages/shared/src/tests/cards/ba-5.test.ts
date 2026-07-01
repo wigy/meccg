@@ -2,7 +2,7 @@
  * @module ba-5.test
  *
  * Card test: Bûthrakaur (ba-5)
- * Type: minion-character (Balrog-specific, Ringwraith alignment)
+ * Type: minion-character (balrog-specific, Ringwraith alignment)
  *
  * Text: "Unique. Balrog specific. Leader. Manifestation of Bûthrakaur the
  *  Green. Discard on a body check result of 9. +3 direct influence against
@@ -10,7 +10,7 @@
  *  against Balrog specific characters."
  *
  * Card shape (documented here, NOT asserted — see CLAUDE.md no-tautology
- * rule): race troll, keywords ["Leader", "Balrog-specific"], prowess 8,
+ * rule): race troll, keywords ["leader", "balrog-specific"], prowess 8,
  * body 9, mind 9, directInfluence 0, marshallingPoints 3, skills
  * warrior/scout/ranger, homesite "Moria, The Under-gates", discardBodyCheck
  * [9]. Unique.
@@ -19,14 +19,14 @@
  * | # | Rule (card text)                                     | Status | Notes                                                     |
  * |---|-------------------------------------------------------|--------|-------------------------------------------------------------|
  * | 1 | "Unique."                                            | OK     | unique: true                                                 |
- * | 2 | "Balrog specific."                                   | OK     | keywords includes "Balrog-specific" (data marker; deck-legality for avatar-specific cards is not enforced anywhere in this engine, matching every other "specific" card in the pool) |
- * | 3 | "Leader."                                            | OK     | keywords includes "Leader" (generic structural keyword)      |
+ * | 2 | "Balrog specific."                                   | OK     | keywords includes "balrog-specific" (data marker; deck-legality for avatar-specific cards is not enforced anywhere in this engine, matching every other "specific" card in the pool) |
+ * | 3 | "Leader."                                            | OK     | keywords includes "leader" (generic structural keyword)      |
  * | 4 | "Discard on a body check result of 9."               | OK     | discardBodyCheck [9]; combat body check                      |
  * | 5 | "+3 direct influence against Trolls..."              | OK     | stat-modifier, influence-check, target.race=troll             |
  * | 6 | "...Orcs..."                                         | OK     | stat-modifier, influence-check, target.race=orc               |
  * | 7 | "...Troll factions..."                               | OK     | stat-modifier, faction-influence-check, faction.race=troll     |
  * | 8 | "...and Orc factions."                               | OK     | stat-modifier, faction-influence-check, faction.race=orc       |
- * | 9 | "+3 direct influence against Balrog specific characters." | OK | stat-modifier, influence-check, target.keywords $includes "Balrog-specific" (new: target.keywords now exposed in availableDI's influence-check context, legal-actions/organization.ts) |
+ * | 9 | "+3 direct influence against Balrog specific characters." | OK | stat-modifier, influence-check, target.keywords $includes "balrog-specific" (new: target.keywords now exposed in availableDI's influence-check context, legal-actions/organization.ts) |
  *
  * Playable: YES
  *
@@ -36,18 +36,18 @@
  * 2. +3 DI vs Trolls/Orcs lets Bûthrakaur (base DI 0) control a Troll or Orc
  *    (mind 3) as a follower; the bonus does NOT apply to a Man (mind 4).
  * 3. +3 DI vs Orc factions reduces the influence `need` for an Orc faction.
- * 4. +3 DI vs Balrog-specific characters STACKS with the race bonus: with an
+ * 4. +3 DI vs balrog-specific characters STACKS with the race bonus: with an
  *    existing follower already consuming 3 DI, Bûthrakaur can still take on
- *    a second, Balrog-specific Troll follower (mind 3) — because the extra
+ *    a second, balrog-specific Troll follower (mind 3) — because the extra
  *    +3 brings his effective DI to 6 (3 race + 3 specific) — but cannot take
- *    a plain (non-Balrog-specific) Troll of the same mind, which only gets
+ *    a plain (non-balrog-specific) Troll of the same mind, which only gets
  *    the +3 race bonus.
  *
  * Fixtures:
- *   BUTHRAKAUR (ba-5)          — subject under test (troll, Balrog-specific Leader)
+ *   BUTHRAKAUR (ba-5)          — subject under test (troll, balrog-specific Leader)
  *   ORC_TRACKER (le-34)        — plain minion Orc, mind 3, home "Any Dark-hold" (DI follower target / pre-existing follower)
- *   TROLL_LOUT (le-44)         — plain minion Troll, mind 3, home "Any Dark-hold" (non-Balrog-specific control target)
- *   HILL_TROLL (ba-7)          — Balrog-specific minion Troll, mind 3 (stacking control target)
+ *   TROLL_LOUT (le-44)         — plain minion Troll, mind 3, home "Any Dark-hold" (non-balrog-specific control target)
+ *   HILL_TROLL (ba-7)          — balrog-specific minion Troll, mind 3 (stacking control target)
  *   HORSEMAN_IN_THE_NIGHT (le-16) — Man, mind 4 (non-Orc/Troll control target)
  *   GORBAG (le-11)             — plain minion Orc, body 9 (opponent company placeholder)
  *   GOBLINS_OF_GOBLIN_GATE (le-265) — Orc faction, influence# 9
@@ -73,7 +73,7 @@ import type {
 const BUTHRAKAUR = 'ba-5' as CardDefinitionId;
 const ORC_TRACKER = 'le-34' as CardDefinitionId;               // plain Orc, mind 3, "Any Dark-hold"
 const TROLL_LOUT = 'le-44' as CardDefinitionId;                // plain Troll, mind 3, "Any Dark-hold"
-const HILL_TROLL = 'ba-7' as CardDefinitionId;                 // Balrog-specific Troll, mind 3
+const HILL_TROLL = 'ba-7' as CardDefinitionId;                 // balrog-specific Troll, mind 3
 const HORSEMAN_IN_THE_NIGHT = 'le-16' as CardDefinitionId;     // Man, mind 4
 const GORBAG = 'le-11' as CardDefinitionId;                    // plain Orc, body 9
 const GOBLINS_OF_GOBLIN_GATE = 'le-265' as CardDefinitionId;   // Orc faction, influence# 9
@@ -244,11 +244,11 @@ describe('Bûthrakaur (ba-5)', () => {
 
   // ── Rule: "+3 direct influence against Balrog specific characters." ────────
   // Stacks with the race bonus: an existing follower already consumes 3 DI,
-  // so only a target that is BOTH troll AND Balrog-specific (total +6) leaves
-  // enough room; a plain (non-Balrog-specific) troll of the same mind (only
+  // so only a target that is BOTH troll AND balrog-specific (total +6) leaves
+  // enough room; a plain (non-balrog-specific) troll of the same mind (only
   // +3) does not.
 
-  test('Balrog-specific bonus stacks with the race bonus to control a second follower', () => {
+  test('balrog-specific bonus stacks with the race bonus to control a second follower', () => {
     const state = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
@@ -275,7 +275,7 @@ describe('Bûthrakaur (ba-5)', () => {
     const actions = viablePlayCharacterActions(state, PLAYER_1);
 
     // Existing follower (Orc Tracker, mind 3) already consumes all of the
-    // +3 race-only bonus. Hill-troll (Balrog-specific) needs the extra +3
+    // +3 race-only bonus. Hill-troll (balrog-specific) needs the extra +3
     // stacked bonus to be controllable as a second follower.
     const hillTrollId = state.players[0].hand.find(c => c.definitionId === HILL_TROLL)!.instanceId;
     const hillTrollUnderButhrakaur = actions.filter(

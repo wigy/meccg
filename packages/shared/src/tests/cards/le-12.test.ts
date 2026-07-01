@@ -7,7 +7,7 @@
  * "Unique. Uruk-hai. Discard on a body check result of 8."
  *
  * Card shape (documented here, NOT asserted — see CLAUDE.md no-tautology rule):
- *   race: orc, keywords: ["Uruk-hai"], unique, body 8, prowess 4, mind 3,
+ *   race: orc, keywords: ["uruk-hai"], unique, body 8, prowess 4, mind 3,
  *   skills warrior/scout, discardBodyCheck [8]. Homesite "Any site in Imlad
  *   Morgul".
  *

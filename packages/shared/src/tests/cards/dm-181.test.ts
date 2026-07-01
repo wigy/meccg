@@ -9,7 +9,7 @@
  *  to Free-holds [{F}] and Border-holds [{B}]."
  *
  * Card shape (documented here, NOT asserted — see CLAUDE.md no-tautology rule):
- *   race orc, keywords ["agent", "Half-orc", "Leader"], prowess 4, body 8,
+ *   race orc, keywords ["agent", "half-orc", "leader"], prowess 4, body 8,
  *   mind 4, directInfluence 1, marshallingPoints 1, skills warrior, homesite
  *   "Isengard", discardBodyCheck [8]. Unique.
  *
@@ -37,7 +37,7 @@
  * 4. +2 DI vs Orcs lets Baugúr (base DI 1) control an Orc (mind 3) as a
  *    follower; the bonus does NOT apply to a Troll (mind 3) → cannot control.
  * 5. +2 DI vs Orc factions reduces the influence `need` for Orcs of Udûn.
- * 6. "Leader": Baugúr (Orc leader) is offered the place-under-control variant
+ * 6. "leader": Baugúr (Orc leader) is offered the place-under-control variant
  *    when influencing Orcs of Udûn (le-282).
  * 7. Agent move restriction: Baugúr-as-agent cannot move to a free-hold
  *    (Edoras) or border-hold (Dunharrow), but can move to a ruins-and-lairs

@@ -1197,7 +1197,7 @@ function discardCharacter(
   newPlayers[opponentIndex] = { ...opponent, discardPile: newOpponentDiscard };
 
   const removedDef = defById(state, charInPlay.definitionId);
-  const removedIsLeader = !!(removedDef && isCharacterCard(removedDef) && (removedDef.keywords ?? []).includes('Leader'));
+  const removedIsLeader = !!(removedDef && isCharacterCard(removedDef) && (removedDef.keywords ?? []).includes('leader'));
 
   let result: GameState = { ...state, players: newPlayers };
   result = cleanupEmptyCompanies(result);

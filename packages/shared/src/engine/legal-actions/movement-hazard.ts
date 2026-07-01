@@ -6,14 +6,14 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
 import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, HazardLimitSwapEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { buildMovementMap, findRegionPaths, getReachableSites } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
-import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, isBalrogAvatarDef, requirePhaseState } from '../../state-utils.js';
+import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, requirePhaseState } from '../../state-utils.js';
 import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter } from '../../types/cards.js';
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
@@ -247,17 +247,6 @@ function revealNewSiteActions(
   return actions;
 }
 
-/**
- * MEBA: true if the given company contains The Balrog avatar character.
- * Such a company may not use starter or region movement.
- */
-function companyContainsBalrogAvatar(state: GameState, player: PlayerState, company: Company): boolean {
-  return company.characters.some(charId => {
-    const charData = player.characters[charId];
-    if (!charData) return false;
-    return isBalrogAvatarDef(defById(state, charData.definitionId));
-  });
-}
 
 /**
  * Resolve a site card instance ID to its {@link SiteCard} definition.

@@ -478,7 +478,7 @@ export interface RecruitCharacterEffect extends EffectBase {
  *
  * - Bad Company (wh-63): `filter: { "race": { "$in": ["orc", "troll"] } }` —
  *   permits all Orc and Troll characters.
- * - A Strident Spawn (wh-61): `filter: { "keywords": { "$includes": "Half-orc" } }`,
+ * - A Strident Spawn (wh-61): `filter: { "keywords": { "$includes": "half-orc" } }`,
  *   `atOwnWizardhavens: true` — permits only Half-orcs, and additionally lets
  *   them be played at the controller's Wizardhavens even when the
  *   Fallen-wizard avatar is not at that site (relaxing CoE 2.II.2.2's
@@ -1510,7 +1510,7 @@ export interface LeaderControlEffect extends EffectBase {
   readonly type: 'leader-control';
   /** Races of character eligible to take control (e.g. `["orc", "troll"]`). */
   readonly races: readonly string[];
-  /** Keyword the controlling character must carry (e.g. `"Leader"`). */
+  /** Keyword the controlling character must carry (e.g. `"leader"`). */
   readonly requiresKeyword: string;
   /** Group marshalling-point bonus for a leader controlling `count`+ factions. */
   readonly groupBonus: {
@@ -3020,6 +3020,7 @@ export type CardEffect =
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
   | ExtraTrollLeaderSlotEffect
+  | ExtraLeaderSlotEffect
   | StartingCompanyPlacementEffect
   | SummonsFromLongSleepEffect
   | SetAsideEffect
@@ -3495,16 +3496,16 @@ export interface AbsorbWoundEffect extends EffectBase {
  * Grants a keyword tag to the item's bearer while the item is attached.
  *
  * The bearer counts as having the named keyword for all purposes — e.g. the
- * "Leader" keyword makes the bearer subject to the one-leader-per-company
+ * "leader" keyword makes the bearer subject to the one-leader-per-company
  * rule (CoE 3.26) and eligible for faction-influence bonuses gated on Leader
  * status — exactly as if their card definition listed the keyword.
  *
- * Used by *By the Ringwraith's Word* (le-174) to grant the "Leader" keyword
+ * Used by *By the Ringwraith's Word* (le-174) to grant the "leader" keyword
  * to any non-Ringwraith minion character while the event is attached.
  */
 export interface GrantKeywordEffect extends EffectBase {
   readonly type: 'grant-keyword';
-  /** The keyword to grant (e.g. `"Leader"`). */
+  /** The keyword to grant (e.g. `"leader"`). */
   readonly keyword: string;
 }
 
@@ -3537,6 +3538,29 @@ export interface ProtectFromBodyCheckEffect extends EffectBase {
  */
 export interface ExtraTrollLeaderSlotEffect extends EffectBase {
   readonly type: 'extra-troll-leader-slot';
+}
+
+/**
+ * Declares that the company this permanent event is bound to may contain one
+ * additional Leader-keyword character beyond the single leader already
+ * permitted by CoE rule 2.II.3.1.3 (one-leader-per-company), with no race
+ * restriction on either leader. Additionally, one Leader-keyword character in
+ * the company is exempted from the company-size maximum of CoE rule 2.II.3.1
+ * (max size 7 outside a haven) — i.e. it does not count toward that headcount.
+ *
+ * Each copy of the carrying card in play on a company grants one such slot;
+ * two copies permit two additional leaders and exempt two leaders from the
+ * size count.
+ *
+ * The engine reads this effect in `organization-companies.ts`
+ * `wouldViolateLeaderRestriction` (leader-count exemption) and in
+ * `moveToCompanyActions`/`mergeCompaniesActions` (size-cap exemption, via
+ * `companyEffectiveSizeExemptingLeaders`).
+ *
+ * Used by *Orders from the Great Demon* (ba-70).
+ */
+export interface ExtraLeaderSlotEffect extends EffectBase {
+  readonly type: 'extra-leader-slot';
 }
 
 /**

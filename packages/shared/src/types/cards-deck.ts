@@ -33,6 +33,13 @@ export interface Deck {
 // ---- Deck list format (for editing and planning) ----
 
 /**
+ * Game length, determined by mutual agreement or the tournament organizer
+ * (CoE rule 1.1). Governs the maximum sideboard size (rule 1.6.1): 30 cards
+ * for Starter or Short, 35 for Long, 40 for Campaign.
+ */
+export type GameLength = 'starter' | 'short' | 'long' | 'campaign';
+
+/**
  * A single card entry in a deck list, referencing a card by display name
  * with an optional link to the card definition ID.
  */
@@ -76,6 +83,12 @@ export interface DeckList {
   readonly name: string;
   /** Deck alignment: hero, minion, fallen-wizard, or balrog. */
   readonly alignment: 'hero' | 'minion' | 'fallen-wizard' | 'balrog';
+  /**
+   * Game length declared for this deck (CoE rule 1.1), governing the maximum
+   * sideboard size (rule 1.6.1). Defaults to `'short'` when absent, matching
+   * decks built before this field existed.
+   */
+  readonly gameLength?: GameLength;
   /** Starting company -- characters and minor items available for the pre-game draft. */
   readonly pool: readonly DeckListEntry[];
   /** The main deck split into characters, hazards, and resources. */

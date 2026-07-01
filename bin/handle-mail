@@ -807,16 +807,43 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
 
       # Resolve the certification PR. Prefer the skill's own certify-<id>-*
       # branch; fall back to the PR we just finalized for it.
+      PR_HEAD_REF=""
       PR_URL=$(cd "$PROJECT_DIR" && gh pr list --state all --limit 500 \
         --json url,headRefName \
-        -q "[.[] | select(.headRefName | startswith(\"certify-${CARD_ID}-\")) | .url][0] // empty" \
+        -q "[.[] | select(.headRefName | startswith(\"certify-${CARD_ID}-\"))][0].url // empty" \
+        2>/dev/null || true)
+      PR_HEAD_REF=$(cd "$PROJECT_DIR" && gh pr list --state all --limit 500 \
+        --json url,headRefName \
+        -q "[.[] | select(.headRefName | startswith(\"certify-${CARD_ID}-\"))][0].headRefName // empty" \
         2>/dev/null || true)
       [ -z "$PR_URL" ] && [ -n "$REC_PR_URL" ] && PR_URL="$REC_PR_URL"
 
+      # Ground truth check: does the card actually carry a `certified` field on
+      # that branch? SKILL_STATUS only tells us the claude session ended
+      # cleanly — handle-certify-card.md is *designed* to end its turn cleanly
+      # while deliberately refusing to certify (PR titled "NOT CERTIFIED
+      # (verifying)"), so session success is not certification. Read the
+      # authoritative artifact instead: the `certified` field on the card's
+      # own entry in the branch that will actually get reviewed/merged.
+      CARD_CERTIFIED=false
+      if [ -n "$PR_HEAD_REF" ]; then
+        (cd "$PROJECT_DIR" && git fetch origin "$PR_HEAD_REF" 2>/dev/null) || true
+        for _f in $(cd "$PROJECT_DIR" && git ls-tree -r --name-only "origin/${PR_HEAD_REF}" -- packages/shared/src/data 2>/dev/null); do
+          if (cd "$PROJECT_DIR" && git show "origin/${PR_HEAD_REF}:${_f}" 2>/dev/null) \
+              | jq -e --arg id "$CARD_ID" '.[] | select(.id == $id) | has("certified")' \
+              >/dev/null 2>&1; then
+            CARD_CERTIFIED=true
+            break
+          fi
+        done
+      fi
+
       # Artifact-based success detection. Success requires (a) the stream-json
       # terminal success marker (status=success), (b) a clean working tree —
-      # the skill's PR or the one we just finalized — and (c) a PR URL. A
-      # skipped git step no longer fails the card; only a still-dirty tree does.
+      # the skill's PR or the one we just finalized — (c) a PR URL, and (d) the
+      # `certified` field actually present on that branch. A skipped git step
+      # no longer fails the card; only a still-dirty tree or a genuinely
+      # uncertified card does.
       CERT_FAIL_REASON=""
       if [ -n "$DIRTY_FILES" ] && [ -n "$(git status --porcelain)" ]; then
         CERT_FAIL_REASON="Skill left uncommitted changes and automatic finalize (commit/push/PR) failed. The run-ai loop will refuse to handle more mail until these files are turned into a PR or reverted.
@@ -827,6 +854,8 @@ $DIRTY_FILES"
         CERT_FAIL_REASON="Skill did not reach a successful terminal result (status=${SKILL_STATUS:-unknown})."
       elif [ -z "$PR_URL" ]; then
         CERT_FAIL_REASON="No PR was opened for certify-${CARD_ID}-* and no work was finalized."
+      elif [ "$CARD_CERTIFIED" != true ]; then
+        CERT_FAIL_REASON="The skill opened a PR ($PR_URL) but did not set the \`certified\` field — per its own rules it determined the card is not fully playable yet and left the PR as NOT CERTIFIED. Review the PR to see what's missing."
       fi
 
       if [ -z "$CERT_FAIL_REASON" ]; then

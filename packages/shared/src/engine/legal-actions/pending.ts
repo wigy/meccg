@@ -756,7 +756,7 @@ export function corruptionCheckActions(
     const compChar = player.characters[cid];
     if (!compChar) return false;
     const def = resolveDef(state, compChar.instanceId);
-    return isCharacterCard(def) && def.race === 'troll' && (def.keywords ?? []).includes('Leader');
+    return isCharacterCard(def) && def.race === 'troll' && (def.keywords ?? []).includes('leader');
   }) ?? false;
 
   const checkContext = { reason: 'corruption-check', source: { keywords: sourceKeywords }, company: { hasTrollLeader, characterCount: companyCharCount } };

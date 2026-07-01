@@ -311,16 +311,16 @@ export type Keyword =
   | 'ritual'
   | 'light-enchantment'
   | 'dark-enchantment'
-  | 'Leader'
-  | 'Uruk-hai'
-  | 'Olog-hai'
-  | 'Half-orc'
-  | 'Balrog-specific'
+  | 'leader'
+  | 'uruk-hai'
+  | 'olog-hai'
+  | 'half-orc'
+  | 'balrog-specific'
   | 'agent'
   | 'dragon-manifestation'
   | 'corruption'
   | 'under-deeps'
-  | 'Spawn'
+  | 'spawn'
   | 'starting-item'
   // MEWH wizard-specific stage cards (the card is bound to one Fallen-wizard).
   | 'alatar-specific'
@@ -328,6 +328,20 @@ export type Keyword =
   | 'pallando-specific'
   | 'radagast-specific'
   | 'saruman-specific';
+
+/**
+ * Maps each `<wizard>-specific` keyword to the avatar name it binds a card to
+ * (CoE rule 1.3.4 / MEWH §12). Shared by the deck-construction check (a deck
+ * may only include a wizard-specific card if that avatar is declared) and the
+ * in-play sweep that discards such cards once the avatar leaves play.
+ */
+export const WIZARD_SPECIFIC_KEYWORD_NAMES: Readonly<Record<string, string>> = {
+  'alatar-specific': 'Alatar',
+  'gandalf-specific': 'Gandalf',
+  'pallando-specific': 'Pallando',
+  'radagast-specific': 'Radagast',
+  'saruman-specific': 'Saruman',
+};
 
 /**
  * How a finished game was decided (CoE rule 10.39 / MELE §1).

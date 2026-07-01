@@ -9,7 +9,7 @@
     "unique": false,
     "race": "orc",
     "keywords": [
-      "Half-orc"
+      "half-orc"
     ],
     "skills": [
       "warrior",
@@ -37,7 +37,7 @@
     "unique": false,
     "race": "orc",
     "keywords": [
-      "Half-orc"
+      "half-orc"
     ],
     "skills": [
       "warrior",
@@ -69,7 +69,7 @@
       "scout"
     ],
     "keywords": [
-      "Uruk-hai"
+      "uruk-hai"
     ],
     "prowess": 5,
     "body": 8,
