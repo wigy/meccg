@@ -562,7 +562,27 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "keywords": ["shield"],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "$and": [
+            { "site.keywords": { "$includes": "under-deeps" } },
+            { "site.siteType": { "$in": ["shadow-hold", "ruins-and-lairs"] } }
+          ]
+        }
+      },
+      {
+        "type": "under-deeps-roll-modifier",
+        "value": 2
+      },
+      {
+        "type": "cancel-strike",
+        "cost": { "tap": "self" },
+        "when": { "bearer.skills": { "$includes": "warrior" } }
+      }
+    ],
     "text": "Shield. Playable at any Under-deeps Shadow-hold [{S}] or Ruins & Lairs [{R}]. +2 to all rolls required for bearer’s company to move to adjacent Under-deeps sites. Warrior only: tap this item to make one strike against its bearer ineffectual (i. e., the strike neither succeeds nor fails)."
   },
   {

@@ -3016,6 +3016,7 @@ export type CardEffect =
   | CompanyCombatBoostEffect
   | PermanentEventAutoAttackEffect
   | PassiveMovementBonusEffect
+  | UnderDeepsRollModifierEffect
   | RegionMovementLimitEffect
   | HazardLimitEnvironmentEffect
   | TakePrisonerEffect
@@ -3074,6 +3075,27 @@ export interface PassiveMovementBonusEffect extends EffectBase {
    * name appears in this list for the bonus to apply.
    */
   readonly allyNames: readonly string[];
+}
+
+/**
+ * Bonus to the 2d6 roll required for a company to move between adjacent
+ * Under-deeps sites (CoE 2.IV.i.1). Carried by an item, ally, or character
+ * card; while the source card is present anywhere in the moving company,
+ * {@link value} is added to the roll — modeled as an equivalent reduction of
+ * the required roll (floored at 0), the same trick used for the Balrog's
+ * built-in +3 (`companyContainsBalrogAvatar` in `mh-steps.ts`). Modifiers
+ * from every company member stack.
+ *
+ * Collected in `mh-steps.ts` (`getUnderDeepsRequiredRoll` call site) via
+ * `collectCharacterEffects` over each character in the moving company.
+ *
+ * Used by Iron Shield of Old (as-127): "+2 to all rolls required for
+ * bearer's company to move to adjacent Under-deeps sites."
+ */
+export interface UnderDeepsRollModifierEffect extends EffectBase {
+  readonly type: 'under-deeps-roll-modifier';
+  /** Bonus added to the roll (equivalently subtracted from the required roll). */
+  readonly value: number;
 }
 
 /**

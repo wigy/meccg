@@ -5248,6 +5248,30 @@ floor. Consumed both at movement-plan time (`organization-companies.ts`
 using region movement is reduced by one (by two if Doors of Night is in play) to
 a minimum of two."
 
+### 52a. `under-deeps-roll-modifier`
+
+Bonus to the 2d6 roll required for a company to move between adjacent
+Under-deeps sites (CoE 2.IV.i.1). Carried by an item, ally, or character card;
+while the source card is present on any character in the moving company,
+`value` is added to the roll.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `value` | yes | Bonus added to the roll. |
+
+```json
+{ "type": "under-deeps-roll-modifier", "value": 2 }
+```
+
+Behaviour (`mh-steps.ts`, at the `getUnderDeepsRequiredRoll` call site): modeled
+as an equivalent reduction of the *required* roll (floored at 0) — the same
+trick already used for the Balrog's built-in "+3 to the roll for his company to
+move between adjacent Under-deeps sites" (`companyContainsBalrogAvatar`).
+Collected via `collectCharacterEffects` over every character in the moving
+company, so modifiers from multiple company members stack. Used by Iron Shield
+of Old (as-127): "+2 to all rolls required for bearer's company to move to
+adjacent Under-deeps sites."
+
 ### 53. `site-item-trap`
 
 Carried by a hazard **permanent-event** attached to a site (via
