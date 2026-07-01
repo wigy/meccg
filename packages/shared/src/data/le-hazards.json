@@ -1146,7 +1146,8 @@
         "target": "faction"
       }
     ],
-    "text": "Playable on a faction. The faction’s player makes a roll. The faction is discarded if the result plus his unused general influence is less than 11."
+    "text": "Playable on a faction. The faction’s player makes a roll. The faction is discarded if the result plus his unused general influence is less than 11.",
+    "certified": "2026-07-02"
   },
   {
     "cardType": "hazard-event",
