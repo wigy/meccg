@@ -2954,8 +2954,34 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Scout only. Playable during the site phase on an untapped scout. Tap the scout. Another character in his company may play any minor, major, or gold ring item normally playable at the site. This does not tap the site, and Catch an Elusive Scent can be played at a site that is already tapped."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "scout"
+          }
+        },
+        "cost": {
+          "tap": "character"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-site-phase-flag",
+          "flag": "thoroughSearchAvailable"
+        }
+      }
+    ],
+    "text": "Scout only. Playable during the site phase on an untapped scout. Tap the scout. Another character in his company may play any minor, major, or gold ring item normally playable at the site. This does not tap the site, and Catch an Elusive Scent can be played at a site that is already tapped.",
+    "certified": "2026-07-01"
   },
   {
     "cardType": "minion-resource-event",
