@@ -10,7 +10,7 @@
  * The three printed clauses are all structural:
  *   - "Unique."   → `unique: true`; the duplication engine prevents a second
  *                   copy of a unique card from coming into play.
- *   - "Uruk-hai." → `keywords: ["Uruk-hai"]`; a descriptive classification
+ *   - "uruk-hai." → `keywords: ["uruk-hai"]`; a descriptive classification
  *                   label consumed by condition filters on other cards. It
  *                   carries no standalone gate of its own.
  *   - "Discard on a body check result of 8." → `discardBodyCheck: [8]`; in the
@@ -37,7 +37,7 @@
  * | # | Feature                                              | Status | Notes                                 |
  * |---|------------------------------------------------------|--------|---------------------------------------|
  * | 1 | unique: true                                         | OK     | duplication-limit prevents 2nd copy   |
- * | 2 | keywords: ["Uruk-hai"]                               | DATA   | classification label, no current gate |
+ * | 2 | keywords: ["uruk-hai"]                               | DATA   | classification label, no current gate |
  * | 3 | discardBodyCheck [8]: pass threshold = 8             | OK     | dice-check (body-check) resolution    |
  * | 4 | failed mass body check → discarded to discard pile   | OK     | not eliminated to out-of-play         |
  * | 5 | passed mass body check → stays in play               | OK     |                                       |

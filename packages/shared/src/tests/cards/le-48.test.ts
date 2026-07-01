@@ -14,7 +14,7 @@
  * the out-of-play pile).
  *
  * The only printed special rule on the card beyond basic stats is this discard
- * number; "Unique" is enforced by the engine's duplication limit and "Uruk-hai"
+ * number; "Unique" is enforced by the engine's duplication limit and "uruk-hai"
  * is a descriptive subtype with no separate mechanical effect.
  *
  * Characters used:

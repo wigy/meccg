@@ -32,7 +32,8 @@ Keywords are string tags on a card's `keywords` array. They drive classification
 
 Character-specific keywords:
 
-- `"Leader"`, `"Uruk-hai"`, `"Olog-hai"` — minion character subgroupings used in condition filters (e.g. faction influence bonuses gated on `"Leader"`).
+- `"leader"`, `"uruk-hai"`, `"olog-hai"` — minion character subgroupings used in condition filters (e.g. faction influence bonuses gated on `"leader"`).
+- `"balrog-specific"` — carried by minion characters whose text reads "Balrog specific" (CoE 1.3.4/1.3.B4-5: the card is specific to the Balrog avatar). Exposed as `target.keywords` in the `influence-check` resolver context (`availableDI` in `legal-actions/organization.ts`) so a bonus like `{ "when": { "reason": "influence-check", "target.keywords": { "$includes": "balrog-specific" } } }` can target them the same way `target.race` does. Used by Bûthrakaur (ba-5): "+3 direct influence against Balrog specific characters."
 - `"agent"` — the character is an agent. Agents count as both a character and a hazard for deck-building. They have home sites, can be played as a hazard face-down, and are subject to the 36-mind agent limit. No behaviour is gated on this keyword yet; it is present as a data marker for future rule enforcement (rule 1.05, 3.15, 9.x).
 
 ## Value Expressions
@@ -112,10 +113,10 @@ Optional `target` scopes:
   `recompute-derived.ts` and filtered in `collectGlobalEffects` by the target
   character's controller). Unlike `"all-characters"`, the opponent's matching
   characters are unaffected. The per-character `when` context exposes
-  `target.keywords` (e.g. `"Half-orc"`), since Half-orcs have race `"orc"`.
+  `target.keywords` (e.g. `"half-orc"`), since Half-orcs have race `"orc"`.
   Used by *A Strident Spawn* (wh-61): "Each of your Half-orcs requires one less
   point of influence to control" —
-  `{ "stat": "mind", "value": -1, "target": "own-characters", "when": { "target.keywords": { "$includes": "Half-orc" } } }`.
+  `{ "stat": "mind", "value": -1, "target": "own-characters", "when": { "target.keywords": { "$includes": "half-orc" } } }`.
 - `"all-attacks"` — applies to every automatic-attack and hazard creature
 - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures)
 - *(no target)* on a hazard-creature card — self-modifier applied to the
@@ -367,7 +368,7 @@ corruption checks).
 
 An optional `when` condition is evaluated at check time against a context
 that includes `company.hasTrollLeader` (`true` when any character in the
-bound company has race `"troll"` and the `"Leader"` keyword) and
+bound company has race `"troll"` and the `"leader"` keyword) and
 `company.characterCount` (number of characters in the company).
 
 ```json
@@ -832,7 +833,7 @@ Events:
   - `force-check` (with `check: "corruption"`) — enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses* (at-haven only) and *The Least of Gold Rings* (any site).
   - a self-discard `move` (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) — removes the card from the bearer's items/hazards/allies and places it in the owner's discard pile. The optional `when` condition gates the discard (e.g. `"when": { "bearer.atHaven": true }` to discard at Darkhavens). Used by *Well-preserved* (as-108).
 - `organization-phase-start` -- fires during the Untap → Organization transition immediately after `untap-phase-end` processing. The reducer (`reducer-untap.ts` `advanceToOrganization`) scans **every** player's `cardsInPlay` for company-bound permanent events (cards with a `companyId`) carrying this on-event. The condition is evaluated against a combined context: `{ company: { siteType, atHaven: boolean }, player: { avatarId: string | null } }` where `atHaven` is `true` when the bound company's current site is a haven/darkhaven, and `avatarId` is the definition ID of the player's ringwraith/wizard avatar character (or `null` if none is in play). Supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) to move the card to its owner's discard pile. Used by *Nothing to Eat or Drink* (le-128), which discards itself when the company is at a haven; and by *Orders from Lugbúrz* (as-94), which discards itself when `player.avatarId` is `"le-56"` (Ren the Ringwraith).
-- `leader-leaves-company` -- fires in the Organization phase whenever a character with the `Leader` keyword departs the bound company, for any reason: `split-company`, `move-to-company` (source company), `merge-companies` (source company), or combat elimination. The reducer calls `sweepLeaderLeavesCompanyEvents(state, [affectedCompanyId])` in `reducer-utils.ts`, which scans every player's `cardsInPlay` for permanent events bound to the affected company carrying this on-event with a self-discard `move` apply and moves matching cards to their owner's discard pile. The "is leader" check uses the card's definition `keywords` array (contains `"Leader"`); it is evaluated *before* the state transition so the departing character is still findable. Only supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`). No `when` condition is evaluated. Used by *Orders from Lugbúrz* (as-94).
+- `leader-leaves-company` -- fires in the Organization phase whenever a character with the `leader` keyword departs the bound company, for any reason: `split-company`, `move-to-company` (source company), `merge-companies` (source company), or combat elimination. The reducer calls `sweepLeaderLeavesCompanyEvents(state, [affectedCompanyId])` in `reducer-utils.ts`, which scans every player's `cardsInPlay` for permanent events bound to the affected company carrying this on-event with a self-discard `move` apply and moves matching cards to their owner's discard pile. The "is leader" check uses the card's definition `keywords` array (contains `"leader"`); it is evaluated *before* the state transition so the departing character is still findable. Only supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`). No `when` condition is evaluated. Used by *Orders from Lugbúrz* (as-94).
 
   ```json
   { "type": "on-event", "event": "leader-leaves-company",
@@ -4517,17 +4518,17 @@ an adjacent site of any Under-deeps site."
 
 Grants a keyword tag to the item's bearer while the item/event is attached.
 
-The bearer counts as having the named keyword for all purposes — e.g. the "Leader"
+The bearer counts as having the named keyword for all purposes — e.g. the "leader"
 keyword makes the bearer subject to the one-leader-per-company rule (CoE 3.26) and
 eligible for faction-influence bonuses gated on Leader status.
 
 ```json
-{ "type": "grant-keyword", "keyword": "Leader" }
+{ "type": "grant-keyword", "keyword": "leader" }
 ```
 
 Fields:
 
-- `keyword` — the keyword to grant (e.g. `"Leader"`).
+- `keyword` — the keyword to grant (e.g. `"leader"`).
 
 Implemented in `engine/legal-actions/organization-companies.ts`
 (`wouldViolateLeaderRestriction` now also checks attached items for this effect).
@@ -4887,13 +4888,13 @@ marshalling points."*
 | Field | Required | Description |
 |-------|----------|-------------|
 | `races` | yes | Races whose characters may take control, e.g. `["orc", "troll"]`. Matched against the influencing character's `race`. |
-| `requiresKeyword` | yes | Keyword the controlling character must carry, e.g. `"Leader"`. |
+| `requiresKeyword` | yes | Keyword the controlling character must carry, e.g. `"leader"`. |
 | `groupBonus` | yes | `{ "count": N, "mp": M }` — a single leader controlling `N`+ such factions earns `M` extra marshalling points (counted once per leader). |
 
 ```json
 { "type": "leader-control",
   "races": ["orc", "troll"],
-  "requiresKeyword": "Leader",
+  "requiresKeyword": "leader",
   "groupBonus": { "count": 3, "mp": 2 } }
 ```
 
@@ -5070,7 +5071,7 @@ effect's `filter` matches that character's card definition.
 
 ```json
 { "type": "allow-character-play",
-  "filter": { "keywords": { "$includes": "Half-orc" } },
+  "filter": { "keywords": { "$includes": "half-orc" } },
   "atOwnWizardhavens": true }
 ```
 
@@ -5098,7 +5099,7 @@ permanent-event the player controls.
 
 ```json
 { "type": "org-phase-fetch", "from": ["discard-pile"],
-  "filter": { "keywords": { "$includes": "Half-orc" } } }
+  "filter": { "keywords": { "$includes": "half-orc" } } }
 ```
 
 Used by *A Strident Spawn* (wh-61): "During your organization phase, you may take

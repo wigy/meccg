@@ -1310,7 +1310,7 @@
       },
       {
         "type": "grant-keyword",
-        "keyword": "Leader"
+        "keyword": "leader"
       },
       {
         "type": "stat-modifier",
@@ -1620,7 +1620,7 @@
         "target": "character",
         "filter": {
           "target.keywords": {
-            "$includes": "Leader"
+            "$includes": "leader"
           }
         }
       },
@@ -2072,7 +2072,7 @@
           "orc",
           "troll"
         ],
-        "requiresKeyword": "Leader",
+        "requiresKeyword": "leader",
         "groupBonus": {
           "count": 3,
           "mp": 2
@@ -2363,7 +2363,7 @@
           "orc",
           "troll"
         ],
-        "requiresKeyword": "Leader",
+        "requiresKeyword": "leader",
         "groupBonus": {
           "count": 3,
           "mp": 2
@@ -2451,7 +2451,7 @@
           "orc",
           "troll"
         ],
-        "requiresKeyword": "Leader",
+        "requiresKeyword": "leader",
         "groupBonus": {
           "count": 3,
           "mp": 2
@@ -2501,7 +2501,7 @@
           "orc",
           "troll"
         ],
-        "requiresKeyword": "Leader",
+        "requiresKeyword": "leader",
         "groupBonus": {
           "count": 3,
           "mp": 2
@@ -2559,7 +2559,7 @@
           "orc",
           "troll"
         ],
-        "requiresKeyword": "Leader",
+        "requiresKeyword": "leader",
         "groupBonus": {
           "count": 3,
           "mp": 2
@@ -2678,7 +2678,7 @@
           "orc",
           "troll"
         ],
-        "requiresKeyword": "Leader",
+        "requiresKeyword": "leader",
         "groupBonus": {
           "count": 3,
           "mp": 2
@@ -3893,7 +3893,7 @@
           "orc",
           "troll"
         ],
-        "requiresKeyword": "Leader",
+        "requiresKeyword": "leader",
         "groupBonus": {
           "count": 3,
           "mp": 2
@@ -4018,7 +4018,7 @@
           "orc",
           "troll"
         ],
-        "requiresKeyword": "Leader",
+        "requiresKeyword": "leader",
         "groupBonus": {
           "count": 3,
           "mp": 2

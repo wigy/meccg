@@ -973,7 +973,7 @@ function handleTestRingAtSite(state: GameState, action: GameAction): ReducerResu
 
 /** Returns true if the card definition represents a Leader-keyword character. */
 function isLeaderCharacter(def: ReturnType<typeof defById>): boolean {
-  return !!(def && isCharacterCard(def) && (def.keywords ?? []).includes('Leader'));
+  return !!(def && isCharacterCard(def) && (def.keywords ?? []).includes('leader'));
 }
 
 function handleSplitCompany(state: GameState, action: GameAction): ReducerResult {

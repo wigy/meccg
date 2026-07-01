@@ -123,7 +123,7 @@ export function isAvatarCharacter(card: CardDefinition | undefined): boolean {
  * other Orc rules (body-check discard, detainment, deck-building) keep applying.
  */
 export function isHalfOrc(card: CardDefinition | undefined): boolean {
-  return isCharacterCard(card) && (card.keywords?.includes('Half-orc') ?? false);
+  return isCharacterCard(card) && (card.keywords?.includes('half-orc') ?? false);
 }
 
 /**

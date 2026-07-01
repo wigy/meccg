@@ -124,8 +124,8 @@
     "marshallingCategory": "character",
     "homesite": "Dol Guldur",
     "keywords": [
-      "Leader",
-      "Olog-hai"
+      "leader",
+      "olog-hai"
     ],
     "effects": [
       {
@@ -198,8 +198,8 @@
     "marshallingCategory": "character",
     "homesite": "Minas Morgul",
     "keywords": [
-      "Leader",
-      "Uruk-hai"
+      "leader",
+      "uruk-hai"
     ],
     "effects": [
       {
@@ -247,8 +247,8 @@
     "marshallingCategory": "character",
     "homesite": "Cirith Ungol",
     "keywords": [
-      "Leader",
-      "Uruk-hai"
+      "leader",
+      "uruk-hai"
     ],
     "effects": [
       {
@@ -386,7 +386,7 @@
     "marshallingCategory": "character",
     "homesite": "Any Dark-hold",
     "keywords": [
-      "Leader"
+      "leader"
     ],
     "effects": [
       {
@@ -548,7 +548,7 @@
     "unique": true,
     "race": "orc",
     "keywords": [
-      "Uruk-hai"
+      "uruk-hai"
     ],
     "skills": [
       "warrior",
@@ -674,7 +674,7 @@
     "marshallingCategory": "character",
     "homesite": "Any site in Imlad Morgul",
     "keywords": [
-      "Uruk-hai"
+      "uruk-hai"
     ],
     "effects": [],
     "certified": "2026-06-03",
@@ -693,7 +693,7 @@
     "race": "troll",
     "keywords": [
       "Half-troll",
-      "Leader"
+      "leader"
     ],
     "skills": [
       "warrior",
@@ -769,7 +769,7 @@
       "warrior"
     ],
     "keywords": [
-      "Uruk-hai"
+      "uruk-hai"
     ],
     "prowess": 4,
     "body": 8,
@@ -954,7 +954,7 @@
     "unique": true,
     "race": "orc",
     "keywords": [
-      "Uruk-hai"
+      "uruk-hai"
     ],
     "skills": [
       "warrior",
@@ -1873,8 +1873,8 @@
     "unique": false,
     "race": "troll",
     "keywords": [
-      "Leader",
-      "Olog-hai"
+      "leader",
+      "olog-hai"
     ],
     "skills": [
       "warrior"

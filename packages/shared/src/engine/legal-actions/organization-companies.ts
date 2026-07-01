@@ -902,8 +902,8 @@ function wouldViolateLeaderRestriction(
     const def = defId ? defById(state, defId) : undefined;
     if (!def || !isCharacterCard(def)) continue;
     // Natural Leader keyword on the character card
-    let isLeader = def.keywords?.includes('Leader') ?? false;
-    // Also check attached items for grant-keyword: 'Leader' effects
+    let isLeader = def.keywords?.includes('leader') ?? false;
+    // Also check attached items for grant-keyword: 'leader' effects
     if (!isLeader) {
       for (const player of state.players) {
         const char = player.characters[id];
@@ -911,7 +911,7 @@ function wouldViolateLeaderRestriction(
         for (const item of char.items) {
           const itemDef = state.cardPool[item.definitionId];
           const effects = getCardEffects(itemDef);
-          if (effects.some(e => e.type === 'grant-keyword' && (e as { keyword: string }).keyword === 'Leader')) {
+          if (effects.some(e => e.type === 'grant-keyword' && (e as { keyword: string }).keyword === 'leader')) {
             isLeader = true;
           }
         }
