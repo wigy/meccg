@@ -84,6 +84,21 @@ export interface DetainmentContext {
    * detainment").
    */
   readonly defendingSiteName?: string | null;
+  /**
+   * True when this attack is the defending company's *current site's own*
+   * listed automatic-attack (static or dynamically played via
+   * `site-rule: dynamic-auto-attack`) rather than a hazard creature played
+   * normally against the company. Exposed to an `attacks-not-detainment`
+   * `filter` as `attack.automatic`, letting a site distinguish "creatures
+   * keyed to this site [that hazard players play against a visiting
+   * company] attack normally" from its own scripted automatic-attack(s),
+   * which may separately declare `combat-detainment` to force detainment
+   * regardless of the site-wide override. Used by The Under-leas (ba-102):
+   * the 1st automatic-attack is unconditionally detainment while all other
+   * attacks at the site are not. Defaults to `false` (a normal hazard
+   * creature attack) when omitted.
+   */
+  readonly isAutomaticAttack?: boolean;
 }
 
 /** Races covered by rule 3.II.2.R2/B2 when keyed to a Shadow-land. */
@@ -140,7 +155,10 @@ export function isDetainmentAttack(ctx: DetainmentContext): boolean {
   );
   if (siteOverride && siteOverride.type === 'site-rule' && siteOverride.rule === 'attacks-not-detainment') {
     const filter = siteOverride.filter;
-    const filterContext = { enemy: { race: ctx.attackRace ?? null } };
+    const filterContext = {
+      enemy: { race: ctx.attackRace ?? null },
+      attack: { automatic: ctx.isAutomaticAttack ?? false },
+    };
     if (!filter || matchesCondition(filter, filterContext)) {
       logDetail(
         filter
