@@ -4466,6 +4466,47 @@ wired into the assign-strikes and resolve-strike windows of `combatActions`),
 
 ---
 
+### 53c. `ally-body-check-boost`
+
+Tap an in-play ally during the `body-check` combat phase to add its `value`
+to its controlling character's effective body for the pending body check —
+but only when the ally itself was also struck by a strike from the same
+attack (both the ally and its controlling character are targets of strikes
+from the same attack). Unlike `body-check-modifier` (a static, always-on item
+effect added to the roll), this is a one-shot, tap-activated ally ability the
+player chooses whether to use.
+
+The bonus is applied directly to `StrikeAssignment.strikeBodyPenalty` on the
+character's current strike (the same field used by `strike-modifier`
+`bodyPenalty`, e.g. Risky Blow), so it is read by both the `bodyCheckActions`
+legal-action generator (which shows the updated "need" before the roll) and
+the roll resolution in `handleBodyCheckRoll`.
+
+| Field | Required | Description |
+|-------|----------|--------------|
+| `value` | yes | Amount added to the controlling character's effective body (positive protects). |
+| `cost` | yes | Always `{ "tap": "self" }` (the ally taps itself). |
+
+```json
+{ "type": "ally-body-check-boost", "value": 2, "cost": { "tap": "self" } }
+```
+
+Used by War-warg (le-156): "If the War-warg and its controlling character
+are both targets of strikes from the same attack, you may tap War-warg to
+give +2 body to its controlling character."
+
+Eligibility (checked structurally, not via `when`): the ally must be
+untapped, its controlling character must be the character currently facing
+the pending body check (`combat.strikeAssignments[combat.currentStrikeIndex]`),
+and the ally's own instance ID must also appear among `combat.strikeAssignments`
+for the same attack.
+
+Implemented in `engine/legal-actions/combat.ts` (`tapAllyBodyCheckBoostActions`,
+wired into the `body-check` phase of `combatActions`), `engine/reducer-combat.ts`
+(`handleTapAllyBodyCheckBoost`), and `engine/combat-actions.ts`.
+
+---
+
 ### 54. `grant-skill`
 
 Grants a named character skill to the item's bearer while the item is in play.

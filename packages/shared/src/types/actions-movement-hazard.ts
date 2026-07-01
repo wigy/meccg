@@ -392,6 +392,22 @@ export interface TapAllyCombatBoostAction {
 }
 
 /**
+ * Tap an in-play ally during the `body-check` combat phase to add its
+ * `ally-body-check-boost` value to its controlling character's effective
+ * body for the pending body check (e.g. War-warg le-156: "tap War-warg to
+ * give +2 body to its controlling character"). Offered only when the ally
+ * and its controlling character were both struck by the same attack.
+ */
+export interface TapAllyBodyCheckBoostAction {
+  /** Action discriminant. */
+  readonly type: 'tap-ally-body-check-boost';
+  /** The player who owns the ally being tapped. */
+  readonly player: PlayerId;
+  /** The in-play ally being tapped. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Halve the number of strikes in the current attack (rounded up) by
  * discarding a short event card from hand. Only legal during the
  * assign-strikes phase before any strikes have been assigned.

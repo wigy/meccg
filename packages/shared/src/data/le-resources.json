@@ -2821,10 +2821,21 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "any tapped or untapped Ruins & Lairs [{R}] with a Wolf automatic-attack"
+        "siteType": "ruins-and-lairs",
+        "when": { "site.autoAttack.race": "wolf" }
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "ally-body-check-boost",
+        "value": 2,
+        "cost": { "tap": "self" }
+      }
+    ],
     "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] with a Wolf automatic-attack. If the War-warg and its controlling character are both targets of strikes from the same attack, you may tap War-warg to give +2 body to its controlling character."
   },
   {

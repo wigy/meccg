@@ -3060,7 +3060,8 @@ export type CardEffect =
   | RecruitCharacterEffect
   | AllowCharacterPlayEffect
   | OrgPhaseFetchEffect
-  | StayHerAppetiteEffect;
+  | StayHerAppetiteEffect
+  | AllyBodyCheckBoostEffect;
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -3477,6 +3478,38 @@ export interface CombatTapCompanyBoostEffect extends EffectBase {
    * the modifier. When absent, every character in the company receives it.
    */
   readonly filter?: Condition;
+  /** Activation cost — always `{ tap: "self" }` (the ally taps itself). */
+  readonly cost: ActionCost;
+}
+
+/**
+ * Activated ability on an in-play ally that boosts its controlling character's
+ * body for the body check resulting from the *current* strike, offered only
+ * when the ally itself and its controlling character are both targets of
+ * strikes from the same attack (CoE rule 2.V.2.2 companion mechanic).
+ *
+ * Unlike {@link BodyCheckModifierEffect} (a static, always-on item effect
+ * added to the roll), this is a one-shot, tap-activated ally ability: the
+ * player decides whether to tap the ally during the `body-check` combat
+ * phase, before the roll is made, and the bonus is added directly to the
+ * character's effective body for that single body check (via
+ * `StrikeAssignment.strikeBodyPenalty`, the same field used by strike-event
+ * body modifiers such as Risky Blow).
+ *
+ * Eligibility (checked structurally by the legal-action generator, not via
+ * `when`): the ally must be untapped, its controlling character must be the
+ * character currently facing a body check (`combat.strikeAssignments[combat.currentStrikeIndex]`),
+ * and the ally's own instance ID must also appear among `combat.strikeAssignments`
+ * for the same attack (i.e. the ally itself was also struck).
+ *
+ * Used by War-warg (le-156): "If the War-warg and its controlling character
+ * are both targets of strikes from the same attack, you may tap War-warg to
+ * give +2 body to its controlling character."
+ */
+export interface AllyBodyCheckBoostEffect extends EffectBase {
+  readonly type: 'ally-body-check-boost';
+  /** Amount added to the controlling character's effective body (positive protects). */
+  readonly value: number;
   /** Activation cost — always `{ tap: "self" }` (the ally taps itself). */
   readonly cost: ActionCost;
 }
