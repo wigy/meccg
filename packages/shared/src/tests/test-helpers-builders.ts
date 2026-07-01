@@ -1678,13 +1678,37 @@ export function runAutoAttackCombatMulti(
   resourcePlayer: PlayerId = PLAYER_1,
   hazardPlayer: PlayerId = PLAYER_2,
 ): ReducerResult {
-  const resIdx = baseState.players.findIndex(p => p.id === resourcePlayer);
-
   // Trigger auto-attack
   const result = reduce(baseState, { type: 'pass', player: resourcePlayer });
   expect(result.error).toBeUndefined();
   expect(result.state.combat).toBeDefined();
-  let s = result.state;
+
+  return continueAutoAttackCombat(result.state, strikeDefs, resourcePlayer, hazardPlayer);
+}
+
+/**
+ * Continue resolving an already-active automatic-attack combat: assigns
+ * characters in `strikeDefs` order (falling back to the attacker assigning
+ * any remaining unassigned combatants), then resolves each strike/body-check
+ * in sequence. Shares its post-trigger logic with {@link runAutoAttackCombatMulti},
+ * which calls this after triggering the attack via a resource-player pass —
+ * use this directly when combat is already active (e.g. after a mid-combat
+ * state mutation).
+ *
+ * @param state - State with `combat` already active from an automatic-attack.
+ * @param strikeDefs - See {@link runAutoAttackCombatMulti}.
+ * @param resourcePlayer - The resource player who assigns characters (default PLAYER_1).
+ * @param hazardPlayer - The hazard player who rolls body checks (default PLAYER_2).
+ * @returns ReducerResult after all strikes resolved and combat finalized.
+ */
+export function continueAutoAttackCombat(
+  state: GameState,
+  strikeDefs: Array<{ characterDefId: CardDefinitionId; roll: number; tapToFight?: boolean; bodyRoll?: number }>,
+  resourcePlayer: PlayerId = PLAYER_1,
+  hazardPlayer: PlayerId = PLAYER_2,
+): ReducerResult {
+  const resIdx = state.players.findIndex(p => p.id === resourcePlayer);
+  let s = state;
 
   // Assign characters in order
   for (const { characterDefId } of strikeDefs) {

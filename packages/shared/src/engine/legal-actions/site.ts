@@ -210,7 +210,7 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     || siteState.step === 'rescue-attacks') {
     // Repeated/sequenced attacks (Troll-purse re-face, prisoner-rescue): the
     // active player passes to initiate the next attack (or to finish).
-    return viable(automaticAttacksActions(state, playerId));
+    return viable(automaticAttacksActions(state, playerId, siteState));
   }
 
   if (siteState.step === 'declare-agent-attack') {
@@ -417,22 +417,54 @@ function forewarnedSelectAttackActions(
 }
 
 /**
- * Stub: automatic-attacks step (CoE Step 2, line 350).
+ * Automatic-attacks step (CoE Step 2, line 350).
  *
- * Each automatic attack listed on the site card triggers combat.
- * For now, only active player can pass.
+ * Each automatic attack listed on the site card triggers combat; the
+ * active player passes to initiate the next one. Before that happens, the
+ * CRF Site Phase / Automatic-attacks rule ("any character may tap to
+ * cancel one automatic-attack at his home site") offers a `cancel-auto-attack`
+ * action for every untapped character in the active company whose named
+ * home site matches the current site — one attack canceled per tap, still
+ * counting as faced.
  */
 function automaticAttacksActions(
   state: GameState,
   playerId: PlayerId,
+  siteState: SitePhaseState,
 ): GameAction[] {
   const isActive = state.activePlayer === playerId;
   if (!isActive) {
     logDetail(`Not active player — no actions during automatic-attacks step`);
     return [];
   }
-  logDetail(`Automatic attacks — pass to advance`);
-  return [{ type: 'pass', player: playerId }];
+
+  const actions: GameAction[] = [{ type: 'pass', player: playerId }];
+
+  // The home-site cancel option only applies to the site's own automatic-attacks
+  // (not Forewarned's single fixed selection, nor Troll-purse/rescue re-facings),
+  // and only while there's still an attack left to face.
+  if (siteState.step === 'automatic-attacks' && siteState.selectedAutoAttackIndex === undefined) {
+    const player = playerById(state, playerId)!;
+    const company = player.companies[siteState.activeCompanyIndex];
+    const siteDef = company?.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+    const siteName = siteDef && isSiteCard(siteDef) ? siteDef.name : undefined;
+    const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef) : [];
+
+    if (company && siteName && siteState.automaticAttacksResolved < autoAttacks.length) {
+      for (const charId of company.characters) {
+        const char = player.characters[charId];
+        if (!char || char.status !== CardStatus.Untapped) continue;
+        const charDef = defById(state, char.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (!parseHomesiteNames(charDef.homesite ?? '').includes(siteName)) continue;
+        logDetail(`Automatic attacks: ${charDef.name} may tap to cancel one attack at home site "${siteName}"`);
+        actions.push({ type: 'cancel-auto-attack', player: playerId, characterId: charId });
+      }
+    }
+  }
+
+  logDetail(`Automatic attacks — ${actions.length} action(s) offered`);
+  return actions;
 }
 
 /**
