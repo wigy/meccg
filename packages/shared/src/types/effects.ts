@@ -3020,6 +3020,7 @@ export type CardEffect =
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
   | ExtraTrollLeaderSlotEffect
+  | ExtraLeaderSlotEffect
   | StartingCompanyPlacementEffect
   | SummonsFromLongSleepEffect
   | SetAsideEffect
@@ -3537,6 +3538,29 @@ export interface ProtectFromBodyCheckEffect extends EffectBase {
  */
 export interface ExtraTrollLeaderSlotEffect extends EffectBase {
   readonly type: 'extra-troll-leader-slot';
+}
+
+/**
+ * Declares that the company this permanent event is bound to may contain one
+ * additional Leader-keyword character beyond the single leader already
+ * permitted by CoE rule 2.II.3.1.3 (one-leader-per-company), with no race
+ * restriction on either leader. Additionally, one Leader-keyword character in
+ * the company is exempted from the company-size maximum of CoE rule 2.II.3.1
+ * (max size 7 outside a haven) — i.e. it does not count toward that headcount.
+ *
+ * Each copy of the carrying card in play on a company grants one such slot;
+ * two copies permit two additional leaders and exempt two leaders from the
+ * size count.
+ *
+ * The engine reads this effect in `organization-companies.ts`
+ * `wouldViolateLeaderRestriction` (leader-count exemption) and in
+ * `moveToCompanyActions`/`mergeCompaniesActions` (size-cap exemption, via
+ * `companyEffectiveSizeExemptingLeaders`).
+ *
+ * Used by *Orders from the Great Demon* (ba-70).
+ */
+export interface ExtraLeaderSlotEffect extends EffectBase {
+  readonly type: 'extra-leader-slot';
 }
 
 /**
