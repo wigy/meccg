@@ -81,5 +81,30 @@ describe('Rule 3.04 — Hero Avatar Play Location', () => {
     expect(sitesPlayedAt).toContain(rivendellSite!.instanceId);
   });
 
-  test.todo('[HERO] Wizard avatar (Saruman) cannot be played at Lorien (haven, but not home site or Rivendell)');
+  test('[HERO] Wizard avatar (Saruman) cannot be played at Lorien (haven, but not home site or Rivendell)', () => {
+    // Lorien is a haven, but not Saruman's home site (Isengard) or Rivendell —
+    // unlike an ordinary character, a Wizard avatar does not get "any haven".
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [SARUMAN],
+          siteDeck: [LORIEN],
+          companies: [],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+      recompute: true,
+    });
+
+    const viable = viablePlayCharacterActions(state, PLAYER_1);
+    expect(viable).toHaveLength(0);
+  });
 });

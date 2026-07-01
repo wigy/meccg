@@ -25,6 +25,7 @@ import {
 const ADUNAPHEL = 'le-50' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
+const CARN_DUM = 'le-359' as CardDefinitionId;
 
 describe('Rule 3.05 — Minion Avatar Play Location', () => {
   beforeEach(() => resetMint());
@@ -89,5 +90,30 @@ describe('Rule 3.05 — Minion Avatar Play Location', () => {
     expect(sitesPlayedAt).toContain(dolGuldurSite!.instanceId);
   });
 
-  test.todo('[MINION] Ringwraith avatar cannot be played at Carn Dûm (haven, but not Minas Morgul or Dol Guldur)');
+  test('[MINION] Ringwraith avatar cannot be played at Carn Dûm (haven, but not Minas Morgul or Dol Guldur)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          hand: [ADUNAPHEL],
+          siteDeck: [CARN_DUM],
+          companies: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          hand: [],
+          siteDeck: [],
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+        },
+      ],
+      recompute: true,
+    });
+
+    const viable = viablePlayCharacterActions(state, PLAYER_1);
+    expect(viable).toHaveLength(0);
+  });
 });
