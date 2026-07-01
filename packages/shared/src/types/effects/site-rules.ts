@@ -28,6 +28,7 @@ export type SiteRuleEffect =
   | SitePhaseRingAutoTestSiteRule
   | SageTapRingTestSiteRule
   | AttacksNotDetainmentSiteRule
+  | KeyedCreaturesDetainmentSiteRule
   | NeverTapsSiteRule
   | HealDuringUntapSiteRule
   | DynamicAutoAttackSiteRule
@@ -199,6 +200,25 @@ export interface AttacksNotDetainmentSiteRule extends EffectBase {
   readonly rule: 'attacks-not-detainment';
   /** Optional condition on the attacking creature (e.g. race ≠ nazgul). */
   readonly filter?: Condition;
+}
+
+/**
+ * Forces attacks at this site to be resolved as detainment whenever the
+ * attacking hazard creature is keyed to the site *by name* (a `keyedTo`
+ * entry whose `siteNames` includes this site's own name — e.g. Watcher in
+ * the Water's "May also be played at Moria" alternate keying).
+ *
+ * Unlike the default CoE §3.II.2 R1-R3/B1-B3 rules (which only ever
+ * produce detainment for Ringwraith/Balrog defenders), this rule applies
+ * regardless of the defending player's alignment — the detainment status
+ * is a property of the site, not the defender.
+ *
+ * Example — Moria (ba-93), The Under-gates (ba-100): "Creatures keyed to
+ * this site are/attack as detainment."
+ */
+export interface KeyedCreaturesDetainmentSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'keyed-creatures-detainment';
 }
 
 /**

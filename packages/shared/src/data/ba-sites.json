@@ -148,6 +148,10 @@
       },
       {
         "type": "site-rule",
+        "rule": "keyed-creatures-detainment"
+      },
+      {
+        "type": "site-rule",
         "rule": "cancel-attacks"
       }
     ]

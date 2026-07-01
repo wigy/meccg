@@ -2211,6 +2211,24 @@ Rules:
     "filter": { "enemy.race": { "$ne": "nazgul" } } }
   ```
 
+- `keyed-creatures-detainment` — forces attacks at this site to be
+  resolved as detainment whenever the attacking hazard creature is keyed
+  to the site *by name* (a `keyedTo` entry whose `siteNames` includes
+  this site's own name, e.g. Watcher in the Water's "May also be played
+  at Moria" alternate keying). Unlike the default CoE §3.II.2 R1-R3/B1-B3
+  rules (which only ever produce detainment for Ringwraith/Balrog
+  defenders), this rule applies regardless of the defending player's
+  alignment — the detainment status is a property of the site, not the
+  defender. Consumed by `engine/detainment.ts`
+  (`isDetainmentAttack`/hazard-creature call site in
+  `chain-reducer.ts::initiateCreatureCombat`). Used by the Balrog havens
+  (Moria ba-93, The Under-gates ba-100): "Creatures keyed to this site
+  are/attack as detainment."
+
+  ```json
+  { "type": "site-rule", "rule": "keyed-creatures-detainment" }
+  ```
+
 - `deny-character` — during the organization phase, characters whose card
   definition matches the `filter` cannot be brought into play at this site.
   When `exceptHomesite: true`, the rule is waived for a character whose
