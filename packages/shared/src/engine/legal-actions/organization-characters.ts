@@ -129,6 +129,23 @@ function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
 }
 
 /**
+ * For a Wizard or Ringwraith avatar, returns the specific haven names where
+ * the avatar may be revealed in addition to its home site (rule 2.II.2.1
+ * W1/R1: Wizard avatars may also be played at Rivendell; Ringwraith avatars
+ * may also be played at Minas Morgul or Dol Guldur). Returns `null` for
+ * characters with no such restriction — ordinary (non-avatar) characters may
+ * be played at ANY haven, and Fallen-wizard/Balrog avatars are already
+ * confined to their home site by {@link hasHomeSiteOnlyRestriction} and never
+ * reach the haven branch.
+ */
+function avatarExtraHavenNames(charDef: CharacterCard): readonly string[] | null {
+  if (!isAvatarCharacter(charDef)) return null;
+  if (charDef.alignment === Alignment.Wizard) return ['Rivendell'];
+  if (charDef.alignment === Alignment.Ringwraith) return ['Minas Morgul', 'Dol Guldur'];
+  return null;
+}
+
+/**
  * Returns true if the player has an eliminated avatar (a character with
  * `mind === null` in their outOfPlayPile). CoE rule 2.05 forbids revealing
  * a replacement avatar in this case.
@@ -173,9 +190,12 @@ function findPlayableSites(
   const seenInstances = new Set<string>();
   const seenSiteNames = new Set<string>();
   const homeSiteOnly = hasHomeSiteOnlyRestriction(charDef);
+  const extraHavenNames = avatarExtraHavenNames(charDef);
 
   if (homeSiteOnly) {
     logDetail(`  play-restriction: ${charDef.name} has home-site-only — havens excluded`);
+  } else if (extraHavenNames) {
+    logDetail(`  play-restriction: ${charDef.name} is an avatar — only havens [${extraHavenNames.join(', ')}] qualify`);
   }
 
   // Sites where the player already has a company
@@ -192,7 +212,8 @@ function findPlayableSites(
     // Fallen-wizard bring characters into play there, just like a printed
     // haven. The conversion installs a `site.type` → haven override, so the
     // effective type already reads as a haven.
-    const isHaven = getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType) === SiteType.Haven;
+    let isHaven = getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType) === SiteType.Haven;
+    if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
     const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
 
     if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
@@ -218,7 +239,8 @@ function findPlayableSites(
     if (!siteDef || !isSiteCard(siteDef)) continue;
     if (seenSiteNames.has(siteDef.name)) continue;
 
-    const isHaven = siteDef.siteType === SiteType.Haven;
+    let isHaven = siteDef.siteType === SiteType.Haven;
+    if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
     const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
 
     if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
