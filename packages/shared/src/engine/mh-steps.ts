@@ -124,11 +124,30 @@ export function handleRevealNewSite(
   // Set destinationSiteType/Name to current site so creatures can be keyed to it
   if (action.type === 'pass') {
     const playerIdx = getPlayerIndex(state, action.player);
-    const nonMovingCompany = state.players[playerIdx].companies[mhState.activeCompanyIndex];
-    const currentSiteDef = nonMovingCompany.currentSite ? defById(state, nonMovingCompany.currentSite.definitionId) : undefined;
+    let stateForAdvance = state;
+    let nonMovingCompany = state.players[playerIdx].companies[mhState.activeCompanyIndex];
+
+    // Rule 5.04: a company that WAS moving reaches this 'pass' branch only
+    // when `revealNewSiteActions` found no legal path to its declared
+    // destination — the movement is illegal and negated. Return the
+    // destination site to the location deck and clear it; the company
+    // still conducts a full movement/hazard phase at its current site.
+    if (nonMovingCompany.destinationSite) {
+      const destInst = nonMovingCompany.destinationSite;
+      const destName = cardName(state, destInst.definitionId, '?');
+      logDetail(`Movement/Hazard: rule 5.04 — movement to ${destName} is illegal (no legal path remains), negating it and returning the site to the location deck`);
+      stateForAdvance = updatePlayer(state, playerIdx, p => ({
+        ...p,
+        companies: p.companies.map((c, idx) => idx !== mhState.activeCompanyIndex ? c : { ...c, destinationSite: null }),
+        siteDeck: [...p.siteDeck, toCardInstance(destInst)],
+      }));
+      nonMovingCompany = stateForAdvance.players[playerIdx].companies[mhState.activeCompanyIndex];
+    }
+
+    const currentSiteDef = nonMovingCompany.currentSite ? defById(stateForAdvance, nonMovingCompany.currentSite.definitionId) : undefined;
     const currentSite = currentSiteDef && isSiteCard(currentSiteDef) ? currentSiteDef : undefined;
     logDetail(`Movement/Hazard: non-moving company → auto-advancing through set-hazard-limit`);
-    return enterSetHazardLimitAndAutoAdvance(state, {
+    return enterSetHazardLimitAndAutoAdvance(stateForAdvance, {
       ...mhState,
       destinationSiteType: currentSite?.siteType ?? null,
       destinationSiteName: currentSite?.name ?? null,
