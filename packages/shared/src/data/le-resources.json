@@ -2980,7 +2980,8 @@
         }
       }
     ],
-    "text": "Scout only. Playable during the site phase on an untapped scout. Tap the scout. Another character in his company may play any minor, major, or gold ring item normally playable at the site. This does not tap the site, and Catch an Elusive Scent can be played at a site that is already tapped."
+    "text": "Scout only. Playable during the site phase on an untapped scout. Tap the scout. Another character in his company may play any minor, major, or gold ring item normally playable at the site. This does not tap the site, and Catch an Elusive Scent can be played at a site that is already tapped.",
+    "certified": "2026-07-01"
   },
   {
     "cardType": "minion-resource-event",
