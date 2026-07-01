@@ -198,6 +198,21 @@ export function resolveWinConditionRoll(
     case 'keep':
       logDetail(`${cardName}: stays in play (total ${total})`);
       break;
+    case 'gain-mp': {
+      // MEBA Challenge the Power 9–10: card stays in play, owner gains `mp`
+      // marshalling points, and The One Ring now affects The Balrog.
+      const gained = band.mp ?? 0;
+      const owner = next.players[ownerPlayerIndex];
+      const players = [...next.players] as [PlayerState, PlayerState];
+      players[ownerPlayerIndex] = {
+        ...owner,
+        bonusMiscMarshallingPoints: (owner.bonusMiscMarshallingPoints ?? 0) + gained,
+        oneRingAffectsBalrog: true,
+      };
+      next = { ...next, players };
+      logHeading(`${cardName}: ${owner.name} gains ${gained} MP and The One Ring now affects The Balrog (total ${total})`);
+      break;
+    }
   }
   return { state: next, effects: [rollEffect] };
 }

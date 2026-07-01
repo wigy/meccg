@@ -875,8 +875,15 @@ export interface RollBand {
   readonly gt?: number;
   /** Match when the modified total is ≥ this. */
   readonly gte?: number;
-  /** What happens when this band matches. */
-  readonly outcome: 'eliminate-avatar' | 'discard-self' | 'keep' | 'win-game';
+  /**
+   * What happens when this band matches.
+   * - `gain-mp` keeps the card in play (like `keep`) and additionally awards
+   *   the owner `mp` marshalling points and marks "The One Ring affects The
+   *   Balrog" (Challenge the Power ba-52, 9–10 band).
+   */
+  readonly outcome: 'eliminate-avatar' | 'discard-self' | 'keep' | 'win-game' | 'gain-mp';
+  /** Marshalling points awarded by a `gain-mp` outcome (default 0). */
+  readonly mp?: number;
 }
 
 /** Dynamic roll modifiers summed into a {@link WinConditionRollAction} 2d6 total. */

@@ -84,6 +84,20 @@ export interface PlayerState {
    */
   readonly marshallingPoints: MarshallingPointTotals;
   /**
+   * MEBA: one-time miscellaneous marshalling points awarded by special effects
+   * that are not tied to a card remaining in play — currently Challenge the
+   * Power (ba-52), whose 9–10 band grants the Balrog player 2 MP. Folded into
+   * the `misc` category by `recompute-derived`. Defaults to 0/undefined.
+   */
+  readonly bonusMiscMarshallingPoints?: number;
+  /**
+   * MEBA: set true once Challenge the Power (ba-52) resolves on its 9–10 band
+   * ("The One Ring affects The Balrog"). Marks that the One Ring borne by the
+   * Balrog now affects him; consumed wherever the Balrog's item/corruption
+   * immunities are made conditional on this flag.
+   */
+  readonly oneRingAffectsBalrog?: boolean;
+  /**
    * Marshalling point totals that count toward *calling* the endgame (Free
    * Council / Audience with Sauron). Identical to {@link marshallingPoints}
    * except that MPs of cards held by companies at an Under-deeps site are

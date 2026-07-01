@@ -121,7 +121,11 @@ function recruitmentVehicleInHand(
 function hasHomeSiteOnlyRestriction(charDef: CharacterCard): boolean {
   return hasPlayFlag(charDef, 'home-site-only')
     || isAgentCharacter(charDef)
-    || (isAvatarCharacter(charDef) && charDef.alignment === Alignment.FallenWizard);
+    // MEBA §12: The Balrog must come into play at The Under-gates (his home
+    // site) — not at Moria or any other Darkhaven. Like a Fallen-wizard avatar,
+    // he gets no extra-haven entry, so home-site-only confines him to The
+    // Under-gates.
+    || (isAvatarCharacter(charDef) && (charDef.alignment === Alignment.FallenWizard || charDef.alignment === Alignment.Balrog));
 }
 
 /**
@@ -160,6 +164,7 @@ function findPlayableSites(
   player: {
     readonly companies: readonly import('../../index.js').Company[];
     readonly siteDeck: readonly import('../../index.js').CardInstance[];
+    readonly alignment: Alignment;
   },
   charDef: CharacterCard,
   avatarInPlay: boolean,
@@ -188,7 +193,7 @@ function findPlayableSites(
     // haven. The conversion installs a `site.type` → haven override, so the
     // effective type already reads as a haven.
     const isHaven = getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType) === SiteType.Haven;
-    const isHomesite = siteDef.name === charDef.homesite;
+    const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
 
     if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
       if (isCharacterDeniedBySiteRule(charDef, siteDef)) {
@@ -214,7 +219,7 @@ function findPlayableSites(
     if (seenSiteNames.has(siteDef.name)) continue;
 
     const isHaven = siteDef.siteType === SiteType.Haven;
-    const isHomesite = siteDef.name === charDef.homesite;
+    const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
 
     if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
       if (isCharacterDeniedBySiteRule(charDef, siteDef)) {
@@ -234,10 +239,28 @@ function findPlayableSites(
  * either by exact site name, or by the region-form home site used by
  * Ringwraith avatars (`"Any site in <region>"` matches any site whose
  * `region` is that region).
+ *
+ * Two Under-deeps home-site forms (MEBA) are also resolved here:
+ * - `"any non-Dark-hold Under-deeps site"` (ba-6/7/8) matches any Under-deeps
+ *   site whose type is not Dark-hold.
+ * - `"Any Dark-hold"` is **remapped** to the above for a Balrog player
+ *   (MEBA §characters: "Characters with a home site of 'Any Dark-hold' have a
+ *   home site of 'Any non-Dark-hold Under-deeps site' instead"); for every
+ *   other alignment it keeps its literal meaning (matched via Dark-hold
+ *   Darkhavens through the haven path, not here).
  */
-function homesiteMatchesSite(charDef: CharacterCard, siteDef: SiteCard): boolean {
-  if (charDef.homesite === siteDef.name) return true;
-  return siteDef.region !== undefined && charDef.homesite === `Any site in ${siteDef.region}`;
+function homesiteMatchesSite(charDef: CharacterCard, siteDef: SiteCard, playerAlignment?: Alignment): boolean {
+  let homesite = charDef.homesite;
+  if (playerAlignment === Alignment.Balrog && homesite === 'Any Dark-hold') {
+    homesite = 'any non-Dark-hold Under-deeps site';
+  }
+  if (homesite === siteDef.name) return true;
+  if (siteDef.region !== undefined && homesite === `Any site in ${siteDef.region}`) return true;
+  if (homesite.toLowerCase() === 'any non-dark-hold under-deeps site') {
+    const isUnderDeeps = siteDef.keywords?.includes('under-deeps') ?? false;
+    return isUnderDeeps && siteDef.siteType !== SiteType.DarkHold;
+  }
+  return false;
 }
 
 /**
@@ -358,11 +381,33 @@ export function playCharacterActions(
     : undefined;
   const avatarSiteId: CardInstanceId | null = avatarCompany?.currentSite?.instanceId ?? null;
   const avatarInPlay = avatarSiteId !== null;
+
+  // MEBA §characters: "When a Balrog player brings into play a non-unique
+  // character with a mind of 3 or less, that character may come from his hand,
+  // his discard pile, or his sideboard." Surface those extra candidates
+  // alongside the hand; the reducer locates the actual source pile by instance.
+  const candidateCards: { readonly instanceId: CardInstanceId; readonly definitionId: import('../../index.js').CardDefinitionId }[] = [...player.hand];
+  if (player.alignment === Alignment.Balrog) {
+    const isLowMindNonUnique = (defId: import('../../index.js').CardDefinitionId): boolean => {
+      const def = defById(state, defId);
+      if (!isCharacterCard(def)) return false;
+      // `mind` is read before the uniqueness test: the card types declare
+      // `unique: true` as a literal, so a `!def.unique` guard narrows `def` to
+      // `never` and any later field access fails to compile. The runtime value
+      // of `unique` is still honoured by returning it last.
+      if (def.mind === null || def.mind > 3) return false;
+      return !def.unique;
+    };
+    for (const card of [...player.discardPile, ...player.sideboard]) {
+      if (isLowMindNonUnique(card.definitionId)) candidateCards.push(card);
+    }
+  }
+
   if (avatarInPlay) {
     logDetail(`Avatar in play at site ${avatarSiteId as string} — character play restricted (rule 2.II.2.2)`);
   }
 
-  for (const handCard of player.hand) {
+  for (const handCard of candidateCards) {
     const cardInstanceId = handCard.instanceId;
     const cardDef = defById(state, handCard.definitionId);
     if (!isCharacterCard(cardDef)) continue;
@@ -404,7 +449,18 @@ export function playCharacterActions(
       const buddyAllowed = buddyGroupPlayedThisTurn.includes(defId) ||
         (buddyPlayEffect?.companions?.some(c => buddyGroupPlayedThisTurn.includes(c)) ?? false);
 
-      if (!buddyAllowed) {
+      // MEBA §characters: a Balrog player may bring a SECOND character into play
+      // this organization phase, but it must be non-unique. The first play sets
+      // the count to 1; the second (non-unique) is still allowed.
+      const playedCount = phaseState.charactersBroughtIntoPlayThisTurn ?? 1;
+      const balrogSecondAllowed = player.alignment === Alignment.Balrog
+        && playedCount < 2
+        && !cardDef.unique;
+      if (balrogSecondAllowed) {
+        logDetail(`  → Balrog second-character exception: ${charName} (non-unique) may be played as the 2nd character this turn`);
+      }
+
+      if (!buddyAllowed && !balrogSecondAllowed) {
         logDetail(`  → blocked: already played a character this turn`);
         results.push({
           action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },

@@ -247,7 +247,22 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
   const phaseState = state.phaseState as OrganizationPhaseState;
 
   const charInstId = action.characterInstanceId;
-  const handCard = findById(player.hand, charInstId)!;
+  // MEBA §characters: a Balrog player's non-unique mind≤3 character may be
+  // brought into play from his hand, discard pile, or sideboard. Locate the
+  // source pile by instance so the character is removed from the right place.
+  let charSource: 'hand' | 'discard' | 'sideboard' = 'hand';
+  let handCard = findById(player.hand, charInstId);
+  if (!handCard) {
+    const fromDiscard = findById(player.discardPile, charInstId);
+    if (fromDiscard) { handCard = fromDiscard; charSource = 'discard'; }
+  }
+  if (!handCard) {
+    const fromSideboard = findById(player.sideboard, charInstId);
+    if (fromSideboard) { handCard = fromSideboard; charSource = 'sideboard'; }
+  }
+  if (!handCard) {
+    return { state, error: 'play-character: character not found in hand, discard pile, or sideboard' };
+  }
   const charDef = state.cardPool[handCard.definitionId] as import('../types/cards.js').CharacterCard;
 
   logDetail(`Play character: ${charDef.name} (mind ${charDef.mind ?? 'null'}) at site ${action.atSite as string}, controlledBy ${action.controlledBy as string}`);
@@ -295,8 +310,11 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
     effectiveStats: ZERO_EFFECTIVE_STATS,
   };
 
-  // Remove character from hand
-  const newHand = removeById(handAfterVehicle, charInstId);
+  // Remove the character from its source pile. For a hand play this is the
+  // hand; MEBA discard/sideboard plays remove it from those piles instead.
+  const newHand = charSource === 'hand' ? removeById(handAfterVehicle, charInstId) : handAfterVehicle;
+  const newDiscardPileBase = charSource === 'discard' ? removeById(player.discardPile, charInstId) : player.discardPile;
+  const newSideboard = charSource === 'sideboard' ? removeById(player.sideboard, charInstId) : player.sideboard;
 
   // Find existing company at the target site
   const companies = [...player.companies];
@@ -396,13 +414,17 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
         siteDeck: newSiteDeck,
         characters: newCharacters,
         companies,
-        ...(eventToDiscard ? { discardPile: [...p.discardPile, eventToDiscard] } : {}),
+        discardPile: eventToDiscard ? [...newDiscardPileBase, eventToDiscard] : newDiscardPileBase,
+        sideboard: newSideboard,
         ...(clearRingwraithFlag ? { ringwraithReturnedToHand: undefined } : {}),
       })),
       phaseState: updateOrgState
         ? {
             ...phaseState,
             characterPlayedThisTurn: true,
+            // MEBA: track the running count so a Balrog player's two-character
+            // allowance can be enforced (see playCharacterActions).
+            charactersBroughtIntoPlayThisTurn: (phaseState.charactersBroughtIntoPlayThisTurn ?? 0) + 1,
             lastPlayedCharacterDefinitionId: handCard.definitionId as string,
             ...(newBuddyGroup.length > 0 ? { buddyGroupPlayedThisTurn: newBuddyGroup } : {}),
           }

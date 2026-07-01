@@ -21,6 +21,7 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter } from '../../types/cards.js';
 import { CardStatus, SiteType, Alignment } from '../../types/common.js';
+import { isBalrogAvatarDef } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, buildInPlayNames } from '../recompute-derived.js';
 import { resolveDef } from '../effects/index.js';
@@ -1343,6 +1344,12 @@ function tapItemForStrikeActions(
   const charDef = defById(state, charData.definitionId);
   if (!charDef || !isCharacterCard(charDef)) return [];
 
+  // MEBA: The Balrog may not use items, so he never taps one to boost a strike.
+  if (isBalrogAvatarDef(charDef)) {
+    logDetail(`Tap-item-for-strike: ${charDef.name ?? ''} is the Balrog avatar — items have no effect, none offered`);
+    return [];
+  }
+
   const actions: EvaluatedAction[] = [];
 
   for (const item of charData.items) {
@@ -2130,6 +2137,9 @@ function modifyAttackActions(
         if (!charData) continue;
         const charDef = defById(state, charData.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
+        // MEBA: items borne by the Balrog avatar have no effect — he cannot tap
+        // one to modify an attack.
+        if (isBalrogAvatarDef(charDef)) continue;
 
         for (const item of charData.items) {
           const itemDef = defById(state, item.definitionId);

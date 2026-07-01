@@ -34,7 +34,7 @@ import { isCharacterCard, isItemCard, isFactionCard } from '../types/cards.js';
 import { MarshallingCategory } from '../types/common.js';
 import { ZERO_MARSHALLING_POINTS } from '../types/state-cards.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
-import { getPlayerIndex } from '../state-utils.js';
+import { getPlayerIndex, isBalrogAvatarDef } from '../state-utils.js';
 import {
   buildBearerContext,
   collectCharacterEffects,
@@ -460,6 +460,17 @@ function computeEffectiveStats(
   if (bearerIsOrcOrTroll) {
     charEffects = charEffects.filter(ce => ce.sourceDef.cardType !== 'hero-resource-item');
   }
+
+  // MEBA: The Balrog may carry items (including rings) but may not use them —
+  // "an item has no effect on The Balrog's company or on his attributes and
+  // abilities." Drop every effect sourced from an item borne by the Balrog
+  // avatar; the structural prowess/body/corruption contributions are likewise
+  // skipped below (`bearerIsBalrogAvatar`). The item still occupies the bearer
+  // (uniqueness, transfer, ring auto-test) — only its effect is nulled.
+  const bearerIsBalrogAvatar = isBalrogAvatarDef(charDef);
+  if (bearerIsBalrogAvatar) {
+    charEffects = charEffects.filter(ce => !isItemCard(ce.sourceDef));
+  }
   const collected = [...charEffects, ...globalEffects, ...ownEffects];
 
   // If we have DSL effects, use the resolver for prowess, body, and DI
@@ -520,11 +531,15 @@ function computeEffectiveStats(
       // MEWH §9: structural prowess/body bonuses from a hero item are ignored on
       // an Orc/Troll bearer (its corruption points still apply below).
       const heroItemOnOrcTroll = bearerIsOrcOrTroll && itemDef.cardType === 'hero-resource-item';
-      if (!itemHasStatMod && !heroItemOnOrcTroll && activeItems.has(item.instanceId as string)) {
+      if (!itemHasStatMod && !heroItemOnOrcTroll && !bearerIsBalrogAvatar && activeItems.has(item.instanceId as string)) {
         prowess += itemDef.prowessModifier;
         body += itemDef.bodyModifier;
       }
-      corruptionPoints += itemDef.corruptionPoints;
+      // MEBA: an item borne by the Balrog avatar has no effect on his
+      // attributes — its corruption points do not apply either.
+      if (!bearerIsBalrogAvatar) {
+        corruptionPoints += itemDef.corruptionPoints;
+      }
     }
   }
 
@@ -959,6 +974,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         }
       }
     }
+  }
+
+  // MEBA: one-time bonus misc MP (Challenge the Power 9–10 band) is held on the
+  // player rather than on a card in play, so fold it into the misc tally here.
+  if (player.bonusMiscMarshallingPoints) {
+    mp = { ...mp, misc: mp.misc + player.bonusMiscMarshallingPoints };
   }
 
   // MEAS §6e: callable totals = full tally minus Under-deeps company-held MPs.

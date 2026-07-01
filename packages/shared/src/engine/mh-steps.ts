@@ -610,7 +610,11 @@ export function transitionToDrawCards(state: GameState, mhState: MovementHazardP
   // MEWH §7: a Fallen-wizard always draws based on the site he moves *to*, even
   // when it is one of his Wizardhavens — the "draw from origin at a haven"
   // exception never applies to him.
+  // MEBA: likewise for a Balrog player — "when one of your Balrog companies
+  // moves to a site, you and your opponent draw cards based upon the site being
+  // moved to. This applies even if moving to one of your Darkhavens."
   const movingToHaven = player.alignment !== 'fallen-wizard'
+    && player.alignment !== 'balrog'
     && !!destDef && isSiteCard(destDef) && destDef.siteType === 'haven';
   const drawSite = movingToHaven ? originDef : destDef;
 

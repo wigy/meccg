@@ -21,7 +21,7 @@ import { hasNoDirectInfluenceRestriction } from '../../effects/play-flags.js';
 import { buildMovementMap, getReachableSites } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
-import { SiteType, Race, RegionType } from '../../types/common.js';
+import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
 import { playerById, defById, getCardEffects, companyEffectiveSizeOf, isHavenForPlayer, effectiveGeneralInfluence } from '../reducer-utils.js';
@@ -618,6 +618,13 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
     if (!siteDef || !isSiteCard(siteDef)) continue;
     const siteName = siteDef.name;
     const siteType = siteDef.siteType;
+
+    // MEBA: "A Balrog player may not store anything at Barad-dûr" — it is not one
+    // of the Balrog's Darkhavens (only Moria and The Under-gates are).
+    if (player.alignment === Alignment.Balrog && siteName === 'Barad-dûr') {
+      logDetail(`Store-item: Balrog player may not store at ${siteName} — skipping company`);
+      continue;
+    }
 
     for (const charInstId of company.characters) {
       const char = player.characters[charInstId];
