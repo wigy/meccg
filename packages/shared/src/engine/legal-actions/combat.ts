@@ -21,7 +21,7 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter } from '../../types/cards.js';
 import { CardStatus, SiteType, Alignment } from '../../types/common.js';
-import { isBalrogAvatarDef } from '../../state-utils.js';
+import { isBalrogAvatarDef, stayUntappedPenalty } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, buildInPlayNames } from '../recompute-derived.js';
 import { resolveDef } from '../effects/index.js';
@@ -909,7 +909,7 @@ function resolveStrikeActions(
   const supportBonus = currentStrike.supportCount ?? 0;
   const strikeBonus = currentStrike.strikeProwessBonus ?? 0;
   const tapProwess = baseProwess - statusPenalty - excessPenalty + supportBonus + strikeBonus;
-  const untapProwess = baseProwess - 3 - statusPenalty - excessPenalty + supportBonus + strikeBonus;
+  const untapProwess = baseProwess - stayUntappedPenalty(charDef) - statusPenalty - excessPenalty + supportBonus + strikeBonus;
 
   const tapNeed = Math.max(2, strikeProwess - tapProwess + 1);
   const tapExplanation = combat.attackSource.type === 'agent'
@@ -1200,12 +1200,13 @@ function cvccResolveStrikeActions(
     const atkBaseProwess = atkCharData?.effectiveStats?.prowess ?? 0;
     const atkStatusPenalty = atkStatus === CardStatus.Tapped ? 1
       : atkStatus === CardStatus.Inverted ? 2 : 0;
+    const atkUntapPenalty = stayUntappedPenalty(atkCharDef);
     const tapProwess = atkBaseProwess - atkStatusPenalty;
-    const untapProwess = atkBaseProwess - atkStatusPenalty - 3;
+    const untapProwess = atkBaseProwess - atkStatusPenalty - atkUntapPenalty;
 
-    logDetail(`CvCC sub-step 1: attacker ${atkCharName} declares -3 choice (prowess ${tapProwess} or ${untapProwess})`);
+    logDetail(`CvCC sub-step 1: attacker ${atkCharName} declares untap choice (prowess ${tapProwess} or ${untapProwess})`);
     const tapExplanation = `Attacker tapped: prowess ${tapProwess}`;
-    const untapExplanation = `Attacker untapped: prowess ${untapProwess} (-3)`;
+    const untapExplanation = `Attacker untapped: prowess ${untapProwess} (-${atkUntapPenalty})`;
 
     const acts: EvaluatedAction[] = [
       { action: { type: 'resolve-strike', player: playerId, tapToFight: true, need: 2, explanation: tapExplanation }, viable: true },

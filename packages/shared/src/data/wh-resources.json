@@ -643,16 +643,16 @@
         "stat": "mind",
         "value": -1,
         "target": "own-characters",
-        "when": { "target.keywords": { "$includes": "Half-orc" } }
+        "when": { "target.keywords": { "$includes": "half-orc" } }
       },
       {
         "type": "org-phase-fetch",
         "from": ["discard-pile"],
-        "filter": { "keywords": { "$includes": "Half-orc" } }
+        "filter": { "keywords": { "$includes": "half-orc" } }
       },
       {
         "type": "allow-character-play",
-        "filter": { "keywords": { "$includes": "Half-orc" } },
+        "filter": { "keywords": { "$includes": "half-orc" } },
         "atOwnWizardhavens": true
       }
     ],

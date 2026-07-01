@@ -425,7 +425,7 @@ export function companyEffectiveSizeExemptingLeaders(
   for (const charInstId of charInstIds) {
     const defId = resolveInstanceId(state, charInstId);
     const def = defId ? defById(state, defId) : undefined;
-    if (remaining > 0 && def && isCharacterCard(def) && (def.keywords?.includes('Leader') ?? false)) {
+    if (remaining > 0 && def && isCharacterCard(def) && (def.keywords?.includes('leader') ?? false)) {
       remaining--;
       logDetail(`  ${def.name} exempted from company-size maximum (extra-leader-slot)`);
       continue;

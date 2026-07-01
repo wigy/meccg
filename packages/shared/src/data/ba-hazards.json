@@ -7,7 +7,7 @@
     "unique": true,
     "eventType": "permanent",
     "keywords": [
-      "Spawn"
+      "spawn"
     ],
     "marshallingPoints": 4,
     "marshallingPointsType": "kill",
@@ -36,7 +36,7 @@
     "unique": true,
     "eventType": "permanent",
     "keywords": [
-      "Spawn"
+      "spawn"
     ],
     "marshallingPoints": 4,
     "marshallingPointsType": "kill",
@@ -67,7 +67,7 @@
     "unique": true,
     "eventType": "permanent",
     "keywords": [
-      "Spawn"
+      "spawn"
     ],
     "marshallingPoints": 4,
     "marshallingPointsType": "kill",
@@ -96,7 +96,7 @@
     "unique": true,
     "eventType": "permanent",
     "keywords": [
-      "Spawn"
+      "spawn"
     ],
     "marshallingPoints": 4,
     "marshallingPointsType": "kill",

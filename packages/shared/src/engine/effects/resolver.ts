@@ -65,10 +65,10 @@ export interface ResolverContext {
     readonly baseMind?: number;
     readonly name: string;
     /**
-     * The character's keyword tags (e.g. `"Half-orc"`, `"Leader"`). Exposed so
+     * The character's keyword tags (e.g. `"half-orc"`, `"leader"`). Exposed so
      * conditions can gate on keywords that are not captured by `race`, e.g.
      * A Strident Spawn (wh-61) targets Half-orcs via
-     * `{ "target.keywords": { "$includes": "Half-orc" } }` (Half-orcs have
+     * `{ "target.keywords": { "$includes": "half-orc" } }` (Half-orcs have
      * race `"orc"`).
      */
     readonly keywords?: readonly string[];
@@ -112,6 +112,8 @@ export interface ResolverContext {
     readonly race: string;
     /** Home site names parsed from the character's `homesite` string, for conditions like `{ "target.homesite": { "$includes": "Edoras" } }`. */
     readonly homesite?: readonly string[];
+    /** The target character's keyword tags, for conditions like `{ "target.keywords": { "$includes": "balrog-specific" } }`. */
+    readonly keywords?: readonly string[];
   };
   /** Additional context properties for extensibility. */
   readonly [key: string]: unknown;

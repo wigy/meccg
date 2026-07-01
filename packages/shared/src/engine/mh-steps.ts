@@ -21,7 +21,7 @@ import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatSt
 import type { AhuntAttackEffect } from '../types/effects.js';
 import type { CardInstanceId } from '../types/common.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
-import { getPlayerIndex } from '../state-utils.js';
+import { getPlayerIndex, companyContainsBalrogAvatar } from '../state-utils.js';
 import { isCharacterCard, isSiteCard } from '../types/cards.js';
 import { RegionType, Race, Skill } from '../types/common.js';
 import { collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
@@ -189,7 +189,15 @@ export function handleRevealNewSite(
     // Under-deeps: no region path — only site-type keyed hazards apply.
     // Determine required roll and either advance directly or enter the roll step.
     logDetail(`Under-deeps movement: no region path — only site-keyed hazards apply`);
-    const required = getUnderDeepsRequiredRoll(state, originDef, destDef);
+    let required = getUnderDeepsRequiredRoll(state, originDef, destDef);
+    // The Balrog (ba-3): "+3 to the roll for his company to move between
+    // adjacent Under-deeps sites" — modeled as -3 to the required roll,
+    // mathematically equivalent for a single 2d6 comparison.
+    if (required > 0 && companyContainsBalrogAvatar(state, player, company)) {
+      const boosted = Math.max(0, required - 3);
+      logDetail(`The Balrog: +3 to Under-deeps movement roll — required ${required} → ${boosted}`);
+      required = boosted;
+    }
     logDetail(`Under-deeps roll required: ${required}`);
     if (required === 0) {
       logDetail(`Under-deeps: roll not required (0) — auto-advancing through set-hazard-limit`);
