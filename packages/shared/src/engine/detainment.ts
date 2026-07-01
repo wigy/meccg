@@ -75,6 +75,30 @@ export interface DetainmentContext {
    * attack normally, not as detainment).
    */
   readonly defendingSiteEffects?: readonly CardEffect[];
+  /**
+   * Name of the defending company's effective site (destination if
+   * moving, else current). Consulted for `site-rule:
+   * keyed-creatures-detainment` entries, which force detainment whenever
+   * the attacking creature carries a `siteNames` keying entry naming
+   * this site (e.g. Moria's "Creatures keyed to this site are
+   * detainment").
+   */
+  readonly defendingSiteName?: string | null;
+  /**
+   * True when this attack is the defending company's *current site's own*
+   * listed automatic-attack (static or dynamically played via
+   * `site-rule: dynamic-auto-attack`) rather than a hazard creature played
+   * normally against the company. Exposed to an `attacks-not-detainment`
+   * `filter` as `attack.automatic`, letting a site distinguish "creatures
+   * keyed to this site [that hazard players play against a visiting
+   * company] attack normally" from its own scripted automatic-attack(s),
+   * which may separately declare `combat-detainment` to force detainment
+   * regardless of the site-wide override. Used by The Under-leas (ba-102):
+   * the 1st automatic-attack is unconditionally detainment while all other
+   * attacks at the site are not. Defaults to `false` (a normal hazard
+   * creature attack) when omitted.
+   */
+  readonly isAutomaticAttack?: boolean;
 }
 
 /** Races covered by rule 3.II.2.R2/B2 when keyed to a Shadow-land. */
@@ -126,12 +150,23 @@ function detainmentAlignmentLabel(a: Alignment): string {
 }
 
 export function isDetainmentAttack(ctx: DetainmentContext): boolean {
+  const forcedDetainmentRule = (ctx.defendingSiteEffects ?? []).find(
+    e => e.type === 'site-rule' && e.rule === 'attacks-are-detainment',
+  );
+  if (forcedDetainmentRule) {
+    logDetail('Detainment: forced by site-rule attacks-are-detainment');
+    return true;
+  }
+
   const siteOverride = (ctx.defendingSiteEffects ?? []).find(
     e => e.type === 'site-rule' && e.rule === 'attacks-not-detainment',
   );
   if (siteOverride && siteOverride.type === 'site-rule' && siteOverride.rule === 'attacks-not-detainment') {
     const filter = siteOverride.filter;
-    const filterContext = { enemy: { race: ctx.attackRace ?? null } };
+    const filterContext = {
+      enemy: { race: ctx.attackRace ?? null },
+      attack: { automatic: ctx.isAutomaticAttack ?? false },
+    };
     if (!filter || matchesCondition(filter, filterContext)) {
       logDetail(
         filter
@@ -142,6 +177,26 @@ export function isDetainmentAttack(ctx: DetainmentContext): boolean {
     }
     logDetail(
       `Detainment: site-rule attacks-not-detainment skipped; filter rejected enemy race=${ctx.attackRace ?? 'none'}`,
+    );
+  }
+
+  const keyedDetainmentRule = (ctx.defendingSiteEffects ?? []).find(
+    e => e.type === 'site-rule' && e.rule === 'keyed-creatures-detainment',
+  );
+  if (keyedDetainmentRule && ctx.defendingSiteName) {
+    const keyingContextForSite = { inPlay: ctx.inPlayNames ?? [] };
+    const keyedToSite = (ctx.attackKeyedTo ?? []).some(
+      k => (k.siteNames ?? []).includes(ctx.defendingSiteName!)
+        && (!k.when || matchesCondition(k.when, keyingContextForSite)),
+    );
+    if (keyedToSite) {
+      logDetail(
+        `Detainment: site-rule keyed-creatures-detainment — creature keyed to ${ctx.defendingSiteName} by name`,
+      );
+      return true;
+    }
+    logDetail(
+      `Detainment: site-rule keyed-creatures-detainment present but creature not keyed to ${ctx.defendingSiteName} by name`,
     );
   }
 

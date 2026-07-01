@@ -160,14 +160,18 @@ export function applyCorruptionCheckResolution(
 
   // Consume one-shot check-modifier constraints for this character. Any
   // constraint kind `check-modifier` with `check === 'corruption'` targeting
-  // this character contributed to the modifier above and is now cleared.
+  // this character contributed to the modifier above and is now cleared. A
+  // constraint carrying `autoPass: true` (Ancient Black Axe as-122) instead
+  // forces the check to succeed unconditionally, regardless of the roll.
   let postRollState: GameState = { ...state, players: playersAfterRoll, rng, cheatRollTotal };
+  let autoPass = false;
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type === 'check-modifier'
         && constraint.kind.check === 'corruption'
         && constraint.target.kind === 'character'
         && constraint.target.characterId === characterId) {
-      logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (corruption ${formatSignedNumber(constraint.kind.value)})`);
+      if (constraint.kind.autoPass) autoPass = true;
+      logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (corruption ${formatSignedNumber(constraint.kind.value)}${constraint.kind.autoPass ? ', auto-pass' : ''})`);
       postRollState = removeConstraint(postRollState, constraint.id);
     }
   }
@@ -175,7 +179,11 @@ export function applyCorruptionCheckResolution(
   // Classify against the controlling player's alignment (CoE 7.1 / 7.1.F1): a
   // minion character or the Fallen-wizard avatar *taps and succeeds* on a roll
   // of CP or CP-1 rather than being discarded.
-  const outcome = classifyCorruptionOutcome(charDef, player.alignment, total, cp);
+  let outcome = classifyCorruptionOutcome(charDef, player.alignment, total, cp);
+  if (autoPass && outcome !== 'success') {
+    logDetail(`Corruption check for ${charName} auto-passed (Ancient Black Axe) — overriding outcome '${outcome}' to 'success'`);
+    outcome = 'success';
+  }
 
   if (outcome === 'success' || outcome === 'tap-success') {
     let successState: GameState = postRollState;

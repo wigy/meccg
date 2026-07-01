@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 329 | 219 | 110 | 66.6% |
+| 329 | 222 | 107 | 67.5% |
 
 ## Section Breakdown
 
@@ -18,7 +18,7 @@
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 27 | 56.3% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 19 | 55.9% |
-| 06 | [Site Phase](06-site-phase/) | 21 | 14 | 66.7% |
+| 06 | [Site Phase](06-site-phase/) | 21 | 17 | 81.0% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 2 | 100.0% |
 | 08 | [Combat](08-combat/) | 42 | 28 | 66.7% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 26 | 83.9% |
@@ -194,9 +194,9 @@
 | 6.01 | Site Phase | [Site Phase Order](06-site-phase/rule-6.01-site-phase-order.test.ts) | ☑ |
 | 6.02 | Site Phase | [Revealing On Guard Attacks](06-site-phase/rule-6.02-revealing-on-guard-attacks.test.ts) | ☑ |
 | 6.03 | Site Phase | [Automatic Attacks](06-site-phase/rule-6.03-automatic-attacks.test.ts) | ☑ |
-| 6.04 | Site Phase | [Auto Attack Hazard Creature](06-site-phase/rule-6.04-auto-attack-hazard-creature.test.ts) | ☐ |
+| 6.04 | Site Phase | [Auto Attack Hazard Creature](06-site-phase/rule-6.04-auto-attack-hazard-creature.test.ts) | ☑ |
 | 6.05 | Site Phase | [Cancel Auto Attack](06-site-phase/rule-6.05-cancel-auto-attack.test.ts) | ☐ |
-| 6.06 | Site Phase | [Auto Attack Site Leaves](06-site-phase/rule-6.06-auto-attack-site-leaves.test.ts) | ☐ |
+| 6.06 | Site Phase | [Auto Attack Site Leaves](06-site-phase/rule-6.06-auto-attack-site-leaves.test.ts) | ☑ |
 | 6.07 | Site Phase | [Agent Attacks At Site](06-site-phase/rule-6.07-agent-attacks-at-site.test.ts) | ☑ |
 | 6.08 | Site Phase | [Resolve On Guard Agent Attacks](06-site-phase/rule-6.08-resolve-on-guard-agent-attacks.test.ts) | ☑ |
 | 6.09 | Site Phase | [Playing Resources At Site](06-site-phase/rule-6.09-playing-resources-at-site.test.ts) | ☑ |
@@ -208,7 +208,7 @@
 | 6.15 | Site Phase | [On Guard Restrictions](06-site-phase/rule-6.15-on-guard-restrictions.test.ts) | ☐ |
 | 6.16 | Site Phase | [On Guard Chain Of Effects](06-site-phase/rule-6.16-on-guard-chain-of-effects.test.ts) | ☑ |
 | 6.17 | Site Phase | [No Companies Skip Site](06-site-phase/rule-6.17-no-companies-skip-site.test.ts) | ☑ |
-| 6.18 | Site Phase | [Untap Site Restriction](06-site-phase/rule-6.18-untap-site-restriction.test.ts) | ☐ |
+| 6.18 | Site Phase | [Untap Site Restriction](06-site-phase/rule-6.18-untap-site-restriction.test.ts) | ☑ |
 | 6.19 | Site Phase | [Other Company Site Actions](06-site-phase/rule-6.19-other-company-site-actions.test.ts) | ☐ |
 | 6.20 | Site Phase | [End Of Site Phase](06-site-phase/rule-6.20-end-of-site-phase.test.ts) | ☑ |
 | 6.21 | Site Phase | [Fw Resource Alignment Match](06-site-phase/rule-6.21-fw-resource-alignment-match.test.ts) | ☐ |

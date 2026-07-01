@@ -861,7 +861,12 @@ function buildPayloadConstraintKind(
     // by a character in the sage's company.
     if (typeof apply.check !== 'string') return null;
     if (typeof apply.value !== 'number') return null;
-    return { type: 'check-modifier', check: apply.check, value: apply.value };
+    return {
+      type: 'check-modifier',
+      check: apply.check,
+      value: apply.value,
+      ...(apply.autoPass ? { autoPass: true } : {}),
+    };
   }
   return null;
 }
