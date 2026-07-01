@@ -15,12 +15,12 @@ import { GENERAL_INFLUENCE } from '../../constants.js';
 import { CHARACTER_DRAFT_RULES, STAGE_RESOURCE_DRAFT_RULES } from '../../rules/definitions/character-draft.js';
 import { evaluateAction } from '../../rules/evaluator.js';
 import { setupStepContext } from '../../state-utils.js';
-import { isCharacterCard } from '../../types/cards.js';
-import { Alignment } from '../../types/common.js';
+import { isCharacterCard, isHalfOrc } from '../../types/cards.js';
+import { Alignment, Race } from '../../types/common.js';
 import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
-import { defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect } from '../reducer-utils.js';
+import { defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, getCardEffects, matchesDefinition } from '../reducer-utils.js';
 import { siteMatchesStageResourceTarget, unpairedSiteStageResources, blockingSiteStageResources } from '../stage-resource-sites.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -138,6 +138,19 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
 
     const isChar = isCharacterCard(charDef);
     const mind = isChar ? charDef.mind : null;
+    // Rule 1.43 (CoE 1.9.F2): a Fallen-wizard cannot reveal an Orc or Troll
+    // character during the draft unless a drafted Stage resource specifically
+    // allows it (e.g. Bad Company, wh-63: an `allow-character-play` effect
+    // matching this candidate). Bad Company grants a standing permission
+    // (unlike Thrall's one-character vehicle above), so any matching drafted
+    // enabler lifts the gate for the rest of the draft.
+    const isOrcOrTroll = isFallenWizard && isChar
+      && (charDef.race === Race.Orc || charDef.race === Race.Troll || isHalfOrc(charDef));
+    const fwOrcTrollPermitted = !isOrcOrTroll || draft.draftedStageResources.some(c =>
+      getCardEffects(defById(state, c.definitionId)).some(
+        eff => eff.type === 'allow-character-play' && matchesDefinition(charDef, eff.filter),
+      ),
+    );
 
     const context = {
       card: {
@@ -147,6 +160,7 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
         unique: isChar ? charDef.unique : false,
         cannotBeStartingCharacter: isChar && hasPlayFlag(charDef, 'not-starting-character'),
         isAgent: isAgentCharacter(charDef),
+        isOrcOrTroll,
       },
       ctx: {
         opponentHasCard: opponentDrafted.has(charCard.definitionId as string),
@@ -156,6 +170,7 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
         fwMindGateActive: fwGateActive,
         fwAgentGateActive: fwGateActive,
         ringwraithAgentGateActive: isRingwraith,
+        fwOrcTrollPermitted,
       },
     };
 

@@ -55,5 +55,16 @@ describe('Rule 1.21 — Balrog Resources', () => {
     expect(errors.some(e => e.section === 'resources' && e.card === ('tw-243' as CardDefinitionId))).toBe(true);
   });
 
-  test.todo('[BALROG] Hazards playable as resources are also valid in the resource section');
+  test('[BALROG] a hazard playable as a resource is also valid in the resources section', () => {
+    // tw-106 = Twilight, a hazard-event carrying the `playable-as-resource` play-flag.
+    const deck: DeckList = {
+      ...baseBalrogDeck,
+      deck: {
+        ...baseBalrogDeck.deck,
+        resources: [...baseBalrogDeck.deck.resources, { name: 'Twilight', card: 'tw-106' as CardDefinitionId, qty: 1 }],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.card === ('tw-106' as CardDefinitionId))).toBe(false);
+  });
 });

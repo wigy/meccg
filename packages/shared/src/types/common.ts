@@ -329,6 +329,20 @@ export type Keyword =
   | 'saruman-specific';
 
 /**
+ * Maps each `<wizard>-specific` keyword to the avatar name it binds a card to
+ * (CoE rule 1.3.4 / MEWH §12). Shared by the deck-construction check (a deck
+ * may only include a wizard-specific card if that avatar is declared) and the
+ * in-play sweep that discards such cards once the avatar leaves play.
+ */
+export const WIZARD_SPECIFIC_KEYWORD_NAMES: Readonly<Record<string, string>> = {
+  'alatar-specific': 'Alatar',
+  'gandalf-specific': 'Gandalf',
+  'pallando-specific': 'Pallando',
+  'radagast-specific': 'Radagast',
+  'saruman-specific': 'Saruman',
+};
+
+/**
  * How a finished game was decided (CoE rule 10.39 / MELE §1).
  *
  * - `marshalling-points` — the normal CoE §10.3 endgame: the higher

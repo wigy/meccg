@@ -19,7 +19,9 @@ import {
   isItemCard,
   isFactionCard,
 } from './types/cards.js';
-import { SiteType, Race } from './types/common.js';
+import { SiteType, Race, WIZARD_SPECIFIC_KEYWORD_NAMES } from './types/common.js';
+import { hasPlayFlag } from './effects/play-flags.js';
+import { stagePointsOfCard } from './engine/reducer-utils.js';
 
 /**
  * Which part of the deck an error belongs to.
@@ -129,6 +131,20 @@ const BALROG_RESTRICTED_MINION_SITE_IDS = new Set([
   'le-390', // Minas Morgul (minion) → use ba-93 equivalent
 ]);
 
+/**
+ * Balrog sites with no corresponding hero or minion site — Ancient Deep-hold,
+ * The Wind-deeps, The Drowning-deeps, The Rusted-deeps, and Remains of
+ * Thangorodrim (rule 1.25 / CoE 1.4.1). Any player's location deck may include
+ * one copy of each; every other Balrog site requires a Balrog player's deck.
+ */
+const DESIGNATED_BALROG_SITE_IDS = new Set([
+  'ba-83', // Ancient Deep-hold
+  'ba-104', // The Wind-deeps
+  'ba-89', // The Drowning-deeps
+  'ba-96', // The Rusted-deeps
+  'ba-95', // Remains of Thangorodrim
+]);
+
 const HERO_RESOURCE_TYPES = new Set([
   'hero-resource-item',
   'hero-resource-faction',
@@ -142,6 +158,15 @@ const MINION_RESOURCE_TYPES = new Set([
   'minion-resource-ally',
   'minion-resource-event',
 ]);
+
+/**
+ * `hasPlayFlag`, narrowed for {@link CardDefinition}: `RegionCard` carries no
+ * `effects` field at all, so the union as a whole fails `hasPlayFlag`'s weak
+ * structural type check. Guard with `'effects' in def` first.
+ */
+function defHasPlayFlag(def: CardDefinition, flag: Parameters<typeof hasPlayFlag>[1]): boolean {
+  return 'effects' in def && hasPlayFlag(def, flag);
+}
 
 /**
  * Banned-card check shared by the Fallen-wizard (rule 1.18) and Balrog
@@ -369,6 +394,64 @@ export function validateDeck(
     }
   }
 
+  // Rule 1.15 — fallen-wizard hazard/resource split (CoE 1.3.F2): for each
+  // hazard card flagged `playable-as-resource`, a Fallen-wizard may count at
+  // most two copies in the resources section — any further copy must be
+  // counted as a hazard instead.
+  if (deck.alignment === 'fallen-wizard') {
+    const dualHazardResourceCounts = new Map<string, number>();
+    for (const entry of resources) {
+      if (entry.card === null) continue;
+      const def = cardPool[entry.card];
+      if (!def || !defHasPlayFlag(def, 'playable-as-resource')) continue;
+      dualHazardResourceCounts.set(entry.card as string, (dualHazardResourceCounts.get(entry.card as string) ?? 0) + entry.qty);
+    }
+    for (const [cardId, count] of dualHazardResourceCounts) {
+      if (count <= 2) continue;
+      const def = cardPool[cardId];
+      errors.push({
+        section: 'resources',
+        message: `fallen-wizard deck: "${(def as { name: string }).name}" has ${count} copies counted as resources (max 2, rule 1.15) — the rest must be counted as hazards`,
+        card: cardId as CardDefinitionId,
+      });
+    }
+  }
+
+  // Rule 1.07 — avatar-specific cards (CoE 1.3.4): a card carrying a
+  // `<wizard>-specific` keyword can only be included if the matching avatar
+  // (e.g. "Saruman") appears as an avatar character in the play deck.
+  {
+    const declaredAvatarNames = new Set<string>();
+    for (const entry of characters) {
+      if (entry.card === null) continue;
+      const def = cardPool[entry.card];
+      if (isCharacterCard(def) && isAvatarCharacter(def)) declaredAvatarNames.add(def.name);
+    }
+    const allSections: readonly [readonly { card: CardDefinitionId | null; qty: number }[], DeckSection][] = [
+      [characters, 'characters'],
+      [hazards, 'hazards'],
+      [resources, 'resources'],
+      [poolCards, 'pool'],
+      [sideboard, 'sideboard'],
+      [antiFwSideboard, 'anti-fw-sideboard'],
+    ];
+    for (const [section, sectionKey] of allSections) {
+      for (const entry of section) {
+        if (entry.card === null) continue;
+        const def = cardPool[entry.card];
+        if (!def || !('keywords' in def)) continue;
+        const specificName = (def.keywords ?? []).map(k => WIZARD_SPECIFIC_KEYWORD_NAMES[k]).find(n => n !== undefined);
+        if (specificName && !declaredAvatarNames.has(specificName)) {
+          errors.push({
+            section: sectionKey,
+            message: `"${def.name}" is specific to ${specificName} — the ${specificName} avatar must be declared to include it (rule 1.07)`,
+            card: entry.card,
+          });
+        }
+      }
+    }
+  }
+
   // Rule 1.08 / 1.11 / 1.16 / 1.19 — avatar characters match alignment
   for (const entry of characters) {
     if (entry.card === null) continue;
@@ -436,13 +519,15 @@ export function validateDeck(
     }
   }
 
-  // Rule 1.10 — hero resources
+  // Rule 1.10 — hero resources. Rule 1.06 (CoE 1.3.3): a hazard card flagged
+  // `playable-as-resource` (e.g. Twilight tw-106) may be considered a resource
+  // for deck construction regardless of its own cardType.
   if (deck.alignment === 'hero') {
     for (const entry of resources) {
       if (entry.card === null) continue;
       const def = cardPool[entry.card];
       if (!def) continue;
-      const allowed = HERO_RESOURCE_TYPES.has(def.cardType) || def.cardType === 'minion-resource-item';
+      const allowed = HERO_RESOURCE_TYPES.has(def.cardType) || def.cardType === 'minion-resource-item' || defHasPlayFlag(def, 'playable-as-resource');
       if (!allowed) {
         errors.push({
           section: 'resources',
@@ -503,13 +588,15 @@ export function validateDeck(
     }
   }
 
-  // Rule 1.13 — minion resources
+  // Rule 1.13 — minion resources. Rule 1.06 (CoE 1.3.3): a hazard card flagged
+  // `playable-as-resource` may be considered a resource for deck construction
+  // regardless of its own cardType.
   if (deck.alignment === 'minion') {
     for (const entry of resources) {
       if (entry.card === null) continue;
       const def = cardPool[entry.card];
       if (!def) continue;
-      const allowed = MINION_RESOURCE_TYPES.has(def.cardType) || def.cardType === 'hero-resource-item';
+      const allowed = MINION_RESOURCE_TYPES.has(def.cardType) || def.cardType === 'hero-resource-item' || defHasPlayFlag(def, 'playable-as-resource');
       if (!allowed) {
         errors.push({
           section: 'resources',
@@ -520,13 +607,15 @@ export function validateDeck(
     }
   }
 
-  // Rule 1.21 — balrog resources must be minion
+  // Rule 1.21 — balrog resources must be minion, or a hazard flagged
+  // `playable-as-resource` (CoE 1.3.B3: "minion resources and/or hazards that
+  // may be played as resources").
   if (deck.alignment === 'balrog') {
     for (const entry of resources) {
       if (entry.card === null) continue;
       const def = cardPool[entry.card];
       if (!def) continue;
-      if (!MINION_RESOURCE_TYPES.has(def.cardType)) {
+      if (!MINION_RESOURCE_TYPES.has(def.cardType) && !defHasPlayFlag(def, 'playable-as-resource')) {
         errors.push({
           section: 'resources',
           message: `balrog deck: resource "${def.name}" has cardType "${def.cardType}" — must be minion-resource-*`,
@@ -564,32 +653,36 @@ export function validateDeck(
     nonHavenSeen.add(cardId);
   }
 
-  // Rule 1.26 — hero location deck uses hero/balrog sites
+  // Rule 1.26 — hero location deck uses hero sites, plus (rule 1.25 / CoE
+  // 1.4.1) the designated Balrog sites that have no hero/minion equivalent.
   if (deck.alignment === 'hero') {
     for (const entry of sites) {
       if (entry.card === null) continue;
       const def = cardPool[entry.card];
       if (!isSiteCard(def)) continue;
-      if (def.cardType !== 'hero-site' && def.cardType !== 'balrog-site') {
+      const allowedBalrogSite = def.cardType === 'balrog-site' && DESIGNATED_BALROG_SITE_IDS.has(entry.card as string);
+      if (def.cardType !== 'hero-site' && !allowedBalrogSite) {
         errors.push({
           section: 'sites',
-          message: `hero deck: site "${def.name}" has cardType "${def.cardType}" — must be hero-site or balrog-site`,
+          message: `hero deck: site "${def.name}" has cardType "${def.cardType}" — must be hero-site or a designated Balrog site (rule 1.25)`,
           card: entry.card,
         });
       }
     }
   }
 
-  // Rule 1.27 — minion location deck uses minion/balrog sites
+  // Rule 1.27 — minion location deck uses minion sites, plus (rule 1.25 / CoE
+  // 1.4.1) the designated Balrog sites that have no hero/minion equivalent.
   if (deck.alignment === 'minion') {
     for (const entry of sites) {
       if (entry.card === null) continue;
       const def = cardPool[entry.card];
       if (!isSiteCard(def)) continue;
-      if (def.cardType !== 'minion-site' && def.cardType !== 'balrog-site') {
+      const allowedBalrogSite = def.cardType === 'balrog-site' && DESIGNATED_BALROG_SITE_IDS.has(entry.card as string);
+      if (def.cardType !== 'minion-site' && !allowedBalrogSite) {
         errors.push({
           section: 'sites',
-          message: `minion deck: site "${def.name}" has cardType "${def.cardType}" — must be minion-site or balrog-site`,
+          message: `minion deck: site "${def.name}" has cardType "${def.cardType}" — must be minion-site or a designated Balrog site (rule 1.25)`,
           card: entry.card,
         });
       }
@@ -653,12 +746,16 @@ export function validateDeck(
     });
   }
 
-  // Rule 1.31 — sideboard size
+  // Rule 1.31 / 1.01 — sideboard size, capped by the declared game length
+  // (rule 1.6.1): 30 for Starter or Short (the default), 35 for Long, 40 for
+  // Campaign.
   const sideboardTotal = sideboard.reduce((sum, e) => sum + e.qty, 0);
-  if (sideboardTotal > 30) {
+  const gameLength = deck.gameLength ?? 'short';
+  const maxSideboard = gameLength === 'long' ? 35 : gameLength === 'campaign' ? 40 : 30;
+  if (sideboardTotal > maxSideboard) {
     errors.push({
       section: 'sideboard',
-      message: `sideboard: ${sideboardTotal} cards (max 30 for Short Game)`,
+      message: `sideboard: ${sideboardTotal} cards (max ${maxSideboard} for ${gameLength[0].toUpperCase()}${gameLength.slice(1)} Game)`,
     });
   }
 
@@ -799,6 +896,33 @@ export function validateDeck(
       section: 'pool',
       message: `pool: ${poolMinorItemCount} non-unique minor items (max 2)`,
     });
+  }
+
+  // Rule 1.33 — fallen-wizard pool Stage resources (CoE 1.7.F1): a combined
+  // total of exactly three stage points, including at least one non-unique
+  // resource.
+  if (deck.alignment === 'fallen-wizard') {
+    let totalStagePoints = 0;
+    let hasNonUniqueStageResource = false;
+    for (const entry of poolCards) {
+      if (entry.card === null) continue;
+      const def = cardPool[entry.card];
+      const points = stagePointsOfCard(def);
+      if (points === 0) continue;
+      totalStagePoints += points * entry.qty;
+      if (!('unique' in def) || !def.unique) hasNonUniqueStageResource = true;
+    }
+    if (totalStagePoints !== 3) {
+      errors.push({
+        section: 'pool',
+        message: `fallen-wizard pool: Stage resources total ${totalStagePoints} stage points (must be exactly 3, rule 1.33)`,
+      });
+    } else if (!hasNonUniqueStageResource) {
+      errors.push({
+        section: 'pool',
+        message: 'fallen-wizard pool: Stage resources must include at least one non-unique resource (rule 1.33)',
+      });
+    }
   }
 
   // Note: card *certification* status (whether a card's effects are implemented

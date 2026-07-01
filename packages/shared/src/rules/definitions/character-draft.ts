@@ -29,6 +29,11 @@
  *   A Ringwraith never drafts resources during the character draft, so unlike
  *   the Fallen-wizard agent gate there is no enabling card that can lift it —
  *   the gate is active for the entire draft (CoE 1.9.R2).
+ * - `card.isOrcOrTroll` — true when the drafting player is a Fallen-wizard and
+ *   this candidate is an Orc or Troll character (Half-orcs count as Orcs)
+ * - `ctx.fwOrcTrollPermitted` — true when `card.isOrcOrTroll` is false, or a
+ *   drafted Stage resource specifically allows Orc/Troll characters (e.g. Bad
+ *   Company, wh-63); while false, the candidate cannot be drafted (rule 1.43)
  */
 
 import type { RuleSet } from '../types.js';
@@ -113,6 +118,19 @@ export const CHARACTER_DRAFT_RULES: RuleSet = {
         ],
       },
       failMessage: '{{card.name}}: a Ringwraith cannot draft an agent character during the character draft',
+    },
+    {
+      // Rule 1.43 (CoE 1.9.F2): a Fallen-wizard cannot reveal an Orc or Troll
+      // character during the draft unless a drafted Stage resource
+      // specifically allows it (e.g. Bad Company, wh-63).
+      id: 'fw-draft-orc-troll',
+      condition: {
+        $or: [
+          { 'card.isOrcOrTroll': false },
+          { 'ctx.fwOrcTrollPermitted': true },
+        ],
+      },
+      failMessage: '{{card.name}}: a Fallen-wizard cannot draft an Orc or Troll character without an enabling Stage resource (e.g. Bad Company)',
     },
   ],
 };
