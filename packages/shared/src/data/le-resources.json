@@ -2836,7 +2836,8 @@
         "cost": { "tap": "self" }
       }
     ],
-    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] with a Wolf automatic-attack. If the War-warg and its controlling character are both targets of strikes from the same attack, you may tap War-warg to give +2 body to its controlling character."
+    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] with a Wolf automatic-attack. If the War-warg and its controlling character are both targets of strikes from the same attack, you may tap War-warg to give +2 body to its controlling character.",
+    "certified": "2026-07-02"
   },
   {
     "cardType": "minion-resource-event",
