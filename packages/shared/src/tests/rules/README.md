@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 329 | 218 | 111 | 66.3% |
+| 329 | 219 | 110 | 66.6% |
 
 ## Section Breakdown
 
@@ -21,7 +21,7 @@
 | 06 | [Site Phase](06-site-phase/) | 21 | 14 | 66.7% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
 | 08 | [Combat](08-combat/) | 42 | 28 | 66.7% |
-| 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 26 | 83.9% |
+| 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 27 | 87.1% |
 | 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 23 | 43.4% |
 | — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
 | — | The White Hand (MEWH) | 14 | 14 | 100.0% |
@@ -277,7 +277,7 @@
 | 9.17 | Agents, Events, Items & Rings | [Item Modification Order](09-agents-events-items/rule-9.17-item-modification-order.test.ts) | ☑ |
 | 9.18 | Agents, Events, Items & Rings | [Item Movement Restrictions](09-agents-events-items/rule-9.18-item-movement-restrictions.test.ts) | ☐ |
 | 9.19 | Agents, Events, Items & Rings | [Ally Item Restriction](09-agents-events-items/rule-9.19-ally-item-restriction.test.ts) | ☑ |
-| 9.20 | Agents, Events, Items & Rings | [Alignment Item Usage](09-agents-events-items/rule-9.20-alignment-item-usage.test.ts) | ☐ |
+| 9.20 | Agents, Events, Items & Rings | [Alignment Item Usage](09-agents-events-items/rule-9.20-alignment-item-usage.test.ts) | ☑ |
 | 9.21 | Agents, Events, Items & Rings | [Gold Ring Test](09-agents-events-items/rule-9.21-gold-ring-test.test.ts) | ☑ |
 | 9.22 | Agents, Events, Items & Rings | [Gold Ring Darkhaven Test](09-agents-events-items/rule-9.22-gold-ring-darkhaven-test.test.ts) | ☑ |
 | 9.23 | Agents, Events, Items & Rings | [Gold Ring Ringwraith Test](09-agents-events-items/rule-9.23-gold-ring-ringwraith-test.test.ts) | ☑ |
