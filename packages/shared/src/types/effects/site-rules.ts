@@ -28,6 +28,7 @@ export type SiteRuleEffect =
   | SitePhaseRingAutoTestSiteRule
   | SageTapRingTestSiteRule
   | AttacksNotDetainmentSiteRule
+  | AttacksAreDetainmentSiteRule
   | NeverTapsSiteRule
   | HealDuringUntapSiteRule
   | DynamicAutoAttackSiteRule
@@ -208,6 +209,25 @@ export interface AttacksNotDetainmentSiteRule extends EffectBase {
   readonly rule: 'attacks-not-detainment';
   /** Optional condition on the attacking creature (e.g. race ≠ nazgul). */
   readonly filter?: Condition;
+}
+
+/**
+ * Mirror of {@link AttacksNotDetainmentSiteRule}: forces every attack against
+ * a company at this site to be treated as detainment, overriding the default
+ * detainment computation (CoE §3.II.2 R1/R2/R3 and B1/B2/B3 and any
+ * keying-based detainment) even when the attacker's race/keying or the
+ * defending alignment would not normally make it so.
+ *
+ * Example — The Under-gates (ba-100), a Balrog Darkhaven printed as a Haven:
+ * "Creatures keyed to this site attack as detainment."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "attacks-are-detainment" }
+ * ```
+ */
+export interface AttacksAreDetainmentSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'attacks-are-detainment';
 }
 
 /**

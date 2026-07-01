@@ -2225,6 +2225,20 @@ Rules:
     "filter": { "attack.automatic": false } }
   ```
 
+- `attacks-are-detainment` — mirror of `attacks-not-detainment`: forces
+  every attack against a company at this site to be treated as
+  detainment, overriding the default CoE §3.II.2 R1/R2/R3 and B1/B2/B3
+  computation even when the attacker's race/keying or the defending
+  alignment would not otherwise make it so. Consumed by
+  `engine/detainment.ts` (checked before the default computation, same
+  call sites as `attacks-not-detainment`). Used by *The Under-gates*
+  (ba-100), a Balrog Darkhaven printed as a Haven site type: "Creatures
+  keyed to this site attack as detainment."
+
+  ```json
+  { "type": "site-rule", "rule": "attacks-are-detainment" }
+  ```
+
 - `deny-character` — during the organization phase, characters whose card
   definition matches the `filter` cannot be brought into play at this site.
   When `exceptHomesite: true`, the rule is waived for a character whose
