@@ -972,6 +972,54 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           continue;
         }
 
+        // `auto-pass-corruption-check` (Ancient Black Axe as-122): tap this
+        // item to grant a character at the bearer's current site (any
+        // company, any player, excluding the bearer) an auto-pass shield on
+        // its next corruption check. Emit one action per other character at
+        // the site. If nobody else is at the site, the ability is not
+        // offered.
+        if (effect.action === 'auto-pass-corruption-check') {
+          if (!company?.currentSite) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not at a site`);
+            continue;
+          }
+          const siteDefId = company.currentSite.definitionId as string;
+          const siteTargets: { instanceId: import('../../index.js').CardInstanceId; name: string }[] = [];
+          for (const p of state.players) {
+            for (const co of p.companies) {
+              if (!co.currentSite || (co.currentSite.definitionId as string) !== siteDefId) continue;
+              for (const memberId of co.characters) {
+                if (memberId === charId) continue;
+                const member = p.characters[memberId];
+                if (!member) continue;
+                const memberDef = defById(state, member.definitionId);
+                siteTargets.push({ instanceId: memberId, name: memberDef?.name ?? (memberId as string) });
+              }
+            }
+          }
+          if (siteTargets.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no other character at the bearer's site`);
+            continue;
+          }
+          for (const { instanceId: targetId, name: targetName } of siteTargets) {
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to make ${targetName} automatically pass a corruption check`);
+            actions.push({
+              action: {
+                type: 'activate-granted-action',
+                player: playerId,
+                characterId: charId,
+                sourceCardId: item.instanceId,
+                sourceCardDefinitionId: item.definitionId,
+                actionId: effect.action,
+                rollThreshold: rollThresholdFor(effect),
+                targetCardId: targetId,
+              },
+              viable: true,
+            });
+          }
+          continue;
+        }
+
         // `boost-company-influence` (When You Know More dm-163): tap the bearer
         // (a sage carrying the enchantment) to grant +2 to one influence attempt
         // by another untapped character in his company; the bearer then makes a

@@ -396,6 +396,20 @@ Operations:
   "when": { "$or": [{ "enemy.race": "dragon" }, { "enemy.race": "drake" }] } }
 ```
 
+`stat: "body"` also applies in company-versus-company combat: when the
+attacking character's own items carry a matching `enemy-modifier` (gated on
+`bearer.skills`, evaluated against the *attacker*), the reduction lowers the
+*defending* character's body-check target — the CvCC mirror of a weapon
+reducing a hazard creature's body. Implemented in `combat-actions.ts`
+(`handleBodyCheckRoll`, `bodyCheckTarget === 'character'` branch, gated on
+`combat.isCvCC` and `strike.attackingCharacterId`). Used by Ancient Black Axe
+(as-122): "Warrior only: ... -1 to strike's body."
+
+```json
+{ "type": "enemy-modifier", "stat": "body", "op": "subtract", "value": 1,
+  "when": { "bearer.skills": { "$includes": "warrior" } } }
+```
+
 ### 6. `hand-size-modifier`
 
 Modifies the player's hand size. Evaluated by `resolveHandSize`, which builds a
@@ -720,6 +734,42 @@ Actions:
       { "type": "add-constraint", "constraint": "check-modifier",
         "check": "corruption", "value": 3, "scope": "until-cleared",
         "target": "action-target-character" },
+      { "type": "enqueue-corruption-check" }
+    ] } }
+  ```
+
+- `auto-pass-corruption-check` — tap this item to grant a character at the
+  bearer's current site (any company, any player, excluding the bearer
+  itself) an unconditional pass on its next corruption check, then the
+  bearer makes a corruption check of their own. Unlike
+  `modify-corruption-check`, this is not restricted to a
+  `corruptionCheckWindow` — the ability is offered any time the item can pay
+  its cost (site-scoped targeting is a dedicated legal-action branch,
+  `effect.action === 'auto-pass-corruption-check'` in
+  `legal-actions/organization.ts`, mirroring `force-discard-dwarf-at-site`'s
+  same-site enumeration), and the granted shield persists (`scope:
+  "until-cleared"`) until the target's next corruption check consumes it,
+  however later that occurs. The `apply` is a `sequence`: an `add-constraint`
+  of a one-shot `check-modifier` carrying `"autoPass": true` (instead of a
+  numeric `value`) targeting `action-target-character`, plus an
+  `enqueue-corruption-check` on the bearer. `autoPass: true` on a
+  `check-modifier` constraint makes both corruption-check resolution paths
+  (the unified pending resolution in `pending-reducers.ts`
+  `applyCorruptionCheckResolution`, and the Free Council window in
+  `reducer-free-council.ts` `resolveCorruptionCheck`) override the roll
+  outcome to `'success'` unconditionally, still consuming the constraint and
+  rolling the dice (for RNG determinism) but ignoring the result. Used by
+  *Ancient Black Axe* (as-122): "tap this item to make a character at the
+  same site automatically pass a corruption check. When this item becomes
+  tapped, bearer makes a corruption check."
+
+  ```json
+  { "type": "grant-action", "action": "auto-pass-corruption-check",
+    "cost": { "tap": "self" }, "anyPhase": true,
+    "apply": { "type": "sequence", "apps": [
+      { "type": "add-constraint", "constraint": "check-modifier",
+        "check": "corruption", "value": 0, "autoPass": true,
+        "scope": "until-cleared", "target": "action-target-character" },
       { "type": "enqueue-corruption-check" }
     ] } }
   ```

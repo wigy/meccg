@@ -620,6 +620,12 @@ export interface ActiveConstraint {
         readonly check: string;
         /** The bonus (or penalty if negative) applied to the roll. */
         readonly value: number;
+        /**
+         * When true, the targeted character's next matching check succeeds
+         * unconditionally regardless of the roll (instead of being adjusted
+         * by {@link value}). Used by Ancient Black Axe (as-122).
+         */
+        readonly autoPass?: boolean;
       }
     | {
         /**
