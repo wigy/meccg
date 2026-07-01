@@ -19,7 +19,8 @@
     "marshallingCategory": "character",
     "homesite": "Moria",
     "keywords": [
-      "Leader"
+      "Leader",
+      "balrog-specific"
     ],
     "effects": [
       {
@@ -91,7 +92,8 @@
     "marshallingCategory": "character",
     "homesite": "Moria",
     "keywords": [
-      "Leader"
+      "Leader",
+      "balrog-specific"
     ],
     "effects": [
       {
@@ -164,7 +166,10 @@
     "corruptionModifier": 0,
     "homesite": "Moria, The Under-gates",
     "effects": [],
-    "text": "Unique. Balrog specific. Leader. Manifestation of Bûthrakaur the Green. Discard on a body check result of 9. +3 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters."
+    "text": "Unique. Balrog specific. Leader. Manifestation of Bûthrakaur the Green. Discard on a body check result of 9. +3 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters.",
+    "keywords": [
+      "balrog-specific"
+    ]
   },
   {
     "cardType": "minion-character",
@@ -187,7 +192,10 @@
     "corruptionModifier": 0,
     "homesite": "any non-Dark-hold Under-deeps site",
     "effects": [],
-    "text": "Balrog specific. Discard on a body check result of 7."
+    "text": "Balrog specific. Discard on a body check result of 7.",
+    "keywords": [
+      "balrog-specific"
+    ]
   },
   {
     "cardType": "minion-character",
@@ -209,7 +217,10 @@
     "corruptionModifier": 0,
     "homesite": "any non-Dark-hold Under-deeps site",
     "effects": [],
-    "text": "Balrog specific. Discard on a body check result of 7."
+    "text": "Balrog specific. Discard on a body check result of 7.",
+    "keywords": [
+      "balrog-specific"
+    ]
   },
   {
     "cardType": "minion-character",
@@ -231,7 +242,10 @@
     "corruptionModifier": 0,
     "homesite": "any non-Dark-hold Under-deeps site",
     "effects": [],
-    "text": "Balrog specific. Discard on a body check result of 7."
+    "text": "Balrog specific. Discard on a body check result of 7.",
+    "keywords": [
+      "balrog-specific"
+    ]
   },
   {
     "cardType": "minion-character",
@@ -255,6 +269,9 @@
     "corruptionModifier": 0,
     "homesite": "Moria, The Under-gates",
     "effects": [],
-    "text": "Unique. Balrog specific. Leader. Manifestation of Umagaur the Pale. Discard on a body check result of 9. +2 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters."
+    "text": "Unique. Balrog specific. Leader. Manifestation of Umagaur the Pale. Discard on a body check result of 9. +2 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters.",
+    "keywords": [
+      "balrog-specific"
+    ]
   }
 ]
