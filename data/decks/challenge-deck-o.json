@@ -63,11 +63,6 @@
       "qty": 1
     },
     {
-      "name": "Ill-favoured Fellow",
-      "card": "wh-5",
-      "qty": 2
-    },
-    {
       "name": "Layos",
       "card": "le-19",
       "qty": 1
@@ -84,6 +79,11 @@
         "name": "Saruman",
         "card": "wh-9",
         "qty": 3
+      },
+      {
+        "name": "Ill-favoured Fellow",
+        "card": "wh-5",
+        "qty": 2
       }
     ],
     "hazards": [
