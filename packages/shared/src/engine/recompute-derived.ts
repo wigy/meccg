@@ -983,9 +983,11 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   }
 
   // MEAS §6e: callable totals = full tally minus Under-deeps company-held MPs.
+  // Rule 10.42 exempts Balrog players — they may count Under-deeps MPs both
+  // for calling the end of the game and thereafter, so `mp` is used unmodified.
   // Reuse the `mp` reference when nothing is excluded (the common case) so the
   // no-allocation fast path below still holds.
-  const callable: MarshallingPointTotals = underDeepsMp === ZERO_MARSHALLING_POINTS
+  const callable: MarshallingPointTotals = underDeepsMp === ZERO_MARSHALLING_POINTS || player.alignment === 'balrog'
     ? mp
     : {
         character: mp.character - underDeepsMp.character,

@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 329 | 221 | 108 | 67.2% |
+| 329 | 227 | 102 | 69.0% |
 
 ## Section Breakdown
 
@@ -22,7 +22,7 @@
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
 | 08 | [Combat](08-combat/) | 42 | 28 | 66.7% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 26 | 83.9% |
-| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 23 | 43.4% |
+| 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 29 | 54.7% |
 | — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
 | — | The White Hand (MEWH) | 14 | 14 | 100.0% |
 
@@ -291,7 +291,7 @@
 | 10.02 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Check Support](10-corruption-influence-endgame/rule-10.02-corruption-check-support.test.ts) | ☑ |
 | 10.03 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Check Zero](10-corruption-influence-endgame/rule-10.03-corruption-check-zero.test.ts) | ☑ |
 | 10.04 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Check Prevent Discard](10-corruption-influence-endgame/rule-10.04-corruption-check-prevent-discard.test.ts) | ☐ |
-| 10.05 | Corruption, Influence, Actions/Timing & Ending the Game | [Ringwraith Corruption Bonus](10-corruption-influence-endgame/rule-10.05-ringwraith-corruption-bonus.test.ts) | ☐ |
+| 10.05 | Corruption, Influence, Actions/Timing & Ending the Game | [Ringwraith Corruption Bonus](10-corruption-influence-endgame/rule-10.05-ringwraith-corruption-bonus.test.ts) | ☑ |
 | 10.06 | Corruption, Influence, Actions/Timing & Ending the Game | [Fw Orc Troll Corruption](10-corruption-influence-endgame/rule-10.06-fw-orc-troll-corruption.test.ts) | ☑ |
 | 10.07 | Corruption, Influence, Actions/Timing & Ending the Game | [Corruption Cards](10-corruption-influence-endgame/rule-10.07-corruption-cards.test.ts) | ☑ |
 | 10.08 | Corruption, Influence, Actions/Timing & Ending the Game | [Removing Corruption Cards](10-corruption-influence-endgame/rule-10.08-removing-corruption-cards.test.ts) | ☑ |
@@ -305,7 +305,7 @@
 | 10.16 | Corruption, Influence, Actions/Timing & Ending the Game | [Fw Influence Alignment Match](10-corruption-influence-endgame/rule-10.16-fw-influence-alignment-match.test.ts) | ☐ |
 | 10.17 | Corruption, Influence, Actions/Timing & Ending the Game | [Actions Definition](10-corruption-influence-endgame/rule-10.17-actions-definition.test.ts) | ☐ |
 | 10.18 | Corruption, Influence, Actions/Timing & Ending the Game | [Resource Hazard Action Types](10-corruption-influence-endgame/rule-10.18-resource-hazard-action-types.test.ts) | ☐ |
-| 10.19 | Corruption, Influence, Actions/Timing & Ending the Game | [Optional Effects](10-corruption-influence-endgame/rule-10.19-optional-effects.test.ts) | ☐ |
+| 10.19 | Corruption, Influence, Actions/Timing & Ending the Game | [Optional Effects](10-corruption-influence-endgame/rule-10.19-optional-effects.test.ts) | ☑ |
 | 10.20 | Corruption, Influence, Actions/Timing & Ending the Game | [Rule Changes Not Actions](10-corruption-influence-endgame/rule-10.20-rule-changes-not-actions.test.ts) | ☐ |
 | 10.21 | Corruption, Influence, Actions/Timing & Ending the Game | [Active Conditions](10-corruption-influence-endgame/rule-10.21-active-conditions.test.ts) | ☐ |
 | 10.22 | Corruption, Influence, Actions/Timing & Ending the Game | [Alternative Effects](10-corruption-influence-endgame/rule-10.22-alternative-effects.test.ts) | ☐ |
@@ -324,12 +324,12 @@
 | 10.35 | Corruption, Influence, Actions/Timing & Ending the Game | [Duplicate Passive Conditions](10-corruption-influence-endgame/rule-10.35-duplicate-passive-conditions.test.ts) | ☐ |
 | 10.36 | Corruption, Influence, Actions/Timing & Ending the Game | [Attribute Modification Passives](10-corruption-influence-endgame/rule-10.36-attribute-modification-passives.test.ts) | ☐ |
 | 10.37 | Corruption, Influence, Actions/Timing & Ending the Game | [Game Condition Inactive](10-corruption-influence-endgame/rule-10.37-game-condition-inactive.test.ts) | ☐ |
-| 10.38 | Corruption, Influence, Actions/Timing & Ending the Game | [Cards No Memory](10-corruption-influence-endgame/rule-10.38-cards-no-memory.test.ts) | ☐ |
-| 10.39 | Corruption, Influence, Actions/Timing & Ending the Game | [Winning With One Ring](10-corruption-influence-endgame/rule-10.39-winning-with-one-ring.test.ts) | ◐ |
+| 10.38 | Corruption, Influence, Actions/Timing & Ending the Game | [Cards No Memory](10-corruption-influence-endgame/rule-10.38-cards-no-memory.test.ts) | ☑ |
+| 10.39 | Corruption, Influence, Actions/Timing & Ending the Game | [Winning With One Ring](10-corruption-influence-endgame/rule-10.39-winning-with-one-ring.test.ts) | ☑ |
 | 10.40 | Corruption, Influence, Actions/Timing & Ending the Game | [Calling The Game](10-corruption-influence-endgame/rule-10.40-calling-the-game.test.ts) | ☑ |
 | 10.41 | Corruption, Influence, Actions/Timing & Ending the Game | [Minion Balrog Sudden Call](10-corruption-influence-endgame/rule-10.41-minion-balrog-sudden-call.test.ts) | ☑ |
-| 10.42 | Corruption, Influence, Actions/Timing & Ending the Game | [Balrog Under Deeps Mp](10-corruption-influence-endgame/rule-10.42-balrog-under-deeps-mp.test.ts) | ☐ |
-| 10.43 | Corruption, Influence, Actions/Timing & Ending the Game | [Free Council](10-corruption-influence-endgame/rule-10.43-free-council.test.ts) | ◐ |
+| 10.42 | Corruption, Influence, Actions/Timing & Ending the Game | [Balrog Under Deeps Mp](10-corruption-influence-endgame/rule-10.42-balrog-under-deeps-mp.test.ts) | ☑ |
+| 10.43 | Corruption, Influence, Actions/Timing & Ending the Game | [Free Council](10-corruption-influence-endgame/rule-10.43-free-council.test.ts) | ☑ |
 | 10.44 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step1 Corruption](10-corruption-influence-endgame/rule-10.44-winner-step1-corruption.test.ts) | ☑ |
 | 10.45 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step2 Total Mp](10-corruption-influence-endgame/rule-10.45-winner-step2-total-mp.test.ts) | ☑ |
 | 10.46 | Corruption, Influence, Actions/Timing & Ending the Game | [Winner Step3 Doubling](10-corruption-influence-endgame/rule-10.46-winner-step3-doubling.test.ts) | ☑ |

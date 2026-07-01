@@ -19,6 +19,19 @@
 
 import { describe, test } from 'vitest';
 
+// "Effects last until the card leaves play" is true by construction and
+// exercised implicitly by every item/ally/hazard discard test in the suite:
+// `collectCharacterEffects` (effects/resolver.ts) only ever reads a
+// character's *current* `items`/`allies`/`hazards` arrays, so an effect
+// disappears the instant its source leaves those arrays — there is no
+// separate "effect lifetime" bookkeeping to test in isolation. "Cancel a
+// card ⇒ immediately discard it" is likewise exercised throughout section 8
+// and this section's own chain-of-effects tests (10.29). The narrower
+// "discarded-as-cost effect persists for its stated duration" and "most
+// recently implemented effect wins an unclarified conflict" sub-clauses
+// have no dedicated generic precedence/duration-tracking mechanism to
+// isolate from the specific `until-cleared`/`turn`-scoped constraints
+// already covered by individual card tests.
 describe('Rule 10.28 — Effects Definition', () => {
   test.todo('Effects implemented upon resolution; last until card leaves play; most recently implemented effect wins conflicts');
 });

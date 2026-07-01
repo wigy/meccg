@@ -16,6 +16,16 @@
 
 import { describe, test } from 'vitest';
 
+// The "must be untapped to tap / in play to discard" half is already true by
+// construction and exercised by every tap/discard-cost action in the suite
+// (`canPayCost` in cost-evaluator.ts requires `CardStatus.Untapped` for a
+// tap cost before offering the action at all). The second half — a hero
+// item can't fulfill a minion resource effect's active condition, and vice
+// versa — has no matching check anywhere in cost-evaluator.ts or the
+// grant-action cost paths, and no card in the pool has a tap/discard active
+// condition that could even be satisfied cross-alignment to prove the gap
+// (item-as-active-condition costs are keyed to specific card instances, not
+// a generic "any item of alignment X" pool).
 describe('Rule 10.23 — Tap/Discard Active Conditions', () => {
   test.todo('Tap for effect requires untapped; discard for effect requires in play; hero items cannot fulfill minion resource conditions and vice versa');
 });

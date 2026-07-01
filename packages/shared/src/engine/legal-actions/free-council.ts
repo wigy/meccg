@@ -14,7 +14,8 @@
 
 import type { GameState, PlayerId, GameAction, CardInstanceId, FreeCouncilPhaseState, EvaluatedAction } from '../../index.js';
 import { formatSignedNumber } from '../../format-helpers.js';
-import { requirePhaseState } from '../../state-utils.js';
+import { requirePhaseState, isBalrogAvatarDef } from '../../state-utils.js';
+import { isCharacterCard } from '../../types/cards.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
@@ -63,7 +64,21 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
     const charDef = defById(state, charInPlay.definitionId);
     const cp = charInPlay.effectiveStats.corruptionPoints;
     const checkContext = { reason: 'corruption-check' };
-    const modifier = resolveCheckModifier(collectCharacterEffects(state, charInPlay, checkContext), 'corruption');
+    let modifier = resolveCheckModifier(collectCharacterEffects(state, charInPlay, checkContext), 'corruption');
+
+    // Rule 10.05: a character in the same company as a Ringwraith or the
+    // Balrog receives an additional +2 modifier to corruption checks.
+    const company = findCharacterCompany(player.companies, charId);
+    const hasCorruptingAvatar = company?.characters.some(cid => {
+      const compChar = player.characters[cid];
+      if (!compChar) return false;
+      const compDef = defById(state, compChar.definitionId);
+      return isCharacterCard(compDef) && (compDef.race === 'ringwraith' || isBalrogAvatarDef(compDef));
+    }) ?? false;
+    if (hasCorruptingAvatar) {
+      modifier += 2;
+      logDetail(`Corruption check +2 (rule 10.05): company includes a Ringwraith/Balrog avatar`);
+    }
     const possessions: CardInstanceId[] = [
       ...charInPlay.items.map(i => i.instanceId),
       ...charInPlay.allies.map(a => a.instanceId),

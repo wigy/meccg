@@ -15,6 +15,13 @@
 
 import { describe, test } from 'vitest';
 
+// Definitional rule: it names the vocabulary ("resource/character action",
+// "hazard action") this codebase already uses throughout its own phase
+// handlers (legal-actions/organization.ts, movement-hazard.ts, site.ts split
+// resource-player and hazard-player action generation exactly along this
+// line), and every single-card test in the suite exercises one or the
+// other. There's no separate scenario that isolates "is this classified as
+// a resource action or a hazard action" as its own observable behavior.
 describe('Rule 10.18 — Resource/Character vs Hazard Action Types', () => {
   test.todo('Resource/character actions: play resource/character, use such cards, tap/discard for effect; hazard actions similar; timing rules');
 });

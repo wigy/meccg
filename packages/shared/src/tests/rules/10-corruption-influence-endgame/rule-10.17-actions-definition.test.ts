@@ -17,6 +17,17 @@
 
 import { describe, test } from 'vitest';
 
+// This is a glossary/definitional rule, not an independently testable
+// mechanic: "an action is a one-time board-state change" and "actions
+// require an allowance" describe the vocabulary the rest of the rulebook
+// (and this test suite) uses, rather than a distinct behavior. The engine
+// enforces it by construction — every `GameAction` is only ever offered by
+// `computeLegalActions` when some card/rule grants it, and every dispatched
+// action produces exactly one state transition — and that is exercised
+// implicitly by essentially every other rule test in this suite. There is no
+// separate scenario that isolates "an action was taken without an
+// allowance" to prove the restriction, since the legal-action system makes
+// that state unreachable rather than merely disallowed.
 describe('Rule 10.17 — Actions Definition', () => {
   test.todo('Action = one-time board state change; taking action = initiating an allowance; cannot perform without allowance');
 });

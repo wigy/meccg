@@ -115,5 +115,13 @@ describe('Rule 10.11 — Influence Attempt Target Conditions', () => {
     expect(factionActions.some(a => a.action.influencingCharacterId === aragornId)).toBe(true);
   });
 
+  // `opponentInfluenceActions` (legal-actions/site.ts) has one loop per
+  // target kind — character (line ~1861), ally (line ~1941), faction — but
+  // no item loop at all: it never iterates an opponent character's `items`.
+  // Adding it means not just a new legal-action branch (site/no-permanent-event
+  // gating + identical-item-in-hand reveal) but also new resolution logic for
+  // what a successful item influence attempt actually does (transfer
+  // ownership to the influencing character) — a real feature, not a test gap,
+  // and there's no partial version of it to exercise today.
   test.todo('item: same site + no permanent-event + reveal identical item');
 });
