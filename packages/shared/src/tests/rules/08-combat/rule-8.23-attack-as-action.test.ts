@@ -17,6 +17,17 @@
 
 import { describe, test } from 'vitest';
 
+// Attack initiation already routes through `initiateChain`/`initiateOrPushChain`
+// (chain-reducer.ts) rather than resolving inline, and `computeLegalActions`
+// delegates entirely to combat-specific actions whenever `state.combat` is
+// active (legal-actions/index.ts), so an attack-initiating action is
+// structurally unavailable "during combat" or as a response to another
+// chain entry. What's unverified in isolation is the narrower claim that
+// once an attack has resolved into combat, the specific card that created it
+// (e.g. a `trigger-attack-on-play` permanent event like Rescue Prisoners)
+// leaving play no longer retroactively cancels that already-active combat —
+// no test constructs "the creating card leaves play mid-combat" as a
+// distinct scenario from the ordinary combat-finalize path.
 describe('Rule 8.23 — Attack as Action', () => {
   test.todo('Initiating attack is its own action; must initiate chain of effects; cannot be taken during combat or in response');
 });

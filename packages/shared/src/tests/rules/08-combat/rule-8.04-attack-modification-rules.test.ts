@@ -17,6 +17,15 @@
 
 import { describe, test } from 'vitest';
 
+// `cancelAttackActions`/`modifyAttackActions` (legal-actions/combat.ts) gate
+// on `playerId === combat.defendingPlayerId`, but do not separately verify
+// that the specific card granting the cancel/modify effect belongs to a
+// character *in the company facing the attack* (as opposed to some other
+// company of the same player) or is an unassociated resource event. Every
+// existing cancel-attack card in the pool happens to be carried by a
+// character who is always in the attacked company by construction of its
+// own play-target restrictions, so there is no card exercising a
+// wrong-company cancel attempt to prove the restriction holds or is missing.
 describe('Rule 8.04 — Attack Modification Rules', () => {
   test.todo('Attacks can only be modified by effects that specifically refer to attacks; cancel only from company or non-associated resource event');
 });
