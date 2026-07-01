@@ -579,7 +579,24 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": -1,
+        "min": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
     "text": "Mind Ring. -1 to mind to a minimum of 1, +1 to direct influence. Cannot be duplicated on a given character."
   },
   {
