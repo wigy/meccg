@@ -35,7 +35,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  RESOURCE_PLAYER, HAZARD_PLAYER,
+  RESOURCE_PLAYER,
   resetMint, buildTestState, buildSitePhaseState,
   attachAllyToChar, getCharacter, findCharInstanceId, setCharStatus,
   companyIdAt, viableActions, dispatch,
