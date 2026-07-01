@@ -170,7 +170,21 @@ Follow these steps:
     grep '"certified"' packages/shared/src/data/<set-file>.json
     ```
 
-    If the grep returns nothing, you did not write the field — write it now. Then **commit this final change to the branch, push it, and update the PR title/body** to drop the "NOT CERTIFIED" marker. Report the final commit hash.
+    If the grep returns nothing, you did not write the field — write it now. Then **commit this final change to the branch and push it.**
+
+    **⚠️ Updating the PR title/body is not optional and is not done "if there's time" — it is the last mandatory action of this skill.** A certified card whose PR still reads "NOT CERTIFIED" is a certification failure from the outside, even though the data is correct: nobody scans `git log` for a stray `certified` commit, they read the PR title. Immediately after the push above, run:
+
+    ```sh
+    gh pr edit <pr-number> --title "certify <cardId>: <name> — certified" --body "<updated body reflecting certification>"
+    ```
+
+    Then **verify the edit landed** — do not assume the command succeeded:
+
+    ```sh
+    gh pr view <pr-number> --json title --jq .title
+    ```
+
+    Confirm the output no longer contains "NOT CERTIFIED". If it still does, the `gh pr edit` failed or targeted the wrong PR — retry before ending your turn. Report the final commit hash and the confirmed PR title.
 
     ⚠️ **Leave the working tree clean before your turn ends.** The mail handler checks `git status --porcelain` after your session; any uncommitted change is finalized by the handler into a fallback PR rather than your own clean one (and, unless you had already reached a verified success, reported as a certification failure). If you genuinely cannot land the work (engine support missing, rules unclear), and you have *not* already committed in step 13, revert everything (`git checkout -- .`, delete any new files) before ending the turn and emit a certification-failure result. If you already branched and committed in step 13, just leave the PR as NOT CERTIFIED — never leave files uncommitted.
 
