@@ -14,9 +14,14 @@
  * [FALLEN-WIZARD] A Fallen-wizard player's non-Orc, non-Troll characters are treated as hero characters.
  */
 
-import { describe, test, expect } from 'vitest';
-import { pool, HERO_RESOURCES_30, HAZARD_CREATURES_12 } from '../../test-helpers.js';
-import { validateDeck } from '../../../index.js';
+import { describe, test, expect, beforeEach } from 'vitest';
+import {
+  pool, HERO_RESOURCES_30, HAZARD_CREATURES_12,
+  buildTestState, resetMint, findCharInstanceId,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
+  GLAMDRING,
+} from '../../test-helpers.js';
+import { validateDeck, Alignment, Phase } from '../../../index.js';
 import type { DeckList, CardDefinitionId } from '../../../index.js';
 
 // tw-120 = Aragorn II (hero-character) — valid in FW deck
@@ -37,6 +42,8 @@ const baseFwDeck: DeckList = {
 };
 
 describe('Rule 1.17 — Fallen-Wizard Non-Avatar Characters', () => {
+  beforeEach(() => resetMint());
+
   test('FW deck with a hero character has no character error', () => {
     const deck: DeckList = {
       ...baseFwDeck,
@@ -86,5 +93,29 @@ describe('Rule 1.17 — Fallen-Wizard Non-Avatar Characters', () => {
     expect(validateDeck(deck, pool).filter(e => e.section === 'characters' && e.card === ('dm-3' as CardDefinitionId))).toHaveLength(0);
   });
 
-  test.todo('[FALLEN-WIZARD] Non-Orc, non-Troll characters treated as hero characters in play');
+  test('[FALLEN-WIZARD] a non-Orc, non-Troll character in play still receives hero-item bonuses', () => {
+    // MEWH §9 strips a hero item's DSL effects (and structural stat bonuses)
+    // from an Orc/Troll bearer, but that filter is keyed on the bearer's
+    // race, not the controlling player's alignment. Aragorn II (tw-120,
+    // race "dunadan") in a Fallen-wizard company is therefore treated as a
+    // hero character: Glamdring's +3 prowess (capped at 8) still applies.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: 'wh-58' as CardDefinitionId, characters: [{ defId: 'tw-120' as CardDefinitionId, items: [GLAMDRING] }] }],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [], hand: [], siteDeck: [] },
+      ],
+    });
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, 'tw-120' as CardDefinitionId);
+    const aragorn = state.players[RESOURCE_PLAYER].characters[aragornId];
+    expect(aragorn.effectiveStats.prowess).toBe(8);
+  });
 });
