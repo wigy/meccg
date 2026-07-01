@@ -524,6 +524,42 @@ extend the emission window:
 
 Multiple flags may coexist on the same effect.
 
+**`endOfTurnOnly: true` — restrictive, not additive.** Unlike the flags
+above (which *extend* an ability's natural-phase availability), this flag
+*removes* the ability from the generic per-phase scanner's organization-phase
+default scan entirely (`extractGrantActions` in `legal-actions/organization.ts`
+excludes any effect with `endOfTurnOnly: true`, mirroring how it already
+excludes `corruptionCheckWindow` effects). The ability is instead emitted
+only by the dedicated end-of-turn discard-pile fetch scanner
+(`legal-actions/end-of-turn.ts` `endOfTurnGrantActions`), which recognizes
+two apply shapes:
+
+- discard-to-hand: `move` with `select: 'target'`, `from: 'discard'`,
+  `to: 'hand'` (e.g. Saruman's spell fetch) — one activation per matching
+  discard-pile card, since the target is chosen at activation time.
+- discard-to-deck: `enqueue-pending-fetch` with `fetchFrom: ['discard-pile']`
+  and `fetchTo: 'deck'` (or omitted, since `'deck'` is the default) — a
+  single activation whenever at least one card matches, since the specific
+  card is chosen afterward via a `fetch-from-pile` pending resolution.
+
+Used by *Great Shadow* (ba-62): "During your end-of-turn phase, you may take
+one non-short-event resource or character from your discard pile ... and
+shuffle it into your play deck." Contrast with *The Mouth* (le-24)'s
+structurally identical `recall-to-deck` ability (same action name, same
+`enqueue-pending-fetch` apply), which is organization-phase-only and does
+NOT set `endOfTurnOnly`.
+
+```json
+{ "type": "grant-action", "action": "recall-to-deck",
+  "cost": { "tap": "bearer" }, "endOfTurnOnly": true,
+  "apply": { "type": "enqueue-pending-fetch",
+    "fetchFrom": ["discard-pile"], "fetchCount": 1, "fetchShuffle": true,
+    "fetchTo": "deck",
+    "filter": { "$and": [
+      { "cardType": { "$in": ["minion-character", "minion-resource-item"] } },
+      { "eventType": { "$ne": "short" } } ] } } }
+```
+
 Actions:
 
 - `test-gold-ring` — tap Gandalf to test a gold ring in his company;
@@ -1927,6 +1963,25 @@ untap lock.
 ```json
 { "type": "play-flag", "flag": "bearer-cannot-untap-until-stored" }
 ```
+
+### 15d. `play-flag: "grants-followers"`
+
+Overrides the Balrog's default "may not have any followers" restriction
+(CoE-BA rule, carried on The Balrog ba-3's own card text) when carried by an
+item attached to the Balrog avatar. The restriction is enforced by
+`isBalrogAvatarDef` at three DI-controller eligibility sites
+(`legal-actions/organization-characters.ts`, `organization-companies.ts`,
+`recruit-via-event.ts`); each now also checks
+`hasFollowerGrantPermission(items, cardPool)` (`effects/play-flags.ts`,
+scanning the bearer's attached items for this flag) and skips the exclusion
+when it is present. Only the Balrog avatar is ever matched by
+`isBalrogAvatarDef`, so this flag has no effect on any other character.
+
+```json
+{ "type": "play-flag", "flag": "grants-followers" }
+```
+
+Used by Great Shadow (ba-62): "The Balrog gains ... and may have followers."
 
 ### 15a. `extra-troll-leader-slot`
 

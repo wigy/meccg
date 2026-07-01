@@ -45,3 +45,20 @@ export function hasNoDirectInfluenceRestriction(
     return hasPlayFlag(def, 'no-direct-influence');
   });
 }
+
+/**
+ * Returns true if any item attached to a character carries the
+ * `grants-followers` play-flag. Used to override the Balrog's default
+ * "may not have any followers" restriction (ba-3, enforced via
+ * `isBalrogAvatarDef`) when a Demon fána card such as Great Shadow
+ * (ba-62) is attached: "The Balrog gains ... and may have followers."
+ */
+export function hasFollowerGrantPermission(
+  items: readonly CardInPlay[],
+  cardPool: Readonly<Record<string, unknown>>,
+): boolean {
+  return items.some(item => {
+    const def = cardPool[item.definitionId as string] as { readonly effects?: readonly CardEffect[] } | undefined;
+    return hasPlayFlag(def, 'grants-followers');
+  });
+}

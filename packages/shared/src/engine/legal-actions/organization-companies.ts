@@ -17,7 +17,7 @@ import type {
   CardEffect,
   CompanyId,
 } from '../../index.js';
-import { hasNoDirectInfluenceRestriction } from '../../effects/play-flags.js';
+import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission } from '../../effects/play-flags.js';
 import { buildMovementMap, getReachableSites } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
@@ -484,9 +484,11 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
           // Controller must be under GI (non-follower)
           if (ctrl.controlledBy !== 'general') continue;
           // The Balrog (ba-3) "may not have any followers" — excluded even
-          // though he is under general influence.
+          // though he is under general influence, unless a fána card such as
+          // Great Shadow (ba-62) grants him the permission (`grants-followers`
+          // play-flag on an attached item).
           const ctrlDef = resolveDef(state, ctrl.instanceId);
-          if (isBalrogAvatarDef(ctrlDef)) continue;
+          if (isBalrogAvatarDef(ctrlDef) && !hasFollowerGrantPermission(ctrl.items, state.cardPool)) continue;
           // Enforce control-source restriction (e.g. "only by general influence
           // or a Fallen-wizard"): skip controllers the restriction disallows.
           const ctrlName = isCharacterCard(ctrlDef) ? ctrlDef.name : '?';
