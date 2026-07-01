@@ -1233,6 +1233,7 @@
     "id": "le-100",
     "name": "Wild Trolls",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WildTrolls.jpg",
+    "certified": "2026-07-01",
     "unique": false,
     "strikes": 2,
     "prowess": 10,
@@ -1242,6 +1243,7 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness"
         ],
         "siteTypes": [
