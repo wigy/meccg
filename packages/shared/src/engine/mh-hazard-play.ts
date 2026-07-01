@@ -22,6 +22,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapA
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CompanyId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
+import { shuffle } from '../rng.js';
 import { buildMovementMap, getReachableSites } from '../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
@@ -63,6 +64,21 @@ export function handlePlayHazards(
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
   const isResourcePlayer = action.player === state.activePlayer;
+
+  // --- Rule 5.24: Sideboarding with a Nazgûl ---
+  if (action.type === 'sideboard-with-nazgul') {
+    return handleSideboardWithNazgul(state, action, mhState);
+  }
+  if (action.type === 'fetch-hazard-from-sideboard') {
+    return handleFetchHazardFromSideboardMH(state, action, mhState);
+  }
+  // While the "bring up to five to discard" sub-flow is active, the hazard
+  // player's 'pass' exits the sub-flow instead of ending their play-hazards
+  // turn (mirrors the untap-phase hazard-sideboard sub-flow).
+  if (action.type === 'pass' && !isResourcePlayer && mhState.nazgulSideboardDestination === 'discard') {
+    logDetail(`Rule 5.24: hazard player done fetching to discard (${mhState.nazgulSideboardFetched} card(s))`);
+    return { state: { ...state, phaseState: { ...mhState, nazgulSideboardDestination: null } } };
+  }
 
   // --- Pass ---
   if (action.type === 'pass') {
@@ -193,6 +209,109 @@ export function handlePlayHazards(
   return result;
 }
 
+/** Minimum play deck size required to fetch a Nazgûl-sideboarded hazard to deck (rule 5.24). */
+const MIN_DECK_SIZE_FOR_NAZGUL_TO_DECK = 5;
+
+/**
+ * Rule 5.24: tap and discard an untapped Nazgûl permanent-event the hazard
+ * player controls to open a sideboard sub-flow (bring up to five hazards to
+ * discard, or one hazard directly into the play deck). The Nazgûl's normal
+ * tap effect (converting to a short-event) does not apply — it is discarded
+ * outright — and this counts as one hazard against the hazard limit.
+ */
+function handleSideboardWithNazgul(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'sideboard-with-nazgul') return wrongActionType(state, action, 'sideboard-with-nazgul');
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: 'Nazgûl permanent-event not found in play' };
+  if (card.status === CardStatus.Tapped) return { state, error: 'Nazgûl is already tapped' };
+  const def = defById(state, card.definitionId);
+  if (!def || def.cardType !== 'hazard-event' || !(def.keywords ?? []).includes('Nazgûl')) {
+    return { state, error: 'Target is not a Nazgûl permanent-event' };
+  }
+  if (action.destination === 'deck' && player.playDeck.length < MIN_DECK_SIZE_FOR_NAZGUL_TO_DECK) {
+    return { state, error: 'Play deck must have at least 5 cards to fetch a hazard to it' };
+  }
+
+  logDetail(`Rule 5.24: ${player.name} taps and discards Nazgûl "${def.name}" to access sideboard (${action.destination})`);
+  const afterDiscard = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+
+  return {
+    state: {
+      ...afterDiscard,
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+        nazgulSideboardDestination: action.destination,
+        nazgulSideboardFetched: 0,
+      },
+    },
+  };
+}
+
+/**
+ * Rule 5.24 follow-up: fetch one hazard card from the sideboard during the
+ * active Nazgûl sideboard sub-flow, to the discard pile or (shuffled) into
+ * the play deck. Mirrors the untap-phase hazard-sideboard fetch
+ * (`fetch-hazard-from-sideboard` is the same action/type in both flows).
+ */
+function handleFetchHazardFromSideboardMH(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'fetch-hazard-from-sideboard') return wrongActionType(state, action, 'fetch-hazard-from-sideboard');
+  if (!mhState.nazgulSideboardDestination) return { state, error: 'No active Nazgûl sideboard sub-flow' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
+  if (cardIdx === -1) return { state, error: 'Sideboard card not found' };
+  const sideboardCard = player.sideboard[cardIdx];
+  const def = defById(state, sideboardCard.definitionId)!;
+  const destination = mhState.nazgulSideboardDestination;
+
+  const newSideboard = [...player.sideboard];
+  newSideboard.splice(cardIdx, 1);
+
+  let nextState: GameState;
+  if (destination === 'discard') {
+    logDetail(`Rule 5.24: sideboard → discard: ${def.name} (${action.sideboardCardInstanceId as string})`);
+    nextState = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      sideboard: newSideboard,
+      discardPile: [...p.discardPile, sideboardCard],
+    }));
+  } else {
+    logDetail(`Rule 5.24: sideboard → play deck: ${def.name} (${action.sideboardCardInstanceId as string}), shuffling`);
+    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, sideboardCard], state.rng);
+    nextState = {
+      ...updatePlayer(state, playerIndex, p => ({ ...p, sideboard: newSideboard, playDeck: shuffledDeck })),
+      rng: nextRng,
+    };
+  }
+
+  return {
+    state: {
+      ...nextState,
+      phaseState: {
+        ...mhState,
+        nazgulSideboardFetched: mhState.nazgulSideboardFetched + 1,
+        // Deck destination: exit sub-flow after 1 card; discard: stay in sub-flow.
+        nazgulSideboardDestination: destination === 'deck' ? null : destination,
+      },
+    },
+  };
+}
 
 /**
  * Generate a unique CompanyId for a new agent in-play record.

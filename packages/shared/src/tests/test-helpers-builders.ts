@@ -752,6 +752,8 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
     hazardsEncountered: [],
     ahuntAttacksResolved: 0,
     corruptionCardsPlayedPerChar: {},
+    nazgulSideboardDestination: null,
+    nazgulSideboardFetched: 0,
     ...overrides,
   };
 }

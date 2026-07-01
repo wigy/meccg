@@ -320,6 +320,8 @@ describe('Twilight (tw-106)', () => {
       hazardsEncountered: [],
       ahuntAttacksResolved: 0,
       corruptionCardsPlayedPerChar: {},
+      nazgulSideboardDestination: null,
+      nazgulSideboardFetched: 0,
     };
     const mhGameState: GameState = { ...state, phaseState: mhState };
 
@@ -382,6 +384,8 @@ describe('Twilight (tw-106)', () => {
       hazardsEncountered: [],
       ahuntAttacksResolved: 0,
       corruptionCardsPlayedPerChar: {},
+      nazgulSideboardDestination: null,
+      nazgulSideboardFetched: 0,
     };
     const mhGameState: GameState = { ...state, phaseState: mhState };
 

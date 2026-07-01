@@ -94,6 +94,8 @@ describe('Rule 5.16 — Step 7: Play Hazards', () => {
       hazardsEncountered: [],
       ahuntAttacksResolved: 0,
       corruptionCardsPlayedPerChar: {},
+      nazgulSideboardDestination: null,
+      nazgulSideboardFetched: 0,
     };
     const mhGameState: GameState = { ...state, phaseState: mhState };
 

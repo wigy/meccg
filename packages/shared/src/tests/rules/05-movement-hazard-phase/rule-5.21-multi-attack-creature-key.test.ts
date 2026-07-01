@@ -16,5 +16,13 @@
 import { describe, test } from 'vitest';
 
 describe('Rule 5.21 — Multi-Attack Creature Key Validity', () => {
+  // `PlayHazardAction.keyedBy` records which keying rule matched at play
+  // time, but nothing re-checks it before each of a multi-strike creature's
+  // attacks — `checkCreatureKeying` is only ever called once, at play time
+  // (grep confirms no call site in combat-actions.ts/combat-strike.ts/
+  // combat-finalize.ts). A company's site path also never changes mid-combat
+  // in the current engine, so there is no scenario with existing cards where
+  // a previously-valid key would become invalid between strikes to exercise
+  // the "immediately discarded without effect" behavior against.
   test.todo('Declared key remains active condition for each attack; if key invalid, creature discarded without effect');
 });
