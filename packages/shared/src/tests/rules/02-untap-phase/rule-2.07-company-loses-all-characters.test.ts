@@ -21,6 +21,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   GATES_OF_MORNING,
   CardStatus, addCardInPlay,
+  makeShadowMHState, makeBodyCheckCombat, findCharInstanceId, companyIdAt,
 } from '../../test-helpers.js';
 import type { CardInstanceId, CompanyId } from '../../test-helpers.js';
 import type { FreeCouncilPhaseState } from '../../../index.js';
@@ -247,5 +248,48 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     expect(after.players[RESOURCE_PLAYER].siteDeck.some(c => c.instanceId === moriaInstId)).toBe(false);
   });
 
-  test.todo('During movement/hazard phase: site stays until end of all M/H phases');
+  test('During movement/hazard phase: site stays until end of all M/H phases', () => {
+    // Aragorn alone at Rivendell (untapped), mid-way through his company's
+    // M/H phase. A failed body check (roll 12 > Aragorn's body 9) eliminates
+    // him, emptying the company.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const rivendellInstId = state.players[RESOURCE_PLAYER].companies[0].currentSite!.instanceId;
+
+    const readyState = {
+      ...state,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: aragornId }),
+      cheatRollTotal: 12,
+    };
+    const afterElimination = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+
+    // Aragorn eliminated, company now empty — but this happened during the
+    // company's own M/H phase, so Rivendell must stay in play rather than
+    // being immediately returned or discarded.
+    expect(afterElimination.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(true);
+    expect(afterElimination.players[RESOURCE_PLAYER].companies.some(c => c.currentSite?.instanceId === rivendellInstId)).toBe(true);
+    expect(afterElimination.players[RESOURCE_PLAYER].siteDeck.some(c => c.instanceId === rivendellInstId)).toBe(false);
+    expect(afterElimination.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === rivendellInstId)).toBe(false);
+
+    // Both players pass to conclude the company's M/H phase — with no
+    // companies remaining, the turn advances straight past the Site phase
+    // (rule 6.17), and the normal end-of-M/H-phase site rules now apply:
+    // Rivendell was untapped, so it returns to the site deck.
+    const afterPass1 = dispatch(afterElimination, { type: 'pass', player: PLAYER_1 });
+    const afterPass2 = dispatch(afterPass1, { type: 'pass', player: PLAYER_2 });
+
+    expect(afterPass2.players[RESOURCE_PLAYER].siteDeck.some(c => c.instanceId === rivendellInstId)).toBe(true);
+    expect(afterPass2.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === rivendellInstId)).toBe(false);
+  });
 });
