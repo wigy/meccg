@@ -14,7 +14,7 @@
 
 import type { GameState } from '../index.js';
 import type { ActiveConstraint, AttributePath, ConstraintId } from '../types/pending.js';
-import type { CardDefinitionId, SiteType } from '../types/common.js';
+import type { CardDefinitionId, RegionType, SiteType } from '../types/common.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasSiteFlag } from './reducer-utils.js';
 
@@ -90,6 +90,35 @@ export function getEffectiveSiteType(
     const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
     if (filterSiteDefId !== (siteDefinitionId as string)) continue;
     value = c.kind.value as SiteType;
+  }
+  return value;
+}
+
+/**
+ * Returns the effective {@link RegionType} of a named region after folding in
+ * any active `region.type` `override` `attribute-modifier` constraint whose
+ * `filter.region.name` matches. Returns `printedType` when none applies.
+ *
+ * Rule 5.09: a region-type override created against a specific region name
+ * (e.g. Deeper Shadow, le-179, via its `'destination'` token — resolved to
+ * a concrete name by `constraint-kind.ts` at creation time) is scoped to
+ * `company-mh-phase`/`turn`, so it is only ever visible while that
+ * constraint is active — matching the rule's "reflected in that same site
+ * path... but nowhere else" behavior for the turn it's in effect. The last
+ * matching override wins.
+ */
+export function getEffectiveRegionType(
+  state: GameState,
+  regionName: string,
+  printedType: RegionType,
+): RegionType {
+  let value: RegionType = printedType;
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'attribute-modifier') continue;
+    if (c.kind.attribute !== 'region.type' || c.kind.op !== 'override') continue;
+    const filterRegionName = (c.kind.filter as { 'region.name'?: string } | undefined)?.['region.name'];
+    if (filterRegionName !== regionName) continue;
+    value = c.kind.value as RegionType;
   }
   return value;
 }

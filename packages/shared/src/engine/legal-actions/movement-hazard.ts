@@ -244,6 +244,19 @@ function revealNewSiteActions(
   }
 
   logDetail(`${actions.length} possible movement path(s) for company ${company.id as string}`);
+
+  // Rule 5.04: if the company was moving but no legal path reaches its
+  // declared destination (e.g. a region path that fit at organization-phase
+  // declaration time no longer fits `mhState.maxRegionDistance`, which is
+  // recomputed fresh here after `extraRegionDistance` resets to 0 at the
+  // Long-event → Movement/Hazard transition), the movement is illegal.
+  // Offer 'pass' so `handleRevealNewSite` can negate it: the destination
+  // returns to the location deck and the company still conducts a full
+  // movement/hazard phase at its current site.
+  if (actions.length === 0) {
+    logDetail(`Company ${company.id as string} was moving to ${destDef.name} but no legal path remains — movement illegal (rule 5.04), offering pass to negate it`);
+    return [{ type: 'pass', player: playerId }];
+  }
   return actions;
 }
 

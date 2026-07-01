@@ -37,6 +37,7 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, initiateOrPushChain } from './chain-reducer.js';
 import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
+import { getEffectiveRegionType } from './effective.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { autoMergeNonHavenCompanies, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, playerById, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -1739,10 +1740,23 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
     destinationSite: { sitePath: destPathCounts },
   };
 
+  // Rule 5.09: fold in any active region-type override (e.g. Deeper Shadow,
+  // le-179) before computing keying candidates. Region movement's resolved
+  // path/names arrays are index-parallel (each declared region contributes
+  // one type and one name together — see `handleRevealNewSite`), so an
+  // override matched by region name can be mapped back onto the type array
+  // at the same index. Starter/special movement's arrays aren't
+  // index-parallel (site-path types vs. just origin/destination names), so
+  // the override is skipped there — there is no reliable region to attribute
+  // it to.
+  const effectiveSitePath = mhState.resolvedSitePath.length === mhState.resolvedSitePathNames.length
+    ? mhState.resolvedSitePath.map((rt, i) => getEffectiveRegionType(state, mhState.resolvedSitePathNames[i], rt))
+    : mhState.resolvedSitePath;
+
   // region-keying-boost environments (Withered Lands): build the candidate
   // paths once. Each is the resolved path with at most one boost applied.
   const keyingBoosts = collectRegionKeyingBoosts(state);
-  const candidateRegionPaths = regionPathsWithBoosts(mhState.resolvedSitePath, keyingBoosts);
+  const candidateRegionPaths = regionPathsWithBoosts(effectiveSitePath, keyingBoosts);
 
   for (const key of def.keyedTo) {
     // When-condition guards the entry (DoN, sitePath-count conditions, etc.)

@@ -66,11 +66,18 @@ describe('Rule 5.29 — Other Company Actions During M/H', () => {
   });
 
   // The "unless the action would cancel an attack or untap a site" carve-out
-  // is not separately verified: cancel-attack short-events are scoped to the
-  // single active combat by the combat system itself (there is no mechanism
-  // by which a character in a different company could name a target for
-  // canceling *this* company's attack), and no card currently exercises an
-  // "untap a site" resource action to probe against. Both would need bespoke
-  // fixtures rather than a general-purpose one.
+  // is not separately verified. Checked both halves concretely:
+  // - "untap a site": the only `untap-site` grant-actions in the card pool
+  //   (Records Unread as-130, Thrór's Map as-134/td-158, The Worthy Hills
+  //   as-142) are all gated to organization or site phase — none set
+  //   `anyPhase: true`, and `movement-hazard.ts`'s play-hazards step calls
+  //   `grantedActionActivations(state, playerId, 'anyPhase')`, which
+  //   requires that flag. So `untap-site` is structurally unreachable during
+  //   the M/H phase at all with current cards — there's nothing for the
+  //   cross-company carve-out to restrict yet.
+  // - "cancel an attack": cancel-attack short-events are scoped to the
+  //   single active combat by the combat system itself — there is no
+  //   mechanism by which a character in a different company could even name
+  //   a target for canceling *this* company's attack.
   test.todo('A resource/character action that would cancel an attack or untap a site is not available using an entity from a different company');
 });
