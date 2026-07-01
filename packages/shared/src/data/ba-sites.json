@@ -564,6 +564,7 @@
     "hazardDraws": 1,
     "text": "Adjacent Sites: Mount Gram (0), The Iron-deeps (7), The Under-leas (5), The Drowning-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Any Undead creature may be keyed to this site.",
     "unique": true,
+    "certified": "2026-07-01",
     "effects": [
       {
         "type": "site-rule",
