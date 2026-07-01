@@ -126,6 +126,14 @@ function detainmentAlignmentLabel(a: Alignment): string {
 }
 
 export function isDetainmentAttack(ctx: DetainmentContext): boolean {
+  const forcedDetainmentRule = (ctx.defendingSiteEffects ?? []).find(
+    e => e.type === 'site-rule' && e.rule === 'attacks-are-detainment',
+  );
+  if (forcedDetainmentRule) {
+    logDetail('Detainment: forced by site-rule attacks-are-detainment');
+    return true;
+  }
+
   const siteOverride = (ctx.defendingSiteEffects ?? []).find(
     e => e.type === 'site-rule' && e.rule === 'attacks-not-detainment',
   );
