@@ -112,6 +112,8 @@ export interface ResolverContext {
     readonly race: string;
     /** Home site names parsed from the character's `homesite` string, for conditions like `{ "target.homesite": { "$includes": "Edoras" } }`. */
     readonly homesite?: readonly string[];
+    /** The target character's keyword tags, for conditions like `{ "target.keywords": { "$includes": "Balrog-specific" } }`. */
+    readonly keywords?: readonly string[];
   };
   /** Additional context properties for extensibility. */
   readonly [key: string]: unknown;

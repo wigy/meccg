@@ -146,6 +146,7 @@ export function availableDI(
           name: targetDef.name,
           race: targetDef.race,
           homesite: parseHomesiteNames(targetDef.homesite ?? ''),
+          keywords: targetDef.keywords ?? [],
         },
       };
       const charEffects = collectCharacterEffects(state, controller, resolverCtx);

@@ -19,7 +19,8 @@
     "marshallingCategory": "character",
     "homesite": "Moria",
     "keywords": [
-      "Leader"
+      "Leader",
+      "Balrog-specific"
     ],
     "effects": [
       {
@@ -91,7 +92,8 @@
     "marshallingCategory": "character",
     "homesite": "Moria",
     "keywords": [
-      "Leader"
+      "Leader",
+      "Balrog-specific"
     ],
     "effects": [
       {
@@ -163,7 +165,60 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Moria, The Under-gates",
-    "effects": [],
+    "keywords": [
+      "Leader",
+      "Balrog-specific"
+    ],
+    "discardBodyCheck": [
+      9
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.keywords": { "$includes": "Balrog-specific" }
+        }
+      }
+    ],
     "text": "Unique. Balrog specific. Leader. Manifestation of Bûthrakaur the Green. Discard on a body check result of 9. +3 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters."
   },
   {
@@ -186,6 +241,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "any non-Dark-hold Under-deeps site",
+    "keywords": [
+      "Balrog-specific"
+    ],
     "effects": [],
     "text": "Balrog specific. Discard on a body check result of 7."
   },
@@ -208,6 +266,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "any non-Dark-hold Under-deeps site",
+    "keywords": [
+      "Balrog-specific"
+    ],
     "effects": [],
     "text": "Balrog specific. Discard on a body check result of 7."
   },
@@ -230,6 +291,9 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "any non-Dark-hold Under-deeps site",
+    "keywords": [
+      "Balrog-specific"
+    ],
     "effects": [],
     "text": "Balrog specific. Discard on a body check result of 7."
   },
@@ -254,6 +318,10 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Moria, The Under-gates",
+    "keywords": [
+      "Leader",
+      "Balrog-specific"
+    ],
     "effects": [],
     "text": "Unique. Balrog specific. Leader. Manifestation of Umagaur the Pale. Discard on a body check result of 9. +2 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters."
   }

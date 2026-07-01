@@ -33,6 +33,7 @@ Keywords are string tags on a card's `keywords` array. They drive classification
 Character-specific keywords:
 
 - `"Leader"`, `"Uruk-hai"`, `"Olog-hai"` — minion character subgroupings used in condition filters (e.g. faction influence bonuses gated on `"Leader"`).
+- `"Balrog-specific"` — carried by minion characters whose text reads "Balrog specific" (CoE 1.3.4/1.3.B4-5: the card is specific to the Balrog avatar). Exposed as `target.keywords` in the `influence-check` resolver context (`availableDI` in `legal-actions/organization.ts`) so a bonus like `{ "when": { "reason": "influence-check", "target.keywords": { "$includes": "Balrog-specific" } } }` can target them the same way `target.race` does. Used by Bûthrakaur (ba-5): "+3 direct influence against Balrog specific characters."
 - `"agent"` — the character is an agent. Agents count as both a character and a hazard for deck-building. They have home sites, can be played as a hazard face-down, and are subject to the 36-mind agent limit. No behaviour is gated on this keyword yet; it is present as a data marker for future rule enforcement (rule 1.05, 3.15, 9.x).
 
 ## Value Expressions

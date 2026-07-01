@@ -315,6 +315,7 @@ export type Keyword =
   | 'Uruk-hai'
   | 'Olog-hai'
   | 'Half-orc'
+  | 'Balrog-specific'
   | 'agent'
   | 'dragon-manifestation'
   | 'corruption'
