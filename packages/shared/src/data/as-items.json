@@ -600,7 +600,8 @@
         }
       }
     ],
-    "text": "Unique. Playable at any Under-deeps Shadow-hold [{S}]. Weapon. +2 direct influence. Warrior only: +3 prowess (to a maximum of 11); -1 to strike’s body; tap this item to make a character at the same site automatically pass a corruption check. When this item becomes tapped, bearer makes a corruption check."
+    "text": "Unique. Playable at any Under-deeps Shadow-hold [{S}]. Weapon. +2 direct influence. Warrior only: +3 prowess (to a maximum of 11); -1 to strike’s body; tap this item to make a character at the same site automatically pass a corruption check. When this item becomes tapped, bearer makes a corruption check.",
+    "certified": "2026-07-02"
   },
   {
     "cardType": "minion-resource-item",
