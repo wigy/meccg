@@ -539,7 +539,7 @@ function handleSiteAutomaticAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  if (action.type !== 'pass') {
+  if (action.type !== 'pass' && action.type !== 'cancel-auto-attack') {
     return { state, error: `Expected 'pass' during automatic-attacks step` };
   }
 
@@ -578,6 +578,41 @@ function handleSiteAutomaticAttacks(
       logDetail(`Site: skipping automatic-attack ${resolveIdx + 1}/${autoAttacks.length} (${autoAttacks[resolveIdx].creatureType}, against ${autoAttacks[resolveIdx].appliesTo} company only) — company is ${defendingCovert ? 'covert' : 'overt'}`);
       resolveIdx++;
     }
+  }
+
+  // CRF Site Phase / Automatic-attacks: "Any character may tap to cancel one
+  // automatic-attack at his home site" if the home site is named. The
+  // canceled attack still counts as faced — advance past it exactly like a
+  // resolved attack, without initiating combat. Not offered for Forewarned's
+  // single fixed selection (see legal-actions/site.ts).
+  if (action.type === 'cancel-auto-attack') {
+    if (forewarnedIdx !== undefined || resolveIdx >= autoAttacks.length) {
+      return { state, error: `No automatic-attack left to cancel` };
+    }
+    const char = state.players[activePlayerIndex].characters[action.characterId];
+    const charDef = char ? defById(state, char.definitionId) : undefined;
+    if (!char || !charDef || !isCharacterCard(charDef)) {
+      return { state, error: `${action.characterId} is not a character` };
+    }
+    if (char.status !== CardStatus.Untapped) {
+      return { state, error: `${charDef.name} must be untapped to cancel an automatic-attack` };
+    }
+    if (!company.characters.includes(action.characterId)) {
+      return { state, error: `${charDef.name} is not in the active company` };
+    }
+    if (!parseHomesiteNames(charDef.homesite ?? '').includes(siteDef.name)) {
+      return { state, error: `${charDef.name}'s home site does not include "${siteDef.name}"` };
+    }
+    logDetail(`Site: ${charDef.name} taps to cancel automatic-attack ${resolveIdx + 1}/${autoAttacks.length} (${autoAttacks[resolveIdx].creatureType}) at home site "${siteDef.name}"`);
+    return {
+      state: {
+        ...updatePlayer(state, activePlayerIndex, p => ({
+          ...p,
+          characters: { ...p.characters, [action.characterId]: { ...char, status: CardStatus.Tapped } },
+        })),
+        phaseState: { ...siteState, automaticAttacksResolved: resolveIdx + 1 },
+      },
+    };
   }
 
   // When Forewarned Is Forearmed selected a single attack, only that attack
@@ -621,6 +656,7 @@ function handleSiteAutomaticAttacks(
           defendingAlignment: state.players[activePlayerIndex].alignment,
           defendingCovert,
           defendingSiteEffects: siteDef.effects,
+          isAutomaticAttack: true,
         });
         const dupCombatR: CombatState = makeCombatState({
           attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
@@ -669,6 +705,7 @@ function handleSiteAutomaticAttacks(
         defendingAlignment: state.players[activePlayerIndex].alignment,
         defendingCovert,
         defendingSiteEffects: siteDef.effects,
+        isAutomaticAttack: true,
       });
       const dupCombat: CombatState = makeCombatState({
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
@@ -774,6 +811,7 @@ function handleSiteAutomaticAttacks(
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingCovert,
       defendingSiteEffects: siteDef.effects,
+      isAutomaticAttack: true,
     }),
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
     // "cannot be canceled" (Vile Fumes' Gas wh-54, Shelob's Lair le-402)
@@ -856,6 +894,7 @@ function buildSiteRepeatedAttackCombat(
     defendingAlignment: state.players[activePlayerIndex].alignment,
     defendingCovert,
     defendingSiteEffects: siteDef.effects,
+    isAutomaticAttack: true,
   });
   const base: CombatState = {
     attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex },
@@ -1366,6 +1405,7 @@ function handleSitePlaySiteAutoAttack(
       inPlayNames,
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingSiteEffects: siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined,
+      isAutomaticAttack: true,
     }),
   });
 

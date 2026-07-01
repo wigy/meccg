@@ -2185,10 +2185,14 @@ Rules:
 - `auto-test-gold-ring` — storing a gold-ring item at this site enqueues
   a `gold-ring-test` pending resolution with the rule's `rollModifier`.
   The gold-ring-test handler rolls 2d6 + modifier, logs the outcome,
-  and discards the ring regardless of result (Rule 9.21 / 9.22).
-  Requires that the gold-ring item also declares `storable-at` for the
-  site. Rule 9.21's replacement-with-special-ring step is not yet
-  implemented.
+  and discards the ring regardless of result (Rule 9.21 / 9.22), then
+  unconditionally enqueues a `ring-play-offer` resolution so the player
+  may immediately play a matching special ring item in its place (or
+  pass), per the replacement step of Rule 9.21 — implemented in
+  `applyGoldRingTestResolution`/`applyRingPlayOfferResolution`
+  (`engine/pending-reducers.ts`) and `ringPlayOfferActions`
+  (`engine/legal-actions/pending.ts`). Requires that the gold-ring item
+  also declares `storable-at` for the site.
 
   ```json
   { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 }
@@ -2198,17 +2202,62 @@ Rules:
   site to be resolved as normal attacks rather than detainment,
   overriding the default CoE §3.II.2 R1/R2/R3 and B1/B2/B3 rules and
   any keying-based detainment. The optional `filter` is a standard DSL
-  condition evaluated against `{ enemy: { race } }`; the override only
-  applies when the attacking creature matches. A missing filter applies
-  the override to every attack at the site. Consumed by
-  `engine/detainment.ts` (both hazard-creature and automatic-attack call
-  sites). Used by *Moria* (le-392) and its twin shadow-holds whose text
-  reads "non-Nazgûl creatures played at this site attack normally, not
-  as detainment."
+  condition evaluated against `{ enemy: { race }, attack: { automatic } }`
+  — `enemy.race` is the attacking creature's race; `attack.automatic` is
+  `true` only for the site's own listed automatic-attack (static or the
+  dynamically-played `dynamic-auto-attack` 2nd attack) and `false` for a
+  hazard creature played normally against the company. The override only
+  applies when the attack matches. A missing filter applies the override
+  to every attack at the site. Consumed by `engine/detainment.ts` (both
+  hazard-creature and automatic-attack call sites). Used by *Moria*
+  (le-392) and its twin shadow-holds whose text reads "non-Nazgûl
+  creatures played at this site attack normally, not as detainment."
 
   ```json
   { "type": "site-rule", "rule": "attacks-not-detainment",
     "filter": { "enemy.race": { "$ne": "nazgul" } } }
+  ```
+
+  `attack.automatic` lets a site's own automatic-attack keep a
+  separately-declared `combat-detainment` effect while every other attack
+  at the site is exempted — used by *The Under-leas* (ba-102): "Creatures
+  keyed to this site attack normally, not as detainment" alongside a 1st
+  automatic-attack that is itself unconditionally detainment.
+
+  ```json
+  { "type": "site-rule", "rule": "attacks-not-detainment",
+    "filter": { "attack.automatic": false } }
+  ```
+
+- `keyed-creatures-detainment` — forces attacks at this site to be
+  resolved as detainment whenever the attacking hazard creature is keyed
+  to the site *by name* (a `keyedTo` entry whose `siteNames` includes
+  this site's own name, e.g. Watcher in the Water's "May also be played
+  at Moria" alternate keying). Unlike the default CoE §3.II.2 R1-R3/B1-B3
+  rules (which only ever produce detainment for Ringwraith/Balrog
+  defenders), this rule applies regardless of the defending player's
+  alignment — the detainment status is a property of the site, not the
+  defender. Consumed by `engine/detainment.ts`
+  (`isDetainmentAttack`/hazard-creature call site in
+  `chain-reducer.ts::initiateCreatureCombat`). Used by Moria (ba-93):
+  "Creatures keyed to this site are/attack as detainment."
+
+  ```json
+  { "type": "site-rule", "rule": "keyed-creatures-detainment" }
+  ```
+
+- `attacks-are-detainment` — mirror of `attacks-not-detainment`: forces
+  every attack against a company at this site to be treated as
+  detainment, overriding the default CoE §3.II.2 R1/R2/R3 and B1/B2/B3
+  computation even when the attacker's race/keying or the defending
+  alignment would not otherwise make it so. Consumed by
+  `engine/detainment.ts` (checked before the default computation, same
+  call sites as `attacks-not-detainment`). Used by *The Under-gates*
+  (ba-100), a Balrog Darkhaven printed as a Haven site type: "Creatures
+  keyed to this site attack as detainment."
+
+  ```json
+  { "type": "site-rule", "rule": "attacks-are-detainment" }
   ```
 
 - `deny-character` — during the organization phase, characters whose card
