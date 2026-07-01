@@ -492,6 +492,26 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     const allyOverrideBody = allyMatch ? allyEffectiveBody(stateWithRoll, allyMatch.ally) : undefined;
     const printedBody = allyOverrideBody ?? charDef2?.body ?? 9;
     let body = printedBody; // Default body if not specified
+    // CvCC weapon effects: the attacking character's `enemy-modifier` (body,
+    // subtract/halve) effects reduce the defending character's body-check
+    // target, mirroring how the same DSL effect reduces a hazard creature's
+    // body. Used by Ancient Black Axe (as-122): "Warrior only: -1 to strike's
+    // body."
+    if (combat.isCvCC && strike.attackingCharacterId && charData && !allyMatch) {
+      const atkPlayerIdxCvCC = getPlayerIndex(stateWithRoll, combat.attackingPlayerId);
+      const attackerCharData = stateWithRoll.players[atkPlayerIdxCvCC].characters[strike.attackingCharacterId];
+      if (attackerCharData) {
+        const targetCharDef = defById(stateWithRoll, charData.definitionId);
+        const targetRace = isCharacterCard(targetCharDef) ? targetCharDef.race : '';
+        const inPlayNamesAtk = buildInPlayNames(stateWithRoll);
+        const enemyCtx = { race: targetRace, name: targetName, prowess: 0, body };
+        const modifiedBody = resolveEnemyBody(stateWithRoll, attackerCharData, enemyCtx, body, inPlayNamesAtk);
+        if (modifiedBody !== body) {
+          logDetail(`CvCC attacker weapon modified defender body: ${body} → ${modifiedBody}`);
+          body = modifiedBody;
+        }
+      }
+    }
     // Dodge body penalty: if the character was dodging and got wounded, apply body modifier
     if (strike.dodged && strike.dodgeBodyPenalty) {
       logDetail(`Dodge body penalty: body ${body} + (${strike.dodgeBodyPenalty}) = ${body + strike.dodgeBodyPenalty}`);

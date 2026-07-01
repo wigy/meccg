@@ -18,7 +18,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState } from '../index.js';
-import type { AhuntAttackEffect } from '../types/effects.js';
+import type { AhuntAttackEffect, UnderDeepsRollModifierEffect } from '../types/effects.js';
 import type { CardInstanceId } from '../types/common.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex, companyContainsBalrogAvatar } from '../state-utils.js';
@@ -26,7 +26,7 @@ import { isCharacterCard, isSiteCard } from '../types/cards.js';
 import { RegionType, Race, Skill } from '../types/common.js';
 import { collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
-import type { ResolverContext } from './effects/index.js';
+import type { ResolverContext, CollectedEffect } from './effects/index.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -216,6 +216,26 @@ export function handleRevealNewSite(
       const boosted = Math.max(0, required - 3);
       logDetail(`The Balrog: +3 to Under-deeps movement roll — required ${required} → ${boosted}`);
       required = boosted;
+    }
+    // Items/allies/characters carrying `under-deeps-roll-modifier` (e.g. Iron
+    // Shield of Old) add to the roll — modeled as a required-roll reduction,
+    // the same equivalence used for the Balrog's built-in bonus above.
+    if (required > 0) {
+      const underDeepsModContext: ResolverContext = { reason: 'under-deeps-roll-modifier' };
+      const underDeepsModValue = company.characters.reduce((sum, charInstId) => {
+        const char = player.characters[charInstId];
+        if (!char) return sum;
+        const effects = collectCharacterEffects(state, char, underDeepsModContext);
+        const bonus = effects
+          .filter((r): r is CollectedEffect & { effect: UnderDeepsRollModifierEffect } => r.effect.type === 'under-deeps-roll-modifier')
+          .reduce((s, r) => s + r.effect.value, 0);
+        return sum + bonus;
+      }, 0);
+      if (underDeepsModValue !== 0) {
+        const boosted = Math.max(0, required - underDeepsModValue);
+        logDetail(`under-deeps-roll-modifier: +${underDeepsModValue} to roll — required ${required} → ${boosted}`);
+        required = boosted;
+      }
     }
     logDetail(`Under-deeps roll required: ${required}`);
     if (required === 0) {

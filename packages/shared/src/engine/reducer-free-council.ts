@@ -208,13 +208,15 @@ function resolveCorruptionCheck(
   // check was declared, so they are read at resolution time rather than from
   // the frozen `pending.corruptionModifier`.
   let effectModifier = 0;
+  let autoPass = false;
   for (const constraint of [...state.activeConstraints]) {
     if (constraint.kind.type === 'check-modifier'
         && constraint.kind.check === 'corruption'
         && constraint.target.kind === 'character'
         && constraint.target.characterId === pending.characterId) {
       effectModifier += constraint.kind.value;
-      logDetail(`Free Council: consuming one-shot check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id as string}`);
+      if (constraint.kind.autoPass) autoPass = true;
+      logDetail(`Free Council: consuming one-shot check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id as string}${constraint.kind.autoPass ? ' (auto-pass)' : ''}`);
       state = removeConstraint(state, constraint.id);
     }
   }
@@ -243,7 +245,11 @@ function resolveCorruptionCheck(
   // Classify against the controlling player's alignment (CoE 7.1 / 7.1.F1): a
   // minion character or the Fallen-wizard avatar *taps and succeeds* on a roll
   // of CP or CP-1 rather than failing.
-  const outcome = classifyCorruptionOutcome(charDef, player.alignment, total, cp);
+  let outcome = classifyCorruptionOutcome(charDef, player.alignment, total, cp);
+  if (autoPass && outcome !== 'success') {
+    logDetail(`Free Council corruption check for ${charName} auto-passed (Ancient Black Axe) — overriding outcome '${outcome}' to 'success'`);
+    outcome = 'success';
+  }
 
   if (outcome === 'success' || outcome === 'tap-success') {
     if (outcome === 'tap-success') {

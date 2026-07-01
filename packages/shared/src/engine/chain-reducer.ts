@@ -1532,20 +1532,22 @@ function deriveSiteFacedRaces(state: GameState): string[] {
 }
 
 /**
- * Returns the `effects` array of the site that would be the venue for an
- * attack against the given company. Prefers the company's explicit
- * destination (M/H) or current site references, because the same site
- * name (e.g. "Moria") exists in both hero and minion card pools and a
- * name-based lookup is ambiguous. Used by the detainment helper to
- * consult `site-rule: attacks-not-detainment` (Moria etc.).
+ * Returns the definition of the site that would be the venue for an attack
+ * against the given company. Prefers the company's explicit destination
+ * (M/H) or current site references, because the same site name (e.g.
+ * "Moria") exists in both hero and minion card pools and a name-based
+ * lookup is ambiguous. Used to read both the site's `effects` (consulted
+ * by the detainment helper for `site-rule: attacks-not-detainment`) and
+ * its `name` (for `site-rule: keyed-creatures-detainment`, which matches
+ * attacking creatures keyed to the site by name — e.g. Moria).
  */
-function resolveDefendingSiteEffects(
+function resolveDefendingSiteDef(
   state: GameState,
   company: {
     currentSite?: { definitionId: import('../types/common.js').CardDefinitionId } | null,
     destinationSite?: { instanceId: import('../types/common.js').CardInstanceId } | null,
   },
-): readonly import('../types/effects.js').CardEffect[] {
+): { readonly name?: string, readonly effects?: readonly import('../types/effects.js').CardEffect[] } | undefined {
   let siteDefinitionId: import('../types/common.js').CardDefinitionId | null = null;
   if (company.destinationSite?.instanceId) {
     siteDefinitionId = resolveInstanceId(state, company.destinationSite.instanceId) ?? null;
@@ -1553,9 +1555,9 @@ function resolveDefendingSiteEffects(
   if (!siteDefinitionId && company.currentSite) {
     siteDefinitionId = company.currentSite.definitionId;
   }
-  if (!siteDefinitionId) return [];
-  const siteDef = state.cardPool[siteDefinitionId] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
-  return siteDef?.effects ?? [];
+  if (!siteDefinitionId) return undefined;
+  return state.cardPool[siteDefinitionId] as
+    { readonly name?: string, readonly effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
 }
 
 /**
@@ -1785,6 +1787,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // (e.g. Alatar). If any pending offers match, force a cancel-window so
   // the defender has an explicit opt-in before strike assignment begins.
   const havenJumpOffers = collectHavenJumpOffers(state, resourcePlayer, company.id);
+  const defendingSiteDef = resolveDefendingSiteDef(state, company);
 
   const combat: CombatState = makeCombatState({
     attackSource,
@@ -1806,7 +1809,8 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       attackKeyedTo: creatureDef.keyedTo,
       inPlayNames,
       defendingAlignment: state.players[activePlayerIndex].alignment,
-      defendingSiteEffects: resolveDefendingSiteEffects(state, company),
+      defendingSiteEffects: defendingSiteDef?.effects,
+      defendingSiteName: defendingSiteDef?.name,
     }),
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,
     multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,

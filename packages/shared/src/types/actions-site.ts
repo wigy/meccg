@@ -69,6 +69,28 @@ export interface RevealOnGuardAction {
 }
 
 /**
+ * Tap a character to cancel the next automatic-attack at the company's
+ * current site (CRF Site Phase, Automatic-attacks: "Any character may tap
+ * to cancel one automatic-attack at his home site.").
+ *
+ * Only offered during the `automatic-attacks` step, before that attack's
+ * combat has been initiated, for an untapped character in the active
+ * company whose `homesite` includes the current site's exact name (a
+ * type-based homesite like "Any Dark-hold" never matches a real site name,
+ * satisfying the CRF carve-out that the home site must be named). The
+ * canceled attack still counts as faced — it is not the same as removing
+ * an automatic-attack from the site, which cannot be done this way.
+ */
+export interface CancelAutoAttackAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-auto-attack';
+  /** The resource player tapping their character. */
+  readonly player: PlayerId;
+  /** The home-site character being tapped to cancel the attack. */
+  readonly characterId: CardInstanceId;
+}
+
+/**
  * Play a hazard creature from the hazard player's hand as the site's
  * automatic-attack. Used at sites with a `site-rule: dynamic-auto-attack`
  * effect (e.g. Framsburg td-175).

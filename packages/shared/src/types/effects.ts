@@ -1000,6 +1000,14 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly target?: string;
   /** Numeric payload (check-modifier, *-stat-modifier, hazard-limit-modifier, hand-size-modifier, …). */
   readonly value?: number;
+  /**
+   * For a `check-modifier` payload: when true, the targeted character's next
+   * matching check (e.g. corruption) succeeds unconditionally, regardless of
+   * the roll, instead of being adjusted by {@link value}. Used by Ancient
+   * Black Axe (as-122): "tap this item to make a character at the same site
+   * automatically pass a corruption check."
+   */
+  readonly autoPass?: boolean;
   /** MathJS expression computing a dynamic numeric payload at play time (check-modifier). */
   readonly valueExpr?: string;
   /** Which check a check-modifier applies to. */
@@ -3016,6 +3024,7 @@ export type CardEffect =
   | CompanyCombatBoostEffect
   | PermanentEventAutoAttackEffect
   | PassiveMovementBonusEffect
+  | UnderDeepsRollModifierEffect
   | RegionMovementLimitEffect
   | HazardLimitEnvironmentEffect
   | TakePrisonerEffect
@@ -3074,6 +3083,27 @@ export interface PassiveMovementBonusEffect extends EffectBase {
    * name appears in this list for the bonus to apply.
    */
   readonly allyNames: readonly string[];
+}
+
+/**
+ * Bonus to the 2d6 roll required for a company to move between adjacent
+ * Under-deeps sites (CoE 2.IV.i.1). Carried by an item, ally, or character
+ * card; while the source card is present anywhere in the moving company,
+ * {@link value} is added to the roll — modeled as an equivalent reduction of
+ * the required roll (floored at 0), the same trick used for the Balrog's
+ * built-in +3 (`companyContainsBalrogAvatar` in `mh-steps.ts`). Modifiers
+ * from every company member stack.
+ *
+ * Collected in `mh-steps.ts` (`getUnderDeepsRequiredRoll` call site) via
+ * `collectCharacterEffects` over each character in the moving company.
+ *
+ * Used by Iron Shield of Old (as-127): "+2 to all rolls required for
+ * bearer's company to move to adjacent Under-deeps sites."
+ */
+export interface UnderDeepsRollModifierEffect extends EffectBase {
+  readonly type: 'under-deeps-roll-modifier';
+  /** Bonus added to the roll (equivalently subtracted from the required roll). */
+  readonly value: number;
 }
 
 /**

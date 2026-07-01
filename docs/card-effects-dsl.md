@@ -396,6 +396,20 @@ Operations:
   "when": { "$or": [{ "enemy.race": "dragon" }, { "enemy.race": "drake" }] } }
 ```
 
+`stat: "body"` also applies in company-versus-company combat: when the
+attacking character's own items carry a matching `enemy-modifier` (gated on
+`bearer.skills`, evaluated against the *attacker*), the reduction lowers the
+*defending* character's body-check target — the CvCC mirror of a weapon
+reducing a hazard creature's body. Implemented in `combat-actions.ts`
+(`handleBodyCheckRoll`, `bodyCheckTarget === 'character'` branch, gated on
+`combat.isCvCC` and `strike.attackingCharacterId`). Used by Ancient Black Axe
+(as-122): "Warrior only: ... -1 to strike's body."
+
+```json
+{ "type": "enemy-modifier", "stat": "body", "op": "subtract", "value": 1,
+  "when": { "bearer.skills": { "$includes": "warrior" } } }
+```
+
 ### 6. `hand-size-modifier`
 
 Modifies the player's hand size. Evaluated by `resolveHandSize`, which builds a
@@ -720,6 +734,42 @@ Actions:
       { "type": "add-constraint", "constraint": "check-modifier",
         "check": "corruption", "value": 3, "scope": "until-cleared",
         "target": "action-target-character" },
+      { "type": "enqueue-corruption-check" }
+    ] } }
+  ```
+
+- `auto-pass-corruption-check` — tap this item to grant a character at the
+  bearer's current site (any company, any player, excluding the bearer
+  itself) an unconditional pass on its next corruption check, then the
+  bearer makes a corruption check of their own. Unlike
+  `modify-corruption-check`, this is not restricted to a
+  `corruptionCheckWindow` — the ability is offered any time the item can pay
+  its cost (site-scoped targeting is a dedicated legal-action branch,
+  `effect.action === 'auto-pass-corruption-check'` in
+  `legal-actions/organization.ts`, mirroring `force-discard-dwarf-at-site`'s
+  same-site enumeration), and the granted shield persists (`scope:
+  "until-cleared"`) until the target's next corruption check consumes it,
+  however later that occurs. The `apply` is a `sequence`: an `add-constraint`
+  of a one-shot `check-modifier` carrying `"autoPass": true` (instead of a
+  numeric `value`) targeting `action-target-character`, plus an
+  `enqueue-corruption-check` on the bearer. `autoPass: true` on a
+  `check-modifier` constraint makes both corruption-check resolution paths
+  (the unified pending resolution in `pending-reducers.ts`
+  `applyCorruptionCheckResolution`, and the Free Council window in
+  `reducer-free-council.ts` `resolveCorruptionCheck`) override the roll
+  outcome to `'success'` unconditionally, still consuming the constraint and
+  rolling the dice (for RNG determinism) but ignoring the result. Used by
+  *Ancient Black Axe* (as-122): "tap this item to make a character at the
+  same site automatically pass a corruption check. When this item becomes
+  tapped, bearer makes a corruption check."
+
+  ```json
+  { "type": "grant-action", "action": "auto-pass-corruption-check",
+    "cost": { "tap": "self" }, "anyPhase": true,
+    "apply": { "type": "sequence", "apps": [
+      { "type": "add-constraint", "constraint": "check-modifier",
+        "check": "corruption", "value": 0, "autoPass": true,
+        "scope": "until-cleared", "target": "action-target-character" },
       { "type": "enqueue-corruption-check" }
     ] } }
   ```
@@ -2185,10 +2235,14 @@ Rules:
 - `auto-test-gold-ring` — storing a gold-ring item at this site enqueues
   a `gold-ring-test` pending resolution with the rule's `rollModifier`.
   The gold-ring-test handler rolls 2d6 + modifier, logs the outcome,
-  and discards the ring regardless of result (Rule 9.21 / 9.22).
-  Requires that the gold-ring item also declares `storable-at` for the
-  site. Rule 9.21's replacement-with-special-ring step is not yet
-  implemented.
+  and discards the ring regardless of result (Rule 9.21 / 9.22), then
+  unconditionally enqueues a `ring-play-offer` resolution so the player
+  may immediately play a matching special ring item in its place (or
+  pass), per the replacement step of Rule 9.21 — implemented in
+  `applyGoldRingTestResolution`/`applyRingPlayOfferResolution`
+  (`engine/pending-reducers.ts`) and `ringPlayOfferActions`
+  (`engine/legal-actions/pending.ts`). Requires that the gold-ring item
+  also declares `storable-at` for the site.
 
   ```json
   { "type": "site-rule", "rule": "auto-test-gold-ring", "rollModifier": -2 }
@@ -2198,17 +2252,62 @@ Rules:
   site to be resolved as normal attacks rather than detainment,
   overriding the default CoE §3.II.2 R1/R2/R3 and B1/B2/B3 rules and
   any keying-based detainment. The optional `filter` is a standard DSL
-  condition evaluated against `{ enemy: { race } }`; the override only
-  applies when the attacking creature matches. A missing filter applies
-  the override to every attack at the site. Consumed by
-  `engine/detainment.ts` (both hazard-creature and automatic-attack call
-  sites). Used by *Moria* (le-392) and its twin shadow-holds whose text
-  reads "non-Nazgûl creatures played at this site attack normally, not
-  as detainment."
+  condition evaluated against `{ enemy: { race }, attack: { automatic } }`
+  — `enemy.race` is the attacking creature's race; `attack.automatic` is
+  `true` only for the site's own listed automatic-attack (static or the
+  dynamically-played `dynamic-auto-attack` 2nd attack) and `false` for a
+  hazard creature played normally against the company. The override only
+  applies when the attack matches. A missing filter applies the override
+  to every attack at the site. Consumed by `engine/detainment.ts` (both
+  hazard-creature and automatic-attack call sites). Used by *Moria*
+  (le-392) and its twin shadow-holds whose text reads "non-Nazgûl
+  creatures played at this site attack normally, not as detainment."
 
   ```json
   { "type": "site-rule", "rule": "attacks-not-detainment",
     "filter": { "enemy.race": { "$ne": "nazgul" } } }
+  ```
+
+  `attack.automatic` lets a site's own automatic-attack keep a
+  separately-declared `combat-detainment` effect while every other attack
+  at the site is exempted — used by *The Under-leas* (ba-102): "Creatures
+  keyed to this site attack normally, not as detainment" alongside a 1st
+  automatic-attack that is itself unconditionally detainment.
+
+  ```json
+  { "type": "site-rule", "rule": "attacks-not-detainment",
+    "filter": { "attack.automatic": false } }
+  ```
+
+- `keyed-creatures-detainment` — forces attacks at this site to be
+  resolved as detainment whenever the attacking hazard creature is keyed
+  to the site *by name* (a `keyedTo` entry whose `siteNames` includes
+  this site's own name, e.g. Watcher in the Water's "May also be played
+  at Moria" alternate keying). Unlike the default CoE §3.II.2 R1-R3/B1-B3
+  rules (which only ever produce detainment for Ringwraith/Balrog
+  defenders), this rule applies regardless of the defending player's
+  alignment — the detainment status is a property of the site, not the
+  defender. Consumed by `engine/detainment.ts`
+  (`isDetainmentAttack`/hazard-creature call site in
+  `chain-reducer.ts::initiateCreatureCombat`). Used by Moria (ba-93):
+  "Creatures keyed to this site are/attack as detainment."
+
+  ```json
+  { "type": "site-rule", "rule": "keyed-creatures-detainment" }
+  ```
+
+- `attacks-are-detainment` — mirror of `attacks-not-detainment`: forces
+  every attack against a company at this site to be treated as
+  detainment, overriding the default CoE §3.II.2 R1/R2/R3 and B1/B2/B3
+  computation even when the attacker's race/keying or the defending
+  alignment would not otherwise make it so. Consumed by
+  `engine/detainment.ts` (checked before the default computation, same
+  call sites as `attacks-not-detainment`). Used by *The Under-gates*
+  (ba-100), a Balrog Darkhaven printed as a Haven site type: "Creatures
+  keyed to this site attack as detainment."
+
+  ```json
+  { "type": "site-rule", "rule": "attacks-are-detainment" }
   ```
 
 - `deny-character` — during the organization phase, characters whose card
@@ -5198,6 +5297,30 @@ floor. Consumed both at movement-plan time (`organization-companies.ts`
 (dm-75): "The number of region cards that may be played by a moving company
 using region movement is reduced by one (by two if Doors of Night is in play) to
 a minimum of two."
+
+### 52a. `under-deeps-roll-modifier`
+
+Bonus to the 2d6 roll required for a company to move between adjacent
+Under-deeps sites (CoE 2.IV.i.1). Carried by an item, ally, or character card;
+while the source card is present on any character in the moving company,
+`value` is added to the roll.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `value` | yes | Bonus added to the roll. |
+
+```json
+{ "type": "under-deeps-roll-modifier", "value": 2 }
+```
+
+Behaviour (`mh-steps.ts`, at the `getUnderDeepsRequiredRoll` call site): modeled
+as an equivalent reduction of the *required* roll (floored at 0) — the same
+trick already used for the Balrog's built-in "+3 to the roll for his company to
+move between adjacent Under-deeps sites" (`companyContainsBalrogAvatar`).
+Collected via `collectCharacterEffects` over every character in the moving
+company, so modifiers from multiple company members stack. Used by Iron Shield
+of Old (as-127): "+2 to all rolls required for bearer's company to move to
+adjacent Under-deeps sites."
 
 ### 53. `site-item-trap`
 
