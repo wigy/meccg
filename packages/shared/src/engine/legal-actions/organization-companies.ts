@@ -24,7 +24,7 @@ import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../.
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeOf, isHavenForPlayer, effectiveGeneralInfluence } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, effectiveGeneralInfluence } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
 import { viableWithRegress } from '../reverse-actions.js';
@@ -769,7 +769,8 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
 
         // Rules 3.24–3.26 apply only at non-haven sites.
         if (!atHaven) {
-          const resultingSize = companyEffectiveSizeOf(state, resultingCharIds);
+          const extraLeaderSlots = countCompanyCardEffect(state, targetCompany.id, 'extra-leader-slot');
+          const resultingSize = companyEffectiveSizeExemptingLeaders(state, resultingCharIds, extraLeaderSlots);
           if (resultingSize > 7) {
             logDetail(`  → skip: move ${charDef.name} to ${targetCompany.id as string} — would exceed size limit (${resultingSize} > 7)`);
             continue;
@@ -857,13 +858,33 @@ function wouldViolateRaceMixing(state: GameState, charInstIds: readonly CardInst
 }
 
 /**
+ * Count how many company-bound permanent events in play on `companyId`
+ * carry the given effect type. Used for stacking marker effects such as
+ * `extra-troll-leader-slot` and `extra-leader-slot`, where each copy in play
+ * grants one slot.
+ */
+function countCompanyCardEffect(state: GameState, companyId: CompanyId, effectType: CardEffect['type']): number {
+  let count = 0;
+  for (const p of state.players) {
+    for (const card of p.cardsInPlay) {
+      if ((card.companyId as string | undefined) !== (companyId as string)) continue;
+      const def = state.cardPool[card.definitionId];
+      if (getCardEffects(def).some(e => e.type === effectType)) count++;
+    }
+  }
+  return count;
+}
+
+/**
  * Check if the given characters would violate the leader restriction
  * (CoE rule 3.26): a company may only contain one Leader-keyword character.
  *
  * When `companyId` is provided, checks whether the target company has a
  * company-bound permanent event with `extra-troll-leader-slot` (e.g. *Orders
  * from Lugbúrz*), which allows one Troll Leader in addition to one other
- * leader (total of two leaders, one of which must be a Troll).
+ * leader (total of two leaders, one of which must be a Troll), or with
+ * `extra-leader-slot` (e.g. *Orders from the Great Demon*, ba-70), which
+ * allows one additional Leader of any race per copy in play.
  */
 function wouldViolateLeaderRestriction(
   state: GameState,
@@ -901,18 +922,19 @@ function wouldViolateLeaderRestriction(
 
   if (leaderCount <= 1) return false;
 
-  // When the company has an extra-troll-leader-slot permanent event, one Troll
-  // leader is permitted alongside one other leader (total two leaders allowed).
-  if (companyId && leaderCount === 2 && trollLeaderCount >= 1) {
-    const hasExtraSlot = state.players.some(p =>
-      p.cardsInPlay.some(card => {
-        if ((card.companyId as string | undefined) !== (companyId as string)) return false;
-        const def = state.cardPool[card.definitionId];
-        return getCardEffects(def).some(e => e.type === 'extra-troll-leader-slot');
-      }),
-    );
-    if (hasExtraSlot) {
+  if (companyId) {
+    // When the company has an extra-troll-leader-slot permanent event, one
+    // Troll leader is permitted alongside one other leader (total two).
+    if (leaderCount === 2 && trollLeaderCount >= 1 && countCompanyCardEffect(state, companyId, 'extra-troll-leader-slot') > 0) {
       logDetail(`wouldViolateLeaderRestriction: extra-troll-leader-slot active on company ${companyId as string} — allowing Troll leader alongside other leader`);
+      return false;
+    }
+
+    // Each extra-leader-slot permanent event in play permits one additional
+    // Leader of any race (e.g. Orders from the Great Demon, ba-70).
+    const extraLeaderSlots = countCompanyCardEffect(state, companyId, 'extra-leader-slot');
+    if (extraLeaderSlots > 0 && leaderCount <= 1 + extraLeaderSlots) {
+      logDetail(`wouldViolateLeaderRestriction: ${extraLeaderSlots} extra-leader-slot(s) active on company ${companyId as string} — allowing ${leaderCount} leaders`);
       return false;
     }
   }
@@ -940,7 +962,9 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
 
       // Rules 3.24–3.26 apply only at non-haven sites.
       if (!atHaven) {
-        const mergedSize = companyEffectiveSizeOf(state, mergedCharIds);
+        const extraLeaderSlots = countCompanyCardEffect(state, targetCompany.id, 'extra-leader-slot')
+          + countCompanyCardEffect(state, company.id, 'extra-leader-slot');
+        const mergedSize = companyEffectiveSizeExemptingLeaders(state, mergedCharIds, extraLeaderSlots);
         if (mergedSize > 7) {
           logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — would exceed size limit (${mergedSize} > 7)`);
           continue;

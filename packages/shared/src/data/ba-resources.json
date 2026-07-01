@@ -672,7 +672,7 @@
   },
   {
     "cardType": "minion-resource-event",
-    "alignment": "ringwraith",
+    "alignment": "balrog",
     "id": "ba-70",
     "name": "Orders from the Great Demon",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/OrdersfromtheGreatDemon.jpg",
@@ -680,11 +680,24 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "extra-leader-slot"
+      },
+      {
+        "type": "starting-company-placement"
+      }
+    ],
     "text": "Balrog specific. Playable on a company. May be played with a starting company in lieu of a minor item. This company may contain an additional leader who does not count against the company size maximum.",
     "keywords": [
-      "balrog-specific"
-    ]
+      "balrog-specific",
+      "starting-item"
+    ],
+    "certified": "2026-07-01"
   },
   {
     "cardType": "minion-resource-event",
