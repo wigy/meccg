@@ -270,6 +270,8 @@ export function describeAction(
       if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})${raceTag}`;
       return `${base}${raceTag}`;
     }
+    case 'sideboard-with-nazgul':
+      return `Tap and discard Nazgûl ${instName(action.cardInstanceId)} to sideboard (${action.destination})`;
     case 'allocate-cvcc-excess':
       return 'Assign −1 excess strike to current defender';
     case 'assign-strike': {

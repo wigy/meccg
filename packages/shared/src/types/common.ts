@@ -321,6 +321,7 @@ export type Keyword =
   | 'under-deeps'
   | 'Spawn'
   | 'starting-item'
+  | 'Nazgûl'
   // MEWH wizard-specific stage cards (the card is bound to one Fallen-wizard).
   | 'alatar-specific'
   | 'gandalf-specific'

@@ -16,5 +16,15 @@
 import { describe, test } from 'vitest';
 
 describe('Rule 5.09 — Region Modification Effects', () => {
+  // Deeper Shadow (le-179) creates a `region-type-override` constraint
+  // (attribute-modifier on `region.type`, filtered by the resolved region
+  // name — see le-179.test.ts) confirming the *shape* rule 5.09 describes
+  // for a named region. But no code anywhere reads that attribute-modifier
+  // back out — `checkCreatureKeying`/`findCreatureKeyingMatches` consult
+  // `mhState.resolvedSitePath` directly and never consult
+  // `region.type` overrides, and there is no `getEffectiveRegionType`
+  // resolver (unlike `getEffectiveSiteType`, which does exist). The
+  // constraint is written but never consumed, so there is no observable
+  // behavior — for this company or any other — to assert on.
   test.todo('Named region type modifications reflected in all site paths where named; unnamed only where changed');
 });

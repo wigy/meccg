@@ -149,6 +149,31 @@ export interface PlayHazardAction {
 }
 
 /**
+ * Sideboarding with a Nazgûl (rule 5.24).
+ *
+ * As an action during the movement/hazard phase's play-hazards step, the
+ * hazard player may tap and discard an untapped Nazgûl permanent-event they
+ * control (a hazard-event carrying the `Nazgûl` keyword, currently in
+ * `cardsInPlay`) to either bring up to five hazards from their sideboard to
+ * their discard pile, or — if their play deck has at least five cards —
+ * bring one hazard from their sideboard directly into their play deck and
+ * shuffle. The Nazgûl's normal tap effect (converting to a short-event)
+ * does not apply; it is discarded on declaration. Counts as one against the
+ * hazard limit. Follow-up card picks use the shared
+ * {@link FetchHazardFromSideboardAction} (same action, reused across the
+ * untap-phase and movement/hazard-phase sideboard sub-flows).
+ */
+export interface SideboardWithNazgulAction {
+  readonly type: 'sideboard-with-nazgul';
+  /** The hazard player tapping and discarding the Nazgûl. */
+  readonly player: PlayerId;
+  /** The Nazgûl permanent-event instance in `cardsInPlay`. */
+  readonly cardInstanceId: CardInstanceId;
+  /** Which sub-option is being taken. */
+  readonly destination: 'discard' | 'deck';
+}
+
+/**
  * Assign one of a creature's strikes to a specific character during combat.
  *
  * The defending player assigns strikes to their characters. Each character

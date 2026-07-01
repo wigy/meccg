@@ -63,6 +63,8 @@ function makeSetHazardLimitState(
     hazardsEncountered: [],
     ahuntAttacksResolved: 0,
     corruptionCardsPlayedPerChar: {},
+    nazgulSideboardDestination: null,
+    nazgulSideboardFetched: 0,
   };
 
   const players = sideboardAccessed

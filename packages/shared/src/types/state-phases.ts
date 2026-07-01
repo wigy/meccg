@@ -512,6 +512,17 @@ export interface MovementHazardPhaseState {
    * Persists across all companies' M/H phases within the same turn.
    */
   readonly corruptionCardsPlayedPerChar: ById<true>;
+  /**
+   * Rule 5.24 (Sideboarding with a Nazgûl): which sub-flow is active after
+   * the hazard player taps and discards a Nazgûl permanent-event, or `null`
+   * when no such sub-flow is in progress. `'discard'` allows fetching up to
+   * five hazards to the discard pile (see {@link nazgulSideboardFetched});
+   * `'deck'` allows fetching exactly one hazard directly into the play deck
+   * (then auto-exits after shuffling).
+   */
+  readonly nazgulSideboardDestination: 'discard' | 'deck' | null;
+  /** Number of cards fetched so far during the active Nazgûl sideboard sub-flow. */
+  readonly nazgulSideboardFetched: number;
 }
 
 /**

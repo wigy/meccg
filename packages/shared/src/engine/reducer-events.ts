@@ -254,6 +254,8 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
           hazardsEncountered: [],
           ahuntAttacksResolved: 0,
           corruptionCardsPlayedPerChar: {},
+          nazgulSideboardDestination: null,
+          nazgulSideboardFetched: 0,
         },
       },
     };

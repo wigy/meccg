@@ -24,7 +24,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { logDetail, logHeading } from './log.js';
@@ -1387,6 +1387,17 @@ function playHazardsActions(
   const liveLimit = currentHazardLimit(state, mhState, targetCompanyId);
   const limitReached = mhState.hazardsPlayedThisCompany >= liveLimit;
 
+  // Rule 5.24: while the Nazgûl sideboard sub-flow is active, it takes over
+  // entirely (mirrors the untap-phase hazard-sideboard sub-flow — the
+  // resource player waits, the hazard player only sees fetch/pass actions).
+  if (mhState.nazgulSideboardDestination !== null) {
+    if (isResourcePlayer) {
+      logDetail('Play-hazards: resource player waiting for Nazgûl sideboard sub-flow');
+      return actions;
+    }
+    return nazgulSideboardFetchActions(state, playerId, mhState);
+  }
+
   // Hazard player: offer playable hazard long-events
   if (!isResourcePlayer) {
     const playerIndex = getPlayerIndex(state, playerId);
@@ -2331,6 +2342,9 @@ function playHazardsActions(
 
     // --- Exhalation of Decay (dm-55): play a creature from the discard pile (no hazard limit) ---
     actions.push(...playCreatureFromDiscardActions(state, playerId, mhState, targetCompanyId));
+
+    // --- Rule 5.24: Sideboarding with a Nazgûl ---
+    actions.push(...sideboardWithNazgulActions(state, playerId, player, limitReached));
   }
 
   // Rule 2.1.1: resource player may play resource permanent-events and
@@ -2377,7 +2391,94 @@ function playHazardsActions(
   return actions;
 }
 
+/** Maximum hazard cards that can be fetched to the discard pile per Nazgûl sideboard sub-flow (rule 5.24). */
+const MAX_NAZGUL_SIDEBOARD_TO_DISCARD = 5;
 
+/** Minimum play deck size required to fetch a hazard to deck via a Nazgûl (rule 5.24). */
+const MIN_DECK_SIZE_FOR_NAZGUL_TO_DECK = 5;
+
+/**
+ * Rule 5.24: offer to tap and discard each untapped Nazgûl permanent-event
+ * the hazard player controls, once per eligible card, for each sub-option
+ * whose preconditions are met (discard always available if the sideboard
+ * has hazards; deck only when the play deck has at least 5 cards). Counts
+ * as one hazard against the limit, so it is not offered once the limit is
+ * reached.
+ */
+function sideboardWithNazgulActions(
+  state: GameState,
+  playerId: PlayerId,
+  player: PlayerState,
+  limitReached: boolean,
+): EvaluatedAction[] {
+  if (limitReached) return [];
+
+  const nazguls = player.cardsInPlay.filter(card => {
+    if (card.status === CardStatus.Tapped) return false;
+    const def = defById(state, card.definitionId);
+    return !!def && def.cardType === 'hazard-event' && (def.keywords ?? []).includes('Nazgûl');
+  });
+  if (nazguls.length === 0) return [];
+
+  const eligible = filterSideboardByDef(state, player.sideboard, def => def.cardType.includes('hazard'));
+  if (eligible.length === 0) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const nazgul of nazguls) {
+    const def = defById(state, nazgul.definitionId)!;
+    logDetail(`Rule 5.24: "${def.name}" may be tapped and discarded to access sideboard`);
+    actions.push({
+      action: { type: 'sideboard-with-nazgul', player: playerId, cardInstanceId: nazgul.instanceId, destination: 'discard' },
+      viable: true,
+    });
+    if (player.playDeck.length >= MIN_DECK_SIZE_FOR_NAZGUL_TO_DECK) {
+      actions.push({
+        action: { type: 'sideboard-with-nazgul', player: playerId, cardInstanceId: nazgul.instanceId, destination: 'deck' },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
+ * Rule 5.24 follow-up: generate fetch/pass actions during the active Nazgûl
+ * sideboard sub-flow. Mirrors `hazardSideboardFetchActions` (untap.ts).
+ */
+function nazgulSideboardFetchActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const player = playerById(state, playerId)!;
+  const actions: EvaluatedAction[] = [];
+  const eligible = filterSideboardByDef(state, player.sideboard, def => def.cardType.includes('hazard'));
+
+  if (mhState.nazgulSideboardDestination === 'deck') {
+    if (mhState.nazgulSideboardFetched >= 1) return actions;
+    for (const card of eligible) {
+      actions.push({
+        action: { type: 'fetch-hazard-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
+        viable: true,
+      });
+    }
+    return actions;
+  }
+
+  // 'discard'
+  if (mhState.nazgulSideboardFetched < MAX_NAZGUL_SIDEBOARD_TO_DISCARD) {
+    for (const card of eligible) {
+      actions.push({
+        action: { type: 'fetch-hazard-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
+        viable: true,
+      });
+    }
+  }
+  if (mhState.nazgulSideboardFetched >= 1) {
+    actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  }
+  return actions;
+}
 
 /**
  * Find all environment cards currently in play or declared in the active chain.
