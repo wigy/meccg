@@ -162,7 +162,7 @@ describe('Thrall-ring (as-133)', () => {
 
     const playable = computeLegalActions(state, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-hero-resource'
-        && (ea.action as PlayHeroResourceAction).cardInstanceId === handCopy)
+        && (ea.action).cardInstanceId === handCopy)
       .map(ea => ea.action as PlayHeroResourceAction);
 
     // NOT playable on Calendal (already bears one).
@@ -187,7 +187,7 @@ describe('Thrall-ring (as-133)', () => {
 
     const playable = computeLegalActions(state, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-hero-resource'
-        && (ea.action as PlayHeroResourceAction).cardInstanceId === handCopy)
+        && (ea.action).cardInstanceId === handCopy)
       .map(ea => ea.action as PlayHeroResourceAction);
 
     expect(playable.some(a => a.attachToCharacterId === calendalId)).toBe(true);
