@@ -366,6 +366,8 @@ export function describeAction(
     }
     case 'play-site-auto-attack':
       return `Play ${instName(action.cardInstanceId)} from hand as site's automatic-attack`;
+    case 'cancel-auto-attack':
+      return `Tap ${instName(action.characterId)} to cancel automatic-attack at home site`;
     case 'declare-agent-attack':
       return action.homeSiteInstanceId
         ? `Declare agent attack ${instName(action.agentInstanceId)} (reveal at ${instName(action.homeSiteInstanceId)})`
