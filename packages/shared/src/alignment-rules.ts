@@ -50,6 +50,19 @@ export function getAlignmentRules(alignment: Alignment): AlignmentRules {
 }
 
 /**
+ * Extra general influence granted on top of the base pool (rules 1.55 /
+ * 1.56, CoE 1.12.R1 / 1.12.B1): 5 points for a Ringwraith or Balrog player,
+ * 0 otherwise. This extra influence can never be used to control characters
+ * — it is not part of {@link effectiveGeneralInfluence} in `reducer-utils.ts`,
+ * which governs the mind-value budget for controlling characters. It exists
+ * for future rules that key off a player's *unused* general influence (e.g.
+ * CoE 8.3 step 3, defending against an influence attempt).
+ */
+export function extraGeneralInfluence(alignment: Alignment): number {
+  return alignment === Alignment.Ringwraith || alignment === Alignment.Balrog ? 5 : 0;
+}
+
+/**
  * Cross-alignment influence penalty per CoE rules 8.W1, 8.R1, 8.F1, 8.B1.
  *
  * When a player's character (not an agent hazard) makes an influence

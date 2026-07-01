@@ -684,6 +684,7 @@
     "name": "Bad Company",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/BadCompany.jpg",
     "unique": false,
+    "keywords": ["starting-item"],
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",

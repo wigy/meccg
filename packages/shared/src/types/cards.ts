@@ -59,6 +59,7 @@ export type {
   DeckListEntry,
   DeckListCards,
   DeckList,
+  GameLength,
 } from './cards-deck.js';
 
 // ---- Union types and type guards ----

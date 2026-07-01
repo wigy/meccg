@@ -50,5 +50,16 @@ describe('Rule 1.16 — Fallen-Wizard Avatar Characters', () => {
     expect(avatarErrors[0].message).toContain('fallen-wizard');
   });
 
-  test.todo('[FALLEN-WIZARD] FW deck with a Fallen-wizard avatar produces no error — no FW avatar cards in database yet');
+  test('[FALLEN-WIZARD] FW deck with a Fallen-wizard avatar produces no error', () => {
+    // wh-9 = Saruman, a Fallen-wizard avatar (alignment "fallen-wizard").
+    const deck: DeckList = {
+      ...baseFwDeck,
+      deck: {
+        ...baseFwDeck.deck,
+        characters: [{ name: 'Saruman', card: 'wh-9' as CardDefinitionId, qty: 1 }],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.filter(e => e.section === 'characters' && e.card === ('wh-9' as CardDefinitionId))).toHaveLength(0);
+  });
 });

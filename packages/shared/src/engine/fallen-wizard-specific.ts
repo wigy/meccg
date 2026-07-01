@@ -13,39 +13,17 @@
  * nothing to do.
  */
 import type { GameState } from '../index.js';
+import { WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { defById, findPlayerAvatar, discardCardsInPlayWhere } from './reducer-utils.js';
-
-/**
- * The per-wizard "X-specific" keywords carried by wizard-specific stage cards.
- * Each names the single Fallen-wizard the card is bound to. A Fallen-wizard deck
- * may only contain cards specific to its own declared wizard (deck rule), so
- * every such card a player has in play belongs to that player's wizard.
- */
-const WIZARD_SPECIFIC_KEYWORDS: ReadonlySet<string> = new Set([
-  'alatar-specific',
-  'gandalf-specific',
-  'pallando-specific',
-  'radagast-specific',
-  'saruman-specific',
-]);
 
 /** Whether a card definition carries any wizard-specific keyword. */
 function isFallenWizardSpecific(def: ReturnType<typeof defById>): boolean {
   if (!def || !('keywords' in def)) return false;
   return ((def as { keywords?: readonly string[] }).keywords ?? [])
-    .some(k => WIZARD_SPECIFIC_KEYWORDS.has(k));
+    .some(k => k in WIZARD_SPECIFIC_KEYWORD_NAMES);
 }
-
-/** Maps each `<wizard>-specific` keyword to the wizard's avatar name. */
-const WIZARD_SPECIFIC_NAME: Readonly<Record<string, string>> = {
-  'alatar-specific': 'Alatar',
-  'gandalf-specific': 'Gandalf',
-  'pallando-specific': 'Pallando',
-  'radagast-specific': 'Radagast',
-  'saruman-specific': 'Saruman',
-};
 
 /**
  * The name of the single Fallen-wizard a card is specific to (e.g. "Saruman"
@@ -56,7 +34,7 @@ const WIZARD_SPECIFIC_NAME: Readonly<Record<string, string>> = {
 export function wizardSpecificName(def: ReturnType<typeof defById>): string | null {
   if (!def || !('keywords' in def)) return null;
   for (const k of (def as { keywords?: readonly string[] }).keywords ?? []) {
-    if (k in WIZARD_SPECIFIC_NAME) return WIZARD_SPECIFIC_NAME[k];
+    if (k in WIZARD_SPECIFIC_KEYWORD_NAMES) return WIZARD_SPECIFIC_KEYWORD_NAMES[k];
   }
   return null;
 }
