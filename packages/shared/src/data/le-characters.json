@@ -1861,7 +1861,8 @@
         "value": -1
       }
     ],
-    "text": "Discard on a body check result of 8. -1 to all corruption checks."
+    "text": "Discard on a body check result of 8. -1 to all corruption checks.",
+    "certified": "2026-07-01"
   },
   {
     "cardType": "minion-character",
