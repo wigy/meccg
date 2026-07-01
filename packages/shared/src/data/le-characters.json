@@ -1851,7 +1851,16 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
-    "effects": [],
+    "discardBodyCheck": [
+      8
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      }
+    ],
     "text": "Discard on a body check result of 8. -1 to all corruption checks."
   },
   {
