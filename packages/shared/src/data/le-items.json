@@ -625,7 +625,8 @@
         }
       }
     ],
-    "text": "Weapon. Warrior only: +2 to prowess to a maximum of 8."
+    "text": "Weapon. Warrior only: +2 to prowess to a maximum of 8.",
+    "certified": "2026-07-02"
   },
   {
     "cardType": "minion-resource-item",
