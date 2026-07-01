@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CardInstanceId, CharacterCard, SiteCard, CharacterInPlay, Company, PlayerState } from '../../index.js';
-import { hasPlayFlag } from '../../effects/play-flags.js';
+import { hasPlayFlag, hasFollowerGrantPermission } from '../../effects/play-flags.js';
 import { requirePhaseState, isBalrogAvatarDef } from '../../state-utils.js';
 import { isCharacterCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
 import { SiteType, Alignment, Race } from '../../types/common.js';
@@ -653,13 +653,16 @@ export function playCharacterActions(
       // Find characters with enough DI to control this character as a follower.
       // Only characters under general influence can take followers. The Balrog
       // (ba-3) "may not have any followers" — excluded even though he is under
-      // general influence.
+      // general influence, unless a fána card such as Great Shadow (ba-62)
+      // grants him the permission ("The Balrog gains ... and may have
+      // followers", encoded as the `grants-followers` play-flag on an
+      // attached item).
       const diControllers: { instanceId: CardInstanceId; name: string; availDI: number }[] = [];
       for (const [key, char] of characterEntries(player)) {
         if (char.controlledBy !== 'general') continue;
         const ctrlDef = resolveDef(state, char.instanceId);
         if (!isCharacterCard(ctrlDef)) continue;
-        if (isBalrogAvatarDef(ctrlDef)) continue;
+        if (isBalrogAvatarDef(ctrlDef) && !hasFollowerGrantPermission(char.items, state.cardPool)) continue;
         const avail = availableDI(state, char.instanceId, player, cardDef);
         if (avail >= costMind) {
           diControllers.push({ instanceId: key, name: ctrlDef.name, availDI: avail });

@@ -32,6 +32,7 @@ import { characterEntries, defById, matchesDefinition, playerById, isUniqueChara
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
+import { hasFollowerGrantPermission } from '../../effects/play-flags.js';
 
 /**
  * Generates `play-character` actions enabled by an in-hand `recruit-character`
@@ -104,13 +105,15 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
 
       for (const company of qualifyingCompanies) {
         // Find controllers in this company with enough unused direct influence.
-        // The Balrog (ba-3) "may not have any followers" — excluded.
+        // The Balrog (ba-3) "may not have any followers" — excluded, unless a
+        // fána card such as Great Shadow (ba-62) grants him the permission
+        // (`grants-followers` play-flag on an attached item).
         for (const [key, char] of characterEntries(player)) {
           if (!company.characters.includes(key)) continue;
           if (char.controlledBy !== 'general') continue;
           const ctrlDef = resolveDef(state, char.instanceId);
           if (!isCharacterCard(ctrlDef)) continue;
-          if (isBalrogAvatarDef(ctrlDef)) continue;
+          if (isBalrogAvatarDef(ctrlDef) && !hasFollowerGrantPermission(char.items, state.cardPool)) continue;
           const avail = availableDI(state, key, player, recruitDef);
           if (avail < costMind) continue;
 

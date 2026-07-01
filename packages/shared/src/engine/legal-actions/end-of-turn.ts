@@ -245,20 +245,27 @@ function allowStoreEot(state: GameState, playerIndex: number): boolean {
 }
 
 /**
- * Finds the discard-to-hand fetch apply nested inside a grant-action's
+ * Finds the discard-pile fetch apply nested inside a grant-action's
  * `apply` field — either directly or as the first app of a `sequence`.
- * Matches the `move` shape with `select: 'target'`, `from: 'discard'`,
- * `to: 'hand'`. Returns the apply (carrying the DSL `filter`) or `null`
- * if this grant-action is not an end-of-turn fetch.
+ * Matches two shapes:
+ *  - discard-to-hand: `move` with `select: 'target'`, `from: 'discard'`,
+ *    `to: 'hand'` (e.g. Saruman) — the specific card is chosen at
+ *    activation time, so one action is offered per matching discard card.
+ *  - discard-to-deck: `enqueue-pending-fetch` with `fetchFrom:
+ *    ['discard-pile']` (e.g. Great Shadow ba-62) — the specific card is
+ *    chosen via a follow-up `fetch-from-pile` pending resolution, so a
+ *    single activation is offered whenever at least one card matches.
+ * Returns the apply (carrying the DSL `filter`) or `null` if this
+ * grant-action is not an end-of-turn discard-pile fetch.
  */
 function findFetchApply(effect: CardEffect): TriggeredAction | null {
   if (effect.type !== 'grant-action' || !effect.apply) return null;
   const apply = effect.apply;
-  if (isDiscardToHandMove(apply)) return apply;
+  if (isDiscardPileFetch(apply)) return apply;
   if (apply.type === 'sequence') {
     const apps = (apply as TriggeredAction & { apps?: readonly TriggeredAction[] }).apps;
     const first = apps?.[0];
-    if (first && isDiscardToHandMove(first)) return first;
+    if (first && isDiscardPileFetch(first)) return first;
   }
   return null;
 }
@@ -270,14 +277,29 @@ function isDiscardToHandMove(apply: TriggeredAction): boolean {
     && apply.to === 'hand';
 }
 
+function isDiscardPileToDeckFetch(apply: TriggeredAction): boolean {
+  return apply.type === 'enqueue-pending-fetch'
+    && (apply.fetchFrom ?? ['discard-pile']).includes('discard-pile')
+    && (apply.fetchTo ?? 'deck') === 'deck';
+}
+
+function isDiscardPileFetch(apply: TriggeredAction): boolean {
+  return isDiscardToHandMove(apply) || isDiscardPileToDeckFetch(apply);
+}
+
 /**
  * Scans the resource player's characters (and their attached items) for
  * grant-action effects that activate during the end-of-turn phase —
- * those whose `apply` (or first step of a `sequence` apply) is
- * `move-target-from-discard-to-hand`. The keyword filter comes from the
- * apply's DSL `filter` condition against the candidate card definition.
+ * those whose `apply` (or first step of a `sequence` apply) is a
+ * discard-pile fetch (see {@link findFetchApply}). The keyword filter
+ * comes from the apply's DSL `filter` condition against the candidate
+ * card definition.
  *
- * Generates one action per eligible card in the discard pile per source.
+ * Discard-to-hand fetches generate one action per eligible card in the
+ * discard pile per source (the target is chosen at activation time).
+ * Discard-to-deck fetches generate a single activation per source
+ * whenever at least one card matches (the target is chosen afterward via
+ * a `fetch-from-pile` pending resolution).
  */
 function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId)!;
@@ -339,6 +361,25 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
 
       if (eligibleCards.length === 0) {
         logDetail(`Grant-action ${effect.action}: no matching cards in discard pile`);
+        continue;
+      }
+
+      if (isDiscardPileToDeckFetch(fetchApply)) {
+        // The specific card is chosen afterward via a `fetch-from-pile`
+        // pending resolution — a single activation suffices.
+        logDetail(`Grant-action ${effect.action} available: ${sourceDef?.name ?? sourceDefinitionId} can fetch from discard to deck (${eligibleCards.length} eligible)`);
+        actions.push({
+          action: {
+            type: 'activate-granted-action',
+            player: playerId,
+            characterId: charId,
+            sourceCardId,
+            sourceCardDefinitionId: sourceDefinitionId,
+            actionId: effect.action,
+            rollThreshold: 0,
+          },
+          viable: true,
+        });
         continue;
       }
 

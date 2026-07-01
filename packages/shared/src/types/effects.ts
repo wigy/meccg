@@ -692,6 +692,23 @@ export interface GrantActionEffect extends EffectBase {
    */
   readonly activeSitePhase?: boolean;
   /**
+   * When true, the ability is activatable **only** during the
+   * controller's end-of-turn phase — unlike {@link anyPhase} and its
+   * siblings (which *extend* the ability's availability beyond its
+   * organization-phase default), this flag *restricts* it, removing it
+   * from the generic per-phase scanner's organization-phase default scan
+   * (`extractGrantActions`) entirely. Emitted only by the dedicated
+   * end-of-turn discard-pile fetch scanner (`legal-actions/end-of-turn.ts`
+   * `endOfTurnGrantActions`), which recognizes `enqueue-pending-fetch` /
+   * discard-to-hand `move` applies independently of this flag. Used by
+   * *Great Shadow* (ba-62): "During your end-of-turn phase, you may take
+   * one non-short-event resource or character from your discard pile ...
+   * and shuffle it into your play deck" — contrast with *The Mouth*
+   * (le-24)'s structurally identical `recall-to-deck` ability, which is
+   * organization-phase-only and does NOT set this flag.
+   */
+  readonly endOfTurnOnly?: boolean;
+  /**
    * When true, the ability is activatable **only** while a corruption
    * check by a character in the bearer's company is awaiting its roll —
    * i.e. during a unified `corruption-check` pending resolution or the
@@ -1465,7 +1482,7 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'grants-followers';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}

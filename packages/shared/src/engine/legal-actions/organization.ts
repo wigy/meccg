@@ -1241,7 +1241,11 @@ function extractGrantActions(state: GameState, definitionId: import('../../index
       // Corruption-check-window abilities (When I Know Anything td-166) are
       // emitted only by `modifyCorruptionCheckGrantActions` while a check is
       // awaiting its roll — never by the generic per-phase scanner.
-      e.type === 'grant-action' && e.corruptionCheckWindow !== true,
+      // End-of-turn-only abilities (Great Shadow ba-62) are emitted only by
+      // the dedicated end-of-turn discard-pile fetch scanner
+      // (`legal-actions/end-of-turn.ts`) — never here, so they don't leak
+      // into the organization-phase default scan below.
+      e.type === 'grant-action' && e.corruptionCheckWindow !== true && e.endOfTurnOnly !== true,
   );
 }
 
