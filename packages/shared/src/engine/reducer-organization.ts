@@ -25,6 +25,7 @@ import { enqueueResolution, enqueueCorruptionCheck, removeConstraint } from './p
 import { recomputeDerived } from './recompute-derived.js';
 import { resolveDef, getItemGrantedSkills } from './effects/index.js';
 import { directInfluenceControlAllowed } from './control-cost.js';
+import { applyMove, type MoveContext } from './reducer-move.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -406,31 +407,62 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
   })();
   const updateOrgState = isOrgPhase && !bypassOneCharLimit;
 
+  const stateAfterPlace = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
+    ...updatePlayer(state, playerIndex, p => ({
+      ...p,
+      hand: newHand,
+      siteDeck: newSiteDeck,
+      characters: newCharacters,
+      companies,
+      discardPile: eventToDiscard ? [...newDiscardPileBase, eventToDiscard] : newDiscardPileBase,
+      sideboard: newSideboard,
+      ...(clearRingwraithFlag ? { ringwraithReturnedToHand: undefined } : {}),
+    })),
+    phaseState: updateOrgState
+      ? {
+          ...phaseState,
+          characterPlayedThisTurn: true,
+          // MEBA: track the running count so a Balrog player's two-character
+          // allowance can be enforced (see playCharacterActions).
+          charactersBroughtIntoPlayThisTurn: (phaseState.charactersBroughtIntoPlayThisTurn ?? 0) + 1,
+          lastPlayedCharacterDefinitionId: handCard.definitionId as string,
+          ...(newBuddyGroup.length > 0 ? { buddyGroupPlayedThisTurn: newBuddyGroup } : {}),
+        }
+      : state.phaseState,
+  })), affectedIds);
+
   return {
-    state: sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
-      ...updatePlayer(state, playerIndex, p => ({
-        ...p,
-        hand: newHand,
-        siteDeck: newSiteDeck,
-        characters: newCharacters,
-        companies,
-        discardPile: eventToDiscard ? [...newDiscardPileBase, eventToDiscard] : newDiscardPileBase,
-        sideboard: newSideboard,
-        ...(clearRingwraithFlag ? { ringwraithReturnedToHand: undefined } : {}),
-      })),
-      phaseState: updateOrgState
-        ? {
-            ...phaseState,
-            characterPlayedThisTurn: true,
-            // MEBA: track the running count so a Balrog player's two-character
-            // allowance can be enforced (see playCharacterActions).
-            charactersBroughtIntoPlayThisTurn: (phaseState.charactersBroughtIntoPlayThisTurn ?? 0) + 1,
-            lastPlayedCharacterDefinitionId: handCard.definitionId as string,
-            ...(newBuddyGroup.length > 0 ? { buddyGroupPlayedThisTurn: newBuddyGroup } : {}),
-          }
-        : state.phaseState,
-    })), affectedIds),
+    state: applyCharacterSelfEntersPlayMoveEffects(stateAfterPlace, charDef, charInstId, playerIndex),
   };
+}
+
+/**
+ * Manifestation chains (e.g. The Balrog ba-3 discarding Balrog of Moria tw-12)
+ * carry an `on-event: self-enters-play` → `move` effect on the character card
+ * itself. Reuses the generic move primitive (`applyMove`) that permanent/short
+ * events already run on entering play — a character play just has no chain
+ * entry, so this dispatches the same `move` apply directly.
+ */
+function applyCharacterSelfEntersPlayMoveEffects(
+  state: GameState,
+  charDef: import('../types/cards.js').CharacterCard,
+  charInstId: CardInstanceId,
+  playerIndex: number,
+): GameState {
+  let newState = state;
+  for (const effect of getCardEffects(charDef)) {
+    if (effect.type !== 'on-event' || effect.event !== 'self-enters-play') continue;
+    if (effect.apply.type !== 'move') continue;
+    logDetail(`"${charDef.name}" entered play — running move apply`);
+    const ctx: MoveContext = { sourceCardId: charInstId, sourcePlayerIndex: playerIndex };
+    const r = applyMove(newState, effect.apply, ctx);
+    if ('error' in r) {
+      logDetail(`move apply failed on self-enters-play: ${r.error}`);
+    } else {
+      newState = r.state;
+    }
+  }
+  return newState;
 }
 
 /**
