@@ -1140,7 +1140,12 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MusterDisperses.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "faction"
+      }
+    ],
     "text": "Playable on a faction. The faction’s player makes a roll. The faction is discarded if the result plus his unused general influence is less than 11."
   },
   {
