@@ -1764,7 +1764,10 @@
     ],
     "nearestHaven": "Geann a-Lisch",
     "region": "Gap of Isen",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Pûkel-creature",
@@ -1774,7 +1777,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major)Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess"
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major)Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess",
+    "certified": "2026-07-01"
   },
   {
     "cardType": "minion-site",
