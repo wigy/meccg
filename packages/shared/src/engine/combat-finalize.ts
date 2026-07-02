@@ -1110,11 +1110,13 @@ function discardWoundedCharacters(
       cloned[1 - defIdx] = { ...cloned[1 - defIdx], discardPile: [...cloned[1 - defIdx].discardPile, toCardInstance(hazard)] };
     }
     const { [charId]: _removed, ...remainingChars } = newPlayerData.characters;
-    // Revert followers to general influence
+    // Revert followers to general influence with the mind subtraction
+    // deferred to the player's next organization phase (CoE rule 3.13 —
+    // combat never happens during the controller's organization phase).
     const updatedChars = { ...remainingChars };
     for (const followerId of charData.followers) {
       const follower = updatedChars[followerId];
-      if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general' };
+      if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
     }
     newPlayerData.characters = updatedChars;
 

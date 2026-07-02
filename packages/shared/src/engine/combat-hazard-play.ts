@@ -216,7 +216,10 @@ function bindPrisoner(
     for (const followerId of followerIds) {
       const follower = updatedChars[followerId];
       if (follower && follower.controlledBy === charInstanceId) {
-        updatedChars[followerId] = { ...follower, controlledBy: 'general' };
+        // Prisoner-taking happens during combat, outside the controlling
+        // player's organization phase — defer the freed follower's mind
+        // subtraction from general influence (CoE rule 3.13).
+        updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
       }
     }
     return { ...p, characters: updatedChars, discardPile: [...p.discardPile, ...discardedItems.map(i => toCardInstance(i))] };
