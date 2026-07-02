@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 329 | 222 | 107 | 67.5% |
+| 329 | 224 | 105 | 68.1% |
 
 ## Section Breakdown
 
@@ -19,8 +19,8 @@
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 19 | 55.9% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 17 | 81.0% |
-| 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 1 | 50.0% |
-| 08 | [Combat](08-combat/) | 42 | 28 | 66.7% |
+| 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 2 | 100.0% |
+| 08 | [Combat](08-combat/) | 42 | 29 | 69.0% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 27 | 87.1% |
 | 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 23 | 43.4% |
 | — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
@@ -213,7 +213,7 @@
 | 6.20 | Site Phase | [End Of Site Phase](06-site-phase/rule-6.20-end-of-site-phase.test.ts) | ☑ |
 | 6.21 | Site Phase | [Fw Resource Alignment Match](06-site-phase/rule-6.21-fw-resource-alignment-match.test.ts) | ☐ |
 | 7.01 | End-of-Turn Phase | [Eot Steps](07-end-of-turn-phase/rule-7.01-eot-steps.test.ts) | ☑ |
-| 7.02 | End-of-Turn Phase | [Eot Site Replacement](07-end-of-turn-phase/rule-7.02-eot-site-replacement.test.ts) | ☐ |
+| 7.02 | End-of-Turn Phase | [Eot Site Replacement](07-end-of-turn-phase/rule-7.02-eot-site-replacement.test.ts) | ☑ |
 | 8.01 | Combat | [Combat Initiation](08-combat/rule-8.01-combat-initiation.test.ts) | ☑ |
 | 8.02 | Combat | [Combat Step1 Pre Assignment](08-combat/rule-8.02-combat-step1-pre-assignment.test.ts) | ☐ |
 | 8.03 | Combat | [Faced Attack](08-combat/rule-8.03-faced-attack.test.ts) | ☐ |
@@ -234,7 +234,7 @@
 | 8.18 | Combat | [Agent Attack Rolls](08-combat/rule-8.18-agent-attack-rolls.test.ts) | ☑ |
 | 8.19 | Combat | [Ss Step7 Resolve Strike](08-combat/rule-8.19-ss-step7-resolve-strike.test.ts) | ☑ |
 | 8.20 | Combat | [Strike Passive Conditions](08-combat/rule-8.20-strike-passive-conditions.test.ts) | ☐ |
-| 8.21 | Combat | [Combat Step5 Resolve Attack](08-combat/rule-8.21-combat-step5-resolve-attack.test.ts) | ☐ |
+| 8.21 | Combat | [Combat Step5 Resolve Attack](08-combat/rule-8.21-combat-step5-resolve-attack.test.ts) | ◐ |
 | 8.22 | Combat | [Creature Mp By Alignment](08-combat/rule-8.22-creature-mp-by-alignment.test.ts) | ☑ |
 | 8.23 | Combat | [Attack As Action](08-combat/rule-8.23-attack-as-action.test.ts) | ☐ |
 | 8.24 | Combat | [Combat In Chain](08-combat/rule-8.24-combat-in-chain.test.ts) | ☐ |
@@ -244,7 +244,7 @@
 | 8.28 | Combat | [Body Check](08-combat/rule-8.28-body-check.test.ts) | ☑ |
 | 8.29 | Combat | [Ringwraith Body Check](08-combat/rule-8.29-ringwraith-body-check.test.ts) | ☑ |
 | 8.30 | Combat | [Character Eliminated](08-combat/rule-8.30-character-eliminated.test.ts) | ☑ |
-| 8.31 | Combat | [Orc Troll Body Check](08-combat/rule-8.31-orc-troll-body-check.test.ts) | ◐ |
+| 8.31 | Combat | [Orc Troll Body Check](08-combat/rule-8.31-orc-troll-body-check.test.ts) | ☑ |
 | 8.32 | Combat | [Detainment Attacks](08-combat/rule-8.32-detainment-attacks.test.ts) | ☑ |
 | 8.33 | Combat | [Minion Detainment Rules](08-combat/rule-8.33-minion-detainment-rules.test.ts) | ☑ |
 | 8.34 | Combat | [Detainment Creature Mp](08-combat/rule-8.34-detainment-creature-mp.test.ts) | ◐ |

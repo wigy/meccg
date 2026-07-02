@@ -359,21 +359,29 @@ export function resolveStrikeCore(
   const newCharacters = { ...workingDefender.characters };
 
   if (allyMatch) {
-    const hostChar = newCharacters[allyMatch.hostCharId];
-    if (hostChar) {
-      let newAllyStatus = allyMatch.ally.status;
-      if (tapOnNonWounded && newAllyStatus === CardStatus.Untapped) {
-        newAllyStatus = CardStatus.Tapped;
+    // Rule 8.36: allies cannot be taken prisoner, but they may face strikes
+    // from untargeted attacks that would normally take a character prisoner
+    // (e.g. a re-faced Troll-purse automatic-attack) — in that case the ally
+    // is left entirely untouched: neither tapped nor wounded.
+    if (!combat.trollPursePrisoner) {
+      const hostChar = newCharacters[allyMatch.hostCharId];
+      if (hostChar) {
+        let newAllyStatus = allyMatch.ally.status;
+        if (tapOnNonWounded && newAllyStatus === CardStatus.Untapped) {
+          newAllyStatus = CardStatus.Tapped;
+        }
+        if (result === 'wounded' && !combat.detainment) {
+          newAllyStatus = CardStatus.Inverted;
+        } else if (result === 'wounded' && combat.detainment) {
+          newAllyStatus = CardStatus.Tapped;
+        }
+        const newAllies = hostChar.allies.map(a =>
+          a.instanceId === strike.characterId ? { ...a, status: newAllyStatus } : a,
+        );
+        newCharacters[allyMatch.hostCharId] = { ...hostChar, allies: newAllies };
       }
-      if (result === 'wounded' && !combat.detainment) {
-        newAllyStatus = CardStatus.Inverted;
-      } else if (result === 'wounded' && combat.detainment) {
-        newAllyStatus = CardStatus.Tapped;
-      }
-      const newAllies = hostChar.allies.map(a =>
-        a.instanceId === strike.characterId ? { ...a, status: newAllyStatus } : a,
-      );
-      newCharacters[allyMatch.hostCharId] = { ...hostChar, allies: newAllies };
+    } else {
+      logDetail(`take-prisoner: ${strike.characterId as string} is an ally — untargeted prisoner-taking attack leaves it neither tapped nor wounded (rule 8.36)`);
     }
   } else {
     if (takePrisonerResult || trollPursePrisoner) {

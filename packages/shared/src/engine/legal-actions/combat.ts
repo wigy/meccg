@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -243,7 +243,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       ];
     }
     case 'body-check':
-      return bodyCheckActions(state, playerId, combat);
+      return [...bodyCheckActions(state, playerId, combat), ...tapAllyBodyCheckBoostActions(state, playerId, combat)];
     case 'shield-discard-roll':
       return shieldDiscardRollActions(state, playerId, combat);
     case 'item-salvage':
@@ -1465,6 +1465,51 @@ function bodyCheckActions(
     },
     viable: true,
   }];
+}
+
+/**
+ * Generate `tap-ally-body-check-boost` actions: while a body check against a
+ * character (not an ally) is pending, the owner of an untapped in-play ally
+ * carrying an `ally-body-check-boost` effect may tap it to add its value to
+ * that character's effective body for the pending check — but only when the
+ * ally itself was also struck by a strike from the same attack (both the ally
+ * and its controlling character are targets of strikes from the same attack).
+ *
+ * Used by War-warg (le-156).
+ */
+function tapAllyBodyCheckBoostActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (combat.bodyCheckTarget !== 'character') return [];
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!strike) return [];
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const charData = player.characters[strike.characterId];
+  if (!charData) return [];
+
+  const struckIds = new Set(combat.strikeAssignments.map(a => a.characterId as string));
+
+  const actions: EvaluatedAction[] = [];
+  for (const ally of charData.allies) {
+    if (ally.status !== CardStatus.Untapped) continue;
+    if (!struckIds.has(ally.instanceId as string)) continue;
+    const allyDef = defById(state, ally.definitionId);
+    const boostEffect = getCardEffects(allyDef).find(
+      (e): e is AllyBodyCheckBoostEffect => e.type === 'ally-body-check-boost',
+    );
+    if (!boostEffect) continue;
+    const allyName = (allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string);
+    logDetail(`Tap-ally-body-check-boost available: ${allyName} (+${boostEffect.value} body to ${strike.characterId as string})`);
+    actions.push({
+      action: { type: 'tap-ally-body-check-boost', player: playerId, cardInstanceId: ally.instanceId },
+      viable: true,
+    });
+  }
+  return actions;
 }
 
 /**
