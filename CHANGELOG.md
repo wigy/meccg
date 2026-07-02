@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.45.0 — 2026-07-02
+
+Challenge Deck V
+
+### Game Engine
+
+- Implement the MEBA (The Balrog) rules spec: The Balrog bears but cannot use items (§3), Balrog movement restrictions with Barad-dûr exceptions (§6/§7), Challenge the Power 9–10 band and per-turn limit (§8), destination-based card draws even at Darkhavens (§11), Balrog organization-phase rules (§12–16), the opponent ban on Balrog-banned cards (§17), and ignoring Balrog automatic-attacks once the Balrog is in play or defeated (§18)
+- Add avatar-specific sweep-and-gather (rule 3.09), follower influence protection (3.08), and the mid-strike hazard limit (8.12)
+- Add the mirror-match ban exemption (3.10), Fallen-wizard avatar declaration (1.37), and a discard-character organization action (3.22)
+- Defer follower general-influence subtraction while the follower relationship is suspended in combat (3.13/3.46/8.21)
+- Real engine fixes uncovered by rules work: end-of-turn site replacement (7.02), combat fixes for rescue attacks and prisoner handling (8.31/8.36), and alignment-based item usage (9.20) with fixture fixes for as-122/le-304
+- Add movement/hazard engine work for illegal movement, region-modification effects, and hazard-limit rules (5.04/5.09/5.21)
+- Add the balrog-specific keyword to BA cards marked as such in their text
+- Refuse to start an AI game without a selected deck
+
+### Rules & Tests
+
+- Rule-test coverage rises to 267/330 (80.9%): remaining deck-construction tests (section 01), the last untap-phase tests (02, now 100%), twelve more organization-phase tests (03), eleven movement/hazard tests (05), seven site-phase tests (06), end-of-turn (07, now 100%), combat tests (08), agents/events/items tests (09), and the corruption/influence/actions-timing/endgame suite (10)
+- Add MEBA confirmation tests for item bearing (§3) and automatic attacks (§18)
+
+### Card Certifications & Data
+
+- Certify 20 cards: The Balrog's avatars and Under-deeps sites — Bûthrakaur (ba-5), Crook-legged Orc (ba-6), Great Shadow (ba-62), Orders from the Great Demon (ba-70), Moria (ba-93), The Under-gates (ba-100), The Under-leas (ba-102), The Under-vaults (ba-103) — plus Ancient Black Axe (as-122), Iron Shield of Old (as-127), Thrall-ring (as-133), Troll Lout (le-44), Barrow-wight (le-61), Wild Trolls (le-100), Call of Home (le-105), Muster Disperses (le-126), War-warg (le-156), Catch an Elusive Scent (le-175), Broad-headed Spear (le-304), and Glittering Caves (le-376)
+- Add the Balrog challenge deck V (Great Shadow) from the CCG Challenge Decks Guide, fully data-complete and certified
+- Remove the development-only decks and the sample all-hero-sites deck
+- Move Ill-favoured Fellow to characters in challenge deck O
+- Fix Cracks of Doom (tw-205) image filename casing
+
+### Infrastructure
+
+- Stop gating card certification on the full test suite
+- Make certify-card's PR title and verified-status update mandatory and self-checked
+
 ## 0.44.0 — 2026-07-01
 
 Challenge Deck O

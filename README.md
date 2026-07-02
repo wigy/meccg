@@ -21,11 +21,11 @@ For player information, see the [Player Guide](docs/player-guide.md).
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 216 | 329 | 65.7% |
-| Card tests | 588 | 598 | 98.3% |
+| Rule tests | 267 | 330 | 80.9% |
+| Card tests | 609 | 618 | 98.5% |
 | Cards created | 1683 | 1683 | 100.0% |
-| Cards certified | 643 | 1683 | 38.2% |
-| **Total** | **3130** | **4293** | **72.9%** |
+| Cards certified | 664 | 1683 | 39.5% |
+| **Total** | **3223** | **4314** | **74.7%** |
 
 ### Deck Catalog
 
@@ -42,17 +42,11 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
-| (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 79 (71.8%) |
-| (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 80 (72.7%) |
-| (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 75 (68.2%) |
+| (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 82 (74.5%) |
+| (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 82 (74.5%) |
+| (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 77 (70.0%) |
 | (S) Await the Onset | fallen-wizard | 110 | 110 (100.0%) | 76 (69.1%) |
-| Agents (Development only) | hero | 139 | 139 (100.0%) | 139 (100.0%) |
-| The Balrog (Development only) | balrog | 24 | 24 (100.0%) | 20 (83.3%) |
-| Dragons (Development only) | hero | 52 | 52 (100.0%) | 52 (100.0%) |
-| Fallen Wizard (Development only) | fallen-wizard | 32 | 32 (100.0%) | 32 (100.0%) |
-| Hero (Development only) | hero | 57 | 57 (100.0%) | 57 (100.0%) |
-| Minion (Development only) | minion | 45 | 45 (100.0%) | 45 (100.0%) |
-| All Hero Sites (Sample) | hero | 97 | 97 (100.0%) | 97 (100.0%) |
+| (V) Great Shadow | balrog | 110 | 110 (100.0%) | 110 (100.0%) |
 
 ## Getting Started
 
