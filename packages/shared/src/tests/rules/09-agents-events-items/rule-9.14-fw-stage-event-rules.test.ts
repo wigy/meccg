@@ -23,6 +23,7 @@ import {
   buildFwStagePermanentMHState,
   viableActions,
   findCharInstanceId, findHandCardId,
+  ARAGORN, LEGOLAS, GIMLI,
 } from '../../test-helpers.js';
 import type { CardDefinitionId } from '../../../index.js';
 import { Phase, Alignment } from '../../../index.js';
@@ -39,6 +40,8 @@ const SLY_SOUTHERNER = 'wh-10' as CardDefinitionId;
 const ISENGARD_SITE = 'wh-56' as CardDefinitionId;
 /** Dunnish Clan-hold — a destination site for the moving company. */
 const DUNNISH_CLAN_HOLD = 'tw-390' as CardDefinitionId;
+/** Fellowship — a hero (wizard-aligned) company-targeting permanent-event: "+1 prowess/corruption-check to all in a 4+ member company at a Haven." */
+const FELLOWSHIP = 'tw-240' as CardDefinitionId;
 
 describe('Rule 9.14 — Fallen-Wizard Stage/Event Rules', () => {
   beforeEach(() => resetMint());
@@ -96,5 +99,77 @@ describe('Rule 9.14 — Fallen-Wizard Stage/Event Rules', () => {
     expect(actions).toContain(orcId);
   });
 
-  test.todo('[FALLEN-WIZARD] hero permanent cannot be on Orc/Troll company; hero resource skill cannot use Orc/Troll');
+  // ── MEWH §9: hero resource permanent-event cannot be played on an Orc/Troll company ──
+
+  test('[FALLEN-WIZARD] a hero resource permanent-event cannot target a company containing an Orc', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD_SITE, characters: [SARUMAN, SLY_SOUTHERNER, ARAGORN, LEGOLAS] }],
+          hand: [FELLOWSHIP],
+          siteDeck: [ISENGARD_SITE],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: ISENGARD_SITE, characters: [] }],
+          hand: [],
+          siteDeck: [ISENGARD_SITE],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+
+    const fellowshipId = findHandCardId(state, RESOURCE_PLAYER, FELLOWSHIP);
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event')
+      .filter(ea => (ea.action as { cardInstanceId?: unknown }).cardInstanceId === fellowshipId);
+    expect(actions).toHaveLength(0);
+  });
+
+  test('[FALLEN-WIZARD] the same hero permanent-event IS playable on an otherwise-identical Orc-free company', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD_SITE, characters: [SARUMAN, GIMLI, ARAGORN, LEGOLAS] }],
+          hand: [FELLOWSHIP],
+          siteDeck: [ISENGARD_SITE],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: ISENGARD_SITE, characters: [] }],
+          hand: [],
+          siteDeck: [ISENGARD_SITE],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+
+    const fellowshipId = findHandCardId(state, RESOURCE_PLAYER, FELLOWSHIP);
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event')
+      .filter(ea => (ea.action as { cardInstanceId?: unknown }).cardInstanceId === fellowshipId);
+    expect(actions.length).toBeGreaterThan(0);
+  });
+
+  // "A hero resource that requires a character with a specific skill cannot
+  // use an Orc or Troll character to fulfill that active condition, and
+  // Orc/Troll characters cannot be tapped to fulfill an active condition of a
+  // hero resource or its effects": no such skill-gated/tap-cost active
+  // condition check exists in the engine — hero resources with a
+  // `cost: { tap: <skill> }`-style active condition don't special-case Orc/Troll
+  // bearers, and no currently-certified hero resource's active condition is
+  // exercised by an Orc/Troll character in the pool to prove a violation.
+  test.todo('[FALLEN-WIZARD] hero resource skill condition cannot use Orc/Troll; Orc/Troll cannot be tapped for a hero resource active condition');
 });

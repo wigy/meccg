@@ -31,7 +31,7 @@ import type {
   FallenWizardCharacterAllyMpEffect,
 } from '../index.js';
 import { isCharacterCard, isItemCard, isFactionCard } from '../types/cards.js';
-import { MarshallingCategory } from '../types/common.js';
+import { MarshallingCategory, Race } from '../types/common.js';
 import { ZERO_MARSHALLING_POINTS } from '../types/state-cards.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
 import { getPlayerIndex, isBalrogAvatarDef } from '../state-utils.js';
@@ -441,6 +441,7 @@ function computeEffectiveStats(
   companionDefinitionIds: readonly string[] = [],
   ringwraithMode?: RingwraithModeEffect['mode'],
   controllingPlayerId?: PlayerId,
+  bearerPlayerAlignment?: Alignment,
 ): EffectiveStats {
   const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode);
   let charEffects = collectCharacterEffects(state, char, context);
@@ -459,6 +460,28 @@ function computeEffectiveStats(
   const bearerIsOrcOrTroll = charDef.race === 'orc' || charDef.race === 'troll';
   if (bearerIsOrcOrTroll) {
     charEffects = charEffects.filter(ce => ce.sourceDef.cardType !== 'hero-resource-item');
+  }
+
+  // Rule 9.20: a Wizard player's character cannot USE a minion item it bears,
+  // and a Ringwraith player's character cannot USE a hero item it bears
+  // (corruption points still apply, via the structural sum below — only the
+  // item's effects are nulled).
+  const bearerBlocksMinionItems = bearerPlayerAlignment === 'wizard';
+  const bearerBlocksHeroItems = bearerPlayerAlignment === 'ringwraith';
+  if (bearerBlocksMinionItems) {
+    charEffects = charEffects.filter(ce => ce.sourceDef.cardType !== 'minion-resource-item');
+  }
+  if (bearerBlocksHeroItems) {
+    charEffects = charEffects.filter(ce => ce.sourceDef.cardType !== 'hero-resource-item');
+  }
+
+  // Rule 9.20: "Ringwraiths may bear items but those items cannot be used" —
+  // unlike the player-alignment rule above, this is about the Ringwraith
+  // (Nazgûl) avatar character itself, mirroring the Balrog avatar's blanket
+  // item-usage ban below. Applies regardless of which item alignment it bears.
+  const bearerIsRingwraithAvatar = charDef.race === Race.Ringwraith;
+  if (bearerIsRingwraithAvatar) {
+    charEffects = charEffects.filter(ce => !isItemCard(ce.sourceDef));
   }
 
   // MEBA: The Balrog may carry items (including rings) but may not use them —
@@ -531,7 +554,12 @@ function computeEffectiveStats(
       // MEWH §9: structural prowess/body bonuses from a hero item are ignored on
       // an Orc/Troll bearer (its corruption points still apply below).
       const heroItemOnOrcTroll = bearerIsOrcOrTroll && itemDef.cardType === 'hero-resource-item';
-      if (!itemHasStatMod && !heroItemOnOrcTroll && !bearerIsBalrogAvatar && activeItems.has(item.instanceId as string)) {
+      // Rule 9.20: a Wizard bearer's minion items, a Ringwraith bearer's hero
+      // items, and any item on a Ringwraith avatar contribute no structural bonus.
+      const itemUnusableByAlignment = (bearerBlocksMinionItems && itemDef.cardType === 'minion-resource-item')
+        || (bearerBlocksHeroItems && itemDef.cardType === 'hero-resource-item')
+        || bearerIsRingwraithAvatar;
+      if (!itemHasStatMod && !heroItemOnOrcTroll && !bearerIsBalrogAvatar && !itemUnusableByAlignment && activeItems.has(item.instanceId as string)) {
         prowess += itemDef.prowessModifier;
         body += itemDef.bodyModifier;
       }
@@ -732,7 +760,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       })
       .filter((id): id is string => id !== null);
     const ringwraithMode = resolveCompanyRingwraithMode(state, player, charCompany?.id);
-    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, player.id);
+    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, player.id, player.alignment);
     if (statsEqual(char.effectiveStats, newStats)) {
       newCharacters[key] = char;
     } else {

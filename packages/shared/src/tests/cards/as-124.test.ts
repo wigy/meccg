@@ -44,7 +44,7 @@ import {
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction, CardDefinitionId, GameState } from '../../index.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Alignment } from '../../index.js';
 
 const DWARVEN_RING = 'as-124' as CardDefinitionId;
 
@@ -75,7 +75,7 @@ describe('Dwarven Ring of Thrár\'s Tribe (as-124)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [PERCHEN] }], hand: [], siteDeck: [CARN_DUM] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [PERCHEN] }], hand: [], siteDeck: [CARN_DUM] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM] },
       ],
     });
@@ -90,7 +90,7 @@ describe('Dwarven Ring of Thrár\'s Tribe (as-124)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [PERCHEN] }], hand: [], siteDeck: [CARN_DUM] },
       ],
     });
@@ -107,7 +107,7 @@ describe('Dwarven Ring of Thrár\'s Tribe (as-124)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM], discardPile: [OLD_TREASURE] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM], discardPile: [OLD_TREASURE] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [PERCHEN] }], hand: [], siteDeck: [CARN_DUM] },
       ],
     });
@@ -125,7 +125,7 @@ describe('Dwarven Ring of Thrár\'s Tribe (as-124)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [PERCHEN] }], hand: [], siteDeck: [CARN_DUM], discardPile: [OLD_TREASURE] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [PERCHEN] }], hand: [], siteDeck: [CARN_DUM], discardPile: [OLD_TREASURE] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM] },
       ],
     });
@@ -165,7 +165,7 @@ describe('Dwarven Ring of Thrár\'s Tribe (as-124)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM], discardPile: [OLD_TREASURE] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM], discardPile: [OLD_TREASURE] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [PERCHEN] }], hand: [], siteDeck: [CARN_DUM] },
       ],
     });
@@ -388,7 +388,7 @@ describe('Dwarven Ring of Thrár\'s Tribe (as-124)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [PERCHEN] }], hand: [], siteDeck: [CARN_DUM] },
       ],
     });

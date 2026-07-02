@@ -19,7 +19,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, buildSitePhaseState, resetMint, Phase,
+  buildTestState, buildSitePhaseState, resetMint, Phase, Alignment,
   PLAYER_1, PLAYER_2,
   charIdAt, RESOURCE_PLAYER,
   viableActions,
@@ -49,7 +49,7 @@ describe('Broad-headed Spear (le-304)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MORIA_MINION, characters: [{ defId: LAGDUF, items: [BROAD_HEADED_SPEAR] }] }], hand: [], siteDeck: [MINAS_MORGUL] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MORIA_MINION, characters: [{ defId: LAGDUF, items: [BROAD_HEADED_SPEAR] }] }], hand: [], siteDeck: [MINAS_MORGUL] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAYOS] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -64,7 +64,7 @@ describe('Broad-headed Spear (le-304)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MORIA_MINION, characters: [{ defId: LAYOS, items: [BROAD_HEADED_SPEAR] }] }], hand: [], siteDeck: [MINAS_MORGUL] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MORIA_MINION, characters: [{ defId: LAYOS, items: [BROAD_HEADED_SPEAR] }] }], hand: [], siteDeck: [MINAS_MORGUL] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -79,7 +79,7 @@ describe('Broad-headed Spear (le-304)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MORIA_MINION, characters: [{ defId: LIEUTENANT_OF_MORGUL, items: [BROAD_HEADED_SPEAR] }] }], hand: [], siteDeck: [MINAS_MORGUL] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MORIA_MINION, characters: [{ defId: LIEUTENANT_OF_MORGUL, items: [BROAD_HEADED_SPEAR] }] }], hand: [], siteDeck: [MINAS_MORGUL] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -94,7 +94,7 @@ describe('Broad-headed Spear (le-304)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MORIA_MINION, characters: [{ defId: LAGDUF, items: [BROAD_HEADED_SPEAR] }] }], hand: [], siteDeck: [MINAS_MORGUL] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MORIA_MINION, characters: [{ defId: LAGDUF, items: [BROAD_HEADED_SPEAR] }] }], hand: [], siteDeck: [MINAS_MORGUL] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAYOS] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
