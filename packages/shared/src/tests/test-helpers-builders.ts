@@ -2561,3 +2561,51 @@ export function buildMHOrderEffectsDrawState(opts: {
   });
   return { ...state, players, phaseState: mhState } as GameState;
 }
+
+/**
+ * Build a mid-strike M/H-phase combat state for rule 8.12: a synthetic
+ * dragon creature attack against Aragorn is at `resolve-strike`, the hazard
+ * player holds Dragon's Curse (td-16, the pool's only mid-strike hazard
+ * play), and the M/H phase state carries an explicit hazard limit with
+ * `hazardsAlreadyPlayed` hazards already counted against the company.
+ */
+export function makeMidStrikeHazardPlayState(opts: {
+  hazardsAlreadyPlayed: number;
+  hazardLimit?: number;
+}): GameState {
+  const DRAGONS_CURSE = 'td-16' as CardDefinitionId;
+  const base = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    recompute: true,
+    players: [
+      { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [DRAGONS_CURSE], siteDeck: [RIVENDELL] },
+    ],
+  });
+  const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+  const combat: CombatState = {
+    attackSource: { type: 'creature', instanceId: 'synthetic-dragon' as CardInstanceId },
+    companyId: companyIdAt(base, RESOURCE_PLAYER),
+    defendingPlayerId: PLAYER_1,
+    attackingPlayerId: PLAYER_2,
+    strikesTotal: 1,
+    strikeProwess: 8,
+    creatureBody: null,
+    creatureRace: 'dragon',
+    strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
+    currentStrikeIndex: 0,
+    phase: 'resolve-strike',
+    assignmentPhase: 'done',
+    bodyCheckTarget: null,
+    detainment: false,
+  };
+  return {
+    ...base,
+    combat,
+    phaseState: makeMHState({
+      hazardLimitAtReveal: opts.hazardLimit ?? 2,
+      hazardsPlayedThisCompany: opts.hazardsAlreadyPlayed,
+    }),
+  };
+}

@@ -19,6 +19,7 @@ import type { TakePrisonerEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isSiteCard } from '../types/cards.js';
 import { CardStatus } from '../types/common.js';
+import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { defById, findById, getCardEffects, getOnEventEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -94,6 +95,19 @@ export function handleCombatPlayHazard(
   // Remove card from hand
   const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
   let newState: GameState = updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand }));
+
+  // CoE rule 8.12: hazard actions taken during a strike sequence in the
+  // opponent's M/H phase still count against the company's hazard limit.
+  // (Combat during the site phase has no hazard-limit bookkeeping.)
+  if (newState.phaseState.phase === Phase.MovementHazard) {
+    const mhState = newState.phaseState;
+    const played = (mhState.hazardsPlayedThisCompany ?? 0) + 1;
+    logDetail(`Combat play-hazard: counts against hazard limit (${played})`);
+    newState = {
+      ...newState,
+      phaseState: { ...mhState, hazardsPlayedThisCompany: played },
+    };
+  }
 
   // Ward check: a matching ward on the target discards the curse to
   // the hazard player's discard pile instead of attaching it.

@@ -18,7 +18,7 @@ import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
+import { clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint } from './pending.js';
@@ -26,6 +26,7 @@ import { recomputeDerived } from './recompute-derived.js';
 import { resolveDef, getItemGrantedSkills } from './effects/index.js';
 import { directInfluenceControlAllowed } from './control-cost.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
+import { wizardSpecificName } from './fallen-wizard-specific.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -432,8 +433,26 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
       : state.phaseState,
   })), affectedIds);
 
+  // CoE rule 3.09: playing a Fallen-wizard avatar discards the *opponent's*
+  // in-play Stage resources specific to that avatar (the opponent can no
+  // longer bring that wizard into play, so their wizard-specific stage cards
+  // are dead).
+  let stateAfterAvatarSweep = stateAfterPlace;
+  if (player.alignment === 'fallen-wizard' && isAvatarCharacter(charDef)) {
+    stateAfterAvatarSweep = discardCardsInPlayWhere(
+      stateAfterPlace,
+      (card, cardOwner) =>
+        cardOwner.id !== action.player
+        && wizardSpecificName(defById(state, card.definitionId)) === charDef.name,
+      card => {
+        const def = defById(state, card.definitionId);
+        logDetail(`Rule 3.09: ${charDef.name} entered play — discarding opponent's ${charDef.name}-specific stage card ${def?.name ?? (card.definitionId as string)}`);
+      },
+    ).state;
+  }
+
   return {
-    state: applyCharacterSelfEntersPlayMoveEffects(stateAfterPlace, charDef, charInstId, playerIndex),
+    state: applyCharacterSelfEntersPlayMoveEffects(stateAfterAvatarSweep, charDef, charInstId, playerIndex),
   };
 }
 
