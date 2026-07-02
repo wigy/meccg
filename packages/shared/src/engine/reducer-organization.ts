@@ -16,7 +16,7 @@ import { CardStatus, SiteType } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
@@ -48,6 +48,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'play-short-event': handleOrganizationPlayShortEvent,
   'fetch-from-pile': handleFetchFromPile,
   'move-to-influence': handleMoveToInfluence,
+  'discard-character': handleDiscardCharacter,
   'transfer-item': handleTransferItem,
   'store-item': handleStoreItem,
   'split-company': handleSplitCompany,
@@ -1150,6 +1151,89 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
   }
 
   return { state: moveResult };
+}
+
+/**
+ * Handle discard-character during organization (CoE rule 3.22).
+ *
+ * Discards a non-avatar character at a haven or its home site: the character,
+ * its items, and its allies go to the player's discard pile; attached hazards
+ * return to their owner's discard pile; followers revert to general influence
+ * (immediately — this is the player's organization phase, so no deferral);
+ * the character is removed from its company (empty companies are dropped).
+ */
+function handleDiscardCharacter(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'discard-character') return wrongActionType(state, action, 'discard-character');
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const charInstId = action.characterInstanceId;
+  const char = player.characters[charInstId];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDef = resolveDef(state, charInstId);
+  if (!isCharacterCard(charDef)) return { state, error: 'Not a character' };
+  if (isAvatarCharacter(charDef)) return { state, error: 'An avatar cannot be discarded (rule 3.22)' };
+
+  const company = findCharacterCompany(player.companies, charInstId);
+  if (!company) return { state, error: 'Character is not in a company' };
+
+  logDetail(`Discard character (rule 3.22): ${charDef.name} at ${company.currentSite?.definitionId as string ?? '?'} — discarding with ${char.items.length} item(s), ${char.allies.length} ally/allies, ${char.hazards.length} hazard(s); ${char.followers.length} follower(s) revert to GI`);
+
+  const newPlayers = clonePlayers(state);
+  const opponentIndex = 1 - playerIndex;
+
+  // Character + possessions to the player's own discard pile.
+  let ownDiscard = [...newPlayers[playerIndex].discardPile, { instanceId: charInstId, definitionId: char.definitionId }];
+  for (const item of char.items) ownDiscard = [...ownDiscard, toCardInstance(item)];
+  for (const ally of char.allies) ownDiscard = [...ownDiscard, toCardInstance(ally)];
+
+  // Attached hazards return to their owner's discard pile.
+  let opponentDiscard = [...newPlayers[opponentIndex].discardPile];
+  for (const hazard of char.hazards) {
+    const hazOwner = ownerOf(hazard.instanceId);
+    if ((newPlayers[playerIndex].id as string) === hazOwner) {
+      ownDiscard = [...ownDiscard, toCardInstance(hazard)];
+    } else {
+      opponentDiscard = [...opponentDiscard, toCardInstance(hazard)];
+    }
+  }
+
+  // Remove the character; revert followers to GI (immediate — organization
+  // phase); prune the leader's followers list if the character followed one.
+  const { [charInstId]: _discarded, ...remainingChars } = newPlayers[playerIndex].characters;
+  const newCharacters: Record<CardInstanceId, CharacterInPlay> = { ...remainingChars };
+  for (const followerId of char.followers) {
+    const follower = newCharacters[followerId];
+    if (follower) {
+      logDetail(`  follower ${followerId as string} reverts to general influence`);
+      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
+    }
+  }
+  if (char.controlledBy !== 'general') {
+    const leader = newCharacters[char.controlledBy];
+    if (leader) {
+      newCharacters[char.controlledBy] = { ...leader, followers: leader.followers.filter(f => f !== charInstId) };
+    }
+  }
+
+  const companies = newPlayers[playerIndex].companies
+    .map(c => c.id === company.id ? { ...c, characters: c.characters.filter(id => id !== charInstId) } : c)
+    .filter(c => c.characters.length > 0);
+
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newCharacters, companies, discardPile: ownDiscard };
+  newPlayers[opponentIndex] = { ...newPlayers[opponentIndex], discardPile: opponentDiscard };
+
+  let result = sweepCompanyMembershipChangedEvents(
+    sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({ ...state, players: newPlayers })),
+    [company.id],
+  );
+  if (isLeaderCharacter(charDef)) {
+    logDetail(`Discard character: ${charDef.name} is a Leader — sweeping leader-leaves-company events on ${company.id as string}`);
+    result = sweepLeaderLeavesCompanyEvents(result, [company.id]);
+  }
+
+  return { state: result };
 }
 
 /**

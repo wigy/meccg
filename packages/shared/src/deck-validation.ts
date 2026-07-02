@@ -487,6 +487,32 @@ export function validateDeck(
     }
   }
 
+  // Rule 1.37 — a Fallen-wizard player must declare one specific
+  // Fallen-wizard avatar, at least one copy of which must be in the deck.
+  // The declaration is implicit in deck construction: the deck must contain
+  // exactly one distinct Fallen-wizard avatar name (in any number of copies).
+  if (deck.alignment === 'fallen-wizard') {
+    const fwAvatarNames = new Set<string>();
+    for (const entry of [...characters, ...poolCards, ...sideboard]) {
+      if (entry.card === null) continue;
+      const def = cardPool[entry.card];
+      if (isCharacterCard(def) && isAvatarCharacter(def) && def.alignment === 'fallen-wizard') {
+        fwAvatarNames.add(def.name);
+      }
+    }
+    if (fwAvatarNames.size === 0) {
+      errors.push({
+        section: 'characters',
+        message: 'fallen-wizard deck: must include at least one copy of the declared Fallen-wizard avatar (rule 1.37)',
+      });
+    } else if (fwAvatarNames.size > 1) {
+      errors.push({
+        section: 'characters',
+        message: `fallen-wizard deck: must declare a single specific Fallen-wizard avatar — found ${[...fwAvatarNames].join(', ')} (rule 1.37)`,
+      });
+    }
+  }
+
   // Rule 1.09 / 1.12 — non-avatar characters match alignment
   for (const [section, sectionKey] of [
     [poolCards, 'characters'],

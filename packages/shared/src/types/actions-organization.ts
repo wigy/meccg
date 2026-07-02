@@ -438,6 +438,19 @@ export interface SelectCardBearerAction {
 }
 
 /**
+ * Discards one of the player's own characters while organizing (CoE rule
+ * 3.22). Only a non-avatar character whose company is at a haven or at the
+ * character's home site may be discarded. The character's items and allies
+ * are discarded with it; its followers revert to general influence.
+ */
+export interface DiscardCharacterOrgAction {
+  readonly type: 'discard-character';
+  readonly player: PlayerId;
+  /** The in-play character instance to discard. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * A Fallen-wizard discards one of their in-play stage resource permanent-events
  * during the organization phase (MEWH "The Player Turn"). Only offered when the
  * resulting stage-point total stays at 3 or more.
