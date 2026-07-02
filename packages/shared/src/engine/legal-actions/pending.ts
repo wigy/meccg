@@ -43,6 +43,7 @@ import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPl
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence } from '../reducer-utils.js';
+import { isBalrogAvatarDef } from '../../state-utils.js';
 import { asViable as viable } from './evaluated.js';
 
 
@@ -758,6 +759,19 @@ export function corruptionCheckActions(
     const def = resolveDef(state, compChar.instanceId);
     return isCharacterCard(def) && def.race === 'troll' && (def.keywords ?? []).includes('leader');
   }) ?? false;
+
+  // Rule 10.05: a character in the same company as a Ringwraith or the
+  // Balrog receives an additional +2 modifier to corruption checks.
+  const hasCorruptingAvatar = company?.characters.some(cid => {
+    const compChar = player.characters[cid];
+    if (!compChar) return false;
+    const def = resolveDef(state, compChar.instanceId);
+    return isCharacterCard(def) && (def.race === 'ringwraith' || isBalrogAvatarDef(def));
+  }) ?? false;
+  if (hasCorruptingAvatar) {
+    totalModifier += 2;
+    logDetail(`Corruption check +2 (rule 10.05): company includes a Ringwraith/Balrog avatar`);
+  }
 
   const checkContext = { reason: 'corruption-check', source: { keywords: sourceKeywords }, company: { hasTrollLeader, characterCount: companyCharCount } };
 

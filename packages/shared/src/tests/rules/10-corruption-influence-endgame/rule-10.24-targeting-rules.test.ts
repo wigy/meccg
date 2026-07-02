@@ -19,6 +19,17 @@
 
 import { describe, test } from 'vitest';
 
+// The core claim — targets are chosen at declaration and must be in play —
+// is architecturally guaranteed: `play-target` legal-action generation
+// (legal-actions/*.ts) only ever emits one concrete action per valid
+// in-play target, so a target is baked into the `GameAction` itself and
+// there is no code path offering an action with an unresolved/deferred
+// target. This is exercised by essentially every targeted card test in the
+// suite. The narrower sub-clauses (dice-rolling-in-progress can still be
+// targeted mid-chain; stored resource cards vs. hazard cards in kill piles;
+// face-down-card targeting) don't have a dedicated generic check to test in
+// isolation — each is only as good as the specific card effects that rely
+// on it, none of which currently probes these exact edge cases.
 describe('Rule 10.24 — Targeting Rules', () => {
   test.todo('Targets chosen upon declaration; must be in play; played card cannot be targeted until resolved; face-down cards cannot be targeted');
 });

@@ -15,6 +15,13 @@
 
 import { describe, test } from 'vitest';
 
+// A dedup rule for the rule-10.31 passive-condition queue: if the same
+// passive fires from several sources simultaneously (e.g. three identical
+// permanent-events all triggering on the same game condition), its effect
+// declares once rather than three times. The chain-reducer's passive
+// detection has no coalescing step — each detected trigger is queued
+// independently — and no card in the pool can currently be present in
+// triple with a same-moment shared trigger to expose the gap.
 describe('Rule 10.35 — Duplicate Passive Conditions', () => {
   test.todo('Multiple occurrences of same passive condition at same time: effects declared once but all considered initiated');
 });
