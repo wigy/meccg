@@ -25,7 +25,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
 import { CardStatus, Race } from '../types/common.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
@@ -1161,6 +1161,65 @@ export function handleTapAllyCombatBoost(state: GameState, action: GameAction, c
   logDetail(`${allyName} tapped — applied combat boost to ${applied} character(s) in company ${company.id as string}`);
 
   return { state: newState };
+}
+
+/**
+ * Tap an in-play ally carrying an `ally-body-check-boost` effect to add its
+ * value to its controlling character's effective body for the pending body
+ * check — the current strike (`combat.currentStrikeIndex`) must already
+ * target that character. Mirrors the `strike-modifier` bodyPenalty path
+ * (accumulates onto `StrikeAssignment.strikeBodyPenalty`, read by both
+ * `bodyCheckActions` and the body-check roll resolution in
+ * `handleBodyCheckRoll`) but is triggered by tapping the ally instead of
+ * playing a card. Only offered (see `tapAllyBodyCheckBoostActions`) when the
+ * ally itself was also struck by a strike from the same attack, so the
+ * eligibility is re-checked here defensively rather than trusted blindly.
+ *
+ * Used by War-warg (le-156).
+ */
+export function handleTapAllyBodyCheckBoost(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'tap-ally-body-check-boost') return wrongActionType(state, action, 'tap-ally-body-check-boost');
+  if (combat.bodyCheckTarget !== 'character') return { state, error: 'No character body check pending' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  if (playerIndex < 0) return { state, error: 'Player not found' };
+  const player = state.players[playerIndex];
+
+  const tapped = updateAttachment(player, 'allies', action.cardInstanceId, a => ({ ...a, status: CardStatus.Tapped }));
+  if (!tapped) return { state, error: 'Ally not in play under this player' };
+  const { charId: bearerCharId, attachment: ally } = tapped;
+  if (ally.status !== CardStatus.Untapped) return { state, error: 'Ally must be untapped to activate' };
+
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!strike || strike.characterId !== bearerCharId) {
+    return { state, error: 'Ally does not belong to the character facing this body check' };
+  }
+  const struckAlly = combat.strikeAssignments.some(a => a.characterId === ally.instanceId);
+  if (!struckAlly) {
+    return { state, error: 'Ally was not also targeted by a strike from this attack' };
+  }
+
+  const allyDef = defById(state, ally.definitionId);
+  const boostEffect = getCardEffects(allyDef).find(
+    (e): e is AllyBodyCheckBoostEffect => e.type === 'ally-body-check-boost',
+  );
+  if (!boostEffect) return { state, error: 'Ally has no ally-body-check-boost effect' };
+
+  const allyName = (allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string);
+  logDetail(`${allyName} tapped — +${boostEffect.value} body to ${bearerCharId as string} for the pending body check`);
+
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex
+      ? { ...a, strikeBodyPenalty: (a.strikeBodyPenalty ?? 0) + boostEffect.value }
+      : a,
+  );
+
+  return {
+    state: {
+      ...updatePlayer(state, playerIndex, () => tapped.player),
+      combat: { ...combat, strikeAssignments: newAssignments },
+    },
+  };
 }
 
 /**
