@@ -18,6 +18,20 @@
 
 import { describe, test } from 'vitest';
 
+// The pre-assignment cancel/modify window is implemented: `inCancelWindow`
+// (legal-actions/combat.ts) gates `cancelAttackActions`/`modifyAttackActions`
+// to `combat.phase === 'assign-strikes'` with no strikes assigned yet (or the
+// equivalent pre-resolution window for "each character faces a strike"
+// attacks), matching CRF 22 Annotation 13 ("an attack may not be canceled
+// once its strikes have been assigned"). It is exercised implicitly by many
+// individual cancel-attack card tests throughout this section (e.g. Escape,
+// Adûnaphel the Ringwraith). What remains unverified in isolation is the
+// specific "still counts against the company's hazard limit" claim for a
+// hazard action taken by the attacker in this window during an M/H-phase
+// combat — hazard-limit bookkeeping is uniform across every hazard play
+// (mh-hazard-play.ts) regardless of whether combat happens to be active, so
+// there is no separate "combat pre-assignment" hazard-limit carve-out to
+// isolate from the general hazard-limit rules already covered in section 05.
 describe('Rule 8.02 — Step 1: Pre-Assignment Actions', () => {
   test.todo('Before strikes assigned, players may cancel attack or modify attack attributes; company hazard limit still in effect');
 });

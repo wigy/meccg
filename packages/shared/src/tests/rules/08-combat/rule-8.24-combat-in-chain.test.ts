@@ -15,6 +15,16 @@
 
 import { describe, test } from 'vitest';
 
+// `computeLegalActions` (legal-actions/index.ts) delegates entirely to
+// combat-specific action generators whenever `state.combat` is active,
+// regardless of whether that combat happened to start mid-chain or as a
+// standalone action — there is no separate "chain-restricted" combat mode.
+// This makes the rule's core claim true by construction (only prescribed
+// combat actions are ever offered while `state.combat` exists), but no test
+// specifically drives a chain with unresolved trailing effects into combat
+// (e.g. a card-triggered-attack permanent event with post-attack effects
+// still queued) to prove the *chain itself* correctly resumes those trailing
+// effects only after combat fully finalizes, rather than interleaving them.
 describe('Rule 8.24 — Combat During Chain of Effects', () => {
   test.todo('If combat in chain with unresolved effects, only prescribed combat actions allowed; includes event-initiated combat');
 });

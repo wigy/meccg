@@ -490,7 +490,8 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // Allies with an instance stat override (e.g. a creature converted by
     // Ready to His Will) use that body; otherwise fall back to the definition.
     const allyOverrideBody = allyMatch ? allyEffectiveBody(stateWithRoll, allyMatch.ally) : undefined;
-    let body = allyOverrideBody ?? charDef2?.body ?? 9; // Default body if not specified
+    const printedBody = allyOverrideBody ?? charDef2?.body ?? 9;
+    let body = printedBody; // Default body if not specified
     // CvCC weapon effects: the attacking character's `enemy-modifier` (body,
     // subtract/halve) effects reduce the defending character's body-check
     // target, mirroring how the same DSL effect reduces a hazard creature's
@@ -605,9 +606,14 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // Allies cannot benefit from this protection.
     if (!allyMatch && charData) {
       const charDefForDiscard = defById(stateWithRoll, charData.definitionId);
-      const discardBodyCheckValues = isCharacterCard(charDefForDiscard) && charDefForDiscard.cardType === 'minion-character' && charDefForDiscard.discardBodyCheck != null
+      const printedDiscardBodyCheckValues = isCharacterCard(charDefForDiscard) && charDefForDiscard.cardType === 'minion-character' && charDefForDiscard.discardBodyCheck != null
         ? charDefForDiscard.discardBodyCheck
         : [];
+      // CoE rule 8.31: effects that modify the character's body (e.g. a dodge
+      // or strike-event body penalty) shift the discard number by the same
+      // amount, so the printed values track `body`'s delta from its printed value.
+      const bodyDelta = body - printedBody;
+      const discardBodyCheckValues = printedDiscardBodyCheckValues.map(v => v + bodyDelta);
       if ((discardBodyCheckValues).includes(effectiveRoll)) {
         const isProtected = charData.items.some(item => {
           const itemDef = state.cardPool[item.definitionId];
