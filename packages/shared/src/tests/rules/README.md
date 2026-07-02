@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 329 | 230 | 99 | 69.9% |
+| 329 | 236 | 93 | 71.7% |
 
 ## Section Breakdown
 
@@ -15,12 +15,12 @@
 | 00 | [Engine](00-engine/) | 4 | 4 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 41 | 69.5% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
-| 03 | [Organization Phase](03-organization-phase/) | 48 | 27 | 56.3% |
+| 03 | [Organization Phase](03-organization-phase/) | 48 | 31 | 64.6% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 19 | 55.9% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 17 | 81.0% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 2 | 2 | 100.0% |
-| 08 | [Combat](08-combat/) | 42 | 29 | 69.0% |
+| 08 | [Combat](08-combat/) | 42 | 31 | 73.8% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 27 | 87.1% |
 | 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 29 | 54.7% |
 | — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
@@ -70,7 +70,7 @@
 | 1.34 | Deck Construction & Setup | [Declaring Alignments](01-deck-construction/rule-1.34-declaring-alignments.test.ts) | ☐ |
 | 1.35 | Deck Construction & Setup | [Cards Vs Ringwraith](01-deck-construction/rule-1.35-cards-vs-ringwraith.test.ts) | ☐ |
 | 1.36 | Deck Construction & Setup | [Cards Vs Balrog](01-deck-construction/rule-1.36-cards-vs-balrog.test.ts) | ☐ |
-| 1.37 | Deck Construction & Setup | [Fw Declaring Avatar](01-deck-construction/rule-1.37-fw-declaring-avatar.test.ts) | ☐ |
+| 1.37 | Deck Construction & Setup | [Fw Declaring Avatar](01-deck-construction/rule-1.37-fw-declaring-avatar.test.ts) | ◐ |
 | 1.38 | Deck Construction & Setup | [Character Draft](01-deck-construction/rule-1.38-character-draft.test.ts) | ☑ |
 | 1.39 | Deck Construction & Setup | [Draft Site Requirement](01-deck-construction/rule-1.39-draft-site-requirement.test.ts) | ☐ |
 | 1.40 | Deck Construction & Setup | [Minion Draft Six](01-deck-construction/rule-1.40-minion-draft-six.test.ts) | ☑ |
@@ -113,12 +113,12 @@
 | 3.05 | Organization Phase | [Minion Avatar Location](03-organization-phase/rule-3.05-minion-avatar-location.test.ts) | ◐ |
 | 3.06 | Organization Phase | [Minion Ringwraith Play](03-organization-phase/rule-3.06-minion-ringwraith-play.test.ts) | ☐ |
 | 3.07 | Organization Phase | [Ringwraith Company Composition](03-organization-phase/rule-3.07-ringwraith-company-composition.test.ts) | ☐ |
-| 3.08 | Organization Phase | [Ringwraith Follower](03-organization-phase/rule-3.08-ringwraith-follower.test.ts) | ☐ |
-| 3.09 | Organization Phase | [Fw Avatar Play](03-organization-phase/rule-3.09-fw-avatar-play.test.ts) | ◐ |
-| 3.10 | Organization Phase | [Balrog Avatar Play](03-organization-phase/rule-3.10-balrog-avatar-play.test.ts) | ☐ |
+| 3.08 | Organization Phase | [Ringwraith Follower](03-organization-phase/rule-3.08-ringwraith-follower.test.ts) | ◐ |
+| 3.09 | Organization Phase | [Fw Avatar Play](03-organization-phase/rule-3.09-fw-avatar-play.test.ts) | ☑ |
+| 3.10 | Organization Phase | [Balrog Avatar Play](03-organization-phase/rule-3.10-balrog-avatar-play.test.ts) | ☑ |
 | 3.11 | Organization Phase | [Non Avatar Character Play](03-organization-phase/rule-3.11-non-avatar-character-play.test.ts) | ☑ |
 | 3.12 | Organization Phase | [Character Influence Control](03-organization-phase/rule-3.12-character-influence-control.test.ts) | ☑ |
-| 3.13 | Organization Phase | [Follower Removed From Di](03-organization-phase/rule-3.13-follower-removed-from-di.test.ts) | ☐ |
+| 3.13 | Organization Phase | [Follower Removed From Di](03-organization-phase/rule-3.13-follower-removed-from-di.test.ts) | ◐ |
 | 3.14 | Organization Phase | [Restricted Direct Influence](03-organization-phase/rule-3.14-restricted-direct-influence.test.ts) | ☐ |
 | 3.15 | Organization Phase | [Agent As Character](03-organization-phase/rule-3.15-agent-as-character.test.ts) | ☑ |
 | 3.16 | Organization Phase | [Fw Character Mind Limit](03-organization-phase/rule-3.16-fw-character-mind-limit.test.ts) | ☑ |
@@ -127,7 +127,7 @@
 | 3.19 | Organization Phase | [Balrog Extra Character](03-organization-phase/rule-3.19-balrog-extra-character.test.ts) | ☐ |
 | 3.20 | Organization Phase | [Balrog Non Unique Source](03-organization-phase/rule-3.20-balrog-non-unique-source.test.ts) | ☐ |
 | 3.21 | Organization Phase | [Character At New Site](03-organization-phase/rule-3.21-character-at-new-site.test.ts) | ☑ |
-| 3.22 | Organization Phase | [Discarding Character](03-organization-phase/rule-3.22-discarding-character.test.ts) | ☐ |
+| 3.22 | Organization Phase | [Discarding Character](03-organization-phase/rule-3.22-discarding-character.test.ts) | ☑ |
 | 3.23 | Organization Phase | [Company Composition](03-organization-phase/rule-3.23-company-composition.test.ts) | ☑ |
 | 3.24 | Organization Phase | [Company Size Limits](03-organization-phase/rule-3.24-company-size-limits.test.ts) | ☑ |
 | 3.25 | Organization Phase | [Race Mixing Restriction](03-organization-phase/rule-3.25-race-mixing-restriction.test.ts) | ☑ |
@@ -151,7 +151,7 @@
 | 3.43 | Organization Phase | [Starter Movement](03-organization-phase/rule-3.43-starter-movement.test.ts) | ☑ |
 | 3.44 | Organization Phase | [Region Movement](03-organization-phase/rule-3.44-region-movement.test.ts) | ☑ |
 | 3.45 | Organization Phase | [Under Deeps Movement](03-organization-phase/rule-3.45-under-deeps-movement.test.ts) | ☑ |
-| 3.46 | Organization Phase | [Special Movement](03-organization-phase/rule-3.46-special-movement.test.ts) | ☐ |
+| 3.46 | Organization Phase | [Special Movement](03-organization-phase/rule-3.46-special-movement.test.ts) | ☑ |
 | 3.47 | Organization Phase | [Influence Overflow](03-organization-phase/rule-3.47-influence-overflow.test.ts) | ☐ |
 | 3.48 | Organization Phase | [Fw Discard Stage](03-organization-phase/rule-3.48-fw-discard-stage.test.ts) | ☐ |
 | 4.01 | Long-Event Phase | [Discard Own Long Events](04-long-event-phase/rule-4.01-discard-own-long-events.test.ts) | ☑ |
@@ -225,7 +225,7 @@
 | 8.09 | Combat | [Agent Attack Assignment](08-combat/rule-8.09-agent-attack-assignment.test.ts) | ☑ |
 | 8.10 | Combat | [Combat Step3 Opponent Assigns](08-combat/rule-8.10-combat-step3-opponent-assigns.test.ts) | ☑ |
 | 8.11 | Combat | [Combat Step4 Strike Sequences](08-combat/rule-8.11-combat-step4-strike-sequences.test.ts) | ☑ |
-| 8.12 | Combat | [Ss Step1 Attacker Actions](08-combat/rule-8.12-ss-step1-attacker-actions.test.ts) | ☐ |
+| 8.12 | Combat | [Ss Step1 Attacker Actions](08-combat/rule-8.12-ss-step1-attacker-actions.test.ts) | ☑ |
 | 8.13 | Combat | [Ss Step2 Excess Strikes](08-combat/rule-8.13-ss-step2-excess-strikes.test.ts) | ☑ |
 | 8.14 | Combat | [Ss Step3 Minus3 Untapped](08-combat/rule-8.14-ss-step3-minus3-untapped.test.ts) | ☑ |
 | 8.15 | Combat | [Ss Step4 Tap Support](08-combat/rule-8.15-ss-step4-tap-support.test.ts) | ☑ |
@@ -234,7 +234,7 @@
 | 8.18 | Combat | [Agent Attack Rolls](08-combat/rule-8.18-agent-attack-rolls.test.ts) | ☑ |
 | 8.19 | Combat | [Ss Step7 Resolve Strike](08-combat/rule-8.19-ss-step7-resolve-strike.test.ts) | ☑ |
 | 8.20 | Combat | [Strike Passive Conditions](08-combat/rule-8.20-strike-passive-conditions.test.ts) | ☐ |
-| 8.21 | Combat | [Combat Step5 Resolve Attack](08-combat/rule-8.21-combat-step5-resolve-attack.test.ts) | ◐ |
+| 8.21 | Combat | [Combat Step5 Resolve Attack](08-combat/rule-8.21-combat-step5-resolve-attack.test.ts) | ☑ |
 | 8.22 | Combat | [Creature Mp By Alignment](08-combat/rule-8.22-creature-mp-by-alignment.test.ts) | ☑ |
 | 8.23 | Combat | [Attack As Action](08-combat/rule-8.23-attack-as-action.test.ts) | ☐ |
 | 8.24 | Combat | [Combat In Chain](08-combat/rule-8.24-combat-in-chain.test.ts) | ☐ |

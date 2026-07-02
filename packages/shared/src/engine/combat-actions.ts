@@ -392,7 +392,10 @@ function discardCharacterAfterBodyCheck(
   const updatedChars = { ...remainingChars };
   for (const followerId of charData.followers) {
     const follower = updatedChars[followerId];
-    if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general' };
+    // Combat never happens during the controlling player's organization
+    // phase, so the follower's mind subtraction from general influence is
+    // deferred to that player's next organization phase (CoE rule 3.13).
+    if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
   }
   newPlayerData.characters = pruneLeaderFollowers(updatedChars, strike.characterId, charData.controlledBy);
   newPlayers[defPlayerIndex] = newPlayerData;
@@ -580,11 +583,13 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         }
         newPlayersRW[1 - defPlayerIndex] = { ...hazardPlayerRW, discardPile: hazardDiscardRW };
         const { [strike.characterId]: _rw, ...remainingCharsRW } = newPlayerDataRW.characters;
-        // Revert followers to general influence
+        // Revert followers to general influence with the mind subtraction
+        // deferred to the player's next organization phase (CoE rule 3.13 —
+        // combat never happens during the controller's organization phase).
         const updatedCharsRW = { ...remainingCharsRW };
         for (const followerId of charData.followers) {
           const follower = updatedCharsRW[followerId];
-          if (follower) updatedCharsRW[followerId] = { ...follower, controlledBy: 'general' };
+          if (follower) updatedCharsRW[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
         }
         newPlayerDataRW.characters = pruneLeaderFollowers(updatedCharsRW, strike.characterId, charData.controlledBy);
         // Record the returned Ringwraith's definition ID for reveal restrictions

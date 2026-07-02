@@ -144,8 +144,11 @@ describe('Rule 8.35 — Prisoners', () => {
     // Assert: Aragorn is not wounded — prisoner rule prevents wound.
     expect(aragornChar.status).toBe(CardStatus.Untapped);
 
-    // Assert: Bilbo reverted to general influence.
+    // Assert: Bilbo reverted to general influence with the mind
+    // subtraction deferred (rule 8.35: follower minds "are not subtracted
+    // from general influence until their player's next organization phase").
     expect(aragornPlayer.characters[bilboId]?.controlledBy).toBe('general');
+    expect(aragornPlayer.characters[bilboId]?.influenceUnsubtracted).toBe(true);
 
     // Assert: rescue site removed from hazard player's location deck.
     const hazardPlayer = afterStrike.players[HAZARD_PLAYER];
@@ -155,8 +158,9 @@ describe('Rule 8.35 — Prisoners', () => {
     // Assert: prisoner worth negative MP.
     expect(aragornPlayer.marshallingPoints.character).toBeLessThan(0);
 
-    // Assert: prisoner costs 0 GI — Aragorn's mind (6) not counted.
-    // Bilbo (mind 5) is now under GI so GI used = 5.
-    expect(aragornPlayer.generalInfluenceUsed).toBe(5);
+    // Assert: prisoner costs 0 GI — Aragorn's mind (6) not counted — and
+    // Bilbo's mind (5) is deferred until the next organization phase, so
+    // nothing counts against general influence yet.
+    expect(aragornPlayer.generalInfluenceUsed).toBe(0);
   });
 });

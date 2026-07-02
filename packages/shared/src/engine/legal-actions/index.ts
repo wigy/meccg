@@ -27,7 +27,7 @@ import { endOfTurnActions } from './end-of-turn.js';
 import { freeCouncilActions } from './free-council.js';
 import { chainActions } from './chain.js';
 import { combatActions } from './combat.js';
-import { logEvaluated, logHeading, logResult } from './log.js';
+import { logDetail, logEvaluated, logHeading, logResult } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { asViable } from './evaluated.js';
 import { topResolutionFor } from '../pending.js';
@@ -178,6 +178,11 @@ const BANNED_VS_RINGWRAITH_OPPONENT: ReadonlySet<string> = new Set([
  * Rewrites any `play-*` action that would play a banned card into a
  * not-playable entry, when the acting player's opponent has the given
  * alignment. Pass-through for every other situation.
+ *
+ * When `exemptSameAlignment` is set, the ban is skipped if the acting
+ * player shares the opponent's alignment — CoE rule 3.10: in a Balrog
+ * mirror match both players may continue to play Balrog-specific cards
+ * regardless of which plays their avatar first.
  */
 function applyOpponentAlignmentBans(
   state: GameState,
@@ -186,9 +191,15 @@ function applyOpponentAlignmentBans(
   opponentAlignment: Alignment,
   banned: ReadonlySet<string>,
   reasonSuffix: string,
+  exemptSameAlignment = false,
 ): EvaluatedAction[] {
   const opponent = state.players.find(p => p.id !== playerId);
   if (!opponent || opponent.alignment !== opponentAlignment) return evaluated;
+  const actor = state.players.find(p => p.id === playerId);
+  if (exemptSameAlignment && actor && actor.alignment === opponentAlignment) {
+    logDetail(`Opponent-alignment ban skipped: both players are ${opponentAlignment} (mirror match, CoE 3.10)`);
+    return evaluated;
+  }
   return evaluated.map(ea => {
     const a = ea.action as unknown as Record<string, unknown>;
     const type = a['type'];
@@ -241,6 +252,7 @@ function applyOpponentBans(
   const afterBalrog = applyOpponentAlignmentBans(
     state, playerId, evaluated, Alignment.Balrog, BANNED_VS_BALROG_OPPONENT,
     'cannot be played against a Balrog player (MEBA)',
+    true, // Balrog mirror match: both players keep their Balrog-specific cards (CoE 3.10)
   );
   const afterRingwraith = applyOpponentAlignmentBans(
     state, playerId, afterBalrog, Alignment.Ringwraith, BANNED_VS_RINGWRAITH_OPPONENT,

@@ -42,7 +42,7 @@ import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { viableWithRegress } from '../reverse-actions.js';
-import { playCharacterActions } from './organization-characters.js';
+import { playCharacterActions, discardCharacterActions } from './organization-characters.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import {
@@ -361,6 +361,9 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Move-to-influence actions (reassign characters between GI and DI)
   actions.push(...moveToInfluenceActions(state, playerId));
+
+  // Discard-character actions (rule 3.22: non-avatar at a haven or home site)
+  actions.push(...discardCharacterActions(state, playerId));
 
   // Plan-movement actions for each company
   actions.push(...planMovementActions(state, playerId));

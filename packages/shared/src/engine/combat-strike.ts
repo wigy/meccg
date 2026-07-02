@@ -590,7 +590,19 @@ export function eliminateCombatantFromStrike(
   newPlayers2[1 - defPlayerIndex] = { ...hazardPlayerElim, discardPile: hazardDiscardElim };
 
   const { [strike.characterId]: _, ...remainingChars } = newPlayers2[defPlayerIndex].characters;
-  const prunedChars = pruneLeaderFollowers(remainingChars, strike.characterId, charData.controlledBy);
+  // Followers of the eliminated character lose their controller — revert to
+  // general influence with the mind subtraction deferred to the player's next
+  // organization phase (CoE rule 3.13 — combat never happens during the
+  // controller's organization phase).
+  const charsWithFreedFollowers = { ...remainingChars };
+  for (const followerId of charData.followers) {
+    const follower = charsWithFreedFollowers[followerId];
+    if (follower) {
+      logDetail(`Follower ${followerId as string} of eliminated character reverts to general influence (subtraction deferred, CoE 3.13)`);
+      charsWithFreedFollowers[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
+    }
+  }
+  const prunedChars = pruneLeaderFollowers(charsWithFreedFollowers, strike.characterId, charData.controlledBy);
   newPlayers2[defPlayerIndex] = { ...newPlayers2[defPlayerIndex], characters: prunedChars };
 
   // Per CoE rule 3.I.2: for each unwounded character in the same company,

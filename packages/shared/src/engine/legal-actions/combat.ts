@@ -31,6 +31,8 @@ import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
 import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess } from '../ally-stats.js';
+import { Phase } from '../../types/state-phases.js';
+import { currentHazardLimit } from '../hazard-limit.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -2635,6 +2637,19 @@ function combatHazardPermanentPlays(
 
   const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
   if (!currentStrike || currentStrike.resolved) return [];
+
+  // CoE rule 8.12: hazard actions during a strike sequence in the opponent's
+  // M/H phase count against the company's hazard limit — no further hazard
+  // plays are offered once the limit is reached. (Site-phase combat has no
+  // hazard-limit bookkeeping.)
+  if (state.phaseState.phase === Phase.MovementHazard && state.phaseState.hazardLimitAtReveal !== undefined) {
+    const mhState = state.phaseState;
+    const limit = currentHazardLimit(state, mhState, combat.companyId);
+    if ((mhState.hazardsPlayedThisCompany ?? 0) >= limit) {
+      logDetail(`Combat play-hazard: hazard limit reached (${mhState.hazardsPlayedThisCompany}/${limit}) — no mid-strike hazard plays`);
+      return [];
+    }
+  }
 
   const attacker = playerById(state, playerId);
   if (!attacker) return [];

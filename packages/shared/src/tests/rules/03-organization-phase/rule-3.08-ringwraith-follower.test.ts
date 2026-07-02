@@ -20,13 +20,13 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import type { CardDefinitionId } from '../../test-helpers.js';
+import type { CardDefinitionId, OpponentInfluenceAttemptAction } from '../../test-helpers.js';
 import {
   buildTestState, resetMint, dispatch, findCharInstanceId, Phase, Alignment,
-  viablePlayCharacterActions,
+  viablePlayCharacterActions, viableActions, makeSitePhase,
   PLAYER_1, PLAYER_2,
   ARAGORN, RIVENDELL,
-  RESOURCE_PLAYER,
+  RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
 
 // The Witch-king (le-58): "As your Ringwraith, up to two Ringwraith followers
@@ -37,6 +37,8 @@ const WITCH_KING = 'le-58' as CardDefinitionId;
 const ADUNAPHEL = 'le-50' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId; // Darkhaven
 const ETTENMOORS = 'le-373' as CardDefinitionId; // not a Darkhaven, not Adûnaphel's home site
+const THE_MOUTH = 'le-24' as CardDefinitionId; // minion influencer (DI 4)
+const ASTERNAK = 'le-1' as CardDefinitionId; // plain minion character (mind 5)
 
 describe('Rule 3.08 — Ringwraith Follower Rules', () => {
   beforeEach(() => resetMint());
@@ -132,10 +134,54 @@ describe('Rule 3.08 — Ringwraith Follower Rules', () => {
     expect(viablePlayCharacterActions(state, PLAYER_1)).toHaveLength(0);
   });
 
-  // The engine enforces the enabling-ability and location conditions above,
-  // but not yet: the 1-DI control cost, that a follower cannot be influenced
-  // away, or the grace-period/discard rule when the controlling avatar leaves
-  // play without being eliminated.
-  test.todo('[MINION] Ringwraith follower requires 1 point of direct influence to control and cannot be influenced away');
+  test('[MINION] a Ringwraith follower cannot be influenced away (opponent influence never targets it)', () => {
+    // Ringwraith followers are avatar cards, and influence attempts never
+    // target avatar characters — so Adûnaphel (a follower of the Witch-king)
+    // must not be offered as an opponent-influence target, while the plain
+    // minion character in the same company is.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [THE_MOUTH] }],
+          hand: [],
+          siteDeck: [ETTENMOORS],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{
+            site: MINAS_MORGUL,
+            characters: [
+              { defId: WITCH_KING },
+              { defId: ADUNAPHEL, followerOf: 0 },
+              { defId: ASTERNAK },
+            ],
+          }],
+          hand: [],
+          siteDeck: [ETTENMOORS],
+        },
+      ],
+    });
+    const state = { ...base, turnNumber: 3, phaseState: makeSitePhase() };
+    const adunaphelId = findCharInstanceId(state, HAZARD_PLAYER, ADUNAPHEL);
+    const asternakId = findCharInstanceId(state, HAZARD_PLAYER, ASTERNAK);
+
+    const targets = viableActions(state, PLAYER_1, 'opponent-influence-attempt')
+      .map(ea => (ea.action as OpponentInfluenceAttemptAction).targetInstanceId);
+    expect(targets).toContain(asternakId);
+    expect(targets).not.toContain(adunaphelId);
+  });
+
+  // The 1-DI control cost has no exercising card: the only follower-slots
+  // enabler in the pool (The Witch-king le-58) explicitly grants control
+  // "with no influence", overriding the generic 1-DI rule. The grace-period
+  // rule shares the end-of-organization enforcement machinery with rules
+  // 3.13 and 3.47, which does not exist yet.
+  test.todo('[MINION] Ringwraith follower requires 1 point of direct influence to control (no card exercises the non-exempt path)');
   test.todo('[MINION] If the controlling Ringwraith avatar leaves play without being eliminated, followers must be reclaimed by end of next organization phase or are discarded');
 });

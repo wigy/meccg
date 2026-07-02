@@ -19,6 +19,7 @@ import type { TakePrisonerEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isSiteCard } from '../types/cards.js';
 import { CardStatus } from '../types/common.js';
+import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { defById, findById, getCardEffects, getOnEventEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -94,6 +95,19 @@ export function handleCombatPlayHazard(
   // Remove card from hand
   const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
   let newState: GameState = updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand }));
+
+  // CoE rule 8.12: hazard actions taken during a strike sequence in the
+  // opponent's M/H phase still count against the company's hazard limit.
+  // (Combat during the site phase has no hazard-limit bookkeeping.)
+  if (newState.phaseState.phase === Phase.MovementHazard) {
+    const mhState = newState.phaseState;
+    const played = (mhState.hazardsPlayedThisCompany ?? 0) + 1;
+    logDetail(`Combat play-hazard: counts against hazard limit (${played})`);
+    newState = {
+      ...newState,
+      phaseState: { ...mhState, hazardsPlayedThisCompany: played },
+    };
+  }
 
   // Ward check: a matching ward on the target discards the curse to
   // the hazard player's discard pile instead of attaching it.
@@ -216,7 +230,10 @@ function bindPrisoner(
     for (const followerId of followerIds) {
       const follower = updatedChars[followerId];
       if (follower && follower.controlledBy === charInstanceId) {
-        updatedChars[followerId] = { ...follower, controlledBy: 'general' };
+        // Prisoner-taking happens during combat, outside the controlling
+        // player's organization phase — defer the freed follower's mind
+        // subtraction from general influence (CoE rule 3.13).
+        updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
       }
     }
     return { ...p, characters: updatedChars, discardPile: [...p.discardPile, ...discardedItems.map(i => toCardInstance(i))] };

@@ -510,6 +510,8 @@ export function describeAction(
       return `${action.player as string} taps ally ${action.allyInstanceId as string} to discard hazard ${action.targetInstanceId as string}`;
     case 'convert-creature-to-ally':
       return `${action.player as string} plays ${action.cardInstanceId as string} to convert the attacking creature into an ally controlled by ${action.controllingCharacterId as string}`;
+    case 'discard-character':
+      return `${action.player as string} discards character ${instName(action.characterInstanceId)} while organizing`;
     case 'discard-stage-resource':
       return `${action.player as string} discards stage resource ${action.cardInstanceId as string}`;
     case 'activate-org-fetch':

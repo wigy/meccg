@@ -736,3 +736,51 @@ export function playCharacterActions(
 
   return results;
 }
+
+/**
+ * Computes discard-character actions during the organization phase.
+ *
+ * CoE rule 3.22: the resource player can only discard a character while
+ * organizing if that character is not an avatar and is at a haven or its
+ * home site. Offered for every qualifying character in every company of the
+ * player; the discard itself (possessions, followers, influence release) is
+ * handled by the reducer.
+ */
+export function discardCharacterActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId)!;
+  const actions: EvaluatedAction[] = [];
+
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const siteDef = resolveDef(state, company.currentSite.instanceId);
+    if (!isSiteCard(siteDef)) continue;
+
+    // A site converted into a Wizardhaven (Hidden Haven, wh-75) counts as a
+    // haven for the converting Fallen-wizard, same as in playCharacterActions.
+    const isHaven = isHavenForPlayer(siteDef, player.alignment, {
+      state, siteDefinitionId: company.currentSite.definitionId, playerId,
+    });
+
+    for (const charInstId of company.characters) {
+      const char = player.characters[charInstId];
+      if (!char) continue;
+      const charDef = resolveDef(state, char.instanceId);
+      if (!isCharacterCard(charDef)) continue;
+      if (isAvatarCharacter(charDef)) {
+        logDetail(`  discard-character: ${charDef.name} is an avatar — cannot be discarded (rule 3.22)`);
+        continue;
+      }
+      if (!isHaven && !homesiteMatchesSite(charDef, siteDef, player.alignment)) {
+        logDetail(`  discard-character: ${charDef.name} at ${siteDef.name} — neither a haven nor its home site (rule 3.22)`);
+        continue;
+      }
+      logDetail(`  → viable: discard ${charDef.name} at ${siteDef.name} (${isHaven ? 'haven' : 'home site'})`);
+      actions.push({
+        action: { type: 'discard-character', player: playerId, characterInstanceId: charInstId },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
