@@ -2376,7 +2376,22 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Bag End",
-    "effects": [],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "home-site-only",
+        "when": {
+          "$not": {
+            "reason": "starting-character"
+          }
+        }
+      }
+    ],
     "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2."
   },
   {
