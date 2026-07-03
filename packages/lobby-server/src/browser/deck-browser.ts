@@ -13,6 +13,7 @@ import {
 } from './app-state.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { apiGet, apiSend } from './api.js';
+import { renderMarkdown } from './markdown.js';
 
 // Forward-declared function references, set by the lobby module at startup.
 let openDeckEditorFn: ((deckId: string) => Promise<void>) | null = null;
@@ -171,6 +172,12 @@ export function renderCompactDeck(container: HTMLElement, deck: FullDeck): void 
   alignEl.className = 'compact-deck-alignment';
   alignEl.textContent = deck.alignment;
   container.appendChild(alignEl);
+  if (deck.notes) {
+    const notesEl = document.createElement('div');
+    notesEl.className = 'compact-deck-notes';
+    notesEl.innerHTML = renderMarkdown(deck.notes);
+    container.appendChild(notesEl);
+  }
   const grid = document.createElement('div');
   grid.className = 'compact-deck-grid';
   for (const group of sections) {

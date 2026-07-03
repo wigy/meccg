@@ -17,6 +17,7 @@ import {
 import { buildCardPreviewInfo } from './render.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { apiSend } from './api.js';
+import { renderMarkdown } from './markdown.js';
 
 // Forward-declared showScreen, set by the lobby module at startup.
 let showScreenFn: ((id: ScreenId) => void) | null = null;
@@ -329,6 +330,78 @@ function siteTypeToggles(preset: TogglePreset): BrowserToggle[] {
 function isRing(def: CardDefinition): boolean {
   return traits(def).cardType.endsWith('resource-item')
     && (traits(def).subtype === 'gold-ring' || (traits(def).keywords ?? []).includes('ring'));
+}
+
+/**
+ * Render the deck notes panel: a collapsible block showing the deck's
+ * Markdown notes with an edit mode (textarea + Save/Cancel). Saving
+ * persists the whole deck; a failed save restores the previous notes.
+ */
+function renderNotes(editing = false): void {
+  const box = document.getElementById('deck-editor-notes') as HTMLDetailsElement | null;
+  if (!box || !editingDeck) return;
+  const deck = editingDeck;
+  const wasOpen = box.open;
+  box.textContent = '';
+  const summary = document.createElement('summary');
+  summary.className = 'deck-editor-notes-summary';
+  summary.textContent = deck.notes || editing ? 'Notes' : 'Notes (empty)';
+  box.appendChild(summary);
+  box.open = wasOpen || editing;
+
+  if (editing) {
+    const textarea = document.createElement('textarea');
+    textarea.className = 'deck-editor-notes-input';
+    textarea.placeholder = 'Notes about this deck, in Markdown…';
+    textarea.value = deck.notes ?? '';
+    // Grow the textarea to fit its content so editing never scrolls inside it.
+    const autoGrow = () => {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight + 2}px`;
+    };
+    textarea.addEventListener('input', autoGrow);
+    box.appendChild(textarea);
+    autoGrow();
+    const actions = document.createElement('div');
+    actions.className = 'deck-editor-notes-actions';
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', () => {
+      const prev = deck.notes;
+      const text = textarea.value.trim();
+      deck.notes = text || undefined;
+      void saveEditingDeck().then(ok => {
+        if (!ok) deck.notes = prev;
+        renderNotes(!ok);
+      });
+    });
+    actions.appendChild(saveBtn);
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'deck-editor-notes-btn--cancel';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => renderNotes());
+    actions.appendChild(cancelBtn);
+    box.appendChild(actions);
+    textarea.focus();
+    return;
+  }
+
+  const view = document.createElement('div');
+  view.className = 'deck-editor-notes-view';
+  if (deck.notes) {
+    view.innerHTML = renderMarkdown(deck.notes);
+  } else {
+    view.innerHTML = '<p class="lobby-empty">No notes yet.</p>';
+  }
+  box.appendChild(view);
+  const actions = document.createElement('div');
+  actions.className = 'deck-editor-notes-actions';
+  const editBtn = document.createElement('button');
+  editBtn.textContent = 'Edit';
+  editBtn.title = 'Edit the deck notes';
+  editBtn.addEventListener('click', () => renderNotes(true));
+  actions.appendChild(editBtn);
+  box.appendChild(actions);
 }
 
 /** Persist the deck currently being edited. Returns true on success. */
@@ -826,5 +899,9 @@ export async function openDeckEditor(deckId: string): Promise<void> {
   for (const s of sections) {
     renderSection(s, deckId);
   }
+  // Notes start collapsed each time a deck is opened.
+  const notesBox = document.getElementById('deck-editor-notes') as HTMLDetailsElement | null;
+  if (notesBox) notesBox.open = false;
+  renderNotes();
   showScreenFn?.('deck-editor-screen');
 }

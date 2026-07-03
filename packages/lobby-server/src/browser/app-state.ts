@@ -24,6 +24,8 @@ export interface DeckListEntry { name: string; card: string | null; qty: number;
 
 /** Full deck definition including all sections. */
 export interface FullDeck extends DeckSummary {
+  /** Free-form notes about the deck in Markdown (strategy, play tips). */
+  notes?: string;
   pool: DeckListEntry[];
   deck: { characters: DeckListEntry[]; hazards: DeckListEntry[]; resources: DeckListEntry[] };
   sites: DeckListEntry[];
