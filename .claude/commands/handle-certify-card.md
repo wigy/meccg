@@ -147,15 +147,17 @@ Follow these steps:
 
     After this step the working tree is clean and the work is safe on a branch. If your turn ends for any reason (deadline, timeout, lost context) after this point, the loop is **not** blocked and a human can finish the PR. This is the whole reason the commit comes before the slow checks — never reorder it.
 
-14. **Run the card's own test (in-turn), pushing a follow-up commit if needed:** Run, as a foreground Bash call:
+14. **Run the changed tests only (in-turn), pushing a follow-up commit if needed:** Run, as a foreground Bash call:
 
     ```sh
     npx vitest run packages/shared/src/tests/cards/<cardId>.test.ts
     ```
 
+    If you modified any other test files while adding engine support, include those in the same `npx vitest run` call — but **never anything beyond the test files you changed**.
+
     This is the only check that gates certification now — it confirms the test you just wrote actually passes. Fix any failure and re-run until green, then **commit the fix to the branch and push it** before moving on.
 
-    **Do NOT run the full `npm test` suite, `npm run lint`, or `npm run test:nightly` as part of certification.** Those are the reviewer's responsibility during PR review (branch CI also runs them) — do not wait for them here.
+    **Do NOT run the full `npm test` suite, `npm run lint`, or `npm run test:nightly` as part of certification — no test other than the changed tests, ever.** Waiting for full test runs is part of the review process: the reviewer and branch CI run them during PR review — do not wait for them here.
 
 15. **Certify on success — strict gate (final commit):** Only now, after step 14 is green, decide whether to certify. Before writing `"certified": "<date>"` on a card, ALL of the following must hold. If any one fails, **do not add the field** (and remove it if it was already present), leave the PR titled **NOT CERTIFIED** naming the missing mechanic, and stop:
 

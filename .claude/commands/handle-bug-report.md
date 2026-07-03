@@ -113,13 +113,14 @@ Follow these steps:
    - Keep the test focused on the specific bug — one scenario, clear assertion.
    - All helpers go in `test-helpers.ts`, not in the test file itself.
 
-10. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
+10. **Iterate until green:** Run these checks **in parallel** and fix any failures. Repeat until all pass:
    - `npm run build` — type-check (must pass)
-   - `npm test` — rules tests (must all pass)
-   - `npm run test:nightly` — card tests (must not introduce new failures)
+   - **Changed tests only** — run only the test files you added or modified (typically just the regression test from step 9): `npx vitest run <changed test files>`; must pass
    - `npm run lint` — linting (fix with `npm run lint:fix`)
 
-   If a check fails, read the error output, fix the issue, and re-run. Keep iterating until all four pass cleanly.
+   **Do NOT run the full `npm test` suite or `npm run test:nightly`.** Full-suite runs are part of the review process — the reviewer and branch CI run and wait for them during PR review, not you.
+
+   If a check fails, read the error output, fix the issue, and re-run. Keep iterating until all pass cleanly.
 
 11. **Create a branch, commit, push, and open a PR:** Work on a dedicated branch and open a pull request — never push bug fixes directly to master.
    ```
