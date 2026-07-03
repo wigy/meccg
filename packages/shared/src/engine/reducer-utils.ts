@@ -6,20 +6,20 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
 import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle, nextInt } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
+import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
 import { CardStatus, Race, Skill } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
-import { matchesCondition } from '../effects/index.js';
-import { resolveDef } from './effects/index.js';
+import { matchesCondition, matchesContext } from '../effects/index.js';
+import { resolveDef, normalizeCreatureRace } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
 
 /**
@@ -1227,6 +1227,71 @@ export function isUniqueCharacterInPlay(state: GameState, charName: string): boo
 }
 
 /**
+ * One `playableAt` entry of an ally/faction card matched against a site
+ * definition: a named site, a site type, or a region (non-haven sites only),
+ * with the entry's optional `when` condition evaluated against the site
+ * (mirrors `siteMatchesEntry` in `legal-actions/site.ts`, on printed types).
+ */
+function playableAtEntryMatchesSite(
+  entry: import('../types/cards-resources.js').PlayableAtEntry,
+  siteDef: SiteCard,
+): boolean {
+  if ('region' in entry) {
+    if (siteDef.siteType === 'haven') return false;
+    return siteDef.region === entry.region;
+  }
+  const baseMatches = 'site' in entry
+    ? siteDef.name === entry.site
+    : siteDef.siteType === entry.siteType;
+  if (!baseMatches) return false;
+  if (!entry.when) return true;
+  const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
+  return matchesCondition(entry.when, {
+    site: {
+      name: siteDef.name,
+      siteType: siteDef.siteType,
+      region: siteDef.region,
+      autoAttack: { race: autoAttackRaces },
+    },
+  });
+}
+
+/**
+ * True when `def` — an item, ally, or faction — is playable at the site
+ * described by `siteDef`, per each card type's own playability rule:
+ *
+ * - **Items**: the item's subtype must appear in the site's printed
+ *   `playableResources` list, or an `item-play-site` effect on the item
+ *   must name the site (`sites`) / match it (`filter`).
+ * - **Allies / factions**: some `playableAt` entry must match the site.
+ *
+ * Other card types return false. Backs the `playableAtSite` restriction of
+ * `fetch-to-deck` pending effects (Strider ba-1: "search your discard pile
+ * for any one item, ally, or faction playable at his current site").
+ */
+export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard): boolean {
+  if (isItemCard(def)) {
+    if ((siteDef.playableResources as readonly string[]).includes(def.subtype as string)) return true;
+    const playSite = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').ItemPlaySiteEffect => e.type === 'item-play-site',
+    );
+    if (playSite?.sites?.includes(siteDef.name)) return true;
+    if (playSite?.filter) {
+      const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
+      return matchesContext(playSite.filter, { site: { ...siteDef, autoAttackRaces } });
+    }
+    return false;
+  }
+  if (isAllyCard(def)) {
+    return def.playableAt.some(entry => playableAtEntryMatchesSite(entry, siteDef));
+  }
+  if (isFactionCard(def)) {
+    return def.playableAt.some(entry => playableAtEntryMatchesSite(entry, siteDef));
+  }
+  return false;
+}
+
+/**
  * Enter the deck exhaustion sub-flow: return site cards to location deck,
  * set deckExhaustPending so the player can exchange cards with the sideboard.
  */
@@ -2143,6 +2208,15 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   // Validate card matches filter condition
   if (!def || !matchesDefinition(def, current.effect.filter)) {
     return { state, error: 'Card does not match fetch filter' };
+  }
+
+  // Site-playability restriction (Strider ba-1: "playable at his current
+  // site") — the qualifying site was captured when the fetch was enqueued.
+  if (current.effect.playableAtSite !== undefined) {
+    const requiredSite = defById(state, current.effect.playableAtSite);
+    if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite)) {
+      return { state, error: `Card is not playable at ${requiredSite && 'name' in requiredSite ? requiredSite.name : 'the required site'}` };
+    }
   }
 
   const fetchTo = current.effect.to ?? 'deck';

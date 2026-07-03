@@ -20,6 +20,7 @@ import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startF
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, countStartingMinorItems } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
+import { sameManifestationEntity } from './manifestations.js';
 
 
 export function handleSetup(state: GameState, action: GameAction): ReducerResult {
@@ -369,13 +370,31 @@ function resolveDraftRound(
   const def0 = pick0 !== null ? pick0.definitionId : null;
   const def1 = pick1 !== null ? pick1.definitionId : null;
 
-  if (pick0 !== null && pick1 !== null && def0 === def1) {
+  // Rule 1.9: "Players set aside duplicated unique characters with the same
+  // name or manifestation." Beyond an identical card (same definition), a
+  // collision also occurs when the two picks are distinct manifestations of
+  // the same entity (e.g. Strider ba-1 vs Aragorn II tw-120, linked by
+  // `manifestId`) or same-named unique reprints.
+  const def0Card = def0 !== null ? defById(state, def0) : undefined;
+  const def1Card = def1 !== null ? defById(state, def1) : undefined;
+  const entityCollision = def0 !== def1 && def0Card !== undefined && def1Card !== undefined
+    && (sameManifestationEntity(def0Card, def1Card)
+      || (isCharacterCard(def0Card) && isCharacterCard(def1Card)
+        && def0Card.name === def1Card.name && def0Card.unique === true && def1Card.unique === true));
+
+  if (pick0 !== null && pick1 !== null && (def0 === def1 || entityCollision)) {
     // Duplicate! Neither gets it — set aside both instances (one per player, so no instance ID is shared).
-    // Remove the collided definition from both pools.
+    // Remove each player's collided definition from their pool. (For an
+    // identical-card collision the two definitions coincide; for a
+    // manifestation collision each player only loses the card they revealed —
+    // the entity may still be drafted later since it is no longer duplicated.)
+    if (entityCollision) {
+      logDetail(`Character draft collision: ${def0Card && 'name' in def0Card ? def0Card.name : String(def0)} and ${def1Card && 'name' in def1Card ? def1Card.name : String(def1)} are manifestations of the same entity (rule 1.9) — both set aside`);
+    }
     newSetAside[0].push(pick0);
     newSetAside[1].push(pick1);
     newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(c => c.definitionId !== def0) };
-    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def0) };
+    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def1) };
   } else {
     if (pick0 !== null) newDraft[0] = { ...newDraft[0], drafted: [...newDraft[0].drafted, pick0] };
     if (pick1 !== null) newDraft[1] = { ...newDraft[1], drafted: [...newDraft[1].drafted, pick1] };

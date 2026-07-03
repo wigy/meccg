@@ -16,6 +16,7 @@ import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RecruitmentVehicleE
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, effectiveGeneralInfluence, isUniqueCharacterInPlay } from '../reducer-utils.js';
+import { manifestationOfEntityInPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 
@@ -501,6 +502,22 @@ export function playCharacterActions(
         action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
         viable: false,
         reason: `${charName}: unique character already in play`,
+      });
+      continue;
+    }
+
+    // Glossary g.man.1: only one manifestation of an entity may be in play,
+    // regardless of alignment — e.g. Aragorn II (tw-120) cannot be played
+    // normally while Strider (ba-1) is in play, and vice versa. The
+    // `manifestation-swap` action is the sanctioned path (there the current
+    // manifestation leaves play as part of the play).
+    const blockingManifestation = manifestationOfEntityInPlay(state, cardDef);
+    if (blockingManifestation !== null) {
+      logDetail(`  → blocked: ${blockingManifestation}, a manifestation of the same entity as ${charName}, is in play (g.man.1)`);
+      results.push({
+        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+        viable: false,
+        reason: `${charName}: ${blockingManifestation}, a manifestation of the same entity, is already in play`,
       });
       continue;
     }

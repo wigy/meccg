@@ -25,7 +25,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
 import { hasSiteFlag, makeCombatState, canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter } from './reducer-organization.js';
+import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from './recompute-derived.js';
@@ -1649,6 +1649,12 @@ function handleSitePlayResources(
   // one-character-per-turn bookkeeping.
   if (action.type === 'play-character' && action.viaEventInstanceId) {
     return handlePlayCharacter(state, action);
+  }
+
+  // Manifestation swap (Strider ba-1 → Aragorn II): a resource-style play,
+  // available whenever a normal resource could be played (CRF 22).
+  if (action.type === 'manifestation-swap') {
+    return handleManifestationSwap(state, action);
   }
 
   // Pass — check whether CvCC attack is possible before advancing

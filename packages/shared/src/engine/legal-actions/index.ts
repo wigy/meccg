@@ -13,8 +13,8 @@
 
 import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInstanceId } from '../../index.js';
 import { Alignment } from '../../types/common.js';
-import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName } from '../reducer-utils.js';
-import { isAvatarCharacter } from '../../types/cards.js';
+import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef } from '../reducer-utils.js';
+import { isAvatarCharacter, isSiteCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getPlayerIndex } from '../../state-utils.js';
 import { setupActions } from './setup.js';
@@ -60,6 +60,10 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
   const current = state.pendingEffects[0];
   const sourceCardId = current.type === 'card-effect' ? current.cardInstanceId : undefined;
 
+  // Site-playability restriction (Strider ba-1: "playable at his current
+  // site") — the qualifying site was captured when the fetch was enqueued.
+  const requiredSite = effect.playableAtSite !== undefined ? defById(state, effect.playableAtSite) : undefined;
+
   for (const source of effect.source) {
     const pile = source === 'sideboard' ? player.sideboard
       : (source === 'deck' || source === 'play-deck') ? player.playDeck
@@ -71,6 +75,12 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
       if (card.instanceId === sourceCardId) continue;
       const def = defById(state, card.definitionId);
       if (!def || !matchesDefinition(def, effect.filter)) continue;
+      if (effect.playableAtSite !== undefined) {
+        if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite)) {
+          logDetail(`fetch-from-pile: ${(def as { name?: string }).name ?? (card.definitionId as string)} filtered out — not playable at ${(requiredSite as { name?: string } | undefined)?.name ?? (effect.playableAtSite as string)}`);
+          continue;
+        }
+      }
       actions.push({
         action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource, to: dest },
         viable: true,
