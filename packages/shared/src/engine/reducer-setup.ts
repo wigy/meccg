@@ -18,7 +18,7 @@ import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, countStartingMinorItems } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, countStartingMinorItems, sameManifestationEntity } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 
 
@@ -369,13 +369,23 @@ function resolveDraftRound(
   const def0 = pick0 !== null ? pick0.definitionId : null;
   const def1 = pick1 !== null ? pick1.definitionId : null;
 
-  if (pick0 !== null && pick1 !== null && def0 === def1) {
+  // CoE 1.9: "Players set aside duplicated unique characters with the same
+  // name or manifestation." Identical picks always collide; different picks
+  // also collide when they are manifestations of the same entity (e.g.
+  // Strider ba-1 vs Aragorn II tw-120).
+  const cardDef0 = def0 !== null ? defById(state, def0) : undefined;
+  const cardDef1 = def1 !== null ? defById(state, def1) : undefined;
+  const manifestationCollision = def0 !== null && def1 !== null && def0 !== def1
+    && cardDef0 !== undefined && cardDef1 !== undefined
+    && sameManifestationEntity(cardDef0, cardDef1);
+
+  if (pick0 !== null && pick1 !== null && (def0 === def1 || manifestationCollision)) {
     // Duplicate! Neither gets it — set aside both instances (one per player, so no instance ID is shared).
-    // Remove the collided definition from both pools.
+    // Remove the collided definitions from both pools.
     newSetAside[0].push(pick0);
     newSetAside[1].push(pick1);
-    newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(c => c.definitionId !== def0) };
-    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def0) };
+    newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(c => c.definitionId !== def0 && c.definitionId !== def1) };
+    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def0 && c.definitionId !== def1) };
   } else {
     if (pick0 !== null) newDraft[0] = { ...newDraft[0], drafted: [...newDraft[0].drafted, pick0] };
     if (pick1 !== null) newDraft[1] = { ...newDraft[1], drafted: [...newDraft[1].drafted, pick1] };

@@ -563,6 +563,22 @@ structurally identical `recall-to-deck` ability (same action name, same
 `enqueue-pending-fetch` apply), which is organization-phase-only and does
 NOT set `endOfTurnOnly`.
 
+**`playableAtBearerSite: true` on `enqueue-pending-fetch`** additionally
+restricts candidates to cards playable **at the bearer's company's current
+site by that site's own rules**: items whose `subtype` appears in the site's
+`playableResources`, and allies/factions whose `playableAt` matches the site
+(shared predicate `resourcePlayableAtSite` in `engine/site-playability.ts`).
+The site is captured at activation time and stamped on the pending
+`fetch-to-deck` effect as `playableAtSite` (a site definition ID); both the
+`fetch-from-pile` legal-action generator and the reducer honour it. Combine
+with `fetchTo: "hand"` for "search your discard pile … you may bring it to
+your hand" abilities. The grant-action `when` context also exposes
+`site.region` (the current site's region name), so region-gated abilities can
+use `"when": { "site.region": { "$in": [ … ] } }`. Used by *Strider* (ba-1):
+"Tap Strider to search your discard pile for any one item, ally, or faction
+playable at his current site. You may bring it to your hand. The site must be
+in Arthedain, Cardolan, Rhudaur, or The Shire."
+
 ```json
 { "type": "grant-action", "action": "recall-to-deck",
   "cost": { "tap": "bearer" }, "endOfTurnOnly": true,
@@ -5308,6 +5324,58 @@ matching candidate. Activating (`handleActivateOrgFetch` in
 (`to: "hand"`), which drives the existing pick-one-or-pass sub-flow, and records
 the source in `OrganizationPhaseState.discardFetchUsedThisTurn` so it cannot be
 re-activated until the next turn.
+
+### 51c. `manifestation-swap`
+
+Manifestation replacement — Strider (ba-1): "You may bring Aragorn II into
+play with Strider's company, removing Strider from the game and automatically
+transferring all cards on Strider to Aragorn II." Carried by the **in-play
+manifestation character**; while it is in play and the `bring` character is in
+the controller's hand, the replacement play is offered.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `bring` | yes | Definition ID of the character brought into play in the bearer's place (e.g. `"tw-120"`, Aragorn II). |
+
+```json
+{ "type": "manifestation-swap", "bring": "tw-120" }
+```
+
+Behaviour:
+
+- **Eligibility (`legal-actions/manifestation-swap.ts`).** Per the CRF the
+  replacement "can be done at any time that a normal resource could be
+  played", so `manifestationSwapActions` is wired into the organization,
+  movement/hazard, and site phase aggregators (the recruit-via-event
+  windows). The swap is offered when the bearer is in a company at a site and
+  the influence freed by the bearer leaving play covers the replacement's
+  mind: remaining GI + bearer mind ≥ replacement mind for a general-influence
+  bearer, or the controller's unused DI + bearer mind ≥ replacement mind for
+  a direct-influence follower. Emits a `play-character` action carrying
+  `swapForInstanceId` (the bearer).
+- **Resolution (`reducer-organization.ts` `handleManifestationSwapPlay`).**
+  The bearer's card instance moves to the owner's `outOfPlayPile` (removed
+  from the game); its items, allies, hazards, and followers transfer to the
+  replacement, which takes the bearer's slot in the company under the same
+  control. The replacement enters play untapped. The one-character-per-turn
+  slot is never consumed — the replacement is a card ability, not a normal
+  character play.
+
+Related engine support for the "Manifestation of X" line on characters
+(independent of this effect):
+
+- **In-play uniqueness (CoE g.man.1).** A character definition carrying
+  `manifestId` (by convention the base form's definition id — Strider ba-1
+  carries `"tw-120"`) is treated as the same entity as the base form and any
+  other card sharing the chain. `manifestationOfCharacterInPlay`
+  (`reducer-utils.ts`) blocks `play-character` and recruit-via-event plays of
+  any manifestation while another manifestation of the same entity is in play,
+  regardless of alignment or owner.
+- **Character draft (CoE 1.9).** "Players set aside duplicated unique
+  characters with the same name **or manifestation**" — `resolveDraftRound`
+  (`reducer-setup.ts`) treats simultaneous picks of two manifestations of the
+  same entity (`sameManifestationEntity`) as a duplicate: both are set aside
+  and the collided definitions leave both pools.
 
 ### 52. `region-movement-limit`
 

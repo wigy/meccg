@@ -27,6 +27,8 @@ import { notPlayable } from './action-builders.js';
 import { availableDI, grantedActionActivations, playResourceShortEventActions, buildPlayerStateContext } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
+import { manifestationSwapActions } from './manifestation-swap.js';
+import { siteMatchesEntry } from '../site-playability.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
@@ -115,32 +117,8 @@ function givesMarshallingPoints(def: CardDefinition): boolean {
   return typeof mp === 'number' && mp > 0;
 }
 
-function siteMatchesEntry(
-  siteDef: SiteCard,
-  entry: PlayableAtEntry,
-  effectiveSiteType: SiteType = siteDef.siteType,
-): boolean {
-  if ('region' in entry) {
-    // Region entries match any non-haven site in the named region.
-    if (effectiveSiteType === 'haven') return false;
-    return siteDef.region === entry.region;
-  }
-  const baseMatches = 'site' in entry
-    ? siteDef.name === entry.site
-    : effectiveSiteType === entry.siteType;
-  if (!baseMatches) return false;
-  if (!entry.when) return true;
-  const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
-  const ctx: Record<string, unknown> = {
-    site: {
-      name: siteDef.name,
-      siteType: effectiveSiteType,
-      region: siteDef.region,
-      autoAttack: { race: autoAttackRaces },
-    },
-  };
-  return matchesCondition(entry.when, ctx);
-}
+// siteMatchesEntry moved to engine/site-playability.ts so the dynamic
+// fetch filter (Strider ba-1) can share it; re-imported above.
 
 /**
  * Compute legal actions for the site phase.
@@ -1623,6 +1601,16 @@ function playResourcesActions(
     const a = ea.action as { characterInstanceId?: string; viaEventInstanceId?: string };
     if (a.characterInstanceId) evaluatedInstances.add(a.characterInstanceId);
     if (a.viaEventInstanceId) evaluatedInstances.add(a.viaEventInstanceId);
+  }
+
+  // Manifestation replacement (Strider ba-1): per the CRF the swap "can be
+  // done at any time that a normal resource could be played" — offered here
+  // in the site phase too.
+  const manifestationSwapEvaluated = manifestationSwapActions(state, playerId);
+  actions.push(...manifestationSwapEvaluated);
+  for (const ea of manifestationSwapEvaluated) {
+    const a = ea.action as { characterInstanceId?: string };
+    if (a.characterInstanceId) evaluatedInstances.add(a.characterInstanceId);
   }
 
   // Mark remaining hand cards as not playable

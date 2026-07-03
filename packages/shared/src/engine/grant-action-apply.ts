@@ -515,28 +515,42 @@ function runGrantApply(
       updatedChar: char,
       effects: [],
       stateOps: [
-        s => ({
-          ...s,
-          pendingEffects: [
-            ...s.pendingEffects,
-            {
-              type: 'card-effect' as const,
-              cardInstanceId: sourceId,
-              effect: {
-                type: 'fetch-to-deck' as const,
-                source: fromSources,
-                filter,
-                count,
-                shuffle,
-                to: fetchTo,
+        s => {
+          // playableAtBearerSite (Strider ba-1): capture the bearer's current
+          // site so fetch candidates can be checked against its play rules.
+          let playableAtSite: string | undefined;
+          if (apply.playableAtBearerSite) {
+            const player = s.players[ctx.playerIndex];
+            const company = findCharacterCompany(player.companies, characterId);
+            playableAtSite = company?.currentSite
+              ? (resolveInstanceId(s, company.currentSite.instanceId) as string | undefined)
+              : undefined;
+            logDetail(`Grant-action ${ctx.action.actionId}: fetch restricted to cards playable at site ${playableAtSite ?? '?'}`);
+          }
+          return {
+            ...s,
+            pendingEffects: [
+              ...s.pendingEffects,
+              {
+                type: 'card-effect' as const,
+                cardInstanceId: sourceId,
+                effect: {
+                  type: 'fetch-to-deck' as const,
+                  source: fromSources,
+                  filter,
+                  count,
+                  shuffle,
+                  to: fetchTo,
+                  ...(playableAtSite !== undefined ? { playableAtSite } : {}),
+                },
+                skipDiscard: true,
+                ...(apply.postCorruptionCheck
+                  ? { postCorruptionCheck: { characterId, modifier: ccModifier } }
+                  : {}),
               },
-              skipDiscard: true,
-              ...(apply.postCorruptionCheck
-                ? { postCorruptionCheck: { characterId, modifier: ccModifier } }
-                : {}),
-            },
-          ],
-        }),
+            ],
+          };
+        },
       ],
     };
   }

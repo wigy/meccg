@@ -468,6 +468,38 @@ export interface RecruitCharacterEffect extends EffectBase {
 }
 
 /**
+ * Manifestation replacement (Strider ba-1: "You may bring Aragorn II into
+ * play with Strider's company, removing Strider from the game and
+ * automatically transferring all cards on Strider to Aragorn II").
+ *
+ * Carried by the in-play manifestation character. While its bearer is in
+ * play and the {@link bring} character is in the controller's hand, a
+ * `play-character` action carrying `swapForInstanceId` is emitted:
+ *
+ * - **When.** Per the CRF the replacement "can be done at any time that a
+ *   normal resource could be played" — emitted in the organization,
+ *   movement/hazard, and site phases (same windows as
+ *   {@link RecruitCharacterEffect}).
+ * - **Influence.** The replacement takes over the bearer's control slot
+ *   (general influence or the same direct-influence controller). The play is
+ *   only offered when the freed mind of the bearer plus the remaining
+ *   influence covers the replacement's mind.
+ * - **Resolution.** The bearer's instance is removed from the game (owner's
+ *   `outOfPlayPile`); items, allies, hazards, and followers transfer to the
+ *   replacement, which takes the bearer's slot in its company. Entering play,
+ *   the replacement is untapped. The play does not consume the
+ *   one-character-per-turn slot.
+ *
+ * Consumed by `manifestationSwapActions` (legal-action emission) and
+ * `handlePlayCharacter` (swap resolution).
+ */
+export interface ManifestationSwapEffect extends EffectBase {
+  readonly type: 'manifestation-swap';
+  /** Definition ID of the character brought into play in the bearer's place. */
+  readonly bring: string;
+}
+
+/**
  * Lifts the Fallen-wizard Orc/Troll character-play restriction (CoE
  * 2.II.2.2.F2: "A Fallen-wizard player cannot play Orc or Troll characters
  * unless they have a Stage resource in play that specifically allows them to
@@ -1151,6 +1183,16 @@ export interface EnqueuePendingFetchAction extends TriggeredActionBase {
   readonly fetchShuffle?: boolean;
   /** Where to place the fetched card (default `'deck'`). */
   readonly fetchTo?: 'deck' | 'hand';
+  /**
+   * When true, candidates are additionally restricted to cards playable at
+   * the bearer's company's current site by that site's own rules: items whose
+   * subtype is in the site's `playableResources`, and allies/factions whose
+   * `playableAt` matches the site. The site is captured at activation time
+   * and stamped on the pending fetch as `playableAtSite` (Strider ba-1:
+   * "search your discard pile for any one item, ally, or faction playable at
+   * his current site").
+   */
+  readonly playableAtBearerSite?: boolean;
   /** Enqueue a corruption check on the bearer after the fetch completes. */
   readonly postCorruptionCheck?: boolean;
   /** Modifier for the post-fetch corruption check (default 0). */
@@ -2010,6 +2052,12 @@ export interface FetchToDeckEffect extends EffectBase {
    * When 'hand', the card is placed directly in the player's hand instead.
    */
   readonly to?: 'deck' | 'hand';
+  /**
+   * When set, candidates must additionally be playable at this site (by
+   * definition ID) under the site's own rules — see
+   * {@link EnqueuePendingFetchAction.playableAtBearerSite}.
+   */
+  readonly playableAtSite?: string;
 }
 
 /**
@@ -3058,6 +3106,7 @@ export type CardEffect =
   | PermanentEventMpEffect
   | RecruitmentVehicleEffect
   | RecruitCharacterEffect
+  | ManifestationSwapEffect
   | AllowCharacterPlayEffect
   | OrgPhaseFetchEffect
   | StayHerAppetiteEffect

@@ -67,6 +67,17 @@ export interface PlayCharacterAction {
    * Absent for a normal character play.
    */
   readonly viaEventInstanceId?: CardInstanceId;
+  /**
+   * Manifestation replacement (Strider ba-1). When set, this is the in-play
+   * character being replaced: it is removed from the game (owner's
+   * `outOfPlayPile`), all cards on it (items, allies, hazards) and its
+   * followers transfer to the played character, which takes its slot in the
+   * company under the same control (`controlledBy` carries the replaced
+   * character's controller). The play does not consume the
+   * one-character-per-turn slot and may occur outside the organization phase.
+   * Absent for a normal character play.
+   */
+  readonly swapForInstanceId?: CardInstanceId;
 }
 
 /**

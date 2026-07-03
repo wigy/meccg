@@ -14,7 +14,9 @@
 import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInstanceId } from '../../index.js';
 import { Alignment } from '../../types/common.js';
 import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName } from '../reducer-utils.js';
-import { isAvatarCharacter } from '../../types/cards.js';
+import { isAvatarCharacter, isSiteCard } from '../../types/cards.js';
+import { getEffectiveSiteType } from '../effective.js';
+import { resourcePlayableAtSite } from '../site-playability.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getPlayerIndex } from '../../state-utils.js';
 import { setupActions } from './setup.js';
@@ -60,6 +62,16 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
   const current = state.pendingEffects[0];
   const sourceCardId = current.type === 'card-effect' ? current.cardInstanceId : undefined;
 
+  // playableAtBearerSite fetches (Strider ba-1) additionally require each
+  // candidate to be playable at the captured site by that site's own rules.
+  const playableSiteDefRaw = effect.playableAtSite
+    ? defById(state, effect.playableAtSite as import('../../index.js').CardDefinitionId)
+    : undefined;
+  const playableSiteDef = isSiteCard(playableSiteDefRaw) ? playableSiteDefRaw : undefined;
+  const playableSiteEffType = playableSiteDef
+    ? getEffectiveSiteType(state, playableSiteDef.id, playableSiteDef.siteType)
+    : undefined;
+
   for (const source of effect.source) {
     const pile = source === 'sideboard' ? player.sideboard
       : (source === 'deck' || source === 'play-deck') ? player.playDeck
@@ -71,6 +83,12 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
       if (card.instanceId === sourceCardId) continue;
       const def = defById(state, card.definitionId);
       if (!def || !matchesDefinition(def, effect.filter)) continue;
+      if (effect.playableAtSite) {
+        if (!playableSiteDef || !resourcePlayableAtSite(def, playableSiteDef, playableSiteEffType)) {
+          logDetail(`fetch-from-pile: ${(def as { name?: string }).name ?? (card.definitionId as string)} not playable at ${playableSiteDef?.name ?? effect.playableAtSite} — excluded`);
+          continue;
+        }
+      }
       actions.push({
         action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource, to: dest },
         viable: true,

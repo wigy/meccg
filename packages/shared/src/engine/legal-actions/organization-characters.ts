@@ -15,7 +15,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, effectiveGeneralInfluence, isUniqueCharacterInPlay } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, effectiveGeneralInfluence, isUniqueCharacterInPlay, manifestationOfCharacterInPlay } from '../reducer-utils.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 
@@ -501,6 +501,21 @@ export function playCharacterActions(
         action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
         viable: false,
         reason: `${charName}: unique character already in play`,
+      });
+      continue;
+    }
+
+    // CoE g.man.1: only one manifestation of an entity can be in play,
+    // regardless of alignment (e.g. Strider ba-1 blocks Aragorn II tw-120
+    // and vice versa). Replacing an in-play manifestation is only possible
+    // via a manifestation-swap effect (see manifestationSwapActions).
+    const manifestationInPlay = manifestationOfCharacterInPlay(state, cardDef);
+    if (manifestationInPlay !== undefined) {
+      logDetail(`  → blocked: ${manifestationInPlay}, a manifestation of the same entity as ${charName}, is in play (g.man.1)`);
+      results.push({
+        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+        viable: false,
+        reason: `${charName}: ${manifestationInPlay}, a manifestation of the same entity, is already in play`,
       });
       continue;
     }

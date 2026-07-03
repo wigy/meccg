@@ -270,6 +270,12 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
 
   logDetail(`Play character: ${charDef.name} (mind ${charDef.mind ?? 'null'}) at site ${action.atSite as string}, controlledBy ${action.controlledBy as string}`);
 
+  // Manifestation replacement (Strider ba-1): a dedicated path — the played
+  // character replaces an in-play manifestation instead of joining normally.
+  if (action.swapForInstanceId) {
+    return handleManifestationSwapPlay(state, action, playerIndex, handCard, charDef);
+  }
+
   // Recruitment vehicle (Thrall of the Voice, wh-82): "place this card with the
   // character". When the play is made via a recruitment vehicle, move the
   // vehicle from hand and attach it to the recruit, so its "-1 to his mind"
@@ -453,6 +459,109 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
 
   return {
     state: applyCharacterSelfEntersPlayMoveEffects(stateAfterAvatarSweep, charDef, charInstId, playerIndex),
+  };
+}
+
+/**
+ * Manifestation replacement play (Strider ba-1: "You may bring Aragorn II
+ * into play with Strider's company, removing Strider from the game and
+ * automatically transferring all cards on Strider to Aragorn II").
+ *
+ * The replaced character's instance moves to the owner's `outOfPlayPile`
+ * (removed from the game — the no-card-disappears invariant holds because
+ * every attached instance transfers to the replacement, which takes the
+ * replaced character's slot in its company). Followers re-point to the
+ * replacement; if the replaced character was itself a direct-influence
+ * follower, its controller's follower list is rewritten. Entering play, the
+ * replacement is untapped. The one-character-per-turn bookkeeping is never
+ * touched — the replacement is a card ability, not a normal character play.
+ */
+function handleManifestationSwapPlay(
+  state: GameState,
+  action: import('../types/actions-organization.js').PlayCharacterAction,
+  playerIndex: 0 | 1,
+  handCard: CardInstance,
+  charDef: import('../types/cards.js').CharacterCard,
+): ReducerResult {
+  const player = state.players[playerIndex];
+  const newId = action.characterInstanceId;
+  const oldId = action.swapForInstanceId!;
+
+  if (!findById(player.hand, newId)) {
+    return { state, error: 'manifestation-swap: replacement character not in hand' };
+  }
+  const old = player.characters[oldId];
+  if (!old) {
+    return { state, error: 'manifestation-swap: replaced character not in play' };
+  }
+  const oldDef = defById(state, old.definitionId);
+  const company = findCharacterCompany(player.companies, oldId);
+  if (!company) {
+    return { state, error: 'manifestation-swap: replaced character has no company' };
+  }
+
+  logDetail(`Manifestation swap: ${charDef.name} replaces ${oldDef?.name ?? (old.definitionId as string)} in company ${company.id as string}; ${old.items.length} item(s), ${old.allies.length} ally/allies, ${old.hazards.length} hazard(s), ${old.followers.length} follower(s) transfer`);
+
+  // The replacement inherits the replaced character's control slot verbatim.
+  const controlledBy = old.controlledBy;
+  const newChar: CharacterInPlay = {
+    instanceId: newId,
+    definitionId: handCard.definitionId,
+    status: CardStatus.Untapped,
+    items: old.items,
+    allies: old.allies,
+    hazards: old.hazards,
+    followers: old.followers,
+    controlledBy,
+    effectiveStats: ZERO_EFFECTIVE_STATS,
+  };
+
+  const newCharacters: Record<CardInstanceId, CharacterInPlay> = { ...player.characters };
+  delete newCharacters[oldId];
+  newCharacters[newId] = newChar;
+
+  // Followers of the replaced character now follow the replacement.
+  for (const followerId of old.followers) {
+    const follower = newCharacters[followerId];
+    if (follower) {
+      newCharacters[followerId] = { ...follower, controlledBy: newId };
+    }
+  }
+
+  // A replaced direct-influence follower vacates its controller's slot in
+  // favour of the replacement.
+  if (controlledBy !== 'general') {
+    const controller = newCharacters[controlledBy];
+    if (!controller) {
+      return { state, error: 'manifestation-swap: controlling character not found' };
+    }
+    newCharacters[controlledBy] = {
+      ...controller,
+      followers: controller.followers.map(f => (f === oldId ? newId : f)),
+    };
+  }
+
+  // The replacement takes the replaced character's slot in the company.
+  const companies = player.companies.map(c =>
+    c.id === company.id
+      ? { ...c, characters: c.characters.map(cid => (cid === oldId ? newId : cid)) }
+      : c,
+  );
+
+  logDetail(`  ${oldDef?.name ?? (old.definitionId as string)} is removed from the game (out-of-play pile)`);
+
+  const stateAfterSwap = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards(
+    updatePlayer(state, playerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, newId),
+      characters: newCharacters,
+      companies,
+      outOfPlayPile: [...p.outOfPlayPile, toCardInstance(old)],
+    })),
+  )), [company.id]);
+
+  return {
+    state: applyCharacterSelfEntersPlayMoveEffects(stateAfterSwap, charDef, newId, playerIndex),
   };
 }
 

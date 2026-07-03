@@ -20,6 +20,7 @@ import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/index.js';
 import { resolveDef } from './effects/index.js';
+import { resourcePlayableAtSite } from './site-playability.js';
 import { enqueueCorruptionCheck } from './pending.js';
 
 /**
@@ -1227,6 +1228,60 @@ export function isUniqueCharacterInPlay(state: GameState, charName: string): boo
 }
 
 /**
+ * The manifestation-entity ids a character definition belongs to: its own
+ * definition id plus its `manifestId` (by convention the base form's
+ * definition id — e.g. Strider ba-1 carries `manifestId: "tw-120"`, Aragorn
+ * II's id). Two definitions represent the same entity when these sets
+ * intersect, which covers both a shared `manifestId` and the base form
+ * itself (which need not carry a `manifestId` at all).
+ */
+function manifestationEntityIds(def: { id: unknown; manifestId?: unknown }): string[] {
+  const ids = [def.id as string];
+  if (typeof def.manifestId === 'string') ids.push(def.manifestId);
+  return ids;
+}
+
+/**
+ * True when two character definitions are manifestations of the same entity
+ * (CoE glossary: "if a card indicates that it is the manifestation of
+ * another card, the latter is also considered a manifestation of the
+ * former"). Same-definition comparisons return true too — callers wanting
+ * "a DIFFERENT manifestation" must exclude the same id themselves.
+ */
+export function sameManifestationEntity(
+  defA: { id: unknown; manifestId?: unknown },
+  defB: { id: unknown; manifestId?: unknown },
+): boolean {
+  const a = manifestationEntityIds(defA);
+  const b = manifestationEntityIds(defB);
+  return a.some(id => b.includes(id));
+}
+
+/**
+ * CoE g.man.1: "Only one manifestation of an entity can be in play,
+ * regardless of the cards' alignment." Returns the name of an in-play
+ * character (either player) that is a *different* manifestation of the same
+ * entity as `def`, or undefined when none is. Same-named copies are the
+ * plain uniqueness check's job ({@link isUniqueCharacterInPlay}); this only
+ * reports cross-manifestation collisions (e.g. Aragorn II blocks Strider
+ * and vice versa).
+ */
+export function manifestationOfCharacterInPlay(
+  state: GameState,
+  def: { id: unknown; name: string; manifestId?: unknown },
+): string | undefined {
+  for (const p of state.players) {
+    for (const char of Object.values(p.characters)) {
+      const inPlayDef = resolveDef(state, char.instanceId);
+      if (!isCharacterCard(inPlayDef)) continue;
+      if (inPlayDef.id === def.id) continue;
+      if (sameManifestationEntity(def, inPlayDef)) return inPlayDef.name;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Enter the deck exhaustion sub-flow: return site cards to location deck,
  * set deckExhaustPending so the player can exchange cards with the sideboard.
  */
@@ -2143,6 +2198,15 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   // Validate card matches filter condition
   if (!def || !matchesDefinition(def, current.effect.filter)) {
     return { state, error: 'Card does not match fetch filter' };
+  }
+
+  // playableAtBearerSite fetches (Strider ba-1): the card must be playable
+  // at the captured site by that site's own rules.
+  if (current.effect.playableAtSite) {
+    const fetchSiteDef = state.cardPool[current.effect.playableAtSite as CardDefinitionId];
+    if (!isSiteCard(fetchSiteDef) || !resourcePlayableAtSite(def, fetchSiteDef)) {
+      return { state, error: 'Card is not playable at the required site' };
+    }
   }
 
   const fetchTo = current.effect.to ?? 'deck';

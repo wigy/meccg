@@ -44,6 +44,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { viableWithRegress } from '../reverse-actions.js';
 import { playCharacterActions, discardCharacterActions } from './organization-characters.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
+import { manifestationSwapActions } from './manifestation-swap.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import {
   planMovementActions,
@@ -347,6 +348,15 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     const a = ea.action as { characterInstanceId?: CardInstanceId; viaEventInstanceId?: CardInstanceId };
     if (a.characterInstanceId) recruitViaEventInstances.add(a.characterInstanceId as string);
     if (a.viaEventInstanceId) recruitViaEventInstances.add(a.viaEventInstanceId as string);
+  }
+
+  // Manifestation replacement (Strider ba-1): bring the other manifestation
+  // into play in the bearer's place, transferring all cards.
+  const manifestationSwapEvaluated = manifestationSwapActions(state, playerId);
+  actions.push(...manifestationSwapEvaluated);
+  for (const ea of manifestationSwapEvaluated) {
+    const a = ea.action as { characterInstanceId?: CardInstanceId };
+    if (a.characterInstanceId) recruitViaEventInstances.add(a.characterInstanceId as string);
   }
 
   // Mark remaining hand cards as not playable during organization
@@ -1153,8 +1163,12 @@ export function buildGrantActionContext(
     ? ((siteDef as { automaticAttacks?: readonly { creatureType: string }[] }).automaticAttacks ?? [])
         .some(a => a.creatureType === 'Dragon')
     : false;
+  const siteRegion = siteDef && 'region' in siteDef
+    ? (siteDef as { region?: string }).region ?? ''
+    : '';
   const siteCtx = siteName ? {
     type: siteType,
+    region: siteRegion,
     hasOneRing: siteHasItemWithKeyword(state, siteName, 'the-one-ring'),
     isTapped: siteIsTapped,
     hasDragonAutoAttack,
