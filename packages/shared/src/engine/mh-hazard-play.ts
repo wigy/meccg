@@ -130,6 +130,7 @@ export function handlePlayHazards(
   if (action.type === 'agent-key-creatures') return handleAgentKeyCreatures(state, action, mhState);
   if (action.type === 'agent-influence-attempt') return handleAgentInfluenceAttempt(state, action, mhState);
   if (action.type === 'agent-tap-attack') return handleAgentTapAttack(state, action, mhState);
+  if (action.type === 'agent-discard-return-to-origin') return handleAgentDiscardReturnToOrigin(state, action, mhState);
 
   // --- Tap cardsInPlay hazard permanent event for +1 hazard limit (Power Built by Waiting) ---
   if (action.type === 'tap-hazard-card-for-limit') return handleTapHazardCardForLimit(state, action, mhState);
@@ -1122,6 +1123,73 @@ export function findForcingEnvironment(
     }
   }
   return null;
+}
+
+/**
+ * Handle `agent-discard-return-to-origin` (e.g. Baduila dm-2): the hazard
+ * player discards an agent at the moving company's new site to force the
+ * company to return to its site of origin.
+ *
+ * - The agent's character card goes to the hazard player's discard pile; all
+ *   its site-stack sites return to the location deck (they were never in play).
+ * - Not an agent action, not against the hazard limit.
+ * - Per CoE rule 2.IV.4 the company's movement/hazard phase immediately ends:
+ *   `returnedToOrigin` is set (so {@link endCompanyMH} keeps the company at
+ *   its site of origin and clears the movement), a `site-phase-do-nothing`
+ *   constraint blocks the company's site phase, and end-of-M/H corruption
+ *   triggers fire before the phase completes.
+ */
+export function handleAgentDiscardReturnToOrigin(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'agent-discard-return-to-origin') return wrongActionType(state, action, 'agent-discard-return-to-origin');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  const agent = hazardPlayer.agents[agentIdx];
+  const agentDef = defById(state, agent.character.definitionId);
+  if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent definition not found' };
+
+  const hasEffect = getCardEffects(agentDef).some(e => e.type === 'agent-discard-return-to-origin');
+  if (!hasEffect) return { state, error: 'Agent does not have agent-discard-return-to-origin effect' };
+
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[resourceIndex].companies[mhState.activeCompanyIndex];
+  if (!company) return { state, error: 'No active company' };
+  if (!company.destinationSite) return { state, error: 'Company is not moving to a new site' };
+  if (mhState.returnedToOrigin) return { state, error: 'Company was already returned to its site of origin' };
+
+  logDetail(`Agent discard-return-to-origin "${agentDef.name}": discarded at "${mhState.destinationSiteName ?? '?'}" — company ${company.id as string} returns to its site of origin (rule 2.IV.4)`);
+
+  // Discard the agent: character card to discard pile, stack sites back to
+  // the location deck (they were never in play).
+  let newState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    agents: p.agents.filter((_, i) => i !== agentIdx),
+    discardPile: [...p.discardPile, toCardInstance(agent.character)],
+    siteDeck: [...p.siteDeck, ...agent.siteStack],
+  }));
+
+  // Rule 2.IV.4: the company's player cannot initiate any actions during
+  // that company's site phase.
+  newState = addConstraint(newState, {
+    source: agent.character.instanceId,
+    sourceDefinitionId: agent.character.definitionId,
+    scope: { kind: 'company-site-phase', companyId: company.id },
+    target: { kind: 'company', companyId: company.id },
+    kind: { type: 'site-phase-do-nothing' },
+  });
+
+  // Rule 2.IV.4: the company's movement/hazard phase immediately ends.
+  const newMhState = { ...mhState, returnedToOrigin: true };
+  const withChecks = fireEndOfCompanyMHCorruptionChecks(newState, newMhState);
+  return endCompanyMH(withChecks, newMhState);
 }
 
 export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {

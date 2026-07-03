@@ -1701,6 +1701,23 @@ export interface AgentTapAttackEffect extends EffectBase {
 }
 
 /**
+ * An agent at the target company's new site may be discarded (by its
+ * controller's choice, not as an agent action, not against the hazard limit)
+ * to force the moving company to return to its site of origin. The return
+ * follows CoE rule 2.IV.4: the company's movement/hazard phase immediately
+ * ends, the company is no longer considered to have a site path nor to have
+ * moved this turn, and its player cannot initiate any actions during that
+ * company's site phase.
+ *
+ * Used by Baduila (dm-2): "Agent only: if you choose to discard Baduila at
+ * target company's new site, company must return to its site of origin."
+ * (CRF: read "If Baduila is discarded" as "If you choose to discard Baduila.")
+ */
+export interface AgentDiscardReturnToOriginEffect extends EffectBase {
+  readonly type: 'agent-discard-return-to-origin';
+}
+
+/**
  * Restricts the site types an agent (acting as a hazard moving around the map)
  * may move to. When the bearer takes an `agent-move` action, any destination
  * whose {@link SiteType} appears in `siteTypes` is excluded from the legal
@@ -3005,6 +3022,7 @@ export type CardEffect =
   | RollRemoveHazardEventsEffect
   | AgentTapInfluenceEffect
   | AgentTapAttackEffect
+  | AgentDiscardReturnToOriginEffect
   | AgentMoveRestrictionEffect
   | AhuntAttackEffect
   | DragonAtHomeEffect

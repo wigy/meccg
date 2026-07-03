@@ -466,6 +466,8 @@ export function describeAction(
       return `Agent ${action.agentId as string} taps to influence ${action.targetKind} ${action.targetInstanceId as string}`;
     case 'agent-tap-attack':
       return `Agent ${action.agentId as string} taps to attack`;
+    case 'agent-discard-return-to-origin':
+      return `Agent ${action.agentId as string} is discarded to return company to its site of origin`;
     case 'agent-strike-roll':
       return `Agent rolls for strike`;
     case 'under-deeps-roll':

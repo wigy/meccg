@@ -47,7 +47,12 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "agent-discard-return-to-origin"
+      }
+    ],
+    "certified": "2026-07-03",
     "text": "Unique. Agent. Agent only: if you choose to discard Baduila at target company’s new site, company must return to its site of origin."
   },
   {
