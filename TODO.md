@@ -16,12 +16,9 @@ FIXES
 FEATS
 -----
 
-Notes for deck in .md format.
-
 EPICS
 -----
 
-Uploading Gccg deck format.
 Tournaments
 Super Good AI
 Tutorial
