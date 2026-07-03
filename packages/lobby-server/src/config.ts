@@ -27,13 +27,16 @@ interface Secrets {
 
 /** Load secrets from disk, generating missing ones. */
 function loadSecrets(): Secrets {
-  let existing: Partial<Secrets> = {};
+  // The file may hold fields owned by other tools (e.g. claudeOauthToken for
+  // bin/run-ai), so unknown keys must survive the rewrite below.
+  let existing: Record<string, unknown> & Partial<Secrets> = {};
   try {
-    existing = JSON.parse(fs.readFileSync(SECRETS_PATH, 'utf-8')) as Partial<Secrets>;
+    existing = JSON.parse(fs.readFileSync(SECRETS_PATH, 'utf-8')) as Record<string, unknown> & Partial<Secrets>;
   } catch {
     // File doesn't exist yet
   }
-  const secrets: Secrets = {
+  const secrets: Record<string, unknown> & Secrets = {
+    ...existing,
     jwtSecret: process.env.JWT_SECRET ?? existing.jwtSecret ?? crypto.randomBytes(32).toString('hex'),
     masterKey: process.env.MASTER_KEY ?? existing.masterKey ?? crypto.randomBytes(32).toString('hex'),
   };
