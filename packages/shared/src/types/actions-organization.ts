@@ -376,6 +376,31 @@ export interface ActivateGrantedAction {
 }
 
 /**
+ * Replace an in-play character with another manifestation of the same
+ * entity from hand (a `manifestation-swap` card effect — e.g. Strider
+ * ba-1: "You may bring Aragorn II into play with Strider's company,
+ * removing Strider from the game and automatically transferring all
+ * cards on Strider to Aragorn II").
+ *
+ * The new manifestation enters the old one's company untapped at the
+ * same position; every card attached to the old manifestation (items,
+ * allies, hazards, trophies) and every control relationship (its
+ * controller, its followers) transfers to the new instance. The old
+ * manifestation's card is removed from the game (out-of-play pile).
+ * Per CRF 22 (Strider), the swap may be performed at any time a normal
+ * resource could be played.
+ */
+export interface ManifestationSwapAction {
+  readonly type: 'manifestation-swap';
+  /** The player performing the swap. */
+  readonly player: PlayerId;
+  /** The in-play character carrying the `manifestation-swap` effect (removed from the game). */
+  readonly characterId: CardInstanceId;
+  /** The hand card (the named manifestation) brought into play in its place. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Tap a sage to test a gold-ring item at a site whose `sage-tap-ring-test`
  * site-rule grants the ability (e.g. Mount Doom, le-393). The named sage
  * taps; the gold-ring item's owner then rolls a ring test with the site's

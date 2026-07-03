@@ -863,6 +863,40 @@ Example (Gandalf's gold-ring test):
   } }
 ```
 
+**`enqueue-pending-fetch` extras.** `fetchTo: "hand"` places the picked card in
+the player's hand instead of shuffling it into the play deck.
+`playableAtBearerSite: true` additionally restricts candidates to cards
+*playable at the bearer's company's current site*, captured when the fetch is
+enqueued (`grant-action-apply.ts` stores the site definition on the pending
+`fetch-to-deck` effect as `playableAtSite`; both the candidate enumeration in
+`legal-actions/index.ts` and the reducer validation in `reducer-utils.ts`
+`handleFetchFromPile` consult it via `isCardPlayableAtSiteDef`): an item
+qualifies when its subtype is in the site's printed `playableResources` (or an
+`item-play-site` effect names/matches the site); an ally or faction qualifies
+when one of its `playableAt` entries matches the site. The grant-action `when`
+context also exposes `site.region`, so a "the site must be in <regions>" clause
+gates the activation itself. Used by Strider (ba-1): "Tap Strider to search
+your discard pile for any one item, ally, or faction playable at his current
+site. You may bring it to your hand. The site must be in Arthedain, Cardolan,
+Rhudaur, or The Shire."
+
+```json
+{ "type": "grant-action", "action": "fetch-playable-from-discard",
+  "cost": { "tap": "self" },
+  "when": { "site.region": { "$in": ["Arthedain", "Cardolan", "Rhudaur", "The Shire"] } },
+  "apply": {
+    "type": "enqueue-pending-fetch",
+    "fetchFrom": ["discard-pile"],
+    "fetchCount": 1,
+    "fetchShuffle": false,
+    "fetchTo": "hand",
+    "playableAtBearerSite": true,
+    "filter": { "cardType": { "$in": [
+      "hero-resource-item", "hero-resource-ally", "hero-resource-faction"
+    ] } }
+  } }
+```
+
 **`place-item-on-character` apply.** Fetches one item matching `filter` from the
 player's `discard-pile` / `sideboard` / `hand` (named in `fetchFrom`) and places
 it, untapped, on a chosen character at the bearer's site. The legal-action
@@ -1939,6 +1973,47 @@ Gates-of-Morning-gated hazard interpretation (e.g. Dark Quarrels'
 halve-strikes, hand-card attack modifiers, region-keying / movement
 play-conditions) fires while Skies of Fire is in play, with no engine code
 naming Skies of Fire.
+
+### 14b. `manifestation-swap` (and character manifestation chains)
+
+A character that is a *manifestation* of another character (e.g. Strider
+ba-1, "Manifestation of Aragorn II") declares the chain with the
+`manifestId` card field (by convention the base form's definition id —
+`"tw-120"` for the Aragorn chain; the tag may be one-sided, since a card
+naming another as its manifestation makes the relation symmetric —
+`sameManifestationEntity` in `engine/manifestations.ts`). The chain drives
+two generic rules:
+
+- **g.man.1 in-play uniqueness** — a character cannot be brought into play
+  (normal organization-phase play or `recruit-character` events) while a
+  manifestation of the same entity is in play for either player
+  (`manifestationOfEntityInPlay`, consulted in
+  `legal-actions/organization-characters.ts` and `recruit-via-event.ts`).
+- **Rule 1.9 draft collisions** — two picks that are manifestations of the
+  same entity (or same-named unique reprints) collide in the character
+  draft and are both set aside (`resolveDraftRound` in `reducer-setup.ts`).
+
+The `manifestation-swap` effect models the sanctioned replacement play
+("You may bring Aragorn II into play with Strider's company, removing
+Strider from the game and automatically transferring all cards on Strider
+to Aragorn II"):
+
+```json
+{ "type": "manifestation-swap", "cardName": "Aragorn II" }
+```
+
+While the carrying character is in play in a company, the controller may
+play the named character from hand as a `manifestation-swap` action. Per
+CRF 22 (Strider) this is a resource-style play — offered wherever a normal
+resource could be played (organization, movement/hazard, and site phase
+aggregators via `legal-actions/manifestation-swap.ts`), never consuming
+the one-character-per-turn slot. The reducer
+(`handleManifestationSwap` in `reducer-organization.ts`, routed from all
+three phases) brings the new manifestation into the old one's company at
+the same position, untapped, transferring every attachment (items, allies,
+hazards, trophies) and control relationship (`controlledBy`, followers,
+leader-controlled in-play cards); the old manifestation's card goes to its
+owner's out-of-play pile ("removed from the game").
 
 ### 15. `reduce-attacks-to-one`
 

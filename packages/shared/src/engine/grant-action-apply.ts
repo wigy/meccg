@@ -510,7 +510,20 @@ function runGrantApply(
     const characterId = ctx.action.characterId;
     const sourceId = ctx.action.sourceCardId;
     const ccModifier = apply.postCorruptionCheckModifier ?? 0;
-    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing fetch-to-${fetchTo} from [${fromSources.join(', ')}] (count=${count}, shuffle=${shuffle}, postCorruptionCheck=${!!apply.postCorruptionCheck}, ccModifier=${ccModifier})`);
+    // Site-playability restriction (Strider ba-1): capture the bearer's
+    // company's current site now, so the pending fetch can gate candidates
+    // on being playable there.
+    let playableAtSite: import('../types/common.js').CardDefinitionId | undefined;
+    if (apply.playableAtBearerSite === true) {
+      const company = findCharacterCompany(newPlayers[ctx.playerIndex].companies, characterId);
+      const siteInstId = company?.currentSite?.instanceId;
+      playableAtSite = siteInstId !== undefined ? resolveInstanceId(state, siteInstId) : undefined;
+      if (playableAtSite === undefined) {
+        return { error: `enqueue-pending-fetch: ${ctx.charName} has no current site for the playable-at-site restriction` };
+      }
+    }
+    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing fetch-to-${fetchTo} from [${fromSources.join(', ')}] (count=${count}, shuffle=${shuffle}, postCorruptionCheck=${!!apply.postCorruptionCheck}, ccModifier=${ccModifier}${playableAtSite !== undefined ? `, playable at ${playableAtSite as string}` : ''})`);
+    const sitePart = playableAtSite !== undefined ? { playableAtSite } : {};
     return {
       updatedChar: char,
       effects: [],
@@ -529,6 +542,7 @@ function runGrantApply(
                 count,
                 shuffle,
                 to: fetchTo,
+                ...sitePart,
               },
               skipDiscard: true,
               ...(apply.postCorruptionCheck

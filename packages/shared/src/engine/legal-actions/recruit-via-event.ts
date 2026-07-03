@@ -29,6 +29,7 @@ import type { CardEffect, RecruitCharacterEffect } from '../../types/effects.js'
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { characterEntries, defById, matchesDefinition, playerById, isUniqueCharacterInPlay } from '../reducer-utils.js';
+import { manifestationOfEntityInPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
@@ -98,6 +99,14 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
       // Uniqueness: a unique character already in play cannot be recruited.
       if (recruitDef.unique && isUniqueCharacterInPlay(state, recruitDef.name)) {
         logDetail(`${event.name}: ${recruitDef.name} is unique and already in play`);
+        continue;
+      }
+
+      // Glossary g.man.1: an in-play manifestation of the same entity also
+      // blocks the recruit (e.g. Strider in play blocks Aragorn II).
+      const blockingManifestation = manifestationOfEntityInPlay(state, recruitDef);
+      if (blockingManifestation !== null) {
+        logDetail(`${event.name}: ${blockingManifestation}, a manifestation of the same entity as ${recruitDef.name}, is in play (g.man.1)`);
         continue;
       }
 

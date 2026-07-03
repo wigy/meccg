@@ -518,6 +518,8 @@ export function describeAction(
       return `${action.player as string} discards stage resource ${action.cardInstanceId as string}`;
     case 'activate-org-fetch':
       return `${action.player as string} activates org-phase fetch from ${instName(action.cardInstanceId)} (take one matching card to hand)`;
+    case 'manifestation-swap':
+      return `${action.player as string} brings ${instName(action.cardInstanceId)} into play, replacing ${instName(action.characterId)} (removed from the game, cards transferred)`;
     case 'rescue-prisoner':
       return `${action.player as string} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
     default: {
