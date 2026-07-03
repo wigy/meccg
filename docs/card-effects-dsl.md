@@ -3945,6 +3945,48 @@ Used by *Baugúr* (dm-181): cannot move to free-holds or border-holds.
 { "type": "agent-move-restriction", "siteTypes": ["free-hold", "border-hold"] }
 ```
 
+### 40b. `agent-discard-return-to-origin`
+
+The agent may be discarded (its controller's choice, not as an agent action,
+not against the hazard limit) at the moving company's new site during the
+opponent's M/H phase to force that company to return to its site of origin.
+
+The return follows CoE rule 2.IV.4: the company's movement/hazard phase
+immediately ends (end-of-M/H corruption triggers still fire), the company is
+no longer considered to have a site path nor to have moved to a site this
+turn, and the company's player cannot initiate any actions during that
+company's site phase (enforced via a `site-phase-do-nothing` constraint,
+the same mechanism as `force-return-to-origin` environments).
+
+No fields.
+
+Conditions:
+
+- Agent must have been in play at turn start (`inPlayAtTurnStart`).
+- Agent must not be wounded (`CardStatus.Inverted`); tapped agents qualify —
+  the ability requires no tap.
+- The company must be moving to a new site this turn (a stationary company has
+  no "new site") and the agent must be at that destination site.
+- A face-down agent may be discarded too (no home-site binding is needed —
+  the discard itself reveals the card; its site-stack sites return to the
+  location deck).
+
+Implementation:
+
+- Legal actions: `agentDiscardReturnToOriginActions()` in
+  `legal-actions/movement-hazard.ts`.
+- Reducer: `handleAgentDiscardReturnToOrigin()` in `mh-hazard-play.ts` — it
+  discards the agent, adds the `site-phase-do-nothing` constraint, sets
+  `returnedToOrigin`, and immediately ends the company's M/H phase via
+  `endCompanyMH`.
+
+Used by *Baduila* (dm-2): "Agent only: if you choose to discard Baduila at
+target company's new site, company must return to its site of origin."
+
+```json
+{ "type": "agent-discard-return-to-origin" }
+```
+
 ### 41. `permanent-event-auto-attack`
 
 While this hazard permanent event is in play, each site listed in `siteIds`

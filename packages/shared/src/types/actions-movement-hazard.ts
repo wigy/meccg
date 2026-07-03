@@ -910,6 +910,24 @@ export interface AgentTapAttackAction {
 }
 
 /**
+ * The hazard player discards an agent at the moving company's new site to
+ * force the company to return to its site of origin (the
+ * `agent-discard-return-to-origin` effect, e.g. Baduila dm-2).
+ *
+ * This does NOT count as an agent action and does NOT count against the
+ * hazard limit. Per CoE rule 2.IV.4 the company's movement/hazard phase
+ * immediately ends and its site phase is blocked.
+ */
+export interface AgentDiscardReturnToOriginAction {
+  /** Action discriminant. */
+  readonly type: 'agent-discard-return-to-origin';
+  /** The hazard player discarding the agent. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent being discarded. */
+  readonly agentId: CompanyId;
+}
+
+/**
  * Power Built by Waiting (as-34): the hazard player taps this card from
  * their cardsInPlay to increase the hazard limit against the current target
  * company by the card's {@link TapForHazardLimitEffect.value}.

@@ -6,8 +6,8 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, HazardLimitSwapEffect } from '../../types/effects.js';
+import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -948,6 +948,65 @@ function agentTapAttackActions(
         viable: true,
       });
     }
+  }
+
+  return actions;
+}
+
+/**
+ * Generate `agent-discard-return-to-origin` actions for agents with the
+ * `agent-discard-return-to-origin` effect (e.g. Baduila dm-2).
+ *
+ * - Does NOT count as an agent action (actedThisTurn is not set).
+ * - Does NOT count against the hazard limit.
+ * - Agent must have been in play at start of turn (inPlayAtTurnStart).
+ * - Agent must not be wounded (a wounded character may not use special
+ *   abilities); tapped agents may still be discarded — no tap is required.
+ * - The company must be moving to a NEW site this turn (the card reads
+ *   "at target company's new site") and the agent must be at that site.
+ * - A face-down agent may be discarded too: its identity is revealed by the
+ *   discard itself, so no home-site binding is needed.
+ */
+function agentDiscardReturnToOriginActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const hazardPlayerIndex = getPlayerIndex(state, playerId);
+  const hazardPlayer = state.players[hazardPlayerIndex];
+  const resourcePlayerIndex = 1 - hazardPlayerIndex;
+  const resourcePlayer = state.players[resourcePlayerIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company) return [];
+
+  // The company must be moving to a new site (revealed) and not already returned.
+  if (!company.destinationSite || !mhState.destinationSiteName) return [];
+  if (mhState.returnedToOrigin) return [];
+
+  for (const agent of hazardPlayer.agents) {
+    if (!agent.inPlayAtTurnStart) continue;
+    if (agent.character.status === CardStatus.Inverted) continue; // wounded
+
+    const agentDef = defById(state, agent.character.definitionId);
+    if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+    const discardEff = (agentDef.effects ?? []).find(
+      (e): e is AgentDiscardReturnToOriginEffect => e.type === 'agent-discard-return-to-origin',
+    );
+    if (!discardEff) continue;
+
+    const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
+    if (agentSiteName === null || agentSiteName !== mhState.destinationSiteName) {
+      logDetail(`Agent discard-return-to-origin ${agentDef.name}: not at company's new site (agent: ${agentSiteName ?? 'unknown'}, new site: ${mhState.destinationSiteName}) — skipping`);
+      continue;
+    }
+
+    logDetail(`Agent discard-return-to-origin ${agentDef.name}: at company's new site "${mhState.destinationSiteName}" — offering discard`);
+    actions.push({
+      action: { type: 'agent-discard-return-to-origin', player: playerId, agentId: agent.id } as AgentDiscardReturnToOriginAction,
+      viable: true,
+    });
   }
 
   return actions;
@@ -2333,6 +2392,12 @@ function playHazardsActions(
     // Agents with the `agent-tap-attack` effect tap (not as an agent action,
     // not against hazard limit) to attack during M/H phase.
     actions.push(...agentTapAttackActions(state, playerId, mhState));
+
+    // --- Agent discard to return company to origin (e.g. Baduila dm-2) ---
+    // Agents with the `agent-discard-return-to-origin` effect may be discarded
+    // at the moving company's new site (not as an agent action, not against
+    // hazard limit) to force the company back to its site of origin.
+    actions.push(...agentDiscardReturnToOriginActions(state, playerId, mhState));
 
     // --- Power Built by Waiting (as-34): tap cardsInPlay card for +hazard limit ---
     // --- Power Built by Waiting (as-34): spend hazard limit to untap cardsInPlay card ---
