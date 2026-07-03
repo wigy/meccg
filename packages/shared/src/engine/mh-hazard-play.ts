@@ -42,7 +42,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { autoMergeNonHavenCompanies, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, playerById, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
-import { handlePlayCharacter } from './reducer-organization.js';
+import { handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { resolveAdjacency } from './legal-actions/organization-companies.js';
@@ -157,6 +157,12 @@ export function handlePlayHazards(
   //     one-character-per-turn bookkeeping. ---
   if (action.type === 'play-character' && action.viaEventInstanceId) {
     result = handlePlayCharacter(state, action);
+  }
+
+  // --- Manifestation swap (Strider ba-1 → Aragorn II): a resource-style
+  //     play, available whenever a normal resource could be played (CRF 22). ---
+  else if (action.type === 'manifestation-swap') {
+    result = handleManifestationSwap(state, action);
   }
 
   // --- Resource permanent event (e.g. Gates of Morning, rule 2.1.1) ---

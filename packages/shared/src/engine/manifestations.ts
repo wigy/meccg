@@ -46,6 +46,59 @@ export function manifestIdOf(def: CardDefinition | undefined): ManifestId | unde
 }
 
 /**
+ * True when two card definitions are manifestations of the same entity via
+ * the `manifestId` chain tag. The tag may be one-sided (glossary: "if a card
+ * indicates that it is the manifestation of another card, the latter is also
+ * considered a manifestation of the former"), so the comparison is symmetric:
+ * `a` tagging `b`'s id, `b` tagging `a`'s id, or both tagging the same chain.
+ *
+ * Same-name duplicates are deliberately NOT treated as manifestations here —
+ * they are the plain uniqueness check's concern, and non-unique characters
+ * (three copies of the same Orc) must not collide.
+ */
+export function sameManifestationEntity(
+  a: CardDefinition | undefined,
+  b: CardDefinition | undefined,
+): boolean {
+  if (!a || !b) return false;
+  const ma = manifestIdOf(a);
+  const mb = manifestIdOf(b);
+  if (ma !== undefined && (ma === b.id || ma === mb)) return true;
+  if (mb !== undefined && mb === a.id) return true;
+  return false;
+}
+
+/**
+ * Glossary rule g.man.1: only one manifestation of an entity can be in play,
+ * regardless of the cards' alignment. Returns the name of an in-play
+ * character (either player) that is a manifestation of the same entity as
+ * `def` (e.g. Strider ba-1 blocks a normal play of Aragorn II tw-120, and
+ * vice versa), or `null` when nothing blocks.
+ *
+ * Scans characters only: hazard-side chain sisters (Balrog of Moria tw-12
+ * vs The Balrog ba-3, Nazgûl permanent-events vs Ringwraiths) leave play
+ * when the character enters via their own discard-on-play rules — the
+ * "unless the current manifestation would leave play … when the new
+ * manifestation is played" clause of g.man.1. The sanctioned path around
+ * this block for characters is the `manifestation-swap` action, where the
+ * old manifestation is removed from the game as part of the play.
+ */
+export function manifestationOfEntityInPlay(
+  state: GameState,
+  def: CardDefinition,
+): string | null {
+  for (const player of state.players) {
+    for (const char of Object.values(player.characters)) {
+      const charDef = defById(state, char.definitionId);
+      if (charDef && sameManifestationEntity(charDef, def)) {
+        return (charDef as { name?: string }).name ?? (charDef.id as string);
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * The terminal off-board piles — cards here are gone for good. The
  * discard pile is intentionally excluded: a routine end-of-LE-phase
  * discard of an Ahunt is just that one instance expiring, not the

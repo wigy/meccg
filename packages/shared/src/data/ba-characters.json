@@ -141,7 +141,7 @@
     "name": "Strider",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Strider.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "scout",
@@ -155,7 +155,47 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Bree",
-    "effects": [],
+    "manifestId": "tw-120",
+    "effects": [
+      {
+        "type": "manifestation-swap",
+        "cardName": "Aragorn II"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Rangers of the North"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "fetch-playable-from-discard",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "site.region": {
+            "$in": ["Arthedain", "Cardolan", "Rhudaur", "The Shire"]
+          }
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["discard-pile"],
+          "fetchCount": 1,
+          "fetchShuffle": false,
+          "fetchTo": "hand",
+          "playableAtBearerSite": true,
+          "filter": {
+            "cardType": {
+              "$in": ["hero-resource-item", "hero-resource-ally", "hero-resource-faction"]
+            }
+          }
+        }
+      }
+    ],
     "text": "Unique. Manifestation of Aragorn II. You may bring Aragorn II into play with Strider’s company, removing Strider from the game and automatically transferring all cards on Strider to Aragorn II. +3 direct influence against the Rangers of the North faction. Tap Strider to search your discard pile for any one item, ally, or faction playable at his current site. You may bring it to your hand. The site must be in Arthedain, Cardolan, Rhudaur, or The Shire."
   },
   {

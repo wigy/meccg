@@ -1151,6 +1151,14 @@ export interface EnqueuePendingFetchAction extends TriggeredActionBase {
   readonly fetchShuffle?: boolean;
   /** Where to place the fetched card (default `'deck'`). */
   readonly fetchTo?: 'deck' | 'hand';
+  /**
+   * When true, only cards playable at the bearer's company's current site
+   * qualify (item categories printed on the site card, allies/factions whose
+   * `playableAt` names the site). The site is captured when the fetch is
+   * enqueued. Used by Strider (ba-1): "search your discard pile for any one
+   * item, ally, or faction playable at his current site".
+   */
+  readonly playableAtBearerSite?: boolean;
   /** Enqueue a corruption check on the bearer after the fetch completes. */
   readonly postCorruptionCheck?: boolean;
   /** Modifier for the post-fetch corruption check (default 0). */
@@ -1793,6 +1801,29 @@ export interface NameAliasEffect extends EffectBase {
 }
 
 /**
+ * Carried by a character that is a manifestation of another character
+ * (e.g. Strider ba-1, "Manifestation of Aragorn II"): while this
+ * character is in play, its controller may play the named manifestation
+ * from hand into this character's company, removing this character from
+ * the game and automatically transferring all cards on it (items,
+ * allies, hazards, trophies) — plus its control relationships (its
+ * controller and any followers) — to the new manifestation. Per CRF 22
+ * (Strider) the swap may be performed at any time a normal resource
+ * could be played; the engine offers it during the controller's
+ * organization, movement/hazard, and site phases.
+ *
+ * The manifestation *relationship* itself (glossary rule g.man.1 — only
+ * one manifestation of an entity in play, draft collisions per rule 1.9)
+ * is declared by the character card's `manifestId` field, not by this
+ * effect.
+ */
+export interface ManifestationSwapEffect extends EffectBase {
+  readonly type: 'manifestation-swap';
+  /** Name of the character card that may replace this one (e.g. "Aragorn II"). */
+  readonly cardName: string;
+}
+
+/**
  * One alternative region treatment offered by a {@link RegionKeyingBoostEffect}:
  * for creature-keying purposes, a single region of type {@link from} in a
  * company's site path is treated as {@link count} regions of type {@link asType}
@@ -2027,6 +2058,12 @@ export interface FetchToDeckEffect extends EffectBase {
    * When 'hand', the card is placed directly in the player's hand instead.
    */
   readonly to?: 'deck' | 'hand';
+  /**
+   * When set, only cards playable at this site qualify (in addition to
+   * `filter`). Captured from the bearer's company's current site when an
+   * `enqueue-pending-fetch` apply with `playableAtBearerSite` resolves.
+   */
+  readonly playableAtSite?: CardDefinitionId;
 }
 
 /**
@@ -3004,6 +3041,7 @@ export type CardEffect =
   | PlayFlagEffect
   | DuplicationLimitEffect
   | NameAliasEffect
+  | ManifestationSwapEffect
   | RegionKeyingBoostEffect
   | PlayTargetEffect
   | PlayOptionEffect

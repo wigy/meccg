@@ -32,6 +32,7 @@ import { playPermanentEventActions, playShortEventActions } from './organization
 import { grantedActionActivations } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
+import { manifestationSwapActions } from './manifestation-swap.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions } from '../mh-agents.js';
 import { currentHazardLimit } from '../hazard-limit.js';
@@ -2427,6 +2428,9 @@ function playHazardsActions(
     // into play at a company at a qualifying site during M/H, bypassing the
     // one-character-per-turn limit.
     actions.push(...recruitViaEventActions(state, playerId));
+    // Manifestation swaps (Strider ba-1 → Aragorn II): playable whenever a
+    // normal resource could be played (CRF 22), so offered here too.
+    actions.push(...manifestationSwapActions(state, playerId));
     // Granted-action constraints (Great Ship's cancel-chain-entry, etc.)
     const playerIndex = getPlayerIndex(state, playerId);
     const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];

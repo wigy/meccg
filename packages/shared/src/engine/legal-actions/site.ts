@@ -27,6 +27,7 @@ import { notPlayable } from './action-builders.js';
 import { availableDI, grantedActionActivations, playResourceShortEventActions, buildPlayerStateContext } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
+import { manifestationSwapActions } from './manifestation-swap.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
@@ -1623,6 +1624,15 @@ function playResourcesActions(
     const a = ea.action as { characterInstanceId?: string; viaEventInstanceId?: string };
     if (a.characterInstanceId) evaluatedInstances.add(a.characterInstanceId);
     if (a.viaEventInstanceId) evaluatedInstances.add(a.viaEventInstanceId);
+  }
+
+  // Manifestation swaps (Strider ba-1 → Aragorn II): playable whenever a
+  // normal resource could be played (CRF 22), so offered here too.
+  const manifestationSwapEvaluated = manifestationSwapActions(state, playerId);
+  actions.push(...manifestationSwapEvaluated);
+  for (const ea of manifestationSwapEvaluated) {
+    const a = ea.action as { cardInstanceId?: string };
+    if (a.cardInstanceId) evaluatedInstances.add(a.cardInstanceId);
   }
 
   // Mark remaining hand cards as not playable
