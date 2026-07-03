@@ -1379,6 +1379,12 @@ h2 {
   gap: 0.5rem;
 }
 
+.panel-title-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .new-deck-field {
   margin: 0 0 0.85rem;
 }

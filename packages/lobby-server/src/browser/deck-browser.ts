@@ -14,6 +14,7 @@ import {
 import { showAlert, showConfirm } from './dialog.js';
 import { apiGet, apiSend } from './api.js';
 import { renderMarkdown } from './markdown.js';
+import { parseGccgDeck, parsedCardCount, readGccgDeckFile, toFullDeck } from './deck-import.js';
 
 // Forward-declared function references, set by the lobby module at startup.
 let openDeckEditorFn: ((deckId: string) => Promise<void>) | null = null;
@@ -232,6 +233,22 @@ export async function loadDecks(): Promise<void> {
     newDeckBtn.addEventListener('click', showNewDeckDialog);
   }
 
+  // Wire the import-deck button once: clicking opens a file picker.
+  const importBtn = document.getElementById('import-deck-btn') as HTMLButtonElement | null;
+  if (importBtn && !importBtn.dataset.bound) {
+    importBtn.dataset.bound = '1';
+    importBtn.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.deck';
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (file) void importDeckFile(file);
+      });
+      input.click();
+    });
+  }
+
   // Render my decks
   const myContainer = document.getElementById('my-decks')!;
   myContainer.innerHTML = '';
@@ -348,6 +365,35 @@ export async function selectDeck(deckId: string): Promise<void> {
 export async function deleteDeck(deckId: string): Promise<void> {
   await apiSend(`/api/my-decks/${encodeURIComponent(deckId)}`, 'DELETE');
   await loadDecks();
+}
+
+/**
+ * Import a GCCG `*.deck` file into the player's collection: parse it,
+ * resolve card names against the pool, save the deck, select it, and open
+ * it in the editor so unresolved cards are immediately visible. Names that
+ * could not be matched are reported and kept as missing-card entries.
+ */
+async function importDeckFile(file: File): Promise<void> {
+  const text = await readGccgDeckFile(file);
+  const parsed = parseGccgDeck(text, file.name.replace(/\.deck$/i, ''));
+  if (parsedCardCount(parsed) === 0) {
+    await showAlert(`No cards found in "${file.name}" — is it a GCCG .deck file?`);
+    return;
+  }
+  const deck = toFullDeck(parsed, newDeckId(parsed.name));
+  const resp = await apiSend('/api/my-decks', 'POST', deck);
+  if (!resp.ok) {
+    await showAlert(resp.error ?? 'Failed to save the imported deck');
+    return;
+  }
+  if (parsed.unmatched.length > 0) {
+    await showAlert(
+      `Imported "${deck.name}" (${parsed.alignment}) with ${parsed.unmatched.length} `
+      + `unrecognized card name${parsed.unmatched.length > 1 ? 's' : ''}:\n`
+      + parsed.unmatched.join(', '));
+  }
+  await selectDeck(deck.id);
+  await openDeckEditorFn?.(deck.id);
 }
 
 /** Add a catalog deck to the player's collection, then refresh. */
