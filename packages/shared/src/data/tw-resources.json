@@ -2958,7 +2958,8 @@
         }
       }
     ],
-    "text": "Unique. Playable at Southron Oasis if the influence check is greater than 8. Standard Modifications: Dúnedain (-2), Elves (-2), Dwarves (-2)."
+    "text": "Unique. Playable at Southron Oasis if the influence check is greater than 8. Standard Modifications: Dúnedain (-2), Elves (-2), Dwarves (-2).",
+    "certified": "2026-07-04"
   },
   {
     "cardType": "hero-resource-event",
