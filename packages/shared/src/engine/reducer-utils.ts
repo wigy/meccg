@@ -2126,6 +2126,28 @@ export function discardEventCard(state: GameState, cardInstanceId: CardInstanceI
 }
 
 /**
+ * Route a spent event card from cardsInPlay to the owner's out-of-play
+ * pile instead of the discard pile — the "remove this card from the game"
+ * disposal for fetch-shape short events (Longbottom Leaf ba-30). Mirrors
+ * {@link discardEventCard}; the instance is never lost, only relocated.
+ */
+export function removeEventCardFromGame(state: GameState, cardInstanceId: CardInstanceId, playerIndex: number): GameState {
+  const player = state.players[playerIndex];
+  const eventCard = findById(player.cardsInPlay, cardInstanceId);
+  if (!eventCard) return state;
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    cardsInPlay: removeById(player.cardsInPlay, cardInstanceId),
+    outOfPlayPile: [...player.outOfPlayPile, toCardInstance(eventCard)],
+  };
+  return {
+    ...state,
+    players: newPlayers,
+  };
+}
+
+/**
  * Resolve (skip) the current pending effect and advance to the next one.
  * If no more effects remain, move the event card from cardsInPlay to discard.
  */
@@ -2140,7 +2162,10 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
   let newState: GameState = { ...state, pendingEffects: remaining };
   if (remaining.length === 0 && current.type === 'card-effect') {
     if (!current.skipDiscard) {
-      newState = discardEventCard(newState, current.cardInstanceId, ownerIndex);
+      const removeFromGame = current.effect.type === 'fetch-to-deck' && current.effect.removeFromGame === true;
+      newState = removeFromGame
+        ? removeEventCardFromGame(newState, current.cardInstanceId, ownerIndex)
+        : discardEventCard(newState, current.cardInstanceId, ownerIndex);
     }
     // Enqueue post-fetch corruption check when all picks are resolved (including
     // the pass/skip case). Applies whether skipDiscard is true (grant-action items
@@ -2273,7 +2298,9 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
         });
       }
     } else {
-      newState = discardEventCard(newState, current.cardInstanceId, playerIndex);
+      newState = current.effect.removeFromGame === true
+        ? removeEventCardFromGame(newState, current.cardInstanceId, playerIndex)
+        : discardEventCard(newState, current.cardInstanceId, playerIndex);
       // For short events that have a postCorruptionCheck (e.g. Vilya), enqueue
       // the corruption check after the card is discarded.
       if (current.postCorruptionCheck) {

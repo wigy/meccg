@@ -90,7 +90,29 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "move",
+        "select": "target",
+        "from": [
+          "sideboard"
+        ],
+        "to": "deck",
+        "shuffleAfter": true,
+        "removeFromGame": true,
+        "filter": {
+          "cardType": {
+            "$in": [
+              "hero-resource-item",
+              "hero-resource-ally",
+              "hero-resource-faction",
+              "hero-resource-event"
+            ]
+          }
+        },
+        "count": 2
+      }
+    ],
     "text": "Take up to two resources from your sideboard to your play deck and reshuffle. Remove this card from the game."
   },
   {

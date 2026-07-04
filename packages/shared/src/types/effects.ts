@@ -2064,6 +2064,13 @@ export interface FetchToDeckEffect extends EffectBase {
    * `enqueue-pending-fetch` apply with `playableAtBearerSite` resolves.
    */
   readonly playableAtSite?: CardDefinitionId;
+  /**
+   * When set, the spent event card is routed to the owner's out-of-play
+   * pile instead of the discard pile once the fetch resolves (or is
+   * passed). Used by Longbottom Leaf (ba-30): "Remove this card from the
+   * game."
+   */
+  readonly removeFromGame?: boolean;
 }
 
 /**
@@ -2995,6 +3002,14 @@ export interface MoveEffect extends EffectBase {
   readonly count?: number;
   /** Shuffle the destination pile after pushing. */
   readonly shuffleAfter?: boolean;
+  /**
+   * For fetch-shape moves (a short-event bringing cards into the play
+   * deck/hand): route the spent event card to the owner's out-of-play
+   * pile instead of the discard pile once the fetch resolves, so it can
+   * never be recurred. Used by Longbottom Leaf (ba-30): "Remove this card
+   * from the game."
+   */
+  readonly removeFromGame?: boolean;
   /**
    * Enqueue a corruption check on the bearer after resolution.
    * Carried by bounce-hazard-events equivalents (Wizard Uncloaked).

@@ -3080,6 +3080,7 @@ for reference:
 | `discard-non-special-items` | `{ select: 'filter-all', from: 'items-on-wounded', to: 'discard', toOwner: 'defender', filter }` | creature wound triggers |
 | `reshuffle-self-from-hand` | `{ select: 'self', from: 'hand', to: 'deck', shuffleAfter: true }` | Sudden Call |
 | `fetch-to-deck` | `{ select: 'target', from: ['sideboard','discard'], to: 'deck', shuffleAfter: true, filter, count }` | Smoke Rings |
+| `fetch-to-deck` (remove self) | `{ select: 'target', from: ['sideboard'], to: 'deck', shuffleAfter: true, removeFromGame: true, filter, count: 2 }` | Longbottom Leaf |
 | `bounce-hazard-events` | `{ select: 'filter-all', from: 'attached-to-target-company', to: 'hand', toOwner: 'opponent', filter, corruptionCheck }` | Wizard Uncloaked |
 
 **Shape**
@@ -3094,6 +3095,7 @@ for reference:
   "filter": { "…": "…" },
   "count": 1,
   "shuffleAfter": false,
+  "removeFromGame": false,
   "corruptionCheck": { "modifier": 0 },
   "cardName": "…",
   "when": { "…": "…" }
@@ -3160,6 +3162,10 @@ completes or when the player passes.
 **Side effects**
 
 - `shuffleAfter: true` shuffles the destination pile after pushing.
+- `removeFromGame: true` (fetch-shape short events only) routes the spent
+  event card to the owner's out-of-play pile instead of the discard pile
+  once the fetch resolves or is passed, so it can never be recurred. Used
+  by *Longbottom Leaf* (ba-30): "Remove this card from the game."
 - `corruptionCheck: { modifier: n }` enqueues a corruption check on
   the bearer after the move resolves.
 
