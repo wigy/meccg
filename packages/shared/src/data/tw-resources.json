@@ -2974,8 +2974,28 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "+4 to an influence attempt against a faction."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "play-option",
+        "id": "influence-boost",
+        "when": {
+          "player.hasFactionInHand": true
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "value": 4
+        }
+      }
+    ],
+    "text": "+4 to an influence attempt against a faction.",
+    "certified": "2026-07-04"
   },
   {
     "cardType": "hero-resource-event",
