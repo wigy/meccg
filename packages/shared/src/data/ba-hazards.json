@@ -248,6 +248,7 @@
       },
       { "type": "duplication-limit", "scope": "attack", "max": 1 }
     ],
+    "certified": "2026-07-04",
     "text": "Playable on an automatic-attack or an attack from Shelob; does not count against the hazard limit. The attack receives +1 strike, +1 prowess, and -2 body. The first attempt to cancel this attack instead cancels the effects of this card. Cannot be duplicated on a given attack."
   }
 ]
