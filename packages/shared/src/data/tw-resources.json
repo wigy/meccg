@@ -2994,7 +2994,8 @@
         }
       }
     ],
-    "text": "+4 to an influence attempt against a faction."
+    "text": "+4 to an influence attempt against a faction.",
+    "certified": "2026-07-04"
   },
   {
     "cardType": "hero-resource-event",
