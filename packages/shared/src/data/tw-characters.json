@@ -2037,7 +2037,29 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Grey Havens",
-    "effects": [],
+    "effects": [
+      {
+        "type": "hand-size-modifier",
+        "value": 1,
+        "when": { "self.location": "Grey Havens" }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "self" },
+        "when": { "attack.keying": "coastal" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Elves of Lindon" }
+      },
+      {
+        "type": "mp-modifier",
+        "value": -3,
+        "when": { "reason": "elimination" }
+      }
+    ],
     "text": "Unique. When Círdan is at the Grey Havens, you may keep one more card than normal in your hand.May tap to cancel one attack against his company keyed to a Coastal Sea region.+2 direct influence against the Elves of Lindon faction.-3 marshalling points if eliminated."
   },
   {
