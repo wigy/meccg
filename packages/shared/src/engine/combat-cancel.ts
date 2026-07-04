@@ -330,6 +330,33 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
     return state;
   }
 
+  // Cancel protection (Unabated in Malice ba-26): the FIRST attempt to cancel
+  // a protected attack instead strips the protecting card's modifiers, leaving
+  // the (now unbuffed) attack in play. The cancel card was still spent. Once
+  // consumed, a later cancellation ends the attack normally.
+  if (combat.cancelProtection) {
+    const cp = combat.cancelProtection;
+    const restoredProwess = combat.strikeProwess - cp.prowessModifier;
+    const restoredBody = combat.creatureBody === null ? null : combat.creatureBody - cp.bodyModifier;
+    const restoredStrikes = Math.max(1, combat.strikesTotal - cp.strikesModifier);
+    logDetail(
+      `Cancel-attack resolves: attack is protected — cancellation redirected to strip the buff instead. ` +
+      `strike prowess ${combat.strikeProwess} → ${restoredProwess}, ` +
+      `creature body ${combat.creatureBody ?? 'n/a'} → ${restoredBody ?? 'n/a'}, ` +
+      `strikes ${combat.strikesTotal} → ${restoredStrikes}. Attack continues.`,
+    );
+    const { cancelProtection: _removed, ...restCombat } = combat;
+    return {
+      ...state,
+      combat: {
+        ...restCombat,
+        strikeProwess: restoredProwess,
+        creatureBody: restoredBody,
+        strikesTotal: restoredStrikes,
+      },
+    };
+  }
+
   const newPlayers = clonePlayers(state);
 
   // For multi-attack creatures (e.g. Assassin), cancelling one attack

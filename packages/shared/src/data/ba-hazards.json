@@ -229,7 +229,26 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/UnabatedinMalice.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      { "type": "play-flag", "flag": "no-hazard-limit" },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "strikesModifier": 1,
+        "prowessModifier": 1,
+        "bodyModifier": -2,
+        "firstCancelRemovesEffect": true,
+        "when": {
+          "$or": [
+            { "attack.automatic": true },
+            { "enemy.name": "Shelob" }
+          ]
+        }
+      },
+      { "type": "duplication-limit", "scope": "attack", "max": 1 }
+    ],
+    "certified": "2026-07-04",
     "text": "Playable on an automatic-attack or an attack from Shelob; does not count against the hazard limit. The attack receives +1 strike, +1 prowess, and -2 body. The first attempt to cancel this attack instead cancels the effects of this card. Cannot be duplicated on a given attack."
   }
 ]

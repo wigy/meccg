@@ -537,6 +537,26 @@ export interface CombatState {
     readonly hostInstanceId: CardInstanceId;
     readonly siteInstanceId: CardInstanceId;
   };
+  /**
+   * Records an active "cancel protection" buff on this attack, set by a
+   * from-hand `modify-attack` effect with `firstCancelRemovesEffect: true`
+   * (Unabated in Malice ba-26). Holds the modifiers this card applied so
+   * the *first* cancellation attempt can reverse them instead of cancelling
+   * the attack. Cleared once that first attempt spends the protection; a
+   * later cancellation then ends the attack normally. Absent when no such
+   * buff is active (the common case). Only one may exist per attack (the
+   * card's `duplication-limit` scope `attack` enforces this).
+   */
+  readonly cancelProtection?: {
+    /** Instance of the modify-attack card that granted the protection. */
+    readonly sourceInstanceId: CardInstanceId;
+    /** Strike-count modifier applied (reversed on redirect). */
+    readonly strikesModifier: number;
+    /** Strike-prowess modifier applied (reversed on redirect). */
+    readonly prowessModifier: number;
+    /** Creature-body modifier applied (reversed on redirect). */
+    readonly bodyModifier: number;
+  };
 }
 
 /**

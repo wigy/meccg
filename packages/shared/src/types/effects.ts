@@ -2415,6 +2415,15 @@ export interface ModifyAttackEffect extends EffectBase {
    */
   readonly strikesModifier?: number;
   /**
+   * When true (from-hand attacker plays only), the buffed attack gains
+   * "cancel protection": the first attempt to cancel the attack instead
+   * removes this card's modifiers ({@link CombatState.cancelProtection}),
+   * leaving the (now unmodified) attack in play. The card is still spent.
+   * Used by Unabated in Malice (ba-26): "The first attempt to cancel this
+   * attack instead cancels the effects of this card."
+   */
+  readonly firstCancelRemovesEffect?: true;
+  /**
    * When true, activating removes the "attacker chooses defending characters"
    * rule from the current attack: {@link CombatState.attackerChoosesDefenders}
    * is cleared so the defending player assigns strikes normally. The action is
