@@ -971,6 +971,7 @@
     "name": "Withdrawn to Mordor",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/WithdrawntoMordor.jpg",
     "unique": false,
+    "certified": "2026-07-04",
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
