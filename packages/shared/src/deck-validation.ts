@@ -200,6 +200,49 @@ function checkBannedCards(
 }
 
 /**
+ * The creature-equivalent value a single hazard copy contributes toward the
+ * 12-creature minimum (CoE rule 1.5.1 / CRF 22 "Deck Construction"). An
+ * ordinary hazard-creature is worth 1; the following count as half a creature
+ * ("count as half of a creature, rounded down"):
+ *
+ * - An agent that counts as a hazard. Agents are ½ a creature in every deck
+ *   except a Ringwraith (minion) deck, where an agent is a character (worth 0).
+ * - A hazard that may be played as either a creature or an event — the Nazgûl,
+ *   the "manifestation" hunter creatures, Mouth of Sauron, … — flagged with the
+ *   `playable-as-event` play-flag.
+ * - An "Ahunt" or "At Home" Dragon manifestation, identified by its
+ *   `ahunt-attack` / `dragon-at-home` effect.
+ * - A "Spawn" permanent-event.
+ *
+ * Everything else (ordinary hazard events, environments, resources placed in
+ * the hazard section, …) contributes 0.
+ */
+function creatureEquivalent(
+  def: CardDefinition | undefined,
+  alignment: DeckList['alignment'],
+): number {
+  if (!def) return 0;
+  // An agent counts as ½ a creature for every player except a Ringwraith
+  // (minion) player, for whom agents are characters, not creatures.
+  if (isCharacterCard(def) && def.keywords?.includes('agent')) {
+    return alignment === 'minion' ? 0 : 0.5;
+  }
+  // A creature that is also playable as an event.
+  if (defHasPlayFlag(def, 'playable-as-event')) return 0.5;
+  // An "Ahunt" or "At Home" Dragon manifestation.
+  if ('effects' in def && def.effects?.some(e => e.type === 'ahunt-attack' || e.type === 'dragon-at-home')) {
+    return 0.5;
+  }
+  // A "Spawn" permanent-event.
+  if (def.cardType === 'hazard-event' && def.eventType === 'permanent' && def.keywords?.includes('spawn')) {
+    return 0.5;
+  }
+  // An ordinary hazard creature.
+  if (def.cardType === 'hazard-creature') return 1;
+  return 0;
+}
+
+/**
  * Validate a deck against CoE deck-construction rules.
  *
  * @param deck  The deck to validate.
@@ -741,21 +784,20 @@ export function validateDeck(
     });
   }
 
+  // Rule 1.5.1 / CRF 22 — the hazard portion must include at least 12 creatures.
+  // Agents that count as hazards, dual creature/event hazards, Dragon "Ahunt"/
+  // "At Home" manifestations, and Spawn permanent-events each count as half a
+  // creature; the total is rounded down for the purpose of the requirement.
   let creatureCount = 0;
   for (const entry of hazards) {
     if (entry.card === null) continue;
-    const def = cardPool[entry.card];
-    if (def?.cardType === 'hazard-creature') {
-      creatureCount += entry.qty;
-    } else if (deck.alignment === 'balrog' && isCharacterCard(def) && def.keywords?.includes('agent')) {
-      // Rule 1.20: Balrog agents in the hazards section count as half a creature each
-      creatureCount += entry.qty * 0.5;
-    }
+    creatureCount += creatureEquivalent(cardPool[entry.card], deck.alignment) * entry.qty;
   }
-  if (creatureCount < 12) {
+  const effectiveCreatures = Math.floor(creatureCount);
+  if (effectiveCreatures < 12) {
     errors.push({
       section: 'hazards',
-      message: `play deck: only ${creatureCount} creatures in hazards (min 12)`,
+      message: `play deck: only ${effectiveCreatures} creatures in hazards (min 12)`,
     });
   }
 

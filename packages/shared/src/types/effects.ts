@@ -1450,6 +1450,12 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   resource menus to cancel an environment (e.g. Twilight).
  * - `playable-as-hazard` — a resource card may also be played through
  *   hazard menus (e.g. Sudden Call, le-235).
+ * - `playable-as-event` — a hazard creature that may alternatively be
+ *   played as an event, or an event that may alternatively be played as
+ *   a creature (e.g. the Nazgûl, the "manifestation" hunter creatures,
+ *   Mouth of Sauron). Such dual creature/event hazards count as half a
+ *   creature for the 12-creature deck-construction requirement
+ *   (CoE rule 1.5.1 / CRF 22).
  * - `no-hazard-limit` — playing this hazard does not consume a slot
  *   against the per-company hazard limit (e.g. Twilight, Lure).
  * - `not-starting-character` — character may not be drafted as one of
@@ -1498,7 +1504,7 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'grants-followers';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'grants-followers';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}

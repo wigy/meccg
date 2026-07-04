@@ -663,7 +663,12 @@
     "killMarshallingPoints": 1,
     "race": "orcs",
     "keyedTo": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ],
     "text": "Orcs. May be played following any Orc attack not keyed to a site. Three strikes.If played as a short-event, modify the prowess and strikes of a Wolf attack by +1."
   },
   {
@@ -678,7 +683,12 @@
     "killMarshallingPoints": 1,
     "race": "orcs",
     "keyedTo": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ],
     "text": "Orcs. May be played following any Orc attack not keyed to a site. Three strikes.If played as a short-event, modify the prowess and strikes of a Wolf attack by +1."
   }
 ]
