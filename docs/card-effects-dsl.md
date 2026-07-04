@@ -5580,3 +5580,44 @@ base size limit, sideboard halving, `hazard-limit-modifier` constraints and
 site-rule modifiers). Used by Eyes of the Shadow (dm-56): "The hazard limit is
 increased by two for each moving company with a size of less than four that also
 contains a Wizard or a non-ranger character with a mind of 6 or more."
+
+### 55. `withdraw-agent`
+
+Carried by a resource short-event. Removes an opponent's **face-up agent** from
+play, judged by the agent's printed mind, or — as an alternative mode — discards
+one of the opponent's **unrevealed on-guard** cards.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `returnMindThreshold` | yes | Printed-mind boundary: an agent whose mind is **≥** this value is returned to its owner's hand; a lower-mind agent is discarded to its owner's discard pile. |
+| `alternativeDiscardOnGuard` | yes | When `true`, the card may instead discard an unrevealed on-guard card. |
+
+```json
+{
+  "type": "withdraw-agent",
+  "returnMindThreshold": 6,
+  "alternativeDiscardOnGuard": true
+}
+```
+
+The play mode is selected by which target the `play-short-event` action carries:
+
+- **Agent mode** (`targetAgentId`): the legal-action generator
+  (`withdrawAgentTargetActions` in `legal-actions/organization.ts`) emits one
+  play action per **revealed** agent the opponent has in play. On resolution
+  (`handlePlayResourceShortEvent` in `reducer-events.ts`) the agent is looked up
+  by printed mind: mind `< returnMindThreshold` → agent card to its owner's
+  discard pile; mind `≥ returnMindThreshold` → agent card back to its owner's
+  hand. Either way the agent leaves the `agents` list, its face-down site stack
+  returns to the location deck, and any (rare) attachments go to their owners'
+  discard piles — no card instance is lost.
+- **On-guard mode** (`discardTargetInstanceId`): when `alternativeDiscardOnGuard`
+  is set, one play action is emitted per **unrevealed** on-guard card on the
+  player's own companies. On resolution the card is removed from the company and
+  discarded to its owner (the opponent who placed it). Per CRF 22 this must
+  happen *before* the card is revealed, and the primary "playable on a face-up
+  agent" condition does **not** gate this mode.
+
+Used by Withdrawn to Mordor (dm-165): "Playable on a face-up agent. If the agent
+has a mind of 5 or less, it is discarded. If its mind is 6 or greater, return the
+agent to its owner's hand. Alternatively, an on-guard card is discarded."

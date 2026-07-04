@@ -974,7 +974,13 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "withdraw-agent",
+        "returnMindThreshold": 6,
+        "alternativeDiscardOnGuard": true
+      }
+    ],
     "text": "Playable on a face-up agent. If the agent has a mind of 5 or less, it is discarded. If its mind is 6 or greater, return the agent to its owner’s hand.Alternatively, an on-guard card is discarded."
   },
   {

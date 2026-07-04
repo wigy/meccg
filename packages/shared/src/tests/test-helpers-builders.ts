@@ -308,15 +308,20 @@ import { recomputeDerived } from '../engine/recompute-derived.js';
 export { recomputeDerived };
 
 /**
- * Builds a freshly-minted Bill Ferny {@link AgentInPlay} in its default
- * (untapped, unrevealed, one-action) state. Shared by the agent-combat tests.
+ * Builds a freshly-minted {@link AgentInPlay} for the given agent character
+ * definition in its default (untapped, one-action, face-down) state. Pass
+ * `revealed: true` to build a face-up agent (e.g. for the Withdrawn to Mordor
+ * dm-165 test, which targets face-up agents).
  */
-export function makeBillFernyAgent(): AgentInPlay {
+export function makeAgent(
+  definitionId: CardDefinitionId,
+  opts?: { revealed?: boolean },
+): AgentInPlay {
   return {
-    id: 'agent-bill-ferny-0' as CompanyId,
+    id: `agent-${definitionId as string}-0` as CompanyId,
     character: {
       instanceId: mint(),
-      definitionId: BILL_FERNY,
+      definitionId,
       status: CardStatus.Untapped,
       items: [],
       allies: [],
@@ -325,13 +330,21 @@ export function makeBillFernyAgent(): AgentInPlay {
       controlledBy: 'general' as const,
       effectiveStats: ZERO_EFFECTIVE_STATS,
     },
-    revealed: false,
+    revealed: opts?.revealed ?? false,
     siteStack: [],
     remainingActions: 1,
     inPlayAtTurnStart: true,
     attackedThisSitePhase: false,
     discardAtEndOfTurn: false,
   };
+}
+
+/**
+ * Builds a freshly-minted Bill Ferny {@link AgentInPlay} in its default
+ * (untapped, unrevealed, one-action) state. Shared by the agent-combat tests.
+ */
+export function makeBillFernyAgent(): AgentInPlay {
+  return { ...makeAgent(BILL_FERNY), id: 'agent-bill-ferny-0' as CompanyId };
 }
 
 /** Returns a copy of `state` with every company's current site tapped. */
@@ -1225,6 +1238,22 @@ export function findAllyInstanceId(
   const charId = findCharInstanceId(state, playerIdx, charDefId);
   return state.players[playerIdx].characters[charId]?.allies
     .find(a => a.definitionId === allyDefId)?.instanceId;
+}
+
+/**
+ * Returns a copy of `state` with `agent` appended to the given player's
+ * in-play agents list. Used by tests that need a face-up (or face-down) agent
+ * in play, e.g. the Withdrawn to Mordor (dm-165) card test.
+ */
+export function withAgentInPlay(
+  state: GameState,
+  playerIdx: number,
+  agent: AgentInPlay,
+): GameState {
+  const players = state.players.map((p, i) =>
+    i === playerIdx ? { ...p, agents: [...p.agents, agent] } : p,
+  ) as unknown as typeof state.players;
+  return { ...state, players };
 }
 
 /**

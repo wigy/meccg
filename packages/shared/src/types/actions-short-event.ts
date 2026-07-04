@@ -61,8 +61,19 @@ export interface PlayShortEventAction {
    * in-play card instance to discard. One legal action is emitted per
    * eligible (sage × hazard) combination so the player picks the target
    * as part of playing the card — there is no separate sub-flow.
+   *
+   * Reused by the on-guard mode of a {@link WithdrawAgentEffect} card
+   * (Withdrawn to Mordor, dm-165) to name the unrevealed on-guard card the
+   * event discards.
    */
   readonly discardTargetInstanceId?: CardInstanceId;
+  /**
+   * For a {@link WithdrawAgentEffect} card (Withdrawn to Mordor, dm-165)
+   * played in its agent mode, the virtual-company id of the opponent's
+   * face-up agent the event removes. One legal action is emitted per
+   * eligible face-up agent.
+   */
+  readonly targetAgentId?: CompanyId;
   /**
    * For cards with an `enqueue-ring-play-offer` apply (e.g. Secrets of
    * Their Forging), the gold ring item to discard and whose test table

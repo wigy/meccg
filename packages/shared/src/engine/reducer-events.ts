@@ -929,6 +929,111 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     };
   }
 
+  // Withdrawn to Mordor (dm-165): a `withdraw-agent` short event either
+  // removes an opponent's face-up agent (agent mode, `targetAgentId`) or
+  // discards one of the opponent's unrevealed on-guard cards (on-guard mode,
+  // `discardTargetInstanceId`). The event card itself always goes to the
+  // playing player's discard pile.
+  const withdrawAgentEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').WithdrawAgentEffect => e.type === 'withdraw-agent',
+  );
+  if (withdrawAgentEffect) {
+    let working = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    }));
+
+    // On-guard mode: discard the named unrevealed on-guard card to its owner's
+    // discard pile (CRF 22: this must happen before the card is revealed).
+    if (action.discardTargetInstanceId) {
+      const ogId = action.discardTargetInstanceId;
+      let removed: import('../types/state-cards.js').OnGuardCard | undefined;
+      let holderIndex = -1;
+      let holderCompanyId: import('../types/common.js').CompanyId | undefined;
+      for (let pi = 0; pi < working.players.length && !removed; pi++) {
+        for (const company of working.players[pi].companies) {
+          const og = company.onGuardCards.find(o => o.instanceId === ogId);
+          if (og) {
+            removed = og;
+            holderIndex = pi;
+            holderCompanyId = company.id;
+            break;
+          }
+        }
+      }
+      if (!removed) return { state, error: 'Target on-guard card not found' };
+      working = updatePlayer(working, holderIndex, p => ({
+        ...p,
+        companies: p.companies.map(c =>
+          c.id === holderCompanyId
+            ? { ...c, onGuardCards: c.onGuardCards.filter(o => o.instanceId !== ogId) }
+            : c,
+        ),
+      }));
+      // On-guard cards are always the opponent's hazards placed on the holder's
+      // company, so the card returns to the other player's discard pile.
+      const ownerIndex = holderIndex === 0 ? 1 : 0;
+      logDetail(`${def.name}: discarding on-guard card ${removed.definitionId as string} (${ogId as string}) to owner ${working.players[ownerIndex].id as string}`);
+      working = updatePlayer(working, ownerIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, toCardInstance(removed!)],
+      }));
+      return { state: working };
+    }
+
+    // Agent mode: locate the targeted agent, then judge it by printed mind.
+    if (action.targetAgentId) {
+      let agentOwnerIdx = -1;
+      let agentIdx = -1;
+      for (let i = 0; i < working.players.length && agentOwnerIdx === -1; i++) {
+        const idx = working.players[i].agents.findIndex(a => a.id === action.targetAgentId);
+        if (idx !== -1) {
+          agentOwnerIdx = i;
+          agentIdx = idx;
+        }
+      }
+      if (agentOwnerIdx === -1) return { state, error: 'Target agent not found' };
+      const agent = working.players[agentOwnerIdx].agents[agentIdx];
+      const agentDef = defById(working, agent.character.definitionId);
+      const mind = (agentDef && isCharacterCard(agentDef) ? agentDef.mind : 0) ?? 0;
+      const returnToHand = mind >= withdrawAgentEffect.returnMindThreshold;
+      logDetail(
+        `${def.name}: agent ${agentDef?.name ?? (agent.character.definitionId as string)} mind ${mind} ` +
+        `${returnToHand ? `≥ ${withdrawAgentEffect.returnMindThreshold} → returned to owner's hand` : `< ${withdrawAgentEffect.returnMindThreshold} → discarded`}`,
+      );
+
+      // Preserve the "no card disappears" invariant: any cards attached to the
+      // agent (agents normally carry none) go to their owners' discard piles,
+      // and the agent's face-down site stack returns to the location deck.
+      const attachments = [
+        ...agent.character.items,
+        ...agent.character.allies,
+        ...agent.character.hazards,
+        ...(agent.character.trophies ?? []),
+      ];
+      const agentInstance = toCardInstance(agent.character);
+      working = updatePlayer(working, agentOwnerIdx, p => ({
+        ...p,
+        agents: p.agents.filter((_, i) => i !== agentIdx),
+        siteDeck: [...p.siteDeck, ...agent.siteStack],
+        ...(returnToHand
+          ? { hand: [...p.hand, agentInstance] }
+          : { discardPile: [...p.discardPile, agentInstance] }),
+      }));
+      for (const att of attachments) {
+        const ownerIdx = getPlayerIndex(working, ownerOf(att.instanceId));
+        working = updatePlayer(working, ownerIdx, p => ({
+          ...p,
+          discardPile: [...p.discardPile, toCardInstance(att)],
+        }));
+      }
+      return { state: working };
+    }
+
+    // No target supplied — the event fizzles but is still spent.
+    return { state: working };
+  }
+
   // Discard the card and return. If dice-check (glamour) resolutions were
   // enqueued, the legal-action system will automatically surface only roll
   // actions until all resolutions are cleared.
