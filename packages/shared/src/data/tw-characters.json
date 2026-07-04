@@ -2037,6 +2037,7 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Grey Havens",
+    "certified": "2026-07-04",
     "effects": [
       {
         "type": "hand-size-modifier",
