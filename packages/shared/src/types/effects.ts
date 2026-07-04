@@ -636,6 +636,43 @@ export interface ReshuffleFromDiscardEffect extends EffectBase {
 }
 
 /**
+ * Forces the card-player's opponent to discard one card of a named category,
+ * chosen by the opponent, or — if none is available — reveal their hand.
+ *
+ * Carried by a hazard short-event and resolved when the event resolves on the
+ * chain. The opponent (the resource player, in a hazard-play context) is the
+ * discarding player. Candidate cards are gathered from the sources named in
+ * `sources`: `'hand'` (cards in the opponent's hand) and/or `'carried'` (cards
+ * held by the opponent's in-play characters). If at least one candidate exists,
+ * a {@link PendingResolution} of kind `force-discard-card` is enqueued so the
+ * opponent picks exactly one to discard (mandatory). If none exists and
+ * `fallbackRevealHand` is set, the opponent's current hand identities are
+ * revealed to the card-player instead (recorded in
+ * {@link GameState.revealedInstances}).
+ *
+ * The `match` category is a generic, data-driven matcher so other "opponent
+ * discards an X" cards can reuse it. `'ring'` matches any card carrying the
+ * `ring` keyword or the `gold-ring` subtype (the MECCG definition of a ring).
+ *
+ * Used by *Rolled down to the Sea* (wh-29): "Opponent must discard a ring from
+ * his hand or from one of his companies if available. If no rings are available
+ * as such, he must reveal his hand to you."
+ */
+export interface ForceOpponentDiscardEffect extends EffectBase {
+  readonly type: 'force-opponent-discard';
+  /** Named card-category matcher. Currently only `'ring'`. */
+  readonly match: 'ring';
+  /**
+   * Where to look for candidate cards to discard:
+   * - `'hand'` — the opponent's hand.
+   * - `'carried'` — items/cards held by the opponent's in-play characters.
+   */
+  readonly sources: readonly ('hand' | 'carried')[];
+  /** When true and no candidate exists, reveal the opponent's hand instead. */
+  readonly fallbackRevealHand?: boolean;
+}
+
+/**
  * Grants a new activated ability to the card's bearer.
  *
  * Example: Gandalf can tap to test a gold ring in his company.
@@ -3021,6 +3058,7 @@ export type CardEffect =
   | DrawModifierEffect
   | DrawCardsEffect
   | ReshuffleFromDiscardEffect
+  | ForceOpponentDiscardEffect
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect

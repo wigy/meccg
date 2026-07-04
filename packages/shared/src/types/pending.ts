@@ -433,6 +433,20 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Rolled down to the Sea (wh-29): the card-player's opponent must
+         * discard one ring of their choice. The actor picks exactly one
+         * candidate from {@link candidateInstanceIds} — rings gathered from
+         * their hand and/or held by their in-play characters. Resolved by a
+         * `force-discard-card` action.
+         */
+        readonly type: 'force-discard-card';
+        /** Ring instances the actor may choose to discard (mandatory pick). */
+        readonly candidateInstanceIds: readonly CardInstanceId[];
+        /** Definition ID of the source hazard event (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Hazard permanent-event maintenance cost: fired at the end of the
          * resource player's long-event phase for each in-play hazard permanent
          * event that carries a `hazard-maintenance` effect.

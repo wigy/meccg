@@ -509,6 +509,39 @@ Resolved directly in `handlePlayResourceShortEvent` (`reducer-events.ts`).
 Used by Horns, Horns, Horns (dm-140): "Each player removes all factions
 from his discard pile and shuffles them into his play deck."
 
+### 6e. `force-opponent-discard`
+
+Hazard short-event effect that forces the card-player's **opponent** (the
+resource/active player, in a hazard-play context) to discard one card of a
+named category — chosen by the opponent — or, if none is available, reveal
+their hand. Resolved when the event resolves on the chain
+(`chain-reducer.ts`).
+
+- `match` — the card-category matcher. Currently `"ring"`: any card carrying
+  the `ring` keyword **or** the `gold-ring` subtype (the MECCG definition of a
+  ring).
+- `sources` — where candidate cards are gathered from: `"hand"` (the
+  opponent's hand) and/or `"carried"` (cards held by the opponent's in-play
+  characters, i.e. "from one of his companies").
+- `fallbackRevealHand` — when true and no candidate exists in any source, the
+  opponent's current hand identities are revealed to the card-player instead
+  (recorded in `GameState.revealedInstances`).
+
+When at least one candidate exists, a `force-discard-card` pending resolution
+is enqueued (actor = the opponent) so they pick exactly one to discard
+(mandatory); the chosen card is moved from wherever it sits — hand or a
+character's items — to the opponent's discard pile
+(`applyForceDiscardCardResolution`).
+
+```json
+{ "type": "force-opponent-discard", "match": "ring",
+  "sources": ["hand", "carried"], "fallbackRevealHand": true }
+```
+
+Used by Rolled down to the Sea (wh-29): "Opponent must discard a ring from
+his hand or from one of his companies if available. If no rings are available
+as such, he must reveal his hand to you."
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,

@@ -504,6 +504,21 @@ export interface DiscardItemFromCompanyAction {
 }
 
 /**
+ * Resolve a `force-discard-card` pending resolution: the actor picks one
+ * candidate card (a ring) to discard. Used by *Rolled down to the Sea*
+ * (wh-29), where the card-player's opponent must discard one ring from their
+ * hand or from one of their characters.
+ */
+export interface ForceDiscardCardAction {
+  /** Action discriminant. */
+  readonly type: 'force-discard-card';
+  /** The player forced to discard (the card-player's opponent). */
+  readonly player: PlayerId;
+  /** The chosen ring instance to discard (from hand or a character). */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Cancel a strike against a character by having another character in
  * the same company pay a cost (e.g. Fatty Bolger taps to cancel a
  * strike against another hobbit).
