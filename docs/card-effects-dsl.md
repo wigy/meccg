@@ -1659,8 +1659,10 @@ plays the effect:
   pre-assignment window (e.g. Dragon's Desolation Mode A).
 - `"defender"` — the resource player plays during the same window.
 
-The `when` clause is evaluated against the standard combat context
-(`enemy.race`, `attack.source`, `attack.keying`, `inPlay`).
+The `when` clause is evaluated against the standard combat context:
+`enemy.race`, `enemy.name` (the attacking creature's card name, for
+creature attacks), `attack.source`, `attack.automatic` (`true` for a
+site automatic-attack or played auto-attack), `attack.keying`, `inPlay`.
 
 ```json
 { "type": "modify-attack", "fromHand": true,
@@ -1674,8 +1676,39 @@ strike prowess to one Dragon attack. Per CRF the card is playable even
 against automatic-attacks and does not count against the hazard limit
 (use `play-flag: no-hazard-limit`).
 
+The from-hand path also honours `strikesModifier` (added to the attack's
+`strikesTotal`, clamped to a minimum of 1) and `firstCancelRemovesEffect`.
+
+**`firstCancelRemovesEffect` (cancel protection).** When set on an
+attacker-played from-hand `modify-attack`, the buffed attack gains cancel
+protection: the modifiers applied (strikes/prowess/body) are recorded in
+`CombatState.cancelProtection`, and the **first** attempt to cancel the
+attack instead strips those modifiers (reverting the attack to its original
+values) rather than ending the attack. The cancel card is still spent; a
+later cancellation ends the attack normally. Implemented at the sole
+cancel-attack chokepoint `resolveCancelAttackEntry`
+(`engine/combat-cancel.ts`), through which every `cancel-attack` short-event
+variant resolves.
+
+```json
+{ "type": "modify-attack", "fromHand": true,
+  "player": "attacker",
+  "strikesModifier": 1, "prowessModifier": 1, "bodyModifier": -2,
+  "firstCancelRemovesEffect": true,
+  "when": { "$or": [
+    { "attack.automatic": true }, { "enemy.name": "Shelob" }
+  ] } }
+```
+
+Example: Unabated in Malice (ba-26) — hazard short event playable on an
+automatic-attack or an attack from Shelob (does not count against the
+hazard limit); the attack gains +1 strike, +1 prowess, -2 body; the first
+attempt to cancel it instead cancels this card's effects; cannot be
+duplicated on a given attack (`duplication-limit` scope `attack`).
+
 Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
-and `engine/reducer-combat.ts` (`handleModifyAttack`).
+and `engine/reducer-combat.ts` (`handleModifyAttack`), with cancel
+protection in `engine/combat-cancel.ts` (`resolveCancelAttackEntry`).
 
 ### 11. `cancel-strike`
 

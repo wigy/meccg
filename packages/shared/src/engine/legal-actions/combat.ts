@@ -2286,6 +2286,7 @@ function modifyAttackActions(
 
     if (effect.when) {
       let baseProwess = combat.strikeProwess;
+      let creatureName: string | undefined;
       if (combat.attackSource.type === 'creature') {
         const atkPlayer = playerById(state, combat.attackingPlayerId);
         if (atkPlayer) {
@@ -2295,12 +2296,19 @@ function modifyAttackActions(
           if (creatureCard) {
             const cDef = defById(state, creatureCard.definitionId);
             if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
+            if (cDef) creatureName = cDef.name;
           }
         }
       }
+      // An automatic-attack is either a site's built-in attack or a played
+      // auto-attack; exposed so cards can gate on "playable on an
+      // automatic-attack" (e.g. Unabated in Malice ba-26).
+      const isAutomatic = combat.attackSource.type === 'automatic-attack'
+        || combat.attackSource.type === 'played-auto-attack';
       const enemyCtx: Record<string, unknown> = { prowess: baseProwess };
       if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
-      const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
+      if (creatureName) enemyCtx['name'] = creatureName;
+      const attackCtx: Record<string, unknown> = { source: combat.attackSource.type, automatic: isAutomatic };
       if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
       const defendingPlayer = playerById(state, combat.defendingPlayerId);
       const defendingCompany = defendingPlayer ? companyById(defendingPlayer.companies, combat.companyId) : undefined;
