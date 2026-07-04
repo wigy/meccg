@@ -976,7 +976,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       logDetail(`${def.name}: discarding on-guard card ${removed.definitionId as string} (${ogId as string}) to owner ${working.players[ownerIndex].id as string}`);
       working = updatePlayer(working, ownerIndex, p => ({
         ...p,
-        discardPile: [...p.discardPile, toCardInstance(removed!)],
+        discardPile: [...p.discardPile, toCardInstance(removed)],
       }));
       return { state: working };
     }
