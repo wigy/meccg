@@ -636,6 +636,43 @@ export interface ReshuffleFromDiscardEffect extends EffectBase {
 }
 
 /**
+ * Removes an opponent's face-up agent from play, or (as an alternative mode)
+ * discards one of the opponent's unrevealed on-guard cards.
+ *
+ * Carried by a resource short-event and resolved when the event is played.
+ * The two modes are chosen by which target the play action carries:
+ *
+ * - **Agent mode** (`targetAgentId`): the targeted face-up agent is judged by
+ *   its printed mind. An agent whose mind is **below** {@link returnMindThreshold}
+ *   is discarded to its owner's discard pile; an agent whose mind is
+ *   {@link returnMindThreshold} **or greater** is returned to its owner's hand.
+ * - **On-guard mode** (`discardTargetInstanceId`): when
+ *   {@link alternativeDiscardOnGuard} is set, an unrevealed on-guard card is
+ *   discarded to its owner's discard pile instead. Per CRF 22 the on-guard
+ *   card must be discarded *before* it is revealed, and the primary
+ *   "playable on a face-up agent" condition does not gate this mode.
+ *
+ * Used by *Withdrawn to Mordor* (dm-165): "Playable on a face-up agent. If the
+ * agent has a mind of 5 or less, it is discarded. If its mind is 6 or greater,
+ * return the agent to its owner's hand. Alternatively, an on-guard card is
+ * discarded."
+ */
+export interface WithdrawAgentEffect extends EffectBase {
+  readonly type: 'withdraw-agent';
+  /**
+   * Printed-mind boundary between the two agent outcomes: an agent whose mind
+   * is at least this value is returned to hand; a lower-mind agent is discarded.
+   * For Withdrawn to Mordor this is `6` (mind ≤5 discarded, mind ≥6 returned).
+   */
+  readonly returnMindThreshold: number;
+  /**
+   * When true, the card may alternatively be played to discard one of the
+   * opponent's unrevealed on-guard cards (the second paragraph of the text).
+   */
+  readonly alternativeDiscardOnGuard: boolean;
+}
+
+/**
  * Grants a new activated ability to the card's bearer.
  *
  * Example: Gandalf can tap to test a gold ring in his company.
@@ -3021,6 +3058,7 @@ export type CardEffect =
   | DrawModifierEffect
   | DrawCardsEffect
   | ReshuffleFromDiscardEffect
+  | WithdrawAgentEffect
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect
