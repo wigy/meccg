@@ -2929,10 +2929,35 @@
     "race": "man",
     "playableAt": [
       {
-        "site": "Southron"
+        "site": "Southron Oasis"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "elf"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
+    ],
     "text": "Unique. Playable at Southron Oasis if the influence check is greater than 8. Standard Modifications: Dúnedain (-2), Elves (-2), Dwarves (-2)."
   },
   {
