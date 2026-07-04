@@ -900,6 +900,10 @@
           "body": 12
         },
         "discardAfterUse": true
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
       }
     ],
     "text": "Unique. Nazgûl (1st). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Angmar, Gundabad, Gorgoroth, and Imlad Morgul; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Witch-king becomes a short-event: one character must make a corruption check."
@@ -930,6 +934,10 @@
           "body": 8
         },
         "discardAfterUse": true
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
       }
     ],
     "text": "Unique. Nazgûl (2nd). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Brown Lands, Heart of Mirkwood, Gorgoroth, and Southern Mirkwood; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Khamûl becomes a short-event: target character makes a corruption check."
@@ -960,6 +968,10 @@
           "body": 10
         },
         "discardAfterUse": true
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
       }
     ],
     "text": "Unique. Nazgûl (7th). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Brown Lands, Dagorlad, Gorgoroth, and Western Mirkwood; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Adûnaphel becomes a short-event and causes any one character to tap."

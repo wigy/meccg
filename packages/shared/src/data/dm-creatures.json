@@ -236,7 +236,12 @@
     "killMarshallingPoints": 4,
     "race": "spiders",
     "keyedTo": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ],
     "text": "Unique. Spider. Spawn. May be played as a hazard creature (with two strikes) or as a permanent-event. As a creature, she may be played at Dol Guldur and The Sulfur-deeps. If Doors of Night is in play, she may also be keyed to Southern Mirkwood, Heart of Mirkwood, or Woodland Realm; or at any adjacent site of The Sulfur-deeps.If played as a permanent-event, all Spider attacks receive +1 strike. Additionally, any company moving in Southern Mirkwood, Heart of Mirkwood, Woodland Realm, Dagorlad, or Brown Lands faces a Spider attack of 2 strikes with 10 prowess (detainment against minion companies). You can return Spider of the Môrlat as a permanent-event to your hand—which counts as one against the hazard limit."
   },
   {

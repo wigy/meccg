@@ -2108,6 +2108,21 @@ when it is present. Only the Balrog avatar is ever matched by
 
 Used by Great Shadow (ba-62): "The Balrog gains ... and may have followers."
 
+### 15e. `play-flag: "playable-as-event"`
+
+Marks a hazard that may be played either as a creature or as an event — the
+Nazgûl (Adûnaphel, Ûvatha, …), the "manifestation" hunter creatures (Alatar the
+Hunter, Lord of the Haven, …), Mouth of Sauron, the Wolf-riders, and the
+Ungoliant-spawn spiders. Such dual creature/event hazards **count as half a
+creature** for the 12-creature deck-construction requirement
+(`deck-validation.ts`, CoE rule 1.5.1 / CRF 22 "Deck Construction"), the same
+½-weight as an agent or a Dragon "Ahunt"/"At Home" manifestation. The flag is
+purely declarative — presence is the whole payload.
+
+```json
+{ "type": "play-flag", "flag": "playable-as-event" }
+```
+
 ### 15a. `extra-troll-leader-slot`
 
 Marker effect on a company-bound permanent event. While this event is in play,
