@@ -486,6 +486,10 @@
           "strikes": 3,
           "prowess": 14
         }
+      },
+      {
+        "type": "discard-for-hazard-limit",
+        "value": 2
       }
     ],
     "text": "Unique. Unless Daelomin Ahunt is in play, Dancing Spire has an additional automatic-attack: Dragon — 3 strikes at 14/8. In addition, you may discard this card from play during opponent’s movement/hazard phase (not counting against the hazard limit) to increase the hazard limit against one company by two.",

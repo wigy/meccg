@@ -4566,6 +4566,34 @@ Used by *Power Built by Waiting* (as-34):
 { "type": "hazard-limit-swap", "tapValue": 1, "untapCost": 2 }
 ```
 
+### 52b. `discard-for-hazard-limit`
+
+Marks a permanent hazard event that may be **discarded from play** during the
+opponent's movement/hazard phase (not counting against the hazard limit) to
+increase the hazard limit against one company by `value`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `value` | yes | Hazard limit slots added to the target company when the card is discarded. |
+
+Unlike `hazard-limit-swap`, the boost is paid once by removing the card from
+play (cardsInPlay → discard pile), not by tapping — there is no way to recover
+it. The `discard-card-for-hazard-limit` action is offered to the hazard player
+for any in-play card carrying this effect while a company is being processed;
+the reducer discards the card (a routine discard that does **not** break the
+Dragon manifestation chain) and adds a `hazard-limit-modifier` constraint scoped
+to the target company's current M/H phase.
+
+Implementation: `legal-actions/movement-hazard.ts` `discardForHazardLimitActions`;
+`mh-hazard-play.ts` `handleDiscardCardForHazardLimit`.
+
+Used by the 9 Dragon "At Home" permanent-events (METD §4), e.g. *Daelomin at
+Home* (td-11):
+
+```json
+{ "type": "discard-for-hazard-limit", "value": 2 }
+```
+
 ### 53. `company-overt`
 
 Marks the bearing character's company as **overt** as long as this ally is in play.
