@@ -138,6 +138,9 @@ export function handlePlayHazards(
   // --- Pay hazard limit to untap a cardsInPlay hazard permanent event (Power Built by Waiting) ---
   if (action.type === 'pay-hazard-limit-to-untap-card') return handlePayHazardLimitToUntapCard(state, action, mhState);
 
+  // --- Discard a Dragon "At Home" permanent event for +hazard limit (METD §4) ---
+  if (action.type === 'discard-card-for-hazard-limit') return handleDiscardCardForHazardLimit(state, action, mhState);
+
   // --- Reserve a Dragon/Drake creature in the Summons from Long Sleep (as-39) slot ---
   if (action.type === 'reserve-creature') return handleReserveCreature(state, action, mhState);
 
@@ -2000,6 +2003,55 @@ export function handlePayHazardLimitToUntapCard(
       phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount },
     },
   };
+}
+
+/**
+ * Handle discard-card-for-hazard-limit: the hazard player discards a Dragon
+ * "At Home" permanent event (METD §4) from play during the opponent's M/H
+ * phase to raise the hazard limit against the current target company by the
+ * card's {@link DiscardForHazardLimitEffect.value}.
+ *
+ * The card moves from cardsInPlay to the owner's discard pile (a routine
+ * discard — it does NOT break the Dragon manifestation chain, and it does NOT
+ * count against the hazard limit). The boost is added as a
+ * `hazard-limit-modifier` constraint scoped to the target company's current
+ * M/H phase, exactly like {@link handleTapHazardCardForLimit}.
+ */
+export function handleDiscardCardForHazardLimit(
+  state: GameState,
+  action: import('../types/actions-movement-hazard.js').DiscardCardForHazardLimitAction,
+  _mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: `discard-card-for-hazard-limit: card ${action.cardInstanceId as string} not found in cardsInPlay` };
+
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find((e): e is import('../types/effects.js').DiscardForHazardLimitEffect => e.type === 'discard-for-hazard-limit');
+  if (!effect) return { state, error: `discard-card-for-hazard-limit: no discard-for-hazard-limit effect on ${card.definitionId as string}` };
+
+  const defName = (def as { name?: string } | undefined)?.name ?? card.definitionId as string;
+  logDetail(`Discard for hazard limit: "${defName}" discarded from play → +${effect.value} hazard limit against company ${action.targetCompanyId as string}`);
+
+  // Discard the card from play (routine discard — chain is not broken).
+  const stateAfterDiscard = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+
+  // Add hazard-limit-modifier constraint on the target company.
+  const stateWithConstraint = addConstraint(stateAfterDiscard, {
+    source: action.cardInstanceId,
+    sourceDefinitionId: card.definitionId,
+    target: { kind: 'company', companyId: action.targetCompanyId },
+    kind: { type: 'hazard-limit-modifier', value: effect.value },
+    scope: { kind: 'company-mh-phase', companyId: action.targetCompanyId },
+  });
+
+  return { state: stateWithConstraint };
 }
 
 /**
