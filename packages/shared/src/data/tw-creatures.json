@@ -1585,6 +1585,14 @@
         "siteTypes": [
           "dark-hold"
         ]
+      },
+      {
+        "regionNames": [
+          "Harondor",
+          "Horse Plains",
+          "Gorgoroth",
+          "Khand"
+        ]
       }
     ],
     "effects": [
