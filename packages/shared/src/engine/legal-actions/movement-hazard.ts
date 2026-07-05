@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect } from '../../types/effects.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -19,7 +19,7 @@ import { RegionType, Race, Skill, CardStatus, Alignment, MovementType } from '..
 import { Phase } from '../../types/state-phases.js';
 import { defenderAlignmentLabel } from '../detainment.js';
 import { isUnderDeepsAdjacent } from './organization-companies.js';
-import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction } from '../../types/actions-movement-hazard.js';
+import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
@@ -1071,6 +1071,44 @@ function tapHazardCardForLimitActions(
       logDetail(`${def.name}: tapped but only ${remainingLimit} limit remaining (need ${swapEffect.untapCost}) — pay-hazard-limit-to-untap-card not viable`);
       actions.push({ action: untapAction, viable: false, reason: `Insufficient hazard limit to untap ${def.name} (need ${swapEffect.untapCost})` });
     }
+  }
+
+  return actions;
+}
+
+/**
+ * Generate discard-card-for-hazard-limit actions for cardsInPlay permanent
+ * events carrying a {@link DiscardForHazardLimitEffect} (the 9 Dragon "At
+ * Home" events, METD §4).
+ *
+ * The hazard player may discard such a card from play during the opponent's
+ * M/H phase — not counting against the hazard limit — to increase the hazard
+ * limit against the current target company by the effect's `value`. Because
+ * the boost is paid by removing the card from play (no tap/status gate), the
+ * action is always viable while the card is in play.
+ */
+function discardForHazardLimitActions(
+  state: GameState,
+  playerId: PlayerId,
+  targetCompanyId: CompanyId,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId)!;
+
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const effect = getCardEffects(def).find((e): e is DiscardForHazardLimitEffect => e.type === 'discard-for-hazard-limit');
+    if (!effect) continue;
+
+    logDetail(`${def.name}: offering discard-card-for-hazard-limit (+${effect.value} hazard limit against company ${targetCompanyId as string})`);
+    const action: DiscardCardForHazardLimitAction = {
+      type: 'discard-card-for-hazard-limit',
+      player: playerId,
+      cardInstanceId: card.instanceId,
+      targetCompanyId,
+    };
+    actions.push({ action, viable: true });
   }
 
   return actions;
@@ -2403,6 +2441,11 @@ function playHazardsActions(
     // --- Power Built by Waiting (as-34): tap cardsInPlay card for +hazard limit ---
     // --- Power Built by Waiting (as-34): spend hazard limit to untap cardsInPlay card ---
     actions.push(...tapHazardCardForLimitActions(state, playerId, mhState, targetCompanyId, liveLimit));
+
+    // --- Dragon "At Home" (METD §4): discard the permanent event from play to
+    //     increase the hazard limit against this company by two (not counting
+    //     against the hazard limit). ---
+    actions.push(...discardForHazardLimitActions(state, playerId, targetCompanyId));
 
     // --- Summons from Long Sleep (as-39): reserve a Dragon/Drake from hand (free) ---
     // --- Summons from Long Sleep (as-39): play a reserved creature (costs hazard limit) ---

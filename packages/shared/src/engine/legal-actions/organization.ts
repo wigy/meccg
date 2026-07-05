@@ -29,7 +29,7 @@ import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, is
 import { requirePhaseState } from '../../state-utils.js';
 import { CardStatus, cardStatusToName } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -1925,6 +1925,56 @@ function playOptionActionsForCard(
 }
 
 /**
+ * Enumerates the concrete play actions for a {@link WithdrawAgentEffect} card
+ * (Withdrawn to Mordor, dm-165) held by `playerId`:
+ *
+ * - one `play-short-event` carrying `targetAgentId` per **face-up** agent the
+ *   opponent has in play (agent mode); and
+ * - when the effect allows the alternative, one carrying `discardTargetInstanceId`
+ *   per **unrevealed** on-guard card sitting on the player's own companies
+ *   (on-guard mode — the CRF 22 "before it is revealed" window).
+ *
+ * Returns an empty array when neither target exists, so the caller can mark
+ * the card not-playable with a reason.
+ */
+function withdrawAgentTargetActions(
+  state: GameState,
+  playerId: PlayerId,
+  player: PlayerState,
+  cardInstanceId: CardInstanceId,
+  effect: WithdrawAgentEffect,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+
+  const opponent = state.players.find(p => p.id !== playerId);
+  for (const agent of opponent?.agents ?? []) {
+    if (!agent.revealed) continue;
+    const agentDef = defById(state, agent.character.definitionId);
+    const agentName = agentDef?.name ?? (agent.character.definitionId as string);
+    logDetail(`Withdrawn to Mordor: can target face-up agent ${agentName} (${agent.id as string})`);
+    actions.push({
+      action: { type: 'play-short-event', player: playerId, cardInstanceId, targetAgentId: agent.id },
+      viable: true,
+    });
+  }
+
+  if (effect.alternativeDiscardOnGuard) {
+    for (const company of player.companies) {
+      for (const og of company.onGuardCards) {
+        if (og.revealed) continue;
+        logDetail(`Withdrawn to Mordor: can discard unrevealed on-guard card (${og.instanceId as string}) at company ${company.id as string}`);
+        actions.push({
+          action: { type: 'play-short-event', player: playerId, cardInstanceId, discardTargetInstanceId: og.instanceId },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Evaluates hero-resource short-event cards in the active player's hand for
  * play in the given phase (CoE rule 2.1.1: resource short-events are legal
  * during any phase of the resource player's turn unless restricted by a
@@ -1982,6 +2032,26 @@ export function playResourceShortEventActions(
         }
       }
     }
+    // Withdrawn to Mordor (dm-165): a `withdraw-agent` short event targets an
+    // opponent's face-up agent (removed by mind) or, in its alternative mode,
+    // discards one of the player's unrevealed on-guard cards. Enumerate one
+    // action per eligible target; mark not-playable when neither exists.
+    const withdrawAgentEffect = def.effects?.find(
+      (e): e is WithdrawAgentEffect => e.type === 'withdraw-agent',
+    );
+    if (withdrawAgentEffect) {
+      const targeted = withdrawAgentTargetActions(
+        state, playerId, player, handCard.instanceId, withdrawAgentEffect,
+      );
+      if (targeted.length === 0) {
+        logDetail(`${def.name}: no face-up agent${withdrawAgentEffect.alternativeDiscardOnGuard ? ' or on-guard card' : ''} to target — not playable`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no valid target`));
+      } else {
+        actions.push(...targeted);
+      }
+      continue;
+    }
+
     // End-of-org cards (e.g. Stealth) are playable during the organization
     // phase alongside the player's other organization actions. Playing one
     // does not end the phase or lock out further movement/organization (CoE

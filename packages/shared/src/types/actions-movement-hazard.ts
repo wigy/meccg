@@ -977,6 +977,26 @@ export interface PayHazardLimitToUntapCardAction {
 }
 
 /**
+ * Dragon "At Home" permanent-events (METD §4): the hazard player discards this
+ * card from play during the opponent's movement/hazard phase (not counting
+ * against the hazard limit) to increase the hazard limit against one company
+ * by the card's {@link DiscardForHazardLimitEffect.value}.
+ *
+ * The card moves from cardsInPlay to the owner's discard pile; the boost is
+ * applied as a `hazard-limit-modifier` constraint scoped to the target
+ * company's current M/H phase.
+ */
+export interface DiscardCardForHazardLimitAction {
+  readonly type: 'discard-card-for-hazard-limit';
+  /** The hazard player activating the ability. */
+  readonly player: PlayerId;
+  /** The instance ID of the cardsInPlay card to discard. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The company whose hazard limit is increased. */
+  readonly targetCompanyId: CompanyId;
+}
+
+/**
  * An Orc or Troll character takes a defeated creature card as a trophy
  * (MELE §8.37). The trophy is placed under the character and counts as a
  * minor item worth 0 CP. Total printed MPs grant stat bonuses.

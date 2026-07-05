@@ -1692,8 +1692,10 @@ plays the effect:
   pre-assignment window (e.g. Dragon's Desolation Mode A).
 - `"defender"` — the resource player plays during the same window.
 
-The `when` clause is evaluated against the standard combat context
-(`enemy.race`, `attack.source`, `attack.keying`, `inPlay`).
+The `when` clause is evaluated against the standard combat context:
+`enemy.race`, `enemy.name` (the attacking creature's card name, for
+creature attacks), `attack.source`, `attack.automatic` (`true` for a
+site automatic-attack or played auto-attack), `attack.keying`, `inPlay`.
 
 ```json
 { "type": "modify-attack", "fromHand": true,
@@ -1707,8 +1709,39 @@ strike prowess to one Dragon attack. Per CRF the card is playable even
 against automatic-attacks and does not count against the hazard limit
 (use `play-flag: no-hazard-limit`).
 
+The from-hand path also honours `strikesModifier` (added to the attack's
+`strikesTotal`, clamped to a minimum of 1) and `firstCancelRemovesEffect`.
+
+**`firstCancelRemovesEffect` (cancel protection).** When set on an
+attacker-played from-hand `modify-attack`, the buffed attack gains cancel
+protection: the modifiers applied (strikes/prowess/body) are recorded in
+`CombatState.cancelProtection`, and the **first** attempt to cancel the
+attack instead strips those modifiers (reverting the attack to its original
+values) rather than ending the attack. The cancel card is still spent; a
+later cancellation ends the attack normally. Implemented at the sole
+cancel-attack chokepoint `resolveCancelAttackEntry`
+(`engine/combat-cancel.ts`), through which every `cancel-attack` short-event
+variant resolves.
+
+```json
+{ "type": "modify-attack", "fromHand": true,
+  "player": "attacker",
+  "strikesModifier": 1, "prowessModifier": 1, "bodyModifier": -2,
+  "firstCancelRemovesEffect": true,
+  "when": { "$or": [
+    { "attack.automatic": true }, { "enemy.name": "Shelob" }
+  ] } }
+```
+
+Example: Unabated in Malice (ba-26) — hazard short event playable on an
+automatic-attack or an attack from Shelob (does not count against the
+hazard limit); the attack gains +1 strike, +1 prowess, -2 body; the first
+attempt to cancel it instead cancels this card's effects; cannot be
+duplicated on a given attack (`duplication-limit` scope `attack`).
+
 Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
-and `engine/reducer-combat.ts` (`handleModifyAttack`).
+and `engine/reducer-combat.ts` (`handleModifyAttack`), with cancel
+protection in `engine/combat-cancel.ts` (`resolveCancelAttackEntry`).
 
 ### 11. `cancel-strike`
 
@@ -2140,6 +2173,21 @@ when it is present. Only the Balrog avatar is ever matched by
 ```
 
 Used by Great Shadow (ba-62): "The Balrog gains ... and may have followers."
+
+### 15e. `play-flag: "playable-as-event"`
+
+Marks a hazard that may be played either as a creature or as an event — the
+Nazgûl (Adûnaphel, Ûvatha, …), the "manifestation" hunter creatures (Alatar the
+Hunter, Lord of the Haven, …), Mouth of Sauron, the Wolf-riders, and the
+Ungoliant-spawn spiders. Such dual creature/event hazards **count as half a
+creature** for the 12-creature deck-construction requirement
+(`deck-validation.ts`, CoE rule 1.5.1 / CRF 22 "Deck Construction"), the same
+½-weight as an agent or a Dragon "Ahunt"/"At Home" manifestation. The flag is
+purely declarative — presence is the whole payload.
+
+```json
+{ "type": "play-flag", "flag": "playable-as-event" }
+```
 
 ### 15a. `extra-troll-leader-slot`
 
@@ -4551,6 +4599,34 @@ Used by *Power Built by Waiting* (as-34):
 { "type": "hazard-limit-swap", "tapValue": 1, "untapCost": 2 }
 ```
 
+### 52b. `discard-for-hazard-limit`
+
+Marks a permanent hazard event that may be **discarded from play** during the
+opponent's movement/hazard phase (not counting against the hazard limit) to
+increase the hazard limit against one company by `value`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `value` | yes | Hazard limit slots added to the target company when the card is discarded. |
+
+Unlike `hazard-limit-swap`, the boost is paid once by removing the card from
+play (cardsInPlay → discard pile), not by tapping — there is no way to recover
+it. The `discard-card-for-hazard-limit` action is offered to the hazard player
+for any in-play card carrying this effect while a company is being processed;
+the reducer discards the card (a routine discard that does **not** break the
+Dragon manifestation chain) and adds a `hazard-limit-modifier` constraint scoped
+to the target company's current M/H phase.
+
+Implementation: `legal-actions/movement-hazard.ts` `discardForHazardLimitActions`;
+`mh-hazard-play.ts` `handleDiscardCardForHazardLimit`.
+
+Used by the 9 Dragon "At Home" permanent-events (METD §4), e.g. *Daelomin at
+Home* (td-11):
+
+```json
+{ "type": "discard-for-hazard-limit", "value": 2 }
+```
+
 ### 53. `company-overt`
 
 Marks the bearing character's company as **overt** as long as this ally is in play.
@@ -5613,3 +5689,44 @@ base size limit, sideboard halving, `hazard-limit-modifier` constraints and
 site-rule modifiers). Used by Eyes of the Shadow (dm-56): "The hazard limit is
 increased by two for each moving company with a size of less than four that also
 contains a Wizard or a non-ranger character with a mind of 6 or more."
+
+### 55. `withdraw-agent`
+
+Carried by a resource short-event. Removes an opponent's **face-up agent** from
+play, judged by the agent's printed mind, or — as an alternative mode — discards
+one of the opponent's **unrevealed on-guard** cards.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `returnMindThreshold` | yes | Printed-mind boundary: an agent whose mind is **≥** this value is returned to its owner's hand; a lower-mind agent is discarded to its owner's discard pile. |
+| `alternativeDiscardOnGuard` | yes | When `true`, the card may instead discard an unrevealed on-guard card. |
+
+```json
+{
+  "type": "withdraw-agent",
+  "returnMindThreshold": 6,
+  "alternativeDiscardOnGuard": true
+}
+```
+
+The play mode is selected by which target the `play-short-event` action carries:
+
+- **Agent mode** (`targetAgentId`): the legal-action generator
+  (`withdrawAgentTargetActions` in `legal-actions/organization.ts`) emits one
+  play action per **revealed** agent the opponent has in play. On resolution
+  (`handlePlayResourceShortEvent` in `reducer-events.ts`) the agent is looked up
+  by printed mind: mind `< returnMindThreshold` → agent card to its owner's
+  discard pile; mind `≥ returnMindThreshold` → agent card back to its owner's
+  hand. Either way the agent leaves the `agents` list, its face-down site stack
+  returns to the location deck, and any (rare) attachments go to their owners'
+  discard piles — no card instance is lost.
+- **On-guard mode** (`discardTargetInstanceId`): when `alternativeDiscardOnGuard`
+  is set, one play action is emitted per **unrevealed** on-guard card on the
+  player's own companies. On resolution the card is removed from the company and
+  discarded to its owner (the opponent who placed it). Per CRF 22 this must
+  happen *before* the card is revealed, and the primary "playable on a face-up
+  agent" condition does **not** gate this mode.
+
+Used by Withdrawn to Mordor (dm-165): "Playable on a face-up agent. If the agent
+has a mind of 5 or less, it is discarded. If its mind is 6 or greater, return the
+agent to its owner's hand. Alternatively, an on-guard card is discarded."

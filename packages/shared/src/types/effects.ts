@@ -673,6 +673,43 @@ export interface ForceOpponentDiscardEffect extends EffectBase {
 }
 
 /**
+ * Removes an opponent's face-up agent from play, or (as an alternative mode)
+ * discards one of the opponent's unrevealed on-guard cards.
+ *
+ * Carried by a resource short-event and resolved when the event is played.
+ * The two modes are chosen by which target the play action carries:
+ *
+ * - **Agent mode** (`targetAgentId`): the targeted face-up agent is judged by
+ *   its printed mind. An agent whose mind is **below** {@link returnMindThreshold}
+ *   is discarded to its owner's discard pile; an agent whose mind is
+ *   {@link returnMindThreshold} **or greater** is returned to its owner's hand.
+ * - **On-guard mode** (`discardTargetInstanceId`): when
+ *   {@link alternativeDiscardOnGuard} is set, an unrevealed on-guard card is
+ *   discarded to its owner's discard pile instead. Per CRF 22 the on-guard
+ *   card must be discarded *before* it is revealed, and the primary
+ *   "playable on a face-up agent" condition does not gate this mode.
+ *
+ * Used by *Withdrawn to Mordor* (dm-165): "Playable on a face-up agent. If the
+ * agent has a mind of 5 or less, it is discarded. If its mind is 6 or greater,
+ * return the agent to its owner's hand. Alternatively, an on-guard card is
+ * discarded."
+ */
+export interface WithdrawAgentEffect extends EffectBase {
+  readonly type: 'withdraw-agent';
+  /**
+   * Printed-mind boundary between the two agent outcomes: an agent whose mind
+   * is at least this value is returned to hand; a lower-mind agent is discarded.
+   * For Withdrawn to Mordor this is `6` (mind ≤5 discarded, mind ≥6 returned).
+   */
+  readonly returnMindThreshold: number;
+  /**
+   * When true, the card may alternatively be played to discard one of the
+   * opponent's unrevealed on-guard cards (the second paragraph of the text).
+   */
+  readonly alternativeDiscardOnGuard: boolean;
+}
+
+/**
  * Grants a new activated ability to the card's bearer.
  *
  * Example: Gandalf can tap to test a gold ring in his company.
@@ -1487,6 +1524,12 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   resource menus to cancel an environment (e.g. Twilight).
  * - `playable-as-hazard` — a resource card may also be played through
  *   hazard menus (e.g. Sudden Call, le-235).
+ * - `playable-as-event` — a hazard creature that may alternatively be
+ *   played as an event, or an event that may alternatively be played as
+ *   a creature (e.g. the Nazgûl, the "manifestation" hunter creatures,
+ *   Mouth of Sauron). Such dual creature/event hazards count as half a
+ *   creature for the 12-creature deck-construction requirement
+ *   (CoE rule 1.5.1 / CRF 22).
  * - `no-hazard-limit` — playing this hazard does not consume a slot
  *   against the per-company hazard limit (e.g. Twilight, Lure).
  * - `not-starting-character` — character may not be drafted as one of
@@ -1535,7 +1578,7 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'grants-followers';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'grants-followers';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -2409,6 +2452,15 @@ export interface ModifyAttackEffect extends EffectBase {
    */
   readonly strikesModifier?: number;
   /**
+   * When true (from-hand attacker plays only), the buffed attack gains
+   * "cancel protection": the first attempt to cancel the attack instead
+   * removes this card's modifiers ({@link CombatState.cancelProtection}),
+   * leaving the (now unmodified) attack in play. The card is still spent.
+   * Used by Unabated in Malice (ba-26): "The first attempt to cancel this
+   * attack instead cancels the effects of this card."
+   */
+  readonly firstCancelRemovesEffect?: true;
+  /**
    * When true, activating removes the "attacker chooses defending characters"
    * rule from the current attack: {@link CombatState.attackerChoosesDefenders}
    * is cleared so the defending player assigns strikes normally. The action is
@@ -3059,6 +3111,7 @@ export type CardEffect =
   | DrawCardsEffect
   | ReshuffleFromDiscardEffect
   | ForceOpponentDiscardEffect
+  | WithdrawAgentEffect
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect
@@ -3128,6 +3181,7 @@ export type CardEffect =
   | DuplicateSiteAutoAttacksEffect
   | SiteItemTrapEffect
   | HazardLimitSwapEffect
+  | DiscardForHazardLimitEffect
   | RingTestTableEffect
   | RingTestSearchEffect
   | GrantSkillEffect
@@ -3419,6 +3473,27 @@ export interface HazardLimitSwapEffect extends EffectBase {
   readonly tapValue: number;
   /** Hazard limit slots consumed to untap this card. */
   readonly untapCost: number;
+}
+
+/**
+ * A permanent hazard event that may be **discarded from play** during the
+ * opponent's movement/hazard phase (not counting against the hazard limit) to
+ * increase the hazard limit against one company by `value`.
+ *
+ * Unlike {@link HazardLimitSwapEffect}, the boost is paid once by removing the
+ * card from play (cardsInPlay → discard pile) rather than by tapping; there is
+ * no way to recover it. The added hazard limit is scoped to the target
+ * company's current movement/hazard phase.
+ *
+ * Used by the 9 Dragon "At Home" permanent-events (METD §4), whose second
+ * sentence reads "you may discard this card from play during opponent's
+ * movement/hazard phase (not counting against the hazard limit) to increase
+ * the hazard limit against one company by two."
+ */
+export interface DiscardForHazardLimitEffect extends EffectBase {
+  readonly type: 'discard-for-hazard-limit';
+  /** Hazard limit slots added to the target company when the card is discarded. */
+  readonly value: number;
 }
 
 // ---- Gold ring test (Rule 9.21) ----

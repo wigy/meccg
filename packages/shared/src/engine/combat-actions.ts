@@ -1275,16 +1275,43 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
 
     const prowessModifier = effect.prowessModifier ?? 0;
     const bodyModifier = effect.bodyModifier ?? 0;
+    const strikesModifier = effect.strikesModifier ?? 0;
     const newHand = removeById(player.hand, handCard.instanceId);
     const newDiscard = [...player.discardPile, toCardInstance(handCard)];
     const newStrikeProwess = combat.strikeProwess + prowessModifier;
     const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
+    // Strike count is clamped to a minimum of 1 (same rule as the in-play path).
+    const newStrikesTotal = strikesModifier !== 0 ? Math.max(1, combat.strikesTotal + strikesModifier) : combat.strikesTotal;
+    // The applied strike delta (may differ from strikesModifier if clamped);
+    // stored so a cancel-redirect reverses exactly what was applied.
+    const appliedStrikesDelta = newStrikesTotal - combat.strikesTotal;
     const cardLabel = cardDef.name;
-    logDetail(`Modify-attack (from hand): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
+    logDetail(`Modify-attack (from hand): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}`);
+
+    // Cancel protection: the first attempt to cancel the attack instead
+    // strips these modifiers (Unabated in Malice ba-26). Record the exact
+    // deltas applied so the redirect reverses them precisely.
+    const cancelProtection = effect.firstCancelRemovesEffect
+      ? {
+          sourceInstanceId: handCard.instanceId,
+          strikesModifier: appliedStrikesDelta,
+          prowessModifier,
+          bodyModifier,
+        }
+      : undefined;
+    if (cancelProtection) {
+      logDetail(`${cardLabel}: cancel protection active — first cancel attempt will strip this card's modifiers instead of ending the attack`);
+    }
 
     let newState: GameState = {
       ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
-      combat: { ...combat, strikeProwess: newStrikeProwess, creatureBody: newCreatureBody },
+      combat: {
+        ...combat,
+        strikeProwess: newStrikeProwess,
+        creatureBody: newCreatureBody,
+        strikesTotal: newStrikesTotal,
+        ...(cancelProtection ? { cancelProtection } : {}),
+      },
     };
 
     const attackDupLimit = getCardEffects(cardDef).find(
