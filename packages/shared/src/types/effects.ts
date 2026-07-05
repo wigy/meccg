@@ -3143,6 +3143,7 @@ export type CardEffect =
   | DuplicateSiteAutoAttacksEffect
   | SiteItemTrapEffect
   | HazardLimitSwapEffect
+  | DiscardForHazardLimitEffect
   | RingTestTableEffect
   | RingTestSearchEffect
   | GrantSkillEffect
@@ -3434,6 +3435,27 @@ export interface HazardLimitSwapEffect extends EffectBase {
   readonly tapValue: number;
   /** Hazard limit slots consumed to untap this card. */
   readonly untapCost: number;
+}
+
+/**
+ * A permanent hazard event that may be **discarded from play** during the
+ * opponent's movement/hazard phase (not counting against the hazard limit) to
+ * increase the hazard limit against one company by `value`.
+ *
+ * Unlike {@link HazardLimitSwapEffect}, the boost is paid once by removing the
+ * card from play (cardsInPlay → discard pile) rather than by tapping; there is
+ * no way to recover it. The added hazard limit is scoped to the target
+ * company's current movement/hazard phase.
+ *
+ * Used by the 9 Dragon "At Home" permanent-events (METD §4), whose second
+ * sentence reads "you may discard this card from play during opponent's
+ * movement/hazard phase (not counting against the hazard limit) to increase
+ * the hazard limit against one company by two."
+ */
+export interface DiscardForHazardLimitEffect extends EffectBase {
+  readonly type: 'discard-for-hazard-limit';
+  /** Hazard limit slots added to the target company when the card is discarded. */
+  readonly value: number;
 }
 
 // ---- Gold ring test (Rule 9.21) ----
