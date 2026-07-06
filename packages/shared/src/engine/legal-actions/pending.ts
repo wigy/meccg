@@ -946,11 +946,16 @@ function applyOneConstraint(
   base: EvaluatedAction[],
   constraint: ActiveConstraint,
 ): EvaluatedAction[] {
+  // A card in play may cancel the effects of specific named cards (The Way is
+  // Shut, dm-98): while suppressed, the constraint imposes nothing.
+  if (constraintSuppressedByCancelEffect(state, constraint)) return base;
   switch (constraint.kind.type) {
     case 'site-phase-do-nothing':
       return applySitePhaseDoNothing(state, playerId, base, constraint);
     case 'no-creature-hazards-on-company':
       return applyNoCreatureHazardsOnCompany(state, playerId, base, constraint);
+    case 'only-creatures-keyed-to-site':
+      return applyOnlyCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'company-cannot-move':
       // Enforced directly by the org-phase `plan-movement` emitter
       // (`planMovementActions`) and reducer (`handlePlanMovement`) — no broad
@@ -1242,6 +1247,90 @@ function applyNoCreatureHazardsOnCompany(
     logDetail(`Constraint ${constraint.id as string} (no-creature-hazards-on-company): dropping creature play "${def.name}" against protected company ${protectedCompany as string}`);
     return false;
   });
+}
+
+/**
+ * Secret Passage (tw-325): drop every play-hazard action whose target company
+ * matches the constraint *and* whose card is a hazard creature that is NOT
+ * keyed to the company's destination site (by site-type or site-name). Only
+ * site-keyed creatures survive; region-keyed creatures are blocked. Other
+ * hazard categories and plays against other companies are unaffected.
+ */
+function applyOnlyCreaturesKeyedToSite(
+  state: GameState,
+  _playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.target.kind !== 'company') return base;
+  const protectedCompany = constraint.target.companyId;
+
+  return base.filter(ea => {
+    if (ea.action.type !== 'play-hazard') return true;
+    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
+    if (targetCompanyId !== protectedCompany) return true;
+    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
+    if (!cardInstId) return true;
+    const def = resolveDef(state, cardInstId);
+    if (!def || def.cardType !== 'hazard-creature') return true;
+    if (isCreatureKeyedToDestinationSite(state, def)) {
+      logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site): "${def.name}" is site-keyed — allowed`);
+      return true;
+    }
+    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site): dropping non-site-keyed creature "${def.name}" against company ${protectedCompany as string}`);
+    return false;
+  });
+}
+
+/**
+ * Whether the given creature is keyed to the target company's destination site
+ * by site-type or site-name. Reads the M/H phase state's `destinationSiteType`
+ * / `destinationSiteName` — the same source the creature-keying matchers use —
+ * so the whitelist agrees with normal keying. Used to decide which creatures
+ * survive Secret Passage's `only-creatures-keyed-to-site` restriction.
+ */
+function isCreatureKeyedToDestinationSite(
+  state: GameState,
+  def: import('../../types/cards-hazards.js').CreatureCard,
+): boolean {
+  const ps = state.phaseState;
+  if (ps.phase !== Phase.MovementHazard) return false;
+  const destType = ps.destinationSiteType;
+  const destName = ps.destinationSiteName;
+  return def.keyedTo.some(k =>
+    (k.siteTypes && destType !== null && k.siteTypes.includes(destType))
+    || (k.siteNames && destName !== null && k.siteNames.includes(destName)),
+  );
+}
+
+/**
+ * Whether an active constraint is currently suppressed by an in-play card
+ * carrying a `cancel-card-effects` effect that names the constraint's source
+ * card. This is the generic "cancels the effects of X" mechanism: while The
+ * Way is Shut (dm-98) is in play it lists "Secret Passage" and "Secret
+ * Entrance", so the creature-play restrictions those cards placed on a company
+ * are treated as absent. Matching is by source card name, so an unrelated card
+ * sharing the same constraint kind (e.g. Stealth's `no-creature-hazards-on-company`)
+ * is never affected.
+ */
+function constraintSuppressedByCancelEffect(
+  state: GameState,
+  constraint: ActiveConstraint,
+): boolean {
+  const sourceName = defById(state, constraint.sourceDefinitionId)?.name;
+  if (!sourceName) return false;
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      for (const eff of getCardEffects(def)) {
+        if (eff.type === 'cancel-card-effects' && eff.cardNames.includes(sourceName)) {
+          logDetail(`Constraint ${constraint.id as string} suppressed: "${defById(state, card.definitionId)?.name}" cancels the effects of "${sourceName}"`);
+          return true;
+        }
+      }
+    }
+  }
+  return false;
 }
 
 /**

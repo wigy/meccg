@@ -668,6 +668,16 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Secret Passage (tw-325): while active, the opponent may only play
+         * hazard creatures that are keyed to the target company's destination
+         * site (by site-type or site-name). Creatures keyable only via region
+         * terrain in the path are dropped. Suppressed while The Way is Shut
+         * (dm-98) is in play (see `cancel-card-effects`).
+         */
+        readonly type: 'only-creatures-keyed-to-site';
+      }
+    | {
+        /**
          * Hide in Dark Places (le-192): the company may not declare movement
          * (plan a new destination) for the rest of this turn. The card is
          * "playable on a scout whose company is not moving", and locks that

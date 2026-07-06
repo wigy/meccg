@@ -1167,6 +1167,15 @@ export function findForcingEnvironment(
 ): import('../index.js').CardInPlay | null {
   const path = mhState.resolvedSitePath;
   const terrainCount = (t: RegionType): number => path.filter(r => r === t).length;
+  // The Way is Shut (dm-98): "moving to or from an Under-deeps site" — true when
+  // either the company's origin (currentSite) or its declared destination is an
+  // Under-deeps site (`under-deeps` keyword on the site definition).
+  const siteIsUnderDeeps = (ref: { definitionId: import('../index.js').CardDefinitionId } | null | undefined): boolean => {
+    if (!ref) return false;
+    const siteDef = defById(state, ref.definitionId);
+    return isSiteCard(siteDef) && (siteDef.keywords?.includes('under-deeps') ?? false);
+  };
+  const underDeepsMove = siteIsUnderDeeps(company.currentSite) || siteIsUnderDeeps(company.destinationSite);
   const context = {
     sitePath: {
       wildernessCount: terrainCount(RegionType.Wilderness),
@@ -1177,6 +1186,7 @@ export function findForcingEnvironment(
       freeCount: terrainCount(RegionType.Free),
       length: path.length,
     },
+    underDeepsMove,
     player: { minion: isMinionOrBalrog(movingPlayer) },
   };
 

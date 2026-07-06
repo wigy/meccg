@@ -85,6 +85,8 @@ export function buildConstraintKind(
       return { type: 'site-phase-do-nothing' };
     case 'no-creature-hazards-on-company':
       return { type: 'no-creature-hazards-on-company' };
+    case 'only-creatures-keyed-to-site':
+      return { type: 'only-creatures-keyed-to-site' };
     case 'deny-scout-resources':
       return { type: 'deny-scout-resources' };
     case 'auto-attack-prowess-boost': {

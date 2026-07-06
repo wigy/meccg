@@ -4055,13 +4055,16 @@ order-effects resolution path (rule-5.31, currently `test.todo`).
 
 Fields:
 
-- `condition?: Condition` — evaluated against company site-path context
-  (`sitePath.wildernessCount`, `sitePath.shadowCount`, `sitePath.darkCount`,
-  etc.). If absent, always applies.
+- `condition?: Condition` — evaluated against company movement context:
+  site-path terrain counts (`sitePath.wildernessCount`, `sitePath.shadowCount`,
+  `sitePath.darkCount`, etc.), the moving player's alignment (`player.minion`),
+  and `underDeepsMove` — a boolean true when the company's origin or destination
+  site carries the `under-deeps` keyword. If absent, always applies.
 - `rangerException?: boolean` — if true, a company containing at least one
   ranger is exempt from returning.
 
-Used by *Snowstorm* (tw-91), *Foul Fumes* (tw-36), *Long Winter* (le-117).
+Used by *Snowstorm* (tw-91), *Foul Fumes* (tw-36), *Long Winter* (le-117), and
+*The Way is Shut* (dm-98, `underDeepsMove`).
 
 ```json
 { "type": "force-return-to-origin",
@@ -4071,7 +4074,40 @@ Used by *Snowstorm* (tw-91), *Foul Fumes* (tw-36), *Long Winter* (le-117).
   "condition": { "$or": [{ "sitePath.shadowCount": { "$gte": 1 } },
                          { "sitePath.darkCount": { "$gte": 1 } }] },
   "rangerException": true }
+
+{ "type": "force-return-to-origin",
+  "condition": { "underDeepsMove": true } }
 ```
+
+### 36b. `cancel-card-effects`
+
+While the carrying card is in play, any active constraint whose **source card**
+is named in `cardNames` is suppressed — its effect is treated as absent for as
+long as this card remains in play. This is the generic "cancels the effects of
+X" primitive: it neutralizes the named cards' in-play constraints by source card
+name, so an unrelated card that happens to use the same constraint kind is
+untouched. Consulted at the top of `applyOneConstraint` (`legal-actions/pending.ts`).
+
+Fields:
+
+- `cardNames: string[]` — names of the cards whose in-play constraint effects
+  are suppressed.
+
+Used by *The Way is Shut* (dm-98): "cancels the effects of Secret Passage and
+Secret Entrance" — while it is in play, Secret Entrance's
+`no-creature-hazards-on-company` and Secret Passage's
+`only-creatures-keyed-to-site` restrictions on a company are lifted.
+
+```json
+{ "type": "cancel-card-effects",
+  "cardNames": ["Secret Passage", "Secret Entrance"] }
+```
+
+The `only-creatures-keyed-to-site` constraint (added by *Secret Passage* tw-325
+via `on-event: self-enters-play` → `add-constraint`) restricts the opponent to
+playing only hazard creatures keyed to the target company's destination site (by
+site-type or site-name); creatures keyable only via region terrain are dropped
+(`legal-actions/pending.ts` `applyOnlyCreaturesKeyedToSite`).
 
 ### 37. `cancel-chain-return-to-origin`
 
