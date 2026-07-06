@@ -1620,9 +1620,27 @@
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "short-event"
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "discard",
+        "to": "hand",
+        "filter": {
+          "cardType": {
+            "$in": ["hazard-creature", "hazard-event", "hazard-corruption"]
+          }
+        },
+        "count": 1,
+        "shuffleAfter": false
       }
     ],
-    "text": "Unique.Man. May be played as a hazard creature (with one strike) or as a short-event.If played as a short-event, bring any hazard card from your discard pile back into your hand."
+    "text": "Unique.Man. May be played as a hazard creature (with one strike) or as a short-event.If played as a short-event, bring any hazard card from your discard pile back into your hand.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-creature",

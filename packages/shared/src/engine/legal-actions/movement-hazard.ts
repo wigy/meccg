@@ -1547,6 +1547,24 @@ function playHazardsActions(
         continue;
       }
 
+      // --- Dual-mode creature also playable as an event (creature-alt-event) ---
+      // e.g. Mouth of Sauron (tw-65): "may be played as a hazard creature or as
+      // a short-event". Offer the alternative event mode as its own action,
+      // alongside the keyed-creature actions below. The event mode needs no
+      // creature keying and, unlike a race-exempt creature, is not exempt from
+      // the hazard limit — so it is offered only while the limit is not reached
+      // (or the card carries no-hazard-limit).
+      if (isCreature) {
+        const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
+        if (altEvent?.mode === 'short-event' && (!limitReached || bypassesLimit)) {
+          logDetail(`Creature "${def.name}" also offered as a short-event (creature-alt-event)`);
+          actions.push({
+            action: { ...action, altEventMode: 'short-event' },
+            viable: true,
+          });
+        }
+      }
+
       // --- Creature keying check ---
       if (isCreature) {
         // Creatures must initiate a new chain — not playable in response (CoE rule 307)
