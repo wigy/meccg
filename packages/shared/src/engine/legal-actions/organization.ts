@@ -1307,7 +1307,12 @@ function extractGrantActions(state: GameState, definitionId: import('../../index
       // the dedicated end-of-turn discard-pile fetch scanner
       // (`legal-actions/end-of-turn.ts`) — never here, so they don't leak
       // into the organization-phase default scan below.
-      e.type === 'grant-action' && e.corruptionCheckWindow !== true && e.endOfTurnOnly !== true,
+      // Ally chain-cancel abilities (Tom Bombadil tw-350, Leaflock tw-265) are
+      // emitted only by the dedicated M/H `emitAllyCancelChainActions` emitter —
+      // a chain cancellation is meaningless outside an active chain, so keep it
+      // out of the generic per-phase (including organization) scan.
+      e.type === 'grant-action' && e.corruptionCheckWindow !== true && e.endOfTurnOnly !== true
+        && e.apply?.type !== 'cancel-chain-entry',
   );
 }
 

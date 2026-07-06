@@ -1190,7 +1190,25 @@ Apply types:
   Selectors:
   - `most-recent-unresolved-hazard` -- negate the latest unresolved
     hazard (creature or event) on the chain. Used by *Great Ship* via
-    a granted action.
+    a granted action *constraint* (any character in the company taps).
+    Also usable as a **static `grant-action` on an in-play ally that
+    taps itself** (`cost: { tap: "self" }`): while a chain hazard is
+    unresolved during the M/H phase and the ally's `when` matches a
+    context exposing the active company's `destinationRegion` and
+    `chain.hazardCount`, the ally is offered a self-tap cancellation
+    (`legal-actions/chain.ts` `emitAllyCancelChainActions`; the reducer
+    taps the ally in place via the shared `handleGrantActionApply`, since
+    the source card ≠ the bearer character). Such grant-actions are kept
+    out of the generic per-phase scanner (`extractGrantActions` skips any
+    grant-action whose apply is `cancel-chain-entry`) because a chain
+    cancellation is meaningless outside an active chain. Used by *Tom
+    Bombadil* (tw-350): "Tap to cancel a hazard that targets ... a company
+    ... moving to a site in: Arthedain, Cardolan, Rhudaur, or The Shire",
+    gated by `when: { destinationRegion: { "$in": [...] } }`. The same
+    shape fits *Leaflock* (tw-265). The companion self-discard clause
+    ("Discard ... if his company moves to a site that is not in [regions]")
+    reuses the existing `on-event: company-arrives-at-site` self-discard
+    `move` (see *Treebeard* tw-353).
   - `target` -- negate the chain entry (or, if the target is no longer
     on the chain, discard the in-play card or remove active constraints
     whose `source` equals the target instance). The emitter filters
