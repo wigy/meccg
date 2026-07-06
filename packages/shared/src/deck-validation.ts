@@ -205,8 +205,11 @@ function checkBannedCards(
  * ordinary hazard-creature is worth 1; the following count as half a creature
  * ("count as half of a creature, rounded down"):
  *
- * - An agent that counts as a hazard. Agents are ½ a creature in every deck
- *   except a Ringwraith (minion) deck, where an agent is a character (worth 0).
+ * - An agent that counts as a hazard. An agent *character card* (e.g. Baduila)
+ *   is ½ a creature in every deck except a Ringwraith (minion) deck, where it
+ *   is a character (worth 0). An agent modelled as a hazard event — a
+ *   "manifestation" agent such as My Precious (dm-29) or Lobelia (dm-28) — is
+ *   always a hazard, so it is ½ a creature for every player.
  * - A hazard that may be played as either a creature or an event — the Nazgûl,
  *   the "manifestation" hunter creatures, Mouth of Sauron, … — flagged with the
  *   `playable-as-event` play-flag.
@@ -223,10 +226,14 @@ function creatureEquivalent(
 ): number {
   if (!def) return 0;
   // An agent counts as ½ a creature for every player except a Ringwraith
-  // (minion) player, for whom agents are characters, not creatures.
+  // (minion) player, for whom an agent *character card* is a character, not a
+  // creature (rule 1.3.R2).
   if (isCharacterCard(def) && def.keywords?.includes('agent')) {
     return alignment === 'minion' ? 0 : 0.5;
   }
+  // An agent modelled as a hazard event (a "manifestation" agent such as My
+  // Precious or Lobelia) is always a hazard for every player, so ½ a creature.
+  if (def.cardType === 'hazard-event' && def.keywords?.includes('agent')) return 0.5;
   // A creature that is also playable as an event.
   if (defHasPlayFlag(def, 'playable-as-event')) return 0.5;
   // An "Ahunt" or "At Home" Dragon manifestation.

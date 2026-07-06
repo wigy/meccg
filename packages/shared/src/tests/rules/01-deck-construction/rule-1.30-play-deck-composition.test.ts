@@ -148,6 +148,26 @@ describe('Rule 1.30 — Play Deck Composition', () => {
     expect(errors.some(e => e.section === 'hazards' && e.message.includes('min 12'))).toBe(false);
   });
 
+  test('Manifestation agents modelled as hazard events count as half a creature each (rule 1.5.1)', () => {
+    // My Precious (dm-29) and Lobelia (dm-28) are agents modelled as hazard
+    // events, not character cards. They were previously scored 0 (the agent
+    // branch only matched character cards), so a deck relying on them fell
+    // short. 11 full creatures + 2 manifestation agents × ½ = 12 → no error.
+    const deck: DeckList = {
+      ...validDeck,
+      deck: {
+        ...validDeck.deck,
+        hazards: [
+          ...ELEVEN_FULL_CREATURES,
+          { name: 'My Precious', card: 'dm-29' as CardDefinitionId, qty: 1 },
+          { name: 'Lobelia Sackville-Baggins', card: 'dm-28' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'hazards' && e.message.includes('min 12'))).toBe(false);
+  });
+
   test('Dragon "Ahunt"/"At Home" manifestations count as half a creature each (rule 1.5.1)', () => {
     // 11 full creatures + Itangast Ahunt + Daelomin at Home = 11 + 2×½ = 12.
     const deck: DeckList = {
