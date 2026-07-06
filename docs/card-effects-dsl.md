@@ -5809,3 +5809,41 @@ with prowess greater than 4, it must return to its site of origin." Its
 `requiresMovingCompany: true` and `targetCompany: { "company.alignment": "hero" }`
 so the short-event mode is only offered against a *moving hero* company (whereas
 its creature mode targets minion companies).
+
+### 56c. `creature-alt-event` permanent-event mode + `tap-character`
+
+The `creature-alt-event` primitive (§56a) also supports `mode: "permanent-event"`
+for dual creature/permanent-event cards (Ûvatha tw-107, Adûnaphel tw-2):
+
+```json
+{ "type": "creature-alt-event", "mode": "permanent-event" }
+```
+
+Played in this mode, the creature enters the hazard player's `cardsInPlay`
+untapped (via the standard permanent-event chain path). It sits there until the
+hazard player **taps** it during the opponent's movement/hazard phase with a
+`tap-alt-permanent-event` action — which "becomes a short-event": the card is
+removed from play and discarded, **counts one against the hazard limit**, and
+its on-tap effects resolve through the ordinary short-event chain path. Legal
+actions: `tapAltPermanentEventActions` (`legal-actions/movement-hazard.ts`);
+reducer: `handleTapAltPermanentEvent` (`mh-hazard-play.ts`).
+
+The on-tap behaviour is the card's other top-level effects:
+
+- **tw-107** — a `move` (`from: "discard"`, `to: "hand"`, filter
+  `{ "cardType": "hazard-creature" }`): fetch one hazard creature from the
+  discard pile to hand (shared fetch-to-hand sub-flow).
+- **tw-2** — a `tap-character` effect (below).
+
+**`tap-character`** taps one chosen character in play:
+
+```json
+{ "type": "tap-character" }
+```
+
+- `filter` (optional) — a condition on the target character definition; absent =
+  any character in play. The legal-action generator emits one action per
+  eligible untapped target; the choice rides on the action's `targetCharacterId`
+  and is applied on chain resolution (`applyTapCharacter`, `chain-reducer.ts`).
+
+Used by Adûnaphel tw-2's on-tap: "When tapped, … causes any one character to tap."

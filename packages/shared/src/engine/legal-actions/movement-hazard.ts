@@ -1556,10 +1556,11 @@ function playHazardsActions(
       // (or the card carries no-hazard-limit).
       if (isCreature) {
         const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
-        if (altEvent?.mode === 'short-event' && (!limitReached || bypassesLimit)) {
+        if (altEvent && (!limitReached || bypassesLimit)) {
           // Optional event-mode targeting: a different company than the creature
           // mode may target (e.g. ba-10's short-event vs a *moving hero* company,
-          // whereas its creature mode is vs minion companies).
+          // whereas its creature mode is vs minion companies). Permanent-event
+          // mode (tw-2/tw-107) carries no targeting — it just enters play.
           const movingOk = !altEvent.requiresMovingCompany || targetCompany.destinationSite != null;
           let targetOk = movingOk;
           if (targetOk && altEvent.targetCompany) {
@@ -1567,13 +1568,13 @@ function playHazardsActions(
             targetOk = matchesCondition(altEvent.targetCompany, ctx);
           }
           if (targetOk) {
-            logDetail(`Creature "${def.name}" also offered as a short-event (creature-alt-event)`);
+            logDetail(`Creature "${def.name}" also offered as a ${altEvent.mode} (creature-alt-event)`);
             actions.push({
-              action: { ...action, altEventMode: 'short-event' },
+              action: { ...action, altEventMode: altEvent.mode },
               viable: true,
             });
           } else {
-            logDetail(`Creature "${def.name}" short-event mode not offered — target company condition/moving not met`);
+            logDetail(`Creature "${def.name}" ${altEvent.mode} mode not offered — target company condition/moving not met`);
           }
         }
       }
@@ -2520,6 +2521,12 @@ function playHazardsActions(
     actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
   }
 
+  // Hazard player may tap an in-play dual-mode creature-permanent-event
+  // (tw-2 / tw-107) to convert it to a short-event.
+  if (!isResourcePlayer) {
+    actions.push(...tapAltPermanentEventActions(state, playerId, mhState));
+  }
+
   // Player who already passed gets no actions (waiting for opponent)
   const alreadyPassed = isResourcePlayer ? mhState.resourcePlayerPassed : mhState.hazardPlayerPassed;
   if (alreadyPassed) {
@@ -2550,6 +2557,65 @@ const MIN_DECK_SIZE_FOR_NAZGUL_TO_DECK = 5;
  * as one hazard against the limit, so it is not offered once the limit is
  * reached.
  */
+/**
+ * Offer tapping an in-play dual-mode creature-permanent-event (`creature-alt-event`
+ * mode `permanent-event`, e.g. Ûvatha tw-107 / Adûnaphel tw-2) during the
+ * opponent's movement/hazard phase. Tapping "becomes a short-event" (counts one
+ * against the hazard limit). For a `tap-character` on-tap effect (tw-2), one
+ * action is emitted per eligible untapped target character; otherwise a single
+ * action (the fetch target, tw-107, is chosen in the follow-up pending flow).
+ */
+function tapAltPermanentEventActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const activeCompany = state.players[activeIdx].companies[mhState.activeCompanyIndex];
+  const limitReached = activeCompany
+    ? mhState.hazardsPlayedThisCompany >= currentHazardLimit(state, mhState, activeCompany.id)
+    : false;
+
+  for (const card of player.cardsInPlay) {
+    if (card.status === CardStatus.Tapped) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
+    if (altEvent?.mode !== 'permanent-event') continue;
+
+    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+    if (limitReached && !bypassesLimit) {
+      actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'Hazard limit reached' });
+      continue;
+    }
+
+    const tapCharEffect = getCardEffects(def).find(e => e.type === 'tap-character');
+    if (tapCharEffect) {
+      let offered = false;
+      for (let pi = 0; pi < 2; pi++) {
+        for (const [charId, ch] of Object.entries(state.players[pi].characters)) {
+          if (ch.status === CardStatus.Tapped) continue;
+          const charDef = defById(state, ch.definitionId);
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          if (tapCharEffect.filter && !matchesDefinition(charDef, tapCharEffect.filter)) continue;
+          actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
+          offered = true;
+        }
+      }
+      if (!offered) {
+        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character to tap' });
+      }
+    } else {
+      actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
+    }
+  }
+  return actions;
+}
+
 function sideboardWithNazgulActions(
   state: GameState,
   playerId: PlayerId,

@@ -3211,7 +3211,8 @@ export type CardEffect =
   | StayHerAppetiteEffect
   | AllyBodyCheckBoostEffect
   | CreatureAltEventEffect
-  | CompanyReturnToOriginEffect;
+  | CompanyReturnToOriginEffect
+  | TapCharacterEffect;
 
 /**
  * Marks a hazard-creature card as also playable in an alternative event mode
@@ -3271,6 +3272,23 @@ export interface CompanyReturnToOriginEffect extends EffectBase {
   readonly type: 'company-return-to-origin';
   /** When this condition matches the target company, the return is skipped. */
   readonly unless?: Condition;
+}
+
+/**
+ * Taps one chosen character in play. A short-event effect (including a dual-mode
+ * creature's `permanent-event` on-tap behaviour, e.g. Adûnaphel tw-2: "When
+ * tapped, … causes any one character to tap"). The specific character is chosen
+ * when the card is played/tapped and carried on the chain entry's
+ * `targetCharacterId`; the legal-action generator offers one action per
+ * eligible target.
+ */
+export interface TapCharacterEffect extends EffectBase {
+  readonly type: 'tap-character';
+  /**
+   * Optional filter on which characters may be targeted (evaluated against the
+   * character definition). Absent = any character in play.
+   */
+  readonly filter?: Condition;
 }
 
 /**

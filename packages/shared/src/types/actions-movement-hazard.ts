@@ -157,6 +157,28 @@ export interface PlayHazardAction {
 }
 
 /**
+ * Tap an in-play dual-mode creature that was played as a permanent-event
+ * (`creature-alt-event` mode `permanent-event`, e.g. Adûnaphel tw-2, Ûvatha
+ * tw-107) during the opponent's movement/hazard phase. Per the card text, when
+ * tapped the permanent-event "becomes a short-event": it is removed from play,
+ * discarded, counts one against the hazard limit, and its on-tap effects
+ * resolve through the ordinary short-event chain path (e.g. tw-107 fetches a
+ * hazard creature from discard to hand; tw-2 taps a chosen character).
+ */
+export interface TapAltPermanentEventAction {
+  readonly type: 'tap-alt-permanent-event';
+  /** The hazard player tapping their in-play creature-permanent-event. */
+  readonly player: PlayerId;
+  /** The creature-permanent-event instance in `cardsInPlay`. */
+  readonly cardInstanceId: CardInstanceId;
+  /**
+   * For a `tap-character` on-tap effect (tw-2), the character to tap. The
+   * legal-action generator emits one action per eligible target character.
+   */
+  readonly targetCharacterId?: CardInstanceId;
+}
+
+/**
  * Sideboarding with a Nazgûl (rule 5.24).
  *
  * As an action during the movement/hazard phase's play-hazards step, the
