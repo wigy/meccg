@@ -1961,6 +1961,14 @@ export interface ExtraAgentActionsEffect extends EffectBase {
   readonly type: 'extra-agent-actions';
   /** Number of additional agent actions granted per normal agent action. */
   readonly value: number;
+  /**
+   * When true, the effect is carried by an agent itself and grants the extra
+   * action(s) only while that agent is face-up (revealed) — e.g. My Precious
+   * (dm-29): "If face-up, may take an extra agent action …". When absent, the
+   * effect is a global in-play card (e.g. Great Need or Purpose dm-62) granting
+   * extra actions unconditionally.
+   */
+  readonly whileRevealed?: boolean;
 }
 
 /**

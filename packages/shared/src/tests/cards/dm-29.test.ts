@@ -1,104 +1,139 @@
 /**
- * @module dm-29
+ * @module dm-29.test
  *
- * Card: My Precious (dm-29)
- * Type: hazard-event (short), Unique
- * Effects: [] (none of its rules map to a supported DSL effect type)
+ * Card test: My Precious (dm-29) — Manifestation of Gollum (tw-246). Agent.
  *
- * Text:
+ * Card text:
  *   "Unique. Manifestation of Gollum. Agent. If face-up, may take an extra
- *    agent action (not counting against the hazard limit) each time he
- *    normally takes an agent action. If he attacks successfully against a
- *    company with a ring, he and a ring (attacker's choice) are discarded.
- *    If My Precious attacks and fails but is not defeated, the defender may
- *    tap a character in the target company to play Gollum (My Precious is
- *    discarded). Any player whose character eliminates My Precious receives
- *    -1 kill MPs."
+ *    agent action (not counting against the hazard limit) each time he normally
+ *    takes an agent action. If he attacks successfully against a company with a
+ *    ring, he and a ring (attacker's choice) are discarded. If My Precious
+ *    attacks and fails but is not defeated, the defender may tap a character in
+ *    the target company to play Gollum (My Precious is discarded). Any player
+ *    whose character eliminates My Precious receives -1 kill MPs."
  *
- * ── NOT CERTIFIED ─────────────────────────────────────────────────────────
- * Every substantive rule on this card requires engine support that does not
- * exist. My Precious is a short *hazard-event* that plays as a Gollum
- * *Manifestation* which functions as an *Agent* — a form the engine has no
- * deployment path for. The missing subsystems are:
+ * Was mis-modeled as a bare `hazard-event` (unplayable). Per the authoritative
+ * card DB (agent character: skills Scout, body 9, prowess 2, mind 4, DI 0,
+ * homesite Goblin-gate/Moria/Shelob's Lair/Mt. Doom, -1 kill MP) it is
+ * re-modeled as a `minion-character` with the `agent` keyword — deploying
+ * through the existing agent subsystem.
  *
- *   1. Event-based agent deployment. `play-agent-hazard` only deploys a
- *      *character* card carrying the `agent` keyword + a homesite (it calls
- *      `isCharacterCard(agentDef)` and matches the location deck against the
- *      character's homesite names). A short hazard-event cannot become an
- *      `AgentInPlay`; an event definition has no prowess/body/mind for agent
- *      combat. See `handlePlayAgentHazard` in `engine/mh-hazard-play.ts` and
- *      the `play-agent-hazard` emitter in `legal-actions/movement-hazard.ts`
- *      (which requires `def.keywords?.includes('agent')`).
- *   2. Cross-form Manifestation-of-Gollum gating. The manifestation system
- *      (`engine/manifestations.ts`, `manifestId`) works on *character* cards
- *      only; here the manifestations span an event (My Precious), and the
- *      allies Gollum (tw-246) / Stinker (le-154).
- *   3. A face-up-gated, self-only extra agent action. `extra-agent-actions`
- *      is a *global, unconditional* environment applied to every agent from
- *      `cardsInPlay`; there is no per-agent, face-up-conditional variant.
- *   4. A successful-attack trigger discarding the attacking agent and one ring
- *      (attacker's choice) from the defending company.
- *   5. A failed-but-not-defeated-attack, defender-reactive play: tap a
- *      character to bring Gollum (tw-246) into play and discard My Precious.
- *   6. A kill-MP modifier (−1 kill MPs to the eliminating player). No
- *      `kill-mp-modifier` effect type exists in the effect-type union.
+ * Rule status:
+ * | # | Rule                                             | Status                    |
+ * |---|--------------------------------------------------|---------------------------|
+ * | 1 | Deploys as an agent                              | IMPLEMENTED (re-typed)    |
+ * | 2 | Manifestation of Gollum (g.man.1, ally + agent)  | IMPLEMENTED (manifestId)  |
+ * | 3 | If face-up: an extra agent action                | IMPLEMENTED (extra-agent-actions whileRevealed) |
+ * | 4 | -1 kill MP to whoever eliminates him             | IMPLEMENTED (killMarshallingPoints -1) |
+ * | 5 | Success vs a company with a ring → discard self + a ring | NOT IMPLEMENTED (agent-attack-outcome combat sub-flow) |
+ * | 6 | Fail but survives → defender may play Gollum, discard self | NOT IMPLEMENTED (agent-attack-outcome combat sub-flow) |
  *
- * There are no valid DSL effect types for any of these, so `effects` stays
- * `[]`. This test documents the shape above and pins the concrete current
- * limitation with a real, engine-driven assertion (below), so it fails loudly
- * and needs revisiting once event-based agent deployment lands.
+ * Rules 5–6 are two new interactive combat sub-flows hooked into the
+ * agent-attack outcome; they are a dedicated feature and NOT yet implemented, so
+ * this card is NOT certified. The tests below exercise rules 1–3 with real
+ * engine-driven assertions.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, makeMHState, viableActions,
-  PLAYER_1, PLAYER_2, HAZARD_PLAYER,
-  ARAGORN, LEGOLAS,
-  MORIA, LORIEN, RIVENDELL,
+  PLAYER_1, PLAYER_2,
+  ARAGORN,
+  MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
 } from '../test-helpers.js';
-import type { CardDefinitionId, CardInstanceId } from '../../index.js';
-import { Phase } from '../../index.js';
+import { countExtraAgentActions } from '../../engine/mh-agents.js';
+import type { CardDefinitionId, CardInstanceId, CompanyId, AgentInPlay, GameState } from '../../index.js';
+import { Phase, CardStatus } from '../../index.js';
 
-const MY_PRECIOUS = 'dm-29' as CardDefinitionId; // hazard-event, "Agent" in text
-const ANARIN = 'dm-1' as CardDefinitionId; // real agent character (homesite: Moria)
+const MY_PRECIOUS = 'dm-29' as CardDefinitionId;
+const GOLLUM = 'tw-246' as CardDefinitionId;   // the ally manifestation of the same entity
 
-/** Definition id backing a play-agent-hazard action's agent instance. */
-function defOfAgentAction(
-  handCards: readonly { instanceId: CardInstanceId; definitionId: CardDefinitionId }[],
-  agentCardInstanceId: CardInstanceId,
-): CardDefinitionId | undefined {
-  return handCards.find(c => c.instanceId === agentCardInstanceId)?.definitionId;
+/** An in-play My Precious agent for player 2, revealed or face-down. */
+function myPreciousAgent(revealed: boolean): AgentInPlay {
+  return {
+    id: 'p2-precious' as CompanyId,
+    character: {
+      instanceId: 'p2-precious-char' as CardInstanceId,
+      definitionId: MY_PRECIOUS,
+      status: CardStatus.Untapped,
+      items: [], allies: [], hazards: [], followers: [],
+      controlledBy: 'general',
+      effectiveStats: { prowess: 2, body: 9, directInfluence: 0, corruptionPoints: 0 },
+    },
+    revealed,
+    siteStack: [{ instanceId: 'p2-precious-site' as CardInstanceId, definitionId: MORIA, status: CardStatus.Untapped }],
+    remainingActions: 1,
+    inPlayAtTurnStart: true,
+    attackedThisSitePhase: false,
+    discardAtEndOfTurn: false,
+  };
 }
 
-describe('My Precious (dm-29) — NOT CERTIFIED: no event-based agent deployment', () => {
+describe('My Precious (dm-29)', () => {
   beforeEach(() => resetMint());
 
-  test('the engine cannot play My Precious as an agent hazard (only true agent characters are offered)', () => {
-    // Hazard player (P2) holds both a real agent character (Anarin, dm-1) and
-    // My Precious (dm-29). During the M/H play-hazards step the engine should
-    // offer to play the real agent as a hazard, but NOT the hazard-event —
-    // there is no path to deploy an event as an agent.
+  // ─── Deployment: re-modeled as a deployable agent ──────────────────────────
+
+  test('is offered for agent deployment (play-agent-hazard) from hand', () => {
     const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1, phase: Phase.MovementHazard, recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ANARIN, MY_PRECIOUS], siteDeck: [RIVENDELL] },
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [MY_PRECIOUS], siteDeck: [RIVENDELL] },
       ],
     });
-    const withMH = { ...state, phaseState: makeMHState({ hazardLimitAtReveal: 4, hazardsPlayedThisCompany: 0 }) };
+    const ready: GameState = { ...state, phaseState: makeMHState({ destinationSiteName: 'Some Site' }) };
+    const preciousId = ready.players[1].hand[0].instanceId;
+    const deploys = viableActions(ready, PLAYER_2, 'play-agent-hazard');
+    expect(deploys.some(a => (a.action as { agentCardInstanceId?: string }).agentCardInstanceId === (preciousId as unknown as string))).toBe(true);
+  });
 
-    const hand = withMH.players[HAZARD_PLAYER].hand;
-    const actions = viableActions(withMH, PLAYER_2, 'play-agent-hazard')
-      .map(a => a.action)
-      .filter((a): a is Extract<typeof a, { agentCardInstanceId: CardInstanceId }> => 'agentCardInstanceId' in a);
+  // ─── Manifestation (g.man.1): cannot coexist with the Gollum ally ──────────
 
-    const offeredDefs = actions.map(a => defOfAgentAction(hand, a.agentCardInstanceId));
+  test('cannot be deployed while the Gollum ally (tw-246) is in play', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.MovementHazard, recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [MY_PRECIOUS], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const aragornId = state.players[0].companies[0].characters[0];
+    const withAlly: GameState = {
+      ...state,
+      phaseState: makeMHState({ destinationSiteName: 'Some Site' }),
+      players: [
+        {
+          ...state.players[0],
+          characters: {
+            ...state.players[0].characters,
+            [aragornId]: {
+              ...state.players[0].characters[aragornId],
+              allies: [{ instanceId: 'gollum-ally' as CardInstanceId, definitionId: GOLLUM, status: CardStatus.Untapped }],
+            },
+          },
+        },
+        state.players[1],
+      ] as typeof state.players,
+    };
+    const preciousId = withAlly.players[1].hand[0].instanceId;
+    const deploys = viableActions(withAlly, PLAYER_2, 'play-agent-hazard');
+    expect(deploys.some(a => (a.action as { agentCardInstanceId?: string }).agentCardInstanceId === (preciousId as unknown as string))).toBe(false);
+  });
 
-    // Positive control: the real agent character IS offered.
-    expect(offeredDefs).toContain(ANARIN);
+  // ─── Rule 3: extra agent action only while face-up ─────────────────────────
 
-    // The gap: My Precious (a hazard-event) is NOT deployable as an agent.
-    expect(offeredDefs).not.toContain(MY_PRECIOUS);
+  test('grants an extra agent action only while face-up (revealed)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.MovementHazard, recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const faceDown: GameState = { ...base, players: [base.players[0], { ...base.players[1], agents: [myPreciousAgent(false)] }] as typeof base.players };
+    const faceUp: GameState = { ...base, players: [base.players[0], { ...base.players[1], agents: [myPreciousAgent(true)] }] as typeof base.players };
+    expect(countExtraAgentActions(faceDown)).toBe(0);
+    expect(countExtraAgentActions(faceUp)).toBe(1);
   });
 });
