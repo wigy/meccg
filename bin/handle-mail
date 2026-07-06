@@ -820,11 +820,11 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
 
       # Ground truth check: does the card actually carry a `certified` field on
       # that branch? SKILL_STATUS only tells us the claude session ended
-      # cleanly — handle-certify-card.md is *designed* to end its turn cleanly
-      # while deliberately refusing to certify (PR titled "NOT CERTIFIED
-      # (verifying)"), so session success is not certification. Read the
-      # authoritative artifact instead: the `certified` field on the card's
-      # own entry in the branch that will actually get reviewed/merged.
+      # cleanly — handle-certify-card.md may end its turn cleanly having decided
+      # a card is blocked on a human decision (PR titled "NOT CERTIFIED: <reason>"),
+      # so session success is not certification. Read the authoritative artifact
+      # instead: the `certified` field on the card's own entry in the branch that
+      # will actually get reviewed/merged.
       CARD_CERTIFIED=false
       if [ -n "$PR_HEAD_REF" ]; then
         (cd "$PROJECT_DIR" && git fetch origin "$PR_HEAD_REF" 2>/dev/null) || true
@@ -855,7 +855,7 @@ $DIRTY_FILES"
       elif [ -z "$PR_URL" ]; then
         CERT_FAIL_REASON="No PR was opened for certify-${CARD_ID}-* and no work was finalized."
       elif [ "$CARD_CERTIFIED" != true ]; then
-        CERT_FAIL_REASON="The skill opened a PR ($PR_URL) but did not set the \`certified\` field — per its own rules it determined the card is not fully playable yet and left the PR as NOT CERTIFIED. Review the PR to see what's missing."
+        CERT_FAIL_REASON="The skill opened a PR ($PR_URL) but did not set the \`certified\` field. Under the current rules the skill must implement any missing mechanic and certify; stopping without the field means it either hit a genuine human-decision blocker (the PR title should name the concrete question) or failed to finish. Review the PR."
       fi
 
       if [ -z "$CERT_FAIL_REASON" ]; then

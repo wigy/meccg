@@ -6,18 +6,20 @@ If no card ID is given, stop and ask for one (e.g. `/certify-card tw-156`).
 
 ## Core principle — read before every certification
 
-**NEVER mark a card `certified` unless it is FULLY playable.** "Fully" means every sentence of the card's printed text is implemented in the engine AND exercised by the card test with real assertions. Partial certification does not exist.
+Certification's job is to make the card **FULLY playable and then certify it.** "Fully" means every sentence of the card's printed text is implemented in the engine AND exercised by the card test with real assertions. Partial certification does not exist.
 
-If **any** of the following are true, the card MUST NOT receive a `certified` date — land the partial work (data fixes, test scaffolding) under a PR description that explicitly says "NOT CERTIFIED", and stop:
+**When a rule on the card is not yet supported, IMPLEMENT IT.** Building the missing engine mechanic is the heart of this skill — never an optional extra, never something to defer to "engine-wide work later." Do NOT open a "NOT CERTIFIED — needs engine support" PR and stop; that is the exact failure mode this process exists to prevent. If the mechanic is shared by many cards, that is precisely when to build it properly as a reusable DSL primitive.
+
+Each of the following means **you still have work to do (go implement it), not that the card is un-certifiable:**
 
 - A rule on the card text is not implemented in the engine.
-- A rule is "documented as deferred", "stubbed", "TODO", or "will be implemented later".
+- A rule would otherwise be "documented as deferred", "stubbed", "TODO", or "implemented later".
 - An effect in the `effects` array maps to a NOT-IMPLEMENTED or type-only entry in step 4.
-- For a site: the card text describes a special rule (auto-attack variant, playability override, hazard-limit tweak, hoard gate, etc.) that is not captured in `effects` AND not handled by existing engine code.
-- The test uses `test.todo()` for any rule, or skips a rule the card text describes.
-- You are tempted to write in the commit message that some mechanic is "deferred / not yet supported / engine-wide work".
+- For a site: the card text describes a special rule (auto-attack variant, playability override, hazard-limit tweak, hoard gate, etc.) not captured in `effects` AND not handled by existing engine code.
 
-When in doubt: **do not certify**. A false-certified card poisons the certification signal for every other card. An uncertified card with a good partial test is always recoverable later.
+**NEVER false-certify.** Implementing a mechanic means implementing it for real (engine + a card test that will pass in CI) — never stubbing it, never `test.todo()`, never certifying with the rule unhandled. A false-certified card poisons the certification signal for every other card.
+
+The ONLY acceptable reason to stop without certifying is a blocker that needs a **human decision** — a genuinely ambiguous rule that needs wigy's ruling, or card text that contradicts the data. "This is a lot of work" is not such a reason. When you must stop, name the exact question for the human; never dress up "I didn't implement it" as "not certifiable."
 
 Follow these steps:
 
@@ -130,66 +132,47 @@ Follow these steps:
 
 9. **If the card has no effects and is not a site:** Report that the card has no special effects and is fully playable (basic stats like prowess/body are always handled by the engine).
 
-10. **Implement missing engine support:** If the report shows PARTIALLY or NO, implement the missing engine rules needed for this card's effects to work. Follow existing patterns in the engine code (resolver, reducer, legal-actions). Update the implementation status list in this command file if you add support for a new effect type or extend a partially-implemented one. If you cannot implement the required engine support, report that handling the certification request failed and explain why.
+10. **Implement missing engine support — MANDATORY:** If the report shows PARTIALLY or NO, implement the missing engine rules so the card becomes fully playable. This is the core of certification, not an optional step and never something to defer. Follow existing patterns in the engine code (resolver, reducer, legal-actions); when the mechanic is shared by other cards, build it as a reusable DSL primitive rather than a one-off. Update the implementation status list in this command file whenever you add or extend an effect type. Do NOT skip this step or fall back to a "NOT CERTIFIED" PR — the only reason to stop is a genuine human-decision blocker (an ambiguous rule needing wigy's ruling), which you must state concretely.
 
-11. **Implement card test:** A complete card test MUST exist in `packages/shared/src/tests/cards/` for this card. The test file must cover every rule and special ability described in the card's text with real assertions (no `test.todo()`). If no test exists or the existing test is incomplete, **write or complete the test yourself** — do not just report what's missing. Follow the patterns from existing card tests in the same directory. If you cannot implement the test (e.g. the engine lacks required support), report that handling the certification request failed and explain why.
+11. **Implement card test:** A complete card test MUST exist in `packages/shared/src/tests/cards/` for this card. The test file must cover every rule and special ability described in the card's text with real assertions (no `test.todo()`). If no test exists or the existing test is incomplete, **write or complete the test yourself** — do not just report what's missing. Follow the patterns from existing card tests in the same directory. If the engine lacks support the test needs, that means step 10 is not finished — go back and implement the support; do not report failure or write a partial test.
 
     **NEVER write tautological tests.** Do NOT add test blocks that load a card definition via `pool[ID]` and then `expect` its fields (`cardType`, `id`, `name`, `strikes`, `prowess`, `body`, `unique`, `race`, `effects[i].type`, `keyedTo`, `extended`, etc.) to match values that are literally in the card JSON. Those assertions verify JSON data against itself and prove nothing. Every test must build a game state, drive the reducer or legal-action computation, and assert on resulting state/actions. Document card shape in the module-level JSDoc comment, not in tests.
 
-**⚠️ Ordering principle for steps 12–15 — COMMIT EARLY, CERTIFY LAST.** A dirty working tree at the end of your turn is a bad outcome: although the mail handler will finalize any leftovers for you (commit + push + open a PR) as a backstop, that fallback PR carries a generic message instead of your own clean one, and — unless you had already reached a verified success — it is reported as a failure. An unverified PR you opened yourself, by contrast, is always recoverable with a follow-up commit. So you get your work onto a branch and pushed as soon as it type-checks, **before** running the card's own test — never after. The full rules suite, lint, and nightly card tests are **not** run as part of certification — the reviewer and branch CI cover those. The card's own test and the `certified` field come *after* the branch exists, as follow-up commits. Do these steps strictly in order.
+**⚠️ Ordering principle for steps 12–14 — FINISH THE WORK, THEN LAND ONE PR.** Certification produces a single, finished pull request whose title states the outcome. There is **no intermediate "verifying" PR**, and you never open a PR you intend to retitle later. You implement everything the card needs (step 10), write and commit the card's own test (step 11), set the `certified` field (step 13), and only then open the PR — once — with its final title (step 14). **Do not run the full test suite, lint, or the nightly card tests, and do not gate the PR on any of them: confirming CI is green is the reviewer's and branch CI's job, not yours.** You write the card's test and commit it; you do not have to prove it green in-turn. If your turn dies before you open the PR, the mail handler finalizes your uncommitted work into a fallback PR — so leftover work is never lost and the loop is never blocked. That backstop is the safety net; it is **not** a licence to open a premature "verifying" PR.
 
 12. **Quick build gate (in-turn):** Run `npm run build` as a foreground Bash call and wait for it to finish. This is the only check that must pass *before* you commit, because broken TypeScript should never reach a branch. If it fails, fix it and re-run until green. (It is fast — do not skip ahead.)
 
-13. **Branch, commit, push, open PR — IMMEDIATELY, before the slow checks:** ⚠️ **MANDATORY — do NOT commit to master.** As soon as step 12 is green, get everything onto a branch and pushed:
-    - Create a branch named `certify-<cardId>-<card-slug>` (e.g. `certify-tw-243-gates-of-morning`).
-    - **Do NOT add the `certified` field yet** — that happens in step 15, only after full verification. Commit the card data, engine changes, and the test in the **NOT CERTIFIED (verification pending)** state.
-    - Commit **all** changes (`git add -A`), push the branch to origin, and open a draft PR with `gh pr create` titled so it is clearly pending (e.g. `certify <cardId>: <name> — NOT CERTIFIED (verifying)`).
-    - Report the PR URL and the commit hash.
-
-    After this step the working tree is clean and the work is safe on a branch. If your turn ends for any reason (deadline, timeout, lost context) after this point, the loop is **not** blocked and a human can finish the PR. This is the whole reason the commit comes before the slow checks — never reorder it.
-
-14. **Run the changed tests only (in-turn), pushing a follow-up commit if needed:** Run, as a foreground Bash call:
-
-    ```sh
-    npx vitest run packages/shared/src/tests/cards/<cardId>.test.ts
-    ```
-
-    If you modified any other test files while adding engine support, include those in the same `npx vitest run` call — but **never anything beyond the test files you changed**.
-
-    This is the only check that gates certification now — it confirms the test you just wrote actually passes. Fix any failure and re-run until green, then **commit the fix to the branch and push it** before moving on.
-
-    **Do NOT run the full `npm test` suite, `npm run lint`, or `npm run test:nightly` as part of certification — no test other than the changed tests, ever.** Waiting for full test runs is part of the review process: the reviewer and branch CI run them during PR review — do not wait for them here.
-
-15. **Certify on success — strict gate (final commit):** Only now, after step 14 is green, decide whether to certify. Before writing `"certified": "<date>"` on a card, ALL of the following must hold. If any one fails, **do not add the field** (and remove it if it was already present), leave the PR titled **NOT CERTIFIED** naming the missing mechanic, and stop:
+13. **Set the `certified` field — the certify decision:** Now that the card is fully implemented (step 10) and its test written (step 11), decide: certify, or — rarely — stop for a genuine human-decision blocker. Certify only if ALL of the following hold. **If any one fails, you are not done implementing: return to step 10.** Do NOT fall back to a NOT-CERTIFIED PR unless the blocker genuinely needs a human ruling.
 
     - Step 7 classification is **YES** (not PARTIALLY, not NO).
     - Every rule in the card's `text` is represented either by an implemented effect in `effects[]` or by structural engine support (for sites: siteType, playableResources, haven paths, basic auto-attack list, etc.).
-    - For sites specifically: no "unimplemented special rule" was identified in step 8. Dynamic auto-attack variants (e.g. "opponent plays a creature from hand as this site's auto-attack"), playability overrides, or hazard/corruption tweaks that the engine does not handle are **disqualifying** — even if the rest of the site data is correct.
+    - For sites specifically: no "unimplemented special rule" remains from step 8. Dynamic auto-attack variants (e.g. "opponent plays a creature from hand as this site's auto-attack"), playability overrides, or hazard/corruption tweaks the engine does not handle must have been **implemented** in step 10 — an unimplemented one means go back, not bail.
     - The card test covers every rule in the text with real assertions. No `test.todo()`, no skipped rule, no "future work" comment substituting for coverage.
-    - Your commit message does not contain words like "deferred", "stubbed", "not yet supported", "engine-wide work needed", or similar about any card rule. If it does, you are certifying something you shouldn't.
+    - Your commit message does not contain words like "deferred", "stubbed", "not yet supported", or "engine-wide work needed" about any card rule.
 
-    If all five hold, set the `certified` field to today's date (ISO 8601 format, e.g. `"2026-03-28"`), then **run this shell command and confirm it returns a line**:
+    If all hold, set the `certified` field to today's date (ISO 8601 format, e.g. `"2026-03-28"`), then **run this shell command and confirm it returns a line**:
 
     ```sh
     grep '"certified"' packages/shared/src/data/<set-file>.json
     ```
 
-    If the grep returns nothing, you did not write the field — write it now. Then **commit this final change to the branch and push it.**
+    If the grep returns nothing, you did not write the field — write it now.
 
-    **⚠️ Updating the PR title/body is not optional and is not done "if there's time" — it is the last mandatory action of this skill.** A certified card whose PR still reads "NOT CERTIFIED" is a certification failure from the outside, even though the data is correct: nobody scans `git log` for a stray `certified` commit, they read the PR title. Immediately after the push above, run:
+14. **Branch, commit, push, open ONE final PR — the last action:** ⚠️ **Do NOT commit to master.** Only now do you create the PR, and you create it **once**, already in its final state:
 
-    ```sh
-    gh pr edit <pr-number> --title "certify <cardId>: <name> — certified" --body "<updated body reflecting certification>"
-    ```
-
-    Then **verify the edit landed** — do not assume the command succeeded:
+    - Create a branch named `certify-<cardId>-<card-slug>` (e.g. `certify-tw-243-gates-of-morning`).
+    - `git add -A`, commit with a clean message describing the implementation, and push the branch to origin.
+    - Open the PR with `gh pr create`, titled with the **final outcome** — never a placeholder:
+      - certified → `certify <cardId>: <name> — certified`
+      - blocked on a human decision only → `certify <cardId>: <name> — NOT CERTIFIED: <one-line concrete reason>`
+    - **Never** title a PR "verifying" or "verification pending", and never open a PR you intend to retitle later. The PR is finished when you open it.
+    - **Do NOT run the full `npm test` suite, `npm run lint`, or `npm run test:nightly`, and do NOT gate the PR on them.** Confirming CI is green is the reviewer's and branch CI's job — you wrote the card's test and committed it; that is your part.
+    - Verify the title landed and report it, along with the final commit hash and PR URL:
 
     ```sh
     gh pr view <pr-number> --json title --jq .title
     ```
 
-    Confirm the output no longer contains "NOT CERTIFIED". If it still does, the `gh pr edit` failed or targeted the wrong PR — retry before ending your turn. Report the final commit hash and the confirmed PR title.
-
-    ⚠️ **Leave the working tree clean before your turn ends.** The mail handler checks `git status --porcelain` after your session; any uncommitted change is finalized by the handler into a fallback PR rather than your own clean one (and, unless you had already reached a verified success, reported as a certification failure). If you genuinely cannot land the work (engine support missing, rules unclear), and you have *not* already committed in step 13, revert everything (`git checkout -- .`, delete any new files) before ending the turn and emit a certification-failure result. If you already branched and committed in step 13, just leave the PR as NOT CERTIFIED — never leave files uncommitted.
+    ⚠️ **Leave the working tree clean before your turn ends.** The mail handler checks `git status --porcelain` after your session; any uncommitted change is finalized by the handler into a fallback PR rather than your own clean one. If you genuinely cannot land the work (blocked on a human decision), revert everything (`git checkout -- .`, delete any new files) before ending the turn and emit a certification-failure result naming the concrete question — never leave files uncommitted.
 
     Never merge directly to master. This is a hard requirement.
