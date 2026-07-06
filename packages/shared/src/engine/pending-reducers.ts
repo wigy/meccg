@@ -2281,6 +2281,65 @@ export function applyHavenRestoreCharacterResolution(
 }
 
 /**
+ * Resolve an `arrange-deck-top` pending resolution (Revealed to all Watchers,
+ * dm-85).
+ *
+ * The player picks the next-highest card among the set-aside cards a
+ * `cycle-hand` effect placed on top of their play deck, one `arrange-deck-top-card`
+ * action at a time. Each pick appends to the resolution's `orderedInstanceIds`.
+ * Once every top card has been chosen, the top `count` cards of the play deck
+ * are reordered to match the chosen sequence (index 0 = top) and the resolution
+ * is cleared.
+ */
+export function applyArrangeDeckTopResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'arrange-deck-top') return null;
+
+  if (action.type !== 'arrange-deck-top-card') {
+    return { state, error: `Pending arrange-deck-top requires arrange-deck-top-card, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for arrange-deck-top' };
+  }
+
+  const { count, orderedInstanceIds } = top.kind;
+  const playerIdx = getPlayerIndex(state, action.player);
+  const player = state.players[playerIdx];
+  const topCards = player.playDeck.slice(0, count);
+
+  // The chosen card must be one of the top cards and not already placed.
+  const chosenCard = topCards.find(c => c.instanceId === action.cardInstanceId);
+  if (!chosenCard || orderedInstanceIds.includes(action.cardInstanceId)) {
+    return { state, error: `Card ${action.cardInstanceId as string} is not an available top-of-deck card` };
+  }
+
+  const newOrdered = [...orderedInstanceIds, action.cardInstanceId];
+  const chosenName = cardName(state, chosenCard.definitionId);
+
+  // Not finished yet — record the pick in the resolution's accumulator.
+  if (newOrdered.length < count) {
+    logDetail(`arrange-deck-top: placed "${chosenName}" at position ${newOrdered.length}/${count}`);
+    const updated = state.pendingResolutions.map(r =>
+      r.id === top.id
+        ? { ...r, kind: { ...top.kind, orderedInstanceIds: newOrdered } }
+        : r,
+    );
+    return { state: { ...state, pendingResolutions: updated } };
+  }
+
+  // Final pick — reorder the top `count` cards to match the chosen sequence.
+  const orderedCards = newOrdered.map(id => topCards.find(c => c.instanceId === id)!);
+  const rest = player.playDeck.slice(count);
+  const newDeck = [...orderedCards, ...rest];
+  logDetail(`arrange-deck-top: placed "${chosenName}" at position ${count}/${count} — deck top finalized`);
+  const newState = updatePlayer(state, playerIdx, p => ({ ...p, playDeck: newDeck }));
+  return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
  * Resolve a `agent-play-manifestation-offer` pending resolution (My Precious
  * dm-29): after My Precious attacks and fails but survives, the defender may tap
  * a character in the target company to play Gollum from hand — discarding My

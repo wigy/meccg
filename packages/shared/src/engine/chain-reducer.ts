@@ -26,14 +26,14 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer.js';
-import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef } from './effects/index.js';
+import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef, resolveHandSize } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { siteAttacksCanceled } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, matchesDefinition, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { applyCost } from './cost-evaluator.js';
@@ -921,6 +921,95 @@ function applyTapCharacter(state: GameState, entry: ChainEntry): GameState {
     }
   }
   return state;
+}
+
+/**
+ * Resolves a `cycle-hand` effect (Revealed to all Watchers, dm-85).
+ *
+ * The playing player (`entry.declaredBy` — the hazard player for a hazard
+ * event) reveals their hand to their opponent, keeps the cards matching the
+ * effect's `keepInHand` filter, sets the rest aside, draws from the top of
+ * their play deck until their hand reaches their effective hand size, and
+ * places the set-aside cards face-down on top of the play deck. When two or
+ * more cards were set aside, an `arrange-deck-top` pending resolution is
+ * enqueued so the player chooses their final order.
+ *
+ * Cards never leave a pile: the set-aside cards are placed on top of the deck
+ * immediately (in hand order); the ordering resolution only permutes them.
+ */
+function applyCycleHand(
+  state: GameState,
+  entry: ChainEntry,
+  effect: import('../types/effects.js').CycleHandEffect,
+): GameState {
+  const card = entry.card!;
+  const def = defById(state, card.definitionId);
+  const cardName = (def as { name?: string })?.name ?? (card.definitionId as string);
+  const playerIndex = getPlayerIndex(state, entry.declaredBy);
+  let current = state;
+
+  // 1. Reveal the playing player's hand to their opponent.
+  if (effect.revealHand) {
+    const revealHand = current.players[playerIndex].hand;
+    logDetail(`${cardName}: ${entry.declaredBy as string} reveals their hand (${revealHand.length} card(s)) to opponent`);
+    current = revealInstances(current, revealHand);
+  }
+
+  // 2. Partition the hand: matching (kept) vs non-matching (set aside).
+  const hand = current.players[playerIndex].hand;
+  const keep: CardInstance[] = [];
+  const setAside: CardInstance[] = [];
+  for (const c of hand) {
+    const cDef = defById(current, c.definitionId);
+    if (cDef && matchesDefinition(cDef, effect.keepInHand)) keep.push(c);
+    else setAside.push(c);
+  }
+  logDetail(`${cardName}: keeping ${keep.length} card(s) in hand, setting aside ${setAside.length}`);
+
+  // 3. Draw from the deck top until the hand reaches the effective hand size.
+  const drawToHandSize = effect.drawToHandSize ?? true;
+  let deck = current.players[playerIndex].playDeck;
+  let drawn: CardInstance[] = [];
+  if (drawToHandSize) {
+    const handSize = resolveHandSize(current, playerIndex);
+    const need = Math.max(0, handSize - keep.length);
+    const drawCount = Math.min(need, deck.length);
+    drawn = deck.slice(0, drawCount);
+    logDetail(`${cardName}: drawing ${drawCount} card(s) to reach hand size ${handSize} (deck ${deck.length} → ${deck.length - drawCount})`);
+    deck = deck.slice(drawCount);
+  }
+
+  // 4. New hand = kept + drawn; set-aside cards go face-down on top of the deck.
+  const newHand = [...keep, ...drawn];
+  const newDeck = [...setAside, ...deck];
+  current = updatePlayer(current, playerIndex, p => ({
+    ...p,
+    hand: newHand,
+    playDeck: newDeck,
+  }));
+
+  // If two or more cards were set aside, let the player order the top of deck
+  // ("in any order you choose"). With 0 or 1 set-aside cards there is nothing
+  // to arrange, so no resolution is enqueued. The resolution is independent of
+  // the chain (like Rolled down to the Sea's force-discard-card): the chain
+  // entry is still marked resolved by the caller, and the player resolves the
+  // ordering afterward while the opponent waits.
+  if (effect.setAsideTo === 'deck-top' && setAside.length >= 2) {
+    logDetail(`${cardName}: enqueuing arrange-deck-top for ${setAside.length} set-aside card(s)`);
+    current = enqueueResolution(current, {
+      source: card.instanceId,
+      actor: entry.declaredBy,
+      scope: { kind: 'phase', phase: Phase.MovementHazard },
+      kind: {
+        type: 'arrange-deck-top',
+        count: setAside.length,
+        orderedInstanceIds: [],
+        sourceDefinitionId: card.definitionId,
+      },
+    });
+  }
+
+  return current;
 }
 
 /**
@@ -2102,6 +2191,21 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       } else {
         logDetail(`${cardName}: no rings available and no reveal-hand fallback — no effect`);
       }
+    }
+  }
+
+  // Revealed to all Watchers (dm-85): a hazard short-event carrying a
+  // cycle-hand effect. When it resolves un-negated, reveal the playing player's
+  // hand, keep the matching (hazard) cards, refill the hand from the deck, and
+  // place the set-aside (non-hazard) cards on top of the play deck — then let
+  // the player order them via an arrange-deck-top pending resolution.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const cycle = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').CycleHandEffect => e.type === 'cycle-hand',
+    );
+    if (cycle) {
+      current = applyCycleHand(current, entry, cycle);
     }
   }
 

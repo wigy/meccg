@@ -530,6 +530,8 @@ export function describeAction(
       return `${action.player as string} taps ${instName(action.cardInstanceId)} (permanent-event → short-event)${action.targetCharacterId ? `, tapping ${instName(action.targetCharacterId)}` : ''}`;
     case 'play-agent-manifestation':
       return `${action.player as string} taps ${instName(action.characterId)} to play ${instName(action.manifestationCardInstanceId)} (agent discarded)`;
+    case 'arrange-deck-top-card':
+      return `${action.player as string} places ${instName(action.cardInstanceId)} next on top of their play deck`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;
