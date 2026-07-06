@@ -27,37 +27,41 @@
  * (siteIds dm-35/dm-36, Nazgûl 1 strike 15/10, discardAfterUse).
  *
  * Engine support:
- * | # | Feature                                                | Status          | Notes                                                     |
- * |---|--------------------------------------------------------|-----------------|-----------------------------------------------------------|
- * | 1 | Dual play: as a hazard creature OR permanent-event     | NOT IMPLEMENTED | no play-mode-selection subsystem; card is hazard-event    |
- * | 2 | Creature-mode base keying {d}{D}                       | NOT IMPLEMENTED | depends on #1 (cannot be played as a creature)            |
- * | 3 | Creature-mode alt keying (Brown Lands, Dagorlad, …)    | NOT IMPLEMENTED | depends on #1                                             |
- * | 4 | Permanent-event: tapped during opponent's M/H phase    | NOT IMPLEMENTED | no hazard-player activation window in opponent's M/H      |
- * | 5 | Tapping counts against the hazard limit                | NOT IMPLEMENTED | depends on #4                                             |
- * | 6 | On tap → short-event: tap any one character            | NOT IMPLEMENTED | no tap-to-trigger-short-event mechanic                    |
- * | 7 | Adds a Nazgûl auto-attack at dm-35 / dm-36 while in play| IMPLEMENTED     | permanent-event-auto-attack (manifestations.ts)           |
- * | 8 | Counts as half a creature for deck construction        | IMPLEMENTED     | play-flag: playable-as-event (deck-validation.ts)         |
+ * | # | Feature                                                | Status      | Notes                                              |
+ * |---|--------------------------------------------------------|-------------|----------------------------------------------------|
+ * | 1 | Dual play: as a hazard creature OR permanent-event     | IMPLEMENTED | creature-alt-event (mode permanent-event)          |
+ * | 2 | Creature-mode base keying {d}{D}                       | IMPLEMENTED | regionTypes/siteTypes in keyedTo                   |
+ * | 3 | Creature-mode alt keying (Brown Lands, Dagorlad, …)    | IMPLEMENTED | regionNames in keyedTo                             |
+ * | 4 | Permanent-event: tapped during opponent's M/H phase    | IMPLEMENTED | tap-alt-permanent-event                            |
+ * | 5 | Tapping counts against the hazard limit                | IMPLEMENTED | handleTapAltPermanentEvent                         |
+ * | 6 | On tap → short-event: tap any one character            | IMPLEMENTED | tap-character (applyTapCharacter)                  |
+ * | 7 | Adds a Nazgûl auto-attack at dm-35 / dm-36 while in play| IMPLEMENTED | permanent-event-auto-attack (manifestations.ts)    |
+ * | 8 | Counts as half a creature for deck construction        | IMPLEMENTED | play-flag: playable-as-event (deck-validation.ts)  |
  *
- * Playable: PARTIALLY. The dual creature/permanent-event play mode (#1–#3)
- * and the "tap during the opponent's M/H phase to tap a character" activation
- * (#4–#6) require large, currently-unimplemented subsystems shared by every
- * Nazgûl (tw-2, tw-12, tw-47, tw-113) and the other dual creature/event
- * hazards (Mouth of Sauron, the manifestation hunters, the Wolf-riders, the
- * Ungoliant spawns). This card is therefore NOT CERTIFIED.
- *
- * The tests below exercise only the two features the engine already supports
- * (#7 and #8) with real engine assertions; the unimplemented rules above are
- * documented rather than asserted (no `test.todo`).
+ * Playable: YES. Re-modeled from a bare `hazard-event` into a proper dual-mode
+ * `hazard-creature` (strikes 1 / prowess 15 / body 10 / kill MP 5 / Nazgûl /
+ * `{d}{D}`, per the authoritative card DB), keeping the `permanent-event-auto-attack`
+ * (its real cross-card interaction with the Under-deeps sites dm-35/dm-36) and
+ * the `playable-as-event` deck-weight flag. The creature mode and the
+ * permanent-event mode (enter play → tap during opponent's M/H, counting one
+ * against the hazard limit → "becomes a short-event" that taps any one chosen
+ * character) are implemented via the generic `creature-alt-event` primitive and
+ * the `tap-character` effect. Tests drive all of #1–#8.
  */
 
 import { describe, test, expect } from 'vitest';
 import type { CardDefinitionId, SiteCard, DeckList } from '../../index.js';
-import { validateDeck } from '../../index.js';
+import { validateDeck, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
 import { getActiveAutoAttacks } from '../../engine/manifestations.js';
 import {
   buildSimpleTwoPlayerState,
   addCardInPlay,
-  HAZARD_PLAYER,
+  buildTestState, resetMint, makeMHState,
+  playCreatureHazardAndResolve,
+  handCardId, companyIdAt, viableActions, dispatch, resolveChain,
+  PLAYER_1, PLAYER_2, ARAGORN, LEGOLAS,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  HAZARD_PLAYER, RESOURCE_PLAYER,
   pool,
   HERO_RESOURCES_30,
 } from '../test-helpers.js';
@@ -152,5 +156,86 @@ describe('Adûnaphel (tw-2)', () => {
   test('Adûnaphel counts as half a creature: 11 full + Adûnaphel = 11.5 → 11 < 12', () => {
     const deck = withHazards([...ELEVEN_FULL_CREATURES, { name: 'Adûnaphel', card: ADUNAPHEL, qty: 1 }]);
     expect(hasMin12Error(deck)).toBe(true);
+  });
+
+  // ─── #2/#3: creature mode keying + combat ──────────────────────────────────
+
+  test('playable as a creature keyed to a Dark-hold; combat is 1 strike at prowess 15', () => {
+    resetMint();
+    const state = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.MovementHazard, recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ADUNAPHEL], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeMHState({
+      resolvedSitePath: [RegionType.Dark], resolvedSitePathNames: ['Gorgoroth'],
+      destinationSiteType: SiteType.DarkHold, destinationSiteName: 'Barad-dûr',
+    }) };
+    const adunId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const after = playCreatureHazardAndResolve(ready, PLAYER_2, adunId, companyId, { method: 'site-type', value: 'dark-hold' });
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.strikesTotal).toBe(1);
+    expect(after.combat!.strikeProwess).toBe(15);
+  });
+
+  // ─── #1/#4/#5/#6: permanent-event mode + tap → tap a character ──────────────
+
+  test('played as a permanent-event, enters play untapped', () => {
+    resetMint();
+    const state = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.MovementHazard, recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ADUNAPHEL], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeMHState({ destinationSiteName: 'Barad-dûr' }) };
+    const adunId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const offered = viableActions(ready, PLAYER_2, 'play-hazard')
+      .some(a => (a.action as { altEventMode?: string }).altEventMode === 'permanent-event');
+    expect(offered).toBe(true);
+    const afterChain = resolveChain(dispatch(ready, {
+      type: 'play-hazard', player: PLAYER_2, cardInstanceId: adunId,
+      targetCompanyId: companyId, altEventMode: 'permanent-event',
+    }));
+    const inPlay = afterChain.players[1].cardsInPlay.find(c => c.instanceId === adunId);
+    expect(inPlay).toBeDefined();
+    expect(inPlay!.status).toBe(CardStatus.Untapped);
+  });
+
+  test('tapping the in-play permanent-event taps a chosen (untapped) character', () => {
+    resetMint();
+    const state = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.MovementHazard, recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ADUNAPHEL], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeMHState({ destinationSiteName: 'Barad-dûr' }) };
+    const adunId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const aragornId = ready.players[0].companies[0].characters[0];
+
+    const afterPlay = resolveChain(dispatch(ready, {
+      type: 'play-hazard', player: PLAYER_2, cardInstanceId: adunId,
+      targetCompanyId: companyId, altEventMode: 'permanent-event',
+    }));
+    expect(afterPlay.players[0].characters[aragornId].status).toBe(CardStatus.Untapped);
+
+    // Tap the permanent-event, choosing to tap Aragorn.
+    const tapAragorn = viableActions(afterPlay, PLAYER_2, 'tap-alt-permanent-event')
+      .find(a => (a.action as { targetCharacterId?: string }).targetCharacterId === (aragornId as unknown as string));
+    expect(tapAragorn).toBeDefined();
+    const afterTap = resolveChain(dispatch(afterPlay, tapAragorn!.action));
+
+    // Aragorn is now tapped, and the spent Adûnaphel is discarded.
+    expect(afterTap.players[0].characters[aragornId].status).toBe(CardStatus.Tapped);
+    expect(afterTap.players[1].cardsInPlay.some(c => c.instanceId === adunId)).toBe(false);
+    expect(afterTap.players[1].discardPile.some(c => c.instanceId === adunId)).toBe(true);
   });
 });
