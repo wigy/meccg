@@ -3131,8 +3131,23 @@
         "site": "Old Forest"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Old Forest. Tap to cancel a hazard that targets (as an active condition of playing the card itself) a company, or an entity associated with a company, moving to a site in: Arthedain, Cardolan, Rhudaur, or The Shire.Discard Tom Bombadil if his company moves to a site that is not in: Arthedain, Cardolan, Rhudaur, or The Shire."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "cancel-chain-entry",
+        "cost": { "tap": "self" },
+        "when": { "destinationRegion": { "$in": ["Arthedain", "Cardolan", "Rhudaur", "The Shire"] } },
+        "apply": { "type": "cancel-chain-entry", "select": "most-recent-unresolved-hazard" }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+        "when": { "$not": { "site.region": { "$in": ["Arthedain", "Cardolan", "Rhudaur", "The Shire"] } } }
+      }
+    ],
+    "text": "Unique. Playable at Old Forest. Tap to cancel a hazard that targets (as an active condition of playing the card itself) a company, or an entity associated with a company, moving to a site in: Arthedain, Cardolan, Rhudaur, or The Shire.Discard Tom Bombadil if his company moves to a site that is not in: Arthedain, Cardolan, Rhudaur, or The Shire.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hero-resource-event",

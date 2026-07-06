@@ -18,7 +18,9 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { getPlayerIndex } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect } from '../../types/effects.js';
+import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect, GrantActionEffect } from '../../types/effects.js';
+import { isSiteCard } from '../../types/cards.js';
+import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
 import { playerById, getCardEffects, defById } from '../reducer-utils.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
@@ -81,6 +83,12 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
         path: mhState.resolvedSitePath,
         chain: { hazardCount },
       }));
+      // Tom Bombadil (tw-350) / Leaflock (tw-265): an in-play ally taps itself
+      // to cancel a hazard when its company is moving to one of the ally's
+      // home regions.
+      const destDef = company.destinationSite ? defById(state, company.destinationSite.definitionId) : undefined;
+      const destinationRegion = destDef && isSiteCard(destDef) ? destDef.region : undefined;
+      actions.push(...emitAllyCancelChainActions(state, playerId, company, hazardCount, destinationRegion));
     }
   }
 
@@ -93,6 +101,77 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
 
   logDetail(`Chain declaring: player ${playerId as string} has ${actions.length} action(s) (pass${actions.length > 1 ? ' + responses' : ' only'})`);
 
+  return actions;
+}
+
+/**
+ * Emit `activate-granted-action` cancel-chain-entry activations for in-play
+ * allies carrying a static `grant-action` with `action: "cancel-chain-entry"`
+ * (Tom Bombadil tw-350, Leaflock tw-265).
+ *
+ * Unlike Great Ship (a turn-scoped granted-action *constraint* that taps a
+ * character in the company — {@link emitGrantedActionConstraintActions}), these
+ * allies tap *themselves* to cancel a hazard being played against the active
+ * moving company. Eligibility:
+ *  - the ally is an untapped ally in the active company,
+ *  - there is at least one unresolved hazard on the chain (`hazardCount > 0`),
+ *  - the ally's grant-action `when` matches a context exposing the active
+ *    company's destination region and the chain hazard count.
+ *
+ * The reducer path is the shared `handleGrantActionApply`: the cost
+ * `{ tap: "self" }` taps the ally in place (source ≠ bearer character) and the
+ * `cancel-chain-entry` apply negates the most-recent unresolved hazard entry.
+ * These grant-actions are deliberately excluded from the generic per-phase
+ * scanner (`extractGrantActions`), so this chain-declaring emitter is their
+ * only source — a chain cancellation is meaningless outside an active chain.
+ */
+function emitAllyCancelChainActions(
+  state: GameState,
+  playerId: PlayerId,
+  company: import('../../index.js').Company,
+  hazardCount: number,
+  destinationRegion: string | undefined,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  if (hazardCount === 0) return actions;
+
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+
+  const ctx = { destinationRegion, chain: { hazardCount } };
+
+  for (const charInstId of company.characters) {
+    const char = player.characters[charInstId];
+    if (!char) continue;
+    for (const ally of char.allies) {
+      if (ally.status !== CardStatus.Untapped) continue;
+      const allyDef = defById(state, ally.definitionId);
+      const cancelEffects = getCardEffects(allyDef).filter(
+        (e): e is GrantActionEffect =>
+          e.type === 'grant-action' && e.action === 'cancel-chain-entry'
+          && e.apply?.type === 'cancel-chain-entry',
+      );
+      for (const effect of cancelEffects) {
+        if (effect.when && !matchesCondition(effect.when, ctx)) {
+          logDetail(`Ally cancel-chain (${allyDef?.name ?? '?'}): when not met (destination region: ${destinationRegion ?? 'none'})`);
+          continue;
+        }
+        logDetail(`Ally cancel-chain available: ${allyDef?.name ?? '?'} may tap to cancel a hazard (destination region ${destinationRegion ?? 'none'})`);
+        actions.push({
+          action: {
+            type: 'activate-granted-action',
+            player: playerId,
+            characterId: charInstId,
+            sourceCardId: ally.instanceId,
+            sourceCardDefinitionId: ally.definitionId,
+            actionId: 'cancel-chain-entry',
+            rollThreshold: 0,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
   return actions;
 }
 
