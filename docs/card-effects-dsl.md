@@ -2361,7 +2361,7 @@ Character targeting is driven entirely by the DSL: the coarse `target`
 category picks the scope (each character in scope is a candidate) and
 an optional `filter` {@link Condition} refines it further. The filter
 is evaluated against the per-candidate context
-`{ target: { race, status, skills, name, mind, inAvatarCompany, itemKeywords }, company: { skills, siteType, moving, hasShadowMagicUser } }` (`target.mind` is the character's printed mind, null for avatars — e.g. Awaiting the Call le-165 filters `{ "target.mind": { "$lte": 6 } }`), so there are no
+`{ target: { race, status, skills, name, mind, inAvatarCompany, itemKeywords, itemSubtypes, possessions }, company: { skills, siteType, moving, hasShadowMagicUser } }` (`target.mind` is the character's printed mind, null for avatars — e.g. Awaiting the Call le-165 filters `{ "target.mind": { "$lte": 6 } }`; `target.itemKeywords`/`target.itemSubtypes` aggregate the keywords/subtypes of every item the character bears, and `target.possessions` their names — e.g. The Roving Eye le-135 gates on bearing a Palantír (`itemKeywords $includes "palantir"`), a greater item (`itemSubtypes $includes "greater"`), or a non-gold ring (`itemKeywords $includes "ring"` and `$not itemSubtypes $includes "gold-ring"`)), so there are no
 card-specific target keywords in the engine — a card declares its
 audience directly via a condition expression.
 
@@ -2433,7 +2433,14 @@ Optional fields:
     one action per eligible sage.
   - `{ "discard": "self" }` — detaches and discards the source card.
   - `{ "check": "corruption", "modifier": N }` — the actor makes a corruption
-    check modified by N (e.g. One Ring, Vanishment, Wizard's Laughter).
+    check modified by N (e.g. One Ring, Vanishment, Wizard's Laughter). For a
+    character-targeting hazard short-event the check is enqueued on the target
+    when the chain entry resolves (e.g. Dragon-sickness td-18, modifier -1).
+    An optional `failureMode` refines the failure consequence:
+    `"discard-ring-only"` discards only the bearer's Ring on a failed check
+    (The Ring's Betrayal); `"discard-instead-of-eliminate"` downgrades any
+    would-be *elimination* to a plain discard of the character + his
+    non-follower possessions (The Roving Eye le-135).
   - `{ "wound": "bearer" | "character" | "self" }` — wounds the specified
     entity (sets status to Inverted) as the cost.
 

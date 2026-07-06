@@ -1227,7 +1227,65 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheRovingEye.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-07-06",
+    "keywords": [
+      "corruption"
+    ],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.race": {
+                "$ne": "wizard"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "ringwraith"
+              }
+            },
+            {
+              "$or": [
+                {
+                  "target.itemKeywords": {
+                    "$includes": "palantir"
+                  }
+                },
+                {
+                  "target.itemSubtypes": {
+                    "$includes": "greater"
+                  }
+                },
+                {
+                  "$and": [
+                    {
+                      "target.itemKeywords": {
+                        "$includes": "ring"
+                      }
+                    },
+                    {
+                      "$not": {
+                        "target.itemSubtypes": {
+                          "$includes": "gold-ring"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "cost": {
+          "check": "corruption",
+          "modifier": -2,
+          "failureMode": "discard-instead-of-eliminate"
+        }
+      }
+    ],
     "text": "Playable on a non-Wizard, non-Ringwraith character bearing a Palantír, greater item, or ring that is not a gold ring. Target character is forced to make corruption check modified by -2. If the character would normally be eliminated as a result of this check, he is instead discarded (along with all non-follower cards played with him)."
   },
   {

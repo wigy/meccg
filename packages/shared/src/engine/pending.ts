@@ -81,7 +81,7 @@ export function enqueueCorruptionCheck(
     readonly modifier?: number;
     readonly possessions?: readonly CardInstanceId[];
     readonly transferredItemId?: CardInstanceId | null;
-    readonly failureMode?: 'discard-ring-only';
+    readonly failureMode?: 'discard-ring-only' | 'discard-instead-of-eliminate';
     readonly onSuccess?: import('../types/effects.js').TriggeredAction;
   },
 ): GameState {

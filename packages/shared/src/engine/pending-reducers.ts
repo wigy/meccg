@@ -185,6 +185,13 @@ export function applyCorruptionCheckResolution(
     logDetail(`Corruption check for ${charName} auto-passed (Ancient Black Axe) — overriding outcome '${outcome}' to 'success'`);
     outcome = 'success';
   }
+  // The Roving Eye (le-135): an outcome that would normally eliminate the
+  // character is instead downgraded to a discard (character + non-follower
+  // possessions to the discard pile, followers freed to general influence).
+  if (outcome === 'eliminate' && top.kind.failureMode === 'discard-instead-of-eliminate') {
+    logDetail(`Corruption check for ${charName}: failureMode discard-instead-of-eliminate — downgrading 'eliminate' to 'discard'`);
+    outcome = 'discard';
+  }
 
   if (outcome === 'success' || outcome === 'tap-success') {
     let successState: GameState = postRollState;
