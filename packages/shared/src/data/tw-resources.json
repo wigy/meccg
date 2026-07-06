@@ -2278,8 +2278,26 @@
         "site": "Grey Havens"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Grey Havens if the influence check is greater than 9. Standard Modifications: Dúnedain (+1), Elves (+2)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "bearer.race": "elf"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Grey Havens if the influence check is greater than 9. Standard Modifications: Dúnedain (+1), Elves (+2).",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hero-resource-faction",
