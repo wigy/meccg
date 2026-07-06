@@ -40,7 +40,7 @@ import {
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { THE_ONE_RING } from '../../index.js';
-import type { PlayHazardAction, CorruptionCheckAction, CardDefinitionId, CardInstanceId } from '../../index.js';
+import type { PlayHazardAction, CorruptionCheckAction, CardDefinitionId } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 
 const ROVING_EYE = 'le-135' as CardDefinitionId;
@@ -52,7 +52,7 @@ function rovingEyePlays(state: ReturnType<typeof buildTestState>) {
   const card = state.players[1].hand.find(c => c.definitionId === ROVING_EYE)!;
   return computeLegalActions(state, PLAYER_2)
     .filter(ea => ea.action.type === 'play-hazard'
-      && (ea.action as PlayHazardAction).cardInstanceId === card.instanceId);
+      && (ea.action).cardInstanceId === card.instanceId);
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -303,7 +303,7 @@ describe('The Roving Eye (le-135)', () => {
     const mh = { ...state, phaseState: makeMHState() };
     const aragornId = charIdAt(mh, RESOURCE_PLAYER);
     const ringId = mh.players[0].characters[aragornId].items
-      .find(i => i.definitionId === THE_ONE_RING)!.instanceId as CardInstanceId;
+      .find(i => i.definitionId === THE_ONE_RING)!.instanceId;
 
     // Play and resolve the chain.
     const played = reduce(mh, rovingEyePlays(mh).filter(a => a.viable)[0].action);
