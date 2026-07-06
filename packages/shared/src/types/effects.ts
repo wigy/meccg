@@ -955,9 +955,13 @@ export interface ActionCost {
   /**
    * Custom failure consequence for corruption-check costs. When set to
    * `'discard-ring-only'`, a failed check discards the bearer's Ring item
-   * instead of the character (e.g. The Ring's Betrayal).
+   * instead of the character (e.g. The Ring's Betrayal). When set to
+   * `'discard-instead-of-eliminate'`, an outcome that would normally
+   * eliminate the character (roll ≥2 below CP, or a Wizard avatar on any
+   * failure) instead merely discards him along with his non-follower
+   * possessions (e.g. The Roving Eye le-135).
    */
-  readonly failureMode?: 'discard-ring-only';
+  readonly failureMode?: 'discard-ring-only' | 'discard-instead-of-eliminate';
 }
 
 /**

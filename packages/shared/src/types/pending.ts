@@ -186,9 +186,12 @@ export interface PendingResolution {
         /**
          * Custom failure consequence. When `'discard-ring-only'`, a failed
          * check discards only the bearer's Ring item instead of the character
-         * (e.g. The Ring's Betrayal). Absent for standard checks.
+         * (e.g. The Ring's Betrayal). When `'discard-instead-of-eliminate'`,
+         * an outcome that would eliminate the character is downgraded to a
+         * discard of the character + his non-follower possessions (e.g. The
+         * Roving Eye le-135). Absent for standard checks.
          */
-        readonly failureMode?: 'discard-ring-only';
+        readonly failureMode?: 'discard-ring-only' | 'discard-instead-of-eliminate';
         /**
          * Follow-up effect run when the check *passes* (CoE 10.39 hook).
          * Used by Cracks of Doom (tw-205): a successful −4 corruption check
