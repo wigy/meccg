@@ -1423,6 +1423,36 @@ export function discardOneCompanyItemActions(
 }
 
 /**
+ * Legal actions for a `force-discard-card` pending resolution (Rolled down to
+ * the Sea, wh-29). The actor (the card-player's opponent) must discard one
+ * ring; one `force-discard-card` action is offered per candidate ring instance
+ * pre-computed when the resolution was enqueued.
+ */
+export function forceDiscardCardActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'force-discard-card') return [];
+  const actions: EvaluatedAction[] = [];
+  for (const instanceId of top.kind.candidateInstanceIds) {
+    const defId = resolveInstanceId(state, instanceId);
+    const cardDef = defId ? defById(state, defId) : undefined;
+    const cardName = cardDef?.name ?? (instanceId as string);
+    logDetail(`force-discard-card: offering ring "${cardName}" (${instanceId as string})`);
+    actions.push({
+      action: {
+        type: 'force-discard-card' as const,
+        player: actor,
+        cardInstanceId: instanceId,
+      },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
  * Legal actions for a `hazard-event-maintenance` pending resolution.
  *
  * The hazard player must choose one of:
