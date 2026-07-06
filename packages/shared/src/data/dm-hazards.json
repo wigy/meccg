@@ -446,6 +446,10 @@
     "manifestId": "dm-178",
     "effects": [
       {
+        "type": "play-flag",
+        "flag": "hazard-agent-only"
+      },
+      {
         "type": "agent-tap-influence",
         "targetKinds": [
           "character",
@@ -508,6 +512,10 @@
     ],
     "manifestId": "tw-246",
     "effects": [
+      {
+        "type": "play-flag",
+        "flag": "hazard-agent-only"
+      },
       {
         "type": "extra-agent-actions",
         "value": 1,
