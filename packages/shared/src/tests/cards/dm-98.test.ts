@@ -62,7 +62,7 @@ import {
   HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { RegionType, SiteType, CardStatus } from '../../index.js';
-import type { CardDefinitionId, CardInstanceId, PlayHazardAction } from '../../index.js';
+import type { CardDefinitionId, PlayHazardAction } from '../../index.js';
 import { findForcingEnvironment } from '../../engine/mh-hazard-play.js';
 import { addConstraint } from '../../engine/pending.js';
 
