@@ -1452,15 +1452,52 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PalantirofMinasTirith.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "palantir"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Palantír. Playable only at Minas Tirith. With its bearer able to use a Palantír, tap Palantír of Minas Tirith to look at the top five cards of your play deck; shuffle these 5 cards and return them to the top of your play deck. Do the same to your opponent’s play deck. Bearer makes a corruption check."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": [
+          "Minas Tirith"
+        ]
+      },
+      {
+        "type": "grant-action",
+        "action": "palantir-peek-shuffle",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "bearer.canUsePalantir": true
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "shuffle-deck-top",
+              "count": 5
+            },
+            {
+              "type": "shuffle-deck-top",
+              "count": 5,
+              "toOwner": "opponent"
+            },
+            {
+              "type": "enqueue-corruption-check"
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. Palantír. Playable only at Minas Tirith. With its bearer able to use a Palantír, tap Palantír of Minas Tirith to look at the top five cards of your play deck; shuffle these 5 cards and return them to the top of your play deck. Do the same to your opponent’s play deck. Bearer makes a corruption check.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hero-resource-item",
