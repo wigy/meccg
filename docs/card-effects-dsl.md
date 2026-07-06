@@ -509,6 +509,39 @@ Resolved directly in `handlePlayResourceShortEvent` (`reducer-events.ts`).
 Used by Horns, Horns, Horns (dm-140): "Each player removes all factions
 from his discard pile and shuffles them into his play deck."
 
+### 6e. `force-opponent-discard`
+
+Hazard short-event effect that forces the card-player's **opponent** (the
+resource/active player, in a hazard-play context) to discard one card of a
+named category — chosen by the opponent — or, if none is available, reveal
+their hand. Resolved when the event resolves on the chain
+(`chain-reducer.ts`).
+
+- `match` — the card-category matcher. Currently `"ring"`: any card carrying
+  the `ring` keyword **or** the `gold-ring` subtype (the MECCG definition of a
+  ring).
+- `sources` — where candidate cards are gathered from: `"hand"` (the
+  opponent's hand) and/or `"carried"` (cards held by the opponent's in-play
+  characters, i.e. "from one of his companies").
+- `fallbackRevealHand` — when true and no candidate exists in any source, the
+  opponent's current hand identities are revealed to the card-player instead
+  (recorded in `GameState.revealedInstances`).
+
+When at least one candidate exists, a `force-discard-card` pending resolution
+is enqueued (actor = the opponent) so they pick exactly one to discard
+(mandatory); the chosen card is moved from wherever it sits — hand or a
+character's items — to the opponent's discard pile
+(`applyForceDiscardCardResolution`).
+
+```json
+{ "type": "force-opponent-discard", "match": "ring",
+  "sources": ["hand", "carried"], "fallbackRevealHand": true }
+```
+
+Used by Rolled down to the Sea (wh-29): "Opponent must discard a ring from
+his hand or from one of his companies if available. If no rings are available
+as such, he must reveal his hand to you."
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,
@@ -4566,6 +4599,34 @@ Used by *Power Built by Waiting* (as-34):
 { "type": "hazard-limit-swap", "tapValue": 1, "untapCost": 2 }
 ```
 
+### 52b. `discard-for-hazard-limit`
+
+Marks a permanent hazard event that may be **discarded from play** during the
+opponent's movement/hazard phase (not counting against the hazard limit) to
+increase the hazard limit against one company by `value`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `value` | yes | Hazard limit slots added to the target company when the card is discarded. |
+
+Unlike `hazard-limit-swap`, the boost is paid once by removing the card from
+play (cardsInPlay → discard pile), not by tapping — there is no way to recover
+it. The `discard-card-for-hazard-limit` action is offered to the hazard player
+for any in-play card carrying this effect while a company is being processed;
+the reducer discards the card (a routine discard that does **not** break the
+Dragon manifestation chain) and adds a `hazard-limit-modifier` constraint scoped
+to the target company's current M/H phase.
+
+Implementation: `legal-actions/movement-hazard.ts` `discardForHazardLimitActions`;
+`mh-hazard-play.ts` `handleDiscardCardForHazardLimit`.
+
+Used by the 9 Dragon "At Home" permanent-events (METD §4), e.g. *Daelomin at
+Home* (td-11):
+
+```json
+{ "type": "discard-for-hazard-limit", "value": 2 }
+```
+
 ### 53. `company-overt`
 
 Marks the bearing character's company as **overt** as long as this ally is in play.
@@ -5669,3 +5730,120 @@ The play mode is selected by which target the `play-short-event` action carries:
 Used by Withdrawn to Mordor (dm-165): "Playable on a face-up agent. If the agent
 has a mind of 5 or less, it is discarded. If its mind is 6 or greater, return the
 agent to its owner's hand. Alternatively, an on-guard card is discarded."
+
+### 56a. `creature-alt-event`
+
+Marks a hazard-creature card as **dual-mode** — playable either in the normal
+keyed-creature way *or* as an event. MECCG has ~20 such cards (Nazgûl, hunter
+manifestations, Wolf-riders, spiders): "May be played as a hazard creature or as
+a short-event/permanent-event."
+
+```json
+{ "type": "creature-alt-event", "mode": "short-event" }
+```
+
+- `mode` — the alternative event mode the creature may also be played in:
+  `"short-event"` or `"permanent-event"`.
+
+The effect is purely the **mode declaration**. It carries no behaviour of its
+own: the alternative mode's actual effects are the card's *other* top-level
+effects, which resolve through the ordinary event chain path once the card is
+played in event mode. This keeps dual-mode cards fully declarative and reuses
+existing primitives rather than duplicating them.
+
+- The **legal-action generator** (`playHazardsActions` in
+  `legal-actions/movement-hazard.ts`) offers the alternative event as its own
+  `play-hazard` action carrying `altEventMode`, alongside the keyed-creature
+  actions. The event mode needs **no creature keying** and — unlike a
+  race-exempt creature — is **not** exempt from the hazard limit.
+- The **play reducer** (`handlePlayHazardCard` in `mh-hazard-play.ts`) routes an
+  `altEventMode: "short-event"` play of a hazard-creature through the same
+  bookkeeping as any hazard short-event (card → discard, hazard-limit tally,
+  short-event chain entry), so the card's top-level effects then resolve
+  normally.
+
+For **Mouth of Sauron (tw-65)** ("or as a short-event; if played as a
+short-event, bring any hazard card from your discard pile back into your hand"),
+the companion effect is a `move` (`from: "discard"`, `to: "hand"`, filtered to
+any hazard `cardType`), which the short-event chain resolution bridges into the
+existing fetch-to-hand pending sub-flow.
+
+This effect is distinct from `play-flag: playable-as-event`, which only feeds
+the deck-construction ½-creature weighting (`deck-validation.ts`) and carries no
+mode; both may coexist on a card.
+
+### 56b. `company-return-to-origin`
+
+Forces the active movement/hazard company back to its **site of origin** (CoE
+rule 2.IV.4 mechanism, shared with `agent-discard-return-to-origin`): the
+company keeps its origin site instead of its destination and may not act during
+its site phase (a `site-phase-do-nothing` constraint is added). Carried by a
+hazard short-event — including a dual-mode creature played as a short-event (see
+`creature-alt-event`) — and applied on chain resolution.
+
+```json
+{
+  "type": "company-return-to-origin",
+  "unless": {
+    "$or": [
+      { "company.characterNames": { "$includes": "Beorn" } },
+      { "company.maxUntappedWarriorProwess": { "$gt": 4 } }
+    ]
+  }
+}
+```
+
+- `unless` (optional) — a DSL condition evaluated against the target company
+  (context from `buildTargetCompanyConditionContext`: `company.alignment`,
+  `company.characterNames`, `company.maxUntappedWarriorProwess`, …). When it
+  matches, the return is **skipped** and the card resolves with no effect.
+
+The resolution lives in `applyCompanyReturnToOrigin` (`chain-reducer.ts`), which
+sets `MovementHazardPhaseState.returnedToOrigin` (honoured by `endCompanyMH`)
+and adds the `site-phase-do-nothing` constraint.
+
+Used by **Beorning Skin-changers (ba-10)**, played as a short-event against a
+moving hero company: "Unless the company contains Beorn or an untapped warrior
+with prowess greater than 4, it must return to its site of origin." Its
+`creature-alt-event` (mode `short-event`) additionally carries
+`requiresMovingCompany: true` and `targetCompany: { "company.alignment": "hero" }`
+so the short-event mode is only offered against a *moving hero* company (whereas
+its creature mode targets minion companies).
+
+### 56c. `creature-alt-event` permanent-event mode + `tap-character`
+
+The `creature-alt-event` primitive (§56a) also supports `mode: "permanent-event"`
+for dual creature/permanent-event cards (Ûvatha tw-107, Adûnaphel tw-2):
+
+```json
+{ "type": "creature-alt-event", "mode": "permanent-event" }
+```
+
+Played in this mode, the creature enters the hazard player's `cardsInPlay`
+untapped (via the standard permanent-event chain path). It sits there until the
+hazard player **taps** it during the opponent's movement/hazard phase with a
+`tap-alt-permanent-event` action — which "becomes a short-event": the card is
+removed from play and discarded, **counts one against the hazard limit**, and
+its on-tap effects resolve through the ordinary short-event chain path. Legal
+actions: `tapAltPermanentEventActions` (`legal-actions/movement-hazard.ts`);
+reducer: `handleTapAltPermanentEvent` (`mh-hazard-play.ts`).
+
+The on-tap behaviour is the card's other top-level effects:
+
+- **tw-107** — a `move` (`from: "discard"`, `to: "hand"`, filter
+  `{ "cardType": "hazard-creature" }`): fetch one hazard creature from the
+  discard pile to hand (shared fetch-to-hand sub-flow).
+- **tw-2** — a `tap-character` effect (below).
+
+**`tap-character`** taps one chosen character in play:
+
+```json
+{ "type": "tap-character" }
+```
+
+- `filter` (optional) — a condition on the target character definition; absent =
+  any character in play. The legal-action generator emits one action per
+  eligible untapped target; the choice rides on the action's `targetCharacterId`
+  and is applied on chain resolution (`applyTapCharacter`, `chain-reducer.ts`).
+
+Used by Adûnaphel tw-2's on-tap: "When tapped, … causes any one character to tap."

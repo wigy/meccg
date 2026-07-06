@@ -132,11 +132,17 @@ export function handlePlayHazards(
   if (action.type === 'agent-tap-attack') return handleAgentTapAttack(state, action, mhState);
   if (action.type === 'agent-discard-return-to-origin') return handleAgentDiscardReturnToOrigin(state, action, mhState);
 
+  // --- Tap an in-play dual-mode creature-permanent-event → short-event (tw-2, tw-107) ---
+  if (action.type === 'tap-alt-permanent-event') return handleTapAltPermanentEvent(state, action, mhState);
+
   // --- Tap cardsInPlay hazard permanent event for +1 hazard limit (Power Built by Waiting) ---
   if (action.type === 'tap-hazard-card-for-limit') return handleTapHazardCardForLimit(state, action, mhState);
 
   // --- Pay hazard limit to untap a cardsInPlay hazard permanent event (Power Built by Waiting) ---
   if (action.type === 'pay-hazard-limit-to-untap-card') return handlePayHazardLimitToUntapCard(state, action, mhState);
+
+  // --- Discard a Dragon "At Home" permanent event for +hazard limit (METD §4) ---
+  if (action.type === 'discard-card-for-hazard-limit') return handleDiscardCardForHazardLimit(state, action, mhState);
 
   // --- Reserve a Dragon/Drake creature in the Summons from Long Sleep (as-39) slot ---
   if (action.type === 'reserve-creature') return handleReserveCreature(state, action, mhState);
@@ -633,6 +639,77 @@ export function handlePlayHazardCard(
       discardPile: [...p.discardPile, handCard],
     }));
     return { state: triggerCouncilCall(afterDiscard, action.player, 'self') };
+  }
+
+  // --- Dual-mode creature played as a short-event (creature-alt-event) ---
+  // e.g. Mouth of Sauron (tw-65): "may be played as a hazard creature or as a
+  // short-event". The player chose the event mode: the card goes hand → discard,
+  // counts against the hazard limit like any short-event, and pushes a
+  // short-event chain entry. Its top-level effects (e.g. a `move` from discard
+  // to hand) then resolve through the very same hazard short-event chain path,
+  // so no behaviour is duplicated. Must precede the creature branch below.
+  if (def.cardType === 'hazard-creature'
+      && action.type === 'play-hazard'
+      && action.altEventMode === 'short-event') {
+    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
+    const newHazardCount = bypassesLimit
+      ? mhState.hazardsPlayedThisCompany
+      : mhState.hazardsPlayedThisCompany + 1;
+    logDetail(`Play-hazards: hazard player plays creature "${def.name}" as a short-event (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
+
+    // Short events are discarded at play time (they resolve off the chain).
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+    let newState: GameState = {
+      ...updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        hand: newHand,
+        discardPile: [...p.discardPile, handCard],
+      })),
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: newHazardCount,
+        resourcePlayerPassed: false,
+      },
+    };
+
+    const shortEventPayload: import('../index.js').ChainEntryPayload = {
+      type: 'short-event',
+      ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+    };
+    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload);
+    return { state: newState };
+  }
+
+  // --- Dual-mode creature played as a permanent-event (creature-alt-event) ---
+  // e.g. Ûvatha tw-107 / Adûnaphel tw-2: "may be played as a hazard creature or
+  // as a permanent-event". The card enters play (hazard player's cardsInPlay)
+  // via the standard permanent-event chain path and sits there until the hazard
+  // player taps it on a later turn (handleTapAltPermanentEvent). Counts one
+  // against the hazard limit like any permanent event. Must precede the creature
+  // branch below.
+  if (def.cardType === 'hazard-creature'
+      && action.type === 'play-hazard'
+      && action.altEventMode === 'permanent-event') {
+    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
+    const newHazardCount = bypassesLimit
+      ? mhState.hazardsPlayedThisCompany
+      : mhState.hazardsPlayedThisCompany + 1;
+    logDetail(`Play-hazards: hazard player plays creature "${def.name}" as a permanent-event (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''} — enters play`);
+
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+    let newState: GameState = {
+      ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: newHazardCount,
+        resourcePlayerPassed: false,
+      },
+    };
+    // General permanent-event (no character/site binding): resolvePermanentEvent
+    // places it into the hazard player's cardsInPlay untapped.
+    const payload: import('../index.js').ChainEntryPayload = { type: 'permanent-event' };
+    newState = initiateOrPushChain(newState, action.player, handCard, payload);
+    return { state: newState };
   }
 
   // --- Creature handling (via chain of effects) ---
@@ -1914,6 +1991,68 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
 
 
 /**
+ * Handle tap-alt-permanent-event: the hazard player taps an in-play dual-mode
+ * creature that was played as a permanent-event (`creature-alt-event` mode
+ * `permanent-event`, e.g. Ûvatha tw-107 / Adûnaphel tw-2) during the opponent's
+ * movement/hazard phase. Per the card text the permanent-event "becomes a
+ * short-event": it is removed from play and discarded, counts one against the
+ * hazard limit, and its on-tap effects resolve through the ordinary short-event
+ * chain path (tw-107: a `move` fetch of a hazard creature from discard to hand;
+ * tw-2: a `tap-character` targeting the chosen `targetCharacterId`).
+ */
+function handleTapAltPermanentEvent(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'tap-alt-permanent-event') return wrongActionType(state, action, 'tap-alt-permanent-event');
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const card = hazardPlayer.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: 'tap-alt-permanent-event: card not found in cardsInPlay' };
+  if (card.status === CardStatus.Tapped) return { state, error: 'tap-alt-permanent-event: card is already tapped' };
+  const def = defById(state, card.definitionId);
+  const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
+  if (!altEvent || altEvent.mode !== 'permanent-event') {
+    return { state, error: 'tap-alt-permanent-event: not a creature-permanent-event' };
+  }
+
+  // Tapping counts one against the hazard limit (per the card text).
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const activeCompany = state.players[resourceIndex].companies[mhState.activeCompanyIndex];
+  const bypassesLimit = !!def && 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+  if (activeCompany && !bypassesLimit) {
+    const limit = currentHazardLimit(state, mhState, activeCompany.id);
+    if (mhState.hazardsPlayedThisCompany >= limit) {
+      return { state, error: `tap-alt-permanent-event: hazard limit reached (${limit})` };
+    }
+  }
+  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+
+  logDetail(`Creature-permanent-event "${def?.name ?? card.definitionId}" tapped during opponent M/H → becomes a short-event (${newHazardCount})`);
+
+  // "Becomes a short-event": remove from play, discard, and resolve its on-tap
+  // effects via the short-event chain path (identical to playing it as a
+  // short-event — its top-level effects resolve on chain resolution).
+  const cardInstance = toCardInstance(card);
+  let newState: GameState = {
+    ...updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+      discardPile: [...p.discardPile, cardInstance],
+    })),
+    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
+  };
+
+  const payload: import('../index.js').ChainEntryPayload = {
+    type: 'short-event',
+    ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+  };
+  newState = initiateOrPushChain(newState, action.player, cardInstance, payload);
+  return { state: newState };
+}
+
+/**
  * Handle tap-hazard-card-for-limit: hazard player taps a cardsInPlay permanent
  * event (e.g. Power Built by Waiting) to increase the hazard limit against the
  * current target company by the card's HazardLimitSwapEffect.tapValue.
@@ -2000,6 +2139,55 @@ export function handlePayHazardLimitToUntapCard(
       phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount },
     },
   };
+}
+
+/**
+ * Handle discard-card-for-hazard-limit: the hazard player discards a Dragon
+ * "At Home" permanent event (METD §4) from play during the opponent's M/H
+ * phase to raise the hazard limit against the current target company by the
+ * card's {@link DiscardForHazardLimitEffect.value}.
+ *
+ * The card moves from cardsInPlay to the owner's discard pile (a routine
+ * discard — it does NOT break the Dragon manifestation chain, and it does NOT
+ * count against the hazard limit). The boost is added as a
+ * `hazard-limit-modifier` constraint scoped to the target company's current
+ * M/H phase, exactly like {@link handleTapHazardCardForLimit}.
+ */
+export function handleDiscardCardForHazardLimit(
+  state: GameState,
+  action: import('../types/actions-movement-hazard.js').DiscardCardForHazardLimitAction,
+  _mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: `discard-card-for-hazard-limit: card ${action.cardInstanceId as string} not found in cardsInPlay` };
+
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find((e): e is import('../types/effects.js').DiscardForHazardLimitEffect => e.type === 'discard-for-hazard-limit');
+  if (!effect) return { state, error: `discard-card-for-hazard-limit: no discard-for-hazard-limit effect on ${card.definitionId as string}` };
+
+  const defName = (def as { name?: string } | undefined)?.name ?? card.definitionId as string;
+  logDetail(`Discard for hazard limit: "${defName}" discarded from play → +${effect.value} hazard limit against company ${action.targetCompanyId as string}`);
+
+  // Discard the card from play (routine discard — chain is not broken).
+  const stateAfterDiscard = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+
+  // Add hazard-limit-modifier constraint on the target company.
+  const stateWithConstraint = addConstraint(stateAfterDiscard, {
+    source: action.cardInstanceId,
+    sourceDefinitionId: card.definitionId,
+    target: { kind: 'company', companyId: action.targetCompanyId },
+    kind: { type: 'hazard-limit-modifier', value: effect.value },
+    scope: { kind: 'company-mh-phase', companyId: action.targetCompanyId },
+  });
+
+  return { state: stateWithConstraint };
 }
 
 /**

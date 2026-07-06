@@ -33,13 +33,14 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence } from './reducer-utils.js';
+import { makeCombatState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
 import { resolveWinConditionRoll } from './reducer-win-conditions.js';
+import { revealInstances } from './visibility.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -849,6 +850,77 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
     ...next,
     pendingEffects: [...next.pendingEffects, ...fetchEffects],
   };
+}
+
+/**
+ * Applies a `company-return-to-origin` short-event effect on chain resolution.
+ * Forces the active movement/hazard company to keep its site of origin (CoE
+ * rule 2.IV.4 mechanism, shared with `agent-discard-return-to-origin`): sets
+ * `returnedToOrigin` so {@link endCompanyMH} keeps the company at origin, and
+ * adds a `site-phase-do-nothing` constraint so it cannot act during its site
+ * phase. The optional `unless` company condition (Beorn / an untapped warrior
+ * with prowess > 4 for ba-10) is evaluated against the target company; when it
+ * matches, the return is skipped and the card resolves with no effect.
+ */
+function applyCompanyReturnToOrigin(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(e => e.type === 'company-return-to-origin');
+  if (!effect) return state;
+
+  if (state.phaseState.phase !== Phase.MovementHazard) return state;
+  const mhState = state.phaseState;
+  if (mhState.returnedToOrigin) return state;
+
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[resourceIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company || !company.destinationSite) return state;
+
+  if (effect.unless) {
+    const ctx = buildTargetCompanyConditionContext(state, resourcePlayer, company);
+    if (matchesCondition(effect.unless, ctx)) {
+      logDetail(`${def?.name ?? 'card'}: return-to-origin skipped — company meets the exception`);
+      return state;
+    }
+  }
+
+  logDetail(`${def?.name ?? 'card'}: company ${company.id as string} must return to its site of origin (short-event, rule 2.IV.4)`);
+  let next: GameState = { ...state, phaseState: { ...mhState, returnedToOrigin: true } };
+  next = addConstraint(next, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'company-site-phase', companyId: company.id },
+    target: { kind: 'company', companyId: company.id },
+    kind: { type: 'site-phase-do-nothing' },
+  });
+  return next;
+}
+
+/**
+ * Applies a `tap-character` short-event effect on chain resolution: taps the
+ * character chosen when the card was played/tapped (the chain entry payload's
+ * `targetCharacterId`). Used by Adûnaphel tw-2's permanent-event on-tap ("causes
+ * any one character to tap"). No-op if the card carries no `tap-character`
+ * effect or the target is gone (e.g. eliminated before resolution).
+ */
+function applyTapCharacter(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event') return state;
+  const targetCharId = entry.payload.targetCharacterId;
+  if (!targetCharId) return state;
+  const def = defById(state, card.definitionId);
+  if (!getCardEffects(def).some(e => e.type === 'tap-character')) return state;
+  for (let pi = 0; pi < 2; pi++) {
+    if (state.players[pi].characters[targetCharId]) {
+      logDetail(`${def?.name ?? 'card'}: taps character ${targetCharId as string}`);
+      const players: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+      players[pi] = updateCharacter(players[pi], targetCharId, ch => ({ ...ch, status: CardStatus.Tapped }));
+      return { ...state, players };
+    }
+  }
+  return state;
 }
 
 /**
@@ -1914,6 +1986,21 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     current = queueFetchToDecEffects(current, entry);
   }
 
+  // Short events that force the active M/H company back to its site of origin
+  // (e.g. Beorning Skin-changers ba-10 played as a short-event) — unless the
+  // effect's `unless` company condition (Beorn / an untapped warrior with
+  // prowess > 4) is met.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyCompanyReturnToOrigin(current, entry);
+  }
+
+  // Short events that tap one chosen character (e.g. Adûnaphel tw-2's on-tap
+  // "causes any one character to tap"). The target was chosen at play/tap time
+  // and rides on the chain entry's payload.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyTapCharacter(current, entry);
+  }
+
   // draw-cards (Dark Tryst as-80): a resource short event that draws cards
   // routes through the chain (see handlePlayResourceShortEvent) and resolves
   // here once both players pass priority. Draw `count` cards from the top of
@@ -1948,6 +2035,73 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           ? { outOfPlayPile: [...p.outOfPlayPile, spentCard] }
           : { discardPile: [...p.discardPile, spentCard] }),
       }));
+    }
+  }
+
+  // Rolled down to the Sea (wh-29): a hazard short-event carrying a
+  // force-opponent-discard effect. When it resolves un-negated, gather the
+  // card-player's opponent's rings from the named sources; if any exist,
+  // enqueue a force-discard-card pending resolution so the opponent picks one
+  // ring to discard. If none exist and fallbackRevealHand is set, reveal the
+  // opponent's hand identities to the card-player instead. The chain entry is
+  // still marked resolved below (the pending resolution is independent of the
+  // chain, like Brigands' discard-one-company-item).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const forceDiscard = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').ForceOpponentDiscardEffect => e.type === 'force-opponent-discard',
+    );
+    if (forceDiscard) {
+      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const opponentId = opponent(current, entry.declaredBy);
+      const opponentIdx = getPlayerIndex(current, opponentId);
+      const opponentState = current.players[opponentIdx];
+
+      // A "ring" is any card carrying the `ring` keyword or the `gold-ring`
+      // subtype (the MECCG definition of a ring). The matcher is keyed off the
+      // effect's `match` category so it can be reused by future cards.
+      const isRing = (defId: CardDefinitionId): boolean => {
+        const cardDef = defById(current, defId);
+        if (!cardDef) return false;
+        const keywords: readonly string[] = 'keywords' in cardDef ? (cardDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+        const subtype = 'subtype' in cardDef ? (cardDef as { subtype?: string }).subtype : undefined;
+        return keywords.includes('ring') || subtype === 'gold-ring';
+      };
+      const matches = (defId: CardDefinitionId): boolean =>
+        forceDiscard.match === 'ring' ? isRing(defId) : false;
+
+      const candidateInstanceIds: CardInstanceId[] = [];
+      if (forceDiscard.sources.includes('hand')) {
+        for (const c of opponentState.hand) {
+          if (matches(c.definitionId)) candidateInstanceIds.push(c.instanceId);
+        }
+      }
+      if (forceDiscard.sources.includes('carried')) {
+        for (const ch of Object.values(opponentState.characters)) {
+          for (const item of ch.items) {
+            if (matches(item.definitionId)) candidateInstanceIds.push(item.instanceId);
+          }
+        }
+      }
+
+      if (candidateInstanceIds.length > 0) {
+        logDetail(`${cardName}: ${opponentState.name} must discard one of ${candidateInstanceIds.length} ring(s) — enqueuing force-discard-card`);
+        current = enqueueResolution(current, {
+          source: entry.card.instanceId,
+          actor: opponentId,
+          scope: { kind: 'phase', phase: Phase.MovementHazard },
+          kind: {
+            type: 'force-discard-card',
+            candidateInstanceIds,
+            sourceDefinitionId: entry.card.definitionId,
+          },
+        });
+      } else if (forceDiscard.fallbackRevealHand) {
+        logDetail(`${cardName}: no rings available — ${opponentState.name} reveals their hand (${opponentState.hand.length} card(s)) to ${entry.declaredBy as string}`);
+        current = revealInstances(current, opponentState.hand);
+      } else {
+        logDetail(`${cardName}: no rings available and no reveal-hand fallback — no effect`);
+      }
     }
   }
 
