@@ -5771,3 +5771,41 @@ existing fetch-to-hand pending sub-flow.
 This effect is distinct from `play-flag: playable-as-event`, which only feeds
 the deck-construction ½-creature weighting (`deck-validation.ts`) and carries no
 mode; both may coexist on a card.
+
+### 56b. `company-return-to-origin`
+
+Forces the active movement/hazard company back to its **site of origin** (CoE
+rule 2.IV.4 mechanism, shared with `agent-discard-return-to-origin`): the
+company keeps its origin site instead of its destination and may not act during
+its site phase (a `site-phase-do-nothing` constraint is added). Carried by a
+hazard short-event — including a dual-mode creature played as a short-event (see
+`creature-alt-event`) — and applied on chain resolution.
+
+```json
+{
+  "type": "company-return-to-origin",
+  "unless": {
+    "$or": [
+      { "company.characterNames": { "$includes": "Beorn" } },
+      { "company.maxUntappedWarriorProwess": { "$gt": 4 } }
+    ]
+  }
+}
+```
+
+- `unless` (optional) — a DSL condition evaluated against the target company
+  (context from `buildTargetCompanyConditionContext`: `company.alignment`,
+  `company.characterNames`, `company.maxUntappedWarriorProwess`, …). When it
+  matches, the return is **skipped** and the card resolves with no effect.
+
+The resolution lives in `applyCompanyReturnToOrigin` (`chain-reducer.ts`), which
+sets `MovementHazardPhaseState.returnedToOrigin` (honoured by `endCompanyMH`)
+and adds the `site-phase-do-nothing` constraint.
+
+Used by **Beorning Skin-changers (ba-10)**, played as a short-event against a
+moving hero company: "Unless the company contains Beorn or an untapped warrior
+with prowess greater than 4, it must return to its site of origin." Its
+`creature-alt-event` (mode `short-event`) additionally carries
+`requiresMovingCompany: true` and `targetCompany: { "company.alignment": "hero" }`
+so the short-event mode is only offered against a *moving hero* company (whereas
+its creature mode targets minion companies).

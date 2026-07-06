@@ -33,7 +33,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence } from './reducer-utils.js';
+import { makeCombatState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { applyCost } from './cost-evaluator.js';
@@ -850,6 +850,52 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
     ...next,
     pendingEffects: [...next.pendingEffects, ...fetchEffects],
   };
+}
+
+/**
+ * Applies a `company-return-to-origin` short-event effect on chain resolution.
+ * Forces the active movement/hazard company to keep its site of origin (CoE
+ * rule 2.IV.4 mechanism, shared with `agent-discard-return-to-origin`): sets
+ * `returnedToOrigin` so {@link endCompanyMH} keeps the company at origin, and
+ * adds a `site-phase-do-nothing` constraint so it cannot act during its site
+ * phase. The optional `unless` company condition (Beorn / an untapped warrior
+ * with prowess > 4 for ba-10) is evaluated against the target company; when it
+ * matches, the return is skipped and the card resolves with no effect.
+ */
+function applyCompanyReturnToOrigin(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(e => e.type === 'company-return-to-origin');
+  if (!effect) return state;
+
+  if (state.phaseState.phase !== Phase.MovementHazard) return state;
+  const mhState = state.phaseState;
+  if (mhState.returnedToOrigin) return state;
+
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[resourceIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company || !company.destinationSite) return state;
+
+  if (effect.unless) {
+    const ctx = buildTargetCompanyConditionContext(state, resourcePlayer, company);
+    if (matchesCondition(effect.unless, ctx)) {
+      logDetail(`${def?.name ?? 'card'}: return-to-origin skipped — company meets the exception`);
+      return state;
+    }
+  }
+
+  logDetail(`${def?.name ?? 'card'}: company ${company.id as string} must return to its site of origin (short-event, rule 2.IV.4)`);
+  let next: GameState = { ...state, phaseState: { ...mhState, returnedToOrigin: true } };
+  next = addConstraint(next, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'company-site-phase', companyId: company.id },
+    target: { kind: 'company', companyId: company.id },
+    kind: { type: 'site-phase-do-nothing' },
+  });
+  return next;
 }
 
 /**
@@ -1913,6 +1959,14 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // and queue the pending effects so the player can pick cards to fetch.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = queueFetchToDecEffects(current, entry);
+  }
+
+  // Short events that force the active M/H company back to its site of origin
+  // (e.g. Beorning Skin-changers ba-10 played as a short-event) — unless the
+  // effect's `unless` company condition (Beorn / an untapped warrior with
+  // prowess > 4) is met.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyCompanyReturnToOrigin(current, entry);
   }
 
   // draw-cards (Dark Tryst as-80): a resource short event that draws cards
