@@ -2007,6 +2007,75 @@ export function applyDiscardOneCompanyItemResolution(
 }
 
 /**
+ * Resolve a `force-discard-card` pending resolution (Rolled down to the Sea,
+ * wh-29). The actor (the card-player's opponent) discards one chosen ring. The
+ * ring is located either in the actor's hand or among the items held by one of
+ * their in-play characters, removed from wherever it sits, and moved to the
+ * actor's discard pile. The chosen card must be one of the pre-computed
+ * candidates.
+ */
+export function applyForceDiscardCardResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'force-discard-card') return null;
+  if (action.type !== 'force-discard-card') {
+    return { state, error: `Pending force-discard-card requires force-discard-card, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for force-discard-card' };
+  }
+  const { cardInstanceId } = action;
+  if (!top.kind.candidateInstanceIds.includes(cardInstanceId)) {
+    return { state, error: `Card ${cardInstanceId as string} is not a valid ring to discard` };
+  }
+
+  const actorIdx = state.players.findIndex(p => p.id === action.player);
+  if (actorIdx < 0) return { state, error: 'Player not found for force-discard-card' };
+  const actorPlayer = state.players[actorIdx];
+
+  // Locate the chosen ring: first the hand, then any character's items.
+  let removed: CardInstance | null = null;
+  const handIdx = actorPlayer.hand.findIndex(c => c.instanceId === cardInstanceId);
+  let newHand = actorPlayer.hand;
+  const newCharacters = { ...actorPlayer.characters };
+  if (handIdx >= 0) {
+    removed = toCardInstance(actorPlayer.hand[handIdx]);
+    newHand = actorPlayer.hand.filter((_, i) => i !== handIdx);
+  } else {
+    for (const [charId, charData] of Object.entries(newCharacters)) {
+      const idx = charData.items.findIndex(it => it.instanceId === cardInstanceId);
+      if (idx >= 0) {
+        removed = toCardInstance(charData.items[idx]);
+        newCharacters[charId as CardInstanceId] = {
+          ...charData,
+          items: charData.items.filter((_, i) => i !== idx),
+        };
+        break;
+      }
+    }
+  }
+  if (!removed) {
+    return { state, error: `Ring ${cardInstanceId as string} not found in hand or company` };
+  }
+
+  const ringDef = defById(state, removed.definitionId);
+  const ringName = ringDef?.name ?? (cardInstanceId as string);
+  logDetail(`force-discard-card: ${actorPlayer.name} discards ring "${ringName}"`);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[actorIdx] = {
+    ...actorPlayer,
+    hand: newHand,
+    characters: newCharacters,
+    discardPile: [...actorPlayer.discardPile, removed],
+  };
+
+  return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
+}
+
+/**
  * Resolve a `hazard-event-maintenance` pending resolution.
  *
  * The hazard player pays the maintenance cost for a permanent event with a
