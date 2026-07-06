@@ -880,12 +880,17 @@ function applyDiceCheckBranch(
       logDetail(`dice-check return-character-to-hand: no target character — no-op`);
       return { state };
     }
-    const charInPlay = state.players[ctx.rollerIndex]?.characters[ctx.targetCharacterId];
-    if (!charInPlay) {
+    // The target may belong to a different player than the roller (Pilfer
+    // Anything Unwatched: the hazard player rolls, the returned character is the
+    // opponent's), so locate the actual owner rather than assuming the roller.
+    const ownerIndex = state.players.findIndex(p => !!p.characters[ctx.targetCharacterId!]);
+    if (ownerIndex === -1) {
       logDetail(`dice-check return-character-to-hand: ${ctx.targetCharacterId as string} no longer in play — no-op`);
       return { state };
     }
-    return { state: returnCharacterToHand(state, ctx.rollerIndex, ctx.targetCharacterId, charInPlay) };
+    const charInPlay = state.players[ownerIndex].characters[ctx.targetCharacterId];
+    const allowItemTransfer = branch.allowItemTransfer === true;
+    return { state: returnCharacterToHand(state, ownerIndex, ctx.targetCharacterId, charInPlay, allowItemTransfer, ctx.source) };
   }
   if (branch.type === 'discard-character') {
     if (!ctx.targetCharacterId) return { state };
@@ -967,6 +972,67 @@ export function applyDiceCheckResolution(
 }
 
 /**
+ * Resolve a queued `transfer-returned-item` resolution (Pilfer Anything
+ * Unwatched, as-33). The returned character's owner either transfers one of the
+ * discarded items to a company-mate, or declines; the remaining items stay in
+ * the discard pile either way. No card instance is lost — the transferred item
+ * moves discard → the mate's item list, and the rest remain in the discard.
+ */
+export function applyTransferReturnedItemResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (action.type !== 'transfer-returned-item') {
+    return { state, error: `Pending transfer-returned-item requires 'transfer-returned-item', got '${action.type}'` };
+  }
+  if (top.kind.type !== 'transfer-returned-item') return null;
+  if (action.player !== top.actor) {
+    return { state, error: `Wrong player for pending transfer-returned-item` };
+  }
+  const kind = top.kind;
+  const post = dequeueResolution(state, top.id);
+
+  // Decline (either field omitted): remaining items stay discarded.
+  if (!action.itemInstanceId || !action.targetCharacterId) {
+    logDetail(`Transfer-returned-item: owner declines — all items remain discarded`);
+    return { state: post };
+  }
+
+  if (!kind.itemInstanceIds.includes(action.itemInstanceId)) {
+    return { state, error: `Item ${action.itemInstanceId as string} is not among the returned character's items` };
+  }
+
+  const ownerIndex = kind.ownerPlayerIndex;
+  const owner = post.players[ownerIndex];
+  const company = owner.companies.find(c => c.id === kind.companyId);
+  if (!company || !company.characters.includes(action.targetCharacterId)) {
+    return { state, error: `Target character ${action.targetCharacterId as string} is not in the returning character's company` };
+  }
+
+  const itemInDiscard = owner.discardPile.find(c => c.instanceId === action.itemInstanceId);
+  if (!itemInDiscard) {
+    return { state, error: `Item ${action.itemInstanceId as string} not in owner's discard pile` };
+  }
+
+  const itemName = defById(state, itemInDiscard.definitionId)?.name ?? (itemInDiscard.definitionId as string);
+  const targetName = defById(state, owner.characters[action.targetCharacterId].definitionId)?.name ?? (action.targetCharacterId as string);
+  logDetail(`Transfer-returned-item: moving ${itemName} from discard onto ${targetName}`);
+
+  const targetCharacterId = action.targetCharacterId;
+  const itemInstanceId = action.itemInstanceId;
+  const newState = updatePlayer(post, ownerIndex, p => {
+    const withItem = updateCharacter(p, targetCharacterId, c => ({
+      ...c,
+      items: [...c.items, { instanceId: itemInstanceId, definitionId: itemInDiscard.definitionId, status: CardStatus.Untapped }],
+    }));
+    return { ...withItem, discardPile: withItem.discardPile.filter(c => c.instanceId !== itemInstanceId) };
+  });
+
+  return { state: newState };
+}
+
+/**
  * Resolve a queued `flattery-attempt` resolution (Flatter a Foe, td-116).
  * The defending player rolls 2d6; total = roll + unusedDI + diplomatBonus (if
  * the character has the diplomat skill). Success if total > threshold: cancel
@@ -1041,6 +1107,8 @@ function returnCharacterToHand(
   playerIndex: number,
   characterId: import('../index.js').CardInstanceId,
   charInPlay: import('../index.js').CharacterInPlay,
+  allowItemTransfer = false,
+  sourceInstanceId: import('../index.js').CardInstanceId | null = null,
 ): GameState {
   const newPlayers = clonePlayers(state);
   const player = newPlayers[playerIndex];
@@ -1130,6 +1198,35 @@ function returnCharacterToHand(
 
   let result: GameState = { ...state, players: newPlayers };
   result = cleanupEmptyCompanies(result);
+
+  // Pilfer Anything Unwatched (as-33): "one item may be transferred to another
+  // character in the same company." The character's items were just discarded;
+  // if any remain reachable in the discard pile and a company-mate is still in
+  // play, offer the owner a `transfer-returned-item` resolution to pull one
+  // item back onto a mate before the rest stay discarded.
+  if (allowItemTransfer && sourceInstanceId && charInPlay.items.length > 0) {
+    const company = player.companies.find(c => c.characters.includes(characterId));
+    const remainingMates = company
+      ? company.characters.filter(id => id !== characterId)
+      : [];
+    if (company && remainingMates.length > 0) {
+      const srcDefId = resolveInstanceId(state, sourceInstanceId);
+      logDetail(`Pilfer Anything Unwatched: offering item transfer of ${charInPlay.items.length} item(s) to a company-mate in ${company.id as string}`);
+      result = enqueueResolution(result, {
+        source: sourceInstanceId,
+        actor: player.id,
+        scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+        kind: {
+          type: 'transfer-returned-item',
+          itemInstanceIds: charInPlay.items.map(i => i.instanceId),
+          companyId: company.id,
+          ownerPlayerIndex: playerIndex,
+          sourceDefinitionId: srcDefId ?? charInPlay.definitionId,
+        },
+      });
+    }
+  }
+
   return result;
 }
 

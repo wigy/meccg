@@ -1868,6 +1868,63 @@ function playHazardsActions(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',
         );
 
+        // Pilfer Anything Unwatched (as-33): played on one of the hazard
+        // player's untapped agents, targeting an opponent character in play
+        // whose home site matches the agent's current site. Independent of the
+        // active company (the target may be in any of the opponent's companies).
+        const pilferEffect = getCardEffects(def).find(
+          (e): e is import('../../index.js').AgentTapReturnCharacterEffect => e.type === 'agent-tap-return-character',
+        );
+        if (pilferEffect) {
+          if (isMinionOrBalrog(resourcePlayer)) {
+            logDetail(`Hazard short-event "${def.name}" not playable — opponent is a minion player`);
+            actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+            continue;
+          }
+          let offeredAny = false;
+          for (const agent of player.agents) {
+            if (agent.character.status !== CardStatus.Untapped) continue;
+            const agentDef = defById(state, agent.character.definitionId);
+            if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+            // Agent's current site: top of its site stack, else its first home
+            // site (a face-down agent sitting at home).
+            const agentHomesites = parseHomesiteNames(agentDef.homesite);
+            let agentSiteName: string | null = null;
+            if (agent.siteStack.length > 0) {
+              const topSite = agent.siteStack[agent.siteStack.length - 1];
+              const topSiteDef = defById(state, topSite.definitionId);
+              if (topSiteDef && isSiteCard(topSiteDef)) agentSiteName = topSiteDef.name;
+            } else {
+              agentSiteName = agentHomesites[0] ?? null;
+            }
+            if (agentSiteName === null) continue;
+
+            // Any opponent character in play whose home site == agent's site.
+            for (const [charId, charData] of Object.entries(resourcePlayer.characters)) {
+              const charDef = defById(state, charData.definitionId);
+              if (!charDef || !isCharacterCard(charDef)) continue;
+              const charHomesites = parseHomesiteNames(charDef.homesite);
+              if (!charHomesites.includes(agentSiteName)) continue;
+              logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" (at ${agentSiteName}) may target "${charDef.name}"`);
+              actions.push({
+                action: {
+                  ...action,
+                  agentInstanceId: agent.character.instanceId,
+                  targetCharacterId: charId as import('../../index.js').CardInstanceId,
+                },
+                viable: true,
+              });
+              offeredAny = true;
+            }
+          }
+          if (!offeredAny) {
+            logDetail(`Hazard short-event "${def.name}" not playable — no untapped agent with a matching-home-site opponent character`);
+            actions.push({ action, viable: false, reason: 'No untapped agent with a matching-home-site target character' });
+          }
+          continue;
+        }
+
         // Faction-targeting short events (e.g. Muster Disperses)
         if (shortPlayTarget?.target === 'faction') {
           let hasFactionTarget = false;

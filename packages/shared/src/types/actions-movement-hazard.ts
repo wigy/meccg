@@ -1130,3 +1130,20 @@ export interface StayHerAppetiteRollAction {
   /** The hazard player making the roll. */
   readonly player: PlayerId;
 }
+
+/**
+ * Resolve a queued `transfer-returned-item` pending resolution (Pilfer Anything
+ * Unwatched as-33). The returned character's owner either transfers one item to
+ * a company-mate (both fields present) or declines (both omitted); the rest of
+ * the items stay in the discard pile.
+ */
+export interface TransferReturnedItemAction {
+  /** Action discriminant. */
+  readonly type: 'transfer-returned-item';
+  /** The returned character's owner (resolves the pending resolution). */
+  readonly player: PlayerId;
+  /** The item to transfer (from the owner's discard pile); omitted to decline. */
+  readonly itemInstanceId?: CardInstanceId;
+  /** The company-mate that receives the item; omitted to decline. */
+  readonly targetCharacterId?: CardInstanceId;
+}

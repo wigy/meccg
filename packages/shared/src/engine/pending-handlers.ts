@@ -47,6 +47,7 @@ import {
   applyRevealChooseToHandResolution,
   applyAgentPlayManifestationResolution,
   applyStayHerAppetiteRollResolution,
+  applyTransferReturnedItemResolution,
 } from './pending-reducers.js';
 import {
   corruptionCheckActions,
@@ -70,6 +71,7 @@ import {
   revealChooseToHandActions,
   agentPlayManifestationActions,
   stayHerAppetiteRollActions,
+  transferReturnedItemActions,
 } from './legal-actions/pending.js';
 
 /** The discriminant of every {@link PendingResolution} kind. */
@@ -121,6 +123,7 @@ export const PENDING_HANDLERS: { readonly [K in PendingKindType]: PendingHandler
   'reveal-choose-to-hand': { legalActions: revealChooseToHandActions, apply: applyRevealChooseToHandResolution },
   'agent-play-manifestation-offer': { legalActions: agentPlayManifestationActions, apply: applyAgentPlayManifestationResolution },
   'stay-her-appetite-roll': { legalActions: stayHerAppetiteRollActions, apply: applyStayHerAppetiteRollResolution },
+  'transfer-returned-item': { legalActions: transferReturnedItemActions, apply: applyTransferReturnedItemResolution },
 };
 
 /**

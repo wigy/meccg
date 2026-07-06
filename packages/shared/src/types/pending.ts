@@ -538,6 +538,26 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Pilfer Anything Unwatched (as-33): a character has just been returned
+         * to its owner's hand and its items discarded. The card lets the owner
+         * transfer **one** of those items to another character remaining in the
+         * same company ("one item may be transferred to another character in the
+         * same company"). The owner picks one `(item, mate)` pair via a
+         * `transfer-returned-item` action, or declines; on either outcome the
+         * remaining items stay in the discard pile.
+         */
+        readonly type: 'transfer-returned-item';
+        /** The returned character's items, now sitting in the owner's discard pile. */
+        readonly itemInstanceIds: readonly CardInstanceId[];
+        /** The company the returned character was in (source of eligible mates). */
+        readonly companyId: CompanyId;
+        /** Player index of the returned character's owner (who chooses). */
+        readonly ownerPlayerIndex: number;
+        /** Definition ID of the source hazard event (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Revealed to all Watchers (dm-85): the playing player has just refilled
          * their hand and placed their set-aside (non-hazard) cards on top of the
          * play deck. They now choose the order of those top cards ("in any order

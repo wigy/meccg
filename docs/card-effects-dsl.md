@@ -6011,3 +6011,54 @@ The on-tap behaviour is the card's other top-level effects:
   and is applied on chain resolution (`applyTapCharacter`, `chain-reducer.ts`).
 
 Used by Adûnaphel tw-2's on-tap: "When tapped, … causes any one character to tap."
+
+### 57. `agent-tap-return-character`
+
+Hazard short-event played on one of the hazard player's **untapped agents**. The
+card taps the agent and rolls to bounce an opponent character — chosen by the
+card player — whose **home site matches the agent's current site** back to its
+owner's hand.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `atHomeSiteBonus` | yes | Added to the 2d6 roll when the agent's current site is also one of its own home sites. |
+| `mindBonus` | yes | Added to the target character's mind to form the roll threshold. |
+
+```json
+{ "type": "agent-tap-return-character", "atHomeSiteBonus": 5, "mindBonus": 5 }
+```
+
+- **Legal actions** (`movementHazardActions` short-event branch,
+  `legal-actions/movement-hazard.ts`): offered whenever the hazard player has an
+  untapped agent and the opponent (resource player) has a character in play whose
+  parsed home sites include the agent's current site (top of its site stack, or
+  its first home site for a face-down agent sitting at home). One `play-hazard`
+  action is emitted per `(agent, target character)` pair, carrying
+  `agentInstanceId` + `targetCharacterId`. Independent of the active company (the
+  target may be in any of the opponent's companies). Blocked when the opponent is
+  a minion/Balrog player (`isMinionOrBalrog`), matching "Cannot be played if your
+  opponent is a minion player."
+- **Reducer** (`handleAgentTapReturnCharacter`, `mh-agents.ts`, dispatched from
+  `mh-hazard-play.ts`): taps the agent, discards the event, counts it against the
+  hazard limit, and enqueues a generic `dice-check` pending resolution — roller =
+  the hazard player, `comparison: "gt"`, `threshold = targetMind + mindBonus`,
+  and a `constant` `atHomeSiteBonus` modifier when the agent is at home. Its
+  `onPass` is `return-character-to-hand` with `allowItemTransfer: true`.
+- **Return + item transfer**: the `return-character-to-hand` branch
+  (`applyDiceCheckBranch`) locates the target's actual owner (the returned
+  character belongs to the *opponent* of the roller) and calls
+  `returnCharacterToHand`. With `allowItemTransfer`, the character's items are
+  discarded but a `transfer-returned-item` pending resolution lets the owner pull
+  **one** item back onto a remaining company-mate ("one item may be transferred
+  to another character in the same company"), or decline; the rest stay
+  discarded. Legal actions / reducer: `transferReturnedItemActions`
+  (`legal-actions/pending.ts`) / `applyTransferReturnedItemResolution`
+  (`pending-reducers.ts`).
+
+Used by Pilfer Anything Unwatched (as-33): "Playable on an untapped agent. Tap
+the agent. Make a roll for a character in play of your choice with a home site
+the same as the agent's current site. To the roll add 5 if the agent's current
+site is also the agent's home site. If the result is greater than the
+character's mind plus 5, the character is returned to his player's hand (one item
+may be transferred to another character in the same company). Cannot be played if
+your opponent is a minion player."

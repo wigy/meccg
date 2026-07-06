@@ -1248,9 +1248,15 @@ export interface HealTargetCharacterAction extends TriggeredActionBase {
   readonly type: 'heal-target-character';
 }
 
-/** `return-character-to-hand` — return the target character to its owner's hand (Call of Home onFail); type-only marker. */
+/** `return-character-to-hand` — return the target character to its owner's hand (Call of Home onFail). */
 export interface ReturnCharacterToHandAction extends TriggeredActionBase {
   readonly type: 'return-character-to-hand';
+  /**
+   * When true, the returning character's owner may transfer one of its items to
+   * another character in the same company before the rest are discarded (Pilfer
+   * Anything Unwatched as-33). Omitted/false discards every item (Call of Home).
+   */
+  readonly allowItemTransfer?: boolean;
 }
 
 /** `tap-one-character` — enqueue a "tap one character in the company" resolution; type-only marker. */
@@ -3376,7 +3382,8 @@ export type CardEffect =
   | CreatureAltEventEffect
   | CompanyReturnToOriginEffect
   | TapCharacterEffect
-  | AgentAttackOutcomeEffect;
+  | AgentAttackOutcomeEffect
+  | AgentTapReturnCharacterEffect;
 
 /**
  * Marks a hazard-creature card as also playable in an alternative event mode
@@ -4180,4 +4187,31 @@ export interface PlayCreatureFromDiscardEffect extends EffectBase {
  */
 export interface StayHerAppetiteEffect extends EffectBase {
   readonly type: 'stay-her-appetite';
+}
+
+/**
+ * Hazard short-event effect for Pilfer Anything Unwatched (as-33).
+ *
+ * "Playable on an untapped agent. Tap the agent. Make a roll for a character
+ * in play of your choice with a home site the same as the agent's current
+ * site. To the roll add 5 if the agent's current site is also the agent's home
+ * site. If the result is greater than the character's mind plus 5, the
+ * character is returned to his player's hand (one item may be transferred to
+ * another character in the same company). Cannot be played if your opponent is
+ * a minion player."
+ *
+ * The card player (hazard player) selects one of their own untapped agents plus
+ * one opponent character in play whose home site matches the agent's current
+ * site. Playing the card taps the agent and enqueues a generic `dice-check`
+ * pending resolution: the hazard player rolls 2d6 (+`atHomeSiteBonus` when the
+ * agent is at one of its own home sites) and, if the total is strictly greater
+ * than the target's mind + `mindBonus`, the character is returned to its
+ * owner's hand with the option to save one of its items onto a company-mate.
+ */
+export interface AgentTapReturnCharacterEffect extends EffectBase {
+  readonly type: 'agent-tap-return-character';
+  /** Bonus added to the roll when the agent's current site is its home site. */
+  readonly atHomeSiteBonus: number;
+  /** Amount added to the target's mind to form the roll threshold. */
+  readonly mindBonus: number;
 }

@@ -15,7 +15,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, CharacterCard, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction } from '../index.js';
-import type { TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect } from '../types/effects.js';
+import type { TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, AgentTapReturnCharacterEffect } from '../types/effects.js';
 import type { CardInstanceId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -694,6 +694,108 @@ export function handleAgentTapAttack(
  *  - Taps the agent and marks it as having acted this turn
  *  - Builds and sets CombatState so the M/H phase attack can proceed
  */
+/**
+ * Handle a Pilfer Anything Unwatched (as-33) hazard short-event: the hazard
+ * player taps one of their own untapped agents and targets one opponent
+ * character in play whose home site matches the agent's current site.
+ *
+ * Resolution (rule text):
+ *  - Tap the agent, discard the short event, count it against the hazard limit.
+ *  - Enqueue a generic `dice-check`: the hazard player rolls 2d6 (+5 when the
+ *    agent's current site is also one of its home sites). If the total is
+ *    strictly greater than the target's mind + 5, the character is returned to
+ *    its owner's hand (with the option to transfer one item to a company-mate).
+ *
+ * Bypasses the chain (mirrors `handleTapAgentAtSite`); the roll and its
+ * consequences run through the pending `dice-check` / `transfer-returned-item`
+ * resolutions.
+ */
+export function handleAgentTapReturnCharacter(
+  state: GameState,
+  action: PlayHazardAction,
+  mhState: MovementHazardPhaseState,
+  hazardPlayer: GameState['players'][number],
+  hazardIndex: number,
+  handCard: GameState['players'][number]['hand'][number],
+  def: CardDefinition,
+  effect: AgentTapReturnCharacterEffect,
+): ReducerResult {
+  const agentInstanceId = action.agentInstanceId!;
+  const targetCharacterId = action.targetCharacterId!;
+
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.character.instanceId === agentInstanceId);
+  if (agentIdx === -1) return { state, error: `Agent ${agentInstanceId as string} not found` };
+  const agent = hazardPlayer.agents[agentIdx];
+  if (agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped' };
+  const agentDef = defById(state, agent.character.definitionId);
+  if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent definition not found' };
+
+  // The target character belongs to the hazard player's opponent (resource player).
+  const resourceIndex = 1 - hazardIndex;
+  const resourcePlayer = state.players[resourceIndex];
+  const targetChar = resourcePlayer.characters[targetCharacterId];
+  if (!targetChar) return { state, error: `Target character ${targetCharacterId as string} not found` };
+  const targetDef = defById(state, targetChar.definitionId);
+  if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
+
+  // The agent's current site: top of its site stack, or its first home site
+  // when the stack is empty (a face-down agent sitting at home).
+  const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
+  let agentSiteName: string | null = null;
+  if (agent.siteStack.length > 0) {
+    const topSite = agent.siteStack[agent.siteStack.length - 1];
+    const siteDef = defById(state, topSite.definitionId);
+    if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
+  } else {
+    agentSiteName = homesiteNames[0] ?? null;
+  }
+  const atHome = agentSiteName !== null && homesiteNames.includes(agentSiteName);
+
+  const targetMind = targetChar.effectiveStats.mind ?? targetDef.mind ?? 0;
+  const threshold = targetMind + effect.mindBonus;
+
+  logDetail(`Pilfer Anything Unwatched: agent "${agentDef.name}" (site ${agentSiteName ?? '?'}, atHome=${atHome}) targeting "${targetDef.name}" (mind ${targetMind}); roll +${atHome ? effect.atHomeSiteBonus : 0} must be > ${threshold}`);
+
+  // Tap the agent, discard the short event, count it against the hazard limit.
+  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+  const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
+  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+
+  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    hand: newHand,
+    discardPile: [...p.discardPile, handCard],
+    agents: p.agents.map((a, i) => i === agentIdx
+      ? { ...a, character: { ...a.character, status: CardStatus.Tapped } }
+      : a),
+  }));
+  newState = {
+    ...newState,
+    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
+  };
+
+  // The hazard player rolls; on a pass the target returns to its owner's hand.
+  newState = enqueueResolution(newState, {
+    source: handCard.instanceId,
+    actor: hazardPlayer.id,
+    scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+    kind: {
+      type: 'dice-check',
+      label: `${def.name}: ${targetDef.name}`,
+      roller: hazardPlayer.id,
+      modifiers: atHome ? [{ kind: 'constant', value: effect.atHomeSiteBonus }] : [],
+      threshold,
+      comparison: 'gt',
+      onPass: { type: 'return-character-to-hand', allowItemTransfer: true },
+      continuation: { kind: 'dequeue-only' },
+      requireTargetPresent: true,
+      targetCharacterId,
+    },
+  });
+
+  return { state: newState };
+}
+
 export function handleTapAgentAtSite(
   state: GameState,
   action: PlayHazardAction,
