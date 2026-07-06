@@ -336,8 +336,14 @@ handle_open_prs() {
   local count
   count=$(jq 'length' <<<"$prs" 2>/dev/null || echo 0)
   if [ "$count" -eq 0 ]; then
+    echo "=== PR sweep: no open PRs at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
     return 0
   fi
+
+  # Visible heartbeat so the sweep is observable every iteration, even when no
+  # PR needs work (a PR that is mergeable with no comments is skipped silently
+  # below, so without this line a working sweep looks like it never ran).
+  echo "=== PR sweep: checking $count open PR(s) for conflicts/comments at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
 
   local repo
   repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
