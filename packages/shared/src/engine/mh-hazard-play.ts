@@ -940,6 +940,7 @@ export function handlePlayHazardCard(
         targetCharacterId: action.type === 'play-hazard' ? action.targetCharacterId : undefined,
         targetSiteDefinitionId: action.type === 'play-hazard' ? action.targetSiteDefinitionId : undefined,
         targetCompanyId: action.type === 'play-hazard' ? action.targetCompanyId : undefined,
+        targetStoredItemInstanceId: action.type === 'play-hazard' ? action.targetStoredItemInstanceId : undefined,
       }
     : { type: 'long-event' };
   newState = initiateOrPushChain(newState, action.player, handCard, payload);

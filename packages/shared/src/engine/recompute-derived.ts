@@ -933,6 +933,18 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (!def) continue;
     const effects = (def as { effects?: readonly CardEffect[] }).effects;
 
+    // mp-in-pile: a card that places itself into a marshalling-point pile and
+    // scores a flat value from there (e.g. Neither so Ancient Nor so Potent
+    // dm-73 — "It gives 2 item marshalling points"). Independent of the
+    // stored-item / defeated-creature machinery below.
+    const mpInPile = effects?.find(e => e.type === 'mp-in-pile') as
+      | { type: 'mp-in-pile'; category: MarshallingCategory; value: number }
+      | undefined;
+    if (mpInPile) {
+      mp = { ...mp, [mpInPile.category]: mp[mpInPile.category] + mpInPile.value };
+      continue;
+    }
+
     // Stored items: storable-at effect grants MP (overriding base MP when set).
     const storableEffect = effects?.find(e => e.type === 'storable-at') as
       | { type: 'storable-at'; marshallingPoints?: number }

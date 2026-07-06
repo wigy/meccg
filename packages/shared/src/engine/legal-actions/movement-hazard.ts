@@ -14,7 +14,7 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { buildMovementMap, findRegionPaths, getReachableSites } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, requirePhaseState } from '../../state-utils.js';
-import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter } from '../../types/cards.js';
+import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isItemCard } from '../../types/cards.js';
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { defenderAlignmentLabel } from '../detainment.js';
@@ -2279,7 +2279,34 @@ function playHazardsActions(
       // affects companies arriving at that location — the destination
       // of the company being attacked is the most useful target.
       const isSiteTargeting = playTarget?.target === 'site';
-      if (isCharTargeting) {
+      // play-target DSL: stored-item-targeting hazards (e.g. Neither so Ancient
+      // Nor so Potent dm-73) get one action per stored item in the opponent's
+      // marshalling-point pile. The stored item is displaced back to the
+      // opponent's hand on resolution and the card takes its place.
+      const isStoredItemTargeting = playTarget?.target === 'stored-item';
+      if (isStoredItemTargeting) {
+        const storedItems = resourcePlayer.killPile.filter(c => {
+          const cDef = defById(state, c.definitionId);
+          return !!cDef && isItemCard(cDef);
+        });
+        if (storedItems.length === 0) {
+          logDetail(`Hazard "${def.name}": opponent has no stored items to target`);
+          actions.push({ action, viable: false, reason: `${def.name} requires an opponent stored item` });
+        }
+        for (const stored of storedItems) {
+          const storedDef = defById(state, stored.definitionId);
+          // Apply optional play-target filter against the stored item's definition.
+          if (playTarget.filter && storedDef && !matchesDefinition(storedDef, playTarget.filter)) {
+            logDetail(`Hazard "${def.name}" filter excludes stored item ${storedDef.name}`);
+            continue;
+          }
+          logDetail(`Hazard "${def.name}" playable on stored item ${storedDef?.name ?? (stored.definitionId as string)}`);
+          actions.push({
+            action: { ...action, targetStoredItemInstanceId: stored.instanceId },
+            viable: true,
+          });
+        }
+      } else if (isCharTargeting) {
         // maxCompanySize: card is only playable if the target company
         // has effective size ≤ the declared maximum (Hobbits and Orc
         // scouts count half — CoE rule 3.24, via companyEffectiveSize).
