@@ -583,6 +583,40 @@ side face down on top of your play deck in any order you choose." Here
 `keepInHand` matches the hazard card types, so the *non-hazard* cards are the
 ones set aside.
 
+### 6g. `reveal-choose-shuffle`
+
+Carried by a resource short-event. When the event is played (after any
+`play-target` tap cost is paid), the **playing player** digs the top of their
+play deck:
+
+1. The top `min(count, deckSize)` cards are revealed to the opponent (recorded
+   in `GameState.revealedInstances`). They remain physically on top of the play
+   deck the whole time, so no instance ever floats.
+2. When at least one card is revealed, a `reveal-choose-to-hand` pending
+   resolution is enqueued (actor = the playing player). The choice is
+   **mandatory**: the player picks one revealed card via a `choose-revealed-card`
+   action; it moves to their hand and the remaining play deck is shuffled
+   (folding the un-chosen revealed cards back in — "shuffle the remaining ones
+   into your play deck"). If the deck is empty nothing is revealed and the event
+   simply fizzles.
+
+The event card itself is discarded on play (before the choice resolves). The
+resolution lives in `legal-actions/pending.ts` (`revealChooseToHandActions`) and
+`pending-reducers.ts` (`applyRevealChooseToHandResolution`); the reveal +
+enqueue is in `reducer-events.ts` (`handlePlayResourceShortEvent`).
+
+```json
+{ "type": "reveal-choose-shuffle", "count": 8 }
+```
+
+Used by Eyes of Mandos (dm-126): "Playable on Pallando during the organization
+phase. Tap Pallando and reveal up to 8 cards from the top of your play deck.
+Choose one to put into your hand and shuffle the remaining ones into your play
+deck." The "playable on Pallando during the organization phase" and "tap
+Pallando" clauses are modeled by a `play-window` (`phase: organization`) plus a
+`play-target` (`target: character`, `filter: { "target.name": "Pallando" }`,
+`cost: { tap: character }`).
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,

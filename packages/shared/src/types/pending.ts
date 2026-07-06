@@ -561,6 +561,24 @@ export interface PendingResolution {
         readonly orderedInstanceIds: readonly CardInstanceId[];
         /** Definition ID of the source card (for logging). */
         readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Eyes of Mandos (dm-126): the playing player has revealed the top
+         * cards of their play deck (a `reveal-choose-shuffle` effect) and must
+         * now choose exactly one to put into their hand. The revealed cards are
+         * still physically on top of the play deck; a `choose-revealed-card`
+         * action moves the chosen one to hand and shuffles the remaining play
+         * deck. The choice is mandatory (no pass).
+         */
+        readonly type: 'reveal-choose-to-hand';
+        /**
+         * Instance ids of the revealed top-of-deck cards the player may choose
+         * from (top-first). Exactly one is taken into hand on resolution.
+         */
+        readonly revealedInstanceIds: readonly CardInstanceId[];
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
       };
 }
 

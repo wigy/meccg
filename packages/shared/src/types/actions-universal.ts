@@ -361,6 +361,20 @@ export interface ArrangeDeckTopCardAction {
 }
 
 /**
+ * Choose one of the cards revealed from the top of the play deck to put into
+ * hand (Eyes of Mandos, dm-126). Resolves a `reveal-choose-to-hand` pending
+ * resolution: the chosen card moves to the player's hand and the remaining
+ * play deck is shuffled.
+ */
+export interface ChooseRevealedCardAction {
+  readonly type: 'choose-revealed-card';
+  /** The player choosing among their revealed top-of-deck cards. */
+  readonly player: PlayerId;
+  /** The instance ID of the revealed card to take into hand. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Pay the maintenance cost for a hazard permanent event that requires upkeep
  * at the end of the resource player's long-event phase (e.g. Thrice Outnumbered).
  *

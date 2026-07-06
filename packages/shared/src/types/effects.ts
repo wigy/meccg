@@ -729,6 +729,34 @@ export interface CycleHandEffect extends EffectBase {
 }
 
 /**
+ * Reveals up to `count` cards from the top of the playing player's play deck,
+ * lets them choose exactly one to put into their hand, and shuffles the
+ * remaining revealed cards back into the play deck.
+ *
+ * Carried by a resource short-event and resolved when the event is played
+ * (after any `play-target` tap cost is paid). The flow is:
+ *
+ * 1. The top `min(count, deckSize)` cards are revealed to the opponent
+ *    (recorded in {@link GameState.revealedInstances}). They remain physically
+ *    on top of the play deck the entire time, so no instance ever floats.
+ * 2. When at least one card is revealed, a {@link PendingResolution} of kind
+ *    `reveal-choose-to-hand` is enqueued (actor = the playing player). The
+ *    choice is mandatory: the player picks one revealed card via a
+ *    `choose-revealed-card` action; it moves to their hand and the whole
+ *    remaining play deck is shuffled (folding the un-chosen revealed cards back
+ *    in). If the deck is empty nothing is revealed and the event simply fizzles.
+ *
+ * Used by *Eyes of Mandos* (dm-126): "Tap Pallando and reveal up to 8 cards
+ * from the top of your play deck. Choose one to put into your hand and shuffle
+ * the remaining ones into your play deck."
+ */
+export interface RevealChooseShuffleEffect extends EffectBase {
+  readonly type: 'reveal-choose-shuffle';
+  /** Maximum number of cards revealed from the top of the play deck. */
+  readonly count: number;
+}
+
+/**
  * Removes an opponent's face-up agent from play, or (as an alternative mode)
  * discards one of the opponent's unrevealed on-guard cards.
  *
@@ -3217,6 +3245,7 @@ export type CardEffect =
   | ReshuffleFromDiscardEffect
   | ForceOpponentDiscardEffect
   | CycleHandEffect
+  | RevealChooseShuffleEffect
   | WithdrawAgentEffect
   | GrantActionEffect
   | OnEventEffect
