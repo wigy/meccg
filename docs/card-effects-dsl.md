@@ -252,6 +252,49 @@ Modifies marshalling points conditionally.
 { "type": "mp-modifier", "value": -3, "when": { "reason": "elimination" } }
 ```
 
+### 3aa. `mp-in-pile`
+
+Grants a flat marshalling-point value while the carrying card sits in a player's
+marshalling-point (kill) pile. Some hazard events place *themselves* into a
+marshalling-point pile and score marshalling points from there (rather than as a
+stored item or a defeated creature). The value is scored in the killPile loop of
+`recompute-derived.ts`, in the declared `category`, for whichever player's pile
+holds the card.
+
+```json
+{ "type": "mp-in-pile", "category": "item", "value": 2 }
+```
+
+Used by Neither so Ancient Nor so Potent (dm-73): after returning an opponent's
+stored item to hand, the card is placed in the opponent's marshalling-point pile
+where "It gives 2 item marshalling points."
+
+### 3ab. `displace-stored-item`
+
+Resolution effect for a hazard played on an opponent's stored item (paired with a
+`play-target` `target: "stored-item"`, which offers one `play-hazard` per stored
+item in the opponent's marshalling-point pile during the M/H play-hazards step).
+On resolution the engine (`resolveDisplaceStoredItem` in `chain-reducer.ts`):
+
+1. removes the targeted stored item from whichever marshalling-point pile holds
+   it and returns it to that pile-owner's hand (`returnItemTo: "owner-hand"`),
+   discarding any cards attached to the item; and
+2. places the resolving card itself into that same owner's marshalling-point pile
+   (`selfTo: "owner-mp-pile"`), where an accompanying `mp-in-pile` effect scores
+   its marshalling points.
+
+No instance is lost: the stored item moves killPile → hand and the resolving card
+moves chain → killPile. "Owner" is the stored item's owner — i.e. the opponent of
+the hazard player.
+
+```json
+{ "type": "displace-stored-item", "returnItemTo": "owner-hand", "selfTo": "owner-mp-pile" }
+```
+
+Used by Neither so Ancient Nor so Potent (dm-73): "Return item to opponent's hand
+(discarding all attached cards). Place this card in opponent's marshalling point
+pile."
+
 ### 3b. `fw-item-mp-full`
 
 Fallen-wizard item marshalling-point exemption (MEWH §4 exception). MEWH §4

@@ -661,6 +661,14 @@ export type ChainEntryPayload =
        * to that company only.
        */
       readonly targetCompanyId?: import('./common.js').CompanyId;
+      /**
+       * For hazards played on an opponent's stored item (e.g. Neither so
+       * Ancient Nor so Potent dm-73), the stored item instance being
+       * displaced. On resolution the chain reducer returns the item to its
+       * owner's hand and places the resolving card into that owner's
+       * marshalling-point pile.
+       */
+      readonly targetStoredItemInstanceId?: CardInstanceId;
     }
   | { readonly type: 'long-event' }
   | { readonly type: 'corruption-card' }

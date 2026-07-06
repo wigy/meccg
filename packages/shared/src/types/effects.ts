@@ -19,7 +19,7 @@
  * See `docs/card-effects-dsl.md` for the full design document with examples.
  */
 
-import type { CardDefinitionId, Keyword, RegionType, SiteType } from './common.js';
+import type { CardDefinitionId, Keyword, MarshallingCategory, RegionType, SiteType } from './common.js';
 import type { SiteRuleEffect } from './effects/site-rules.js';
 
 // ---- Value Expressions ----
@@ -221,6 +221,54 @@ export interface MpModifierEffect extends EffectBase {
   readonly type: 'mp-modifier';
   /** The marshalling point adjustment. */
   readonly value: ValueExpr;
+}
+
+/**
+ * Grants a fixed marshalling-point value while the carrying card sits in a
+ * player's marshalling-point (kill) pile.
+ *
+ * Some hazard events place *themselves* into a marshalling-point pile and then
+ * score marshalling points from there (rather than being stored items or
+ * defeated creatures). This effect declares the flat value the card is worth
+ * whenever it is found in a `killPile`, in the given category.
+ *
+ * Used by Neither so Ancient Nor so Potent (dm-73): after returning an
+ * opponent's stored item to hand, the card is placed in the opponent's
+ * marshalling-point pile where "It gives 2 item marshalling points."
+ */
+export interface MpInPileEffect extends EffectBase {
+  readonly type: 'mp-in-pile';
+  /** The marshalling-point category the card scores while in the pile. */
+  readonly category: MarshallingCategory;
+  /** The flat marshalling-point value awarded while in the pile. */
+  readonly value: number;
+}
+
+/**
+ * Resolution effect for a hazard played on an opponent's stored item: the
+ * targeted stored item is removed from the marshalling-point pile it sits in
+ * and the carrying card takes its place.
+ *
+ * On resolution the engine:
+ * 1. removes the targeted stored item from its owner's marshalling-point pile
+ *    and returns it to that owner's hand (per {@link returnItemTo}), discarding
+ *    any cards attached to the item; and
+ * 2. places the resolving card itself into that same owner's marshalling-point
+ *    pile (per {@link selfTo}), where an accompanying {@link MpInPileEffect}
+ *    determines how many marshalling points it grants.
+ *
+ * "Owner" is the stored item's owner — i.e. the opponent of the hazard player.
+ *
+ * Used by Neither so Ancient Nor so Potent (dm-73): "Return item to opponent's
+ * hand (discarding all attached cards). Place this card in opponent's
+ * marshalling point pile."
+ */
+export interface DisplaceStoredItemEffect extends EffectBase {
+  readonly type: 'displace-stored-item';
+  /** Where the displaced stored item goes. Currently the item owner's hand. */
+  readonly returnItemTo: 'owner-hand';
+  /** Where the resolving card goes. Currently the item owner's MP pile. */
+  readonly selfTo: 'owner-mp-pile';
 }
 
 /**
@@ -2100,9 +2148,11 @@ export interface PlayTargetEffect extends EffectBase {
   /**
    * The coarse target category. Resource-side `character` implicitly
    * scopes to the active player's own characters; hazard-side
-   * `character` scopes to the active company's characters.
+   * `character` scopes to the active company's characters. Hazard-side
+   * `stored-item` scopes to the opponent's stored items (items sitting in
+   * the opponent's marshalling-point pile).
    */
-  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally';
+  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item';
   /**
    * Optional DSL condition refining which candidates qualify. Evaluated
    * against the per-candidate context (e.g. `target.race`,
@@ -3380,6 +3430,8 @@ export type CardEffect =
   | CreatureAltEventEffect
   | CompanyReturnToOriginEffect
   | TapCharacterEffect
+  | MpInPileEffect
+  | DisplaceStoredItemEffect
   | AgentAttackOutcomeEffect;
 
 /**

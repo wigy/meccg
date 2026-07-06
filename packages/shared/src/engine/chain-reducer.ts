@@ -1013,6 +1013,57 @@ function applyCycleHand(
 }
 
 /**
+ * Resolve a `displace-stored-item` hazard (Neither so Ancient Nor so Potent
+ * dm-73). Returns the targeted stored item from whichever marshalling-point
+ * pile it sits in to that pile-owner's hand (discarding any attached cards),
+ * and places the resolving card into that same owner's marshalling-point pile,
+ * where its `mp-in-pile` effect determines its marshalling-point value.
+ *
+ * No instance is lost: the stored item moves killPile → hand, the resolving
+ * card moves chain → killPile. When the stored item can no longer be located
+ * (an unusual race), the resolving card is routed to its declaring player's
+ * discard pile instead.
+ */
+function resolveDisplaceStoredItem(state: GameState, entry: ChainEntry, storedItemId: CardInstanceId): GameState {
+  const card = entry.card!;
+  const def = defById(state, card.definitionId);
+
+  // Locate the marshalling-point pile holding the stored item.
+  let ownerIdx = -1;
+  for (let pi = 0; pi < state.players.length; pi++) {
+    if (state.players[pi].killPile.some(c => c.instanceId === storedItemId)) { ownerIdx = pi; break; }
+  }
+  if (ownerIdx < 0) {
+    const declaringIdx = getPlayerIndex(state, entry.declaredBy);
+    logDetail(`"${def?.name ?? card.definitionId}": stored item ${storedItemId as string} not in any marshalling-point pile — routing card to owner's discard`);
+    return updatePlayer(state, declaringIdx, p => ({ ...p, discardPile: [...p.discardPile, toCardInstance(card)] }));
+  }
+
+  const owner = state.players[ownerIdx];
+  const storedCard = owner.killPile.find(c => c.instanceId === storedItemId)!;
+  const storedDef = defById(state, storedCard.definitionId);
+  // Stored items are held in the marshalling-point pile as bare CardInstances
+  // (attachments are stripped at store time), so there is normally nothing to
+  // discard; this sweep stays faithful to the card text ("discarding all
+  // attached cards") should any attached-card model exist.
+  const attached = (storedCard as { attachedCards?: readonly CardInstance[] }).attachedCards ?? [];
+
+  logDetail(
+    `"${def?.name ?? card.definitionId}": returning stored item ${storedDef?.name ?? (storedCard.definitionId as string)} to ${owner.id as string}'s hand`
+    + `${attached.length ? ` (discarding ${attached.length} attached card(s))` : ''} and placing card in their marshalling-point pile`,
+  );
+
+  return updatePlayer(state, ownerIdx, p => ({
+    ...p,
+    killPile: [...p.killPile.filter(c => c.instanceId !== storedItemId), toCardInstance(card)],
+    hand: [...p.hand, { instanceId: storedCard.instanceId, definitionId: storedCard.definitionId }],
+    discardPile: attached.length
+      ? [...p.discardPile, ...attached.map(a => ({ instanceId: a.instanceId, definitionId: a.definitionId }))]
+      : p.discardPile,
+  }));
+}
+
+/**
  * Resolves a permanent-event chain entry: moves the card from the chain
  * into the declaring player's `cardsInPlay` and executes `self-enters-play`
  * effects (e.g. Gates of Morning discarding hazard environments).
@@ -1021,6 +1072,20 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card!;
   const def = defById(state, card.definitionId);
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
+
+  // Neither so Ancient Nor so Potent (dm-73): a hazard played on an opponent's
+  // stored item. Rather than entering the hazard player's `cardsInPlay`, it
+  // returns the targeted stored item to its owner's hand and places itself into
+  // that owner's marshalling-point pile. Handle this entirely and return.
+  const displaceEffect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').DisplaceStoredItemEffect => e.type === 'displace-stored-item',
+  );
+  const storedItemId = entry.payload.type === 'permanent-event'
+    ? entry.payload.targetStoredItemInstanceId
+    : undefined;
+  if (displaceEffect && storedItemId) {
+    return resolveDisplaceStoredItem(state, entry, storedItemId);
+  }
 
   logDetail(`Permanent event resolves: "${def?.name ?? card.definitionId}" enters play for player ${entry.declaredBy as string}`);
 

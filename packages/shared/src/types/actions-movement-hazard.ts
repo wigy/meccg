@@ -117,6 +117,12 @@ export interface PlayHazardAction {
    */
   readonly targetFactionInstanceId?: CardInstanceId;
   /**
+   * For hazards played on an opponent's stored item (e.g. Neither so Ancient
+   * Nor so Potent dm-73), the stored item instance (in the opponent's
+   * marshalling-point pile) being targeted.
+   */
+  readonly targetStoredItemInstanceId?: CardInstanceId;
+  /**
    * For hazard short-events with a creature-race-choice effect (e.g. Two
    * or Three Tribes Present), the race the player announced when playing.
    */

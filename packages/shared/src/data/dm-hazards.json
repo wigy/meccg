@@ -808,8 +808,13 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/NeithersoAncientNorsoPotent.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable on a stored item. Return item to opponent’s hand (discarding all attached cards). Place this card in opponent’s marshalling point pile. It gives 2 item marshalling points."
+    "effects": [
+      { "type": "play-target", "target": "stored-item" },
+      { "type": "displace-stored-item", "returnItemTo": "owner-hand", "selfTo": "owner-mp-pile" },
+      { "type": "mp-in-pile", "category": "item", "value": 2 }
+    ],
+    "text": "Playable on a stored item. Return item to opponent’s hand (discarding all attached cards). Place this card in opponent’s marshalling point pile. It gives 2 item marshalling points.",
+    "certified": "2026-07-07"
   },
   {
     "cardType": "hazard-event",
