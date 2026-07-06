@@ -32,11 +32,12 @@ import {
   ARAGORN, FRODO, LORIEN, RIVENDELL, MORIA, MINAS_TIRITH,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CompanyId, AgentInPlay, GameState } from '../../index.js';
-import { Phase, CardStatus } from '../../index.js';
+import { Phase, CardStatus, Alignment, computeLegalActions } from '../../index.js';
 
 const LOBELIA = 'dm-28' as CardDefinitionId;
 const MISTRESS_LOBELIA = 'dm-178' as CardDefinitionId; // the ally manifestation of the same entity
 const BILL_FERNY = 'dm-3' as CardDefinitionId;         // a plain agent character (control)
+const A_MINION_CHAR = 'as-3' as CardDefinitionId;      // a minion Man, to give the RW company a character
 
 /** An in-play, revealed Lobelia agent for player 2, standing at `siteDef`. */
 function lobeliaAgentAt(siteDef: CardDefinitionId): AgentInPlay {
@@ -172,5 +173,24 @@ describe('Lobelia Sackville-Baggins (dm-28)', () => {
       return destDef !== undefined && disallowed.has(destDef);
     });
     expect(movedToDisallowed).toBe(false);
+  });
+
+  // ─── Deploy-only: a pure hazard agent, never a company character ───────────
+
+  test('cannot be played as a company character, even by a Ringwraith player', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.Organization, recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MORIA, characters: [A_MINION_CHAR] }], hand: [LOBELIA], siteDeck: [] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const lobeliaId = state.players[0].hand[0].instanceId;
+    const plays = computeLegalActions(state, PLAYER_1)
+      .filter(a => a.action.type === 'play-character' && (a.action as { characterInstanceId?: string }).characterInstanceId === (lobeliaId as unknown as string));
+    // She is recognized but not playable as a character (hazard agent — deploy-only).
+    expect(plays.length).toBeGreaterThan(0);
+    expect(plays.every(a => !a.viable)).toBe(true);
+    expect(plays.some(a => /hazard agent/.test(a.reason ?? ''))).toBe(true);
   });
 });

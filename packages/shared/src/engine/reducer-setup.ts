@@ -13,6 +13,7 @@ import { shuffle } from '../rng.js';
 import { MAX_STARTING_ITEMS } from '../rules/definitions/item-draft.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
 import { Alignment, CardStatus } from '../types/common.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -225,6 +226,13 @@ function handleCharacterDraft(
       } else {
         if (!isCharacterCard(charDef)) {
           return { state, error: 'Invalid character' };
+        }
+
+        // Pure "Hazard Agent" cards (Lobelia dm-28, My Precious dm-29) are
+        // deploy-only — never drafted or played as company characters by any player.
+        if (hasPlayFlag(charDef, 'hazard-agent-only')) {
+          logDetail(`${charDef.name} blocked: a hazard-only agent cannot be drafted as a character`);
+          return { state, error: 'A hazard agent cannot be drafted as a character' };
         }
 
         // Fallen-wizard draft gate (rules 1.42, 1.44): without an enabling Stage

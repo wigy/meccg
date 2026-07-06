@@ -440,6 +440,20 @@ export function playCharacterActions(
 
     logDetail(`Evaluating play-character: ${charName} (mind ${cardDef.mind ?? 'avatar'}, DI ${cardDef.directInfluence})`);
 
+    // Pure "Hazard Agent" cards (Lobelia dm-28, My Precious dm-29) are deploy-only:
+    // played only as agent hazards, never recruited/played as company characters
+    // by any player. (Distinct from dual-use agents like Baduila dm-2, which a
+    // Ringwraith/Fallen-wizard player may play as characters at the home site.)
+    if (hasPlayFlag(cardDef, 'hazard-agent-only')) {
+      logDetail(`  → blocked: ${charName} is a hazard-only agent — cannot be played as a character`);
+      results.push({
+        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+        viable: false,
+        reason: `${charName}: a hazard agent — can only be deployed as an agent, not played as a character`,
+      });
+      continue;
+    }
+
     // Rule 1.3.W2 / 1.3.B2: For Wizard and Balrog players, agent cards are
     // treated as hazard cards in all areas — they cannot be played as characters.
     // Rule 2.II.2.2.5: Only Ringwraith and Fallen-wizard players may play agents

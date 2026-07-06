@@ -33,7 +33,7 @@ import { manifestationOfEntityInPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
-import { hasFollowerGrantPermission } from '../../effects/play-flags.js';
+import { hasFollowerGrantPermission, hasPlayFlag } from '../../effects/play-flags.js';
 
 /**
  * Generates `play-character` actions enabled by an in-hand `recruit-character`
@@ -85,6 +85,10 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
       if (handCard.instanceId === event.instanceId) continue;
       const recruitDef = defById(state, handCard.definitionId);
       if (!recruitDef || !isCharacterCard(recruitDef)) continue;
+
+      // Pure "Hazard Agent" cards (Lobelia dm-28, My Precious dm-29) are
+      // deploy-only — they can never be brought into a company as characters.
+      if (hasPlayFlag(recruitDef, 'hazard-agent-only')) continue;
 
       // The event brings a character in "with direct influence": an avatar
       // (mind null) cannot be controlled under direct influence.
