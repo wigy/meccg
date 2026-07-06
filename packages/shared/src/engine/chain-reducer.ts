@@ -40,6 +40,7 @@ import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
 import { resolveWinConditionRoll } from './reducer-win-conditions.js';
+import { revealInstances } from './visibility.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -2034,6 +2035,73 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           ? { outOfPlayPile: [...p.outOfPlayPile, spentCard] }
           : { discardPile: [...p.discardPile, spentCard] }),
       }));
+    }
+  }
+
+  // Rolled down to the Sea (wh-29): a hazard short-event carrying a
+  // force-opponent-discard effect. When it resolves un-negated, gather the
+  // card-player's opponent's rings from the named sources; if any exist,
+  // enqueue a force-discard-card pending resolution so the opponent picks one
+  // ring to discard. If none exist and fallbackRevealHand is set, reveal the
+  // opponent's hand identities to the card-player instead. The chain entry is
+  // still marked resolved below (the pending resolution is independent of the
+  // chain, like Brigands' discard-one-company-item).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const forceDiscard = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').ForceOpponentDiscardEffect => e.type === 'force-opponent-discard',
+    );
+    if (forceDiscard) {
+      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const opponentId = opponent(current, entry.declaredBy);
+      const opponentIdx = getPlayerIndex(current, opponentId);
+      const opponentState = current.players[opponentIdx];
+
+      // A "ring" is any card carrying the `ring` keyword or the `gold-ring`
+      // subtype (the MECCG definition of a ring). The matcher is keyed off the
+      // effect's `match` category so it can be reused by future cards.
+      const isRing = (defId: CardDefinitionId): boolean => {
+        const cardDef = defById(current, defId);
+        if (!cardDef) return false;
+        const keywords: readonly string[] = 'keywords' in cardDef ? (cardDef as { keywords?: readonly string[] }).keywords ?? [] : [];
+        const subtype = 'subtype' in cardDef ? (cardDef as { subtype?: string }).subtype : undefined;
+        return keywords.includes('ring') || subtype === 'gold-ring';
+      };
+      const matches = (defId: CardDefinitionId): boolean =>
+        forceDiscard.match === 'ring' ? isRing(defId) : false;
+
+      const candidateInstanceIds: CardInstanceId[] = [];
+      if (forceDiscard.sources.includes('hand')) {
+        for (const c of opponentState.hand) {
+          if (matches(c.definitionId)) candidateInstanceIds.push(c.instanceId);
+        }
+      }
+      if (forceDiscard.sources.includes('carried')) {
+        for (const ch of Object.values(opponentState.characters)) {
+          for (const item of ch.items) {
+            if (matches(item.definitionId)) candidateInstanceIds.push(item.instanceId);
+          }
+        }
+      }
+
+      if (candidateInstanceIds.length > 0) {
+        logDetail(`${cardName}: ${opponentState.name} must discard one of ${candidateInstanceIds.length} ring(s) — enqueuing force-discard-card`);
+        current = enqueueResolution(current, {
+          source: entry.card.instanceId,
+          actor: opponentId,
+          scope: { kind: 'phase', phase: Phase.MovementHazard },
+          kind: {
+            type: 'force-discard-card',
+            candidateInstanceIds,
+            sourceDefinitionId: entry.card.definitionId,
+          },
+        });
+      } else if (forceDiscard.fallbackRevealHand) {
+        logDetail(`${cardName}: no rings available — ${opponentState.name} reveals their hand (${opponentState.hand.length} card(s)) to ${entry.declaredBy as string}`);
+        current = revealInstances(current, opponentState.hand);
+      } else {
+        logDetail(`${cardName}: no rings available and no reveal-hand fallback — no effect`);
+      }
     }
   }
 
