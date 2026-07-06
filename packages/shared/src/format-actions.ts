@@ -532,6 +532,8 @@ export function describeAction(
       return `${action.player as string} taps ${instName(action.characterId)} to play ${instName(action.manifestationCardInstanceId)} (agent discarded)`;
     case 'arrange-deck-top-card':
       return `${action.player as string} places ${instName(action.cardInstanceId)} next on top of their play deck`;
+    case 'choose-revealed-card':
+      return `${action.player as string} takes revealed card ${instName(action.cardInstanceId)} into hand (shuffling the rest back into the play deck)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

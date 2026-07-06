@@ -1757,6 +1757,42 @@ export function arrangeDeckTopActions(
 }
 
 /**
+ * Legal actions while a `reveal-choose-to-hand` resolution is pending (Eyes of
+ * Mandos, dm-126): the player must choose exactly one of the revealed
+ * top-of-deck cards to put into their hand. One `choose-revealed-card` action
+ * per revealed card; the choice is mandatory (no pass).
+ */
+export function revealChooseToHandActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'reveal-choose-to-hand') return [];
+  const { revealedInstanceIds } = top.kind;
+  const player = playerById(state, actor);
+  if (!player) return [];
+
+  // The revealed cards are still on top of the play deck; offer each as a pick.
+  const onDeck = new Set(player.playDeck.map(c => c.instanceId as string));
+  const actions: EvaluatedAction[] = [];
+  for (const id of revealedInstanceIds) {
+    if (!onDeck.has(id as string)) continue;
+    const card = player.playDeck.find(c => c.instanceId === id)!;
+    const name = cardName(state, card.definitionId);
+    logDetail(`reveal-choose-to-hand: offering to take "${name}" into hand`);
+    actions.push({
+      action: {
+        type: 'choose-revealed-card' as const,
+        player: actor,
+        cardInstanceId: id,
+      },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
  * Legal actions while an `agent-play-manifestation-offer` resolution is pending
  * (My Precious dm-29): the defender may tap one untapped character in the target
  * company to play Gollum from hand (discarding My Precious), or pass. One

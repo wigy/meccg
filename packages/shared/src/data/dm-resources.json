@@ -468,7 +468,12 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "organization" },
+      { "type": "play-target", "target": "character", "filter": { "target.name": "Pallando" }, "cost": { "tap": "character" } },
+      { "type": "reveal-choose-shuffle", "count": 8 }
+    ],
+    "certified": "2026-07-06",
     "text": "Playable on Pallando during the organization phase. Tap Pallando and reveal up to 8 cards from the top of your play deck. Choose one to put into your hand and shuffle the remaining ones into your play deck."
   },
   {

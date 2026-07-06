@@ -929,6 +929,48 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     };
   }
 
+  // reveal-choose-shuffle (Eyes of Mandos dm-126): reveal the top up-to-`count`
+  // cards of the play deck, then let the player choose one to put into hand and
+  // shuffle the remaining ones back into the deck. The revealed cards stay
+  // physically on top of the play deck while a `reveal-choose-to-hand` pending
+  // resolution collects the choice (no instance floats). The event card itself
+  // goes to the discard pile immediately (before the choice resolves).
+  const revealChooseEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').RevealChooseShuffleEffect =>
+      e.type === 'reveal-choose-shuffle',
+  );
+  if (revealChooseEffect) {
+    // Discard the spent event card first (the reveal is a separate action).
+    let working = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    }));
+    const deck = working.players[playerIndex].playDeck;
+    const revealCount = Math.min(revealChooseEffect.count, deck.length);
+    if (revealCount === 0) {
+      logDetail(`${def.name}: play deck empty — nothing to reveal, event fizzles`);
+      return { state: working };
+    }
+    const revealedCards = deck.slice(0, revealCount);
+    // Reveal the top cards to the opponent (recorded in revealedInstances).
+    working = revealInstances(working, revealedCards);
+    logDetail(
+      `${def.name}: revealed ${revealCount}/${revealChooseEffect.count} top card(s) of play deck ` +
+      `(deck size ${deck.length}) — awaiting choice`,
+    );
+    working = enqueueResolution(working, {
+      source: handCard.instanceId,
+      actor: action.player,
+      scope: { kind: 'phase', phase: working.phaseState.phase },
+      kind: {
+        type: 'reveal-choose-to-hand',
+        revealedInstanceIds: revealedCards.map(c => c.instanceId),
+        sourceDefinitionId: handCard.definitionId,
+      },
+    });
+    return { state: working };
+  }
+
   // Withdrawn to Mordor (dm-165): a `withdraw-agent` short event either
   // removes an opponent's face-up agent (agent mode, `targetAgentId`) or
   // discards one of the opponent's unrevealed on-guard cards (on-guard mode,

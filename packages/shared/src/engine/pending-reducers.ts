@@ -26,6 +26,7 @@ import type { CardInPlay } from '../types/state-cards.js';
 import type { ChainEntry } from '../types/state-combat.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
+import { shuffle } from '../rng.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isFactionCard } from '../types/cards.js';
@@ -2336,6 +2337,58 @@ export function applyArrangeDeckTopResolution(
   const newDeck = [...orderedCards, ...rest];
   logDetail(`arrange-deck-top: placed "${chosenName}" at position ${count}/${count} — deck top finalized`);
   const newState = updatePlayer(state, playerIdx, p => ({ ...p, playDeck: newDeck }));
+  return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
+ * Resolve a `reveal-choose-to-hand` pending resolution (Eyes of Mandos, dm-126).
+ *
+ * The player picks one of the revealed top-of-deck cards via a
+ * `choose-revealed-card` action. The chosen card is removed from the play deck
+ * and placed in their hand; the remaining play deck is then shuffled (folding
+ * the un-chosen revealed cards back in, per "shuffle the remaining ones into
+ * your play deck"). The choice is mandatory, so no pass path exists.
+ */
+export function applyRevealChooseToHandResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'reveal-choose-to-hand') return null;
+
+  if (action.type !== 'choose-revealed-card') {
+    return { state, error: `Pending reveal-choose-to-hand requires choose-revealed-card, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for reveal-choose-to-hand' };
+  }
+
+  const { revealedInstanceIds } = top.kind;
+  if (!revealedInstanceIds.includes(action.cardInstanceId)) {
+    return { state, error: `Card ${action.cardInstanceId as string} was not among the revealed cards` };
+  }
+
+  const playerIdx = getPlayerIndex(state, action.player);
+  const player = state.players[playerIdx];
+  const chosen = player.playDeck.find(c => c.instanceId === action.cardInstanceId);
+  if (!chosen) {
+    return { state, error: `Revealed card ${action.cardInstanceId as string} not found in play deck` };
+  }
+
+  // Remove the chosen card, shuffle the rest of the deck (the un-chosen revealed
+  // cards fold back into the play deck), and hand the chosen card to the player.
+  const remaining = player.playDeck.filter(c => c.instanceId !== action.cardInstanceId);
+  const [shuffledDeck, nextRng] = shuffle(remaining, state.rng);
+  const chosenName = cardName(state, chosen.definitionId);
+  logDetail(
+    `reveal-choose-to-hand: ${action.player as string} takes "${chosenName}" into hand, ` +
+    `shuffling ${shuffledDeck.length} card(s) back into the play deck`,
+  );
+  const newState = updatePlayer({ ...state, rng: nextRng }, playerIdx, p => ({
+    ...p,
+    hand: [...p.hand, chosen],
+    playDeck: shuffledDeck,
+  }));
   return { state: dequeueResolution(newState, top.id) };
 }
 
