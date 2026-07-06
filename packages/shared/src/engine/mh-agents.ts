@@ -23,6 +23,7 @@ import { isCharacterCard, isAllyCard, isFactionCard, isSiteCard } from '../types
 import { CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
 import { makeCombatState, characterEntries, defById, findById, getCardEffects, removeById, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames } from './reducer-utils.js';
@@ -313,6 +314,25 @@ export function handleAgentKeyCreatures(state: GameState, action: GameAction, mh
  *     site with the agent (character/ally) or faction is playable at agent's
  *     home site (faction)
  */
+/**
+ * Sum an agent's conditional `direct-influence` stat-modifiers whose `when`
+ * condition matches the given influence context. Agents live in `player.agents`
+ * — outside `recompute-derived` (which only processes `player.characters`) — so
+ * an agent's conditional DI bonus is applied here at influence time rather than
+ * via effective stats. Used by Lobelia dm-28 ("+3 direct influence against
+ * Hobbits and Hobbit factions").
+ */
+function agentConditionalDirectInfluence(agentDef: CardDefinition, ctx: Record<string, unknown>): number {
+  let bonus = 0;
+  for (const eff of getCardEffects(agentDef)) {
+    if (eff.type !== 'stat-modifier' || eff.stat !== 'direct-influence') continue;
+    if (typeof eff.value !== 'number') continue;
+    if (eff.when && !matchesCondition(eff.when, ctx)) continue;
+    bonus += eff.value;
+  }
+  return bonus;
+}
+
 export function handleAgentInfluenceAttempt(
   state: GameState,
   action: GameAction,
@@ -371,6 +391,12 @@ export function handleAgentInfluenceAttempt(
     if (!targetChar) return { state, error: 'Target character not found' };
     const targetDef = defById(state, targetChar.definitionId);
     if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
+    // Conditional DI bonus vs this target's race (e.g. Lobelia +3 vs Hobbits).
+    const diBonus = agentConditionalDirectInfluence(agentDef, { reason: 'influence-check', target: { race: targetDef.race } });
+    if (diBonus) {
+      influencerDI += diBonus;
+      logDetail(`Agent influence: ${agentDef.name} +${diBonus} DI vs ${targetDef.race} ${targetDef.name} (total: ${influencerDI})`);
+    }
     // A `control-restriction` overrides the influence-to-control threshold.
     targetMind = controlCostOf(state, targetChar, targetDef.mind ?? null) ?? 0;
 
@@ -416,6 +442,12 @@ export function handleAgentInfluenceAttempt(
     if (!targetFaction) return { state, error: 'Target faction not found' };
     const factionDef = defById(state, targetFaction.definitionId);
     if (!factionDef || !isFactionCard(factionDef)) return { state, error: 'Target is not a faction' };
+    // Conditional DI bonus vs this faction's race (e.g. Lobelia +3 vs Hobbit factions).
+    const diBonus = agentConditionalDirectInfluence(agentDef, { reason: 'faction-influence-check', faction: { race: (factionDef as { race?: string }).race } });
+    if (diBonus) {
+      influencerDI += diBonus;
+      logDetail(`Agent influence: ${agentDef.name} +${diBonus} DI vs faction ${factionDef.name} (total: ${influencerDI})`);
+    }
     targetMind = factionDef.inPlayInfluenceNumber ?? factionDef.influenceNumber;
 
     // Rule 10.14: faction playable at agent's home site → value = 0, +2 roll

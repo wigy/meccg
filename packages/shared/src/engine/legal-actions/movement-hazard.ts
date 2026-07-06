@@ -21,7 +21,7 @@ import { defenderAlignmentLabel } from '../detainment.js';
 import { isUnderDeepsAdjacent } from './organization-companies.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { getActiveAutoAttacks } from '../manifestations.js';
+import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
 import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext } from '../reducer-utils.js';
@@ -405,7 +405,14 @@ function playAgentHazardActions(
       agentCardInstanceId: handCard.instanceId,
     };
 
-    if (limitReached) {
+    // Rule g.man.1: a manifestation may not be played while another
+    // manifestation of the same entity is in play (either player) — e.g. the
+    // agent Lobelia (dm-28) while the ally Mistress Lobelia (dm-178) is in play.
+    const blockingManifestation = manifestationOfEntityInPlay(state, def);
+    if (blockingManifestation) {
+      logDetail(`Agent "${def.name}": blocked — manifestation "${blockingManifestation}" already in play`);
+      actions.push({ action, viable: false, reason: `A manifestation of this entity (${blockingManifestation}) is already in play` });
+    } else if (limitReached) {
       logDetail(`Agent "${def.name}": hazard limit reached (${liveLimit})`);
       actions.push({ action, viable: false, reason: `Hazard limit reached (${liveLimit})` });
     } else {
@@ -593,10 +600,18 @@ function agentTurnActions(
       // forbidden site types from the agent's own `agent-move-restriction`
       // effects.
       const restrictedSiteTypes = new Set<string>();
+      const allowedSiteNames = new Set<string>();
+      const allowedRegionNames = new Set<string>();
+      let hasAllowList = false;
       if (agentDef && isCharacterCard(agentDef)) {
         for (const eff of agentDef.effects ?? []) {
           if (eff.type === 'agent-move-restriction') {
-            for (const st of eff.siteTypes) restrictedSiteTypes.add(st);
+            for (const st of eff.siteTypes ?? []) restrictedSiteTypes.add(st);
+            if (eff.allowedSiteNames || eff.allowedRegionNames) {
+              hasAllowList = true;
+              for (const n of eff.allowedSiteNames ?? []) allowedSiteNames.add(n);
+              for (const r of eff.allowedRegionNames ?? []) allowedRegionNames.add(r);
+            }
           }
         }
       }
@@ -612,6 +627,12 @@ function agentTurnActions(
         // Per-card restriction: skip forbidden site types (rule on card text).
         if (restrictedSiteTypes.has(destDef.siteType)) {
           logDetail(`Agent ${agentName}: cannot move to "${destDef.name}" (${destDef.siteType} restricted by card text)`);
+          continue;
+        }
+        // Per-card allow-list (e.g. Lobelia dm-28): may move ONLY to named sites
+        // or sites in named regions.
+        if (hasAllowList && !allowedSiteNames.has(destDef.name) && !(destDef.region && allowedRegionNames.has(destDef.region))) {
+          logDetail(`Agent ${agentName}: cannot move to "${destDef.name}" (not in the card's allowed sites/regions)`);
           continue;
         }
         // Exclude Under-deeps sites (rule 4.1: agents can only move to non-Under-deeps sites).

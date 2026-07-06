@@ -423,17 +423,68 @@
     "certified": "2026-04-25"
   },
   {
-    "cardType": "hazard-event",
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
     "id": "dm-28",
     "name": "Lobelia Sackville-Baggins",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/LobeliaSackvilleBaggins.jpg",
     "unique": true,
-    "eventType": "short",
+    "race": "hobbit",
+    "skills": [
+      "scout"
+    ],
+    "prowess": 0,
+    "body": 9,
+    "mind": 3,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "homesite": "Bag End, Bree",
     "keywords": [
       "agent"
     ],
-    "effects": [],
-    "text": "Unique. Manifestation of Mistress Lobelia. Agent. +3 direct influence against Hobbits and Hobbit factions. May not move to any site other than Bree, Old Forest, The White Towers, or a site in The Shire."
+    "manifestId": "dm-178",
+    "effects": [
+      {
+        "type": "agent-tap-influence",
+        "targetKinds": [
+          "character",
+          "ally",
+          "faction"
+        ]
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "hobbit"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "hobbit"
+        }
+      },
+      {
+        "type": "agent-move-restriction",
+        "allowedSiteNames": [
+          "Bree",
+          "Old Forest",
+          "The White Towers"
+        ],
+        "allowedRegionNames": [
+          "The Shire"
+        ]
+      }
+    ],
+    "text": "Unique. Manifestation of Mistress Lobelia. Agent. +3 direct influence against Hobbits and Hobbit factions. May not move to any site other than Bree, Old Forest, The White Towers, or a site in The Shire.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-event",
