@@ -3172,7 +3172,8 @@ export type CardEffect =
   | OrgPhaseFetchEffect
   | StayHerAppetiteEffect
   | AllyBodyCheckBoostEffect
-  | CreatureAltEventEffect;
+  | CreatureAltEventEffect
+  | CompanyReturnToOriginEffect;
 
 /**
  * Marks a hazard-creature card as also playable in an alternative event mode
@@ -3197,6 +3198,41 @@ export interface CreatureAltEventEffect extends EffectBase {
   readonly type: 'creature-alt-event';
   /** The alternative event mode this creature may also be played in. */
   readonly mode: 'short-event' | 'permanent-event';
+  /**
+   * Optional targeting for the event mode, evaluated against the active
+   * company (via the target-company condition context: `company.alignment`,
+   * `company.characterNames`, `company.maxUntappedWarriorProwess`, …). When
+   * absent, the event may be played against any company. Distinct from the
+   * creature mode's own `play-condition: target-company` — the two modes of a
+   * dual card can target different companies (e.g. Beorning Skin-changers
+   * ba-10: creature vs minion companies, short-event vs a hero company).
+   */
+  readonly targetCompany?: Condition;
+  /**
+   * When true, the event mode may only be played against a company that is
+   * actually moving (has a declared destination site) — e.g. ba-10's
+   * short-event "against a moving hero company".
+   */
+  readonly requiresMovingCompany?: boolean;
+}
+
+/**
+ * Forces the active movement/hazard company to return to its site of origin
+ * (CoE rule 2.IV.4 mechanism, shared with `agent-discard-return-to-origin`):
+ * the company keeps its origin site instead of its destination and may not act
+ * during its site phase (a `site-phase-do-nothing` constraint). Carried by a
+ * hazard short-event (including a dual-mode creature played as a short-event,
+ * e.g. Beorning Skin-changers ba-10) and applied on chain resolution.
+ *
+ * The optional `unless` condition is evaluated against the target company; when
+ * it matches, the company is NOT returned (the card resolves with no effect).
+ * ba-10: "Unless the company contains Beorn or an untapped warrior with prowess
+ * greater than 4, it must return to its site of origin."
+ */
+export interface CompanyReturnToOriginEffect extends EffectBase {
+  readonly type: 'company-return-to-origin';
+  /** When this condition matches the target company, the return is skipped. */
+  readonly unless?: Condition;
 }
 
 /**

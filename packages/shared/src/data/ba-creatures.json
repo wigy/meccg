@@ -36,9 +36,27 @@
         "condition": {
           "company.alignment": "ringwraith"
         }
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "short-event",
+        "requiresMovingCompany": true,
+        "targetCompany": {
+          "company.alignment": "hero"
+        }
+      },
+      {
+        "type": "company-return-to-origin",
+        "unless": {
+          "$or": [
+            { "company.characterNames": { "$includes": "Beorn" } },
+            { "company.maxUntappedWarriorProwess": { "$gt": 4 } }
+          ]
+        }
       }
     ],
-    "text": "Animals. Men. Bears. Two strikes. As a creature, playable only against minion companies. May also be keyed to Anduin Vales, Western Mirkwood, Wold & Foothills; and to sites in these regions. Alternatively, playable as a short-event against a moving hero company. Unless the company contains Beorn or an untapped warrior with prowess greater than 4, it must return to its site of origin."
+    "text": "Animals. Men. Bears. Two strikes. As a creature, playable only against minion companies. May also be keyed to Anduin Vales, Western Mirkwood, Wold & Foothills; and to sites in these regions. Alternatively, playable as a short-event against a moving hero company. Unless the company contains Beorn or an untapped warrior with prowess greater than 4, it must return to its site of origin.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-creature",
