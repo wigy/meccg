@@ -1961,6 +1961,14 @@ export interface ExtraAgentActionsEffect extends EffectBase {
   readonly type: 'extra-agent-actions';
   /** Number of additional agent actions granted per normal agent action. */
   readonly value: number;
+  /**
+   * When true, the effect is carried by an agent itself and grants the extra
+   * action(s) only while that agent is face-up (revealed) — e.g. My Precious
+   * (dm-29): "If face-up, may take an extra agent action …". When absent, the
+   * effect is a global in-play card (e.g. Great Need or Purpose dm-62) granting
+   * extra actions unconditionally.
+   */
+  readonly whileRevealed?: boolean;
 }
 
 /**
@@ -3222,7 +3230,8 @@ export type CardEffect =
   | AllyBodyCheckBoostEffect
   | CreatureAltEventEffect
   | CompanyReturnToOriginEffect
-  | TapCharacterEffect;
+  | TapCharacterEffect
+  | AgentAttackOutcomeEffect;
 
 /**
  * Marks a hazard-creature card as also playable in an alternative event mode
@@ -3299,6 +3308,28 @@ export interface TapCharacterEffect extends EffectBase {
    * character definition). Absent = any character in play.
    */
   readonly filter?: Condition;
+}
+
+/**
+ * Bespoke post-attack behaviour for a manifestation agent (My Precious dm-29),
+ * evaluated when the agent's own attack resolves (in `finalizeCombat`):
+ *
+ * - `onSuccessVsRing`: on a successful attack (a defender was wounded) against a
+ *   company holding a ring (a `gold-ring` item), the agent is discarded and one
+ *   ring is discarded — reusing the `force-discard-card` resolution so the
+ *   attacker chooses which ring.
+ * - `onFailSurvive`: on a failed attack (no wound) where the agent survives, the
+ *   defender is offered (via a `agent-play-manifestation-offer` resolution) the
+ *   option to tap a character in the target company and play the agent's other
+ *   manifestation (`manifestationCardName`, e.g. Gollum tw-246) from hand, after
+ *   which the agent is discarded.
+ */
+export interface AgentAttackOutcomeEffect extends EffectBase {
+  readonly type: 'agent-attack-outcome';
+  readonly onSuccessVsRing?: 'discard-self-and-ring';
+  readonly onFailSurvive?: 'defender-plays-manifestation';
+  /** The card name of the manifestation the defender may play from hand (Gollum). */
+  readonly manifestationCardName?: string;
 }
 
 /**

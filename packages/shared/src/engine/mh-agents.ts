@@ -38,12 +38,22 @@ import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
  * Exported so legal-actions can reuse the same logic.
  */
 export function countExtraAgentActions(state: GameState): number {
+  const sumEffects = (defId: CardDefinition['id'], requireGlobal: boolean, revealed: boolean): number =>
+    getCardEffects(defById(state, defId)).reduce(
+      (n, e) => {
+        if (e.type !== 'extra-agent-actions') return n;
+        const eff = e as { value?: number; whileRevealed?: boolean };
+        // A card in cardsInPlay contributes only if it is NOT a face-up-agent
+        // effect; an agent contributes its whileRevealed effect only while revealed.
+        if (requireGlobal && eff.whileRevealed) return n;
+        if (!requireGlobal && (!eff.whileRevealed || !revealed)) return n;
+        return n + (eff.value ?? 0);
+      }, 0,
+    );
   return state.players.reduce((sum, p) =>
-    sum + p.cardsInPlay.reduce((s, card) =>
-      s + getCardEffects(defById(state, card.definitionId)).reduce(
-        (n, e) => e.type === 'extra-agent-actions' ? n + ((e as { value?: number }).value ?? 0) : n, 0,
-      ),
-    0),
+    sum
+      + p.cardsInPlay.reduce((s, card) => s + sumEffects(card.definitionId, true, false), 0)
+      + p.agents.reduce((s, a) => s + sumEffects(a.character.definitionId, false, a.revealed), 0),
   0);
 }
 

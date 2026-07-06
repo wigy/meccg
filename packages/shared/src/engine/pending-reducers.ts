@@ -2281,6 +2281,72 @@ export function applyHavenRestoreCharacterResolution(
 }
 
 /**
+ * Resolve a `agent-play-manifestation-offer` pending resolution (My Precious
+ * dm-29): after My Precious attacks and fails but survives, the defender may tap
+ * a character in the target company to play Gollum from hand — discarding My
+ * Precious — or pass (he stays in play).
+ */
+export function applyAgentPlayManifestationResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'agent-play-manifestation-offer') return null;
+
+  if (action.type === 'pass') {
+    logDetail('agent-play-manifestation: defender declines — My Precious stays in play');
+    return { state: dequeueResolution(state, top.id) };
+  }
+  if (action.type !== 'play-agent-manifestation') {
+    return { state, error: `Pending agent-play-manifestation-offer requires play-agent-manifestation or pass, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) return { state, error: 'Wrong player for agent-play-manifestation' };
+
+  const { agentId, companyId } = top.kind;
+  const defIdx = getPlayerIndex(state, action.player);
+  const defPlayer = state.players[defIdx];
+  const company = defPlayer.companies.find(co => co.id === companyId);
+  if (!company || !company.characters.some(id => id === action.characterId)) {
+    return { state, error: `Character ${action.characterId as string} not in company ${companyId as string}` };
+  }
+  const char = defPlayer.characters[action.characterId];
+  if (!char || char.status !== CardStatus.Untapped) return { state, error: 'Target character is not untapped' };
+  const gollum = findById(defPlayer.hand, action.manifestationCardInstanceId);
+  if (!gollum) return { state, error: 'Manifestation card not in defender hand' };
+
+  const gollumName = (defById(state, gollum.definitionId) as { name?: string })?.name ?? 'manifestation';
+  logDetail(`agent-play-manifestation: ${defPlayer.name} taps ${action.characterId as string} to play ${gollumName}; My Precious discarded`);
+
+  // Tap the character, attach Gollum as an ally on it, remove Gollum from hand.
+  let newState = updatePlayer(state, defIdx, p => ({
+    ...p,
+    hand: p.hand.filter(c => c.instanceId !== action.manifestationCardInstanceId),
+    characters: {
+      ...p.characters,
+      [action.characterId as string]: {
+        ...p.characters[action.characterId],
+        status: CardStatus.Tapped,
+        allies: [...p.characters[action.characterId].allies, { instanceId: gollum.instanceId, definitionId: gollum.definitionId, status: CardStatus.Untapped }],
+      },
+    },
+  }));
+
+  // Discard My Precious (the attacking agent).
+  const hazardIdx = 1 - defIdx;
+  const agent = newState.players[hazardIdx].agents.find(a => a.id === agentId);
+  if (agent) {
+    newState = updatePlayer(newState, hazardIdx, p => ({
+      ...p,
+      agents: p.agents.filter(a => a.id !== agentId),
+      discardPile: [...p.discardPile, toCardInstance(agent.character)],
+      siteDeck: [...p.siteDeck, ...agent.siteStack],
+    }));
+  }
+
+  return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
  * Resolve a queued `stay-her-appetite-roll` resolution (Stay Her Appetite, le-140).
  *
  * The hazard player rolls 2d6. If roll + ally.mind > opponent.unusedGI +

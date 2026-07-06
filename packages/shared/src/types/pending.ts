@@ -494,6 +494,22 @@ export interface PendingResolution {
       }
     | {
         /**
+         * My Precious (dm-29): after My Precious attacks and fails but survives,
+         * the defender may tap one character in the target company to play the
+         * agent's other manifestation (Gollum) from hand, after which My Precious
+         * is discarded — or pass (My Precious stays in play). Resolved by a
+         * `play-agent-manifestation` action.
+         */
+        readonly type: 'agent-play-manifestation-offer';
+        /** The company whose characters may be tapped to play the manifestation. */
+        readonly companyId: CompanyId;
+        /** The attacking agent's id (discarded when the manifestation is played). */
+        readonly agentId: CompanyId;
+        /** Card name of the manifestation the defender may play from hand (Gollum). */
+        readonly manifestationCardName: string;
+      }
+    | {
+        /**
          * Stay Her Appetite (le-140): a hazard short-event has targeted an ally.
          * The hazard player rolls 2d6. If roll + ally.mind > opponent.unusedGI +
          * bearerCharacter.unusedDI + 5, a detainment attack (1 strike, prowess =

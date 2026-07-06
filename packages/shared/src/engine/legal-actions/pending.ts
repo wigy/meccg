@@ -1719,3 +1719,42 @@ export function havenRestoreCharacterActions(
 
   return actions;
 }
+
+/**
+ * Legal actions while an `agent-play-manifestation-offer` resolution is pending
+ * (My Precious dm-29): the defender may tap one untapped character in the target
+ * company to play Gollum from hand (discarding My Precious), or pass. One
+ * `play-agent-manifestation` action per eligible character; pass always offered.
+ */
+export function agentPlayManifestationActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'agent-play-manifestation-offer') return [];
+  const { companyId, agentId, manifestationCardName } = top.kind;
+  const actorPlayer = playerById(state, actor);
+  const actions: EvaluatedAction[] = [];
+  if (actorPlayer) {
+    const company = companyById(actorPlayer.companies, companyId);
+    const gollum = actorPlayer.hand.find(c => (defById(state, c.definitionId) as { name?: string })?.name === manifestationCardName);
+    if (company && gollum) {
+      for (const charId of company.characters) {
+        const ch = actorPlayer.characters[charId];
+        if (!ch || ch.status !== CardStatus.Untapped) continue;
+        actions.push({
+          action: {
+            type: 'play-agent-manifestation' as const,
+            player: actor,
+            agentId,
+            characterId: ch.instanceId,
+            manifestationCardInstanceId: gollum.instanceId,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  return actions;
+}
