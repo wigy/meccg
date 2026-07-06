@@ -43,6 +43,7 @@ import {
   applyHazardEventMaintenanceResolution,
   applyTapOneCharacterResolution,
   applyHavenRestoreCharacterResolution,
+  applyArrangeDeckTopResolution,
   applyAgentPlayManifestationResolution,
   applyStayHerAppetiteRollResolution,
 } from './pending-reducers.js';
@@ -64,6 +65,7 @@ import {
   hazardEventMaintenanceActions,
   tapOneCharacterActions,
   havenRestoreCharacterActions,
+  arrangeDeckTopActions,
   agentPlayManifestationActions,
   stayHerAppetiteRollActions,
 } from './legal-actions/pending.js';
@@ -113,6 +115,7 @@ export const PENDING_HANDLERS: { readonly [K in PendingKindType]: PendingHandler
   'hazard-event-maintenance': { legalActions: hazardEventMaintenanceActions, apply: applyHazardEventMaintenanceResolution },
   'tap-one-character': { legalActions: tapOneCharacterActions, apply: applyTapOneCharacterResolution },
   'haven-restore-character': { legalActions: havenRestoreCharacterActions, apply: applyHavenRestoreCharacterResolution },
+  'arrange-deck-top': { legalActions: arrangeDeckTopActions, apply: applyArrangeDeckTopResolution },
   'agent-play-manifestation-offer': { legalActions: agentPlayManifestationActions, apply: applyAgentPlayManifestationResolution },
   'stay-her-appetite-roll': { legalActions: stayHerAppetiteRollActions, apply: applyStayHerAppetiteRollResolution },
 };

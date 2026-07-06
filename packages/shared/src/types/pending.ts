@@ -535,6 +535,32 @@ export interface PendingResolution {
         readonly companyId: CompanyId;
         /** Definition ID of le-140 (for logging). */
         readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Revealed to all Watchers (dm-85): the playing player has just refilled
+         * their hand and placed their set-aside (non-hazard) cards on top of the
+         * play deck. They now choose the order of those top cards ("in any order
+         * you choose"), picking one at a time from top to bottom. The cards are
+         * already physically on top of the deck (in a default order); resolving
+         * this resolution only permutes those top `count` cards to match the
+         * chosen sequence.
+         */
+        readonly type: 'arrange-deck-top';
+        /**
+         * How many cards on top of the play deck are being arranged (the number
+         * of set-aside cards). The resolution is complete once `orderedInstanceIds`
+         * reaches this length.
+         */
+        readonly count: number;
+        /**
+         * The player's chosen order so far, top-first. Each `arrange-deck-top-card`
+         * action appends the next-highest card; when the length reaches `count`,
+         * the top `count` cards are reordered to match and the resolution clears.
+         */
+        readonly orderedInstanceIds: readonly CardInstanceId[];
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
       };
 }
 

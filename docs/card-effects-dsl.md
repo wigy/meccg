@@ -542,6 +542,47 @@ Used by Rolled down to the Sea (wh-29): "Opponent must discard a ring from
 his hand or from one of his companies if available. If no rings are available
 as such, he must reveal his hand to you."
 
+### 6f. `cycle-hand`
+
+Carried by a (hazard) short-event. When the event resolves on the chain, the
+**playing player** (`entry.declaredBy` — the hazard player, for a hazard event)
+cycles their own hand:
+
+1. If `revealHand` is set, their hand identities are revealed to the opponent
+   (recorded in `GameState.revealedInstances`).
+2. The hand is partitioned: cards whose definition matches `keepInHand` stay in
+   hand; the rest are **set aside**.
+3. If `drawToHandSize` is true (default), cards are drawn from the top of the
+   play deck until the hand reaches the player's effective hand size (stopping
+   early if the deck runs out — no card disappears).
+4. The set-aside cards are placed face-down on top of the play deck. When two or
+   more were set aside, an `arrange-deck-top` pending resolution lets the player
+   choose their order ("in any order you choose"), picking one card at a time
+   top-first via the `arrange-deck-top-card` action.
+
+The set-aside cards are physically on top of the deck between steps 3 and 4 (the
+ordering resolution only permutes them), so no card instance ever floats outside
+a pile. The resolution is independent of the chain (like
+`force-opponent-discard`): the chain entry is still marked resolved, and the
+player resolves the ordering afterward while the opponent waits.
+
+Resolved in `chain-reducer.ts` (`applyCycleHand`); the ordering resolution lives
+in `legal-actions/pending.ts` (`arrangeDeckTopActions`) and `pending-reducers.ts`
+(`applyArrangeDeckTopResolution`).
+
+```json
+{ "type": "cycle-hand", "revealHand": true,
+  "keepInHand": { "cardType": { "$in": ["hazard-creature", "hazard-event"] } },
+  "drawToHandSize": true, "setAsideTo": "deck-top" }
+```
+
+Used by Revealed to all Watchers (dm-85): "Reveal your hand to opponent. Place
+all non-hazard cards from your hand off to the side. Draw cards from your play
+deck until your hand size is reached. Place the non-hazard cards from off to the
+side face down on top of your play deck in any order you choose." Here
+`keepInHand` matches the hazard card types, so the *non-hazard* cards are the
+ones set aside.
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,

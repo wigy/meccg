@@ -347,6 +347,20 @@ export interface RestoreCharacterByEffectAction {
 }
 
 /**
+ * Choose the next card (top-first) when ordering the set-aside cards a
+ * `cycle-hand` effect placed on top of the play deck (Revealed to all Watchers,
+ * dm-85). Resolves one step of an `arrange-deck-top` pending resolution: the
+ * chosen card becomes the next-highest card of the arranged block.
+ */
+export interface ArrangeDeckTopCardAction {
+  readonly type: 'arrange-deck-top-card';
+  /** The player arranging their own deck top. */
+  readonly player: PlayerId;
+  /** The instance ID of the card to place next (top-first). */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Pay the maintenance cost for a hazard permanent event that requires upkeep
  * at the end of the resource player's long-event phase (e.g. Thrice Outnumbered).
  *

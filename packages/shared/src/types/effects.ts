@@ -673,6 +673,62 @@ export interface ForceOpponentDiscardEffect extends EffectBase {
 }
 
 /**
+ * Reveals the playing player's hand, keeps the cards matching `keepInHand`,
+ * sets the rest aside, refills the hand to the player's effective hand size by
+ * drawing from the play deck, and then places the set-aside cards face-down on
+ * top of the play deck in an order the player chooses.
+ *
+ * Carried by a (hazard) short-event and resolved when the event resolves on
+ * the chain. The playing player is `entry.declaredBy` — for a hazard event
+ * this is the hazard player, who manipulates their **own** hand and deck. The
+ * flow is:
+ *
+ * 1. If `revealHand` is set, the playing player's hand identities are revealed
+ *    to their opponent (recorded in {@link GameState.revealedInstances}).
+ * 2. The hand is partitioned: cards whose definition matches `keepInHand` stay
+ *    in hand; the rest are set aside.
+ * 3. If `drawToHandSize` is set (default true), cards are drawn from the top of
+ *    the play deck until the hand reaches the player's effective hand size
+ *    (stopping early if the deck runs out — no card disappears).
+ * 4. The set-aside cards are placed face-down on top of the play deck. When
+ *    two or more were set aside, an {@link PendingResolution} of kind
+ *    `arrange-deck-top` is enqueued so the player chooses their order.
+ *
+ * The set-aside cards are always physically on top of the deck between steps
+ * 3 and 4 (the ordering resolution only permutes them), so no card instance
+ * ever floats outside a pile.
+ *
+ * Used by *Revealed to all Watchers* (dm-85): "Reveal your hand to opponent.
+ * Place all non-hazard cards from your hand off to the side. Draw cards from
+ * your play deck until your hand size is reached. Place the non-hazard cards
+ * from off to the side face down on top of your play deck in any order you
+ * choose." Here `keepInHand` matches the hazard card types (so non-hazards are
+ * the ones set aside).
+ */
+export interface CycleHandEffect extends EffectBase {
+  readonly type: 'cycle-hand';
+  /** When true, reveal the playing player's hand to their opponent first. */
+  readonly revealHand?: boolean;
+  /**
+   * DSL {@link Condition} matched against each hand card's definition. Cards
+   * that MATCH are kept in hand; non-matching cards are set aside and placed on
+   * top of the play deck after the draw.
+   */
+  readonly keepInHand: Condition;
+  /**
+   * When true (the default), draw from the top of the play deck until the hand
+   * reaches the player's effective hand size after the set-aside cards are
+   * removed. When false, no cards are drawn.
+   */
+  readonly drawToHandSize?: boolean;
+  /**
+   * Where the set-aside (non-matching) cards go after the draw. Currently only
+   * `'deck-top'`: face-down on top of the play deck, in a player-chosen order.
+   */
+  readonly setAsideTo: 'deck-top';
+}
+
+/**
  * Removes an opponent's face-up agent from play, or (as an alternative mode)
  * discards one of the opponent's unrevealed on-guard cards.
  *
@@ -3143,6 +3199,7 @@ export type CardEffect =
   | DrawCardsEffect
   | ReshuffleFromDiscardEffect
   | ForceOpponentDiscardEffect
+  | CycleHandEffect
   | WithdrawAgentEffect
   | GrantActionEffect
   | OnEventEffect

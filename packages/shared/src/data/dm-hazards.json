@@ -998,8 +998,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/RevealedtoallWatchers.jpg",
     "unique": true,
     "eventType": "short",
-    "effects": [],
-    "text": "Unique. Reveal your hand to opponent. Place all non-hazard cards from your hand off to the side. Draw cards from your play deck until your hand size is reached. Place the non-hazard cards from off to the side face down on top of your play deck in any order you choose."
+    "effects": [
+      {
+        "type": "cycle-hand",
+        "revealHand": true,
+        "keepInHand": { "cardType": { "$in": ["hazard-creature", "hazard-event"] } },
+        "drawToHandSize": true,
+        "setAsideTo": "deck-top"
+      }
+    ],
+    "text": "Unique. Reveal your hand to opponent. Place all non-hazard cards from your hand off to the side. Draw cards from your play deck until your hand size is reached. Place the non-hazard cards from off to the side face down on top of your play deck in any order you choose.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-event",

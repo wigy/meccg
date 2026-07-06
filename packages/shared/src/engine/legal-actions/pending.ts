@@ -1721,6 +1721,42 @@ export function havenRestoreCharacterActions(
 }
 
 /**
+ * Legal actions while an `arrange-deck-top` resolution is pending (Revealed to
+ * all Watchers, dm-85): the player orders the set-aside cards sitting on top of
+ * their play deck, picking the next-highest card each step. One
+ * `arrange-deck-top-card` action per top-of-deck card not yet chosen; the order
+ * is mandatory (no pass).
+ */
+export function arrangeDeckTopActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'arrange-deck-top') return [];
+  const { count, orderedInstanceIds } = top.kind;
+  const player = playerById(state, actor);
+  if (!player) return [];
+
+  const chosen = new Set(orderedInstanceIds);
+  const topCards = player.playDeck.slice(0, count);
+  const actions: EvaluatedAction[] = [];
+  for (const c of topCards) {
+    if (chosen.has(c.instanceId)) continue;
+    const name = cardName(state, c.definitionId);
+    logDetail(`arrange-deck-top: offering to place "${name}" next (position ${orderedInstanceIds.length + 1}/${count})`);
+    actions.push({
+      action: {
+        type: 'arrange-deck-top-card' as const,
+        player: actor,
+        cardInstanceId: c.instanceId,
+      },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
  * Legal actions while an `agent-play-manifestation-offer` resolution is pending
  * (My Precious dm-29): the defender may tap one untapped character in the target
  * company to play Gollum from hand (discarding My Precious), or pass. One
