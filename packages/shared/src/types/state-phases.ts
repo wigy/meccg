@@ -722,6 +722,17 @@ export interface SitePhaseState {
    */
   readonly technologyItemPlayed?: boolean;
   /**
+   * Whether the current (active) company has, this site phase, successfully
+   * played a **unique hero faction at a Free-hold that is not Bag End**. Set
+   * when such a faction resolves (`resolveInfluenceAttemptRoll`); consulted by
+   * the `company-context` play-condition so a card can gate on "during the same
+   * site phase his company plays a unique hero faction at a Free-hold [{F}] (not
+   * Bag End)" (To Fealty Sworn, ba-33). Absent (undefined → treated as false)
+   * until such a faction is played; reset to absent when a new company's site
+   * phase begins (a fresh {@link SitePhaseState} is built).
+   */
+  readonly uniqueHeroFactionPlayedAtFreeHold?: boolean;
+  /**
    * Agent instance ID declared as attacking in step 3, or null if no
    * agent attack was declared.
    */

@@ -1210,6 +1210,51 @@ export function defNamesOf(state: GameState, instances: readonly { readonly defi
 }
 
 /**
+ * Evaluate a `play-condition` `requires: 'company-context'` DSL condition
+ * against a specific company (the play-target character's company for a
+ * character-targeting permanent event).
+ *
+ * Exposes `{ site: { name, type }, company: { characterNames, itemNames,
+ * allyNames, playedUniqueHeroFactionAtFreeHold } }`. `itemNames` aggregates
+ * every item / attached permanent event borne by any character in the company,
+ * so a card can gate on "in the same company as <named card>" (the named card
+ * being attached to a company-mate). `playedUniqueHeroFactionAtFreeHold` is the
+ * caller-supplied site-phase flag (true only when this company has, this site
+ * phase, played a unique hero faction at a Free-hold that is not Bag End).
+ *
+ * Used by To Fealty Sworn (ba-33).
+ */
+export function matchesCompanyContextCondition(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  condition: Condition,
+  playedUniqueHeroFactionAtFreeHold: boolean,
+): boolean {
+  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const siteName = siteDef?.name;
+  const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : undefined;
+
+  const characterNames: string[] = [];
+  const itemNames: string[] = [];
+  const allyNames: string[] = [];
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char) continue;
+    const cn = defById(state, char.definitionId)?.name;
+    if (cn != null) characterNames.push(cn);
+    itemNames.push(...defNamesOf(state, char.items));
+    allyNames.push(...defNamesOf(state, char.allies));
+  }
+
+  const context: Record<string, unknown> = {
+    site: { name: siteName, type: siteType },
+    company: { characterNames, itemNames, allyNames, playedUniqueHeroFactionAtFreeHold },
+  };
+  return matchesCondition(condition, context);
+}
+
+/**
  * Collect the combined `keywords` of all given item instances. Used to build
  * the `itemKeywords` field of condition-matcher contexts so filters can gate
  * on an item keyword borne by a character (e.g. `target.itemKeywords`).

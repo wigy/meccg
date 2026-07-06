@@ -150,10 +150,42 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/ToFealtySworn.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a Hobbit: in the same company as Return of the King or during the same site phase his company plays a unique hero faction at a Free-hold [{F}] (not Bag End). The Hobbit gains the warrior skill, +2 prowess, and +5 direct influence against the Hobbits faction and characters with Bag End as a home site. Cannot be duplicated on a given Hobbit."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": "hobbit" }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "$or": [
+            { "company.itemNames": { "$includes": "Return of the King" } },
+            { "company.playedUniqueHeroFactionAtFreeHold": true }
+          ]
+        }
+      },
+      { "type": "grant-skill", "skill": "warrior" },
+      { "type": "stat-modifier", "stat": "prowess", "value": 2 },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5,
+        "when": { "reason": "influence-check", "target.homesite": { "$includes": "Bag End" } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5,
+        "when": { "reason": "faction-influence-check", "faction.name": "Hobbits" }
+      },
+      { "type": "duplication-limit", "scope": "character", "max": 1 }
+    ],
+    "text": "Playable on a Hobbit: in the same company as Return of the King or during the same site phase his company plays a unique hero faction at a Free-hold [{F}] (not Bag End). The Hobbit gains the warrior skill, +2 prowess, and +5 direct influence against the Hobbits faction and characters with Bag End as a home site. Cannot be duplicated on a given Hobbit.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "minion-resource-ally",
