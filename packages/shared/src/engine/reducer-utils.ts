@@ -2173,6 +2173,29 @@ export function discardEventCard(state: GameState, cardInstanceId: CardInstanceI
 }
 
 /**
+ * Removes a played event card from the game entirely, routing it from
+ * `cardsInPlay` to the owner's out-of-play pile instead of the discard pile.
+ * Backs "Remove this card from the game." on fetch short-events such as
+ * Longbottom Leaf (ba-30) — the no-card-disappears invariant is preserved
+ * (the instance lands in `outOfPlayPile`, never dropped).
+ */
+export function removeEventCardFromGame(state: GameState, cardInstanceId: CardInstanceId, playerIndex: number): GameState {
+  const player = state.players[playerIndex];
+  const eventCard = findById(player.cardsInPlay, cardInstanceId);
+  if (!eventCard) return state;
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    cardsInPlay: removeById(player.cardsInPlay, cardInstanceId),
+    outOfPlayPile: [...player.outOfPlayPile, toCardInstance(eventCard)],
+  };
+  return {
+    ...state,
+    players: newPlayers,
+  };
+}
+
+/**
  * Resolve (skip) the current pending effect and advance to the next one.
  * If no more effects remain, move the event card from cardsInPlay to discard.
  */
@@ -2187,7 +2210,12 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
   let newState: GameState = { ...state, pendingEffects: remaining };
   if (remaining.length === 0 && current.type === 'card-effect') {
     if (!current.skipDiscard) {
-      newState = discardEventCard(newState, current.cardInstanceId, ownerIndex);
+      // Fetch short-events flagged `removeFromGame` (Longbottom Leaf ba-30) are
+      // removed from the game even when the player passes / takes fewer than the
+      // maximum number of cards.
+      newState = current.effect.type === 'fetch-to-deck' && current.effect.removeFromGame
+        ? removeEventCardFromGame(newState, current.cardInstanceId, ownerIndex)
+        : discardEventCard(newState, current.cardInstanceId, ownerIndex);
     }
     // Enqueue post-fetch corruption check when all picks are resolved (including
     // the pass/skip case). Applies whether skipDiscard is true (grant-action items
@@ -2320,7 +2348,12 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
         });
       }
     } else {
-      newState = discardEventCard(newState, current.cardInstanceId, playerIndex);
+      // Longbottom Leaf (ba-30) and any fetch short-event flagged
+      // `removeFromGame` route the spent card to the out-of-play pile instead
+      // of the discard pile once the last pick resolves.
+      newState = current.effect.type === 'fetch-to-deck' && current.effect.removeFromGame
+        ? removeEventCardFromGame(newState, current.cardInstanceId, playerIndex)
+        : discardEventCard(newState, current.cardInstanceId, playerIndex);
       // For short events that have a postCorruptionCheck (e.g. Vilya), enqueue
       // the corruption check after the card is discarded.
       if (current.postCorruptionCheck) {

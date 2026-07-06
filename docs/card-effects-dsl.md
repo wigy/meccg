@@ -3160,7 +3160,7 @@ for reference:
 | `discard-cards-in-play` | `{ select: 'filter-all', from: 'in-play', to: 'discard', filter }` | Doors of Night |
 | `discard-non-special-items` | `{ select: 'filter-all', from: 'items-on-wounded', to: 'discard', toOwner: 'defender', filter }` | creature wound triggers |
 | `reshuffle-self-from-hand` | `{ select: 'self', from: 'hand', to: 'deck', shuffleAfter: true }` | Sudden Call |
-| `fetch-to-deck` | `{ select: 'target', from: ['sideboard','discard'], to: 'deck', shuffleAfter: true, filter, count }` | Smoke Rings |
+| `fetch-to-deck` | `{ select: 'target', from: ['sideboard','discard'], to: 'deck', shuffleAfter: true, filter, count }` | Smoke Rings, Longbottom Leaf |
 | `bounce-hazard-events` | `{ select: 'filter-all', from: 'attached-to-target-company', to: 'hand', toOwner: 'opponent', filter, corruptionCheck }` | Wizard Uncloaked |
 
 **Shape**
@@ -3243,6 +3243,14 @@ completes or when the player passes.
 - `shuffleAfter: true` shuffles the destination pile after pushing.
 - `corruptionCheck: { modifier: n }` enqueues a corruption check on
   the bearer after the move resolves.
+- `removeFromGame: true` (fetch-to-deck moves only) — once the interactive
+  fetch resolves (whether the player took the maximum, took fewer, or passed
+  with none), the spent event card is routed to the owner's out-of-play pile
+  instead of the discard pile, so it can never be recurred. Backs "Remove this
+  card from the game." on *Longbottom Leaf* (ba-30): "Take up to two resources
+  from your sideboard to your play deck and reshuffle. Remove this card from
+  the game." (`from: ['sideboard']`, `count: 2`, resources-only filter,
+  `removeFromGame: true`).
 
 ## Resolver Architecture
 
