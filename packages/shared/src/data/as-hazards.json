@@ -263,8 +263,11 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/PilferAnythingUnwatched.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on an untapped agent. Tap the agent. Make a roll for a character in play of your choice with a home site the same as the agent’s current site. To the roll add 5 if the agent’s current site is also the agent’s home site. If the result is greater than the character’s mind plus 5, the character is returned to his player’s hand (one item may be transferred to another character in the same company). Cannot be played if your opponent is a minion player."
+    "effects": [
+      { "type": "agent-tap-return-character", "atHomeSiteBonus": 5, "mindBonus": 5 }
+    ],
+    "text": "Playable on an untapped agent. Tap the agent. Make a roll for a character in play of your choice with a home site the same as the agent’s current site. To the roll add 5 if the agent’s current site is also the agent’s home site. If the result is greater than the character’s mind plus 5, the character is returned to his player’s hand (one item may be transferred to another character in the same company). Cannot be played if your opponent is a minion player.",
+    "certified": "2026-07-07"
   },
   {
     "cardType": "hazard-event",

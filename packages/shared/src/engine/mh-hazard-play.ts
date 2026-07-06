@@ -17,7 +17,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard } from '../index.js';
-import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect } from '../types/effects.js';
+import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect } from '../types/effects.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CompanyId } from '../types/common.js';
@@ -48,7 +48,7 @@ import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution 
 import { resolveAdjacency } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { collectRegionKeyingBoosts, regionPathsWithBoosts } from './region-keying.js';
-import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite } from './mh-agents.js';
+import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter } from './mh-agents.js';
 
 /**
  * Handle actions during the play-hazards step (CoE step 7).
@@ -760,6 +760,15 @@ export function handlePlayHazardCard(
     );
     if (tapAgentEff && action.type === 'play-hazard' && action.agentInstanceId) {
       return handleTapAgentAtSite(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, tapAgentEff);
+    }
+
+    // Pilfer Anything Unwatched (as-33): tap an untapped agent and roll to
+    // return an opponent character (home site == agent's current site) to hand.
+    const pilferEff = def.effects?.find(
+      (e): e is AgentTapReturnCharacterEffect => e.type === 'agent-tap-return-character',
+    );
+    if (pilferEff && action.type === 'play-hazard' && action.agentInstanceId && action.targetCharacterId) {
+      return handleAgentTapReturnCharacter(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, pilferEff);
     }
 
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');

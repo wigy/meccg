@@ -508,6 +508,10 @@ export function describeAction(
       return `${action.player as string} plays creature ${action.creatureInstanceId as string} from discard pile against company ${action.targetCompanyId as string}`;
     case 'stay-her-appetite-roll':
       return `${action.player as string} rolls for Stay Her Appetite`;
+    case 'transfer-returned-item':
+      return action.itemInstanceId && action.targetCharacterId
+        ? `${action.player as string} transfers returned item ${action.itemInstanceId as string} to ${action.targetCharacterId as string}`
+        : `${action.player as string} declines to transfer a returned item`;
     case 'tap-ally-combat-boost':
       return `${action.player as string} taps ally ${action.cardInstanceId as string} to boost its company in combat`;
     case 'tap-ally-body-check-boost':
