@@ -10,11 +10,12 @@ dispatches them to bin/handle-mail one at a time. Pulls master between
 iterations and skips feature-requests (which require human review).
 
 At the start of every iteration it also sweeps all open PRs: for any PR
-that conflicts with master or carries review comments it runs a headless
-claude to resolve the conflict and/or address the comments on that PR's
-branch. A PR is skipped once its state (head commit, mergeable status,
-comment counts) is unchanged from the last pass, so an idle PR is not
-re-processed every tick.
+that conflicts with master, has failing CI checks, or carries review
+comments it runs a headless claude to resolve the conflict, fix the CI
+failure, and/or address the comments on that PR's branch. A PR is skipped
+once its state (head commit, mergeable status, comment counts, failed-CI
+count) is unchanged from the last pass, so an idle PR is not re-processed
+every tick.
 
 On startup it preflight-checks the headless claude OAuth token: it resolves
 the token (env or secrets.json) and validates it with a tiny test prompt. If
@@ -255,13 +256,13 @@ idle_backoff() {
 declare -A PR_STATE_SIG
 
 # Build the single-PR maintenance prompt handed to the headless claude.
-#   $1=PR number  $2=PR url  $3=has_conflict(0/1)  $4=comment count
+#   $1=PR number  $2=PR url  $3=has_conflict(0/1)  $4=comment count  $5=failed-CI count
 pr_fix_prompt() {
-  local n="$1" url="$2" has_conflict="$3" total_comments="$4"
+  local n="$1" url="$2" has_conflict="$3" total_comments="$4" failed_ci="$5"
   cat <<EOF
 You are the MECCG unattended maintenance worker. Handle exactly ONE open pull request and then stop: PR #$n ($url). Work fully autonomously — never pause to ask for confirmation.
 
-Context detected by the loop: mergeable-conflict=$([ "$has_conflict" -eq 1 ] && echo yes || echo no), comment/review-count=$total_comments.
+Context detected by the loop: mergeable-conflict=$([ "$has_conflict" -eq 1 ] && echo yes || echo no), comment/review-count=$total_comments, failed-CI-checks=$failed_ci.
 
 Do the following:
 
@@ -271,20 +272,24 @@ Do the following:
 2. RESOLVE CONFLICTS: if the PR conflicts with master (\`gh pr view $n --json mergeable -q .mergeable\` is CONFLICTING), merge origin/master into the branch and resolve every conflict correctly and conservatively:
      git fetch origin master && git merge origin/master
    Understand both sides before resolving; commit the merge. Never rebase, never amend, never force-push.
-3. ADDRESS COMMENTS: read all feedback on the PR — review summaries, issue comments, and inline code-line comments (resolve the repo with \`gh repo view --json nameWithOwner -q .nameWithOwner\`):
+3. FIX FAILING CI: inspect the PR's CI checks and fix whatever is red:
+     gh pr checks $n
+     gh run view <run-id> --log-failed        # for the failing run's logs
+   Reproduce each failure locally and fix the root cause in the code (a real type error, lint violation, or a genuinely failing test). Follow CLAUDE.md's test policy: to reproduce, run ONLY the failing/changed tests locally, NEVER the full \`npm test\` / \`npm run test:nightly\` suites — the full suites are what CI itself runs. Do not paper over a failure by weakening or deleting a test to make it pass; if a test failure reflects a real product bug, fix the product code.
+4. ADDRESS COMMENTS: read all feedback on the PR — review summaries, issue comments, and inline code-line comments (resolve the repo with \`gh repo view --json nameWithOwner -q .nameWithOwner\`):
      gh pr view $n --json reviews,comments
      gh api "repos/<owner>/<repo>/pulls/$n/comments"
    Make code changes that address every actionable, unaddressed reviewer comment. SKIP comments that are already addressed, are your own bot/worker comments, or are not actionable requests.
-4. If you changed any code, verify before pushing (follow CLAUDE.md — NEVER run the full \`npm test\` / \`npm run test:nightly\` suites, only changed tests):
+5. If you changed any code, verify before pushing (follow CLAUDE.md — NEVER run the full \`npm test\` / \`npm run test:nightly\` suites, only changed tests):
      - npm run build
      - changed test files only: git diff --name-only origin/master...HEAD -- '*.test.ts' | xargs -r npx vitest run
      - npm run lint   (auto-fix with npm run lint:fix)
    Iterate until all pass.
-5. Commit new commits on the SAME branch (never amend/rebase) and \`git push\`.
-6. WORKING-TREE CONTRACT: your turn MUST end with a clean tree (\`git status --porcelain\` empty).
+6. Commit new commits on the SAME branch (never amend/rebase) and \`git push\`.
+7. WORKING-TREE CONTRACT: your turn MUST end with a clean tree (\`git status --porcelain\` empty).
      - Success: everything committed on the branch and pushed.
      - Cannot resolve (ambiguous, needs architecture you can't do, tests won't pass): abort cleanly — \`git merge --abort\` if mid-merge, then \`git checkout -- .\` and delete any new files — leaving the tree clean and the PR untouched.
-7. Do NOT send mail, do NOT change any mail message status, do NOT open a new PR, and do NOT merge the PR. Only push commits to the existing branch.
+8. Do NOT send mail, do NOT change any mail message status, do NOT open a new PR, and do NOT merge the PR. Only push commits to the existing branch.
 
 Finish with a single-line summary of what you did (or "nothing actionable") — nothing else.
 EOF
@@ -356,8 +361,8 @@ handle_open_prs() {
 
     # Per-PR detail: mergeable state, review decision, and comment/review
     # counts. A gh hiccup on one PR just skips that PR.
-    local detail mergeable review_decision issue_comments review_bodies head_oid
-    if ! detail=$(gh pr view "$n" --json mergeable,reviewDecision,comments,reviews,headRefOid 2>/dev/null); then
+    local detail mergeable review_decision issue_comments review_bodies head_oid failed_ci
+    if ! detail=$(gh pr view "$n" --json mergeable,reviewDecision,comments,reviews,headRefOid,statusCheckRollup 2>/dev/null); then
       continue
     fi
     mergeable=$(jq -r '.mergeable // "UNKNOWN"' <<<"$detail" 2>/dev/null || echo UNKNOWN)
@@ -365,6 +370,14 @@ handle_open_prs() {
     issue_comments=$(jq '[.comments[]? | select((.body // "") != "")] | length' <<<"$detail" 2>/dev/null || echo 0)
     review_bodies=$(jq '[.reviews[]? | select((.body // "") != "")] | length' <<<"$detail" 2>/dev/null || echo 0)
     head_oid=$(jq -r '.headRefOid // ""' <<<"$detail" 2>/dev/null || echo "")
+
+    # Count definitively-failed CI checks (a CheckRun exposes .conclusion, a
+    # legacy StatusContext exposes .state). Only terminal failures count —
+    # PENDING/IN_PROGRESS checks are still running and are left alone.
+    failed_ci=$(jq '[.statusCheckRollup[]? | (.conclusion // .state // "")
+      | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED"
+             or . == "TIMED_OUT" or . == "STARTUP_FAILURE" or . == "ACTION_REQUIRED")]
+      | length' <<<"$detail" 2>/dev/null || echo 0)
 
     # Inline (code-line) review comments live outside `gh pr view`; count them
     # via the REST API so "there are comments" also covers line comments.
@@ -379,19 +392,19 @@ handle_open_prs() {
       has_conflict=1
     fi
 
-    # Nothing to do: no conflict and no comments.
-    if [ "$has_conflict" -eq 0 ] && [ "$total_comments" -eq 0 ]; then
+    # Nothing to do: no conflict, no comments, no failed CI.
+    if [ "$has_conflict" -eq 0 ] && [ "$total_comments" -eq 0 ] && [ "$failed_ci" -eq 0 ]; then
       continue
     fi
 
     # Skip if this exact state was already processed in this run.
-    local sig="${head_oid}:${mergeable}:${total_comments}:${review_decision}"
+    local sig="${head_oid}:${mergeable}:${total_comments}:${review_decision}:${failed_ci}"
     if [ "${PR_STATE_SIG[$n]:-}" = "$sig" ]; then
       continue
     fi
 
-    echo "=== PR #$n needs attention (conflict=$has_conflict, comments=$total_comments) at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
-    if run_pr_fix "$(pr_fix_prompt "$n" "$url" "$has_conflict" "$total_comments")"; then
+    echo "=== PR #$n needs attention (conflict=$has_conflict, comments=$total_comments, failed-ci=$failed_ci) at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+    if run_pr_fix "$(pr_fix_prompt "$n" "$url" "$has_conflict" "$total_comments" "$failed_ci")"; then
       echo "=== PR #$n sweep done at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
     else
       echo "=== WARNING: PR #$n sweep did not reach a terminal result at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
@@ -402,7 +415,7 @@ handle_open_prs() {
     # next tick.
     local new_head
     new_head=$(gh pr view "$n" --json headRefOid -q .headRefOid 2>/dev/null || echo "$head_oid")
-    PR_STATE_SIG[$n]="${new_head}:${mergeable}:${total_comments}:${review_decision}"
+    PR_STATE_SIG[$n]="${new_head}:${mergeable}:${total_comments}:${review_decision}:${failed_ci}"
 
     # Backstop: claude must leave the tree clean, but if a run died mid-merge
     # we clean up here so the loop's top-of-iteration dirty-tree guard does not
