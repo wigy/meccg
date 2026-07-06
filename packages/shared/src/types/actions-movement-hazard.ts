@@ -146,6 +146,36 @@ export interface PlayHazardAction {
    * the chain resolver dispatches the selected option's `apply` clause.
    */
   readonly optionId?: string;
+  /**
+   * For dual-mode hazard-creature cards (`creature-alt-event`, e.g. Mouth of
+   * Sauron tw-65), selects the alternative event mode instead of normal
+   * keyed-creature combat. When set, the card is played as an event of this
+   * kind against the target company (counting against the hazard limit); its
+   * top-level effects resolve through the corresponding event chain path.
+   */
+  readonly altEventMode?: 'short-event' | 'permanent-event';
+}
+
+/**
+ * Tap an in-play dual-mode creature that was played as a permanent-event
+ * (`creature-alt-event` mode `permanent-event`, e.g. Adûnaphel tw-2, Ûvatha
+ * tw-107) during the opponent's movement/hazard phase. Per the card text, when
+ * tapped the permanent-event "becomes a short-event": it is removed from play,
+ * discarded, counts one against the hazard limit, and its on-tap effects
+ * resolve through the ordinary short-event chain path (e.g. tw-107 fetches a
+ * hazard creature from discard to hand; tw-2 taps a chosen character).
+ */
+export interface TapAltPermanentEventAction {
+  readonly type: 'tap-alt-permanent-event';
+  /** The hazard player tapping their in-play creature-permanent-event. */
+  readonly player: PlayerId;
+  /** The creature-permanent-event instance in `cardsInPlay`. */
+  readonly cardInstanceId: CardInstanceId;
+  /**
+   * For a `tap-character` on-tap effect (tw-2), the character to tap. The
+   * legal-action generator emits one action per eligible target character.
+   */
+  readonly targetCharacterId?: CardInstanceId;
 }
 
 /**
@@ -958,6 +988,26 @@ export interface PayHazardLimitToUntapCardAction {
   /** The instance ID of the cardsInPlay card to untap. */
   readonly cardInstanceId: CardInstanceId;
   /** The company whose hazard limit is being spent. */
+  readonly targetCompanyId: CompanyId;
+}
+
+/**
+ * Dragon "At Home" permanent-events (METD §4): the hazard player discards this
+ * card from play during the opponent's movement/hazard phase (not counting
+ * against the hazard limit) to increase the hazard limit against one company
+ * by the card's {@link DiscardForHazardLimitEffect.value}.
+ *
+ * The card moves from cardsInPlay to the owner's discard pile; the boost is
+ * applied as a `hazard-limit-modifier` constraint scoped to the target
+ * company's current M/H phase.
+ */
+export interface DiscardCardForHazardLimitAction {
+  readonly type: 'discard-card-for-hazard-limit';
+  /** The hazard player activating the ability. */
+  readonly player: PlayerId;
+  /** The instance ID of the cardsInPlay card to discard. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The company whose hazard limit is increased. */
   readonly targetCompanyId: CompanyId;
 }
 

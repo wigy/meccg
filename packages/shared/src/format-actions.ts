@@ -482,6 +482,8 @@ export function describeAction(
       return `${action.player as string} taps ${action.cardInstanceId as string} for +1 hazard limit`;
     case 'pay-hazard-limit-to-untap-card':
       return `${action.player as string} spends hazard limit to untap ${action.cardInstanceId as string}`;
+    case 'discard-card-for-hazard-limit':
+      return `${action.player as string} discards ${instName(action.cardInstanceId)} for +2 hazard limit against ${action.targetCompanyId as string}`;
     case 'protect-from-assignment':
       return `Play Ruse — ${instName(action.targetCharacterId)} protected from strike assignment`;
     case 'declare-company-attack':
@@ -522,6 +524,8 @@ export function describeAction(
       return `${action.player as string} brings ${instName(action.cardInstanceId)} into play, replacing ${instName(action.characterId)} (removed from the game, cards transferred)`;
     case 'rescue-prisoner':
       return `${action.player as string} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
+    case 'tap-alt-permanent-event':
+      return `${action.player as string} taps ${instName(action.cardInstanceId)} (permanent-event → short-event)${action.targetCharacterId ? `, tapping ${instName(action.targetCharacterId)}` : ''}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

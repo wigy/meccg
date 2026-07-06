@@ -67,10 +67,18 @@ master_key() {
 # Fetch unhandled requests from the lobby system API and print the first
 # non-feature-request message ID. Feature-requests need human review
 # (approve/decline) and cannot be auto-handled.
+#
+# Returns non-zero if the lobby could not be reached (curl failure). The caller
+# MUST distinguish this from an empty result: under `set -eo pipefail` a bare
+# `MSG_ID=$(next_request_id)` would otherwise abort the whole loop silently the
+# first time the lobby is down or hiccups, killing the worker with no log line.
+# Fetching into a variable first keeps the curl failure out of a pipeline so it
+# surfaces as this function's return code instead of a pipefail abort.
 next_request_id() {
-  curl -sf -X GET "$BASE_URL/api/system/ai-requests" \
-    -H "Authorization: Bearer $(master_key)" 2>/dev/null \
-    | jq -r '[.requests[] | select(.topic != "feature-request")][0].id // empty' 2>/dev/null
+  local resp
+  resp=$(curl -sf -X GET "$BASE_URL/api/system/ai-requests" \
+    -H "Authorization: Bearer $(master_key)" 2>/dev/null) || return 1
+  jq -r '[.requests[] | select(.topic != "feature-request")][0].id // empty' <<<"$resp" 2>/dev/null
 }
 
 # Resolve the long-lived headless-claude OAuth token the same way handle-mail
@@ -205,6 +213,20 @@ fi
 IDLE_BACKOFF=(60 120 240 480 960 1920 3600)
 idle_index=0
 
+# Sleep on the idle-backoff schedule and advance the index, logging the given
+# reason. Shared by every "nothing to do yet / can't reach X yet" branch so a
+# transient outage (no pending work, lobby down, git remote unreachable) backs
+# off and retries instead of spinning hot or dying under `set -e`.
+idle_backoff() {
+  local reason="$1"
+  local delay="${IDLE_BACKOFF[$idle_index]}"
+  echo "=== $reason at $(date -Iseconds), sleeping ${delay}s ===" | tee -a "$LOG_FILE"
+  sleep "$delay"
+  if [ "$idle_index" -lt $((${#IDLE_BACKOFF[@]} - 1)) ]; then
+    idle_index=$((idle_index + 1))
+  fi
+}
+
 while true; do
   # Refuse to keep looping on a dirty tree. A previous skill that
   # ended without committing would otherwise contaminate the next
@@ -220,17 +242,28 @@ while true; do
   fi
 
   git checkout master 2>&1 | tee -a "$LOG_FILE"
-  git pull 2>&1 | tee -a "$LOG_FILE"
 
-  MSG_ID=$(next_request_id)
+  # A failed pull means the git remote is unreachable (DNS/network hiccup,
+  # remote restarting). That's transient, not fatal — back off and retry
+  # rather than letting the `| tee` pipeline abort the loop under pipefail.
+  # The `if !` guard both inverts the status and shields it from `set -e`;
+  # with pipefail the pipeline reports git's failure (tee succeeds).
+  if ! git pull 2>&1 | tee -a "$LOG_FILE"; then
+    idle_backoff "git pull failed (remote unreachable?)"
+    continue
+  fi
+
+  # A failed poll means the lobby is unreachable (down, restarting, or a
+  # transient network hiccup) — NOT that there is no work. Treat it like an
+  # idle tick: back off and retry, rather than letting `set -e` abort the loop
+  # with no message.
+  if ! MSG_ID=$(next_request_id); then
+    idle_backoff "Lobby unreachable"
+    continue
+  fi
 
   if [ -z "$MSG_ID" ]; then
-    delay="${IDLE_BACKOFF[$idle_index]}"
-    echo "=== No pending requests at $(date -Iseconds), sleeping ${delay}s ===" | tee -a "$LOG_FILE"
-    sleep "$delay"
-    if [ "$idle_index" -lt $((${#IDLE_BACKOFF[@]} - 1)) ]; then
-      idle_index=$((idle_index + 1))
-    fi
+    idle_backoff "No pending requests"
     continue
   fi
 
