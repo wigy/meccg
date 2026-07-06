@@ -26,7 +26,7 @@ import { getItemGrantedSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { hasSiteFlagForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf } from '../reducer-utils.js';
+import { hasSiteFlagForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf, matchesCompanyContextCondition } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
@@ -233,8 +233,19 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const siteTypeCondition = findPlayConditionEffect(def, 'site-type');
       // play-condition: same-site-has-character-race — a company at the same site must have a character of the given race
       const sameSiteRaceCondition = findPlayConditionEffect(def, 'same-site-has-character-race');
+      // play-condition: company-context — a generic DSL condition on the target
+      // character's company (To Fealty Sworn ba-33). During the organization
+      // phase no faction has been played this site phase, so the
+      // `playedUniqueHeroFactionAtFreeHold` flag is always false here — only the
+      // "in the same company as <named card>" alternative can be satisfied.
+      const companyContextCondition = findPlayConditionEffect(def, 'company-context');
       let anyTarget = false;
       for (const company of player.companies) {
+        if (companyContextCondition?.condition
+          && !matchesCompanyContextCondition(state, player, company, companyContextCondition.condition, false)) {
+          logDetail(`Permanent event ${def.name}: company ${company.id as string} does not satisfy company-context play-condition`);
+          continue;
+        }
         if (siteTypeCondition) {
           const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : null;
           const companySiteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : null;

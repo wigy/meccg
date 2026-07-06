@@ -2606,7 +2606,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'player-state' | 'region-through-or-leave' | 'site-protected';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected';
   /**
    * `requires: 'site-protected'` takes no extra fields. On a faction it gates
    * the influence attempt on the company's current site being **protected by
@@ -2636,6 +2636,23 @@ export interface PlayConditionEffect extends EffectBase {
    * the company's characters. Lets a card declare a positional play
    * prerequisite — e.g. The One Ring (and Gollum) at Mount Doom for the
    * CoE 10.39 win cards — without a per-card keyword.
+   *
+   * For `requires: 'company-context'`: a generic DSL condition evaluated
+   * against the **play-target character's company** (for a character-targeting
+   * permanent event), exposing `{ site: { name, type }, company: {
+   * characterNames, itemNames, allyNames, playedUniqueHeroFactionAtFreeHold }
+   * } }`. `itemNames` aggregates every item / attached permanent event borne by
+   * any character in the company, so a card can gate on "in the same company as
+   * <named card>" (the named card being attached to a company-mate).
+   * `playedUniqueHeroFactionAtFreeHold` is `true` only during the site phase and
+   * only for the active company once it has, this site phase, successfully played
+   * a unique hero faction at a Free-hold that is not Bag End. Unlike
+   * `active-company` (evaluated against the site-phase active company for
+   * short-events), this condition is evaluated per target company in the
+   * character-target permanent-event play paths (organization + site phases).
+   * Used by To Fealty Sworn (ba-33): "Playable on a Hobbit: in the same company
+   * as Return of the King or during the same site phase his company plays a
+   * unique hero faction at a Free-hold [{F}] (not Bag End)."
    *
    * For `requires: 'player-state'`: a generic DSL condition evaluated
    * against the active player's avatar/alignment context:

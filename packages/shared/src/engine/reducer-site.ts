@@ -2263,6 +2263,20 @@ export function resolveInfluenceAttemptRoll(
     // the site untapped, so it does not open that window.
     const openMinorItemBonus = !siteState.resourcePlayed && !skipSiteTap;
 
+    // To Fealty Sworn (ba-33): record when the active company successfully plays
+    // a unique hero faction at a Free-hold that is not Bag End, so the
+    // `company-context` play-condition can open the window to attach it to a
+    // Hobbit in the company during this same site phase.
+    const siteDefForFaction = siteInPlay ? defById(state, siteInPlay.definitionId) : undefined;
+    const factionAtFreeHold = def.unique
+      && def.cardType === 'hero-resource-faction'
+      && !!siteDefForFaction && isSiteCard(siteDefForFaction)
+      && siteDefForFaction.siteType === 'free-hold'
+      && siteDefForFaction.name !== 'Bag End';
+    if (factionAtFreeHold) {
+      logDetail(`Site: ${def.name} is a unique hero faction played at Free-hold ${siteDefForFaction.name} — opening To Fealty Sworn window`);
+    }
+
     return {
       state: {
         ...state,
@@ -2272,6 +2286,7 @@ export function resolveInfluenceAttemptRoll(
           ...siteState,
           resourcePlayed: true,
           minorItemAvailable: openMinorItemBonus ? true : siteState.minorItemAvailable,
+          ...(factionAtFreeHold ? { uniqueHeroFactionPlayedAtFreeHold: true } : {}),
         },
       },
       effects: [rollEffect],

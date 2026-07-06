@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -949,6 +949,21 @@ function playResourcesActions(
         // this is a direct attachment — emit one action per eligible character.
         // When a discard-named-card condition is also present, the character
         // filter is a gate only; action generation is deferred to the discard block.
+        // play-condition: company-context — a generic DSL condition on the
+        // active company (To Fealty Sworn ba-33). During the site phase the
+        // `playedUniqueHeroFactionAtFreeHold` flag reflects whether this company
+        // has already played a unique hero faction at a Free-hold (not Bag End)
+        // this site phase, satisfying the "during the same site phase …"
+        // alternative; the "in the same company as <named card>" alternative is
+        // checked against the company's aggregate item names.
+        const companyContextCond = findPlayConditionEffect(eventDef, 'company-context');
+        if (companyContextCond?.condition
+          && !matchesCompanyContextCondition(state, player, company, companyContextCond.condition, siteState.uniqueHeroFactionPlayedAtFreeHold ?? false)) {
+          logDetail(`Permanent event ${eventDef.name}: company-context play-condition not satisfied at ${siteName}`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
+          continue;
+        }
+
         const charPlayTarget = eventDef.effects?.find(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
         );
