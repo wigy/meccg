@@ -63,6 +63,46 @@ export function stayHerAppetiteRollActions(
 }
 
 /**
+ * Legal actions while a `transfer-returned-item` resolution is at the head of
+ * the queue (Pilfer Anything Unwatched as-33). The returned character's owner
+ * may transfer one of the discarded items to a company-mate, or decline. Emits
+ * one action per `(item, mate)` pair plus a single decline action.
+ */
+export function transferReturnedItemActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'transfer-returned-item') return [];
+  const kind = top.kind;
+  const owner = state.players[kind.ownerPlayerIndex];
+  if (!owner || owner.id !== actor) return [];
+
+  const actions: EvaluatedAction[] = [];
+  // Always allow declining ("may be transferred").
+  actions.push({ action: { type: 'transfer-returned-item', player: actor }, viable: true });
+
+  const company = owner.companies.find(c => c.id === kind.companyId);
+  if (!company) return actions;
+
+  for (const itemId of kind.itemInstanceIds) {
+    const inst = owner.discardPile.find(c => c.instanceId === itemId);
+    if (!inst) continue;
+    const itemDef = defById(state, inst.definitionId);
+    if (!isItemCard(itemDef)) continue;
+    const itemName = itemDef?.name ?? (itemId as string);
+    for (const mateId of company.characters) {
+      logDetail(`transfer-returned-item: offering ${itemName} → ${mateId as string}`);
+      actions.push({
+        action: { type: 'transfer-returned-item', player: actor, itemInstanceId: itemId, targetCharacterId: mateId },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * Compute the legal actions for the actor of a queued `on-guard-window`
  * resolution.
  *
