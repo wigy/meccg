@@ -3038,6 +3038,14 @@ export interface WardBearerEffect extends EffectBase {
  * separately in the order-effects resolution path.
  *
  * Used by Snowstorm (tw-91), Foul Fumes (tw-36), Long Winter (le-117).
+ *
+ * The condition is evaluated against a context exposing the company's
+ * site-path terrain counts (`sitePath.{wilderness,shadow,dark,coastal,border,
+ * free}Count`, `sitePath.length`), the moving player's alignment
+ * (`player.minion`), and `underDeepsMove` — true when the company's origin or
+ * destination is an Under-deeps site. Used by The Way is Shut (dm-98):
+ * `{ "underDeepsMove": true }` forces any company moving to or from an
+ * Under-deeps site back to its site of origin.
  */
 export interface ForceReturnToOriginEffect extends EffectBase {
   readonly type: 'force-return-to-origin';
@@ -3083,6 +3091,25 @@ export interface TapSitesInPlayEffect extends EffectBase {
 export interface CancelChainReturnToOriginEffect extends EffectBase {
   readonly type: 'cancel-chain-return-to-origin';
   readonly cost: { readonly tap: 'self' };
+}
+
+/**
+ * While the carrying card is in play, any active constraint sourced from a
+ * card whose name is listed in {@link cardNames} is suppressed — its effect
+ * is treated as absent for as long as this card remains in play. This is the
+ * generic "cancels the effects of X" primitive: it neutralizes the named
+ * cards' *in-play constraints* by source card name, so only those cards are
+ * affected (an unrelated card that happens to use the same constraint kind is
+ * untouched).
+ *
+ * Used by The Way is Shut (dm-98): "cancels the effects of Secret Passage and
+ * Secret Entrance" — while it is in play, the creature-play restrictions those
+ * two cards place on a company are lifted.
+ */
+export interface CancelCardEffectsEffect extends EffectBase {
+  readonly type: 'cancel-card-effects';
+  /** Names of the cards whose in-play constraint effects are suppressed. */
+  readonly cardNames: readonly string[];
 }
 
 /**
@@ -3300,6 +3327,7 @@ export type CardEffect =
   | ForceReturnToOriginEffect
   | TapSitesInPlayEffect
   | CancelChainReturnToOriginEffect
+  | CancelCardEffectsEffect
   | TapDiscardAttachedHazardEffect
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect

@@ -1127,8 +1127,23 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheWayisShut.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
-    "text": "A company moving to or from an Under-deeps site must return to its site of origin.Additionally, cancels the effects of Secret Passage and Secret Entrance. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "force-return-to-origin",
+        "condition": { "underDeepsMove": true }
+      },
+      {
+        "type": "cancel-card-effects",
+        "cardNames": ["Secret Passage", "Secret Entrance"]
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "A company moving to or from an Under-deeps site must return to its site of origin.Additionally, cancels the effects of Secret Passage and Secret Entrance. Cannot be duplicated.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-event",
