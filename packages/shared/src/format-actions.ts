@@ -408,6 +408,8 @@ export function describeAction(
       return `Salvage ${instName(action.itemInstanceId)} to ${instName(action.recipientCharacterId)}`;
     case 'discard-item-from-company':
       return `Discard item ${instName(action.itemInstanceId)} (An Article Missing)`;
+    case 'force-discard-card':
+      return `Discard ring ${instName(action.cardInstanceId)} (Rolled down to the Sea)`;
     case 'play-strike-event':
       return `Strike event: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
     case 'cancel-strike':
