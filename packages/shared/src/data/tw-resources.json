@@ -3155,11 +3155,12 @@
     "race": "man",
     "playableAt": [
       {
-        "site": "Variag"
+        "site": "Variag Camp"
       }
     ],
     "effects": [],
-    "text": "Unique. Playable at Variag Camp if the influence check is greater than 9. Standard Modifications: none."
+    "text": "Unique. Playable at Variag Camp if the influence check is greater than 9. Standard Modifications: none.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hero-resource-event",
