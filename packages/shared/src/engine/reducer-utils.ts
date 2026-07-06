@@ -465,6 +465,53 @@ export function matchesDefinition(def: CardDefinition, condition: Condition): bo
 }
 
 /**
+ * Build the DSL condition context for a "target company" — the active
+ * movement/hazard company a hazard is being evaluated against. Exposes under
+ * `company`:
+ *
+ * - `alignment` — the defending company's alignment label (or null).
+ * - `homeSites` — home-site names of the company's characters.
+ * - `characterNames` — names of the characters in the company (for
+ *   "unless the company contains <named character>" clauses).
+ * - `maxUntappedWarriorProwess` — the highest effective prowess among the
+ *   company's *untapped Warriors* (0 if none), for "unless the company contains
+ *   an untapped warrior with prowess greater than N" clauses.
+ *
+ * Shared by the creature/short-event targeting checks (`legal-actions/
+ * movement-hazard.ts`) and short-event resolution (`chain-reducer.ts`) so both
+ * evaluate identical company predicates. `owner` is the player whose company
+ * this is — needed for per-character tap status and effective stats.
+ */
+export function buildTargetCompanyConditionContext(
+  state: GameState,
+  owner: PlayerState,
+  company: { readonly characters: readonly CardInstanceId[] },
+  alignment?: string,
+): Record<string, unknown> {
+  const homeSites: string[] = [];
+  const characterNames: string[] = [];
+  let maxUntappedWarriorProwess = 0;
+  for (const charInstId of company.characters) {
+    const inPlay = owner.characters[charInstId];
+    const defId = inPlay?.definitionId ?? resolveInstanceId(state, charInstId);
+    if (!defId) continue;
+    const charDef = defById(state, defId);
+    if (!charDef || !isCharacterCard(charDef)) continue;
+    characterNames.push(charDef.name);
+    if (charDef.homesite) {
+      homeSites.push(...charDef.homesite.split(',').map(s => s.trim()));
+    }
+    if (inPlay && inPlay.status === CardStatus.Untapped && charDef.skills.includes(Skill.Warrior)) {
+      const prowess = inPlay.effectiveStats.prowess;
+      if (prowess > maxUntappedWarriorProwess) maxUntappedWarriorProwess = prowess;
+    }
+  }
+  return {
+    company: { homeSites, characterNames, maxUntappedWarriorProwess, alignment: alignment ?? null },
+  };
+}
+
+/**
  * Resolve the {@link RegionType} of the region a site sits in.
  *
  * A site definition records its containing region only by name (`region`);

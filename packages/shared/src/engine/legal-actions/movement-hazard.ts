@@ -24,7 +24,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { logDetail, logHeading } from './log.js';
@@ -1547,6 +1547,38 @@ function playHazardsActions(
         continue;
       }
 
+      // --- Dual-mode creature also playable as an event (creature-alt-event) ---
+      // e.g. Mouth of Sauron (tw-65): "may be played as a hazard creature or as
+      // a short-event". Offer the alternative event mode as its own action,
+      // alongside the keyed-creature actions below. The event mode needs no
+      // creature keying and, unlike a race-exempt creature, is not exempt from
+      // the hazard limit — so it is offered only while the limit is not reached
+      // (or the card carries no-hazard-limit).
+      if (isCreature) {
+        const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
+        if (altEvent && (!limitReached || bypassesLimit)) {
+          // Optional event-mode targeting: a different company than the creature
+          // mode may target (e.g. ba-10's short-event vs a *moving hero* company,
+          // whereas its creature mode is vs minion companies). Permanent-event
+          // mode (tw-2/tw-107) carries no targeting — it just enters play.
+          const movingOk = !altEvent.requiresMovingCompany || targetCompany.destinationSite != null;
+          let targetOk = movingOk;
+          if (targetOk && altEvent.targetCompany) {
+            const ctx = buildTargetCompanyConditionContext(state, resourcePlayer, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
+            targetOk = matchesCondition(altEvent.targetCompany, ctx);
+          }
+          if (targetOk) {
+            logDetail(`Creature "${def.name}" also offered as a ${altEvent.mode} (creature-alt-event)`);
+            actions.push({
+              action: { ...action, altEventMode: altEvent.mode },
+              viable: true,
+            });
+          } else {
+            logDetail(`Creature "${def.name}" ${altEvent.mode} mode not offered — target company condition/moving not met`);
+          }
+        }
+      }
+
       // --- Creature keying check ---
       if (isCreature) {
         // Creatures must initiate a new chain — not playable in response (CoE rule 307)
@@ -1576,7 +1608,7 @@ function playHazardsActions(
         // against a company containing a character with Edoras as a home site).
         const targetCompanyCond = findPlayConditionEffect(def, 'target-company');
         if (targetCompanyCond?.condition) {
-          const targetCtx = buildTargetCompanyConditionContext(state, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
+          const targetCtx = buildTargetCompanyConditionContext(state, resourcePlayer, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
           if (!matchesCondition(targetCompanyCond.condition, targetCtx)) {
             logDetail(`Creature "${def.name}": target-company play-condition not met — not playable against this company`);
             actions.push({ action, viable: false, reason: 'Cannot be played against this company' });
@@ -2489,6 +2521,12 @@ function playHazardsActions(
     actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
   }
 
+  // Hazard player may tap an in-play dual-mode creature-permanent-event
+  // (tw-2 / tw-107) to convert it to a short-event.
+  if (!isResourcePlayer) {
+    actions.push(...tapAltPermanentEventActions(state, playerId, mhState));
+  }
+
   // Player who already passed gets no actions (waiting for opponent)
   const alreadyPassed = isResourcePlayer ? mhState.resourcePlayerPassed : mhState.hazardPlayerPassed;
   if (alreadyPassed) {
@@ -2519,6 +2557,65 @@ const MIN_DECK_SIZE_FOR_NAZGUL_TO_DECK = 5;
  * as one hazard against the limit, so it is not offered once the limit is
  * reached.
  */
+/**
+ * Offer tapping an in-play dual-mode creature-permanent-event (`creature-alt-event`
+ * mode `permanent-event`, e.g. Ûvatha tw-107 / Adûnaphel tw-2) during the
+ * opponent's movement/hazard phase. Tapping "becomes a short-event" (counts one
+ * against the hazard limit). For a `tap-character` on-tap effect (tw-2), one
+ * action is emitted per eligible untapped target character; otherwise a single
+ * action (the fetch target, tw-107, is chosen in the follow-up pending flow).
+ */
+function tapAltPermanentEventActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const activeCompany = state.players[activeIdx].companies[mhState.activeCompanyIndex];
+  const limitReached = activeCompany
+    ? mhState.hazardsPlayedThisCompany >= currentHazardLimit(state, mhState, activeCompany.id)
+    : false;
+
+  for (const card of player.cardsInPlay) {
+    if (card.status === CardStatus.Tapped) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
+    if (altEvent?.mode !== 'permanent-event') continue;
+
+    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+    if (limitReached && !bypassesLimit) {
+      actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'Hazard limit reached' });
+      continue;
+    }
+
+    const tapCharEffect = getCardEffects(def).find(e => e.type === 'tap-character');
+    if (tapCharEffect) {
+      let offered = false;
+      for (let pi = 0; pi < 2; pi++) {
+        for (const [charId, ch] of Object.entries(state.players[pi].characters)) {
+          if (ch.status === CardStatus.Tapped) continue;
+          const charDef = defById(state, ch.definitionId);
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          if (tapCharEffect.filter && !matchesDefinition(charDef, tapCharEffect.filter)) continue;
+          actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
+          offered = true;
+        }
+      }
+      if (!offered) {
+        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character to tap' });
+      }
+    } else {
+      actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
+    }
+  }
+  return actions;
+}
+
 function sideboardWithNazgulActions(
   state: GameState,
   playerId: PlayerId,
@@ -2846,32 +2943,6 @@ function findCreatureKeyingMatches(
   }
 
   return matches;
-}
-
-/**
- * Builds the condition-matcher context for `play-condition` effects with
- * `requires: 'target-company'`. Exposes the flat list of all individual
- * home-site names from every character in the target company so that
- * card-level restrictions like "may not be played against a company
- * containing a character with Edoras as a home site" can be expressed
- * in the DSL without per-card engine branches.
- */
-function buildTargetCompanyConditionContext(
-  state: GameState,
-  company: { readonly characters: readonly CardInstanceId[] },
-  alignment?: string,
-): Record<string, unknown> {
-  const homeSites: string[] = [];
-  for (const charInstId of company.characters) {
-    const defId = resolveInstanceId(state, charInstId);
-    if (!defId) continue;
-    const charDef = defById(state, defId);
-    if (!charDef || !isCharacterCard(charDef)) continue;
-    if (charDef.homesite) {
-      homeSites.push(...charDef.homesite.split(',').map(s => s.trim()));
-    }
-  }
-  return { company: { homeSites, alignment: alignment ?? null } };
 }
 
 /**

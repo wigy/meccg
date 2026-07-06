@@ -3171,7 +3171,87 @@ export type CardEffect =
   | AllowCharacterPlayEffect
   | OrgPhaseFetchEffect
   | StayHerAppetiteEffect
-  | AllyBodyCheckBoostEffect;
+  | AllyBodyCheckBoostEffect
+  | CreatureAltEventEffect
+  | CompanyReturnToOriginEffect
+  | TapCharacterEffect;
+
+/**
+ * Marks a hazard-creature card as also playable in an alternative event mode
+ * (CoE "dual-mode" creatures, e.g. Mouth of Sauron tw-65, Beorning
+ * Skin-changers ba-10). The creature keeps its normal keyed-creature combat
+ * play; this effect declares the *alternative* — the same card may instead be
+ * played by the hazard player as a `short-event` (or, later, a
+ * `permanent-event`) against the active company, counting against the hazard
+ * limit like any event.
+ *
+ * The alternative mode's actual behaviour lives in the card's other top-level
+ * effects (e.g. a `move` from discard to hand for tw-65), which resolve through
+ * the normal hazard short-event chain path once the card is played in event
+ * mode — so no behaviour is duplicated here. This effect is purely the mode
+ * declaration the legal-action generator and play reducer key off.
+ *
+ * Distinct from `play-flag: playable-as-event`, which only feeds the
+ * deck-construction ½-creature weighting (`deck-validation.ts`) and carries no
+ * mode; both may coexist on a card.
+ */
+export interface CreatureAltEventEffect extends EffectBase {
+  readonly type: 'creature-alt-event';
+  /** The alternative event mode this creature may also be played in. */
+  readonly mode: 'short-event' | 'permanent-event';
+  /**
+   * Optional targeting for the event mode, evaluated against the active
+   * company (via the target-company condition context: `company.alignment`,
+   * `company.characterNames`, `company.maxUntappedWarriorProwess`, …). When
+   * absent, the event may be played against any company. Distinct from the
+   * creature mode's own `play-condition: target-company` — the two modes of a
+   * dual card can target different companies (e.g. Beorning Skin-changers
+   * ba-10: creature vs minion companies, short-event vs a hero company).
+   */
+  readonly targetCompany?: Condition;
+  /**
+   * When true, the event mode may only be played against a company that is
+   * actually moving (has a declared destination site) — e.g. ba-10's
+   * short-event "against a moving hero company".
+   */
+  readonly requiresMovingCompany?: boolean;
+}
+
+/**
+ * Forces the active movement/hazard company to return to its site of origin
+ * (CoE rule 2.IV.4 mechanism, shared with `agent-discard-return-to-origin`):
+ * the company keeps its origin site instead of its destination and may not act
+ * during its site phase (a `site-phase-do-nothing` constraint). Carried by a
+ * hazard short-event (including a dual-mode creature played as a short-event,
+ * e.g. Beorning Skin-changers ba-10) and applied on chain resolution.
+ *
+ * The optional `unless` condition is evaluated against the target company; when
+ * it matches, the company is NOT returned (the card resolves with no effect).
+ * ba-10: "Unless the company contains Beorn or an untapped warrior with prowess
+ * greater than 4, it must return to its site of origin."
+ */
+export interface CompanyReturnToOriginEffect extends EffectBase {
+  readonly type: 'company-return-to-origin';
+  /** When this condition matches the target company, the return is skipped. */
+  readonly unless?: Condition;
+}
+
+/**
+ * Taps one chosen character in play. A short-event effect (including a dual-mode
+ * creature's `permanent-event` on-tap behaviour, e.g. Adûnaphel tw-2: "When
+ * tapped, … causes any one character to tap"). The specific character is chosen
+ * when the card is played/tapped and carried on the chain entry's
+ * `targetCharacterId`; the legal-action generator offers one action per
+ * eligible target.
+ */
+export interface TapCharacterEffect extends EffectBase {
+  readonly type: 'tap-character';
+  /**
+   * Optional filter on which characters may be targeted (evaluated against the
+   * character definition). Absent = any character in play.
+   */
+  readonly filter?: Condition;
+}
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
