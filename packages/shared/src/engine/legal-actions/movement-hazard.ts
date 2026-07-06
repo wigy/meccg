@@ -24,7 +24,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { logDetail, logHeading } from './log.js';
@@ -1547,6 +1547,37 @@ function playHazardsActions(
         continue;
       }
 
+      // --- Dual-mode creature also playable as an event (creature-alt-event) ---
+      // e.g. Mouth of Sauron (tw-65): "may be played as a hazard creature or as
+      // a short-event". Offer the alternative event mode as its own action,
+      // alongside the keyed-creature actions below. The event mode needs no
+      // creature keying and, unlike a race-exempt creature, is not exempt from
+      // the hazard limit — so it is offered only while the limit is not reached
+      // (or the card carries no-hazard-limit).
+      if (isCreature) {
+        const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
+        if (altEvent?.mode === 'short-event' && (!limitReached || bypassesLimit)) {
+          // Optional event-mode targeting: a different company than the creature
+          // mode may target (e.g. ba-10's short-event vs a *moving hero* company,
+          // whereas its creature mode is vs minion companies).
+          const movingOk = !altEvent.requiresMovingCompany || targetCompany.destinationSite != null;
+          let targetOk = movingOk;
+          if (targetOk && altEvent.targetCompany) {
+            const ctx = buildTargetCompanyConditionContext(state, resourcePlayer, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
+            targetOk = matchesCondition(altEvent.targetCompany, ctx);
+          }
+          if (targetOk) {
+            logDetail(`Creature "${def.name}" also offered as a short-event (creature-alt-event)`);
+            actions.push({
+              action: { ...action, altEventMode: 'short-event' },
+              viable: true,
+            });
+          } else {
+            logDetail(`Creature "${def.name}" short-event mode not offered — target company condition/moving not met`);
+          }
+        }
+      }
+
       // --- Creature keying check ---
       if (isCreature) {
         // Creatures must initiate a new chain — not playable in response (CoE rule 307)
@@ -1576,7 +1607,7 @@ function playHazardsActions(
         // against a company containing a character with Edoras as a home site).
         const targetCompanyCond = findPlayConditionEffect(def, 'target-company');
         if (targetCompanyCond?.condition) {
-          const targetCtx = buildTargetCompanyConditionContext(state, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
+          const targetCtx = buildTargetCompanyConditionContext(state, resourcePlayer, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
           if (!matchesCondition(targetCompanyCond.condition, targetCtx)) {
             logDetail(`Creature "${def.name}": target-company play-condition not met — not playable against this company`);
             actions.push({ action, viable: false, reason: 'Cannot be played against this company' });
@@ -2846,32 +2877,6 @@ function findCreatureKeyingMatches(
   }
 
   return matches;
-}
-
-/**
- * Builds the condition-matcher context for `play-condition` effects with
- * `requires: 'target-company'`. Exposes the flat list of all individual
- * home-site names from every character in the target company so that
- * card-level restrictions like "may not be played against a company
- * containing a character with Edoras as a home site" can be expressed
- * in the DSL without per-card engine branches.
- */
-function buildTargetCompanyConditionContext(
-  state: GameState,
-  company: { readonly characters: readonly CardInstanceId[] },
-  alignment?: string,
-): Record<string, unknown> {
-  const homeSites: string[] = [];
-  for (const charInstId of company.characters) {
-    const defId = resolveInstanceId(state, charInstId);
-    if (!defId) continue;
-    const charDef = defById(state, defId);
-    if (!charDef || !isCharacterCard(charDef)) continue;
-    if (charDef.homesite) {
-      homeSites.push(...charDef.homesite.split(',').map(s => s.trim()));
-    }
-  }
-  return { company: { homeSites, alignment: alignment ?? null } };
 }
 
 /**

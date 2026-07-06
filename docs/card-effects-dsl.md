@@ -5697,3 +5697,82 @@ The play mode is selected by which target the `play-short-event` action carries:
 Used by Withdrawn to Mordor (dm-165): "Playable on a face-up agent. If the agent
 has a mind of 5 or less, it is discarded. If its mind is 6 or greater, return the
 agent to its owner's hand. Alternatively, an on-guard card is discarded."
+
+### 56a. `creature-alt-event`
+
+Marks a hazard-creature card as **dual-mode** — playable either in the normal
+keyed-creature way *or* as an event. MECCG has ~20 such cards (Nazgûl, hunter
+manifestations, Wolf-riders, spiders): "May be played as a hazard creature or as
+a short-event/permanent-event."
+
+```json
+{ "type": "creature-alt-event", "mode": "short-event" }
+```
+
+- `mode` — the alternative event mode the creature may also be played in:
+  `"short-event"` or `"permanent-event"`.
+
+The effect is purely the **mode declaration**. It carries no behaviour of its
+own: the alternative mode's actual effects are the card's *other* top-level
+effects, which resolve through the ordinary event chain path once the card is
+played in event mode. This keeps dual-mode cards fully declarative and reuses
+existing primitives rather than duplicating them.
+
+- The **legal-action generator** (`playHazardsActions` in
+  `legal-actions/movement-hazard.ts`) offers the alternative event as its own
+  `play-hazard` action carrying `altEventMode`, alongside the keyed-creature
+  actions. The event mode needs **no creature keying** and — unlike a
+  race-exempt creature — is **not** exempt from the hazard limit.
+- The **play reducer** (`handlePlayHazardCard` in `mh-hazard-play.ts`) routes an
+  `altEventMode: "short-event"` play of a hazard-creature through the same
+  bookkeeping as any hazard short-event (card → discard, hazard-limit tally,
+  short-event chain entry), so the card's top-level effects then resolve
+  normally.
+
+For **Mouth of Sauron (tw-65)** ("or as a short-event; if played as a
+short-event, bring any hazard card from your discard pile back into your hand"),
+the companion effect is a `move` (`from: "discard"`, `to: "hand"`, filtered to
+any hazard `cardType`), which the short-event chain resolution bridges into the
+existing fetch-to-hand pending sub-flow.
+
+This effect is distinct from `play-flag: playable-as-event`, which only feeds
+the deck-construction ½-creature weighting (`deck-validation.ts`) and carries no
+mode; both may coexist on a card.
+
+### 56b. `company-return-to-origin`
+
+Forces the active movement/hazard company back to its **site of origin** (CoE
+rule 2.IV.4 mechanism, shared with `agent-discard-return-to-origin`): the
+company keeps its origin site instead of its destination and may not act during
+its site phase (a `site-phase-do-nothing` constraint is added). Carried by a
+hazard short-event — including a dual-mode creature played as a short-event (see
+`creature-alt-event`) — and applied on chain resolution.
+
+```json
+{
+  "type": "company-return-to-origin",
+  "unless": {
+    "$or": [
+      { "company.characterNames": { "$includes": "Beorn" } },
+      { "company.maxUntappedWarriorProwess": { "$gt": 4 } }
+    ]
+  }
+}
+```
+
+- `unless` (optional) — a DSL condition evaluated against the target company
+  (context from `buildTargetCompanyConditionContext`: `company.alignment`,
+  `company.characterNames`, `company.maxUntappedWarriorProwess`, …). When it
+  matches, the return is **skipped** and the card resolves with no effect.
+
+The resolution lives in `applyCompanyReturnToOrigin` (`chain-reducer.ts`), which
+sets `MovementHazardPhaseState.returnedToOrigin` (honoured by `endCompanyMH`)
+and adds the `site-phase-do-nothing` constraint.
+
+Used by **Beorning Skin-changers (ba-10)**, played as a short-event against a
+moving hero company: "Unless the company contains Beorn or an untapped warrior
+with prowess greater than 4, it must return to its site of origin." Its
+`creature-alt-event` (mode `short-event`) additionally carries
+`requiresMovingCompany: true` and `targetCompany: { "company.alignment": "hero" }`
+so the short-event mode is only offered against a *moving hero* company (whereas
+its creature mode targets minion companies).
