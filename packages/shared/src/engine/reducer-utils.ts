@@ -604,6 +604,40 @@ export function getCardEffects(
 }
 
 /**
+ * Collect any `faction-influence-restriction` environment (e.g. Mordor in Arms
+ * dm-72) that applies to a faction influence attempt at a site in
+ * `siteRegionName`. Returns the summed check modifier and the set of card names
+ * whose one-shot influence boosts are suppressed ("cannot be done with Muster").
+ *
+ * Restrictions flagged `noEffectOnMinion` are ignored when the influencing
+ * (resource) player is a Ringwraith/Sauron (minion) player. Shared by the
+ * influence-attempt legal-action generator (for the displayed `need`) and the
+ * roll resolver (for the actual modifier) so both agree.
+ */
+export function collectFactionInfluenceRestriction(
+  state: GameState,
+  siteRegionName: string | undefined,
+  influencerIsMinion: boolean,
+): { modifier: number; blockedCardNames: Set<string> } {
+  const blockedCardNames = new Set<string>();
+  let modifier = 0;
+  if (!siteRegionName) return { modifier, blockedCardNames };
+  for (const pl of state.players) {
+    for (const cip of pl.cardsInPlay) {
+      const cdef = defById(state, cip.definitionId);
+      for (const eff of getCardEffects(cdef)) {
+        if (eff.type !== 'faction-influence-restriction') continue;
+        if (eff.noEffectOnMinion && influencerIsMinion) continue;
+        if (!eff.regionNames.includes(siteRegionName)) continue;
+        modifier += eff.modifier;
+        for (const bc of (eff.blockCards ?? [])) blockedCardNames.add(bc);
+      }
+    }
+  }
+  return { modifier, blockedCardNames };
+}
+
+/**
  * Total stage points a single card definition contributes (MEWH §1): the sum of
  * its `stage-points` effect values (usually one, may be zero). Used both by the
  * derived per-player total and by the discard-stage-resource legality check.

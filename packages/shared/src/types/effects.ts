@@ -2965,18 +2965,72 @@ export interface AhuntAttackEffect extends EffectBase {
   readonly strikes: number;
   /** Prowess of each strike. */
   readonly prowess: number;
-  /** Body value for body checks after a strike. */
-  readonly body: number;
+  /**
+   * Body value for body checks after a defeated strike. Absent (or omitted)
+   * means the attack has no printed body — a successful strike still wounds the
+   * character (with a body check against the character's own body), but a
+   * defeated strike triggers no "body check vs creature". Used by region-attack
+   * cards such as Mordor in Arms (dm-72) whose Orc/Troll attacks list no body.
+   */
+  readonly body?: number;
   /** Race of the attacking creature (e.g. "dragon"). */
   readonly race: string;
   /** Combat rules that apply to the attack (e.g. "attacker-chooses-defenders"). */
   readonly combatRules?: readonly string[];
+  /**
+   * When set, the card "has no effect on a minion player" — this ahunt attack
+   * is skipped when the moving (defending) player is a Ringwraith/Sauron
+   * (minion) player. Used by Mordor in Arms (dm-72).
+   */
+  readonly noEffectOnMinion?: boolean;
+  /**
+   * Group-reward mechanic. When present, if **every** ahunt attack sourced from
+   * this same card instance during a single company's order-effects step is
+   * defeated, the card is moved from play into the defending (moving) player's
+   * kill pile. Combine with an `mp-in-pile` effect to score the reward MPs.
+   * Used by Mordor in Arms (dm-72): "If all three attacks are defeated by your
+   * opponent, he receives this card in his MP pile and 2 kill MPs."
+   */
+  readonly groupReward?: {
+    /** Move the card to the defending player's kill pile when all group attacks are defeated. */
+    readonly toDefenderKillPile: true;
+  };
   /** Extended regions that apply when a condition is met. */
   readonly extended?: {
     readonly when: Condition;
     readonly regionNames?: readonly string[];
     readonly regionTypes?: readonly string[];
   };
+}
+
+/**
+ * Environment effect carried by an in-play hazard permanent-event that penalises
+ * (and optionally blocks card-boosts for) a character's faction-influence checks
+ * made at a site located in one of the listed regions.
+ *
+ * While the carrying card is in play, any faction influence attempt whose site
+ * is in a region named in `regionNames` is modified by `modifier` (typically
+ * negative). Additionally, one-shot influence check-modifier constraints sourced
+ * from a card whose name is listed in `blockCards` are suppressed for that
+ * attempt ("cannot be done with <named card>").
+ *
+ * When `noEffectOnMinion` is set, the restriction does not apply if the
+ * influencing (resource) player is a Ringwraith/Sauron (minion) player.
+ *
+ * Used by Mordor in Arms (dm-72): "Any attempt by a character to influence a
+ * faction playable at a site in Horse Plains, Khand, Harondor, Nurn, Gorgoroth,
+ * Imlad Morgul, or Udûn is modified by -6 and cannot be done with Muster."
+ */
+export interface FactionInfluenceRestrictionEffect extends EffectBase {
+  readonly type: 'faction-influence-restriction';
+  /** Region names whose sites trigger the restriction. */
+  readonly regionNames: readonly string[];
+  /** Modifier added to the influence check total (negative = penalty). */
+  readonly modifier: number;
+  /** Names of cards whose influence check-modifier boosts are suppressed here. */
+  readonly blockCards?: readonly string[];
+  /** When true, the restriction has no effect on a minion (Ringwraith) influencer. */
+  readonly noEffectOnMinion?: boolean;
 }
 
 /**
@@ -3439,7 +3493,8 @@ export type CardEffect =
   | MpInPileEffect
   | DisplaceStoredItemEffect
   | AgentAttackOutcomeEffect
-  | AgentTapReturnCharacterEffect;
+  | AgentTapReturnCharacterEffect
+  | FactionInfluenceRestrictionEffect;
 
 /**
  * Marks a hazard-creature card as also playable in an alternative event mode
