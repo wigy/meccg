@@ -1779,8 +1779,18 @@ export interface AgentDiscardReturnToOriginEffect extends EffectBase {
  */
 export interface AgentMoveRestrictionEffect extends EffectBase {
   readonly type: 'agent-move-restriction';
-  /** Site types the agent may NOT move to. */
-  readonly siteTypes: readonly SiteType[];
+  /** Site types the agent may NOT move to (deny-list, e.g. Baugúr dm-181). */
+  readonly siteTypes?: readonly SiteType[];
+  /**
+   * Allow-list of site names the agent may move to. When either allow-list is
+   * present, the agent may move ONLY to a destination whose name is in
+   * `allowedSiteNames` or whose region is in `allowedRegionNames`. Used by
+   * Lobelia (dm-28): "may not move to any site other than Bree, Old Forest, The
+   * White Towers, or a site in The Shire."
+   */
+  readonly allowedSiteNames?: readonly string[];
+  /** Allow-list of region names the agent may move to (see `allowedSiteNames`). */
+  readonly allowedRegionNames?: readonly string[];
 }
 
 /**

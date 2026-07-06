@@ -87,12 +87,24 @@ export function manifestationOfEntityInPlay(
   state: GameState,
   def: CardDefinition,
 ): string | null {
+  const nameOf = (d: CardDefinition): string => (d as { name?: string }).name ?? (d.id as string);
   for (const player of state.players) {
+    // Characters in play.
     for (const char of Object.values(player.characters)) {
       const charDef = defById(state, char.definitionId);
-      if (charDef && sameManifestationEntity(charDef, def)) {
-        return (charDef as { name?: string }).name ?? (charDef.id as string);
+      if (charDef && sameManifestationEntity(charDef, def)) return nameOf(charDef);
+      // Allies attached to a character (a manifestation may be an ally, e.g.
+      // Mistress Lobelia dm-178 — a hero-resource-ally manifestation of the
+      // same entity as the hazard agent Lobelia dm-28).
+      for (const ally of char.allies) {
+        const allyDef = defById(state, ally.definitionId);
+        if (allyDef && sameManifestationEntity(allyDef, def)) return nameOf(allyDef);
       }
+    }
+    // Agents in play (a manifestation may be a hazard agent).
+    for (const agent of player.agents) {
+      const agentDef = defById(state, agent.character.definitionId);
+      if (agentDef && sameManifestationEntity(agentDef, def)) return nameOf(agentDef);
     }
   }
   return null;

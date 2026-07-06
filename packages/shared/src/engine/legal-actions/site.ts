@@ -29,7 +29,7 @@ import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
-import { getActiveAutoAttacks } from '../manifestations.js';
+import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
 import { asViable as viable } from './evaluated.js';
 
@@ -1352,6 +1352,16 @@ function playResourcesActions(
         const allowedSites = allyDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Ally ${allyDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: not playable at ${siteName}`));
+        continue;
+      }
+
+      // Rule g.man.1: a manifestation may not be played while another
+      // manifestation of the same entity is in play (either player) — e.g. the
+      // ally Mistress Lobelia (dm-178) while the agent Lobelia (dm-28) is in play.
+      const blockingManifestation = manifestationOfEntityInPlay(state, allyDef);
+      if (blockingManifestation) {
+        logDetail(`Ally ${allyDef.name}: blocked — manifestation "${blockingManifestation}" already in play`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: a manifestation (${blockingManifestation}) is already in play`));
         continue;
       }
 
