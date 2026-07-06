@@ -3209,7 +3209,33 @@ export type CardEffect =
   | AllowCharacterPlayEffect
   | OrgPhaseFetchEffect
   | StayHerAppetiteEffect
-  | AllyBodyCheckBoostEffect;
+  | AllyBodyCheckBoostEffect
+  | CreatureAltEventEffect;
+
+/**
+ * Marks a hazard-creature card as also playable in an alternative event mode
+ * (CoE "dual-mode" creatures, e.g. Mouth of Sauron tw-65, Beorning
+ * Skin-changers ba-10). The creature keeps its normal keyed-creature combat
+ * play; this effect declares the *alternative* — the same card may instead be
+ * played by the hazard player as a `short-event` (or, later, a
+ * `permanent-event`) against the active company, counting against the hazard
+ * limit like any event.
+ *
+ * The alternative mode's actual behaviour lives in the card's other top-level
+ * effects (e.g. a `move` from discard to hand for tw-65), which resolve through
+ * the normal hazard short-event chain path once the card is played in event
+ * mode — so no behaviour is duplicated here. This effect is purely the mode
+ * declaration the legal-action generator and play reducer key off.
+ *
+ * Distinct from `play-flag: playable-as-event`, which only feeds the
+ * deck-construction ½-creature weighting (`deck-validation.ts`) and carries no
+ * mode; both may coexist on a card.
+ */
+export interface CreatureAltEventEffect extends EffectBase {
+  readonly type: 'creature-alt-event';
+  /** The alternative event mode this creature may also be played in. */
+  readonly mode: 'short-event' | 'permanent-event';
+}
 
 /**
  * Passive movement bonus carried by an ally: when every character in the

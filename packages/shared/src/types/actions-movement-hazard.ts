@@ -146,6 +146,14 @@ export interface PlayHazardAction {
    * the chain resolver dispatches the selected option's `apply` clause.
    */
   readonly optionId?: string;
+  /**
+   * For dual-mode hazard-creature cards (`creature-alt-event`, e.g. Mouth of
+   * Sauron tw-65), selects the alternative event mode instead of normal
+   * keyed-creature combat. When set, the card is played as an event of this
+   * kind against the target company (counting against the hazard limit); its
+   * top-level effects resolve through the corresponding event chain path.
+   */
+  readonly altEventMode?: 'short-event' | 'permanent-event';
 }
 
 /**

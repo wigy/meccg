@@ -638,6 +638,45 @@ export function handlePlayHazardCard(
     return { state: triggerCouncilCall(afterDiscard, action.player, 'self') };
   }
 
+  // --- Dual-mode creature played as a short-event (creature-alt-event) ---
+  // e.g. Mouth of Sauron (tw-65): "may be played as a hazard creature or as a
+  // short-event". The player chose the event mode: the card goes hand → discard,
+  // counts against the hazard limit like any short-event, and pushes a
+  // short-event chain entry. Its top-level effects (e.g. a `move` from discard
+  // to hand) then resolve through the very same hazard short-event chain path,
+  // so no behaviour is duplicated. Must precede the creature branch below.
+  if (def.cardType === 'hazard-creature'
+      && action.type === 'play-hazard'
+      && action.altEventMode === 'short-event') {
+    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
+    const newHazardCount = bypassesLimit
+      ? mhState.hazardsPlayedThisCompany
+      : mhState.hazardsPlayedThisCompany + 1;
+    logDetail(`Play-hazards: hazard player plays creature "${def.name}" as a short-event (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
+
+    // Short events are discarded at play time (they resolve off the chain).
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+    let newState: GameState = {
+      ...updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        hand: newHand,
+        discardPile: [...p.discardPile, handCard],
+      })),
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: newHazardCount,
+        resourcePlayerPassed: false,
+      },
+    };
+
+    const shortEventPayload: import('../index.js').ChainEntryPayload = {
+      type: 'short-event',
+      ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+    };
+    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload);
+    return { state: newState };
+  }
+
   // --- Creature handling (via chain of effects) ---
   if (def.cardType === 'hazard-creature') {
     const viaKeyingBypass = action.type === 'play-hazard' && action.keyedBy?.method === 'keying-bypass';
