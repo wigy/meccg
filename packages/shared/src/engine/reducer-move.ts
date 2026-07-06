@@ -801,5 +801,6 @@ export function moveToFetchToDeckPayload(
     count: move.count ?? 1,
     shuffle: move.shuffleAfter ?? true,
     to: move.to === 'hand' ? 'hand' : 'deck',
+    ...(move.removeFromGame ? { removeFromGame: true } : {}),
   };
 }

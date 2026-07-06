@@ -2162,6 +2162,13 @@ export interface FetchToDeckEffect extends EffectBase {
    * `enqueue-pending-fetch` apply with `playableAtBearerSite` resolves.
    */
   readonly playableAtSite?: CardDefinitionId;
+  /**
+   * When true, the spent event card is removed from the game (routed to the
+   * owner's out-of-play pile) instead of being discarded once the last pick
+   * resolves. Backs "Remove this card from the game." on fetch short-events
+   * such as Longbottom Leaf (ba-30).
+   */
+  readonly removeFromGame?: boolean;
 }
 
 /**
@@ -3102,6 +3109,13 @@ export interface MoveEffect extends EffectBase {
   readonly count?: number;
   /** Shuffle the destination pile after pushing. */
   readonly shuffleAfter?: boolean;
+  /**
+   * For fetch-to-deck moves (`select: 'target'`, `to: 'deck' | 'hand'`): when
+   * true, the spent event card is removed from the game instead of discarded
+   * once the interactive fetch resolves. Backs "Remove this card from the
+   * game." on Longbottom Leaf (ba-30).
+   */
+  readonly removeFromGame?: boolean;
   /**
    * Enqueue a corruption check on the bearer after resolution.
    * Carried by bounce-hazard-events equivalents (Wizard Uncloaked).
