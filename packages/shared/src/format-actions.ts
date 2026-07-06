@@ -528,6 +528,8 @@ export function describeAction(
       return `${action.player as string} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
     case 'tap-alt-permanent-event':
       return `${action.player as string} taps ${instName(action.cardInstanceId)} (permanent-event → short-event)${action.targetCharacterId ? `, tapping ${instName(action.targetCharacterId)}` : ''}`;
+    case 'play-agent-manifestation':
+      return `${action.player as string} taps ${instName(action.characterId)} to play ${instName(action.manifestationCardInstanceId)} (agent discarded)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

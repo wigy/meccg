@@ -179,6 +179,24 @@ export interface TapAltPermanentEventAction {
 }
 
 /**
+ * My Precious (dm-29): resolving an `agent-play-manifestation-offer` — the
+ * defender taps one character in the target company and plays the agent's other
+ * manifestation (Gollum) from hand; the attacking agent is then discarded. (The
+ * defender may instead `pass`, leaving the agent in play.)
+ */
+export interface PlayAgentManifestationAction {
+  readonly type: 'play-agent-manifestation';
+  /** The defending (resource) player. */
+  readonly player: PlayerId;
+  /** The attacking agent to discard. */
+  readonly agentId: CompanyId;
+  /** The character in the target company to tap. */
+  readonly characterId: CardInstanceId;
+  /** The manifestation card (Gollum) in the defender's hand to play. */
+  readonly manifestationCardInstanceId: CardInstanceId;
+}
+
+/**
  * Sideboarding with a Nazgûl (rule 5.24).
  *
  * As an action during the movement/hazard phase's play-hazards step, the

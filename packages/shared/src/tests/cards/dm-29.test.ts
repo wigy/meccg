@@ -18,35 +18,40 @@
  * re-modeled as a `minion-character` with the `agent` keyword — deploying
  * through the existing agent subsystem.
  *
- * Rule status:
- * | # | Rule                                             | Status                    |
+ * Rule status — all IMPLEMENTED (card is CERTIFIED):
+ * | # | Rule                                             | Encoding                  |
  * |---|--------------------------------------------------|---------------------------|
- * | 1 | Deploys as an agent                              | IMPLEMENTED (re-typed)    |
- * | 2 | Manifestation of Gollum (g.man.1, ally + agent)  | IMPLEMENTED (manifestId)  |
- * | 3 | If face-up: an extra agent action                | IMPLEMENTED (extra-agent-actions whileRevealed) |
- * | 4 | -1 kill MP to whoever eliminates him             | IMPLEMENTED (killMarshallingPoints -1) |
- * | 5 | Success vs a company with a ring → discard self + a ring | NOT IMPLEMENTED (agent-attack-outcome combat sub-flow) |
- * | 6 | Fail but survives → defender may play Gollum, discard self | NOT IMPLEMENTED (agent-attack-outcome combat sub-flow) |
+ * | 1 | Deploys as an agent                              | re-typed minion-character + agent |
+ * | 2 | Manifestation of Gollum (g.man.1, ally + agent)  | manifestId tw-246         |
+ * | 3 | If face-up: an extra agent action                | extra-agent-actions whileRevealed |
+ * | 4 | -1 kill MP to whoever eliminates him             | killMarshallingPoints -1  |
+ * | 5 | Success vs a company with a ring → discard self + a ring | agent-attack-outcome → force-discard-card |
+ * | 6 | Fail but survives → defender may play Gollum, discard self | agent-attack-outcome → agent-play-manifestation-offer |
  *
- * Rules 5–6 are two new interactive combat sub-flows hooked into the
- * agent-attack outcome; they are a dedicated feature and NOT yet implemented, so
- * this card is NOT certified. The tests below exercise rules 1–3 with real
- * engine-driven assertions.
+ * Rules 5–6 are `agent-attack-outcome` post-effects applied when My Precious's
+ * agent attack finalizes: on a successful attack vs a company holding a ring, he
+ * and a ring are discarded (attacker's choice, via the shared force-discard-card
+ * flow); on a failed-but-survived attack, the defender is offered the option to
+ * tap a character and play Gollum from hand (per wigy's ruling), discarding him.
+ * The tests below drive all six rules with real engine assertions.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, makeMHState, viableActions,
+  buildTestState, resetMint, makeMHState, viableActions, dispatch,
   PLAYER_1, PLAYER_2,
   ARAGORN,
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
 } from '../test-helpers.js';
 import { countExtraAgentActions } from '../../engine/mh-agents.js';
+import { finalizeCombat } from '../../engine/combat-finalize.js';
+import { makeCombatState } from '../../engine/reducer-utils.js';
 import type { CardDefinitionId, CardInstanceId, CompanyId, AgentInPlay, GameState } from '../../index.js';
 import { Phase, CardStatus } from '../../index.js';
 
 const MY_PRECIOUS = 'dm-29' as CardDefinitionId;
 const GOLLUM = 'tw-246' as CardDefinitionId;   // the ally manifestation of the same entity
+const GOLD_RING = 'tw-306' as CardDefinitionId; // a gold-ring item ("Precious Gold Ring")
 
 /** An in-play My Precious agent for player 2, revealed or face-down. */
 function myPreciousAgent(revealed: boolean): AgentInPlay {
@@ -135,5 +140,81 @@ describe('My Precious (dm-29)', () => {
     const faceUp: GameState = { ...base, players: [base.players[0], { ...base.players[1], agents: [myPreciousAgent(true)] }] as typeof base.players };
     expect(countExtraAgentActions(faceDown)).toBe(0);
     expect(countExtraAgentActions(faceUp)).toBe(1);
+  });
+
+  // ─── Rule 5: successful attack vs a company with a ring ────────────────────
+
+  test('successful attack vs a company holding a ring discards My Precious and enqueues a ring discard', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.MovementHazard, recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [GOLD_RING] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const companyId = state.players[0].companies[0].id;
+    const defCharId = state.players[0].companies[0].characters[0];
+    const withCombat: GameState = {
+      ...state,
+      phaseState: makeMHState({}),
+      players: [state.players[0], { ...state.players[1], agents: [myPreciousAgent(true)] }] as typeof state.players,
+      combat: {
+        ...makeCombatState({
+          attackSource: { type: 'agent', instanceId: 'p2-precious-char' as CardInstanceId },
+          companyId, defendingPlayerId: PLAYER_1, attackingPlayerId: PLAYER_2,
+          strikesTotal: 1, strikeProwess: 2, creatureBody: 9,
+          assignmentPhase: 'attacker', detainment: false,
+        }),
+        strikeAssignments: [{ characterId: defCharId, excessStrikes: 0, resolved: true, result: 'wounded' }],
+      },
+    };
+    const after = finalizeCombat(withCombat).state;
+    expect(after.players[1].agents.some(a => a.character.definitionId === MY_PRECIOUS)).toBe(false);
+    expect(after.players[1].discardPile.some(c => c.definitionId === MY_PRECIOUS)).toBe(true);
+    expect(after.pendingResolutions.some(r => r.kind.type === 'force-discard-card')).toBe(true);
+  });
+
+  // ─── Rule 6: failed attack, survives → defender may play Gollum ─────────────
+
+  test('failed attack (no wound): defender may tap a character to play Gollum, discarding My Precious', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.MovementHazard, recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [GOLLUM], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const companyId = state.players[0].companies[0].id;
+    const defCharId = state.players[0].companies[0].characters[0];
+    const withCombat: GameState = {
+      ...state,
+      phaseState: makeMHState({}),
+      players: [state.players[0], { ...state.players[1], agents: [myPreciousAgent(true)] }] as typeof state.players,
+      combat: {
+        ...makeCombatState({
+          attackSource: { type: 'agent', instanceId: 'p2-precious-char' as CardInstanceId },
+          companyId, defendingPlayerId: PLAYER_1, attackingPlayerId: PLAYER_2,
+          strikesTotal: 1, strikeProwess: 2, creatureBody: 9,
+          assignmentPhase: 'attacker', detainment: false,
+        }),
+        strikeAssignments: [{ characterId: defCharId, excessStrikes: 0, resolved: true, result: 'success' }],
+      },
+    };
+    const afterFinalize = finalizeCombat(withCombat).state;
+    // The offer is enqueued for the defender; My Precious still in play.
+    expect(afterFinalize.pendingResolutions.some(r => r.kind.type === 'agent-play-manifestation-offer')).toBe(true);
+    expect(afterFinalize.players[1].agents.some(a => a.character.definitionId === MY_PRECIOUS)).toBe(true);
+
+    // Defender plays Gollum (taps a character).
+    const plays = viableActions(afterFinalize, PLAYER_1, 'play-agent-manifestation');
+    expect(plays.length).toBeGreaterThan(0);
+    const afterPlay = dispatch(afterFinalize, plays[0].action);
+
+    // My Precious discarded; Gollum in play on the (now tapped) character.
+    expect(afterPlay.players[1].agents.some(a => a.character.definitionId === MY_PRECIOUS)).toBe(false);
+    expect(afterPlay.players[1].discardPile.some(c => c.definitionId === MY_PRECIOUS)).toBe(true);
+    expect(afterPlay.players[0].characters[defCharId].allies.some(a => a.definitionId === GOLLUM)).toBe(true);
+    expect(afterPlay.players[0].characters[defCharId].status).toBe(CardStatus.Tapped);
+    expect(afterPlay.players[0].hand.some(c => c.definitionId === GOLLUM)).toBe(false);
   });
 });

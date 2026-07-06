@@ -73,6 +73,79 @@ export function discardCardTriggeredCard(
 }
 
 /**
+ * My Precious (dm-29) `agent-attack-outcome` post-effects, applied when his
+ * agent attack finalizes:
+ *   - Successful attack (a defender wounded/eliminated) against a company that
+ *     holds a ring (a `gold-ring` item): discard My Precious and enqueue a
+ *     `force-discard-card` so the attacker chooses one ring to discard.
+ *   - Failed attack (no wound), agent survives: enqueue an
+ *     `agent-play-manifestation-offer` so the defender may tap a character to
+ *     play Gollum from hand (discarding My Precious), or pass.
+ */
+function applyAgentAttackOutcome(state: GameState, combat: CombatState): GameState {
+  if (combat.attackSource.type !== 'agent') return state;
+  const agentInstId = combat.attackSource.instanceId;
+  const hazardIdx = getPlayerIndex(state, combat.attackingPlayerId);
+  const agent = state.players[hazardIdx].agents.find(a => a.character.instanceId === agentInstId);
+  if (!agent) return state;
+  const agentDef = defById(state, agent.character.definitionId);
+  const outcome = getCardEffects(agentDef).find(e => e.type === 'agent-attack-outcome');
+  if (!outcome) return state;
+
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defIdx];
+  const company = companyById(defPlayer.companies, combat.companyId);
+  if (!company) return state;
+
+  const attackSucceeded = combat.strikeAssignments.some(a => a.result === 'wounded' || a.result === 'eliminated');
+
+  if (attackSucceeded && outcome.onSuccessVsRing) {
+    const ringIds: CardInstanceId[] = [];
+    for (const charId of company.characters) {
+      const ch = defPlayer.characters[charId];
+      if (!ch) continue;
+      for (const item of ch.items) {
+        const itemDef = defById(state, item.definitionId);
+        if (itemDef && (itemDef as { subtype?: string }).subtype === 'gold-ring') ringIds.push(item.instanceId);
+      }
+    }
+    if (ringIds.length === 0) return state;
+    logDetail(`My Precious: successful attack vs a company with a ring → discarded; attacker chooses a ring to discard`);
+    let next = updatePlayer(state, hazardIdx, p => ({
+      ...p,
+      agents: p.agents.filter(a => a.character.instanceId !== agentInstId),
+      discardPile: [...p.discardPile, toCardInstance(agent.character)],
+      siteDeck: [...p.siteDeck, ...agent.siteStack],
+    }));
+    next = enqueueResolution(next, {
+      source: null,
+      actor: combat.attackingPlayerId,
+      scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+      kind: { type: 'force-discard-card', candidateInstanceIds: ringIds, sourceDefinitionId: agent.character.definitionId },
+    });
+    return next;
+  }
+
+  if (!attackSucceeded && outcome.onFailSurvive) {
+    const manifestName = outcome.manifestationCardName ?? '';
+    const hasManifestation = defPlayer.hand.some(c => {
+      const d = defById(state, c.definitionId);
+      return d !== undefined && (d as { name?: string }).name === manifestName;
+    });
+    const hasUntappedChar = company.characters.some(cid => defPlayer.characters[cid]?.status === CardStatus.Untapped);
+    if (!hasManifestation || !hasUntappedChar) return state;
+    logDetail(`My Precious: failed attack, survives → defender may play ${manifestName} to discard him`);
+    return enqueueResolution(state, {
+      source: null,
+      actor: combat.defendingPlayerId,
+      scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+      kind: { type: 'agent-play-manifestation-offer', companyId: combat.companyId, agentId: agent.id, manifestationCardName: manifestName },
+    });
+  }
+  return state;
+}
+
+/**
  * Apply CoE rule 8.22 after the trophy decision is resolved (either no eligible
  * characters or player declined). Checks the creature in the defender's kill pile
  * and moves it to out-of-play if the alignment doesn't match the creature's starred status.
@@ -295,6 +368,16 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         stateAfterCombat = discardWoundedCharacters(stateAfterCombat, combat, woundedCharIds, sourceName, woundEvent.when);
       }
     }
+  }
+
+  // My Precious (dm-29): agent-attack-outcome post-effects — success vs a ring
+  // discards him + a ring; a failed-but-survived attack offers the defender the
+  // Gollum play. Runs for agent attacks in either the Site or M/H phase.
+  if (
+    combat.attackSource.type === 'agent' &&
+    (state.phaseState.phase === Phase.Site || state.phaseState.phase === Phase.MovementHazard)
+  ) {
+    stateAfterCombat = applyAgentAttackOutcome(stateAfterCombat, combat);
   }
 
   // Check for on-event: company-member-wounded effects on characters' attached
