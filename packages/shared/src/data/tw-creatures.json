@@ -1599,9 +1599,25 @@
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event"
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "discard",
+        "to": "hand",
+        "filter": {
+          "cardType": "hazard-creature"
+        },
+        "count": 1,
+        "shuffleAfter": false
       }
     ],
-    "text": "Unique.Nazgûl (9th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Ûvatha the Horseman becomes a short-event and you may bring one hazard creature from your discard pile to your hand."
+    "text": "Unique.Nazgûl (9th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Ûvatha the Horseman becomes a short-event and you may bring one hazard creature from your discard pile to your hand.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-creature",

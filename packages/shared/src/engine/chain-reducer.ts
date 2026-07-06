@@ -898,6 +898,31 @@ function applyCompanyReturnToOrigin(state: GameState, entry: ChainEntry): GameSt
 }
 
 /**
+ * Applies a `tap-character` short-event effect on chain resolution: taps the
+ * character chosen when the card was played/tapped (the chain entry payload's
+ * `targetCharacterId`). Used by Adûnaphel tw-2's permanent-event on-tap ("causes
+ * any one character to tap"). No-op if the card carries no `tap-character`
+ * effect or the target is gone (e.g. eliminated before resolution).
+ */
+function applyTapCharacter(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event') return state;
+  const targetCharId = entry.payload.targetCharacterId;
+  if (!targetCharId) return state;
+  const def = defById(state, card.definitionId);
+  if (!getCardEffects(def).some(e => e.type === 'tap-character')) return state;
+  for (let pi = 0; pi < 2; pi++) {
+    if (state.players[pi].characters[targetCharId]) {
+      logDetail(`${def?.name ?? 'card'}: taps character ${targetCharId as string}`);
+      const players: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+      players[pi] = updateCharacter(players[pi], targetCharId, ch => ({ ...ch, status: CardStatus.Tapped }));
+      return { ...state, players };
+    }
+  }
+  return state;
+}
+
+/**
  * Resolves a permanent-event chain entry: moves the card from the chain
  * into the declaring player's `cardsInPlay` and executes `self-enters-play`
  * effects (e.g. Gates of Morning discarding hazard environments).
@@ -1966,6 +1991,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // prowess > 4) is met.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyCompanyReturnToOrigin(current, entry);
+  }
+
+  // Short events that tap one chosen character (e.g. Adûnaphel tw-2's on-tap
+  // "causes any one character to tap"). The target was chosen at play/tap time
+  // and rides on the chain entry's payload.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyTapCharacter(current, entry);
   }
 
   // draw-cards (Dark Tryst as-80): a resource short event that draws cards
