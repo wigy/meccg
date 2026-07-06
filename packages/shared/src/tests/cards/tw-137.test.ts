@@ -192,7 +192,10 @@ describe('Círdan (tw-137)', () => {
 
   test('+2 DI bonus applies when influencing the Elves of Lindon faction', () => {
     // Círdan (elf, base DI 4) influences Elves of Lindon (inf# 10) at Grey Havens.
-    // With the +2 DI bonus: need = influenceNumber(10) - baseDI(4) - bonus(2) = 4.
+    // Two modifiers stack for an Elf influencing this faction:
+    //   • Círdan's own +2 direct-influence bonus vs Elves of Lindon.
+    //   • Elves of Lindon's own Elves (+2) standard modification (Círdan is an Elf).
+    // need = influenceNumber(10) - baseDI(4) - cirdanBonus(2) - elvesMod(2) = 2.
     const state = buildSitePhaseState({
       characters: [CIRDAN],
       site: GREY_HAVENS,
@@ -206,7 +209,7 @@ describe('Círdan (tw-137)', () => {
 
     const cirdanAttempt = influenceActions.find(a => a.influencingCharacterId === cirdanId);
     expect(cirdanAttempt).toBeDefined();
-    expect(cirdanAttempt!.need).toBe(4);
+    expect(cirdanAttempt!.need).toBe(2);
   });
 
   test('+2 DI bonus does NOT apply to other factions (Rangers of the North)', () => {
