@@ -140,6 +140,16 @@ export interface CardInPlay {
    */
   readonly attachedToSite?: CardDefinitionId;
   /**
+   * If this permanent event is attached to one of its controller's *face-down
+   * agents* (Inner Cunning dm-68), the agent's virtual-company id
+   * ({@link AgentInPlay.id}). The event lives in the controller's `cardsInPlay`
+   * while so attached; it broadens the agent's legal reveal sites (see the
+   * `agent-reveal-site-override` effect) and is discarded once the agent is no
+   * longer a face-down agent (revealed or gone) via the orphaned-agent-attached
+   * event sweep.
+   */
+  readonly attachedToAgentId?: import('./common.js').CompanyId;
+  /**
    * Instance ID of the card this is linked to via Crown of Flowers pairing
    * (mutual discard). When either linked card is discarded from cardsInPlay,
    * the other is discarded as well.

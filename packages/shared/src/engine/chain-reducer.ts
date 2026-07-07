@@ -1140,7 +1140,9 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     working = placeMove('in-play-general');
     const targetSiteDefId = entry.payload.type === 'permanent-event' ? entry.payload.targetSiteDefinitionId : undefined;
     const targetCompanyId = entry.payload.type === 'permanent-event' ? entry.payload.targetCompanyId : undefined;
-    if (targetSiteDefId || targetCompanyId) {
+    // Inner Cunning (dm-68) mode 1: a permanent event bound to a face-down agent.
+    const targetAgentId = entry.payload.type === 'permanent-event' ? entry.payload.targetAgentId : undefined;
+    if (targetSiteDefId || targetCompanyId || targetAgentId) {
       working = updatePlayer(working, playerIndex, p => ({
         ...p,
         cardsInPlay: p.cardsInPlay.map(c => c.instanceId === card.instanceId
@@ -1148,6 +1150,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
               ...c,
               ...(targetSiteDefId ? { attachedToSite: targetSiteDefId } : {}),
               ...(targetCompanyId ? { companyId: targetCompanyId } : {}),
+              ...(targetAgentId ? { attachedToAgentId: targetAgentId } : {}),
             }
           : c),
       }));
@@ -1156,6 +1159,9 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }
       if (targetCompanyId) {
         logDetail(`"${def?.name ?? card.definitionId}" bound to company ${targetCompanyId as string}`);
+      }
+      if (targetAgentId) {
+        logDetail(`"${def?.name ?? card.definitionId}" attached to face-down agent ${targetAgentId as string}`);
       }
     }
   }
@@ -2271,6 +2277,47 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     );
     if (cycle) {
       current = applyCycleHand(current, entry, cycle);
+    }
+  }
+
+  // Inner Cunning (dm-68) mode 2: a hazard short-event carrying a
+  // `fetch-agent-to-hand` effect. When it resolves un-negated, enqueue a
+  // fetch-to-deck pending effect (source: play deck, to: hand) restricted to
+  // agents whose printed home site is one of the listed types; the deck is
+  // reshuffled and the chosen agent is revealed to the opponent. The card was
+  // already discarded at play time (short-event mode), so skipDiscard is set.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const fetchEff = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').FetchAgentToHandEffect => e.type === 'fetch-agent-to-hand',
+    );
+    if (fetchEff) {
+      logDetail(`fetch-agent-to-hand: enqueuing agent tutor for ${entry.declaredBy as string} (home-site types ${fetchEff.homeSiteTypes.join(', ')})`);
+      current = {
+        ...current,
+        pendingEffects: [
+          ...current.pendingEffects,
+          {
+            type: 'card-effect' as const,
+            cardInstanceId: entry.card.instanceId,
+            // The tutoring player is the hazard player (non-active), so the
+            // pending-effect actor must be set explicitly (it defaults to the
+            // active/resource player otherwise).
+            actor: entry.declaredBy,
+            effect: {
+              type: 'fetch-to-deck' as const,
+              source: ['deck'],
+              filter: { keywords: { $includes: 'agent' } },
+              count: 1,
+              shuffle: true,
+              to: 'hand' as const,
+              homeSiteTypes: fetchEff.homeSiteTypes,
+              revealToOpponent: true,
+            },
+            skipDiscard: true,
+          },
+        ],
+      };
     }
   }
 

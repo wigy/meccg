@@ -6170,3 +6170,81 @@ site is also the agent's home site. If the result is greater than the
 character's mind plus 5, the character is returned to his player's hand (one item
 may be transferred to another character in the same company). Cannot be played if
 your opponent is a minion player."
+
+### 58. `agent-reveal-site-override` + `fetch-agent-to-hand` (dual-mode agent card)
+
+Two effects that together model Inner Cunning (dm-68), a hazard-event playable
+**either** as a permanent-event on one of the hazard player's own face-down
+agents **or** as a short-event agent tutor. Both modes are blocked when the
+opponent (resource player) is a minion/Balrog player (`isMinionOrBalrog`),
+matching "Cannot be played if your opponent is a minion player."
+
+The Shadow-hold / Dark-hold classification of an agent's printed home site is
+keyed off the agent's own **alignment** map: a single site name can exist in
+more than one alignment with different types (e.g. Dol Guldur is a minion
+*haven* but a hero *dark-hold*). The shared helper
+`agentHomeSiteMatchesTypes(state, def, types)` (`reducer-utils.ts`) resolves each
+`homesite` name to a site of the character's alignment (falling back to any) and
+checks its `siteType`.
+
+#### `agent-reveal-site-override` (mode 1 — permanent-event)
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `homeSiteTypes` | yes | Site types the reveal site may be broadened to (e.g. `["shadow-hold", "dark-hold"]`). |
+
+```json
+{ "type": "agent-reveal-site-override", "homeSiteTypes": ["shadow-hold", "dark-hold"] }
+```
+
+- **Legal actions** (`legal-actions/movement-hazard.ts`): during the hazard
+  player's play-hazards window the card is offered as a `play-hazard` action with
+  `altEventMode: "permanent-event"` + `targetAgentId`, one per **face-down agent
+  brought into play this turn** (`!agent.inPlayAtTurnStart` and not revealed).
+- **Reducer** (`mh-hazard-play.ts` → `chain-reducer.ts`): plays as a permanent
+  event (counts against the hazard limit) that enters the hazard player's
+  `cardsInPlay` bound to the agent via `CardInPlay.attachedToAgentId`.
+- **Reveal broadening**: while attached — **and** if the agent's printed home
+  site is one of `homeSiteTypes` — `revealAgentActions` (via
+  `agentRevealSiteOverrideTypes`) offers the agent's reveal at **any**
+  location-deck site of those types, not only at a site matching the agent's
+  printed home-site name ("the site where he came into play … may legally be any
+  Shadow-hold or Dark-hold").
+- **Discard on reveal**: once the agent is revealed it is no longer face-down, so
+  the post-reduce sweep `discardOrphanedAgentAttachedEvents` (`reducer-utils.ts`,
+  wired into `postReduce`) discards the card ("Discard when the agent is
+  revealed"). The same sweep discards it if the agent leaves play unrevealed.
+
+#### `fetch-agent-to-hand` (mode 2 — short-event tutor)
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `homeSiteTypes` | yes | Home-site types an eligible agent's printed home site must be one of. |
+
+```json
+{ "type": "fetch-agent-to-hand", "homeSiteTypes": ["shadow-hold", "dark-hold"] }
+```
+
+- **Legal actions**: offered as a `play-hazard` action with
+  `altEventMode: "short-event"`, viable only when the play deck holds a matching
+  agent.
+- **Reducer** (`mh-hazard-play.ts` short branch → `chain-reducer.ts`): plays as a
+  short-event (counts against the hazard limit). On chain resolution it enqueues a
+  `fetch-to-deck` pending effect (`source: ["deck"]`, `to: "hand"`,
+  `shuffle: true`, `revealToOpponent: true`, `filter` requiring the `agent`
+  keyword, `homeSiteTypes` set, `actor` = the hazard player). The hazard player
+  then picks one matching agent via a `fetch-from-pile` pending resolution (or
+  passes); the deck is reshuffled and the fetched agent is revealed to the
+  opponent (`handleFetchFromPile`, `reducer-utils.ts`).
+- The `homeSiteTypes` and `revealToOpponent` fields are generic additions to
+  `FetchToDeckEffect`, honoured by both the fetch enumerator
+  (`legal-actions/index.ts`) and `handleFetchFromPile`.
+
+Used by Inner Cunning (dm-68): "As a permanent-event, playable on a face-down
+agent who was brought into play this turn. When the agent is revealed, and if his
+home site is a Shadow-hold or a Dark-hold, the site where he came into play …
+may legally be any Shadow-hold or a Dark-hold. Discard when the agent is
+revealed. Alternatively, as a short-event, take any agent who has a home site
+that is a Shadow-hold or Dark-hold from your play deck into your hand (reveal it
+to your opponent and reshuffle your play deck). Cannot be played if your opponent
+is a minion player."
