@@ -393,7 +393,7 @@ finalize_processed_messages() {
   from_name=$(ai_display_name)
 
   cd "$SCRIPT_DIR/.."
-  local row id pr_url pending pr_json state merged
+  local row id pr_url pending pr_json state
   while IFS= read -r row; do
     [ -n "$row" ] || continue
     id=$(jq -r '.id' <<<"$row" 2>/dev/null || echo "")
@@ -408,14 +408,16 @@ finalize_processed_messages() {
     fi
 
     # Resolve the PR's merge/close state. A gh hiccup on one PR just defers it.
-    if ! pr_json=$(gh pr view "$pr_url" --json state,merged 2>/dev/null); then
+    # `state` is OPEN/MERGED/CLOSED and stable across gh versions; the older
+    # `merged` boolean field was removed, so relying on it made this whole call
+    # fail and every message got deferred forever.
+    if ! pr_json=$(gh pr view "$pr_url" --json state 2>/dev/null); then
       echo "=== Finalize: $id PR $pr_url unreadable (gh); deferring ===" | tee -a "$LOG_FILE"
       continue
     fi
     state=$(jq -r '.state // ""' <<<"$pr_json" 2>/dev/null || echo "")
-    merged=$(jq -r '.merged // false' <<<"$pr_json" 2>/dev/null || echo false)
 
-    if [ "$merged" = "true" ]; then
+    if [ "$state" = "MERGED" ]; then
       echo "=== Finalize: $id PR merged -> success (delivering reply) ===" | tee -a "$LOG_FILE"
       if [ -n "$pending" ]; then
         finalize_send_mail "$(jq -nc --arg from "$from_name" --argjson p "$pending" \
