@@ -24,7 +24,7 @@ import type { CharacterInPlay } from '../types/state-cards.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
-import { CardStatus, Race } from '../types/common.js';
+import { Alignment, CardStatus, Race } from '../types/common.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
@@ -406,6 +406,40 @@ function discardCharacterAfterBodyCheck(
   return finalizeCombat({ ...stateWithRoll, players: newPlayers, combat: combatWithDiscard }, effects);
 }
 
+/**
+ * Remove an agent whose (only) strike was defeated and whose body check
+ * failed (CoE 3.v — Agent Hazard Attacks). The agent card leaves the board:
+ * a defending hero or Fallen-Wizard player claims it as kill marshalling
+ * points (their kill pile); a Ringwraith or Balrog player instead removes it
+ * from play (the agent owner's out-of-play pile). The agent's site stack is
+ * returned to its owner's site deck so no card instance is lost.
+ */
+function removeDefeatedAgent(state: GameState, combat: CombatState, agentInstId: CardInstanceId): GameState {
+  const ownerIdx = getPlayerIndex(state, combat.attackingPlayerId);
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
+  const agent = state.players[ownerIdx].agents.find(a => a.character.instanceId === agentInstId);
+  if (!agent) return state;
+  const agentCard = toCardInstance(agent.character);
+  // "Hero" players are Wizard-aligned; Fallen-Wizard players may also claim
+  // agents as kill MPs. Ringwraith/Balrog players cannot.
+  const defenderClaimsMP =
+    state.players[defIdx].alignment === Alignment.Wizard ||
+    state.players[defIdx].alignment === Alignment.FallenWizard;
+  let next = updatePlayer(state, ownerIdx, p => ({
+    ...p,
+    agents: p.agents.filter(a => a.character.instanceId !== agentInstId),
+    siteDeck: [...p.siteDeck, ...agent.siteStack],
+  }));
+  if (defenderClaimsMP) {
+    next = updatePlayer(next, defIdx, p => ({ ...p, killPile: [...p.killPile, agentCard] }));
+    logDetail(`Agent ${agentInstId as string} defeated — placed in defender's kill pile for kill MPs (CoE 3.v)`);
+  } else {
+    next = updatePlayer(next, ownerIdx, p => ({ ...p, outOfPlayPile: [...p.outOfPlayPile, agentCard] }));
+    logDetail(`Agent ${agentInstId as string} defeated — removed from play (CoE 3.v)`);
+  }
+  return next;
+}
+
 export function handleBodyCheckRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'body-check-roll') return wrongActionType(state, action, 'body-check-roll');
 
@@ -449,30 +483,69 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         }
       }
     }
-    logDetail(`Body check vs creature: roll ${rollTotal} vs body ${body}`);
+    // Agent hazard attacks (CoE 3.v): when a character defeats an agent's
+    // strike, the agent is *wounded* and must make a body check — unlike an
+    // ordinary hazard creature, which is never wounded and simply survives or
+    // is defeated. The body check gets a +1 modifier if the agent was already
+    // wounded before this strike (CoE 3.I.1). A failed body check defeats the
+    // strike and removes the agent; a passed body check leaves the agent in
+    // play but wounded.
+    const isAgent = combat.attackSource.type === 'agent';
+    const agentInstId = isAgent ? combat.attackSource.instanceId : null;
+    const agentBefore = agentInstId
+      ? stateWithRoll.players[getPlayerIndex(stateWithRoll, combat.attackingPlayerId)]
+          .agents.find(a => a.character.instanceId === agentInstId)
+      : undefined;
+    const agentAlreadyWounded = agentBefore?.character.status === CardStatus.Inverted;
+    const woundedBonus = agentAlreadyWounded ? 1 : 0;
+    const effectiveRoll = rollTotal + woundedBonus;
+    const entityLabel = isAgent ? 'agent' : 'creature';
+    logDetail(`Body check vs ${entityLabel}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''} = ${effectiveRoll} vs body ${body}`);
     // CoE 3.iv.7: the strike is defeated only if the body check FAILS (roll >
     // body). If the body check passes, the strike was not defeated and the
-    // creature survives. Record 'survived' (vs the parry's 'success') so
-    // finalizeCombat does not count this strike toward defeating the creature.
+    // creature/agent survives. Record 'survived' (vs the parry's 'success') so
+    // finalizeCombat does not count this strike toward defeating the entity.
     let combatAfterBodyCheck = combat;
-    if (rollTotal > body) {
-      logDetail('Creature body check failed — strike defeated');
-      noteOutcome(`Body check failed — strike defeated (rolled ${rollTotal} vs body ${body})`);
+    let stateAfterOutcome = stateWithRoll;
+    if (effectiveRoll > body) {
+      logDetail(`${isAgent ? 'Agent' : 'Creature'} body check failed — strike defeated`);
+      noteOutcome(`Body check failed — strike defeated (rolled ${effectiveRoll} vs body ${body})`);
+      if (isAgent) {
+        // Strike defeated: with a single strike this defeats the agent, which
+        // is removed from play — or claimed as kill MPs by a defending hero /
+        // Fallen-Wizard player (CoE 3.v).
+        stateAfterOutcome = removeDefeatedAgent(stateWithRoll, combat, agentInstId!);
+      }
     } else {
-      logDetail('Creature body check passed — creature survives');
-      noteOutcome(`Body check passed — the creature survives (rolled ${rollTotal} vs body ${body})`);
+      logDetail(`${isAgent ? 'Agent' : 'Creature'} body check passed — ${isAgent ? 'agent survives (wounded)' : 'creature survives'}`);
+      noteOutcome(`Body check passed — the ${isAgent ? 'agent survives but is wounded' : 'creature survives'} (rolled ${effectiveRoll} vs body ${body})`);
       const survivedAssignments = combat.strikeAssignments.map((a, i) =>
         i === combat.currentStrikeIndex ? { ...a, result: 'survived' as const } : a,
       );
       combatAfterBodyCheck = { ...combat, strikeAssignments: survivedAssignments };
+      if (isAgent) {
+        // CoE 3.v: the agent is wounded because its strike was defeated, even
+        // though it survives the body check.
+        stateAfterOutcome = updatePlayer(
+          stateWithRoll,
+          getPlayerIndex(stateWithRoll, combat.attackingPlayerId),
+          p => ({
+            ...p,
+            agents: p.agents.map(a => a.character.instanceId === agentInstId
+              ? { ...a, character: { ...a.character, status: CardStatus.Inverted } }
+              : a),
+          }),
+        );
+        logDetail(`Agent ${agentInstId as string} wounded (strike defeated, CoE 3.v)`);
+      }
     }
 
     // Advance to next strike or finalize
     const next1 = nextStrikePhase(combatAfterBodyCheck);
     if (next1) {
-      return { state: { ...stateWithRoll, combat: { ...combatAfterBodyCheck, ...next1 } }, effects };
+      return { state: { ...stateAfterOutcome, combat: { ...combatAfterBodyCheck, ...next1 } }, effects };
     }
-    return finalizeCombat({ ...stateWithRoll, combat: combatAfterBodyCheck }, effects);
+    return finalizeCombat({ ...stateAfterOutcome, combat: combatAfterBodyCheck }, effects);
   }
 
   if (combat.bodyCheckTarget === 'character') {
