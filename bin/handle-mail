@@ -703,6 +703,12 @@ REVIEW_BODY=""
 REVIEW_RECIPIENTS=""
 REVIEW_KEYWORDS="{}"
 
+# The full requestor reply serialized for later delivery (Step 6). Set only when
+# the outcome opens a PR (HAS_PR_REVIEW); the message is then parked in
+# 'processed' carrying this so the run-ai finalize sweep can send it once the PR
+# merges. Empty for immediate-reply outcomes.
+PENDING_REPLY_JSON=""
+
 # Default reply recipient was resolved above (Step 2b) so we could run the
 # credit gate against the same account that will eventually be billed.
 # Reusing it here keeps the dispatch and billing in sync.
@@ -1234,15 +1240,32 @@ if [ -n "$REVIEW_TOPIC" ] && [ -n "$REVIEW_RECIPIENTS" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Step 8: Mark message as processed
+# Step 8: Mark the message's end state
 # ---------------------------------------------------------------------------
-
-if $SUCCESS; then
-  log "Marking message as processed (success: true)"
-  set_status "ai" "$MSG_ID" '{"status":"processed","success":true}'
+# Three outcomes:
+#   - success that opened a PR   → 'processed' (INTERMEDIATE): the work is done
+#     but the PR is awaiting a merge/close decision. We stamp the PR URL and the
+#     stashed reply (pendingReplyJson) onto the message so the run-ai finalize
+#     sweep can resolve it later — 'success' + deliver the reply when the PR
+#     merges, 'failed' when it is closed unmerged. The reviewer's lobby approval
+#     can also resolve it first; the two coordinate via this same terminal state.
+#   - success with no PR (card added to master, planning reply) → 'success'
+#     (TERMINAL) immediately; the reply was already sent in Step 6.
+#   - failure → 'failed' (TERMINAL) immediately; the failure reply was sent.
+if $SUCCESS && $HAS_PR_REVIEW; then
+  PR_URL_FOR_MSG=$(echo "$REVIEW_KEYWORDS" | jq -r '.prUrl // empty')
+  log "Marking message as processed (PR awaiting review: ${PR_URL_FOR_MSG:-unknown})"
+  PROCESSED_BODY=$(jq -nc \
+    --arg prUrl "$PR_URL_FOR_MSG" \
+    --arg pending "$PENDING_REPLY_JSON" \
+    '{status: "processed", success: true, keywords: {prUrl: $prUrl, pendingReplyJson: $pending}}')
+  set_status "ai" "$MSG_ID" "$PROCESSED_BODY"
+elif $SUCCESS; then
+  log "Marking message as success (terminal, no PR)"
+  set_status "ai" "$MSG_ID" '{"status":"success","success":true}'
 else
-  log "Marking message as processed (success: false)"
-  set_status "ai" "$MSG_ID" '{"status":"processed","success":false}'
+  log "Marking message as failed (terminal)"
+  set_status "ai" "$MSG_ID" '{"status":"failed","success":false}'
 fi
 
 # ---------------------------------------------------------------------------

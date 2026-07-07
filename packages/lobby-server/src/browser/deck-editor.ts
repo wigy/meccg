@@ -872,7 +872,11 @@ export async function openDeckEditor(deckId: string): Promise<void> {
   if (sentResp.ok) {
     const sent = await sentResp.json() as { messages: { topic: string; status: string; keywords: Record<string, string> }[] };
     for (const msg of sent.messages) {
-      const pending = msg.status !== 'processed';
+      // A request is still "pending" (its card/cert chip stays marked) until it
+      // reaches a terminal state. `processed` means the work is done and its PR
+      // is awaiting a merge/close decision; `success`/`failed` are the final
+      // verdicts — none of these should re-mark the card as still-requested.
+      const pending = msg.status !== 'processed' && msg.status !== 'success' && msg.status !== 'failed';
       if (pending && msg.topic === 'card-request' && msg.keywords.deckId && msg.keywords.cardName) {
         appState.requestedCards.add(`${msg.keywords.deckId}:${msg.keywords.cardName}`);
       }

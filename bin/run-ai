@@ -60,6 +60,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$HOME/.meccg/logs"
 LOG_FILE="$LOG_DIR/ai.log"
 SECRETS="$HOME/.meccg/secrets.json"
+AI_INFO="$HOME/.meccg/players/ai/info.json"
 BASE_URL="${MECCG_LOBBY_URL:-http://localhost:8080}"
 BASE_URL="${BASE_URL%/}"
 
@@ -329,6 +330,115 @@ run_pr_fix() {
   [ "$done" -eq 1 ]
 }
 
+# ---------------------------------------------------------------------------
+# Finalize 'processed' messages by their pull-request outcome
+# ---------------------------------------------------------------------------
+# 'processed' is the INTERMEDIATE state handle-mail parks PR-backed work in: the
+# handler finished and opened a PR, and stamped the PR URL (`prUrl`) plus the
+# stashed requestor reply (`pendingReplyJson`) onto the message's keywords. Once
+# per loop we resolve each such message from its PR's merge/close state:
+#   - PR merged            → deliver the stashed reply, mark 'success'
+#   - PR closed (unmerged) → notify the requestor it was declined, mark 'failed'
+#   - PR still open        → leave 'processed' for a later tick
+#   - no PR link           → mark 'failed' (a new-flow parked message should
+#                            always carry one)
+#
+# The lobby reviewer's "approve" action can finalize the same message first —
+# both finalizers move the ORIGINAL message to a terminal 'success'/'failed' and
+# act only while it is still 'processed', and the lobby approve handler skips its
+# send when the message is already terminal, so the reply is never sent twice.
+#
+# We only touch messages carrying `pendingReplyJson` (i.e. parked by the CURRENT
+# handle-mail). Legacy 'processed' messages from before this feature lack it and
+# are left untouched, so historically-successful work is never re-flagged failed.
+ai_display_name() {
+  if [ -f "$AI_INFO" ]; then jq -r '.displayName // "ai"' "$AI_INFO" 2>/dev/null || echo ai; else echo ai; fi
+}
+
+# PUT a terminal status on an ai-inbox message.  $1=msg-id  $2=status
+finalize_set_status() {
+  curl -sf -X PUT "$BASE_URL/api/system/mail/ai/$1" \
+    -H "Authorization: Bearer $(master_key)" \
+    -H 'Content-Type: application/json' \
+    -d "{\"status\":\"$2\"}" >/dev/null 2>&1 \
+    || echo "[run-ai] WARNING: failed to set message $1 -> $2" | tee -a "$LOG_FILE"
+}
+
+# POST a mail payload (built from a pendingReplyJson object).  $1=json-payload
+finalize_send_mail() {
+  curl -sf -X POST "$BASE_URL/api/system/mail" \
+    -H "Authorization: Bearer $(master_key)" \
+    -H 'Content-Type: application/json' \
+    -d "$1" >/dev/null 2>&1 \
+    || echo "[run-ai] WARNING: failed to send finalize mail" | tee -a "$LOG_FILE"
+}
+
+finalize_processed_messages() {
+  local resp
+  if ! resp=$(curl -sf -X GET "$BASE_URL/api/system/ai-requests?all=true" \
+      -H "Authorization: Bearer $(master_key)" 2>/dev/null); then
+    echo "=== Could not list processed messages (lobby unreachable) at $(date -Iseconds); skipping finalize ===" | tee -a "$LOG_FILE"
+    return 0
+  fi
+
+  local processed count
+  processed=$(jq -c '[.requests[] | select(.status == "processed") | select((.keywords.pendingReplyJson // "") != "")]' <<<"$resp" 2>/dev/null || echo '[]')
+  count=$(jq 'length' <<<"$processed" 2>/dev/null || echo 0)
+  if [ "$count" -eq 0 ]; then
+    return 0
+  fi
+  echo "=== Finalize sweep: $count processed message(s) awaiting a PR decision at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+
+  local from_name
+  from_name=$(ai_display_name)
+
+  cd "$SCRIPT_DIR/.."
+  local row id pr_url pending pr_json state merged
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    id=$(jq -r '.id' <<<"$row" 2>/dev/null || echo "")
+    pr_url=$(jq -r '.keywords.prUrl // empty' <<<"$row" 2>/dev/null || echo "")
+    pending=$(jq -c '.keywords.pendingReplyJson | fromjson? // empty' <<<"$row" 2>/dev/null || echo "")
+    [ -n "$id" ] || continue
+
+    if [ -z "$pr_url" ]; then
+      echo "=== Finalize: $id has no PR link -> failed ===" | tee -a "$LOG_FILE"
+      finalize_set_status "$id" failed
+      continue
+    fi
+
+    # Resolve the PR's merge/close state. A gh hiccup on one PR just defers it.
+    if ! pr_json=$(gh pr view "$pr_url" --json state,merged 2>/dev/null); then
+      echo "=== Finalize: $id PR $pr_url unreadable (gh); deferring ===" | tee -a "$LOG_FILE"
+      continue
+    fi
+    state=$(jq -r '.state // ""' <<<"$pr_json" 2>/dev/null || echo "")
+    merged=$(jq -r '.merged // false' <<<"$pr_json" 2>/dev/null || echo false)
+
+    if [ "$merged" = "true" ]; then
+      echo "=== Finalize: $id PR merged -> success (delivering reply) ===" | tee -a "$LOG_FILE"
+      if [ -n "$pending" ]; then
+        finalize_send_mail "$(jq -nc --arg from "$from_name" --argjson p "$pending" \
+          '{recipients: [$p.recipient], from: $from, sender: "ai", topic: $p.topic,
+            subject: $p.subject, body: $p.body, keywords: ($p.keywords // {}),
+            replyTo: ($p.replyTo // null), sentBy: "ai"}')"
+      fi
+      finalize_set_status "$id" success
+    elif [ "$state" = "CLOSED" ]; then
+      echo "=== Finalize: $id PR closed unmerged -> failed (notifying) ===" | tee -a "$LOG_FILE"
+      if [ -n "$pending" ]; then
+        finalize_send_mail "$(jq -nc --arg from "$from_name" --argjson p "$pending" \
+          '{recipients: [$p.recipient], from: $from, sender: "ai", topic: $p.topic,
+            subject: ("Declined: " + $p.subject),
+            body: ("The pull request for this request was closed without being merged, so the change was not applied. If you still need it, please re-submit the request.\n\n---\n\n" + $p.body),
+            keywords: ($p.keywords // {}), replyTo: ($p.replyTo // null), sentBy: "ai"}')"
+      fi
+      finalize_set_status "$id" failed
+    fi
+    # OPEN (or a merge not yet reflected) — leave 'processed' for a later tick.
+  done < <(jq -c '.[]' <<<"$processed")
+}
+
 # Sweep every open PR once. For each PR that conflicts with master or carries
 # reviewer feedback, run the single-PR fixer. Always returns 0 — a failure on
 # any one PR is logged and skipped so the worker keeps running. Leaves the repo
@@ -472,6 +582,11 @@ while true; do
   # address review comments on each PR's own branch. Never fatal — handle_open_prs
   # logs and skips any PR it can't fix, and always returns to master clean.
   handle_open_prs || true
+
+  # Finalize any 'processed' messages whose PR has since merged or closed:
+  # deliver the stashed reply + mark 'success', or notify + mark 'failed'. Never
+  # fatal — logs and skips anything it can't resolve, leaving it for a later tick.
+  finalize_processed_messages || true
 
   # A failed poll means the lobby is unreachable (down, restarting, or a
   # transient network hiccup) — NOT that there is no work. Treat it like an
