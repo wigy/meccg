@@ -63,7 +63,8 @@ const LOG_TOP_N = 6;
 function describeWeighted(weighted: WeightedAction, view: PlayerView): string {
   const lookup = buildInstanceLookup(view);
   const companies = buildCompanyNames(view.self.companies, view.self.characters, cardPool);
-  const desc = stripCardMarkers(describeAction(weighted.action, cardPool, lookup, companies));
+  const players = { [view.self.id as string]: view.self.name, [view.opponent.id as string]: view.opponent.name };
+  const desc = stripCardMarkers(describeAction(weighted.action, cardPool, lookup, companies, players));
   return `${desc}  [w=${weighted.weight}]`;
 }
 
@@ -125,7 +126,8 @@ function connect(): void {
     const delayMs = decisionDelayMs(action, msg.view);
     const lookup = buildInstanceLookup(msg.view);
     const companies = buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool);
-    const summary = stripCardMarkers(describeAction(action, cardPool, lookup, companies));
+    const players = { [msg.view.self.id as string]: msg.view.self.name, [msg.view.opponent.id as string]: msg.view.opponent.name };
+    const summary = stripCardMarkers(describeAction(action, cardPool, lookup, companies, players));
     setTimeout(() => {
       console.log(`AI action: ${summary} (delay ${delayMs}ms)`);
       const actionMsg: ClientMessage = { type: 'action', action };

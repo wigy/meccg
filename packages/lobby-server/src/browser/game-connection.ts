@@ -51,7 +51,7 @@ export function sendAction(action: GameAction): void {
   // Snapshot log entry count before adding action log line
   const logEl = document.getElementById('log');
   if (logEl) appState.logCountStack.push(logEl.childElementCount);
-  const desc = describeAction(action, cardPool, appState.lastInstanceLookup, appState.lastCompanyNames);
+  const desc = describeAction(action, cardPool, appState.lastInstanceLookup, appState.lastCompanyNames, appState.lastPlayerNames);
   renderLog(`>> ${desc}`, cardPool);
   const msg: ClientMessage = { type: 'action', action, actionId: canonicalActionKey(action) };
   appState.ws.send(JSON.stringify(msg));
@@ -308,12 +308,13 @@ function describeOpponentAction(
   pool: Readonly<Record<string, import('@meccg/shared').CardDefinition>>,
   lookup: (id: CardInstanceId) => CardDefinitionId | undefined,
   companyNames: Readonly<Record<string, string>>,
+  playerNames: Readonly<Record<string, string>>,
 ): string {
   if (action.type === 'plan-movement') {
-    const name = companyNames[action.companyId as string] ?? String(action.companyId);
+    const name = companyNames[action.companyId as string] ?? 'a company';
     return `Move ${name} to a site`;
   }
-  return describeAction(action, pool, lookup, companyNames);
+  return describeAction(action, pool, lookup, companyNames, playerNames);
 }
 
 /** Connect to the game server via WebSocket. */
@@ -406,6 +407,10 @@ export function connect(name: string): void {
           ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
           ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
         };
+        appState.lastPlayerNames = {
+          [msg.view.self.id as string]: msg.view.self.name,
+          [msg.view.opponent.id as string]: msg.view.opponent.name,
+        };
         // Merge in action-referenced card defs from the server. A played
         // card's identity is public via the action itself even when the
         // card now sits in a redacted pile (e.g. short event sent to the
@@ -416,7 +421,7 @@ export function connect(name: string): void {
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
         // Log opponent actions so the text log captures what the other player did
         if (msg.lastAction && msg.lastAction.player !== msg.view.self.id) {
-          const desc = describeOpponentAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames);
+          const desc = describeOpponentAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames, appState.lastPlayerNames);
           renderLog(`<< ${desc}`, cardPool);
         }
         // Log roll outcomes (dice result + strike/body-check result) for both players
@@ -447,7 +452,7 @@ export function connect(name: string): void {
         renderMHInfo(msg.view, cardPool, appState.lastCompanyNames);
         renderSiteInfo(msg.view, cardPool, appState.lastCompanyNames);
         renderFreeCouncilInfo(msg.view, cardPool);
-        renderActions(msg.view.legalActions, cardPool, sendAction, appState.lastInstanceLookup, appState.lastCompanyNames);
+        renderActions(msg.view.legalActions, cardPool, sendAction, appState.lastInstanceLookup, appState.lastCompanyNames, appState.lastPlayerNames);
         renderHand(msg.view, cardPool, sendAction);
         renderOpponentHand(msg.view, cardPool);
         renderPlayerNames(msg.view, cardPool);
@@ -471,7 +476,7 @@ export function connect(name: string): void {
         // Show notification describing what either player just did
         if (msg.lastAction && msg.lastAction.type !== 'pass' && msg.lastAction.type !== 'pass-chain-priority') {
           const isSelf = msg.lastAction.player === msg.view.self.id;
-          const desc = describeOpponentAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames);
+          const desc = describeOpponentAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames, appState.lastPlayerNames);
           if (isSelf) {
             showNotification(desc, { cardPool, self: msg.view.self.name });
           } else {
