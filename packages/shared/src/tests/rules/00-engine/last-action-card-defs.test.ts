@@ -36,7 +36,7 @@ import {
   buildAnUnexpectedOutpostMH,
   resolveChain,
 } from '../../test-helpers.js';
-import type { AddCharacterToDeckAction, CardDefinitionId, CardInstanceId, DiscardCardAction, ExchangeSideboardAction, FetchFromPileAction, PlaceOnGuardAction, PlayerView, PlayShortEventAction } from '../../../index.js';
+import type { AddCharacterToDeckAction, ArrangeDeckTopCardAction, CardDefinitionId, CardInstanceId, ChooseRevealedCardAction, DiscardCardAction, ExchangeSideboardAction, FetchFromPileAction, PlaceOnGuardAction, PlayerView, PlayShortEventAction } from '../../../index.js';
 import { Phase, SetupStep, buildInstanceLookup, describeAction, extractActionCardDefs, reduce } from '../../../index.js';
 
 /** Lure of Expedience — hazard permanent-event attached to a character. Single-use in this file. */
@@ -516,5 +516,56 @@ describe('Marvels Told discard-target naming — lookup must cover character-att
     const stale = describeAction(action, pool, staleLookup);
     expect(stale).toContain('a card');
     expect(stale).not.toContain('Lure of Expedience');
+  });
+});
+
+describe('deck-arranging action labels — imperative, no raw player code', () => {
+  /**
+   * Regression for bug d3d376794cfc8a4e (game mr9jvlnw-2ldyce, seq 119):
+   * after playing Revealed to all Watchers (dm-85), the player was offered
+   * one `arrange-deck-top-card` action per set-aside card, but the button
+   * text read "p1 places Noble Steed next on top of their play deck" — the
+   * raw player id "p1" leaked into the label and the phrasing did not match
+   * the imperative voice every other action the player clicks uses ("Draft
+   * …", "Play …", "Move …"). Its sibling `choose-revealed-card` (Eyes of
+   * Mandos, dm-126) had the identical defect. Both labels are the acting
+   * player's own choice, so they should read as an imperative instruction
+   * with no player code.
+   */
+  test('arrange-deck-top-card reads as an imperative naming the card, without the player code', () => {
+    const cardId = 'p1-18' as CardInstanceId;
+    const lookup = (id: CardInstanceId) => (id === cardId ? MARVELS_TOLD : undefined);
+    const action: ArrangeDeckTopCardAction = {
+      type: 'arrange-deck-top-card',
+      player: PLAYER_1,
+      cardInstanceId: cardId,
+    };
+    const label = describeAction(action, pool, lookup);
+    // Imperative voice, the card named, ending in the player's own deck.
+    expect(label.startsWith('Place ')).toBe(true);
+    expect(label).toContain('Marvels Told');
+    expect(label).toContain('next on top of your play deck');
+    // The raw player id must not leak into the button text (the pre-fix
+    // label read "p1 places … their play deck").
+    expect(label).not.toContain('p1');
+    expect(label).not.toContain('their play deck');
+    // And the card is named, not shown as "a card".
+    expect(label).not.toContain('a card');
+  });
+
+  test('choose-revealed-card reads as an imperative naming the card, without the player code', () => {
+    const cardId = 'p1-27' as CardInstanceId;
+    const lookup = (id: CardInstanceId) => (id === cardId ? MARVELS_TOLD : undefined);
+    const action: ChooseRevealedCardAction = {
+      type: 'choose-revealed-card',
+      player: PLAYER_1,
+      cardInstanceId: cardId,
+    };
+    const label = describeAction(action, pool, lookup);
+    expect(label.startsWith('Take revealed card ')).toBe(true);
+    expect(label).toContain('Marvels Told');
+    expect(label).toContain('shuffle the rest back into the play deck');
+    expect(label).not.toContain('p1');
+    expect(label).not.toContain('a card');
   });
 });
