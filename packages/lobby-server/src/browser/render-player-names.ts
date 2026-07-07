@@ -6,7 +6,7 @@
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay, CardInPlay, MarshallingPointTotals, CardEffect } from '@meccg/shared';
-import { GENERAL_INFLUENCE, isCharacterCard, computeTournamentScore, computeTournamentBreakdown, Phase } from '@meccg/shared';
+import { GENERAL_INFLUENCE, isCharacterCard, computeTournamentScore, computeTournamentBreakdown, Phase, effectiveHazardLimit } from '@meccg/shared';
 import { seedDiceFromState, restoreDice, clearDice } from './dice.js';
 import { hasRealCards } from './render-debug-panels.js';
 
@@ -226,13 +226,34 @@ function sumDraftedMind(drafted: readonly CardDefinitionId[], cardPool: Readonly
   }, 0);
 }
 
-/** Return movement/hazard limit text once the snapshot has been computed. */
-function getHazardLimitLabel(view: PlayerView): string | null {
+/**
+ * Return movement/hazard limit text once the snapshot has been computed.
+ *
+ * The displayed limit must reflect the *effective* limit for the active
+ * company, not just the at-reveal snapshot: a Dragon "At Home" discard (e.g.
+ * Daelomin at Home td-11) adds a mid-phase `hazard-limit-modifier` constraint
+ * that {@link effectiveHazardLimit} folds in. Reading `hazardLimitAtReveal`
+ * alone left the remaining count unchanged after such a boost.
+ *
+ * Exported for regression testing.
+ */
+export function getHazardLimitLabel(view: PlayerView): string | null {
   if (view.phaseState.phase !== Phase.MovementHazard) return null;
   if (view.phaseState.step === 'set-hazard-limit' || view.phaseState.step === 'reveal-new-site' || view.phaseState.step === 'select-company') {
     return null;
   }
-  const remaining = view.phaseState.hazardLimitAtReveal - view.phaseState.hazardsPlayedThisCompany;
+  const selfIsResource = view.activePlayer === view.self.id;
+  const resourceCompanies = selfIsResource ? view.self.companies : view.opponent.companies;
+  const activeCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
+  const limit = activeCompany
+    ? effectiveHazardLimit(
+        view.activeConstraints,
+        view.phaseState.hazardLimitAtReveal,
+        view.phaseState.preRevealHazardLimitConstraintIds,
+        activeCompany.id,
+      )
+    : view.phaseState.hazardLimitAtReveal;
+  const remaining = limit - view.phaseState.hazardsPlayedThisCompany;
   return String(Math.max(0, remaining));
 }
 
