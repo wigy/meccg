@@ -629,6 +629,14 @@ export type ChainEntryPayload =
        * play time. The chain resolver dispatches that option's `apply`.
        */
       readonly optionId?: string;
+      /**
+       * For a `force-opponent-discard` effect with a dynamic `count` (Khamûl the
+       * Easterling tw-47), the number of cards the opponent must discard,
+       * computed at declaration time (when the permanent-event mode was tapped,
+       * while the source card was still in play — so "including this one" is
+       * already accounted for). Read by the chain resolver; absent = 1.
+       */
+      readonly forcedDiscardCount?: number;
     }
   | {
       readonly type: 'creature';

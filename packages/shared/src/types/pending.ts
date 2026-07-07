@@ -436,17 +436,40 @@ export interface PendingResolution {
       }
     | {
         /**
-         * Rolled down to the Sea (wh-29): the card-player's opponent must
-         * discard one ring of their choice. The actor picks exactly one
-         * candidate from {@link candidateInstanceIds} — rings gathered from
-         * their hand and/or held by their in-play characters. Resolved by a
-         * `force-discard-card` action.
+         * The card-player's opponent must discard one or more cards of their
+         * choice. Two flavours:
+         *
+         * - **Fixed-candidate** (Rolled down to the Sea wh-29): the actor picks
+         *   from {@link candidateInstanceIds} — rings gathered from their hand
+         *   and/or held by their in-play characters. `remaining` defaults to 1.
+         * - **Any-from-hand** (Khamûl the Easterling tw-47): `anyFromHand` is
+         *   set, so every card in the actor's current hand is a candidate, and
+         *   `remaining` (≥1) cards must be discarded one at a time. The
+         *   candidate set is recomputed from the shrinking hand after each pick;
+         *   the resolution clears early if the hand empties first.
+         *
+         * Resolved by repeated `force-discard-card` actions.
          */
         readonly type: 'force-discard-card';
-        /** Ring instances the actor may choose to discard (mandatory pick). */
+        /**
+         * Card instances the actor may choose to discard (fixed-candidate mode).
+         * Ignored when {@link anyFromHand} is set.
+         */
         readonly candidateInstanceIds: readonly CardInstanceId[];
         /** Definition ID of the source hazard event (for logging). */
         readonly sourceDefinitionId: CardDefinitionId;
+        /**
+         * When set, any card in the actor's current hand is a valid discard
+         * choice (the candidate list is recomputed each step). Used for
+         * count-based discards (Khamûl the Easterling).
+         */
+        readonly anyFromHand?: boolean;
+        /**
+         * How many more cards must still be discarded. Absent = 1. Decremented
+         * after each pick; the resolution clears when it reaches 0 (or, in
+         * any-from-hand mode, when the hand empties).
+         */
+        readonly remaining?: number;
       }
     | {
         /**

@@ -684,8 +684,9 @@ export interface ReshuffleFromDiscardEffect extends EffectBase {
 }
 
 /**
- * Forces the card-player's opponent to discard one card of a named category,
- * chosen by the opponent, or — if none is available — reveal their hand.
+ * Forces the card-player's opponent to discard one or more cards of a named
+ * category, chosen by the opponent, or — if none is available — reveal their
+ * hand.
  *
  * Carried by a hazard short-event and resolved when the event resolves on the
  * chain. The opponent (the resource player, in a hazard-play context) is the
@@ -693,23 +694,35 @@ export interface ReshuffleFromDiscardEffect extends EffectBase {
  * `sources`: `'hand'` (cards in the opponent's hand) and/or `'carried'` (cards
  * held by the opponent's in-play characters). If at least one candidate exists,
  * a {@link PendingResolution} of kind `force-discard-card` is enqueued so the
- * opponent picks exactly one to discard (mandatory). If none exists and
+ * opponent picks the required number to discard (mandatory). If none exists and
  * `fallbackRevealHand` is set, the opponent's current hand identities are
  * revealed to the card-player instead (recorded in
  * {@link GameState.revealedInstances}).
  *
  * The `match` category is a generic, data-driven matcher so other "opponent
  * discards an X" cards can reuse it. `'ring'` matches any card carrying the
- * `ring` keyword or the `gold-ring` subtype (the MECCG definition of a ring).
+ * `ring` keyword or the `gold-ring` subtype (the MECCG definition of a ring);
+ * `'any'` matches any hand card (used when the count is what matters, not the
+ * category).
  *
  * Used by *Rolled down to the Sea* (wh-29): "Opponent must discard a ring from
  * his hand or from one of his companies if available. If no rings are available
- * as such, he must reveal his hand to you."
+ * as such, he must reveal his hand to you." (match `'ring'`, count 1.)
+ *
+ * Used by *Khamûl the Easterling* (tw-47): when its permanent-event mode is
+ * tapped it "becomes a short-event and forces opponent to discard one card of
+ * his choice for every Nazgûl permanent-event in play (including this one) at
+ * the time of declaration." (match `'any'`, dynamic `count`.)
  */
 export interface ForceOpponentDiscardEffect extends EffectBase {
   readonly type: 'force-opponent-discard';
-  /** Named card-category matcher. Currently only `'ring'`. */
-  readonly match: 'ring';
+  /**
+   * Named card-category matcher:
+   * - `'ring'` — cards carrying the `ring` keyword or the `gold-ring` subtype.
+   * - `'any'` — any card (used when the discard count, not the category, is the
+   *   point). Only the `'hand'` source is supported for `'any'`.
+   */
+  readonly match: 'ring' | 'any';
   /**
    * Where to look for candidate cards to discard:
    * - `'hand'` — the opponent's hand.
@@ -718,6 +731,26 @@ export interface ForceOpponentDiscardEffect extends EffectBase {
   readonly sources: readonly ('hand' | 'carried')[];
   /** When true and no candidate exists, reveal the opponent's hand instead. */
   readonly fallbackRevealHand?: boolean;
+  /**
+   * How many cards the opponent must discard. Absent = one card (the `'ring'`
+   * case). A `countCardsInPlay` descriptor makes the number equal to the count
+   * of cards in play (across both players) whose definition matches the filter.
+   *
+   * This dynamic count is evaluated at **declaration time** — the moment the
+   * source permanent event is tapped to become the short-event (see
+   * `handleTapAltPermanentEvent`), while the source card is still in play — and
+   * threaded to the chain resolution via
+   * {@link ChainEntryPayload}.`forcedDiscardCount`. Evaluating before the source
+   * card leaves play is what makes "including this one" fall out naturally and
+   * matches the CRF ruling that "the number of cards discarded is set at the
+   * time of declaration".
+   */
+  readonly count?: {
+    readonly countCardsInPlay: {
+      /** Only count in-play cards whose definition carries this keyword. */
+      readonly keyword: string;
+    };
+  };
 }
 
 /**

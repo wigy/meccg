@@ -2093,6 +2093,30 @@ function handleTapAltPermanentEvent(
 
   logDetail(`Creature-permanent-event "${def?.name ?? card.definitionId}" tapped during opponent M/H → becomes a short-event (${newHazardCount})`);
 
+  // Khamûl the Easterling (tw-47): its on-tap short-event forces the opponent to
+  // discard one card "for every Nazgûl permanent-event in play (including this
+  // one) at the time of declaration". The CRF ruling fixes the number at
+  // declaration, so we count matching in-play cards NOW — while this card is
+  // still in play, so "including this one" falls out naturally — and thread the
+  // result to the chain resolution via the payload.
+  const forceDiscard = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').ForceOpponentDiscardEffect => e.type === 'force-opponent-discard',
+  );
+  let forcedDiscardCount: number | undefined;
+  if (forceDiscard?.count?.countCardsInPlay) {
+    const keyword = forceDiscard.count.countCardsInPlay.keyword;
+    forcedDiscardCount = 0;
+    for (const p of state.players) {
+      for (const inPlay of p.cardsInPlay) {
+        const d = defById(state, inPlay.definitionId);
+        const keywords: readonly string[] =
+          d && 'keywords' in d ? (d as { keywords?: readonly string[] }).keywords ?? [] : [];
+        if (keywords.includes(keyword)) forcedDiscardCount++;
+      }
+    }
+    logDetail(`force-opponent-discard: ${forcedDiscardCount} card(s) with keyword "${keyword}" in play at declaration → opponent discards ${forcedDiscardCount}`);
+  }
+
   // "Becomes a short-event": remove from play, discard, and resolve its on-tap
   // effects via the short-event chain path (identical to playing it as a
   // short-event — its top-level effects resolve on chain resolution).
@@ -2109,6 +2133,7 @@ function handleTapAltPermanentEvent(
   const payload: import('../index.js').ChainEntryPayload = {
     type: 'short-event',
     ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+    ...(forcedDiscardCount !== undefined ? { forcedDiscardCount } : {}),
   };
   newState = initiateOrPushChain(newState, action.player, cardInstance, payload);
   return { state: newState };
