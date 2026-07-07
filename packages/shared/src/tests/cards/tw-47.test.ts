@@ -58,7 +58,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import type { CardDefinitionId, CardInstanceId, SiteCard, DeckList, ForceDiscardCardAction } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, GameState, SiteCard, DeckList, ForceDiscardCardAction } from '../../index.js';
 import { validateDeck, Phase, RegionType, SiteType, CardStatus } from '../../index.js';
 import { getActiveAutoAttacks } from '../../engine/manifestations.js';
 import {
@@ -272,7 +272,7 @@ describe('Khamûl the Easterling (tw-47)', () => {
   test('with a second Nazgûl permanent-event in play, the opponent must discard TWO cards, one at a time', () => {
     // Adûnaphel (another Nazgûl permanent-event) is already in play for the
     // hazard player, so tapping Khamûl fixes the count at 2 (Adûnaphel + Khamûl).
-    let ready = buildKhamulMH([GIMLI, FRODO, GANDALF]);
+    let ready: GameState = buildKhamulMH([GIMLI, FRODO, GANDALF]);
     ready = addCardInPlay(ready, HAZARD_PLAYER, ADUNAPHEL);
     const khamulId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
@@ -314,7 +314,7 @@ describe('Khamûl the Easterling (tw-47)', () => {
   test('the required discards are capped by the opponent\'s hand size (fewer cards than Nazgûl)', () => {
     // Two Nazgûl in play (count 2) but the opponent holds a single card: they
     // discard the one card they have and the resolution then clears.
-    let ready = buildKhamulMH([GIMLI]);
+    let ready: GameState = buildKhamulMH([GIMLI]);
     ready = addCardInPlay(ready, HAZARD_PLAYER, ADUNAPHEL);
     const khamulId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
