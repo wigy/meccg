@@ -29,6 +29,9 @@ export {
   clearShortEventSelection,
   getSelectedPermanentEventForPlay,
   clearPermanentEventPlaySelection,
+  getSelectedTapAltPermanentEvent,
+  setSelectedTapAltPermanentEvent,
+  clearTapAltPermanentEventSelection,
 } from './render-selection-state.js';
 
 // Debug/text view panels
