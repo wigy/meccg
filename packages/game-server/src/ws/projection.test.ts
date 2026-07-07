@@ -7,7 +7,7 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  createGame, reduce, loadCardPool, Alignment, UNKNOWN_SITE,
+  createGame, reduce, loadCardPool, Alignment, UNKNOWN_SITE, UNKNOWN_CARD,
 } from '@meccg/shared';
 import type {
   GameState, GameConfig, GameAction, PlayerId, CardDefinitionId, CardInstanceId, ViewCard,
@@ -144,5 +144,62 @@ describe('Hidden Haven draft reveal (CRF 22: site is brought out when revealed)'
     const site = siteInst(state, 0, WORTHY_HILLS);
     const bobView = projectPlayerView(state, BOB);
     expect(findSite(bobView.opponent.siteDeck, site)?.definitionId).toBe(UNKNOWN_SITE);
+  });
+});
+
+/**
+ * A bare two-player game whose player 0 (Alice) holds a two-card hand: one card
+ * recorded in `revealedInstances` (as a reveal effect such as Rolled down to
+ * the Sea, wh-29, would leave it) and one that is not. The reveal itself is not
+ * under test here — the projection's honouring of `revealedInstances` is.
+ */
+function gameWithPartlyRevealedAliceHand(): {
+  state: GameState;
+  known: CardInstanceId;
+  secret: CardInstanceId;
+} {
+  const config: GameConfig = {
+    players: [
+      { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+        draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+        draftPool: [BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+    ],
+    seed: 42,
+  };
+  const base = createGame(config, pool);
+  const known = 'p1-hand-known' as CardInstanceId;
+  const secret = 'p1-hand-secret' as CardInstanceId;
+  const state: GameState = {
+    ...base,
+    players: [
+      { ...base.players[0], hand: [
+        { instanceId: known, definitionId: ARAGORN },
+        { instanceId: secret, definitionId: BALIN },
+      ] },
+      base.players[1],
+    ],
+    revealedInstances: { ...base.revealedInstances, [known]: ARAGORN },
+  };
+  return { state, known, secret };
+}
+
+describe('Revealed opponent hand cards (wh-29 Rolled down to the Sea)', () => {
+  test('a hand card recorded as revealed is visible to the opponent; the rest stay hidden', () => {
+    const { state, known, secret } = gameWithPartlyRevealedAliceHand();
+    const bobView = projectPlayerView(state, BOB);
+    const handById = (id: CardInstanceId): ViewCard | undefined =>
+      bobView.opponent.hand.find(c => c.instanceId === id);
+    expect(handById(known)?.definitionId).toBe(ARAGORN);
+    expect(handById(secret)?.definitionId).toBe(UNKNOWN_CARD);
+  });
+
+  test("the drafter still sees their own full hand (unchanged)", () => {
+    const { state, known, secret } = gameWithPartlyRevealedAliceHand();
+    const aliceView = projectPlayerView(state, ALICE);
+    const handById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.self.hand.find(c => c.instanceId === id);
+    expect(handById(known)?.definitionId).toBe(ARAGORN);
+    expect(handById(secret)?.definitionId).toBe(BALIN);
   });
 });
