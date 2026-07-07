@@ -1255,10 +1255,33 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
   if (playerIndex < 0) return { state, error: 'Player not found' };
   const player = state.players[playerIndex];
 
-  // --- From-hand path ---
+  // --- From-hand path (also covers the attacker revealing a modify-attack
+  //     hazard event they placed on-guard, e.g. Unabated in Malice ba-26) ---
   if (action.characterInstanceId === undefined) {
-    const handCard = findById(player.hand, action.cardInstanceId);
-    if (!handCard) return { state, error: 'Card not in hand' };
+    let sourceCard = findById(player.hand, action.cardInstanceId);
+    // On-guard fallback: an unrevealed modify-attack card the attacker placed
+    // on the defending company plays exactly like a from-hand card, but is
+    // removed from the on-guard zone instead of the hand (rule 2.V.i).
+    let onGuard: { defenderIndex: number; companyIndex: number; ogIndex: number } | undefined;
+    if (!sourceCard) {
+      const defenderIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+      if (defenderIndex >= 0) {
+        const defender = state.players[defenderIndex];
+        const companyIndex = defender.companies.findIndex(c => c.id === combat.companyId);
+        if (companyIndex >= 0) {
+          const ogIndex = defender.companies[companyIndex].onGuardCards.findIndex(
+            og => !og.revealed && og.instanceId === action.cardInstanceId,
+          );
+          if (ogIndex >= 0) {
+            const og = defender.companies[companyIndex].onGuardCards[ogIndex];
+            sourceCard = { instanceId: og.instanceId, definitionId: og.definitionId };
+            onGuard = { defenderIndex, companyIndex, ogIndex };
+          }
+        }
+      }
+    }
+    if (!sourceCard) return { state, error: 'Card not in hand' };
+    const handCard = sourceCard;
     const cardDef = defById(state, handCard.definitionId);
     if (!cardDef) return { state, error: 'Card definition not found' };
     const effect = getCardEffects(cardDef).find(
@@ -1276,8 +1299,6 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     const prowessModifier = effect.prowessModifier ?? 0;
     const bodyModifier = effect.bodyModifier ?? 0;
     const strikesModifier = effect.strikesModifier ?? 0;
-    const newHand = removeById(player.hand, handCard.instanceId);
-    const newDiscard = [...player.discardPile, toCardInstance(handCard)];
     const newStrikeProwess = combat.strikeProwess + prowessModifier;
     const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
     // Strike count is clamped to a minimum of 1 (same rule as the in-play path).
@@ -1286,7 +1307,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     // stored so a cancel-redirect reverses exactly what was applied.
     const appliedStrikesDelta = newStrikesTotal - combat.strikesTotal;
     const cardLabel = cardDef.name;
-    logDetail(`Modify-attack (from hand): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}`);
+    logDetail(`Modify-attack (${onGuard ? 'on-guard reveal' : 'from hand'}): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}`);
 
     // Cancel protection: the first attempt to cancel the attack instead
     // strips these modifiers (Unabated in Malice ba-26). Record the exact
@@ -1303,8 +1324,34 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
       logDetail(`${cardLabel}: cancel protection active — first cancel attempt will strip this card's modifiers instead of ending the attack`);
     }
 
+    // The attacker owns the card (whether played from hand or revealed
+    // on-guard), so it always lands in the attacker's discard pile.
+    const discarded = toCardInstance(handCard);
+    let baseState: GameState;
+    if (onGuard) {
+      const og = onGuard;
+      const withoutOnGuard = updatePlayer(state, og.defenderIndex, p => {
+        const companies = [...p.companies];
+        const company = companies[og.companyIndex];
+        const onGuardCards = [...company.onGuardCards];
+        onGuardCards.splice(og.ogIndex, 1);
+        companies[og.companyIndex] = { ...company, onGuardCards };
+        return { ...p, companies };
+      });
+      baseState = updatePlayer(withoutOnGuard, playerIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, discarded],
+      }));
+    } else {
+      baseState = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        hand: removeById(p.hand, handCard.instanceId),
+        discardPile: [...p.discardPile, discarded],
+      }));
+    }
+
     let newState: GameState = {
-      ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
+      ...baseState,
       combat: {
         ...combat,
         strikeProwess: newStrikeProwess,

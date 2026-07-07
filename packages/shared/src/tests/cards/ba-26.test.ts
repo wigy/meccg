@@ -39,12 +39,12 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   viableActions, dispatch,
-  makeCancelWindowCombat,
+  makeCancelWindowCombat, placeOnGuard,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   ORC_PATROL,
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
-  HAZARD_PLAYER,
+  RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Alignment } from '../../index.js';
 import { resolveCancelAttackEntry } from '../../engine/combat-cancel.js';
@@ -97,6 +97,46 @@ describe('Unabated in Malice (ba-26)', () => {
     const act = actions[0].action as ModifyAttackAction;
     expect(act.player).toBe(PLAYER_2);
     expect(act.cardInstanceId).toBe(combat.players[HAZARD_PLAYER].hand[0].instanceId);
+  });
+
+  test('attacker can reveal it from on-guard on a site automatic-attack', () => {
+    // Regression (game mrahfk9s-eaeybx, seq 76): the hazard player placed
+    // Unabated in Malice on-guard, but was never offered any chance to reveal
+    // it when the company faced the site's automatic-attack. An on-guard hazard
+    // event that affects the automatic-attack must be revealable on it
+    // (rule 2.V.i), reusing the same from-hand modify-attack machinery.
+    const base = baseWithHazardHand([]); // ba-26 not in hand — it is on-guard
+    const combat0 = makeCancelWindowCombat(base, {
+      attackSourceType: 'automatic-attack',
+      creatureRace: 'orc',
+      strikesTotal: 1,
+      strikeProwess: 12,
+    });
+    // Hazard player (PLAYER_2, the attacker) placed ba-26 on-guard on the
+    // defending (PLAYER_1) company during the M/H phase.
+    const { state: placed, ogCard } = placeOnGuard(combat0, RESOURCE_PLAYER, 0, UNABATED_IN_MALICE);
+    const combat: GameState = { ...placed, combat: { ...placed.combat!, creatureBody: 9 } };
+
+    // The attacker is offered the on-guard card as a modify-attack (reveal).
+    const actions = viableActions(combat, PLAYER_2, 'modify-attack');
+    expect(actions).toHaveLength(1);
+    expect((actions[0].action as ModifyAttackAction).cardInstanceId).toBe(ogCard.instanceId);
+
+    // The defender is NOT offered it (attacker-only, and on-guard is the
+    // hazard player's card).
+    expect(viableActions(combat, PLAYER_1, 'modify-attack')).toHaveLength(0);
+
+    // Revealing it applies +1 strike, +1 prowess, -2 body, removes it from the
+    // on-guard zone, and discards it to the attacker's pile.
+    const after = dispatch(combat, actions[0].action);
+    expect(after.combat!.strikesTotal).toBe(2);
+    expect(after.combat!.strikeProwess).toBe(13);
+    expect(after.combat!.creatureBody).toBe(7);
+    expect(after.players[RESOURCE_PLAYER].companies[0].onGuardCards).toHaveLength(0);
+    expect(
+      after.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === UNABATED_IN_MALICE),
+    ).toBe(true);
+    expect(after.combat!.cancelProtection).toBeDefined();
   });
 
   test('attacker can play it on an attack from Shelob', () => {

@@ -2262,7 +2262,29 @@ function modifyAttackActions(
   // --- Hand cards (attacker or defender per effect.player) ---
   const inPlayNames = buildInPlayNames(state);
 
-  for (const handCard of player.hand) {
+  // Candidate cards for a from-hand modify-attack play. This is the player's
+  // own hand, plus — for the attacker — any unrevealed on-guard cards on the
+  // defending company. On-guard cards are placed by the hazard player onto the
+  // opponent's company, so during a site-phase attack they always belong to
+  // the attacker. A hazard event with a `modify-attack` (fromHand) effect
+  // placed on-guard (e.g. Unabated in Malice ba-26) is "revealed on the
+  // automatic-attack" here, reusing the same from-hand machinery as a card
+  // played straight from hand (rule 2.V.i: on-guard hazards that affect
+  // automatic-attacks).
+  const candidateCards: { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] =
+    player.hand.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
+  if (playerId === combat.attackingPlayerId) {
+    const defender = playerById(state, combat.defendingPlayerId);
+    const defendingCompany = defender ? companyById(defender.companies, combat.companyId) : undefined;
+    if (defendingCompany) {
+      for (const og of defendingCompany.onGuardCards) {
+        if (og.revealed) continue;
+        candidateCards.push({ instanceId: og.instanceId, definitionId: og.definitionId });
+      }
+    }
+  }
+
+  for (const handCard of candidateCards) {
     const cardDef = defById(state, handCard.definitionId);
     const effect = getCardEffects(cardDef).find(
       (e): e is ModifyAttackEffect => e.type === 'modify-attack' && !!(e).fromHand,
