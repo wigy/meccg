@@ -1169,8 +1169,33 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostatSea.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a company that is moving this turn. If the company has a Coastal Sea [{c}] in its site path, it may do nothing at the site during its site phase."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "sitePath.coastalCount": {
+            "$gte": 1
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-phase-do-nothing",
+          "scope": "company-site-phase"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable on a company that is moving this turn. If the company has a Coastal Sea [{c}] in its site path, it may do nothing at the site during its site phase.",
+    "certified": "2026-07-07"
   },
   {
     "cardType": "hazard-event",
