@@ -186,8 +186,12 @@ export function connectPseudoAi(aiName: string, aiDeck?: FullDeck | null): void 
           ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
           ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
         };
+        const aiPlayerNames = {
+          [msg.view.self.id as string]: msg.view.self.name,
+          [msg.view.opponent.id as string]: msg.view.opponent.name,
+        };
         const described: DescribedAction[] = actions.map(ea => ({
-          text: describeAction(ea.action, cardPool, aiLookup, aiCompanyNames),
+          text: describeAction(ea.action, cardPool, aiLookup, aiCompanyNames, aiPlayerNames),
           action: ea.action,
           viable: ea.viable,
           reason: ea.reason,

@@ -72,6 +72,8 @@ function createDefaultAppState() {
   lastInstanceLookup: (() => undefined) as (instId: CardInstanceId) => CardDefinitionId | undefined,
   /** Company name lookup for the current game state. */
   lastCompanyNames: {} as Readonly<Record<string, string>>,
+  /** Player id to display name lookup for the current game state. */
+  lastPlayerNames: {} as Readonly<Record<string, string>>,
   /** Phase from the last state update, for detecting phase transitions. */
   lastPhase: null as string | null,
   /** Dice rolls from the previous state update, for detecting new rolls. */

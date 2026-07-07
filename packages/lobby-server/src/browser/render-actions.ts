@@ -18,6 +18,7 @@ export function renderActions(
   onClick: (action: GameAction) => void,
   instanceLookup?: (id: CardInstanceId) => CardDefinitionId | undefined,
   companyNames?: Readonly<Record<string, string>>,
+  playerNames?: Readonly<Record<string, string>>,
 ): void {
   const el = $('actions');
   el.innerHTML = '';
@@ -53,7 +54,7 @@ export function renderActions(
     const btn = document.createElement('button');
     const isRegress = 'regress' in ea.action && ea.action.regress;
     if (isRegress) btn.classList.add('action-regress');
-    btn.innerHTML = textToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames));
+    btn.innerHTML = textToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames, playerNames));
     tagCardImages(btn, cardPool);
     addJsonToggle(btn, ea.action);
     btn.addEventListener('click', () => onClick(ea.action));
@@ -75,7 +76,7 @@ export function renderActions(
       const btn = document.createElement('button');
       btn.disabled = true;
       btn.title = ea.reason ?? '';
-      btn.innerHTML = textToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames))
+      btn.innerHTML = textToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames, playerNames))
         + (ea.reason ? ` <span class="action-reason">— ${ea.reason}</span>` : '');
       tagCardImages(btn, cardPool);
       addJsonToggle(btn, ea.action);
