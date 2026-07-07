@@ -980,6 +980,18 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     (e): e is import('../types/effects.js').WithdrawAgentEffect => e.type === 'withdraw-agent',
   );
   if (withdrawAgentEffect) {
+    // The card is "playable on a face-up agent" (agent mode) or, alternatively,
+    // on an unrevealed on-guard card (on-guard mode). Both modes require a
+    // target; with neither a face-up agent nor an on-guard card present the
+    // card has no legal target and must not be played (CoE 9.2.2 / CRF 22).
+    // The legal-action layer already withholds a play action in that case, so
+    // reaching here with no target is an illegal action — reject it and leave
+    // the card in hand rather than silently discarding (wasting) it.
+    if (!action.targetAgentId && !action.discardTargetInstanceId) {
+      logDetail(`${def.name}: play attempted with no face-up agent or on-guard target — rejected`);
+      return { state, error: `${def.name} has no valid target` };
+    }
+
     let working = updatePlayer(newState, playerIndex, p => ({
       ...p,
       discardPile: [...p.discardPile, handCard],
@@ -1072,7 +1084,8 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       return { state: working };
     }
 
-    // No target supplied — the event fizzles but is still spent.
+    // Unreachable: the no-target case is rejected at the top of this block, and
+    // the two supported modes each return above. Kept as a defensive fallback.
     return { state: working };
   }
 
