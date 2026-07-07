@@ -23,6 +23,12 @@ the token is missing or expired it prints setup instructions and exits (code
 4) instead of failing inside the first request. The token itself cannot be
 created automatically — `claude setup-token` is interactive (browser login).
 
+If handle-mail hits an API capacity/usage limit (subscription session limit,
+rate limit, or server overload) mid-request, it resets that message to 'new'
+(never burning it) and exits 5; run-ai treats 5 as retryable — it backs off on
+the idle schedule and retries the same message later, once the limit resets,
+instead of marching down the queue marking every request failed.
+
 Arguments:
   <n>             Optional maximum number of requests to handle, then exit.
 
@@ -484,7 +490,28 @@ while true; do
   idle_index=0
   iterations=$((iterations + 1))
   echo "=== Handling $MSG_ID at $(date -Iseconds) (iteration $iterations) ===" | tee -a "$LOG_FILE"
-  if ! "$SCRIPT_DIR/handle-mail" "$MSG_ID" 2>&1 | tee -a "$LOG_FILE"; then
+  # Capture handle-mail's OWN exit code through the tee pipeline (PIPESTATUS[0];
+  # tee always succeeds, so under pipefail the pipeline status is handle-mail's).
+  # Wrapping in `if` also shields the pipeline from `set -e`.
+  #
+  # Exit 5 is the API-capacity/usage-limit signal: handle-mail detected a
+  # session/usage limit, rate limit, or overload in the final stream-json result,
+  # already reset the message to 'new' (NOT burned), and stopped. This is NOT a
+  # failure to halt on — if we did, one limit hit would strand the whole queue.
+  # Back off (escalating) and retry the SAME message later; the limit resets in
+  # time. Any OTHER non-zero code is a real failure and halts as before.
+  handle_rc=0
+  if "$SCRIPT_DIR/handle-mail" "$MSG_ID" 2>&1 | tee -a "$LOG_FILE"; then
+    handle_rc=0
+  else
+    handle_rc=${PIPESTATUS[0]}
+  fi
+  if [ "$handle_rc" -eq 5 ]; then
+    # Don't let a capacity-blocked retry consume the --max-iterations budget.
+    iterations=$((iterations - 1))
+    idle_backoff "API capacity/usage limit hit; $MSG_ID reset to 'new', retrying later"
+    continue
+  elif [ "$handle_rc" -ne 0 ]; then
     echo "=== FATAL: handle-mail failed for $MSG_ID at $(date -Iseconds). Stopping run-ai. ===" | tee -a "$LOG_FILE"
     exit 3
   fi
