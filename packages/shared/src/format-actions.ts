@@ -164,6 +164,20 @@ export function extractActionCardDefs(
     visit(rest);
     return defs;
   }
+  // arrange-deck-top-card places a set-aside card face-down on top of the
+  // acting player's own play deck "in any order you choose" (Revealed to all
+  // Watchers, dm-85). Although the identities were made public a moment earlier
+  // when the card revealed the player's hand (revealHand), the *ordering* the
+  // player picks is private — the cards go face-down. Broadcasting which card
+  // is placed at each step would leak the exact deck-top order to the opponent
+  // and every spectator, defeating the face-down placement. Exclude the card
+  // instance ID so the audience only sees "Place a card … on top of the play
+  // deck"; the acting player still names their choices via the legal actions.
+  if (action.type === 'arrange-deck-top-card') {
+    const { cardInstanceId: _excluded, ...rest } = action;
+    visit(rest);
+    return defs;
+  }
   visit(action);
   return defs;
 }
