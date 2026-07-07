@@ -2783,15 +2783,16 @@ function tapAltPermanentEventActions(
     const tapCharEffect = getCardEffects(def).find(e => e.type === 'tap-character');
     if (tapCharEffect) {
       let offered = false;
-      for (let pi = 0; pi < 2; pi++) {
-        for (const [charId, ch] of Object.entries(state.players[pi].characters)) {
-          if (ch.status === CardStatus.Tapped) continue;
-          const charDef = defById(state, ch.definitionId);
-          if (!charDef || !isCharacterCard(charDef)) continue;
-          if (tapCharEffect.filter && !matchesDefinition(charDef, tapCharEffect.filter)) continue;
-          actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
-          offered = true;
-        }
+      // CoE 2.1.2: as the hazard player, this effect is a hazard directed at the
+      // opponent — it may only tap the resource (active) player's characters, never
+      // the hazard player's own. Restrict targets to the resource player.
+      for (const [charId, ch] of Object.entries(state.players[activeIdx].characters)) {
+        if (ch.status === CardStatus.Tapped) continue;
+        const charDef = defById(state, ch.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (tapCharEffect.filter && !matchesDefinition(charDef, tapCharEffect.filter)) continue;
+        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
+        offered = true;
       }
       if (!offered) {
         actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character to tap' });

@@ -2073,6 +2073,12 @@ function handleTapAltPermanentEvent(
     return { state, error: 'tap-alt-permanent-event: not a creature-permanent-event' };
   }
 
+  // CoE 2.1.2: a tap-character on-tap effect is a hazard directed at the opponent,
+  // so it may never target the hazard player's own characters.
+  if (action.targetCharacterId && hazardPlayer.characters[action.targetCharacterId]) {
+    return { state, error: 'tap-alt-permanent-event: cannot target your own character' };
+  }
+
   // Tapping counts one against the hazard limit (per the card text).
   const resourceIndex = getPlayerIndex(state, state.activePlayer!);
   const activeCompany = state.players[resourceIndex].companies[mhState.activeCompanyIndex];
