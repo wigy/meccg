@@ -768,7 +768,11 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/InnerCunning.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      { "type": "agent-reveal-site-override", "homeSiteTypes": ["shadow-hold", "dark-hold"] },
+      { "type": "fetch-agent-to-hand", "homeSiteTypes": ["shadow-hold", "dark-hold"] }
+    ],
+    "certified": "2026-07-07",
     "text": "As a permanent-event, playable on a face-down agent who was brought into play this turn. When the agent is revealed, and if his home site is a Shadow-hold [{S}] or a Dark-hold [{D}], the site where he came into play (which is not represented by a card) may legally be any Shadow-hold [{S}] or a Dark-hold [{D}]. Discard when the agent is revealed.Alternatively, as a short-event, take any agent who has a home site that is a Shadow-hold [{S}] or Dark-hold [{D}] from your play deck into your hand (reveal it to your opponent and reshuffle your play deck).Cannot be played if your opponent is a minion player."
   },
   {

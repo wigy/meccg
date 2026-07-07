@@ -13,7 +13,7 @@
 
 import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInstanceId } from '../../index.js';
 import { Alignment } from '../../types/common.js';
-import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef } from '../reducer-utils.js';
+import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes } from '../reducer-utils.js';
 import { isAvatarCharacter, isSiteCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getPlayerIndex } from '../../state-utils.js';
@@ -75,6 +75,11 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
       if (card.instanceId === sourceCardId) continue;
       const def = defById(state, card.definitionId);
       if (!def || !matchesDefinition(def, effect.filter)) continue;
+      // Home-site-type restriction (Inner Cunning dm-68 mode 2).
+      if (effect.homeSiteTypes && effect.homeSiteTypes.length > 0
+        && !agentHomeSiteMatchesTypes(state, def as { homesite?: string }, effect.homeSiteTypes)) {
+        continue;
+      }
       if (effect.playableAtSite !== undefined) {
         if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite)) {
           logDetail(`fetch-from-pile: ${(def as { name?: string }).name ?? (card.definitionId as string)} filtered out — not playable at ${(requiredSite as { name?: string } | undefined)?.name ?? (effect.playableAtSite as string)}`);

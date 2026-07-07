@@ -2313,6 +2313,60 @@ export interface FetchToDeckEffect extends EffectBase {
    * such as Longbottom Leaf (ba-30).
    */
   readonly removeFromGame?: boolean;
+  /**
+   * When set, an additional eligibility gate on top of `filter`: the fetched
+   * card must be an *agent* character (carries the `agent` keyword) whose
+   * printed home site is a site whose {@link SiteType} appears in this list.
+   * Home-site type cannot be expressed with the plain definition `filter`
+   * (the `homesite` field is a comma-separated list of site *names*), so this
+   * bespoke gate resolves each home-site name to its site definition and
+   * checks the type. Used by Inner Cunning (dm-68) mode 2: "take any agent
+   * whose home site is a Shadow-hold or Dark-hold from your play deck".
+   */
+  readonly homeSiteTypes?: readonly SiteType[];
+  /**
+   * When true, the fetched card's identity is revealed to the opponent as it
+   * is taken to hand (recorded in {@link GameState.revealedInstances}). Used by
+   * Inner Cunning (dm-68) mode 2: "reveal it to your opponent".
+   */
+  readonly revealToOpponent?: boolean;
+}
+
+/**
+ * `agent-reveal-site-override` — a hazard permanent-event played on one of the
+ * hazard player's own face-down agents (Inner Cunning dm-68, mode 1).
+ *
+ * While this event is attached to a face-down agent (via
+ * {@link CardInPlay.attachedToAgentId}) whose *printed* home site is a site of
+ * one of `homeSiteTypes`, the agent may be revealed at **any** site in the
+ * hazard player's location deck of one of those types — not only at a site
+ * matching the agent's printed home-site name. Models "the site where he came
+ * into play (which is not represented by a card) may legally be any Shadow-hold
+ * or Dark-hold." The card is discarded when the agent is revealed (handled by
+ * the orphaned-agent-attached-event sweep, since a revealed agent is no longer
+ * face-down).
+ */
+export interface AgentRevealSiteOverrideEffect extends EffectBase {
+  readonly type: 'agent-reveal-site-override';
+  /** Site types the reveal site may be broadened to (e.g. shadow-hold, dark-hold). */
+  readonly homeSiteTypes: readonly SiteType[];
+}
+
+/**
+ * `fetch-agent-to-hand` — a hazard short-event that tutors an agent from the
+ * playing player's own play deck into hand (Inner Cunning dm-68, mode 2).
+ *
+ * On resolution the engine enqueues a `fetch-to-deck` pending effect with
+ * `source: ['deck']`, `to: 'hand'`, `shuffle: true`, `revealToOpponent: true`,
+ * a `filter` requiring the `agent` keyword, and `homeSiteTypes` restricting to
+ * agents whose printed home site is of one of those types. The player then
+ * picks one matching agent via a `fetch-from-pile` pending resolution; the deck
+ * is reshuffled and the fetched card is revealed to the opponent.
+ */
+export interface FetchAgentToHandEffect extends EffectBase {
+  readonly type: 'fetch-agent-to-hand';
+  /** Home-site types an eligible agent's printed home site must be one of. */
+  readonly homeSiteTypes: readonly SiteType[];
 }
 
 /**
@@ -3363,6 +3417,8 @@ export type CardEffect =
   | CreatureRaceChoiceEffect
   | OnGuardRevealEffect
   | FetchToDeckEffect
+  | AgentRevealSiteOverrideEffect
+  | FetchAgentToHandEffect
   | SiteRuleEffect
   | ItemPlaySiteEffect
   | StorableAtEffect

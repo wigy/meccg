@@ -134,6 +134,13 @@ export interface PlayHazardAction {
    */
   readonly agentInstanceId?: CardInstanceId;
   /**
+   * For a hazard permanent-event played on one of the hazard player's own
+   * face-down agents (Inner Cunning dm-68, mode 1), the agent's virtual-company
+   * id. The card enters play in the hazard player's `cardsInPlay` with
+   * `attachedToAgentId` set to this value.
+   */
+  readonly targetAgentId?: CompanyId;
+  /**
    * For tap-agent-at-site effects where the agent is face-down: a home
    * site instance from the hazard player's location deck to place with the
    * agent on reveal. If absent, the agent is revealed without a home site
