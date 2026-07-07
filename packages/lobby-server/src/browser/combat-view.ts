@@ -32,6 +32,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
 import { combatButtonLabel } from './combat-button-label.js';
+import { inPlayCancelAttackIds } from './cancel-attack-targets.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
@@ -589,19 +590,11 @@ function renderDefenderRow(
   }
 
   // Build a map of in-play card ID → cancel-attack action for direct tap-to-cancel
-  // abilities on characters and allies (e.g. Goldberry's "tap to cancel one Wilderness
-  // attack"). Distinguished from hand-card cancel-attack actions by checking whether
-  // the cardInstanceId belongs to an in-play card in this company.
-  const companyInPlayIds = new Set<string>();
-  for (const charId of company.characters) {
-    companyInPlayIds.add(charId as string);
-    const char = charMap[charId];
-    if (char) {
-      for (const ally of char.allies) {
-        companyInPlayIds.add(ally.instanceId as string);
-      }
-    }
-  }
+  // abilities on characters, their items (e.g. Torque of Hues), and their allies
+  // (e.g. Goldberry's "tap to cancel one Wilderness attack"). Distinguished from
+  // hand-card cancel-attack actions by checking whether the cardInstanceId belongs
+  // to an in-play card in this company.
+  const companyInPlayIds = inPlayCancelAttackIds(company.characters, charMap);
   const cancelAttackInPlayMap = new Map<string, CancelAttackAction>();
   for (const a of cancelAttackActions) {
     if (!a.scoutInstanceId && companyInPlayIds.has(a.cardInstanceId as string)) {
