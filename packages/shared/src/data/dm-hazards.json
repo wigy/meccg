@@ -798,8 +798,15 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/MordorinArms.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Any company moving in Nurn faces three attacks: Orcs — 5 strikes with 8 prowess, Orcs — 4 strikes with 10 prowess, Trolls — 3 strikes with 12 prowess. If all three attacks are defeated by your opponent, he receives this card in his MP pile and 2 kill MPs. Any attempt by a character to influence a faction playable at a site in Horse Plains, Khand, Harondor, Nurn, Gorgoroth, Imlad Morgul, or Udûn is modified by -6 and cannot be done with Muster. This card has no effect on a minion player."
+    "effects": [
+      { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 5, "prowess": 8, "race": "orc", "noEffectOnMinion": true },
+      { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 4, "prowess": 10, "race": "orc", "noEffectOnMinion": true },
+      { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 3, "prowess": 12, "race": "troll", "noEffectOnMinion": true, "groupReward": { "toDefenderKillPile": true } },
+      { "type": "mp-in-pile", "category": "kill", "value": 2 },
+      { "type": "faction-influence-restriction", "regionNames": ["Horse Plains", "Khand", "Harondor", "Nurn", "Gorgoroth", "Imlad Morgul", "Udûn"], "modifier": -6, "blockCards": ["Muster"], "noEffectOnMinion": true }
+    ],
+    "text": "Any company moving in Nurn faces three attacks: Orcs — 5 strikes with 8 prowess, Orcs — 4 strikes with 10 prowess, Trolls — 3 strikes with 12 prowess. If all three attacks are defeated by your opponent, he receives this card in his MP pile and 2 kill MPs. Any attempt by a character to influence a faction playable at a site in Horse Plains, Khand, Harondor, Nurn, Gorgoroth, Imlad Morgul, or Udûn is modified by -6 and cannot be done with Muster. This card has no effect on a minion player.",
+    "certified": "2026-07-07"
   },
   {
     "cardType": "hazard-event",

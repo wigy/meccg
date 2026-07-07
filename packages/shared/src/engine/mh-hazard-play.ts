@@ -1824,6 +1824,7 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
         returnedToOrigin: false,
         hazardsEncountered: [],
         ahuntAttacksResolved: 0,
+        ahuntGroupOutcomes: [],
       },
     },
   };

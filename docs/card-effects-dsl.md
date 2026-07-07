@@ -3269,6 +3269,27 @@ attack uses the specified strikes, prowess, body, and race. Combat rules
 The optional `extended` clause adds extra region names and/or region
 types when a condition is met (typically Doors of Night in play).
 
+`body` is **optional**: when omitted the attack has no printed body — a
+successful strike still wounds (body check vs the character's own body), but a
+defeated strike triggers no "body check vs creature". Region-attack cards whose
+attacks list only strikes/prowess (e.g. Mordor in Arms dm-72) use this.
+
+A single card may carry **multiple** `ahunt-attack` effects; each matching
+effect fires as its own combat in order-effects sequence. Two optional fields
+support grouped multi-attack cards:
+
+- `noEffectOnMinion: true` — the attack is skipped when the moving (defending)
+  player is a Ringwraith/Sauron (minion) player. Models "This card has no
+  effect on a minion player."
+- `groupReward: { toDefenderKillPile: true }` — when **every** ahunt attack
+  sourced from this same card instance during a company's order-effects step is
+  defeated, the card is moved from play into the defending (moving) player's
+  kill pile (where a companion `mp-in-pile` effect scores the reward MPs).
+  Models "If all three attacks are defeated by your opponent, he receives this
+  card in his MP pile." Per-attack outcomes are recorded by `finalizeCombat`
+  into `MovementHazardPhaseState.ahuntGroupOutcomes` and evaluated by
+  `handleOrderEffects` (`applyAhuntGroupRewards`) once all attacks resolve.
+
 ```json
 { "type": "ahunt-attack",
   "regionNames": ["Andrast Coast", "Bay of Belfalas", "Eriadoran Coast", "Andrast"],
@@ -3284,8 +3305,45 @@ types when a condition is met (typically Doors of Night in play).
   } }
 ```
 
+Mordor in Arms (dm-72) — three grouped attacks in Nurn, no body, reward on full
+defeat:
+
+```json
+[
+  { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 5, "prowess": 8, "race": "orc", "noEffectOnMinion": true },
+  { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 4, "prowess": 10, "race": "orc", "noEffectOnMinion": true },
+  { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 3, "prowess": 12, "race": "troll", "noEffectOnMinion": true, "groupReward": { "toDefenderKillPile": true } },
+  { "type": "mp-in-pile", "category": "kill", "value": 2 }
+]
+```
+
 Implemented in `reducer-movement-hazard.ts` (`handleOrderEffects`,
-`collectMatchingAhuntAttacks`).
+`collectMatchingAhuntAttacks`), with group rewards in `mh-steps.ts`
+(`applyAhuntGroupRewards`) and outcome recording in `combat-finalize.ts`.
+
+### 25a. `faction-influence-restriction`
+
+Environment carried by an in-play hazard permanent-event. While in play, a
+character's faction-influence attempt made at a site located in one of
+`regionNames` is modified by `modifier` (typically negative), and any one-shot
+influence check-modifier boost sourced from a card named in `blockCards` is
+suppressed for that attempt ("cannot be done with Muster"). When
+`noEffectOnMinion` is set, the restriction is ignored if the influencing
+(resource) player is a Ringwraith/Sauron (minion) player.
+
+Applied by both the influence-attempt legal-action generator (so the displayed
+`need` reflects the penalty and the suppressed boost) and the roll resolver, via
+the shared `collectFactionInfluenceRestriction` helper (`reducer-utils.ts`).
+
+```json
+{ "type": "faction-influence-restriction",
+  "regionNames": ["Horse Plains", "Khand", "Harondor", "Nurn", "Gorgoroth", "Imlad Morgul", "Udûn"],
+  "modifier": -6,
+  "blockCards": ["Muster"],
+  "noEffectOnMinion": true }
+```
+
+Used by Mordor in Arms (dm-72).
 
 ### 26. `call-council`
 

@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1564,12 +1564,26 @@ function playResourcesActions(
             infParts.push(`DI bonus ${formatSignedNumber(dslDI)}`);
           }
 
+          // Faction-influence-restriction environment (e.g. Mordor in Arms
+          // dm-72): penalise influence at sites in named regions and suppress
+          // specific card boosts ("cannot be done with Muster"). No effect on a
+          // minion (Ringwraith) influencer when so flagged.
+          const influencerIsMinion = player.alignment === 'ringwraith';
+          const { modifier: restrictionMod, blockedCardNames: blockedBoosts } =
+            collectFactionInfluenceRestriction(state, siteDefForFaction.region, influencerIsMinion);
+          if (restrictionMod !== 0) {
+            infModifier += restrictionMod;
+            infParts.push(`region restriction ${formatSignedNumber(restrictionMod)}`);
+          }
+
           // One-shot check-modifier constraints for influence (e.g. Muster)
           for (const constraint of state.activeConstraints) {
             if (constraint.kind.type !== 'check-modifier') continue;
             if (constraint.kind.check !== 'influence') continue;
             if (constraint.target.kind !== 'character') continue;
             if (constraint.target.characterId !== ch.instanceId) continue;
+            const boostSourceName = (defById(state, constraint.sourceDefinitionId) as { name?: string } | undefined)?.name;
+            if (boostSourceName && blockedBoosts.has(boostSourceName)) continue; // suppressed
             infModifier += constraint.kind.value;
             infParts.push(`constraint bonus ${formatSignedNumber(constraint.kind.value)}`);
           }

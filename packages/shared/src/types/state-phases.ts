@@ -507,6 +507,15 @@ export interface MovementHazardPhaseState {
    */
   readonly ahuntAttacksResolved: number;
   /**
+   * Per-attack outcomes for ahunt attacks resolved during the current company's
+   * order-effects step, keyed by the source card instance. Accumulated by
+   * `finalizeCombat` and consumed by `handleOrderEffects` to evaluate ahunt
+   * group rewards (e.g. Mordor in Arms dm-72 — "if all three attacks are
+   * defeated, the opponent receives this card in his MP pile"). Reset when a
+   * new company is selected. Optional so pre-existing initializers need not set it.
+   */
+  readonly ahuntGroupOutcomes?: readonly { readonly instanceId: CardInstanceId; readonly defeated: boolean }[];
+  /**
    * Set of character instance IDs that have already had a corruption card played
    * on them during this turn (CoE rule 7.2.1: only one corruption card per character per turn).
    * Persists across all companies' M/H phases within the same turn.
