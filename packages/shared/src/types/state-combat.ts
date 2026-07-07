@@ -669,6 +669,13 @@ export type ChainEntryPayload =
        * marshalling-point pile.
        */
       readonly targetStoredItemInstanceId?: CardInstanceId;
+      /**
+       * For a hazard permanent-event played on one of the hazard player's own
+       * face-down agents (Inner Cunning dm-68, mode 1), the agent's
+       * virtual-company id. On resolution the chain reducer places the card
+       * into the hazard player's `cardsInPlay` with `attachedToAgentId` set.
+       */
+      readonly targetAgentId?: import('./common.js').CompanyId;
     }
   | { readonly type: 'long-event' }
   | { readonly type: 'corruption-card' }

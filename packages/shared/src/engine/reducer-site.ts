@@ -23,7 +23,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { hasSiteFlag, makeCombatState, canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { hasSiteFlag, makeCombatState, canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -2190,6 +2190,23 @@ export function resolveInfluenceAttemptRoll(
     }
     modifier += dslDI;
 
+    // Faction-influence-restriction environment (e.g. Mordor in Arms dm-72):
+    // a hazard permanent-event in play penalises faction influence at sites in
+    // named regions and may suppress specific card boosts ("cannot be done with
+    // Muster"). Has no effect on a minion (Ringwraith) influencer when so flagged.
+    const influencingCompanyForRegion = player.companies[siteState.activeCompanyIndex];
+    const currentSiteDef = influencingCompanyForRegion?.currentSite
+      ? defById(state, influencingCompanyForRegion.currentSite.definitionId)
+      : undefined;
+    const siteRegionName = (currentSiteDef as { region?: string } | undefined)?.region;
+    const influencerIsMinion = player.alignment === Alignment.Ringwraith;
+    const { modifier: restrictionModifier, blockedCardNames: blockedBoostCardNames } =
+      collectFactionInfluenceRestriction(state, siteRegionName, influencerIsMinion);
+    if (restrictionModifier !== 0) {
+      logDetail(`Faction-influence-restriction at ${siteRegionName}: ${formatSignedNumber(restrictionModifier)}${blockedBoostCardNames.size > 0 ? `, blocks [${[...blockedBoostCardNames].join(', ')}]` : ''}`);
+      modifier += restrictionModifier;
+    }
+
     // One-shot check-modifier constraints for influence (e.g. Muster): consume after use
     const consumedConstraintIds: string[] = [];
     for (const constraint of state.activeConstraints) {
@@ -2197,6 +2214,13 @@ export function resolveInfluenceAttemptRoll(
       if (constraint.kind.check !== 'influence') continue;
       if (constraint.target.kind !== 'character') continue;
       if (constraint.target.characterId !== charId) continue;
+      const boostSourceName = (defById(state, constraint.sourceDefinitionId) as { name?: string } | undefined)?.name;
+      if (boostSourceName && blockedBoostCardNames.has(boostSourceName)) {
+        // "cannot be done with <named card>": the boost is suppressed (still consumed).
+        consumedConstraintIds.push(constraint.id as string);
+        logDetail(`Influence boost from "${boostSourceName}" suppressed by faction-influence-restriction (consumed, no effect)`);
+        continue;
+      }
       modifier += constraint.kind.value;
       consumedConstraintIds.push(constraint.id as string);
       logDetail(`Influence one-shot constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);

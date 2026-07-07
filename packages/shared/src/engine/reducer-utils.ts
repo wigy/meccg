@@ -14,13 +14,14 @@ import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle, nextInt } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
-import { CardStatus, Race, Skill } from '../types/common.js';
+import { CardStatus, Race, Skill, SiteType } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
 import { resolveDef, normalizeCreatureRace } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
+import { revealInstances } from './visibility.js';
 
 /**
  * Result of applying a {@link GameAction} to a {@link GameState}.
@@ -601,6 +602,40 @@ export function getCardEffects(
 ): readonly CardEffect[] {
   if (!def || !('effects' in def)) return [];
   return (def as { readonly effects?: readonly CardEffect[] }).effects ?? [];
+}
+
+/**
+ * Collect any `faction-influence-restriction` environment (e.g. Mordor in Arms
+ * dm-72) that applies to a faction influence attempt at a site in
+ * `siteRegionName`. Returns the summed check modifier and the set of card names
+ * whose one-shot influence boosts are suppressed ("cannot be done with Muster").
+ *
+ * Restrictions flagged `noEffectOnMinion` are ignored when the influencing
+ * (resource) player is a Ringwraith/Sauron (minion) player. Shared by the
+ * influence-attempt legal-action generator (for the displayed `need`) and the
+ * roll resolver (for the actual modifier) so both agree.
+ */
+export function collectFactionInfluenceRestriction(
+  state: GameState,
+  siteRegionName: string | undefined,
+  influencerIsMinion: boolean,
+): { modifier: number; blockedCardNames: Set<string> } {
+  const blockedCardNames = new Set<string>();
+  let modifier = 0;
+  if (!siteRegionName) return { modifier, blockedCardNames };
+  for (const pl of state.players) {
+    for (const cip of pl.cardsInPlay) {
+      const cdef = defById(state, cip.definitionId);
+      for (const eff of getCardEffects(cdef)) {
+        if (eff.type !== 'faction-influence-restriction') continue;
+        if (eff.noEffectOnMinion && influencerIsMinion) continue;
+        if (!eff.regionNames.includes(siteRegionName)) continue;
+        modifier += eff.modifier;
+        for (const bc of (eff.blockCards ?? [])) blockedCardNames.add(bc);
+      }
+    }
+  }
+  return { modifier, blockedCardNames };
 }
 
 /**
@@ -1302,6 +1337,40 @@ export function parseHomesiteNames(homesite: string): string[] {
 }
 
 /**
+ * True if a character definition is an agent whose *printed* home site is a
+ * site of one of the given {@link SiteType}s.
+ *
+ * The `homesite` field is a comma-separated list of site *names*; this resolves
+ * each name against the card pool and checks whether any matching site's type
+ * is in `types`. A single site name can exist in more than one alignment's map
+ * with *different* types (e.g. Dol Guldur is a minion haven but a hero
+ * dark-hold), so when the character definition carries an alignment the lookup
+ * is restricted to sites of that same alignment (falling back to any-alignment
+ * site of that name only when no alignment-matched site exists). This keys the
+ * classification off the map the agent actually uses. Used by Inner Cunning
+ * (dm-68) — both mode 1's reveal broadening ("if his home site is a Shadow-hold
+ * or Dark-hold") and mode 2's fetch filter ("any agent whose home site is a
+ * Shadow-hold or Dark-hold").
+ */
+export function agentHomeSiteMatchesTypes(
+  state: GameState,
+  def: { homesite?: string; alignment?: Alignment } | undefined,
+  types: readonly SiteType[],
+): boolean {
+  if (!def?.homesite) return false;
+  const names = new Set(parseHomesiteNames(def.homesite));
+  if (names.size === 0) return false;
+  const align = def.alignment;
+  // Collect same-named sites, preferring those matching the agent's alignment.
+  const named = Object.values(state.cardPool).filter(
+    (d): d is SiteCard => isSiteCard(d) && names.has(d.name),
+  );
+  const aligned = align !== undefined ? named.filter(s => s.alignment === align) : [];
+  const candidates = aligned.length > 0 ? aligned : named;
+  return candidates.some(s => types.includes(s.siteType));
+}
+
+/**
  * True if a character named `charName` is already in play as a character on
  * either player. Backs the uniqueness check shared by the organization phase
  * and recruit-via-event: a `unique` character cannot be brought into play while
@@ -1985,6 +2054,37 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
 }
 
 /**
+ * Inner Cunning (dm-68) mode 1: discard any permanent event bound to a
+ * face-down agent ({@link CardInPlay.attachedToAgentId}) once that agent is no
+ * longer a face-down agent in the same player's `agents` list — i.e. it was
+ * revealed ("Discard when the agent is revealed.") or otherwise left play.
+ * Runs as part of the post-reduce sweep, mirroring
+ * {@link discardOrphanedSiteAttachedEvents}.
+ */
+export function discardOrphanedAgentAttachedEvents(state: GameState): GameState {
+  const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+    state,
+    (card, player) => {
+      if (card.attachedToAgentId === undefined) return false;
+      const agent = player.agents.find(a => a.id === card.attachedToAgentId);
+      return !agent || agent.revealed;
+    },
+    (card, player) => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const agent = player.agents.find(a => a.id === card.attachedToAgentId);
+      logDetail(`agent-attached event: discarding "${def?.name ?? card.definitionId}" — bound agent ${card.attachedToAgentId as string} ${agent ? 'was revealed' : 'left play'}`);
+    },
+  );
+
+  if (removedInstanceIds.length === 0) return state;
+  const removedSources = new Set(removedInstanceIds.map(id => id as string));
+  return {
+    ...next,
+    activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+  };
+}
+
+/**
  * Saruman's Machinery (wh-120): returns true when an active
  * `technology-item-unlocked` constraint binds `siteDefId` and is owned by
  * `playerId`. While such a constraint is active, the owning player may play one
@@ -2330,6 +2430,14 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     return { state, error: 'Card does not match fetch filter' };
   }
 
+  // Home-site-type restriction (Inner Cunning dm-68 mode 2): the fetched agent's
+  // printed home site must be a site of one of the listed types.
+  if (current.effect.homeSiteTypes && current.effect.homeSiteTypes.length > 0) {
+    if (!agentHomeSiteMatchesTypes(state, def as { homesite?: string }, current.effect.homeSiteTypes)) {
+      return { state, error: 'Card does not match fetch home-site-type restriction' };
+    }
+  }
+
   // Site-playability restriction (Strider ba-1: "playable at his current
   // site") — the qualifying site was captured when the fetch was enqueued.
   if (current.effect.playableAtSite !== undefined) {
@@ -2380,6 +2488,12 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     ? [{ ...current, effect: { ...current.effect, count: newCount } } as import('../types/state-combat.js').PendingEffect, ...state.pendingEffects.slice(1)]
     : state.pendingEffects.slice(1);
   let newState: GameState = { ...state, players: newPlayers, rng: nextRng, pendingEffects: remaining };
+  // Reveal-to-opponent (Inner Cunning dm-68 mode 2): the fetched card's identity
+  // becomes public as it is taken to hand.
+  if (current.effect.type === 'fetch-to-deck' && current.effect.revealToOpponent) {
+    logDetail(`Fetch: revealing ${def?.name ?? '?'} (${fetchedCard.instanceId as string}) to opponent`);
+    newState = revealInstances(newState, [fetchedCard]);
+  }
   if (remaining.length === 0) {
     if (current.skipDiscard) {
       if (current.postCorruptionCheck) {

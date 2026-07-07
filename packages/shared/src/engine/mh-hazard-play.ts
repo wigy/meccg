@@ -712,6 +712,39 @@ export function handlePlayHazardCard(
     return { state: newState };
   }
 
+  // --- Inner Cunning (dm-68) mode 2: dual permanent-event card played as a
+  //     short-event tutor. The player chose the short-event mode: card goes
+  //     hand → discard, counts against the hazard limit, and pushes a
+  //     short-event chain entry whose `fetch-agent-to-hand` effect resolves
+  //     into a fetch-from-pile pending resolution (chain-reducer). ---
+  if (def.cardType === 'hazard-event'
+      && action.type === 'play-hazard'
+      && action.altEventMode === 'short-event'
+      && getCardEffects(def).some(e => e.type === 'fetch-agent-to-hand')) {
+    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
+    const newHazardCount = bypassesLimit
+      ? mhState.hazardsPlayedThisCompany
+      : mhState.hazardsPlayedThisCompany + 1;
+    logDetail(`Play-hazards: hazard player plays "${def.name}" as a short-event tutor (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
+
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+    let newState: GameState = {
+      ...updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        hand: newHand,
+        discardPile: [...p.discardPile, handCard],
+      })),
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: newHazardCount,
+        resourcePlayerPassed: false,
+      },
+    };
+    const shortEventPayload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
+    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload);
+    return { state: newState };
+  }
+
   // --- Creature handling (via chain of effects) ---
   if (def.cardType === 'hazard-creature') {
     const viaKeyingBypass = action.type === 'play-hazard' && action.keyedBy?.method === 'keying-bypass';
@@ -941,6 +974,8 @@ export function handlePlayHazardCard(
         targetSiteDefinitionId: action.type === 'play-hazard' ? action.targetSiteDefinitionId : undefined,
         targetCompanyId: action.type === 'play-hazard' ? action.targetCompanyId : undefined,
         targetStoredItemInstanceId: action.type === 'play-hazard' ? action.targetStoredItemInstanceId : undefined,
+        // Inner Cunning (dm-68) mode 1: bind to a face-down agent.
+        targetAgentId: action.type === 'play-hazard' ? action.targetAgentId : undefined,
       }
     : { type: 'long-event' };
   newState = initiateOrPushChain(newState, action.player, handCard, payload);
@@ -1824,6 +1859,7 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
         returnedToOrigin: false,
         hazardsEncountered: [],
         ahuntAttacksResolved: 0,
+        ahuntGroupOutcomes: [],
       },
     },
   };
@@ -2035,6 +2071,12 @@ function handleTapAltPermanentEvent(
   const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
   if (!altEvent || altEvent.mode !== 'permanent-event') {
     return { state, error: 'tap-alt-permanent-event: not a creature-permanent-event' };
+  }
+
+  // CoE 2.1.2: a tap-character on-tap effect is a hazard directed at the opponent,
+  // so it may never target the hazard player's own characters.
+  if (action.targetCharacterId && hazardPlayer.characters[action.targetCharacterId]) {
+    return { state, error: 'tap-alt-permanent-event: cannot target your own character' };
   }
 
   // Tapping counts one against the hazard limit (per the card text).

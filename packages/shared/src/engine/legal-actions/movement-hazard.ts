@@ -15,7 +15,7 @@ import { buildMovementMap, findRegionPaths, getReachableSites } from '../../move
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, requirePhaseState } from '../../state-utils.js';
 import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isItemCard } from '../../types/cards.js';
-import { RegionType, Race, Skill, CardStatus, Alignment, MovementType } from '../../types/common.js';
+import { RegionType, Race, Skill, CardStatus, Alignment, MovementType, SiteType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { defenderAlignmentLabel } from '../detainment.js';
 import { isUnderDeepsAdjacent } from './organization-companies.js';
@@ -24,7 +24,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { logDetail, logHeading } from './log.js';
@@ -425,6 +425,33 @@ function playAgentHazardActions(
 }
 
 /**
+ * If a face-down agent carries an `agent-reveal-site-override` permanent event
+ * (Inner Cunning dm-68 mode 1) *and* its printed home site is a site of one of
+ * the override types, returns the override site types (the reveal site may be
+ * broadened to any location-deck site of those types). Returns `null`
+ * otherwise. The event lives in the owning player's `cardsInPlay` bound to the
+ * agent via {@link CardInPlay.attachedToAgentId}.
+ */
+function agentRevealSiteOverrideTypes(
+  state: GameState,
+  player: PlayerState,
+  agent: AgentInPlay,
+  agentDef: CharacterCard,
+): readonly SiteType[] | null {
+  for (const cip of player.cardsInPlay) {
+    if (cip.attachedToAgentId !== agent.id) continue;
+    const def = defById(state, cip.definitionId);
+    const override = def && getCardEffects(def).find(
+      (e): e is import('../../types/effects.js').AgentRevealSiteOverrideEffect => e.type === 'agent-reveal-site-override',
+    );
+    if (!override) continue;
+    if (!agentHomeSiteMatchesTypes(state, agentDef, override.homeSiteTypes)) continue;
+    return override.homeSiteTypes;
+  }
+  return null;
+}
+
+/**
  * Generate `reveal-agent` actions for the hazard player.
  *
  * Revealing a face-down agent is not an action and does not count against
@@ -455,16 +482,24 @@ function revealAgentActions(
       continue;
     }
 
+    // Inner Cunning (dm-68) mode 1: if this face-down agent carries an
+    // `agent-reveal-site-override` event and its printed home site is one of the
+    // override types, the agent may be revealed at ANY location-deck site of
+    // those types — not only at a site matching its printed home-site name.
+    const overrideTypes = agentRevealSiteOverrideTypes(state, player, agent, agentDef);
+
     // Emit one action per matching site instance in the location deck
     const seenNames = new Set<string>();
     for (const siteInst of player.siteDeck) {
       const siteDef = defById(state, siteInst.definitionId);
       if (!siteDef || !isSiteCard(siteDef)) continue;
-      if (!homesiteNames.includes(siteDef.name)) continue;
+      const nameMatch = homesiteNames.includes(siteDef.name);
+      const typeMatch = overrideTypes !== null && overrideTypes.includes(siteDef.siteType);
+      if (!nameMatch && !typeMatch) continue;
       if (seenNames.has(siteDef.name)) continue;
       seenNames.add(siteDef.name);
 
-      logDetail(`Agent reveal: ${agentDef.name} can reveal at home site "${siteDef.name}"`);
+      logDetail(`Agent reveal: ${agentDef.name} can reveal at ${nameMatch ? 'home' : 'override'} site "${siteDef.name}"`);
       const action: RevealAgentAction = {
         type: 'reveal-agent',
         player: playerId,
@@ -1565,6 +1600,53 @@ function playHazardsActions(
       const raceExempt = isCreature && isCreatureRaceExemptFromLimit(state, targetCompany.id, def.race);
       if (limitReached && !bypassesLimit && !raceExempt) {
         actions.push({ action, viable: false, reason: `Hazard limit reached (${liveLimit})` });
+        continue;
+      }
+
+      // --- Inner Cunning (dm-68): dual permanent-event / short-event ---
+      // Mode 1 (permanent-event): played on one of the hazard player's own
+      //   face-down agents brought into play this turn; broadens where the
+      //   agent may be revealed. One action per eligible face-down agent.
+      // Mode 2 (short-event): tutor an agent with a Shadow-hold / Dark-hold home
+      //   site from the play deck to hand (reveal + reshuffle).
+      // Neither mode is playable if the opponent is a minion player.
+      const revealOverrideEff = getCardEffects(def).find(
+        (e): e is import('../../types/effects.js').AgentRevealSiteOverrideEffect => e.type === 'agent-reveal-site-override',
+      );
+      const fetchAgentEff = getCardEffects(def).find(
+        (e): e is import('../../types/effects.js').FetchAgentToHandEffect => e.type === 'fetch-agent-to-hand',
+      );
+      if (revealOverrideEff || fetchAgentEff) {
+        if (isMinionOrBalrog(resourcePlayer)) {
+          logDetail(`Hazard event "${def.name}" not playable — opponent is a minion player`);
+          actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+          continue;
+        }
+        // Mode 1: one permanent-event action per eligible face-down agent
+        // (brought into play this turn: not yet in play at turn start).
+        if (revealOverrideEff) {
+          for (const agent of player.agents) {
+            if (agent.revealed || agent.inPlayAtTurnStart) continue;
+            logDetail(`Hazard permanent-event "${def.name}": playable on face-down agent ${agent.id as string}`);
+            actions.push({
+              action: { ...action, altEventMode: 'permanent-event', targetAgentId: agent.id },
+              viable: true,
+            });
+          }
+        }
+        // Mode 2: short-event tutor. Viable when a matching agent is in the deck.
+        if (fetchAgentEff) {
+          const hasCandidate = player.playDeck.some(c => {
+            const cDef = defById(state, c.definitionId);
+            return !!cDef && isAgentCharacter(cDef) && agentHomeSiteMatchesTypes(state, cDef as { homesite?: string }, fetchAgentEff.homeSiteTypes);
+          });
+          logDetail(`Hazard short-event "${def.name}": tutor mode ${hasCandidate ? 'playable' : 'has no matching agent in deck'}`);
+          actions.push({
+            action: { ...action, altEventMode: 'short-event' },
+            viable: hasCandidate,
+            ...(hasCandidate ? {} : { reason: 'No matching agent in play deck' }),
+          });
+        }
         continue;
       }
 
@@ -2701,15 +2783,16 @@ function tapAltPermanentEventActions(
     const tapCharEffect = getCardEffects(def).find(e => e.type === 'tap-character');
     if (tapCharEffect) {
       let offered = false;
-      for (let pi = 0; pi < 2; pi++) {
-        for (const [charId, ch] of Object.entries(state.players[pi].characters)) {
-          if (ch.status === CardStatus.Tapped) continue;
-          const charDef = defById(state, ch.definitionId);
-          if (!charDef || !isCharacterCard(charDef)) continue;
-          if (tapCharEffect.filter && !matchesDefinition(charDef, tapCharEffect.filter)) continue;
-          actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
-          offered = true;
-        }
+      // CoE 2.1.2: as the hazard player, this effect is a hazard directed at the
+      // opponent — it may only tap the resource (active) player's characters, never
+      // the hazard player's own. Restrict targets to the resource player.
+      for (const [charId, ch] of Object.entries(state.players[activeIdx].characters)) {
+        if (ch.status === CardStatus.Tapped) continue;
+        const charDef = defById(state, ch.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (tapCharEffect.filter && !matchesDefinition(charDef, tapCharEffect.filter)) continue;
+        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
+        offered = true;
       }
       if (!offered) {
         actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character to tap' });

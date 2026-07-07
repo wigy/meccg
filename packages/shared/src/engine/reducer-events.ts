@@ -335,6 +335,44 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: chained };
   }
 
+  // Influence-check-boost short events (e.g. Tempering Friendship tw-337,
+  // Muster tw-288, A Friend or Three tw-189, Gifts as Given of Old le-188):
+  // a `play-option` whose `apply` adds a `check-modifier` for the influence
+  // check must be declared on the chain of effects (CoE 9.4/9.5) — like every
+  // other short event — so the opponent gets a chance to respond before the
+  // boost, and the influence roll it feeds, resolves. Historically this option
+  // was applied inline (constraint added immediately, card discarded, no chain
+  // entry), which silently skipped the opponent's response window. Route it
+  // through the chain instead: the card rides the chain entry (carrying the
+  // chosen target character and option id), and `resolveEntry` applies the
+  // constraint + discards the spent card once both players pass priority.
+  const influenceBoostOption = action.optionId
+    ? (def.effects?.find(
+        e => e.type === 'play-option' && e.id === action.optionId,
+      ) as import('../types/effects.js').PlayOptionEffect | undefined)
+    : undefined;
+  if (
+    influenceBoostOption
+    && action.targetCharacterId
+    && influenceBoostOption.apply.type === 'add-constraint'
+    && influenceBoostOption.apply.constraint === 'check-modifier'
+    && influenceBoostOption.apply.check === 'influence'
+  ) {
+    const revealed = revealInstances(state, [handCard]);
+    const afterReveal = updatePlayer(revealed, playerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+    }));
+    logDetail(`${def.name} → chain of effects (influence boost resolves on chain resolution)`);
+    const payload: ChainEntryPayload = {
+      type: 'short-event',
+      targetCharacterId: action.targetCharacterId,
+      optionId: action.optionId,
+    };
+    const chained = initiateOrPushChain(afterReveal, action.player, handCard, payload);
+    return { state: chained };
+  }
+
   // Resource short events skip the chain today — the played card goes
   // straight to the owner's face-down discard pile (see TODO in
   // `visibility.ts`). Announce the identity explicitly so the opponent
@@ -980,6 +1018,18 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     (e): e is import('../types/effects.js').WithdrawAgentEffect => e.type === 'withdraw-agent',
   );
   if (withdrawAgentEffect) {
+    // The card is "playable on a face-up agent" (agent mode) or, alternatively,
+    // on an unrevealed on-guard card (on-guard mode). Both modes require a
+    // target; with neither a face-up agent nor an on-guard card present the
+    // card has no legal target and must not be played (CoE 9.2.2 / CRF 22).
+    // The legal-action layer already withholds a play action in that case, so
+    // reaching here with no target is an illegal action — reject it and leave
+    // the card in hand rather than silently discarding (wasting) it.
+    if (!action.targetAgentId && !action.discardTargetInstanceId) {
+      logDetail(`${def.name}: play attempted with no face-up agent or on-guard target — rejected`);
+      return { state, error: `${def.name} has no valid target` };
+    }
+
     let working = updatePlayer(newState, playerIndex, p => ({
       ...p,
       discardPile: [...p.discardPile, handCard],
@@ -1072,7 +1122,8 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       return { state: working };
     }
 
-    // No target supplied — the event fizzles but is still spent.
+    // Unreachable: the no-target case is rejected at the top of this block, and
+    // the two supported modes each return above. Kept as a defensive fallback.
     return { state: working };
   }
 

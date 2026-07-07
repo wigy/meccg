@@ -682,6 +682,22 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
 
   stateAfterCombat = recordHazardEncountered(stateAfterCombat, state, combat);
 
+  // Record ahunt-attack outcomes for ahunt group rewards (e.g. Mordor in Arms
+  // dm-72): each ahunt attack resolved during a company's order-effects step
+  // appends its defeated/not-defeated result, consumed by handleOrderEffects.
+  if (state.phaseState.phase === Phase.MovementHazard && combat.attackSource.type === 'ahunt') {
+    const mhStateAO = stateAfterCombat.phaseState as MovementHazardPhaseState;
+    const priorOutcomes = mhStateAO.ahuntGroupOutcomes ?? [];
+    logDetail(`Ahunt outcome recorded: ${combat.attackSource.longEventInstanceId as string} defeated=${allDefeated}`);
+    stateAfterCombat = {
+      ...stateAfterCombat,
+      phaseState: {
+        ...mhStateAO,
+        ahuntGroupOutcomes: [...priorOutcomes, { instanceId: combat.attackSource.longEventInstanceId, defeated: allDefeated }],
+      },
+    };
+  }
+
   // Apply post-attack effects scheduled by accepted haven-join offers
   // (e.g. Alatar's "following the attack, tap + corruption check").
   // Effects fire regardless of outcome. After effects, any haven-jumped

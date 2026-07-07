@@ -23,7 +23,7 @@ import type { CardInstanceId } from '../types/common.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex, companyContainsBalrogAvatar } from '../state-utils.js';
 import { isCharacterCard, isSiteCard } from '../types/cards.js';
-import { RegionType, Race, Skill } from '../types/common.js';
+import { RegionType, Race, Skill, Alignment } from '../types/common.js';
 import { collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
 import type { ResolverContext, CollectedEffect } from './effects/index.js';
@@ -516,6 +516,11 @@ export function collectMatchingAhuntAttacks(
   const pathTypes = mhState.resolvedSitePath as readonly string[];
   if (pathNames.length === 0) return [];
 
+  // The moving (defending) player. A card that "has no effect on a minion
+  // player" (noEffectOnMinion) is skipped when this player is a Ringwraith/Sauron.
+  const movingPlayer = state.players[getPlayerIndex(state, state.activePlayer!)];
+  const movingPlayerIsMinion = movingPlayer.alignment === Alignment.Ringwraith;
+
   const inPlayNames = buildInPlayNames(state);
   const results: { instanceId: CardInstanceId; effect: AhuntAttackEffect }[] = [];
 
@@ -524,6 +529,10 @@ export function collectMatchingAhuntAttacks(
       const def = defById(state, card.definitionId);
       for (const effect of getCardEffects(def)) {
         if (effect.type !== 'ahunt-attack') continue;
+        if (effect.noEffectOnMinion && movingPlayerIsMinion) {
+          logDetail(`Ahunt "${def?.name ?? card.definitionId}" has no effect on minion player — skipping`);
+          continue;
+        }
 
         const extendedApplies = effect.extended
           && matchesCondition(effect.extended.when, { inPlay: inPlayNames } as Record<string, unknown>);
@@ -549,6 +558,71 @@ export function collectMatchingAhuntAttacks(
 }
 
 /**
+ * Evaluate ahunt group rewards after all of a company's ahunt attacks have
+ * resolved. For each source card that declared a `groupReward`, if **every**
+ * ahunt attack it contributed to this company's order-effects step was defeated
+ * (recorded in `mhState.ahuntGroupOutcomes`), the card is moved from play into
+ * the moving (defending) player's kill pile — where a companion `mp-in-pile`
+ * effect scores the reward MPs.
+ *
+ * Used by Mordor in Arms (dm-72): "If all three attacks are defeated by your
+ * opponent, he receives this card in his MP pile and 2 kill MPs."
+ */
+function applyAhuntGroupRewards(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  matchingAhunts: { instanceId: CardInstanceId; effect: AhuntAttackEffect }[],
+): GameState {
+  const outcomes = mhState.ahuntGroupOutcomes ?? [];
+  if (outcomes.length === 0) return state;
+
+  // Group source instances that declared a reward, with the count of attacks
+  // each contributed to this company's order-effects step.
+  const rewardInstances = new Map<string, number>();
+  for (const { instanceId, effect } of matchingAhunts) {
+    if (!effect.groupReward?.toDefenderKillPile) continue;
+    rewardInstances.set(instanceId as string, (rewardInstances.get(instanceId as string) ?? 0) + 1);
+  }
+  if (rewardInstances.size === 0) return state;
+
+  const movingPlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  let nextState = state;
+
+  for (const [instanceId, attackCount] of rewardInstances) {
+    const instanceOutcomes = outcomes.filter(o => (o.instanceId as string) === instanceId);
+    // Reward only when every contributed attack was faced AND all were defeated.
+    if (instanceOutcomes.length < attackCount) continue;
+    if (!instanceOutcomes.every(o => o.defeated)) {
+      logDetail(`Ahunt group reward: not all attacks from ${instanceId} defeated — no reward`);
+      continue;
+    }
+
+    // Locate the card in whichever player holds it in play.
+    const ownerIndex = nextState.players.findIndex(p => p.cardsInPlay.some(c => (c.instanceId as string) === instanceId));
+    if (ownerIndex === -1) continue;
+    const card = nextState.players[ownerIndex].cardsInPlay.find(c => (c.instanceId as string) === instanceId)!;
+    const cardRef = toCardInstance(card);
+    logDetail(`Ahunt group reward: all attacks from "${cardName(nextState, card.definitionId, '?')}" defeated — moving to defending player's kill pile`);
+
+    const players = nextState.players.map((p, idx) => {
+      let np = p;
+      if (idx === ownerIndex) np = { ...np, cardsInPlay: np.cardsInPlay.filter(c => (c.instanceId as string) !== instanceId) };
+      if (idx === movingPlayerIndex) np = { ...np, killPile: [...np.killPile, cardRef] };
+      return np;
+    }) as unknown as typeof nextState.players;
+
+    nextState = {
+      ...nextState,
+      players,
+      // Drop any active constraints sourced from the removed card.
+      activeConstraints: nextState.activeConstraints.filter(c => (c.source as string) !== instanceId),
+    };
+  }
+
+  return nextState;
+}
+
+/**
  * Handle the order-effects step (CoE step 4).
  *
  * Scans cardsInPlay for ahunt-attack long-events whose region lists
@@ -561,7 +635,16 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
   const matchingAhunts = collectMatchingAhuntAttacks(state, mhState);
 
   if (mhState.ahuntAttacksResolved >= matchingAhunts.length) {
-    return transitionToDrawCards(state, mhState);
+    // All ahunt attacks for this company are resolved. Evaluate any ahunt
+    // group rewards (e.g. Mordor in Arms dm-72) before continuing.
+    const rewardedState = applyAhuntGroupRewards(state, mhState, matchingAhunts);
+    // Spread the fresh `mhState` argument (which carries hazardLimitAtReveal,
+    // resolvedSitePath, step, etc.), NOT rewardedState.phaseState — in the
+    // auto-advance path state.phaseState is stale (the updated mhState is passed
+    // as an argument, never written back into state). applyAhuntGroupRewards
+    // touches players/activeConstraints only, so phaseState from mhState is authoritative.
+    const clearedMhState = { ...mhState, ahuntGroupOutcomes: [] };
+    return transitionToDrawCards({ ...rewardedState, phaseState: clearedMhState }, clearedMhState);
   }
 
   const { instanceId, effect } = matchingAhunts[mhState.ahuntAttacksResolved];
@@ -596,7 +679,7 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
     attackingPlayerId: hazardPlayerId,
     strikesTotal: effectiveStrikes,
     strikeProwess: effectiveProwess,
-    creatureBody: effect.body,
+    creatureBody: effect.body ?? null,
     creatureRace: effect.race,
     assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
     detainment: isDetainmentAttack({

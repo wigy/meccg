@@ -2349,6 +2349,54 @@ export function buildAhuntOrderEffectsState(opts: {
   };
 }
 
+/**
+ * Drive an already-active ahunt combat sequence to completion, forcing every
+ * strike roll (and body-check roll) to `roll` via `cheatRollTotal`. Returns the
+ * terminal state (combat null) plus the distinct combats observed in order
+ * (one entry per attack in a multi-attack ahunt like Mordor in Arms dm-72).
+ *
+ * A high roll (12) defeats every strike; a mid roll lets a high-prowess attack's
+ * strikes succeed, so a grouped ahunt is not fully defeated. `resourcePlayer`
+ * is the moving/defending player; `hazardPlayer` rolls body checks.
+ */
+export function runAhuntSequence(
+  start: GameState,
+  roll: number,
+  resourcePlayer: PlayerId = PLAYER_1,
+  hazardPlayer: PlayerId = PLAYER_2,
+): { end: GameState; combats: Array<{ strikes: number; prowess: number; race: string; body: number | null }> } {
+  let cur = start;
+  const combats: Array<{ strikes: number; prowess: number; race: string; body: number | null }> = [];
+  let lastKey = '';
+  for (let i = 0; i < 400 && cur.combat !== null; i++) {
+    const c = cur.combat;
+    const key = `${c.strikesTotal}/${c.strikeProwess}/${c.creatureRace ?? ''}`;
+    if (key !== lastKey) {
+      combats.push({ strikes: c.strikesTotal, prowess: c.strikeProwess, race: c.creatureRace ?? '', body: c.creatureBody });
+      lastKey = key;
+    }
+    cur = { ...cur, cheatRollTotal: roll };
+    let acts = viableActions(cur, resourcePlayer, 'assign-strike');
+    if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    // Excess strikes (more strikes than characters) are assigned by the attacker.
+    acts = viableActions(cur, hazardPlayer, 'assign-strike');
+    if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    acts = viableActions(cur, resourcePlayer, 'choose-strike-order');
+    if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    acts = viableActions(cur, resourcePlayer, 'resolve-strike');
+    if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    acts = viableActions(cur, hazardPlayer, 'body-check-roll');
+    if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    let stepped = false;
+    for (const pid of [resourcePlayer, hazardPlayer]) {
+      const p = viableActions(cur, pid, 'pass');
+      if (p.length) { cur = dispatch(cur, p[0].action); stepped = true; break; }
+    }
+    if (!stepped) break;
+  }
+  return { end: cur, combats };
+}
+
 // ─── On-guard scaffolding ───────────────────────────────────────────────────
 
 /**
