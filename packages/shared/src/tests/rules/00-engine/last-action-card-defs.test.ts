@@ -22,8 +22,8 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ELROND, LEGOLAS, ARAGORN, SARUMAN, THEODEN,
-  MARVELS_TOLD, FOOLISH_WORDS,
+  ELROND, LEGOLAS, ARAGORN, SARUMAN, THEODEN, GIMLI,
+  MARVELS_TOLD, FOOLISH_WORDS, CAVE_DRAKE, STING,
   SUN, BARROW_WIGHT, ORC_PATROL, ASSASSIN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
@@ -41,6 +41,9 @@ import { Phase, SetupStep, buildInstanceLookup, describeAction, extractActionCar
 
 /** Lure of Expedience — hazard permanent-event attached to a character. Single-use in this file. */
 const LURE_OF_EXPEDIENCE = 'le-122' as CardDefinitionId;
+
+/** Revealed to all Watchers — hazard short-event that cycles the caster's hand (dm-85). */
+const REVEALED_TO_ALL_WATCHERS = 'dm-85' as CardDefinitionId;
 
 describe('lastAction card defs — opponent toast naming', () => {
   beforeEach(() => resetMint());
@@ -444,6 +447,83 @@ describe('exchange-sideboard — opponent must not learn which cards were swappe
     const sideboardName = pool[ASSASSIN as string]?.name;
     if (discardName) expect(audienceDesc).not.toContain(discardName);
     if (sideboardName) expect(audienceDesc).not.toContain(sideboardName);
+  });
+});
+
+describe('arrange-deck-top-card — audience must not learn the face-down deck-top order', () => {
+  beforeEach(() => resetMint());
+
+  /**
+   * Regression for bug 0aea1e91dc37e18f (game mrahfk9s-eaeybx, seq 279):
+   * after playing Revealed to all Watchers (dm-85) the player revealed their
+   * hand (correctly public) and then placed the non-hazard cards face-down on
+   * top of their play deck "in any order you choose". Each
+   * `arrange-deck-top-card` pick, however, broadcast the placed card's identity
+   * in `lastActionCardDefs` — the cards were still in `revealedInstances` from
+   * the hand reveal — so the opponent and every spectator saw the exact
+   * face-down deck-top order in their toasts. Placing cards face-down means the
+   * ordering is private; `extractActionCardDefs` must omit the card instance ID
+   * so the audience sees only "Place a card … on top of the play deck".
+   */
+  test('extractActionCardDefs omits the arranged card even though the hand was revealed', () => {
+    // dm-85 in P2's hand plus two non-hazard cards to set aside (Gimli, Sting)
+    // and one kept hazard (Cave-drake); a deck to refill from.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [REVEALED_TO_ALL_WATCHERS, CAVE_DRAKE, GIMLI, STING],
+          playDeck: [BARROW_WIGHT, ORC_PATROL, SUN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState() };
+
+    const revealedId = state.players[1].hand.find(c => c.definitionId === REVEALED_TO_ALL_WATCHERS)!.instanceId;
+    const gimliId = state.players[1].hand.find(c => c.definitionId === GIMLI)!.instanceId;
+    const stingId = state.players[1].hand.find(c => c.definitionId === STING)!.instanceId;
+
+    // Play the card and resolve the chain: the hand is revealed, Gimli and
+    // Sting are set aside face-down on top of the deck, arrange-deck-top pends.
+    const resolved = resolveChain(dispatch(state, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: revealedId,
+      targetCompanyId: state.players[0].companies[0].id,
+    }));
+
+    // Precondition: both set-aside cards are in revealedInstances (the hand was
+    // publicly revealed) yet now sit face-down on top of the private play deck.
+    expect(resolved.revealedInstances[gimliId]).toBe(GIMLI);
+    expect(resolved.revealedInstances[stingId]).toBe(STING);
+    expect(resolved.players[1].playDeck.slice(0, 2).map(c => c.instanceId).sort())
+      .toEqual([gimliId, stingId].sort());
+    expect(resolved.pendingResolutions.some(r => r.kind.type === 'arrange-deck-top')).toBe(true);
+
+    // The player places Sting on top first.
+    const arrangeAction: ArrangeDeckTopCardAction = {
+      type: 'arrange-deck-top-card',
+      player: PLAYER_2,
+      cardInstanceId: stingId,
+    };
+    const after = dispatch(resolved, arrangeAction);
+
+    // The broadcast map must NOT name the arranged card — its placement order
+    // on the face-down deck is private, even though its identity is public.
+    const defs = extractActionCardDefs(after, arrangeAction);
+    expect(defs[stingId as string]).toBeUndefined();
+
+    // describeAction with only the audience map renders "a card", hiding order.
+    const audienceLookup = (id: CardInstanceId) => defs[id as string];
+    const audienceDesc = describeAction(arrangeAction, pool, audienceLookup);
+    expect(audienceDesc).toContain('a card');
+    const realName = pool[STING as string]?.name;
+    if (realName) expect(audienceDesc).not.toContain(realName);
   });
 });
 
