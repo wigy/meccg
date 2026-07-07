@@ -33,7 +33,8 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, matchesDefinition, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companySubphaseScope, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, matchesDefinition, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { applyCost } from './cost-evaluator.js';
@@ -2835,6 +2836,49 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           modifier: apply.modifier ?? 0,
           possessions,
         });
+      } else if (apply.type === 'add-constraint'
+        && apply.constraint === 'check-modifier'
+        && typeof apply.check === 'string') {
+        // Influence-check-boost short events (e.g. Tempering Friendship
+        // tw-337) route through the chain (see handlePlayResourceShortEvent)
+        // so the opponent can respond before the boost resolves. Add the
+        // `check-modifier` constraint on the targeted character now that the
+        // entry resolved un-negated; the pending influence roll consumes it.
+        // The spent event card rode the chain entry from the player's hand, so
+        // dispose it to their discard pile here (unlike hazard short events,
+        // which are pre-discarded at play time).
+        const charPlayerIdx = current.players.findIndex(p => targetCharId as string in p.characters);
+        let constraintValue: number | undefined;
+        if (typeof apply.value === 'number') {
+          constraintValue = apply.value;
+        } else if (typeof apply.valueExpr === 'string') {
+          const charInPlay = charPlayerIdx >= 0 ? current.players[charPlayerIdx].characters[targetCharId] : undefined;
+          const charDef = charInPlay ? defById(current, charInPlay.definitionId) : undefined;
+          const baseProwess = charDef && isCharacterCard(charDef) ? charDef.prowess : 0;
+          const targetCompany = charPlayerIdx >= 0
+            ? findCharacterCompany(current.players[charPlayerIdx].companies, targetCharId)
+            : undefined;
+          const characterCount = targetCompany?.characters.length ?? 1;
+          constraintValue = Math.round(evaluateExpr(apply.valueExpr, { target: { baseProwess }, company: { characterCount } }));
+        }
+        const scope = parseConstraintScope(apply.scope ?? 'until-cleared', null);
+        if (constraintValue !== undefined && scope) {
+          logDetail(`${cardNm} option "${opt.id}": check-modifier ${apply.check} ${constraintValue >= 0 ? '+' : ''}${constraintValue} on ${targetCharId as string} (scope ${apply.scope ?? 'until-cleared'})`);
+          current = addConstraint(current, {
+            source: entry.card.instanceId,
+            sourceDefinitionId: entry.card.definitionId,
+            scope,
+            target: { kind: 'character', characterId: targetCharId },
+            kind: { type: 'check-modifier', check: apply.check, value: constraintValue },
+          });
+        } else {
+          logDetail(`${cardNm} option "${opt.id}": check-modifier could not resolve value/scope — fizzle`);
+        }
+        const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+        current = updatePlayer(current, declaringIndex, p => ({
+          ...p,
+          discardPile: [...p.discardPile, toCardInstance(entry.card!)],
+        }));
       }
     }
   }
