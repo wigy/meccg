@@ -447,6 +447,35 @@ export function setPermanentEventPlayRenderCache(cache: typeof permanentEventPla
   permanentEventPlayRenderCache = cache;
 }
 
+// ---- Tap-alt-permanent-event character targeting selection ----
+
+/**
+ * Selected in-play creature-permanent-event instance ID for the two-step
+ * `tap-alt-permanent-event` character-targeting flow (e.g. Adûnaphel tw-2,
+ * which when tapped taps any one character). When the player clicks the
+ * in-play permanent-event, its instance ID is stored here and the company view
+ * highlights the eligible target characters (of either player). Distinct from
+ * {@link selectedPermanentEventInstanceId}, which targets a character while
+ * *playing* a permanent-event from hand.
+ */
+let selectedTapAltPermanentEventInstanceId: CardInstanceId | null = null;
+
+/** Returns the in-play permanent-event instance ID selected for tap-targeting. */
+export function getSelectedTapAltPermanentEvent(): CardInstanceId | null {
+  return selectedTapAltPermanentEventInstanceId;
+}
+
+/** Set the in-play permanent-event instance ID selected for tap-targeting. */
+export function setSelectedTapAltPermanentEvent(id: CardInstanceId | null): void {
+  selectedTapAltPermanentEventInstanceId = id;
+}
+
+/** Clear the tap-alt-permanent-event character-targeting selection. */
+export function clearTapAltPermanentEventSelection(): void {
+  selectedTapAltPermanentEventInstanceId = null;
+  setTargetingInstruction(null);
+}
+
 // ---- CvCC attacker selection ----
 
 /** The attacking character the player has first-clicked during CvCC attacker assignment. */

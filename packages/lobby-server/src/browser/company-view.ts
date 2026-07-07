@@ -155,6 +155,60 @@ function renderOpponentInfluenceDefendBanner(
   board.appendChild(row);
 }
 
+/**
+ * Compute the select-company prompt for the current view, or `null` when the
+ * player has no pending select-company choice.
+ *
+ * The select-company step (Movement/Hazard or Site phase) forces the
+ * all-companies overview so the player can see every company and click one to
+ * handle next. In that overview the phase meter — which normally carries
+ * targeting hints — is hidden, so this prompt is the only on-screen text telling
+ * the player what the game is waiting for. Returns a prompt only when the viewer
+ * actually holds the choice (a viable `select-company` action in their legal
+ * actions), so the waiting opponent never sees it.
+ *
+ * Exported for unit testing (pure — no DOM access).
+ */
+export function selectCompanyPrompt(
+  view: PlayerView,
+): { readonly title: string; readonly detail: string } | null {
+  const hasSelectCompany = viableActions(view.legalActions).some(a => a.type === 'select-company');
+  if (!hasSelectCompany) return null;
+  return {
+    title: 'Select a Company',
+    detail: view.phaseState.phase === Phase.Site
+      ? 'Click one of your companies to resolve its site.'
+      : 'Click one of your companies to handle its movement/hazard phase next.',
+  };
+}
+
+/**
+ * Render the select-company situation banner at the top of the board when a
+ * prompt is active (see {@link selectCompanyPrompt}).
+ */
+function renderSelectCompanyBanner(
+  board: HTMLElement,
+  view: PlayerView,
+): void {
+  const prompt = selectCompanyPrompt(view);
+  if (!prompt) return;
+
+  const row = document.createElement('div');
+  row.className = 'situation-banner-row';
+
+  const banner = document.createElement('div');
+  banner.className = 'situation-banner';
+  banner.textContent = prompt.title;
+
+  const detail = document.createElement('div');
+  detail.className = 'situation-banner-detail';
+  detail.textContent = prompt.detail;
+  banner.appendChild(detail);
+
+  row.appendChild(banner);
+  board.appendChild(row);
+}
+
 /** Phases where company views are displayed (normal play and Free Council). */
 const COMPANY_VIEW_PHASES = new Set([
   Phase.Untap,
@@ -396,6 +450,11 @@ export function renderCompanyViews(
 
   // Pending opponent influence defend banner (defender must roll)
   renderOpponentInfluenceDefendBanner(board, view);
+
+  // Select-company prompt banner (M/H or Site select-company step). The phase
+  // meter is hidden in the all-companies overview, so this is the only on-screen
+  // prompt telling the player to pick a company.
+  if (inSelectCompany) renderSelectCompanyBanner(board, view);
 
   const showingSingle = focusedCompanyId !== null && !getAllCompaniesOverride() && !inSelectCompany && !inFreeCouncil;
 

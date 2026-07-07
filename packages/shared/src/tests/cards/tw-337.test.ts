@@ -113,7 +113,13 @@ describe('Tempering Friendship (tw-337)', () => {
     expect(actions).toHaveLength(0);
   });
 
-  test('playing it adds a +4 influence check-modifier constraint on the influencing character and is discarded', () => {
+  test('the boost is declared on the chain (opponent gets a response window) and the +4 constraint applies only on resolution', () => {
+    // Regression (game mr9jvlnw-2ldyce, seq 267): an influence-check boost must
+    // ride the chain of effects like any other short event, so the opponent can
+    // respond before it — and the influence roll it feeds — resolves. Before the
+    // fix the boost was applied inline: the constraint appeared immediately, the
+    // card was discarded, and the opponent's response window was silently
+    // skipped (they had zero legal actions after the boost was played).
     const state = buildInfluenceAttemptChainState({
       characters: [ELROND],
       site: THRANDUILS_HALLS,
@@ -123,7 +129,7 @@ describe('Tempering Friendship (tw-337)', () => {
     const elrond = findCharInstanceId(state, RESOURCE_PLAYER, ELROND);
     const cardInstance = findHandCardId(state, RESOURCE_PLAYER, TEMPERING_FRIENDSHIP);
 
-    const after = dispatch(state, {
+    const afterPlay = dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: cardInstance,
@@ -131,6 +137,26 @@ describe('Tempering Friendship (tw-337)', () => {
       optionId: 'influence-boost',
     });
 
+    // The boost rode the chain: still a live chain, priority handed to the
+    // opponent, and the constraint is NOT applied yet.
+    expect(afterPlay.chain).not.toBeNull();
+    expect(afterPlay.chain!.priority).toBe(PLAYER_2);
+    expect(
+      afterPlay.activeConstraints.filter(
+        c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',
+      ),
+    ).toHaveLength(0);
+    // The card left the hand (it rides the chain entry) but is not discarded yet.
+    expect(afterPlay.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === cardInstance)).toBe(false);
+    expect(afterPlay.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === cardInstance)).toBe(false);
+
+    // The opponent has a real response window (at least: pass chain priority).
+    const opponentActions = computeLegalActions(afterPlay, PLAYER_2).filter(ea => ea.viable);
+    expect(opponentActions.some(ea => ea.action.type === 'pass-chain-priority')).toBe(true);
+
+    // Both players pass → the boost resolves: constraint applied on the
+    // influencing character, card discarded.
+    const after = resolveChain(afterPlay);
     const constraints = after.activeConstraints.filter(
       c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',
     );
@@ -143,9 +169,6 @@ describe('Tempering Friendship (tw-337)', () => {
     if (constraint.target.kind === 'character') {
       expect(constraint.target.characterId).toBe(elrond);
     }
-
-    // Card consumed from hand into the discard pile; faction is in the chain.
-    expect(after.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === cardInstance)).toBe(false);
     expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
   });
 

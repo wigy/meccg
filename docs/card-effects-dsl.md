@@ -3269,6 +3269,27 @@ attack uses the specified strikes, prowess, body, and race. Combat rules
 The optional `extended` clause adds extra region names and/or region
 types when a condition is met (typically Doors of Night in play).
 
+`body` is **optional**: when omitted the attack has no printed body — a
+successful strike still wounds (body check vs the character's own body), but a
+defeated strike triggers no "body check vs creature". Region-attack cards whose
+attacks list only strikes/prowess (e.g. Mordor in Arms dm-72) use this.
+
+A single card may carry **multiple** `ahunt-attack` effects; each matching
+effect fires as its own combat in order-effects sequence. Two optional fields
+support grouped multi-attack cards:
+
+- `noEffectOnMinion: true` — the attack is skipped when the moving (defending)
+  player is a Ringwraith/Sauron (minion) player. Models "This card has no
+  effect on a minion player."
+- `groupReward: { toDefenderKillPile: true }` — when **every** ahunt attack
+  sourced from this same card instance during a company's order-effects step is
+  defeated, the card is moved from play into the defending (moving) player's
+  kill pile (where a companion `mp-in-pile` effect scores the reward MPs).
+  Models "If all three attacks are defeated by your opponent, he receives this
+  card in his MP pile." Per-attack outcomes are recorded by `finalizeCombat`
+  into `MovementHazardPhaseState.ahuntGroupOutcomes` and evaluated by
+  `handleOrderEffects` (`applyAhuntGroupRewards`) once all attacks resolve.
+
 ```json
 { "type": "ahunt-attack",
   "regionNames": ["Andrast Coast", "Bay of Belfalas", "Eriadoran Coast", "Andrast"],
@@ -3284,8 +3305,45 @@ types when a condition is met (typically Doors of Night in play).
   } }
 ```
 
+Mordor in Arms (dm-72) — three grouped attacks in Nurn, no body, reward on full
+defeat:
+
+```json
+[
+  { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 5, "prowess": 8, "race": "orc", "noEffectOnMinion": true },
+  { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 4, "prowess": 10, "race": "orc", "noEffectOnMinion": true },
+  { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 3, "prowess": 12, "race": "troll", "noEffectOnMinion": true, "groupReward": { "toDefenderKillPile": true } },
+  { "type": "mp-in-pile", "category": "kill", "value": 2 }
+]
+```
+
 Implemented in `reducer-movement-hazard.ts` (`handleOrderEffects`,
-`collectMatchingAhuntAttacks`).
+`collectMatchingAhuntAttacks`), with group rewards in `mh-steps.ts`
+(`applyAhuntGroupRewards`) and outcome recording in `combat-finalize.ts`.
+
+### 25a. `faction-influence-restriction`
+
+Environment carried by an in-play hazard permanent-event. While in play, a
+character's faction-influence attempt made at a site located in one of
+`regionNames` is modified by `modifier` (typically negative), and any one-shot
+influence check-modifier boost sourced from a card named in `blockCards` is
+suppressed for that attempt ("cannot be done with Muster"). When
+`noEffectOnMinion` is set, the restriction is ignored if the influencing
+(resource) player is a Ringwraith/Sauron (minion) player.
+
+Applied by both the influence-attempt legal-action generator (so the displayed
+`need` reflects the penalty and the suppressed boost) and the roll resolver, via
+the shared `collectFactionInfluenceRestriction` helper (`reducer-utils.ts`).
+
+```json
+{ "type": "faction-influence-restriction",
+  "regionNames": ["Horse Plains", "Khand", "Harondor", "Nurn", "Gorgoroth", "Imlad Morgul", "Udûn"],
+  "modifier": -6,
+  "blockCards": ["Muster"],
+  "noEffectOnMinion": true }
+```
+
+Used by Mordor in Arms (dm-72).
 
 ### 26. `call-council`
 
@@ -6112,3 +6170,81 @@ site is also the agent's home site. If the result is greater than the
 character's mind plus 5, the character is returned to his player's hand (one item
 may be transferred to another character in the same company). Cannot be played if
 your opponent is a minion player."
+
+### 58. `agent-reveal-site-override` + `fetch-agent-to-hand` (dual-mode agent card)
+
+Two effects that together model Inner Cunning (dm-68), a hazard-event playable
+**either** as a permanent-event on one of the hazard player's own face-down
+agents **or** as a short-event agent tutor. Both modes are blocked when the
+opponent (resource player) is a minion/Balrog player (`isMinionOrBalrog`),
+matching "Cannot be played if your opponent is a minion player."
+
+The Shadow-hold / Dark-hold classification of an agent's printed home site is
+keyed off the agent's own **alignment** map: a single site name can exist in
+more than one alignment with different types (e.g. Dol Guldur is a minion
+*haven* but a hero *dark-hold*). The shared helper
+`agentHomeSiteMatchesTypes(state, def, types)` (`reducer-utils.ts`) resolves each
+`homesite` name to a site of the character's alignment (falling back to any) and
+checks its `siteType`.
+
+#### `agent-reveal-site-override` (mode 1 — permanent-event)
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `homeSiteTypes` | yes | Site types the reveal site may be broadened to (e.g. `["shadow-hold", "dark-hold"]`). |
+
+```json
+{ "type": "agent-reveal-site-override", "homeSiteTypes": ["shadow-hold", "dark-hold"] }
+```
+
+- **Legal actions** (`legal-actions/movement-hazard.ts`): during the hazard
+  player's play-hazards window the card is offered as a `play-hazard` action with
+  `altEventMode: "permanent-event"` + `targetAgentId`, one per **face-down agent
+  brought into play this turn** (`!agent.inPlayAtTurnStart` and not revealed).
+- **Reducer** (`mh-hazard-play.ts` → `chain-reducer.ts`): plays as a permanent
+  event (counts against the hazard limit) that enters the hazard player's
+  `cardsInPlay` bound to the agent via `CardInPlay.attachedToAgentId`.
+- **Reveal broadening**: while attached — **and** if the agent's printed home
+  site is one of `homeSiteTypes` — `revealAgentActions` (via
+  `agentRevealSiteOverrideTypes`) offers the agent's reveal at **any**
+  location-deck site of those types, not only at a site matching the agent's
+  printed home-site name ("the site where he came into play … may legally be any
+  Shadow-hold or Dark-hold").
+- **Discard on reveal**: once the agent is revealed it is no longer face-down, so
+  the post-reduce sweep `discardOrphanedAgentAttachedEvents` (`reducer-utils.ts`,
+  wired into `postReduce`) discards the card ("Discard when the agent is
+  revealed"). The same sweep discards it if the agent leaves play unrevealed.
+
+#### `fetch-agent-to-hand` (mode 2 — short-event tutor)
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `homeSiteTypes` | yes | Home-site types an eligible agent's printed home site must be one of. |
+
+```json
+{ "type": "fetch-agent-to-hand", "homeSiteTypes": ["shadow-hold", "dark-hold"] }
+```
+
+- **Legal actions**: offered as a `play-hazard` action with
+  `altEventMode: "short-event"`, viable only when the play deck holds a matching
+  agent.
+- **Reducer** (`mh-hazard-play.ts` short branch → `chain-reducer.ts`): plays as a
+  short-event (counts against the hazard limit). On chain resolution it enqueues a
+  `fetch-to-deck` pending effect (`source: ["deck"]`, `to: "hand"`,
+  `shuffle: true`, `revealToOpponent: true`, `filter` requiring the `agent`
+  keyword, `homeSiteTypes` set, `actor` = the hazard player). The hazard player
+  then picks one matching agent via a `fetch-from-pile` pending resolution (or
+  passes); the deck is reshuffled and the fetched agent is revealed to the
+  opponent (`handleFetchFromPile`, `reducer-utils.ts`).
+- The `homeSiteTypes` and `revealToOpponent` fields are generic additions to
+  `FetchToDeckEffect`, honoured by both the fetch enumerator
+  (`legal-actions/index.ts`) and `handleFetchFromPile`.
+
+Used by Inner Cunning (dm-68): "As a permanent-event, playable on a face-down
+agent who was brought into play this turn. When the agent is revealed, and if his
+home site is a Shadow-hold or a Dark-hold, the site where he came into play …
+may legally be any Shadow-hold or a Dark-hold. Discard when the agent is
+revealed. Alternatively, as a short-event, take any agent who has a home site
+that is a Shadow-hold or Dark-hold from your play deck into your hand (reveal it
+to your opponent and reshuffle your play deck). Cannot be played if your opponent
+is a minion player."

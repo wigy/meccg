@@ -58,7 +58,7 @@ import {
   addCardInPlay,
   buildTestState, resetMint, makeMHState,
   playCreatureHazardAndResolve,
-  handCardId, companyIdAt, viableActions, dispatch, resolveChain,
+  handCardId, companyIdAt, viableActions, dispatch, resolveChain, reduce,
   PLAYER_1, PLAYER_2, ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   HAZARD_PLAYER, RESOURCE_PLAYER,
@@ -237,5 +237,47 @@ describe('Adûnaphel (tw-2)', () => {
     expect(afterTap.players[0].characters[aragornId].status).toBe(CardStatus.Tapped);
     expect(afterTap.players[1].cardsInPlay.some(c => c.instanceId === adunId)).toBe(false);
     expect(afterTap.players[1].discardPile.some(c => c.instanceId === adunId)).toBe(true);
+  });
+
+  // ─── Regression: the hazard player cannot tap their OWN character (CoE 2.1.2) ─
+  // As the hazard player, Adûnaphel's on-tap "any one character to tap" is a
+  // hazard directed at the opponent, so it may only target the resource
+  // (active) player's characters — never the hazard player's own.
+  test('tapping the permanent-event may not target the hazard player\'s own character', () => {
+    resetMint();
+    const state = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.MovementHazard, recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ADUNAPHEL], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeMHState({ destinationSiteName: 'Barad-dûr' }) };
+    const adunId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    // PLAYER_2 is the hazard player; LEGOLAS is their own character.
+    const aragornId = ready.players[0].companies[0].characters[0];
+    const legolasId = ready.players[1].companies[0].characters[0];
+
+    const afterPlay = resolveChain(dispatch(ready, {
+      type: 'play-hazard', player: PLAYER_2, cardInstanceId: adunId,
+      targetCompanyId: companyId, altEventMode: 'permanent-event',
+    }));
+
+    const tapTargets = viableActions(afterPlay, PLAYER_2, 'tap-alt-permanent-event')
+      .map(a => (a.action as { targetCharacterId?: string }).targetCharacterId);
+    // The opponent's Aragorn is offered; the hazard player's own Legolas is not.
+    expect(tapTargets).toContain(aragornId as unknown as string);
+    expect(tapTargets).not.toContain(legolasId as unknown as string);
+
+    // Even if a self-target action is forged, the reducer rejects it.
+    const forged = reduce(afterPlay, {
+      type: 'tap-alt-permanent-event', player: PLAYER_2, cardInstanceId: adunId,
+      targetCharacterId: legolasId,
+    });
+    expect(forged.error).toBeDefined();
+    // State is unchanged: Legolas stays untapped and Adûnaphel stays in play.
+    expect(forged.state.players[1].characters[legolasId].status).toBe(CardStatus.Untapped);
+    expect(forged.state.players[1].cardsInPlay.some(c => c.instanceId === adunId)).toBe(true);
   });
 });

@@ -604,7 +604,19 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
             keywords: Record<string, string>;
             replyTo?: string;
           };
-          if (pending.recipient && pending.topic) {
+          // Double-send guard. The requestor reply can be delivered by TWO
+          // finalizers: this lobby approval, and the run-ai loop's PR-finalize
+          // sweep (which resolves a merged PR to 'success'). Whichever runs
+          // first transitions the ORIGINAL request message to a terminal
+          // 'success'/'failed'. If the sweep already sent this reply and marked
+          // the original terminal, approving here must NOT send it again — it
+          // only records the reviewer's verdict on the review-request.
+          const originalId = pending.replyTo ?? pending.keywords?.originalMessageId ?? '';
+          const original = originalId ? readMessage('ai', originalId) : null;
+          const alreadyFinalized = original?.status === 'success' || original?.status === 'failed';
+          if (alreadyFinalized) {
+            lobbyLog.log('review-reply-skipped', { msgId, originalId, reason: `original already ${original?.status}` });
+          } else if (pending.recipient && pending.topic) {
             sendMail([pending.recipient], {
               from: getDisplayName('ai'),
               sender: 'ai',
@@ -616,6 +628,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
               sentBy: 'ai',
             });
             lobbyLog.log('review-reply-sent', { msgId, recipient: pending.recipient, topic: pending.topic });
+            // Mark the original request terminal so the run-ai sweep skips it.
+            if (originalId) updateMessageStatus('ai', originalId, 'success');
           } else {
             lobbyLog.log('review-reply-invalid', { msgId, reason: 'missing recipient or topic' });
           }
@@ -787,9 +801,9 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     if (systemMailMatch && method === 'PUT') {
       await tryRoute(res, 'system-mail-update', 'Failed to update message', async () => {
         const [, playerName, msgId] = systemMailMatch;
-        const body = JSON.parse(await readBody(req)) as { status?: MailStatus; success?: boolean };
+        const body = JSON.parse(await readBody(req)) as { status?: MailStatus; success?: boolean; keywords?: Record<string, string> };
         if (!body.status) { sendJson(res, 400, { error: 'status is required' }); return; }
-        const updated = updateMessageStatus(playerName, msgId, body.status, body.success);
+        const updated = updateMessageStatus(playerName, msgId, body.status, body.success, body.keywords);
         if (!updated) { sendJson(res, 404, { error: 'Message not found' }); return; }
         lobbyLog.log('system-mail-update', { player: playerName, msgId, status: body.status, success: body.success });
         sendJson(res, 200, { ok: true, message: updated });
