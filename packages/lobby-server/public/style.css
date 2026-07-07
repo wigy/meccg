@@ -5446,7 +5446,18 @@ body.all-companies-mode:has(#debug-view.hidden) {
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  /*
+   * The arena separates the attacker row (top) from the defender row (bottom)
+   * with `justify-content: space-between`. That only works when the flex column
+   * has free vertical space to distribute. The parent `#visual-board` has only a
+   * `min-height` (no definite `height`), so `height: 100%` here resolves to `auto`
+   * (content height) and `space-between` becomes inert — collapsing the rows to
+   * within the 0.5rem gap. During a site auto-attack that jammed the site card
+   * (attacker) right up against the defending characters. A self-contained
+   * `min-height` gives the column its own free space so the rows spread apart.
+   */
   height: 100%;
+  min-height: 80vh;
   position: relative;
   z-index: var(--z-panel);
   padding: 1rem 2rem;
