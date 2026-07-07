@@ -5560,6 +5560,13 @@ body.all-companies-mode:has(#debug-view.hidden) {
   margin-top: 2px;
 }
 
+/* Setup instruction banner carries a full sentence, so let it wrap rather than
+   overflow the nowrap pill used by combat/select-company banners. */
+#setup-banner.situation-banner-row .situation-banner {
+  white-space: normal;
+  max-width: 34rem;
+}
+
 /* Combat character highlights */
 
 .combat-card--assignable {

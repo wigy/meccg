@@ -318,6 +318,86 @@ function renderItemDraftTargets(
   }
 }
 
+/**
+ * Compute the instruction prompt for the current setup step, or `null` when the
+ * viewer has nothing to do (wrong phase, or already finished the step and is
+ * waiting for the opponent).
+ *
+ * During setup the phase meter only shows a terse step label (e.g. "Deck
+ * Draft"), which does not explain what the player must actually do — several
+ * steps require clicking cards that carry no obvious call to action. This
+ * mirrors the {@link module:company-view.selectCompanyPrompt} pattern used
+ * during normal play: a prominent banner is the only on-screen text telling the
+ * player what the game is waiting for. Returns a prompt only while the viewer
+ * still holds a viable action for the step, so a player who has pressed
+ * Done/Continue (and now has no viable actions) sees nothing.
+ *
+ * Exported for unit testing (pure — no DOM access).
+ */
+export function setupStepPrompt(
+  view: PlayerView,
+): { readonly title: string; readonly detail: string } | null {
+  if (view.phaseState.phase !== 'setup') return null;
+  // A player who has finished this step has no viable actions and is merely
+  // waiting for the opponent — don't nag them with an instruction.
+  if (viableActions(view.legalActions).length === 0) return null;
+
+  switch (view.phaseState.setupStep.step) {
+    case 'character-deck-draft':
+      return {
+        title: 'Build Your Play Deck',
+        detail: 'Click each character you want in your play deck to add it (up to 10 non-avatars). Click Done when finished.',
+      };
+    case 'item-draft':
+      return {
+        title: 'Assign Starting Items',
+        detail: 'Click an item, then the character to equip it. Click Continue when finished.',
+      };
+    case 'starting-site-selection':
+      return {
+        title: 'Choose Starting Sites',
+        detail: 'Pick your starting sites from your site deck, then click Continue.',
+      };
+    case 'character-placement':
+      return {
+        title: 'Arrange Companies',
+        detail: 'Organise your characters into companies, then click Done.',
+      };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Render the setup-step instruction banner at the top of the visual board when
+ * a prompt is active (see {@link setupStepPrompt}). The banner is a managed
+ * `#setup-banner` element that is removed and rebuilt on every render, so it
+ * disappears once the step is done or the game leaves setup.
+ */
+function renderSetupBanner(view: PlayerView): void {
+  document.getElementById('setup-banner')?.remove();
+  const prompt = setupStepPrompt(view);
+  if (!prompt) return;
+  const board = document.getElementById('visual-board');
+  if (!board) return;
+
+  const row = document.createElement('div');
+  row.id = 'setup-banner';
+  row.className = 'situation-banner-row';
+
+  const banner = document.createElement('div');
+  banner.className = 'situation-banner';
+  banner.textContent = prompt.title;
+
+  const detail = document.createElement('div');
+  detail.className = 'situation-banner-detail';
+  detail.textContent = prompt.detail;
+  banner.appendChild(detail);
+
+  row.appendChild(banner);
+  board.prepend(row);
+}
+
 /** Render characters on the visual board during setup phases. */
 export function renderDrafted(
   view: PlayerView,
@@ -325,6 +405,9 @@ export function renderDrafted(
   onAction?: (action: GameAction) => void,
 ): void {
   const _cachedInstanceLookup = getCachedInstanceLookup();
+  // The banner reflects the current step (and clears itself outside setup), so
+  // it must be refreshed before the early return below.
+  renderSetupBanner(view);
   const selfEl = document.getElementById('drafted-self');
   const oppEl = document.getElementById('drafted-opponent');
   const setAsideEl = document.getElementById('set-aside');
