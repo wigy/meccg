@@ -560,30 +560,55 @@ named category — chosen by the opponent — or, if none is available, reveal
 their hand. Resolved when the event resolves on the chain
 (`chain-reducer.ts`).
 
-- `match` — the card-category matcher. Currently `"ring"`: any card carrying
-  the `ring` keyword **or** the `gold-ring` subtype (the MECCG definition of a
-  ring).
+- `match` — the card-category matcher:
+  - `"ring"` — any card carrying the `ring` keyword **or** the `gold-ring`
+    subtype (the MECCG definition of a ring).
+  - `"any"` — any card (used when the discard **count**, not the category,
+    matters). Only the `"hand"` source is supported for `"any"`.
 - `sources` — where candidate cards are gathered from: `"hand"` (the
   opponent's hand) and/or `"carried"` (cards held by the opponent's in-play
   characters, i.e. "from one of his companies").
 - `fallbackRevealHand` — when true and no candidate exists in any source, the
   opponent's current hand identities are revealed to the card-player instead
   (recorded in `GameState.revealedInstances`).
+- `count` — how many cards the opponent must discard. Absent = one card (the
+  `"ring"` case). A `{ "countCardsInPlay": { "keyword": "<kw>" } }` descriptor
+  makes the number equal to the count of cards in play (across both players)
+  whose definition carries that keyword. This dynamic count is evaluated at
+  **declaration time** — the moment the source permanent event is tapped to
+  become the short-event (`handleTapAltPermanentEvent`), while the source card is
+  still in play, so "including this one" falls out naturally — and threaded to
+  the chain resolution via `ChainEntryPayload.forcedDiscardCount`. This matches
+  the CRF ruling that "the number of cards discarded is set at the time of
+  declaration".
 
 When at least one candidate exists, a `force-discard-card` pending resolution
-is enqueued (actor = the opponent) so they pick exactly one to discard
-(mandatory); the chosen card is moved from wherever it sits — hand or a
-character's items — to the opponent's discard pile
-(`applyForceDiscardCardResolution`).
+is enqueued (actor = the opponent). For the `"ring"` case they pick exactly one
+of the pre-computed candidates. For the `"any"` case the resolution is
+`anyFromHand` with `remaining = count` (capped by hand size): the opponent
+discards one card at a time — any current hand card is a candidate, recomputed
+as the hand shrinks — until `remaining` reaches 0 or the hand empties. Each
+chosen card is moved from wherever it sits — hand or a character's items — to
+the opponent's discard pile (`applyForceDiscardCardResolution`).
 
 ```json
 { "type": "force-opponent-discard", "match": "ring",
   "sources": ["hand", "carried"], "fallbackRevealHand": true }
 ```
 
+```json
+{ "type": "force-opponent-discard", "match": "any", "sources": ["hand"],
+  "count": { "countCardsInPlay": { "keyword": "Nazgûl" } } }
+```
+
 Used by Rolled down to the Sea (wh-29): "Opponent must discard a ring from
 his hand or from one of his companies if available. If no rings are available
 as such, he must reveal his hand to you."
+
+Used by Khamûl the Easterling (tw-47): when its permanent-event mode is tapped it
+"becomes a short-event and forces opponent to discard one card of his choice for
+every Nazgûl permanent-event in play (including this one) at the time of
+declaration." (See §56c for the dual creature/permanent-event tap machinery.)
 
 ### 6f. `cycle-hand`
 
@@ -6085,7 +6110,8 @@ its creature mode targets minion companies).
 ### 56c. `creature-alt-event` permanent-event mode + `tap-character`
 
 The `creature-alt-event` primitive (§56a) also supports `mode: "permanent-event"`
-for dual creature/permanent-event cards (Ûvatha tw-107, Adûnaphel tw-2):
+for dual creature/permanent-event cards (Ûvatha tw-107, Adûnaphel tw-2, Khamûl
+the Easterling tw-47):
 
 ```json
 { "type": "creature-alt-event", "mode": "permanent-event" }
@@ -6106,6 +6132,9 @@ The on-tap behaviour is the card's other top-level effects:
   `{ "cardType": "hazard-creature" }`): fetch one hazard creature from the
   discard pile to hand (shared fetch-to-hand sub-flow).
 - **tw-2** — a `tap-character` effect (below).
+- **tw-47** (Khamûl the Easterling) — a `force-opponent-discard` effect
+  (`match: "any"`) with a dynamic `count` (§6e): the opponent discards one card
+  per Nazgûl permanent-event in play, the number fixed at tap-declaration time.
 
 **`tap-character`** taps one chosen character in play:
 

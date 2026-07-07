@@ -2112,12 +2112,17 @@ export function applyDiscardOneCompanyItemResolution(
 }
 
 /**
- * Resolve a `force-discard-card` pending resolution (Rolled down to the Sea,
- * wh-29). The actor (the card-player's opponent) discards one chosen ring. The
- * ring is located either in the actor's hand or among the items held by one of
- * their in-play characters, removed from wherever it sits, and moved to the
- * actor's discard pile. The chosen card must be one of the pre-computed
- * candidates.
+ * Resolve a `force-discard-card` pending resolution. The actor (the card-player's
+ * opponent) discards one chosen card, moving it to their discard pile.
+ *
+ * - Fixed-candidate mode (Rolled down to the Sea wh-29): the chosen card must be
+ *   one of the pre-computed candidate rings, located in the actor's hand or
+ *   among the items held by one of their in-play characters.
+ * - Any-from-hand mode (Khamûl the Easterling tw-47): the chosen card must be in
+ *   the actor's hand. After each discard, `remaining` is decremented; while it
+ *   stays above 0 and the hand still has cards, the resolution is kept (with the
+ *   decremented count) so the actor discards again. It clears once `remaining`
+ *   hits 0 or the hand empties.
  */
 export function applyForceDiscardCardResolution(
   state: GameState,
@@ -2132,15 +2137,21 @@ export function applyForceDiscardCardResolution(
     return { state, error: 'Wrong player for force-discard-card' };
   }
   const { cardInstanceId } = action;
-  if (!top.kind.candidateInstanceIds.includes(cardInstanceId)) {
-    return { state, error: `Card ${cardInstanceId as string} is not a valid ring to discard` };
-  }
+  const anyFromHand = !!top.kind.anyFromHand;
 
   const actorIdx = state.players.findIndex(p => p.id === action.player);
   if (actorIdx < 0) return { state, error: 'Player not found for force-discard-card' };
   const actorPlayer = state.players[actorIdx];
 
-  // Locate the chosen ring: first the hand, then any character's items.
+  if (anyFromHand) {
+    if (!actorPlayer.hand.some(c => c.instanceId === cardInstanceId)) {
+      return { state, error: `Card ${cardInstanceId as string} is not in hand` };
+    }
+  } else if (!top.kind.candidateInstanceIds.includes(cardInstanceId)) {
+    return { state, error: `Card ${cardInstanceId as string} is not a valid card to discard` };
+  }
+
+  // Locate the chosen card: first the hand, then any character's items.
   let removed: CardInstance | null = null;
   const handIdx = actorPlayer.hand.findIndex(c => c.instanceId === cardInstanceId);
   let newHand = actorPlayer.hand;
@@ -2162,12 +2173,12 @@ export function applyForceDiscardCardResolution(
     }
   }
   if (!removed) {
-    return { state, error: `Ring ${cardInstanceId as string} not found in hand or company` };
+    return { state, error: `Card ${cardInstanceId as string} not found in hand or company` };
   }
 
-  const ringDef = defById(state, removed.definitionId);
-  const ringName = ringDef?.name ?? (cardInstanceId as string);
-  logDetail(`force-discard-card: ${actorPlayer.name} discards ring "${ringName}"`);
+  const cardDef = defById(state, removed.definitionId);
+  const cardName = cardDef?.name ?? (cardInstanceId as string);
+  logDetail(`force-discard-card: ${actorPlayer.name} discards "${cardName}"`);
 
   const newPlayers = clonePlayers(state);
   newPlayers[actorIdx] = {
@@ -2176,8 +2187,22 @@ export function applyForceDiscardCardResolution(
     characters: newCharacters,
     discardPile: [...actorPlayer.discardPile, removed],
   };
+  const stateAfter = { ...state, players: newPlayers };
 
-  return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
+  // Any-from-hand: keep the resolution alive until the required count is met or
+  // the hand runs out.
+  if (anyFromHand) {
+    const remainingAfter = (top.kind.remaining ?? 1) - 1;
+    if (remainingAfter > 0 && newHand.length > 0) {
+      logDetail(`force-discard-card: ${actorPlayer.name} must still discard ${remainingAfter} card(s)`);
+      const updated = stateAfter.pendingResolutions.map(r =>
+        r.id === top.id ? { ...r, kind: { ...top.kind, remaining: remainingAfter } } : r,
+      );
+      return { state: { ...stateAfter, pendingResolutions: updated } };
+    }
+  }
+
+  return { state: dequeueResolution(stateAfter, top.id) };
 }
 
 /**
