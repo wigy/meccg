@@ -1552,10 +1552,14 @@ export function discardOneCompanyItemActions(
 }
 
 /**
- * Legal actions for a `force-discard-card` pending resolution (Rolled down to
- * the Sea, wh-29). The actor (the card-player's opponent) must discard one
- * ring; one `force-discard-card` action is offered per candidate ring instance
- * pre-computed when the resolution was enqueued.
+ * Legal actions for a `force-discard-card` pending resolution. The actor (the
+ * card-player's opponent) must discard a card:
+ *
+ * - Fixed-candidate mode (Rolled down to the Sea wh-29): one action per
+ *   pre-computed candidate ring instance.
+ * - Any-from-hand mode (Khamûl the Easterling tw-47): one action per card
+ *   currently in the actor's hand (candidates are recomputed each step as the
+ *   hand shrinks).
  */
 export function forceDiscardCardActions(
   state: GameState,
@@ -1564,6 +1568,27 @@ export function forceDiscardCardActions(
 ): EvaluatedAction[] {
   if (top.kind.type !== 'force-discard-card') return [];
   const actions: EvaluatedAction[] = [];
+
+  if (top.kind.anyFromHand) {
+    const actorIdx = state.players.findIndex(p => p.id === actor);
+    const hand = actorIdx >= 0 ? state.players[actorIdx].hand : [];
+    const remaining = top.kind.remaining ?? 1;
+    for (const c of hand) {
+      const cardDef = defById(state, c.definitionId);
+      const cardName = cardDef?.name ?? (c.instanceId as string);
+      logDetail(`force-discard-card: offering hand card "${cardName}" (${c.instanceId as string}) — ${remaining} left to discard`);
+      actions.push({
+        action: {
+          type: 'force-discard-card' as const,
+          player: actor,
+          cardInstanceId: c.instanceId,
+        },
+        viable: true,
+      });
+    }
+    return actions;
+  }
+
   for (const instanceId of top.kind.candidateInstanceIds) {
     const defId = resolveInstanceId(state, instanceId);
     const cardDef = defId ? defById(state, defId) : undefined;
