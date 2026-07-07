@@ -37,7 +37,7 @@ import {
   ARAGORN, LEGOLAS,
   LORIEN, MINAS_TIRITH, RIVENDELL, BREE,
   ORC_PATROL,
-  buildTestState, resetMint, dispatch, viableActions,
+  buildTestState, resetMint, dispatch, reduce, viableActions,
   makeAgent, withAgentInPlay, placeOnGuard,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
@@ -105,6 +105,34 @@ describe('Withdrawn to Mordor (dm-165)', () => {
     const actions = viableActions(state, PLAYER_1, 'play-short-event');
 
     expect(actions.some(ea => (ea.action as PlayShortEventAction).cardInstanceId === cardInst)).toBe(false);
+  });
+
+  // ─── Reducer: no-target play is rejected (regression, game mr9jvlnw-2ldyce) ──
+
+  test('playing with neither an agent nor an on-guard target is rejected and does not spend the card', () => {
+    // A face-down agent is in play but no face-up agent and no on-guard card,
+    // so there is no legal target. The legal-action layer withholds the play
+    // (see "with no agent and no on-guard card, the card is not playable"), but
+    // a client that submits the action anyway must be rejected rather than
+    // silently discarding (wasting) the event.
+    const agent = makeAgent(FIRIEL, { revealed: false });
+    const state = withAgentInPlay(
+      buildTestState({ activePlayer: PLAYER_1, phase: Phase.Organization, players: BASE_PLAYERS }),
+      HAZARD_PLAYER, agent,
+    );
+    const cardInst = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+
+    const result = reduce(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: cardInst,
+    });
+
+    // The action is rejected...
+    expect(result.error).toBeDefined();
+    // ...and the event card remains in hand — not wasted to the discard pile.
+    expect(result.state.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === cardInst)).toBe(true);
+    expect(result.state.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === cardInst)).toBe(false);
   });
 
   // ─── Reducer: agent mode by mind ────────────────────────────────────────────
