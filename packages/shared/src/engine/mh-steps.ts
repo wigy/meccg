@@ -638,7 +638,12 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
     // All ahunt attacks for this company are resolved. Evaluate any ahunt
     // group rewards (e.g. Mordor in Arms dm-72) before continuing.
     const rewardedState = applyAhuntGroupRewards(state, mhState, matchingAhunts);
-    const clearedMhState = { ...(rewardedState.phaseState as MovementHazardPhaseState), ahuntGroupOutcomes: [] };
+    // Spread the fresh `mhState` argument (which carries hazardLimitAtReveal,
+    // resolvedSitePath, step, etc.), NOT rewardedState.phaseState — in the
+    // auto-advance path state.phaseState is stale (the updated mhState is passed
+    // as an argument, never written back into state). applyAhuntGroupRewards
+    // touches players/activeConstraints only, so phaseState from mhState is authoritative.
+    const clearedMhState = { ...mhState, ahuntGroupOutcomes: [] };
     return transitionToDrawCards({ ...rewardedState, phaseState: clearedMhState }, clearedMhState);
   }
 
