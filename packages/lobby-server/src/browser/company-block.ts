@@ -990,6 +990,30 @@ export function findCardsInPlayTapAction(
 }
 
 /**
+ * Find a viable `discard-card-for-hazard-limit` activation for the given
+ * card-in-play instance (the Dragon "At Home" permanent events, e.g. Daelomin
+ * at Home td-11).
+ *
+ * During the opponent's movement/hazard phase the hazard player may discard the
+ * card from play — not against the hazard limit — to increase the hazard limit
+ * against the active company. The action is fully specified (it targets the
+ * active company), so the board can fire it immediately on click.
+ *
+ * Exported so the cards-in-play renderer can wire a board click handler and the
+ * behaviour can be regression-tested without a full DOM render.
+ */
+export function findDiscardForHazardLimitAction(
+  actions: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+): GameAction | null {
+  return (
+    actions.find(
+      a => a.type === 'discard-card-for-hazard-limit' && a.cardInstanceId === cardInstanceId,
+    ) ?? null
+  );
+}
+
+/**
  * Find the viable `tap-alt-permanent-event` activations for an in-play
  * dual-mode creature-permanent-event (Adûnaphel tw-2, Ûvatha tw-107).
  *
@@ -1100,6 +1124,11 @@ export function renderCardsInPlayRow(
         // spends hazard limit to untap it. Without this the only way to activate
         // the card was the debug action panel — it was invisible on the board.
         const tapAction = findCardsInPlayTapAction(viableActions(view.legalActions), card.instanceId);
+        // Dragon "At Home" permanents (Daelomin at Home td-11): clicking the
+        // in-play card discards it for +hazard limit against the active company.
+        // Without this the only way to trigger the discard was the debug action
+        // panel — the card had no board affordance.
+        const discardForLimitAction = findDiscardForHazardLimitAction(viableActions(view.legalActions), card.instanceId);
         if (tapAltActions.length > 0) {
           const isSelected = getSelectedTapAltPermanentEvent() === card.instanceId;
           img.classList.add('company-card--movable');
@@ -1123,6 +1152,12 @@ export function renderCardsInPlayRow(
           img.addEventListener('click', (e) => {
             e.stopPropagation();
             onAction(tapAction);
+          });
+        } else if (discardForLimitAction) {
+          img.classList.add('company-card--movable');
+          img.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onAction(discardForLimitAction);
           });
         }
       }
