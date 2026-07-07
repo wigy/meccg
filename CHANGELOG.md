@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.46.0 — 2026-07-07
+
+More Cards
+
+### Game Engine
+
+- Add creature↔event dual-mode play: creature↔permanent-event (Adûnaphel tw-2, Ûvatha tw-107) and creature↔short-event with return-to-origin (Mouth of Sauron tw-65, Beorning Skin-changers ba-10)
+- Model event-based agent deployment: re-cast mis-typed hazard-event cards as deployable agents (Lobelia dm-28, My Precious dm-29) and implement agent-attack-outcome rules (§5–6)
+- New DSL primitives shipped with certifications: `agent-tap-return-character` (Pilfer as-33), `reveal-choose-shuffle` dig (Eyes of Mandos dm-126), `cycle-hand` + arrange-deck-top (Revealed to all Watchers dm-85), `cancel-card-effects` with Under-deeps return (The Way is Shut dm-98), ally self-tap chain cancellation (Tom Bombadil tw-350), grouped ahunt attacks + faction-influence-restriction (Mordor in Arms dm-72), displace-stored-item (dm-73), force-opponent-discard (Rolled down to the Sea wh-29), withdraw-agent (Withdrawn to Mordor dm-165), and agent-discard-return-to-origin (Baduila dm-2)
+- Add corruption failure downgrade (eliminate → discard) for The Roving Eye (le-135)
+- Count agent-manifestation hazards as half a creature per rule 1.5.1, and fix deck validation to match
+- Combat fixes: wound (and remove) an agent when its strike is defeated; allow revealing on-guard modify-attack hazards on automatic attacks; preserve fresh phaseState when clearing ahunt group outcomes
+- Route influence-check-boost short events through the chain of effects; reject Withdrawn to Mordor (dm-165) with no valid target
+- Resolve raw player/company/instance codes in legal-action text so action labels read naturally
+
+### Web Client
+
+- Add a setup-step instruction banner for deck-draft clarity and a select-company prompt banner in the all-companies view
+- Add GCCG `.deck` file import and Markdown deck notes (type, challenge-deck data) to the decks page
+- Hide face-down deck-top order after "Revealed to all Watchers" (dm-85); show revealed opponent hand cards to the viewing player
+- Board UI fixes: tap Adûnaphel/Ûvatha permanent-events, make item-borne cancel-attack (Torque of Hues) clickable in combat, fix the combat arena collapsing the site card onto defenders, and fix Daelomin at Home (td-11) discard button and hazard-limit display
+- Fix strange `p1`-style code labels on deck-arranging actions
+
+### Cards
+
+- Certify ~35 more cards across all sets — characters, factions, items, agents, and hazards — including Strider (ba-1), Khamûl the Easterling (tw-47), Círdan (tw-137), Merry (tw-170), Elves of Lindon (tw-226), Palantír of Minas Tirith (tw-299), Southrons (tw-329), Variags of Khand (tw-357), Smaug Ahunt (td-70), Inner Cunning (dm-68), Longbottom Leaf (ba-30), To Fealty Sworn (ba-33), and Unabated in Malice (ba-26)
+
+### Infrastructure
+
+- run-ai: retry transient outages instead of dying silently, reset (not burn) requests on API capacity/usage limits, and sweep open PRs each loop to fix conflicts, comments, and failing CI, with a visible heartbeat
+- Mail: add success/failed end states and finalize processed messages by PR outcome
+- Resolve PR merge/close state via the `state` field; preserve unknown fields in `secrets.json` across lobby-server restarts
+- Test policy: run only changed tests locally; full suites move to PR review
+
 ## 0.45.0 — 2026-07-02
 
 Challenge Deck V

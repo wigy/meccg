@@ -21,11 +21,11 @@ For player information, see the [Player Guide](docs/player-guide.md).
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 267 | 330 | 80.9% |
-| Card tests | 609 | 618 | 98.5% |
+| Rule tests | 268 | 331 | 81.0% |
+| Card tests | 644 | 654 | 98.5% |
 | Cards created | 1683 | 1683 | 100.0% |
-| Cards certified | 664 | 1683 | 39.5% |
-| **Total** | **3223** | **4314** | **74.7%** |
+| Cards certified | 699 | 1683 | 41.5% |
+| **Total** | **3294** | **4351** | **75.7%** |
 
 ### Deck Catalog
 
@@ -42,9 +42,9 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
-| (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 82 (74.5%) |
+| (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 83 (75.5%) |
 | (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 82 (74.5%) |
-| (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 77 (70.0%) |
+| (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 80 (72.7%) |
 | (S) Await the Onset | fallen-wizard | 110 | 110 (100.0%) | 76 (69.1%) |
 | (V) Great Shadow | balrog | 110 | 110 (100.0%) | 110 (100.0%) |
 

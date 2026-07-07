@@ -6,13 +6,13 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 330 | 267 | 63 | 80.9% |
+| 331 | 268 | 63 | 81.0% |
 
 ## Section Breakdown
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
-| 00 | [Engine](00-engine/) | 4 | 4 | 100.0% |
+| 00 | [Engine](00-engine/) | 5 | 5 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 59 | 56 | 94.9% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 40 | 83.3% |
@@ -31,6 +31,7 @@
 
 | Rule | Section | Test | Status |
 |:-----|:--------|:-----|:------:|
+| — | Engine | [Action Description No Codes](00-engine/action-description-no-codes.test.ts) | ☑ |
 | — | Engine | [Active Constraints](00-engine/active-constraints.test.ts) | ☑ |
 | — | Engine | [Last Action Card Defs](00-engine/last-action-card-defs.test.ts) | ☑ |
 | — | Engine | [Pending Resolutions](00-engine/pending-resolutions.test.ts) | ☑ |
@@ -260,7 +261,7 @@
 | 9.00 | Agents, Events, Items & Rings | [Agent State Model](09-agents-events-items/rule-9.00-agent-state-model.test.ts) | ☑ |
 | 9.01 | Agents, Events, Items & Rings | [Agent Actions](09-agents-events-items/rule-9.01-agent-actions.test.ts) | ☑ |
 | 9.02 | Agents, Events, Items & Rings | [Agent Action Options](09-agents-events-items/rule-9.02-agent-action-options.test.ts) | ☑ |
-| — | Agents, Events, Items & Rings | [Rule 9.02b Agent Combat](09-agents-events-items/rule-9.02b-agent-combat.test.ts) | ☑ |
+| — | Agents, Events, Items & Rings | [9.02b Agent Combat](09-agents-events-items/rule-9.02b-agent-combat.test.ts) | ☑ |
 | 9.03 | Agents, Events, Items & Rings | [Agent Reveal](09-agents-events-items/rule-9.03-agent-reveal.test.ts) | ☑ |
 | 9.04 | Agents, Events, Items & Rings | [Agent Reveal Home](09-agents-events-items/rule-9.04-agent-reveal-home.test.ts) | ☑ |
 | 9.05 | Agents, Events, Items & Rings | [Agent Uniqueness](09-agents-events-items/rule-9.05-agent-uniqueness.test.ts) | ☑ |
