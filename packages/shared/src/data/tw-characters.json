@@ -2174,8 +2174,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Edoras",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Riders of Rohan faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Riders of Rohan"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Riders of Rohan faction.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "hero-character",
