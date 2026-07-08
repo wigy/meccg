@@ -51,7 +51,7 @@ function facesActions(state: GameState) {
   const facesId = findHandCardId(state, HAZARD_PLAYER, FACES_OF_THE_DEAD);
   return computeLegalActions(state, PLAYER_2)
     .filter(a => a.viable && a.action.type === 'play-hazard'
-      && (a.action as PlayHazardAction).cardInstanceId === facesId)
+      && a.action.cardInstanceId === facesId)
     .map(a => a.action as PlayHazardAction);
 }
 
