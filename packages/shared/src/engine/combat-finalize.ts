@@ -36,7 +36,7 @@ import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
-import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerConvertsDetainmentToNormal, playerHasKillMpExemption, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -233,9 +233,12 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         discardPile: [...newPlayers[atkIdx].discardPile, creatureCard],
       };
       logDetail(`Played-auto-attack creature discarded (no kill-MP awarded — treated as site's automatic-attack)`);
-    } else if (allDefeated && creatureCard && combat.detainment) {
+    } else if (allDefeated && creatureCard && combat.detainment && !playerHasKillMpExemption(state, state.players[defIdx])) {
       // CoE rule 3.II.3 — defeated detainment creature is discarded instead
       // of going to the attacked player's MP pile (0 kill-MP awarded).
+      // Exception: a player with a `fw-kill-mp-full` carrier (Alatar wh-1)
+      // gains full kill MP "even with *" (detainment), so his defeated
+      // detainment creatures are routed to the kill pile like normal kills.
       newPlayers[atkIdx] = {
         ...newPlayers[atkIdx],
         discardPile: [...newPlayers[atkIdx].discardPile, creatureCard],
@@ -901,6 +904,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           attackRace: race as import('../index.js').Race | null,
           defendingAlignment: activeIdx2 >= 0 ? stateAfterCombat.players[activeIdx2].alignment : Alignment.Wizard,
           defendingSiteEffects: siteDef2?.effects,
+          defenderForcesNormalAttacks: activeIdx2 >= 0 && playerConvertsDetainmentToNormal(stateAfterCombat, stateAfterCombat.players[activeIdx2]),
         }),
         ...(aaAttackerChooses2 ? { attackerChoosesDefenders: true } : {}),
       });

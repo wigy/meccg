@@ -341,6 +341,50 @@ and `value` are 2.
 { "type": "fw-character-ally-mp", "threshold": 2, "value": 2 }
 ```
 
+### 3d. `fw-kill-mp-full`
+
+Fallen-wizard kill marshalling-point exemption (MEWH §4 exception). MEWH §4 clamps
+every creature a Fallen-wizard's companies defeat to a flat **1** kill MP. A
+character carrying this effect exempts the player: defeated hazard creatures score
+their *full* printed kill MP instead. In addition, a defeated **detainment**
+creature — which normally awards 0 kill MP because it is discarded rather than
+routed to the kill pile (CoE §3.II.3) — is instead placed in the defending
+player's kill pile and scores full kill MP too (the "even with \*" clause; `*`
+marks a detainment attack). Both consequences are player-wide ("your companies"),
+not limited to the carrier's company. Collected from the player's in-play
+characters (`playerHasKillMpExemption` in `reducer-utils.ts`) and consumed in both
+`recompute-derived.ts` (kill-MP tally) and `combat-finalize.ts` (detainment
+disposition). Only Fallen-wizard players are ever subject to the §4 clamp.
+
+Used by Alatar (wh-1): "Hazards your companies defeat (even with \*) are worth full
+kill marshalling points."
+
+```json
+{ "type": "fw-kill-mp-full" }
+```
+
+### 3e. `detainment-attacks-normal`
+
+Converts every detainment attack against the carrier's player's companies into a
+normal attack (CoE §3.II — a detainment attack taps rather than wounds, suppresses
+the body check, and awards no kill MP; a normal attack does none of those). While
+a character carrying this effect is in play and the player's `stagePoints` total
+is strictly greater than `stagePointsAbove` (default 0), any attack the engine
+would otherwise treat as detainment — whether from a `combat-detainment` effect, a
+site-forced detainment rule, or the alignment-based §3.II keying rules — resolves
+as a normal attack instead. Computed per defending player via
+`playerConvertsDetainmentToNormal` (`reducer-utils.ts`) and threaded into
+`isDetainmentAttack` as `defenderForcesNormalAttacks`, which short-circuits the
+whole detainment computation to `false` at every combat-initiation call site.
+
+Used by Alatar (wh-1): "If you have more than 7 stage points, all detainment
+attacks against your companies attack normally instead." Here `stagePointsAbove`
+is 7.
+
+```json
+{ "type": "detainment-attacks-normal", "stagePointsAbove": 7 }
+```
+
 ### 3a. `stage-points`
 
 Contributes Fallen-wizard **stage points** (MEWH) to the player controlling the

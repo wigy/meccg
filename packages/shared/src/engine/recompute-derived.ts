@@ -44,7 +44,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -928,6 +928,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // creatures earn kill MP — except, per METD §4.1, a player who defeats a
   // manifestation they themselves played awards no MPs. Owner is derivable in
   // O(1) from the instance ID prefix.
+  const fullKillMp = playerHasKillMpExemption(state, player);
   for (const card of player.killPile) {
     const def = resolveDef(state, card.instanceId);
     if (!def) continue;
@@ -979,8 +980,11 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (killMP === 0) continue;
     const mid = manifestIdOf(def);
     if (mid && ownerOf(card.instanceId) === player.id) continue;
-    // MEWH §4: a defeated creature is worth a flat 1 MP to a Fallen-wizard.
-    const killContribution = player.alignment === 'fallen-wizard' && killMP > 0 ? 1 : killMP;
+    // MEWH §4: a defeated creature is worth a flat 1 MP to a Fallen-wizard —
+    // unless the player has a `fw-kill-mp-full` carrier in play (Alatar wh-1),
+    // which exempts him and awards the full printed kill MP instead.
+    const killContribution =
+      player.alignment === 'fallen-wizard' && killMP > 0 && !fullKillMp ? 1 : killMP;
     mp = { ...mp, kill: mp.kill + killContribution };
   }
 
