@@ -684,6 +684,13 @@ export type ChainEntryPayload =
        * into the hazard player's `cardsInPlay` with `attachedToAgentId` set.
        */
       readonly targetAgentId?: import('./common.js').CompanyId;
+      /**
+       * For a resource permanent-event played on one of the active player's own
+       * items (Barrow-blade dm-119, "play this with the Dagger"), the target
+       * item instance. On resolution the chain reducer places the card into the
+       * controller's `cardsInPlay` with `attachedToItem` set to this value.
+       */
+      readonly targetItemInstanceId?: CardInstanceId;
     }
   | { readonly type: 'long-event' }
   | { readonly type: 'corruption-card' }

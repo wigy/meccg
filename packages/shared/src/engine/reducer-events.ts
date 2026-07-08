@@ -97,6 +97,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
     ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
     ...(action.targetSiteDefinitionId ? { targetSiteDefinitionId: action.targetSiteDefinitionId } : {}),
     ...(action.targetCompanyId ? { targetCompanyId: action.targetCompanyId } : {}),
+    ...(action.targetItemInstanceId ? { targetItemInstanceId: action.targetItemInstanceId } : {}),
   };
   newState = initiateOrPushChain(newState, action.player, handCard, payload);
 

@@ -1783,6 +1783,11 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   permanent event resolves from the chain. Used by cards whose text
  *   explicitly says "Tap the site" as part of their play effect (e.g.
  *   The Windlord Found Me). Respects the `never-taps` site-rule.
+ * - `tap-bearer-on-play` — for an item-targeting permanent event
+ *   (`play-target` target `item`), taps the character bearing the targeted
+ *   item when the card resolves from the chain (e.g. Barrow-blade dm-119:
+ *   "Tap the bearer of a Dagger of Westernesse … and play this with the
+ *   Dagger").
  * - `healing-affects-all` — healing effects applied to one character in the
  *   company extend to all other wounded characters in the same company (e.g.
  *   Ioreth). Equivalent to the `healing-affects-all` site-rule but carried
@@ -1816,7 +1821,7 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -2252,9 +2257,12 @@ export interface PlayTargetEffect extends EffectBase {
    * scopes to the active player's own characters; hazard-side
    * `character` scopes to the active company's characters. Hazard-side
    * `stored-item` scopes to the opponent's stored items (items sitting in
-   * the opponent's marshalling-point pile).
+   * the opponent's marshalling-point pile). Resource-side `item` scopes to
+   * items borne by the active player's own characters (e.g. Barrow-blade
+   * dm-119, played "with the Dagger" — a permanent event attached to an
+   * item whose `stat-modifier` effects flow to the item's bearer).
    */
-  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item';
+  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item';
   /**
    * Optional DSL condition refining which candidates qualify. Evaluated
    * against the per-candidate context (e.g. `target.race`,
