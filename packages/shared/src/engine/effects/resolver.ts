@@ -353,6 +353,37 @@ export function collectCharacterEffects(
 }
 
 /**
+ * Collects effects from a single player's own `cardsInPlay`, filtering by each
+ * effect's `when` condition against the given context.
+ *
+ * Unlike {@link collectGlobalEffects} (which walks both players and filters by
+ * a target scope), this gathers *all* effects — of any type — from one player's
+ * in-play events/environments so a downstream resolver can pick the type it
+ * cares about. Used by the movement/hazard draw step: a resource long-event
+ * such as A Short Rest (td-95) sits in the moving player's `cardsInPlay` and
+ * contributes a `draw-modifier` to that player's own moving companies.
+ *
+ * Scoping to a single player is what keeps the effect from ever benefiting the
+ * opponent: the draw step collects from the *active* (moving) player only, so a
+ * long-event lingering in one player's `cardsInPlay` across the opponent's turn
+ * never touches the opponent's draws.
+ */
+export function collectPlayerInPlayEffects(
+  state: GameState,
+  playerIndex: number,
+  context: ResolverContext,
+): CollectedEffect[] {
+  const results: CollectedEffect[] = [];
+  const player = state.players[playerIndex];
+  if (!player) return results;
+  for (const card of player.cardsInPlay) {
+    const def = resolveDef(state, card.instanceId);
+    if (def) collectFromDef(def, card.instanceId, context, results);
+  }
+  return results;
+}
+
+/**
  * Collects `company-modifier` effects from permanent events in `cardsInPlay`
  * that are bound to the same company as `char` (via `CardInPlay.companyId`).
  *

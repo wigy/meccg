@@ -671,6 +671,14 @@ export interface HandSizeModifierEffect extends EffectBase {
  * Example: Alatar reduces the opponent's hazard draws by 1 for his company.
  * Example: Radagast adds +1 resource draw per Wilderness in the site path
  * via the expression `"sitePath.wildernessCount"`.
+ * Example: A Short Rest (td-95) — a resource long-event in the moving
+ * player's `cardsInPlay` — grants `"4 - sitePath.regionCount"` extra
+ * resource draws, gated on an actual region site path (`movementType`
+ * in `region`/`starter`, `sitePath.regionCount` in 1..3).
+ *
+ * Draw-modifiers are collected both from a moving company's characters and
+ * from the active player's own in-play events/environments, so a long-event
+ * (not carried by any character) can contribute.
  */
 export interface DrawModifierEffect extends EffectBase {
   readonly type: 'draw-modifier';
@@ -680,8 +688,10 @@ export interface DrawModifierEffect extends EffectBase {
    * The adjustment (negative = fewer draws). Accepts a value expression
    * evaluated against the resolver context, which exposes `sitePath`
    * counts (`wildernessCount`, `shadowCount`, `darkCount`,
-   * `coastalCount`, `freeCount`, `borderCount`) derived from the
-   * moving company's resolved site path.
+   * `coastalCount`, `freeCount`, `borderCount`, and `regionCount` — the
+   * total path length) derived from the moving company's resolved site
+   * path, plus the top-level `movementType`
+   * (`starter`/`region`/`special`/`under-deeps`).
    */
   readonly value: ValueExpr;
   /** Floor for the modified draw count. */

@@ -550,14 +550,40 @@ for the bearer's company. The `draw` field selects which pool to modify
 `value` may be a plain number or a {@link ValueExpr} string evaluated
 against a context exposing `sitePath` counts (`wildernessCount`,
 `shadowCount`, `darkCount`, `coastalCount`, `freeCount`,
-`borderCount`) derived from the moving company's resolved site path —
+`borderCount`, and `regionCount` — the total number of regions in the
+path) derived from the moving company's resolved site path, plus the
+top-level `movementType` (`starter`/`region`/`special`/`under-deeps`) —
 used by Radagast for "+1 resource draw per Wilderness in the site
 path".
+
+Draw-modifiers are collected from **both** a moving company's characters
+(items/hazards included) **and** the active (moving) player's own in-play
+events/environments in `cardsInPlay`. This lets a resource long-event that
+is not carried by any character contribute a draw bonus to every one of
+that player's moving companies. Collecting only from the *active* player's
+`cardsInPlay` means a long-event lingering across the opponent's turn never
+affects the opponent's draws.
 
 ```json
 { "type": "draw-modifier", "draw": "hazard", "value": -1, "min": 0 }
 { "type": "draw-modifier", "draw": "resource",
   "value": "sitePath.wildernessCount", "min": 0 }
+```
+
+A Short Rest (td-95) is a resource long-event: "Each moving company may
+draw an extra card for each region less than four in its site path." It
+draws `4 - regionCount` extra resource cards, gated on an actual region
+site path — the CRF 22 ruling excludes under-deeps and special movement,
+which resolve to an empty path:
+
+```json
+{ "type": "draw-modifier", "draw": "resource",
+  "value": "4 - sitePath.regionCount", "min": 0,
+  "when": { "$and": [
+    { "movementType": { "$in": ["region", "starter"] } },
+    { "sitePath.regionCount": { "$gt": 0 } },
+    { "sitePath.regionCount": { "$lt": 4 } }
+  ] } }
 ```
 
 ### 6c. `draw-cards`

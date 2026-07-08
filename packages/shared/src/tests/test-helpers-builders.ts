@@ -18,6 +18,7 @@ import type { GameConfig, QuickStartGameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
 import type { ReducerResult } from '../engine/reducer.js';
 import { Phase, Alignment, RegionType, SiteType, computeLegalActions } from '../index.js';
+import { MovementType } from '../types/common.js';
 import type { PlayerId, GameState, GameAction, CardDefinitionId, CardInstanceId, SitePhaseState, MovementHazardPhaseState, InfluenceAttemptAction, OpponentInfluenceAttemptAction, CreatureKeyingMatch, CombatState, ActiveConstraint, CheckKind } from '../index.js';
 import { addConstraint } from '../engine/pending.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -2592,6 +2593,10 @@ export function buildRingwraithCreatureCombat(opts: {
  * destination site. Dispatching `pass` triggers the transition into
  * draw-cards, surfacing draw-count modifiers. Used by wizard draw-modifier
  * tests (Alatar, etc.).
+ *
+ * Pass `movementType` to set the declared movement type on the phase state
+ * (defaults to null) — needed by draw-modifiers that gate on the movement
+ * type, e.g. A Short Rest (td-95), which applies only to region/starter moves.
  */
 export function buildMHOrderEffectsDrawState(opts: {
   heroChars: readonly CardDefinitionId[];
@@ -2599,6 +2604,7 @@ export function buildMHOrderEffectsDrawState(opts: {
   heroSiteDeck?: readonly CardDefinitionId[];
   pathTypes?: readonly RegionType[];
   pathNames?: readonly string[];
+  movementType?: MovementType;
 }): GameState {
   const state = buildTestState({
     phase: Phase.MovementHazard,
@@ -2635,6 +2641,7 @@ export function buildMHOrderEffectsDrawState(opts: {
     step: 'order-effects' as MovementHazardPhaseState['step'],
     resolvedSitePath: opts.pathTypes ? [...opts.pathTypes] : [],
     resolvedSitePathNames: opts.pathNames ? [...opts.pathNames] : [],
+    ...(opts.movementType !== undefined ? { movementType: opts.movementType } : {}),
   });
   return { ...state, players, phaseState: mhState } as GameState;
 }
