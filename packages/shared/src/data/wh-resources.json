@@ -1295,9 +1295,36 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Alatar"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "huntsmans-garb-fetch",
+        "cost": {
+          "tap": "self"
+        },
+        "endOfTurnOnly": true,
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": {
+            "name": {
+              "$in": ["Risky Blow", "True Fána", "The Hunt"]
+            }
+          }
+        }
       }
     ],
-    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Huntsman’s Garb during your end-of-turn phase to take Risky Blow, True Fána, or The Hunt from your discard pile to your hand."
+    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Huntsman’s Garb during your end-of-turn phase to take Risky Blow, True Fána, or The Hunt from your discard pile to your hand.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",
