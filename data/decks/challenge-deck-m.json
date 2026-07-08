@@ -1,0 +1,415 @@
+{
+  "id": "challenge-deck-m",
+  "name": "(M) It's magic!",
+  "alignment": "minion",
+  "notes": "Squat a little bit around in Mordor to collect small points for items, allies and factions. And help to draw the needed card for Akhorahil. So he can then travel to the site of your opponent to play A Malady Without Healing and use company versus combat against hero companies.\n\n### Starting Companies (4) at Minas Morgul\n\n- Troll-chief with Shadow-cloak and Blazon of the Eye is travelling to Barad-dûr to sit there the whole game.\n- Belegorn is travelling to Mount Doom.\n- Dorelas and Orc Brawler are travelling to Nurniag Camp, Dorelas controls Orc Brawler.\n- Orc Captain is travelling to Cirith Gorgor.\n\n### Resource Play\n\nJust play all of your factions at Barad-dûr under the control of the Troll-chief. When he has three factions you can play the fourth faction normally. You can also play the items and allies at Mount Doom. But this site has an auto attack.\n\n### Akhorahil\n\nAkhorahil is waiting for the Fell-Rider. With the help of this card he can travel to sites where your opponent has a company. Akhorahil can play all of your magic cards and can put them back in the deck after using. So he is powerful and can cancel a lot.\n\n### Hazard Play\n\nThis is just easy. Play corruption cards and the creatures. The corruption cards should help the Malady to destroy a character. The Balance of Things is also very good to make corruption checks not so easy.",
+  "pool": [
+    {
+      "name": "Belegorn",
+      "card": "le-2",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Dorelas",
+      "card": "le-8",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Orc Brawler",
+      "card": "le-30",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Orc Captain",
+      "card": "le-31",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Troll-chief",
+      "card": "le-45",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Shadow-cloak",
+      "card": "le-344",
+      "qty": 1
+    },
+    {
+      "name": "Blazon of the Eye",
+      "card": "le-302",
+      "qty": 1
+    },
+    {
+      "name": "Ciryaher",
+      "card": "le-6",
+      "qty": 1
+    },
+    {
+      "name": "Orc Tracker",
+      "card": "le-34",
+      "qty": 2
+    },
+    {
+      "name": "Orc Veteran",
+      "card": "le-35",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "Akhorahil the Ringwraith",
+        "card": "le-51",
+        "qty": 3
+      }
+    ],
+    "hazards": [
+      {
+        "name": "Arthadan Rangers",
+        "card": "le-60",
+        "qty": 1
+      },
+      {
+        "name": "Barrow-wight",
+        "card": "le-61",
+        "qty": 1
+      },
+      {
+        "name": "Cave-drake",
+        "card": "le-66",
+        "qty": 1
+      },
+      {
+        "name": "Corpse-candle",
+        "card": "le-67",
+        "qty": 2
+      },
+      {
+        "name": "Corsairs of Umbar",
+        "card": "tw-24",
+        "qty": 1
+      },
+      {
+        "name": "Ice-drake",
+        "card": "td-32",
+        "qty": 1
+      },
+      {
+        "name": "Rain-drake",
+        "card": "td-57",
+        "qty": 1
+      },
+      {
+        "name": "Sellswords Between Charters",
+        "card": "le-89",
+        "qty": 1
+      },
+      {
+        "name": "Slayer",
+        "card": "le-90",
+        "qty": 3
+      },
+      {
+        "name": "Alone and Unadvised",
+        "card": "as-24",
+        "qty": 2
+      },
+      {
+        "name": "An Unexpected Outpost",
+        "card": "dm-45",
+        "qty": 3
+      },
+      {
+        "name": "Lure of Expedience",
+        "card": "le-122",
+        "qty": 3
+      },
+      {
+        "name": "Lure of Nature",
+        "card": "le-123",
+        "qty": 3
+      },
+      {
+        "name": "Lure of the Senses",
+        "card": "le-124",
+        "qty": 3
+      },
+      {
+        "name": "The Balance of Things",
+        "card": "tw-93",
+        "qty": 1
+      },
+      {
+        "name": "Twilight",
+        "card": "le-145",
+        "qty": 3
+      }
+    ],
+    "resources": [
+      {
+        "name": "Black Trolls",
+        "card": "le-262",
+        "qty": 1
+      },
+      {
+        "name": "Blasting Fire",
+        "card": "wh-51",
+        "qty": 2
+      },
+      {
+        "name": "Great Bats",
+        "card": "as-74",
+        "qty": 2
+      },
+      {
+        "name": "Half-trolls",
+        "card": "le-267",
+        "qty": 1
+      },
+      {
+        "name": "Orcs of Gorgoroth",
+        "card": "le-275",
+        "qty": 1
+      },
+      {
+        "name": "Orcs of the Red Eye",
+        "card": "le-281",
+        "qty": 1
+      },
+      {
+        "name": "A Malady Without Healing",
+        "card": "le-159",
+        "qty": 1
+      },
+      {
+        "name": "Akhorahil Unleashed",
+        "card": "le-162",
+        "qty": 1
+      },
+      {
+        "name": "Dark Tryst",
+        "card": "as-80",
+        "qty": 3
+      },
+      {
+        "name": "Deeper Shadow",
+        "card": "le-179",
+        "qty": 3
+      },
+      {
+        "name": "Fell Rider",
+        "card": "le-183",
+        "qty": 3
+      },
+      {
+        "name": "Forced March",
+        "card": "le-185",
+        "qty": 2
+      },
+      {
+        "name": "The Tormented Earth",
+        "card": "as-102",
+        "qty": 3
+      },
+      {
+        "name": "Voices of Malice",
+        "card": "le-250",
+        "qty": 3
+      },
+      {
+        "name": "Weigh All Things to a Nicety",
+        "card": "le-253",
+        "qty": 3
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Bandit Lair",
+      "card": "le-351",
+      "qty": 1
+    },
+    {
+      "name": "Barad-dûr",
+      "card": "le-352",
+      "qty": 1
+    },
+    {
+      "name": "Beorn's House",
+      "card": "le-354",
+      "qty": 1
+    },
+    {
+      "name": "Bree",
+      "card": "le-356",
+      "qty": 1
+    },
+    {
+      "name": "Buhr Widu",
+      "card": "le-357",
+      "qty": 1
+    },
+    {
+      "name": "Carn Dûm",
+      "card": "le-359",
+      "qty": 1
+    },
+    {
+      "name": "Caves of Ulund",
+      "card": "le-360",
+      "qty": 1
+    },
+    {
+      "name": "Cirith Gorgor",
+      "card": "le-361",
+      "qty": 1
+    },
+    {
+      "name": "Dead Marshes",
+      "card": "le-364",
+      "qty": 1
+    },
+    {
+      "name": "Dol Guldur",
+      "card": "le-367",
+      "qty": 1
+    },
+    {
+      "name": "Edoras",
+      "card": "le-372",
+      "qty": 1
+    },
+    {
+      "name": "Ettenmoors",
+      "card": "le-373",
+      "qty": 1
+    },
+    {
+      "name": "Geann a-Lisch",
+      "card": "le-374",
+      "qty": 1
+    },
+    {
+      "name": "Goblin-gate",
+      "card": "le-378",
+      "qty": 1
+    },
+    {
+      "name": "Isengard",
+      "card": "le-384",
+      "qty": 1
+    },
+    {
+      "name": "Minas Morgul",
+      "card": "le-390",
+      "qty": 1
+    },
+    {
+      "name": "Minas Tirith",
+      "card": "le-391",
+      "qty": 1
+    },
+    {
+      "name": "Moria",
+      "card": "le-392",
+      "qty": 1
+    },
+    {
+      "name": "Mount Doom",
+      "card": "le-393",
+      "qty": 1
+    },
+    {
+      "name": "Mount Gram",
+      "card": "le-394",
+      "qty": 1
+    },
+    {
+      "name": "Mount Gundabad",
+      "card": "le-395",
+      "qty": 1
+    },
+    {
+      "name": "Nurniag Camp",
+      "card": "le-396",
+      "qty": 1
+    },
+    {
+      "name": "Raider-hold",
+      "card": "le-399",
+      "qty": 1
+    },
+    {
+      "name": "Sarn Goriwing",
+      "card": "le-401",
+      "qty": 1
+    },
+    {
+      "name": "Shrel-Kain",
+      "card": "le-403",
+      "qty": 1
+    },
+    {
+      "name": "The White Towers",
+      "card": "le-412",
+      "qty": 1
+    },
+    {
+      "name": "Weathertop",
+      "card": "as-169",
+      "qty": 1
+    },
+    {
+      "name": "Wellinghall",
+      "card": "as-170",
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Scroll of Isildur",
+      "card": "le-343",
+      "qty": 1
+    },
+    {
+      "name": "Sudden Call",
+      "card": "le-235",
+      "qty": 1
+    },
+    {
+      "name": "The Arkenstone",
+      "card": "le-418",
+      "qty": 1
+    },
+    {
+      "name": "Covetous Thoughts",
+      "card": "le-107",
+      "qty": 1
+    },
+    {
+      "name": "Lost in Free-domains",
+      "card": "le-119",
+      "qty": 1
+    },
+    {
+      "name": "Neither so Ancient Nor so Potent",
+      "card": "dm-73",
+      "qty": 1
+    },
+    {
+      "name": "River",
+      "card": "le-134",
+      "qty": 1
+    },
+    {
+      "name": "Seized by Terror",
+      "card": "dm-88",
+      "qty": 1
+    }
+  ]
+}
