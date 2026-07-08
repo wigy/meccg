@@ -287,6 +287,11 @@ export interface DisplaceStoredItemEffect extends EffectBase {
  * are each worth full marshalling points." His filter excludes items keyworded
  * `weapon`, `armor`, `shield`, or `helmet`.
  *
+ * The effect may be carried by a character (Saruman is a character) or by a
+ * stage permanent-event in `cardsInPlay` (Join the Hunt wh-93). When
+ * {@link inAvatarCompany} is set, only items borne by characters in the same
+ * company as the player's revealed avatar qualify ("items in Alatar's company").
+ *
  * ```json
  * { "type": "fw-item-mp-full",
  *   "filter": { "$not": { "$or": [
@@ -303,6 +308,51 @@ export interface FallenWizardItemMpEffect extends EffectBase {
    * full printed MP for the Fallen-wizard; omit to exempt every item.
    */
   readonly filter?: Condition;
+  /**
+   * When `true`, the exemption applies only to items borne by characters in the
+   * same company as the player's revealed avatar (e.g. "your … items in Alatar's
+   * company", Join the Hunt wh-93). Omit for a player-wide exemption (Saruman).
+   */
+  readonly inAvatarCompany?: boolean;
+}
+
+/**
+ * Fallen-wizard ally marshalling-point exemption (MEWH §4 exception).
+ *
+ * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
+ * marshalling point. A card carrying this effect lets the player's **allies**
+ * matching {@link filter} each score their **full printed** MP instead of the
+ * clamped 1 (unlike {@link FallenWizardCharacterAllyMpEffect}, which pins the
+ * value to a fixed number). Allies that do not match remain clamped to 1.
+ *
+ * When {@link inAvatarCompany} is set, only allies borne by characters in the
+ * same company as the player's revealed avatar qualify ("allies in Alatar's
+ * company").
+ *
+ * Used by Join the Hunt (wh-93): "Your allies with a prowess attribute in
+ * Alatar's company are each worth full marshalling points." — `filter`
+ * `{ prowess: { $exists: true } }`, `inAvatarCompany: true`. Oromë's Warders
+ * (wh-94) reuses the same effect player-wide (no `inAvatarCompany`).
+ *
+ * ```json
+ * { "type": "fw-ally-mp-full",
+ *   "filter": { "prowess": { "$exists": true } },
+ *   "inAvatarCompany": true }
+ * ```
+ */
+export interface FallenWizardAllyMpFullEffect extends EffectBase {
+  readonly type: 'fw-ally-mp-full';
+  /**
+   * Condition matched against an ally's card definition. Allies that match score
+   * full printed MP for the Fallen-wizard; omit to exempt every ally.
+   */
+  readonly filter?: Condition;
+  /**
+   * When `true`, the exemption applies only to allies borne by characters in the
+   * same company as the player's revealed avatar (Join the Hunt wh-93). Omit for
+   * a player-wide exemption (Oromë's Warders wh-94).
+   */
+  readonly inAvatarCompany?: boolean;
 }
 
 /**
@@ -3470,6 +3520,7 @@ export type CardEffect =
   | BodyCheckModifierEffect
   | MpModifierEffect
   | FallenWizardItemMpEffect
+  | FallenWizardAllyMpFullEffect
   | FallenWizardCharacterAllyMpEffect
   | CompanyModifierEffect
   | EnemyModifierEffect
