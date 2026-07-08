@@ -1351,9 +1351,27 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "fw-item-mp-full",
+        "inAvatarCompany": true,
+        "filter": {
+          "$or": [
+            { "keywords": { "$includes": "weapon" } },
+            { "keywords": { "$includes": "armor" } },
+            { "keywords": { "$includes": "shield" } },
+            { "keywords": { "$includes": "helmet" } }
+          ]
+        }
+      },
+      {
+        "type": "fw-ally-mp-full",
+        "inAvatarCompany": true,
+        "filter": { "prowess": { "$exists": true } }
       }
     ],
-    "text": "Unique.Alatar specific. Your weapon/shield/ armor/helmet items in Alatar’s company are each worth full marshalling points. Your allies with a prowess attribute in Alatar’s company are each worth full marshalling points."
+    "text": "Unique.Alatar specific. Your weapon/shield/ armor/helmet items in Alatar’s company are each worth full marshalling points. Your allies with a prowess attribute in Alatar’s company are each worth full marshalling points.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",

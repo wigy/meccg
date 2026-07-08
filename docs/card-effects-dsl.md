@@ -305,11 +305,16 @@ MP instead. The `filter` is matched against each item's card definition (via
 `matchesDefinition`); every item the Fallen-wizard player controls — on any
 character — that matches scores its printed MP while the card carrying this
 effect is in play. Items that do not match remain clamped to 1. Collected once
-per player from the player's in-play characters and consumed in
-`recompute-derived.ts` (`addItemMP`'s `fwItemMpExempt` path).
+per player from the player's in-play characters **and** `cardsInPlay` and
+consumed in `recompute-derived.ts` (`addItemMP`'s `fwItemMpExempt` path).
+
+The optional `inAvatarCompany: true` restricts the exemption to items borne by
+characters in the same company as the player's revealed avatar ("your … items in
+Alatar's company"); omit it for a player-wide exemption.
 
 Used by Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
-are each worth full marshalling points."
+are each worth full marshalling points." (player-wide). Join the Hunt (wh-93)
+uses the company-restricted form for its weapon/armor/shield/helmet items.
 
 ```json
 { "type": "fw-item-mp-full",
@@ -318,6 +323,27 @@ are each worth full marshalling points."
     { "keywords": { "$includes": "armor" } },
     { "keywords": { "$includes": "shield" } },
     { "keywords": { "$includes": "helmet" } } ] } } }
+```
+
+### 3b-ii. `fw-ally-mp-full`
+
+Fallen-wizard **ally** marshalling-point exemption (MEWH §4 exception). Like
+`fw-item-mp-full` but for allies: each ally matching `filter` scores its **full
+printed** MP instead of the §4 flat-1 clamp (distinct from `fw-character-ally-mp`,
+which pins a fixed value). The optional `inAvatarCompany: true` restricts the
+exemption to allies borne by characters in the player's avatar company. Collected
+per player from in-play characters and `cardsInPlay` and consumed in
+`recompute-derived.ts` (`addMP`'s `fwFullMp` path); full-MP takes precedence over
+any `fw-character-ally-mp` cap and never applies to stage cards or non-Fallen-wizards.
+
+Used by Join the Hunt (wh-93): "Your allies with a prowess attribute in Alatar's
+company are each worth full marshalling points." Oromë's Warders (wh-94) reuses
+the same effect player-wide (no `inAvatarCompany`).
+
+```json
+{ "type": "fw-ally-mp-full",
+  "filter": { "prowess": { "$exists": true } },
+  "inAvatarCompany": true }
 ```
 
 ### 3c. `fw-character-ally-mp`

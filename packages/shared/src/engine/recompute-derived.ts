@@ -103,27 +103,38 @@ function fwClampMp(baseMp: number, def: CardDefinition, playerAlignment: Alignme
  * Fallen-wizard card whose printed MP meets a cap's threshold is worth the cap's
  * `value` instead of the flat §4 1-MP clamp. Stage cards and non-Fallen-wizard
  * players are never affected.
+ *
+ * `fwFullMp` requests the full printed MP for a Fallen-wizard ally that matches
+ * an in-play `fw-ally-mp-full` exemption (Join the Hunt wh-93 / Oromë's Warders
+ * wh-94). It takes precedence over both the §4 clamp and any `fwCharAllyCaps`.
  */
 function addMP(
   totals: MarshallingPointTotals,
   def: CardDefinition,
   playerAlignment: Alignment,
   fwCharAllyCaps: readonly FallenWizardCharacterAllyMpEffect[] = [],
+  fwFullMp = false,
 ): MarshallingPointTotals {
   if (!hasMarshallingPoints(def)) return totals;
   let mp = fwClampMp(def.marshallingPoints, def, playerAlignment);
-  // Great Patron (wh-72): a Fallen-wizard's characters/allies that normally give
-  // at least `threshold` MP are each worth `value` instead of the §4 1-MP clamp.
   if (
     playerAlignment === 'fallen-wizard'
-    && fwCharAllyCaps.length > 0
     && def.marshallingPoints > 0
     && !('alignment' in def && (def as { alignment?: string }).alignment === 'stage')
   ) {
-    for (const cap of fwCharAllyCaps) {
-      if (def.marshallingPoints >= cap.threshold) {
-        mp = cap.value;
-        break;
+    if (fwFullMp) {
+      // Join the Hunt (wh-93) / Oromë's Warders (wh-94): a matching ally scores
+      // its full printed MP, ignoring both the §4 clamp and any cap below.
+      mp = def.marshallingPoints;
+    } else if (fwCharAllyCaps.length > 0) {
+      // Great Patron (wh-72): a Fallen-wizard's characters/allies that normally
+      // give at least `threshold` MP are each worth `value` instead of the §4
+      // 1-MP clamp.
+      for (const cap of fwCharAllyCaps) {
+        if (def.marshallingPoints >= cap.threshold) {
+          mp = cap.value;
+          break;
+        }
       }
     }
   }
@@ -619,34 +630,84 @@ function statsEqual(a: EffectiveStats, b: EffectiveStats): boolean {
 }
 
 /**
- * Collects the item marshalling-point exemption filters a Fallen-wizard player
- * currently has in play (MEWH §4 exception, e.g. Saruman wh-9). Scans the
- * player's in-play characters for `fw-item-mp-full` effects and returns each
- * effect's `filter` (an absent filter is represented as `null`, meaning "every
- * item"). Empty for any non-Fallen-wizard player.
- *
- * The list is consumed by {@link itemExemptFromFwClamp} when scoring each item.
+ * A single Fallen-wizard full-MP exemption entry (from a `fw-item-mp-full` or
+ * `fw-ally-mp-full` effect): the card-definition `filter` (a `null` filter means
+ * "every card"), and whether the exemption is restricted to the avatar's company.
  */
-function fwItemMpExemptFilters(state: GameState, player: PlayerState): (Condition | null)[] {
-  if (player.alignment !== 'fallen-wizard') return [];
-  const filters: (Condition | null)[] = [];
+type FwMpFullEntry = { readonly filter: Condition | null; readonly inAvatarCompany: boolean };
+
+/**
+ * Resolves the card definitions of every source a Fallen-wizard's MP-exemption
+ * effects can live on: the player's in-play characters (Saruman wh-9 carries
+ * `fw-item-mp-full` as a character) plus their `cardsInPlay` permanent-events
+ * (Join the Hunt wh-93 / Oromë's Warders wh-94 carry the effects as stage
+ * permanent-events).
+ */
+function fwExemptionSourceDefs(state: GameState, player: PlayerState): CardDefinition[] {
+  const defs = [...playerCardsInPlayDefs(state, player)];
   for (const char of Object.values(player.characters)) {
     const def = resolveDef(state, char.instanceId);
-    if (!def) continue;
-    for (const effect of getCardEffects(def)) {
-      if (effect.type === 'fw-item-mp-full') filters.push(effect.filter ?? null);
-    }
+    if (def) defs.push(def);
   }
-  return filters;
+  return defs;
 }
 
 /**
- * Whether an item definition is exempt from the Fallen-wizard 1-MP clamp given
- * the active `fw-item-mp-full` filters. An item is exempt if any filter matches
- * it (a `null` filter matches every item).
+ * Collects the item marshalling-point exemption entries a Fallen-wizard player
+ * currently has in play (MEWH §4 exception, e.g. Saruman wh-9, Join the Hunt
+ * wh-93). Returns each `fw-item-mp-full` effect's `filter` (absent → `null`,
+ * "every item") together with its `inAvatarCompany` flag. Empty for any
+ * non-Fallen-wizard player.
+ *
+ * The list is consumed by {@link itemExemptFromFwClamp} when scoring each item.
  */
-function itemExemptFromFwClamp(itemDef: CardDefinition, filters: (Condition | null)[]): boolean {
-  return filters.some(f => f === null || matchesDefinition(itemDef, f));
+function fwItemMpFullEntries(state: GameState, player: PlayerState): FwMpFullEntry[] {
+  if (player.alignment !== 'fallen-wizard') return [];
+  const entries: FwMpFullEntry[] = [];
+  for (const def of fwExemptionSourceDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-item-mp-full') {
+        entries.push({ filter: effect.filter ?? null, inAvatarCompany: effect.inAvatarCompany ?? false });
+      }
+    }
+  }
+  return entries;
+}
+
+/**
+ * Collects the ally marshalling-point exemption entries a Fallen-wizard player
+ * currently has in play (`fw-ally-mp-full`, e.g. Join the Hunt wh-93). Each
+ * matching ally scores its full printed MP instead of the §4 1-MP clamp. Empty
+ * for any non-Fallen-wizard player.
+ */
+function fwAllyMpFullEntries(state: GameState, player: PlayerState): FwMpFullEntry[] {
+  if (player.alignment !== 'fallen-wizard') return [];
+  const entries: FwMpFullEntry[] = [];
+  for (const def of fwExemptionSourceDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-ally-mp-full') {
+        entries.push({ filter: effect.filter ?? null, inAvatarCompany: effect.inAvatarCompany ?? false });
+      }
+    }
+  }
+  return entries;
+}
+
+/**
+ * Whether a card definition (item or ally) is exempt from the Fallen-wizard
+ * 1-MP clamp given the active full-MP entries. A card is exempt if any entry's
+ * filter matches it (a `null` filter matches every card) **and** the entry's
+ * company restriction is satisfied — an `inAvatarCompany` entry only applies
+ * when the bearer is in the player's avatar company (`bearerInAvatarCompany`).
+ */
+function cardExemptFromFwClamp(
+  def: CardDefinition,
+  entries: readonly FwMpFullEntry[],
+  bearerInAvatarCompany: boolean,
+): boolean {
+  return entries.some(e =>
+    (!e.inAvatarCompany || bearerInAvatarCompany)
+    && (e.filter === null || matchesDefinition(def, e.filter)));
 }
 
 /**
@@ -693,13 +754,28 @@ function permanentEventMpOverride(
 
 function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: readonly string[]): PlayerState {
   // MEWH §4 exception: items matching an in-play `fw-item-mp-full` effect's
-  // filter (e.g. Saruman's non-combat items) score full printed MP instead of
+  // filter (e.g. Saruman's non-combat items, or Join the Hunt's weapon/armor/
+  // shield/helmet items in Alatar's company) score full printed MP instead of
   // being clamped to 1. Computed once per player; empty for non-Fallen-wizards.
-  const fwItemExemptions = fwItemMpExemptFilters(state, player);
+  const fwItemExemptions = fwItemMpFullEntries(state, player);
+  // Join the Hunt (wh-93) / Oromë's Warders (wh-94): allies matching a
+  // `fw-ally-mp-full` filter score full printed MP instead of the §4 1-MP clamp.
+  const fwAllyExemptions = fwAllyMpFullEntries(state, player);
   // Great Patron (wh-72): in-play overrides letting the Fallen-wizard's
   // characters/allies that normally give >= threshold MP score `value` instead
   // of the §4 1-MP clamp. Empty for non-Fallen-wizards.
   const fwCharAllyCaps = fwCharacterAllyMpCaps(state, player);
+  // "in Alatar's company": the id of the company holding the player's revealed
+  // avatar, resolved only when some exemption is company-restricted (Join the
+  // Hunt). Undefined when the avatar is not in play, so no character matches.
+  const needsAvatarCompany = fwItemExemptions.some(e => e.inAvatarCompany)
+    || fwAllyExemptions.some(e => e.inAvatarCompany);
+  const avatarCompanyId = needsAvatarCompany
+    ? (() => {
+      const avatar = findPlayerAvatar(state, player);
+      return avatar ? findCharacterCompany(player.companies, avatar.instanceId)?.id : undefined;
+    })()
+    : undefined;
   let generalInfluenceUsed = 0;
   let generalInfluenceBonus = 0;
   let mp = ZERO_MARSHALLING_POINTS;
@@ -790,6 +866,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const atUnderDeeps = !!(charSiteDef && 'keywords' in charSiteDef
       && (charSiteDef as { keywords?: readonly string[] }).keywords?.includes('under-deeps'));
 
+    // Is this character (and thus the items/allies it bears) in the player's
+    // avatar company? Gates the "in Alatar's company" full-MP exemptions (Join
+    // the Hunt wh-93). `avatarCompanyId` is undefined when no exemption is
+    // company-restricted, so this stays false for every other card.
+    const bearerInAvatarCompany = avatarCompanyId !== undefined && charCompany?.id === avatarCompanyId;
+
     // Character MPs: prisoners contribute negative MPs
     if (isPrisoner) {
       const charMp = charDef.marshallingPoints ?? 0;
@@ -805,7 +887,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const item of char.items) {
       const itemDef = resolveDef(state, item.instanceId);
       if (!itemDef) continue;
-      const fwExempt = fwItemExemptions.length > 0 && itemExemptFromFwClamp(itemDef, fwItemExemptions);
+      const fwExempt = fwItemExemptions.length > 0 && cardExemptFromFwClamp(itemDef, fwItemExemptions, bearerInAvatarCompany);
       mp = addItemMP(mp, itemDef, player.alignment, fwExempt);
       if (atUnderDeeps) underDeepsMp = addItemMP(underDeepsMp, itemDef, player.alignment, fwExempt);
       // Apply bearer-conditional mp-modifier effects on items
@@ -833,8 +915,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const ally of char.allies) {
       const allyDef = resolveDef(state, ally.instanceId);
       if (allyDef) {
-        mp = addMP(mp, allyDef, player.alignment, fwCharAllyCaps);
-        if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, allyDef, player.alignment, fwCharAllyCaps);
+        // Join the Hunt (wh-93): a matching ally in the avatar company scores
+        // full printed MP instead of the §4 clamp (or a Great Patron cap).
+        const allyFull = fwAllyExemptions.length > 0
+          && cardExemptFromFwClamp(allyDef, fwAllyExemptions, bearerInAvatarCompany);
+        mp = addMP(mp, allyDef, player.alignment, fwCharAllyCaps, allyFull);
+        if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, allyDef, player.alignment, fwCharAllyCaps, allyFull);
       }
     }
   }
