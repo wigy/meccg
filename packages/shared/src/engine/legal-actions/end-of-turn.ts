@@ -316,6 +316,7 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
     char: import('../../index.js').CharacterInPlay,
     sourceCardId: import('../../index.js').CardInstanceId,
     sourceDefinitionId: import('../../index.js').CardDefinitionId,
+    sourceStatus: CardStatus,
   ): void {
     const sourceDef = defById(state, sourceDefinitionId);
     for (const effect of getCardEffects(sourceDef)) {
@@ -339,15 +340,19 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
 
       const filter: Condition | undefined = (fetchApply as { filter?: Condition }).filter;
 
-      // Cost check. 'self' only makes sense when the source IS the bearer
-      // character (Saruman); for attached items the cost is 'bearer'.
+      // Cost check.
+      //  - `tap: 'self'` taps the source card itself: the character for a
+      //    character-direct grant (Saruman), or the attached item for an
+      //    item-borne grant (Huntsman's Garb wh-92 — "tap Huntsman's Garb",
+      //    independent of the bearer's status). Either way the *source* must be
+      //    untapped.
+      //  - `tap: 'bearer'` taps the bearer character (Great Shadow ba-62).
       const costTap = effect.cost.tap;
-      const sourceIsCharacter = sourceCardId === charId;
-      if (costTap === 'self' && sourceIsCharacter && char.status !== CardStatus.Untapped) {
+      if (costTap === 'self' && sourceStatus !== CardStatus.Untapped) {
         logDetail(`Grant-action ${effect.action}: ${sourceDef?.name ?? sourceDefinitionId} is tapped, cannot activate`);
         continue;
       }
-      if ((costTap === 'bearer' || (costTap === 'self' && !sourceIsCharacter)) && char.status !== CardStatus.Untapped) {
+      if (costTap === 'bearer' && char.status !== CardStatus.Untapped) {
         logDetail(`Grant-action ${effect.action}: bearer of ${sourceDef?.name ?? sourceDefinitionId} is tapped, cannot activate`);
         continue;
       }
@@ -404,11 +409,13 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
   }
 
   for (const [charId, char] of characterEntries(player)) {
-    // Character's own grant-actions (e.g. Saruman).
-    scanSource(charId, char, charId, char.definitionId);
-    // Attached items' grant-actions (e.g. Wizard's Staff).
+    // Character's own grant-actions (e.g. Saruman) — `tap: self` taps the
+    // character, so its status is the source status.
+    scanSource(charId, char, charId, char.definitionId, char.status);
+    // Attached items' grant-actions (e.g. Huntsman's Garb wh-92) — `tap: self`
+    // taps the item itself, so pass the item's own status.
     for (const item of char.items) {
-      scanSource(charId, char, item.instanceId, item.definitionId);
+      scanSource(charId, char, item.instanceId, item.definitionId, item.status);
     }
   }
 
