@@ -3039,6 +3039,28 @@ export interface SeizedByTerrorCheckEffect extends EffectBase {
 }
 
 /**
+ * A play cost requiring the playing player to discard a card matching `filter`
+ * from the named `source` pile as part of playing this card. The discarded card
+ * is the player's choice — the legal-action layer offers one action per matching
+ * candidate — and (when `revealToOpponent` is set) its identity is shown to the
+ * opponent, satisfying a "show opponent" clause. If no matching card is
+ * available in the source, the card cannot be played.
+ *
+ * Used by Faces of the Dead (dm-57): "…if you discard any Undead hazard creature
+ * from your hand (show opponent)." (`source: 'hand'`,
+ * `filter: { cardType: 'hazard-creature', race: 'undead' }`, `revealToOpponent: true`).
+ */
+export interface PlayDiscardCostEffect extends EffectBase {
+  readonly type: 'play-discard-cost';
+  /** Source pile from which the cost card is discarded. Currently only `'hand'`. */
+  readonly source: 'hand';
+  /** DSL condition matched against candidate card definitions in the source pile. */
+  readonly filter: Condition;
+  /** When true, the discarded card's identity is revealed to the opponent. */
+  readonly revealToOpponent?: boolean;
+}
+
+/**
  * Declares that while this long-event is in play, any company whose
  * movement path crosses the listed region names (or region types) faces
  * a creature-like Dragon attack during the order-effects step (CoE step 4).
@@ -3519,6 +3541,7 @@ export type CardEffect =
   | ForceCheckAllCompanyTopEffect
   | CompanyStrikeEffect
   | SeizedByTerrorCheckEffect
+  | PlayDiscardCostEffect
   | RollRemoveHazardEventsEffect
   | AgentTapInfluenceEffect
   | AgentTapAttackEffect

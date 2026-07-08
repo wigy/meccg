@@ -167,6 +167,14 @@ export interface PlayHazardAction {
    * top-level effects resolve through the corresponding event chain path.
    */
   readonly altEventMode?: 'short-event' | 'permanent-event';
+  /**
+   * For hazard short-events carrying a {@link PlayDiscardCostEffect} (e.g. Faces
+   * of the Dead dm-57: "discard any Undead hazard creature from your hand"), the
+   * hand card the playing player discards to pay the play cost. The legal-action
+   * generator emits one action per (target × matching cost card) so the player
+   * chooses which card to sacrifice; the reducer moves it to the discard pile.
+   */
+  readonly costDiscardInstanceId?: CardInstanceId;
 }
 
 /**

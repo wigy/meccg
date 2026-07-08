@@ -2043,6 +2043,26 @@ function playHazardsActions(
           // corruption card — only one per character per turn.
           const isShortCorruption = 'keywords' in def
             && (def as { keywords?: readonly string[] }).keywords?.includes('corruption') === true;
+          // play-discard-cost (Faces of the Dead dm-57): the short event may only
+          // be played if the hazard player discards a matching card from hand as
+          // a cost. Gather candidate cost cards up front; the per-character action
+          // is cross-multiplied by each candidate so the player picks which card
+          // to sacrifice. If none match, the card is not playable at all.
+          const discardCostEffect = getCardEffects(def).find(
+            (e): e is import('../../index.js').PlayDiscardCostEffect => e.type === 'play-discard-cost',
+          );
+          const discardCostCards = discardCostEffect
+            ? player.hand.filter(c => {
+                if (c.instanceId === cardInstId) return false;
+                const cDef = defById(state, c.definitionId);
+                return cDef ? matchesCondition(discardCostEffect.filter, cDef as unknown as Record<string, unknown>) : false;
+              })
+            : [];
+          if (discardCostEffect && discardCostCards.length === 0) {
+            logDetail(`Hazard short-event "${def.name}": no card in hand matches the discard cost`);
+            actions.push({ action, viable: false, reason: `${def.name}: no matching card in hand to discard as cost` });
+            continue;
+          }
           for (const charId of targetCompany.characters) {
             const charData = resourcePlayer.characters[charId];
             const charDef = charData ? defById(state, charData.definitionId) : undefined;
@@ -2101,10 +2121,19 @@ function playHazardsActions(
               continue;
             }
             logDetail(`Hazard short-event "${def.name}" playable on character ${charId as string}`);
-            actions.push({
-              action: { ...action, targetCharacterId: charId },
-              viable: true,
-            });
+            if (discardCostEffect) {
+              for (const costCard of discardCostCards) {
+                actions.push({
+                  action: { ...action, targetCharacterId: charId, costDiscardInstanceId: costCard.instanceId },
+                  viable: true,
+                });
+              }
+            } else {
+              actions.push({
+                action: { ...action, targetCharacterId: charId },
+                viable: true,
+              });
+            }
           }
           continue;
         }
