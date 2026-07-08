@@ -1249,15 +1249,22 @@ export function defNamesOf(state: GameState, instances: readonly { readonly defi
  * against a specific company (the play-target character's company for a
  * character-targeting permanent event).
  *
- * Exposes `{ site: { name, type }, company: { characterNames, itemNames,
- * allyNames, playedUniqueHeroFactionAtFreeHold } }`. `itemNames` aggregates
- * every item / attached permanent event borne by any character in the company,
- * so a card can gate on "in the same company as <named card>" (the named card
- * being attached to a company-mate). `playedUniqueHeroFactionAtFreeHold` is the
- * caller-supplied site-phase flag (true only when this company has, this site
- * phase, played a unique hero faction at a Free-hold that is not Bag End).
+ * Exposes `{ site: { name, type, isOwnWizardhaven }, company: { characterNames,
+ * itemNames, allyNames, playedUniqueHeroFactionAtFreeHold } }`. `itemNames`
+ * aggregates every item / attached permanent event borne by any character in
+ * the company, so a card can gate on "in the same company as <named card>" (the
+ * named card being attached to a company-mate). `playedUniqueHeroFactionAtFreeHold`
+ * is the caller-supplied site-phase flag (true only when this company has, this
+ * site phase, played a unique hero faction at a Free-hold that is not Bag End).
+ * `site.isOwnWizardhaven` is `true` when the company's current site is one of the
+ * player's own Wizardhavens (a Fallen-wizard haven, or a site converted into one
+ * via Hidden Haven wh-75) — this is what "at one of your Wizardhavens [{H}]"
+ * means, distinguishing a Fallen-wizard's own havens from generic METW
+ * Havens/MELE Darkhavens that merely share `type: "haven"`.
  *
- * Used by To Fealty Sworn (ba-33).
+ * Used by To Fealty Sworn (ba-33) and the Fallen-wizard "squire" companions
+ * (Squire of the Hunt wh-95, Gandalf's Friend wh-98, Pallando's Apprentice
+ * wh-104).
  */
 export function matchesCompanyContextCondition(
   state: GameState,
@@ -1266,9 +1273,15 @@ export function matchesCompanyContextCondition(
   condition: Condition,
   playedUniqueHeroFactionAtFreeHold: boolean,
 ): boolean {
-  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const siteDefId = company.currentSite?.definitionId;
+  const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
   const siteName = siteDef?.name;
   const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : undefined;
+  const isOwnWizardhaven = isHavenForPlayer(
+    siteDef,
+    player.alignment,
+    siteDefId ? { state, siteDefinitionId: siteDefId, playerId: player.id } : undefined,
+  );
 
   const characterNames: string[] = [];
   const itemNames: string[] = [];
@@ -1283,7 +1296,7 @@ export function matchesCompanyContextCondition(
   }
 
   const context: Record<string, unknown> = {
-    site: { name: siteName, type: siteType },
+    site: { name: siteName, type: siteType, isOwnWizardhaven },
     company: { characterNames, itemNames, allyNames, playedUniqueHeroFactionAtFreeHold },
   };
   return matchesCondition(condition, context);

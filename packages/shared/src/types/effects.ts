@@ -2814,20 +2814,26 @@ export interface PlayConditionEffect extends EffectBase {
    *
    * For `requires: 'company-context'`: a generic DSL condition evaluated
    * against the **play-target character's company** (for a character-targeting
-   * permanent event), exposing `{ site: { name, type }, company: {
-   * characterNames, itemNames, allyNames, playedUniqueHeroFactionAtFreeHold }
-   * } }`. `itemNames` aggregates every item / attached permanent event borne by
-   * any character in the company, so a card can gate on "in the same company as
-   * <named card>" (the named card being attached to a company-mate).
-   * `playedUniqueHeroFactionAtFreeHold` is `true` only during the site phase and
-   * only for the active company once it has, this site phase, successfully played
-   * a unique hero faction at a Free-hold that is not Bag End. Unlike
-   * `active-company` (evaluated against the site-phase active company for
-   * short-events), this condition is evaluated per target company in the
-   * character-target permanent-event play paths (organization + site phases).
+   * permanent event), exposing `{ site: { name, type, isOwnWizardhaven },
+   * company: { characterNames, itemNames, allyNames,
+   * playedUniqueHeroFactionAtFreeHold } }`. `itemNames` aggregates every item /
+   * attached permanent event borne by any character in the company, so a card
+   * can gate on "in the same company as <named card>" (the named card being
+   * attached to a company-mate). `site.isOwnWizardhaven` is `true` when the
+   * company's current site is one of the player's own Wizardhavens (a
+   * Fallen-wizard haven, or a Hidden-Haven-converted site), the meaning of "at
+   * one of your Wizardhavens [{H}]" — distinct from a generic haven that merely
+   * shares `type: "haven"`. `playedUniqueHeroFactionAtFreeHold` is `true` only
+   * during the site phase and only for the active company once it has, this site
+   * phase, successfully played a unique hero faction at a Free-hold that is not
+   * Bag End. Unlike `active-company` (evaluated against the site-phase active
+   * company for short-events), this condition is evaluated per target company in
+   * the character-target permanent-event play paths (organization + site phases).
    * Used by To Fealty Sworn (ba-33): "Playable on a Hobbit: in the same company
    * as Return of the King or during the same site phase his company plays a
-   * unique hero faction at a Free-hold [{F}] (not Bag End)."
+   * unique hero faction at a Free-hold [{F}] (not Bag End)." — and the
+   * Fallen-wizard squire companions (Squire of the Hunt wh-95) via
+   * `{ "site.isOwnWizardhaven": true }`.
    *
    * For `requires: 'player-state'`: a generic DSL condition evaluated
    * against the active player's avatar/alignment context:

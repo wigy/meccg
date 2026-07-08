@@ -3127,11 +3127,15 @@ check) and `reducer-events.ts` (discard execution).
 - `company-context` — for **character-targeting permanent-events**: a generic
   DSL `condition` evaluated against the **play-target character's company**
   (per target company in the organization + site phase char-target play paths),
-  exposing `{ site: { name, type }, company: { characterNames, itemNames,
-  allyNames, playedUniqueHeroFactionAtFreeHold } }`. `itemNames` aggregates
-  every item / attached permanent event borne by any character in the company,
-  so a card can gate on "in the same company as `<named card>`" (the named card
-  being attached to a company-mate). `playedUniqueHeroFactionAtFreeHold` is
+  exposing `{ site: { name, type, isOwnWizardhaven }, company: { characterNames,
+  itemNames, allyNames, playedUniqueHeroFactionAtFreeHold } }`. `itemNames`
+  aggregates every item / attached permanent event borne by any character in the
+  company, so a card can gate on "in the same company as `<named card>`" (the
+  named card being attached to a company-mate). `site.isOwnWizardhaven` is `true`
+  when the company's current site is one of the **player's own Wizardhavens** (a
+  Fallen-wizard haven, or a Hidden-Haven-converted site) — the meaning of "at one
+  of your Wizardhavens [{H}]", distinct from a generic METW Haven / MELE Darkhaven
+  that merely shares `type: "haven"`. `playedUniqueHeroFactionAtFreeHold` is
   `true` only during the site phase and only once the active company has, this
   site phase, successfully played a unique hero faction at a Free-hold that is
   not Bag End (tracked on `SitePhaseState.uniqueHeroFactionPlayedAtFreeHold`,
@@ -3141,7 +3145,9 @@ check) and `reducer-events.ts` (discard execution).
   `legal-actions/site.ts`. Used by To Fealty Sworn (ba-33): "Playable on a
   Hobbit: in the same company as Return of the King or during the same site
   phase his company plays a unique hero faction at a Free-hold [{F}] (not Bag
-  End)."
+  End)."; and Squire of the Hunt (wh-95): "Playable on one of your warrior
+  characters at one of your Wizardhavens [{H}]" via
+  `{ "site.isOwnWizardhaven": true }`.
 
 ```json
 { "type": "play-condition", "requires": "company-context",
