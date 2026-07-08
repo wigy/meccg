@@ -17,7 +17,9 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard } from '../index.js';
-import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect } from '../types/effects.js';
+import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, PlayDiscardCostEffect } from '../types/effects.js';
+import type { CardInstance } from '../index.js';
+import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import type { CompanyId } from '../types/common.js';
@@ -809,7 +811,31 @@ export function handlePlayHazardCard(
     logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
 
     // Move card from hand to discard (short events are discarded after resolution)
-    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+    let newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+
+    // play-discard-cost (Faces of the Dead dm-57): pay the play cost by discarding
+    // a matching card the player chose from hand. The chosen card is validated
+    // against the effect's filter; when the effect declares "show opponent"
+    // (revealToOpponent), its identity is revealed to the opponent.
+    const discardCostEffect = getCardEffects(def).find(
+      (e): e is PlayDiscardCostEffect => e.type === 'play-discard-cost',
+    );
+    let costDiscardCard: CardInstance | undefined;
+    if (discardCostEffect && action.type === 'play-hazard' && action.costDiscardInstanceId) {
+      const chosen = findById(hazardPlayer.hand, action.costDiscardInstanceId);
+      const costDef = chosen ? defById(state, chosen.definitionId) : undefined;
+      const matches = costDef
+        ? matchesCondition(discardCostEffect.filter, costDef as unknown as Record<string, unknown>)
+        : false;
+      if (chosen && matches) {
+        costDiscardCard = chosen;
+        newHand = removeById(newHand, chosen.instanceId);
+        logDetail(`Play-hazards: "${def.name}" discard cost paid — discarding "${costDef?.name ?? chosen.definitionId}" from hand${discardCostEffect.revealToOpponent ? ' (shown to opponent)' : ''}`);
+      }
+    }
+    if (discardCostEffect && !costDiscardCard) {
+      return { state, error: `${def.name} requires discarding a matching card from hand to play` };
+    }
 
     // CoE rule 7.2.1: only one corruption card may be played per character per
     // turn. Corruption-keyword short-events played on a character (e.g.
@@ -825,7 +851,7 @@ export function handlePlayHazardCard(
       ...updatePlayer(state, hazardIndex, p => ({
         ...p,
         hand: newHand,
-        discardPile: [...p.discardPile, handCard],
+        discardPile: [...p.discardPile, handCard, ...(costDiscardCard ? [costDiscardCard] : [])],
       })),
       phaseState: {
         ...mhState,
@@ -834,6 +860,11 @@ export function handlePlayHazardCard(
         corruptionCardsPlayedPerChar: shortCorruptionPerChar,
       },
     };
+
+    // "show opponent" — reveal the discarded cost card's identity.
+    if (costDiscardCard && discardCostEffect?.revealToOpponent) {
+      newState = revealInstances(newState, [costDiscardCard]);
+    }
 
     // creature-race-choice: add constraint for the chosen race. The kind
     // of constraint depends on the effect's `apply.constraint` name —

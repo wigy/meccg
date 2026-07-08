@@ -6428,3 +6428,61 @@ revealed. Alternatively, as a short-event, take any agent who has a home site
 that is a Shadow-hold or Dark-hold from your play deck into your hand (reveal it
 to your opponent and reshuffle your play deck). Cannot be played if your opponent
 is a minion player."
+
+### 59. `seized-by-terror-check`
+
+Hazard short-event check played on a **character** in the active Movement/Hazard
+company (paired with a `play-target` `target: 'character'` and, typically, a
+`play-condition` `requires: 'site-path'`). When the short-event chain entry
+resolves un-negated (`chain-reducer.ts`), the engine enqueues a
+`seized-by-terror-roll` pending resolution: the targeted character's player rolls
+2d6 and adds the character's mind. If `roll + mind < threshold`, the character
+**splits off into a new company** that immediately returns to the original
+company's site of origin (`splitCharacterToOrigin` in `pending-reducers.ts` — a
+lone character's whole company returns to origin; otherwise the character forms a
+new solo company at the origin site). No card instance is lost.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `threshold` | yes | Roll + character mind must be **≥** this to keep the character in the moving company. |
+
+```json
+{ "type": "seized-by-terror-check", "threshold": 12 }
+```
+
+Used by Seized by Terror (dm-88, threshold 12, keyed to Shadow-land/Dark-domain)
+and Faces of the Dead (dm-57, threshold 13, keyed to two Wildernesses — see
+`play-discard-cost` below).
+
+### 60. `play-discard-cost`
+
+A **play cost** requiring the playing player to discard a card matching `filter`
+from the named `source` pile as part of playing the card. The legal-action layer
+offers one action per matching candidate (cross-multiplied with any character
+target) so the player chooses which card to sacrifice; if no candidate is
+available, the card is not playable at all. When `revealToOpponent` is set, the
+discarded card's identity is revealed to the opponent (`revealInstances`),
+satisfying a "show opponent" clause. The chosen card is carried on the
+`play-hazard` action as `costDiscardInstanceId`; the reducer
+(`mh-hazard-play.ts`) validates it against `filter`, moves it to the discard
+pile, and rejects the play if the cost was not paid.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `source` | yes | Pile the cost card is discarded from. Currently only `"hand"`. |
+| `filter` | yes | DSL condition matched against candidate card definitions in the source. |
+| `revealToOpponent` | no | When `true`, the discarded card's identity is revealed to the opponent. |
+
+```json
+{ "type": "play-discard-cost",
+  "source": "hand",
+  "filter": { "cardType": "hazard-creature", "race": "undead" },
+  "revealToOpponent": true }
+```
+
+Used by Faces of the Dead (dm-57): "Playable on a non-Wizard character moving
+with at least two Wildernesses [{w}] in his site path **if you discard any Undead
+hazard creature from your hand (show opponent)**." Modeled as a `play-condition`
+(`site-path`, `sitePath.wildernessCount >= 2`), this `play-discard-cost`, a
+`play-target` (`character`, `target.race != wizard`), and a
+`seized-by-terror-check` (`threshold: 13`).
