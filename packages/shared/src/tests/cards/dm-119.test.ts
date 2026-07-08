@@ -41,7 +41,7 @@ import {
   BARROW_DOWNS, MINAS_TIRITH, MORIA,
   Phase, RegionType, SiteType, CardStatus, computeLegalActions,
 } from '../../index.js';
-import type { CardDefinitionId, CardInstanceId, ResolveStrikeAction } from '../../index.js';
+import type { CardDefinitionId, ResolveStrikeAction } from '../../index.js';
 
 const BARROW_BLADE = 'dm-119' as CardDefinitionId;
 
