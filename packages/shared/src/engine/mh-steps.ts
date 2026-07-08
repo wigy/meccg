@@ -24,7 +24,7 @@ import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex, companyContainsBalrogAvatar } from '../state-utils.js';
 import { isCharacterCard, isSiteCard } from '../types/cards.js';
 import { RegionType, Race, Skill, Alignment } from '../types/common.js';
-import { collectCharacterEffects, resolveDrawModifier } from './effects/index.js';
+import { collectCharacterEffects, collectPlayerInPlayEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
 import type { ResolverContext, CollectedEffect } from './effects/index.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
@@ -775,6 +775,11 @@ export function transitionToDrawCards(state: GameState, mhState: MovementHazardP
   const sitePathCounts = {
     wildernessCount: 0, shadowCount: 0, darkCount: 0,
     coastalCount: 0, freeCount: 0, borderCount: 0,
+    // Total number of regions in the site path (all types). Exposed so
+    // effects can gate/scale on path length, e.g. A Short Rest (td-95):
+    // "draw an extra card for each region less than four in its site path"
+    // via the expression "4 - sitePath.regionCount".
+    regionCount: mhState.resolvedSitePath.length,
   };
   for (const rt of mhState.resolvedSitePath) {
     switch (rt) {
@@ -786,12 +791,28 @@ export function transitionToDrawCards(state: GameState, mhState: MovementHazardP
       case RegionType.Border: sitePathCounts.borderCount++; break;
     }
   }
-  const drawContext: ResolverContext = { reason: 'draw-modifier', sitePath: sitePathCounts };
+  // Expose the movement type so a draw-modifier can require an actual region
+  // site path. A Short Rest only works for companies with a site path — never
+  // under-deeps or special movement (CRF 22 ruling) — both of which resolve to
+  // an empty path / movementType 'under-deeps' | 'special'.
+  const drawContext: ResolverContext = {
+    reason: 'draw-modifier',
+    sitePath: sitePathCounts,
+    movementType: mhState.movementType,
+  };
   const allDrawEffects = company.characters.flatMap(charInstId => {
     const char = player.characters[charInstId];
     if (!char) return [];
     return collectCharacterEffects(state, char, drawContext);
   });
+  // Draw-modifiers may also come from the moving player's own in-play
+  // events/environments (resource long-events like A Short Rest td-95), not
+  // just company characters. Collecting from the *active* player's cardsInPlay
+  // scopes the bonus to their companies only — the opponent never benefits.
+  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  if (activePlayerIndex >= 0) {
+    allDrawEffects.push(...collectPlayerInPlayEffects(state, activePlayerIndex, drawContext));
+  }
   const exprContext = drawContext as unknown as Record<string, unknown>;
   const hazardMod = resolveDrawModifier(allDrawEffects, 'hazard', exprContext);
   if (hazardMod.adjustment !== 0) {

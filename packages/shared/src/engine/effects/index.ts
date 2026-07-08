@@ -12,6 +12,7 @@ export {
   collectCharacterEffects,
   collectCompanyAllyEffects,
   collectGlobalEffects,
+  collectPlayerInPlayEffects,
   resolveStatModifiers,
   resolveCheckModifier,
   resolveDrawModifier,
