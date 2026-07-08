@@ -1352,9 +1352,45 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.avatar": "Alatar" }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": { "site.isOwnWizardhaven": true }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "$and": [{ "target.isAvatar": { "$ne": true } }, { "target.skills": { "$includes": "warrior" } }] }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1
+      },
+      {
+        "type": "control-restriction",
+        "cost": 2,
+        "sources": ["general", "fallen-wizard"]
       }
     ],
-    "text": "Unique.Alatar specific. Warrior only. Playable on one of your warrior characters at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Alatar."
+    "text": "Unique.Alatar specific. Warrior only. Playable on one of your warrior characters at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Alatar.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",
