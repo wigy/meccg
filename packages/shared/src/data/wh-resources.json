@@ -1257,9 +1257,19 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Alatar" }
+      },
+      {
+        "type": "face-strike-on-tap",
+        "bodyReductionOnParry": 1
       }
     ],
-    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Bow of Alatar to allow him to face a strike from an attack against his company regardless of the attack’s normal capabilities and his status. If such a strike fails, the attack’s body is reduced by 1."
+    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Bow of Alatar to allow him to face a strike from an attack against his company regardless of the attack’s normal capabilities and his status. If such a strike fails, the attack’s body is reduced by 1.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",

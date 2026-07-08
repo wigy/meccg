@@ -203,6 +203,14 @@ export interface StrikeAssignment {
    * resolve-strike sub-phase: attacker declares first, then defender resolves.
    */
   readonly attackerTapToFight?: boolean;
+  /**
+   * When set, this strike was assigned to its facing character via a
+   * `face-strike-on-tap` item (e.g. Bow of Alatar wh-90). If the character
+   * defeats (parries) the strike — the strike fails to wound him — the attack's
+   * body ({@link CombatState.creatureBody}) is reduced by this amount for the
+   * rest of the combat. Absent for ordinary strike assignments.
+   */
+  readonly reduceAttackBodyOnParry?: number;
 }
 
 /**

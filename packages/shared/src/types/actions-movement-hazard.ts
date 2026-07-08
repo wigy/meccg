@@ -437,6 +437,26 @@ export interface TapItemForStrikeAction {
 }
 
 /**
+ * Tap an in-play `face-strike-on-tap` item (e.g. Bow of Alatar wh-90) during
+ * the `assign-strikes` defender phase to let its bearer face one of the
+ * attack's strikes regardless of the attack's normal capabilities and the
+ * bearer's status. Legal while the item is untapped, its bearer is in the
+ * defending company, and an unassigned strike remains. Taps the item and adds a
+ * strike assignment to the bearer flagged to reduce the attack's body if the
+ * bearer parries it.
+ */
+export interface FaceStrikeOnTapAction {
+  /** Action discriminant. */
+  readonly type: 'face-strike-on-tap';
+  /** The defending player tapping the item. */
+  readonly player: PlayerId;
+  /** The in-play `face-strike-on-tap` item being tapped. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character bearing the item (must be in the defending company). */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * Tap an in-play ally during combat to grant an attack-scoped stat boost to
  * matching characters in the ally's own company (e.g. Great Lord of
  * Goblin-gate as-75: "Tap to give +2 prowess to all Orcs in its company").

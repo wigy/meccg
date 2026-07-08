@@ -457,13 +457,30 @@ export function resolveStrikeCore(
     return { state: { ...postPrisonerState, combat: combatWithShieldRoll }, effects };
   }
 
+  // face-strike-on-tap (Bow of Alatar wh-90): when the facing character parries
+  // the strike he took via the item — the strike fails to wound him
+  // (characterTotal >= effectiveProwess) — the attack's body is reduced for the
+  // rest of the combat, making the creature easier to defeat via its body
+  // checks. The reduction applies immediately, including to this strike's own
+  // creature body check.
+  const faceStrikeReduction = strike.reduceAttackBodyOnParry ?? 0;
+  const strikeParried = characterTotal >= effectiveProwess;
+  const combatBase: CombatState =
+    faceStrikeReduction > 0 && strikeParried && combat.creatureBody !== null
+      ? (() => {
+          const reduced = Math.max(0, combat.creatureBody - faceStrikeReduction);
+          logDetail(`Bow of Alatar: parried strike — attack body reduced ${combat.creatureBody} → ${reduced}`);
+          return { ...combat, creatureBody: reduced };
+        })()
+      : combat;
+
   // Advance combat: body check, next strike, or finalize
   let newCombat: CombatState;
   if (bodyCheckTarget) {
-    newCombat = { ...combat, strikeAssignments: newAssignments, phase: 'body-check', bodyCheckTarget };
+    newCombat = { ...combatBase, strikeAssignments: newAssignments, phase: 'body-check', bodyCheckTarget };
     return { state: { ...postPrisonerState, combat: newCombat }, effects };
   } else {
-    const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
+    const combatWithAssignments = { ...combatBase, strikeAssignments: newAssignments };
 
     // An Article Missing: enter discard-item-from-company phase so the defender
     // must choose one item to discard before combat continues.
