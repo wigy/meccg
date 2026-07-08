@@ -14,7 +14,7 @@ import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleCombatPlayHazard } from './combat-hazard-play.js';
 import { nextStrikePhase, handleResolveStrike } from './combat-strike.js';
 import { handleCancelAttack, handleCancelByTap } from './combat-cancel.js';
-import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
+import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
 
 /**
  * Signature shared by every combat-active action handler. Each handler takes
@@ -51,6 +51,7 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   'protect-from-assignment': handleProtectFromStrikeAssignment,
   'halve-strikes': handleHalveStrikes,
   'tap-item-for-strike': handleTapItemForStrike,
+  'face-strike-on-tap': handleFaceStrikeOnTap,
   'tap-ally-combat-boost': handleTapAllyCombatBoost,
   'tap-ally-body-check-boost': handleTapAllyBodyCheckBoost,
   'modify-attack': handleModifyAttack,

@@ -2805,6 +2805,36 @@ export interface ModifyAttackEffect extends EffectBase {
 }
 
 /**
+ * An in-play item (or character-attached permanent event) that may be tapped
+ * during a creature/automatic-attack's strike-assignment window to let its
+ * bearer face one of the attack's strikes **regardless of the attack's normal
+ * capabilities and the bearer's status** — i.e. the bearer takes on a strike
+ * even while tapped or wounded, and even when the attack's normal rules would
+ * not direct a strike at him. Offered only to the defending player during the
+ * `assign-strikes` defender phase, while the item is untapped, its bearer is in
+ * the defending company, and an unassigned strike remains. Activating taps the
+ * item and adds a forced strike assignment to the bearer.
+ *
+ * If `bodyReductionOnParry` is set and the bearer subsequently defeats (parries)
+ * that strike — the strike "fails" to wound him — the attack's body
+ * ({@link CombatState.creatureBody}) is reduced by that amount for the rest of
+ * the combat, making the creature easier to defeat via its own body checks.
+ *
+ * Used by Bow of Alatar (wh-90): "you may tap Bow of Alatar to allow him to face
+ * a strike from an attack against his company regardless of the attack's normal
+ * capabilities and his status. If such a strike fails, the attack's body is
+ * reduced by 1."
+ */
+export interface FaceStrikeOnTapEffect extends EffectBase {
+  readonly type: 'face-strike-on-tap';
+  /**
+   * Amount subtracted from the attack's body (floored at 0) when the bearer
+   * parries the strike he faced via this ability. Omit for no body reduction.
+   */
+  readonly bodyReductionOnParry?: number;
+}
+
+/**
  * Declares that an item can be stored during the Organization phase when
  * the bearer's company is at a matching site. Storing moves the item from
  * the character to the player's stored-items pile, where it earns
@@ -3563,6 +3593,7 @@ export type CardEffect =
   | CancelInfluenceEffect
   | StrikeModifierEffect
   | ModifyAttackEffect
+  | FaceStrikeOnTapEffect
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect
   | CombatAttackerChoosesDefendersEffect

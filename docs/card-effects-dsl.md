@@ -1974,6 +1974,38 @@ Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
 and `engine/reducer-combat.ts` (`handleModifyAttack`), with cancel
 protection in `engine/combat-cancel.ts` (`resolveCancelAttackEntry`).
 
+### 10f. `face-strike-on-tap`
+
+Activated ability on an in-play item (or character-attached permanent event)
+that lets its bearer face one of an attack's strikes **regardless of the
+attack's normal capabilities and the bearer's status**. During the
+`assign-strikes` defender phase, while the item is untapped, its bearer is in
+the defending company, and an unassigned strike remains, the defending player
+may tap the item (the new `face-strike-on-tap` action) to add a strike-facing to
+the bearer — even if he is tapped or wounded (the ordinary untapped-status gate
+is bypassed) and even if the attack's normal rules would not direct a strike at
+him.
+
+If `bodyReductionOnParry` is set and the bearer then **parries** that strike (it
+fails to wound him — `characterTotal >= creature prowess`), the attack's body
+(`CombatState.creatureBody`) is reduced by that amount for the rest of the
+combat, applied immediately (including to that strike's own creature body
+check), making the creature easier to defeat via its body checks.
+
+```json
+{ "type": "face-strike-on-tap", "bodyReductionOnParry": 1 }
+```
+
+Example: Bow of Alatar (wh-90) — placed on Alatar (`play-target` `character`
+filter `{ "target.name": "Alatar" }`); tap to let Alatar face a strike
+regardless of capabilities/status, reducing the attack's body by 1 if he parries
+it. The card also carries `stage-points` 2.
+
+Implemented in `engine/legal-actions/combat.ts` (`assignStrikeActions` defender
+branch), `engine/combat-actions.ts` (`handleFaceStrikeOnTap`), and the parry
+body reduction in `engine/combat-strike.ts` (`resolveStrikeCore`), keyed by
+`StrikeAssignment.reduceAttackBodyOnParry`.
+
 ### 11. `cancel-strike`
 
 Pay a cost to cancel an incoming strike, with optional exclusions.
