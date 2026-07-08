@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, CardDefinition, CardDefinitionId } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, RegionType, CardDefinition, CardDefinitionId } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -120,6 +120,7 @@ function siteMatchesEntry(
   siteDef: SiteCard,
   entry: PlayableAtEntry,
   effectiveSiteType: SiteType = siteDef.siteType,
+  regionType?: RegionType,
 ): boolean {
   if ('region' in entry) {
     // Region entries match any non-haven site in the named region.
@@ -136,6 +137,11 @@ function siteMatchesEntry(
     site: {
       name: siteDef.name,
       siteType: effectiveSiteType,
+      // The region *type* of the site (from the separate region card). Lets a
+      // faction gate on "Ruins & Lairs in a Wilderness" (Wild Hounds wh-40) via
+      // `when: { "site.regionType": "wilderness" }`. Only supplied by callers
+      // that have `state` in scope (the faction paths); undefined elsewhere.
+      regionType,
       region: siteDef.region,
       autoAttack: { race: autoAttackRaces },
     },
@@ -1463,7 +1469,8 @@ function playResourcesActions(
       const factionEffSiteType = siteDefForFaction && siteDefId
         ? getEffectiveSiteType(state, siteDefId, siteDefForFaction.siteType)
         : siteDefForFaction?.siteType;
-      if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType))) {
+      const factionRegionType = siteRegionTypeOf(state, siteDefForFaction);
+      if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType, factionRegionType))) {
         const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: not playable at ${siteName}`));
@@ -1541,6 +1548,7 @@ function playResourcesActions(
             controller: {
               inPlay: buildControllerInPlayNames(state, playerId),
               factionRaces: buildControllerFactionRaces(state, playerId),
+              wizard: playerWizardName(state, player),
             },
           };
           const charEffects = collectCharacterEffects(state, ch, resolverCtx);
@@ -2055,7 +2063,7 @@ function opponentInfluenceActions(
     const factionDef = defById(state, factionInPlay.definitionId);
     if (!factionDef || !isFactionCard(factionDef)) continue;
 
-    if (!factionDef.playableAt.some(entry => siteMatchesEntry(siteDef, entry))) {
+    if (!factionDef.playableAt.some(entry => siteMatchesEntry(siteDef, entry, undefined, siteRegionTypeOf(state, siteDef)))) {
       logDetail(`Opponent influence: ${factionDef.name} not playable at ${siteDef.name} — skip`);
       continue;
     }

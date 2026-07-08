@@ -479,11 +479,38 @@
     "race": "animal",
     "playableAt": [
       {
-        "site": "any"
+        "siteType": "ruins-and-lairs",
+        "when": { "site.regionType": "wilderness" }
       }
     ],
-    "effects": [],
-    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] in a Wilderness [{w}] if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Discard this faction to cancel an automatic-attack at a Ruins & Lairs [{R}] or an attack keyed to Wilderness [{w}] or Ruins & Lairs [{R}]. May also be used as a minion resource card that is only playable by a character in a covert company."
+    "effects": [
+      { "type": "play-flag", "flag": "playable-at-tapped-site" },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 3,
+        "when": { "controller.wizard": "Radagast" }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": { "discard": "self" },
+        "handModeRequiresCovert": true,
+        "when": {
+          "$or": [
+            {
+              "$and": [
+                { "attack.source": "automatic-attack" },
+                { "site.type": "ruins-and-lairs" }
+              ]
+            },
+            { "attack.keying": "wilderness" },
+            { "attack.siteKeyingTypes": "ruins-and-lairs" }
+          ]
+        }
+      }
+    ],
+    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] in a Wilderness [{w}] if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Discard this faction to cancel an automatic-attack at a Ruins & Lairs [{R}] or an attack keyed to Wilderness [{w}] or Ruins & Lairs [{R}]. May also be used as a minion resource card that is only playable by a character in a covert company.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",

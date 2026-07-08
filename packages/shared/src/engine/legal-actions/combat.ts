@@ -1720,6 +1720,11 @@ function cancelAttackActions(
     if (combat.attackKeying && combat.attackKeying.length > 0) {
       attackCtx['keying'] = combat.attackKeying;
     }
+    // Site-type keying (e.g. a creature keyed to a Ruins & Lairs [{R}]). Lets a
+    // card gate on "an attack keyed to Ruins & Lairs" (Wild Hounds wh-40).
+    if (combat.attackSiteKeyingTypes && combat.attackSiteKeyingTypes.length > 0) {
+      attackCtx['siteKeyingTypes'] = combat.attackSiteKeyingTypes;
+    }
     const isSiteKeyedCreature = (
       combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
     ) && !(combat.attackKeying && combat.attackKeying.length > 0);
@@ -1737,6 +1742,9 @@ function cancelAttackActions(
     attackCtx['heroCompany'] = heroCompany;
     ctx['attack'] = attackCtx;
     ctx['bearer'] = { companySize: company.characters.length, atHaven, destinationRegion };
+    // The defending company's current site type (e.g. "ruins-and-lairs"). Lets a
+    // card gate on "an automatic-attack at a Ruins & Lairs" (Wild Hounds wh-40).
+    ctx['site'] = { type: siteType };
     ctx['defender'] = { covert: isCovertCompany(company, player, state) };
     return ctx;
   };
@@ -1847,6 +1855,56 @@ function cancelAttackActions(
     }
   }
 
+  // Wild Hounds family (wh-40): a dual-alignment faction carrying a
+  // `cancel-attack` effect with `cost: { discard: "self" }`. Two sources:
+  //   (a) the controlled faction in play — discard it to cancel a qualifying
+  //       attack (available to whoever controls it, no covert/alignment gate); and
+  //   (b) the card in hand — played as a minion resource, but ONLY by a covert
+  //       company and only by a minion (Ringwraith) player.
+  // Both are handled here so they are not double-offered by the generic hand
+  // loop below (which skips discard-cost cancel-attack cards).
+  for (const inPlayCard of player.cardsInPlay) {
+    const def = defById(state, inPlayCard.definitionId);
+    const cancelEffect = getCardEffects(def).find(
+      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
+    );
+    if (!cancelEffect || cancelEffect.cost?.discard !== 'self') continue;
+    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
+      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: when condition not met (in-play faction discard)`);
+      continue;
+    }
+    logDetail(`Cancel-attack available: discard ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string} (in-play faction)`);
+    actions.push({
+      action: { type: 'cancel-attack', player: playerId, cardInstanceId: inPlayCard.instanceId },
+      viable: true,
+    });
+  }
+  for (const handCard of player.hand) {
+    const def = defById(state, handCard.definitionId);
+    const cancelEffect = getCardEffects(def).find(
+      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
+    );
+    if (!cancelEffect || cancelEffect.cost?.discard !== 'self' || !cancelEffect.handModeRequiresCovert) continue;
+    // Minion resource card, only playable by a character in a covert company.
+    if (player.alignment !== Alignment.Ringwraith) {
+      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: hand (minion resource) mode requires a minion player`);
+      continue;
+    }
+    if (!isCovertCompany(company, player, state)) {
+      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: hand (minion resource) mode requires a covert company`);
+      continue;
+    }
+    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
+      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: when condition not met (minion resource)`);
+      continue;
+    }
+    logDetail(`Cancel-attack available: play ${(def as { name?: string })?.name ?? handCard.definitionId as string} from hand (minion resource, covert company)`);
+    actions.push({
+      action: { type: 'cancel-attack', player: playerId, cardInstanceId: handCard.instanceId },
+      viable: true,
+    });
+  }
+
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
     const cancelEffect = getCardEffects(cardDef).find(
@@ -1861,6 +1919,11 @@ function cancelAttackActions(
     const tapCost = cancelEffect.cost?.tap;
     if (tapCost === 'self' || tapCost === 'self-and-bearer' || tapCost === 'bearer') {
       logDetail(`Cancel-attack ${handCard.definitionId as string}: tap cost "${tapCost}" requires card in play, skipping hand card`);
+      continue;
+    }
+    // A `discard: "self"` cancel-attack is the Wild Hounds dual-faction mode
+    // handled by the dedicated blocks above — do not also offer it here.
+    if (cancelEffect.cost?.discard === 'self') {
       continue;
     }
 

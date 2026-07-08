@@ -74,6 +74,38 @@ export function handleCancelAttackByInPlayAlly(
 }
 
 /**
+ * Handle cancel-attack sourced from an in-play controlled faction that is
+ * discarded to cancel (Wild Hounds wh-40: "Discard this faction to cancel an
+ * automatic-attack at a Ruins & Lairs or an attack keyed to Wilderness or
+ * Ruins & Lairs"). Unlike a tap source, the faction card is moved from
+ * `cardsInPlay` to the discard pile (paying with the loss of its marshalling
+ * point), then the cancellation applies immediately via
+ * {@link resolveCancelAttackEntry}.
+ */
+export function handleCancelAttackByInPlayFaction(
+  state: GameState,
+  action: GameAction,
+  combat: CombatState,
+): ReducerResult {
+  if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
+
+  const defPlayerIndex = getPlayerIndex(state, action.player);
+  const defPlayer = state.players[defPlayerIndex];
+  const factionEntry = defPlayer.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!factionEntry) return { state, error: 'Cancel-attack faction not in play' };
+
+  const factionName = cardName(state, factionEntry.definitionId);
+  logDetail(`Cancel-attack declared: discarding ${factionName} (in-play faction) to cancel ${combat.creatureRace ?? 'attack'}`);
+
+  const discardedState = updatePlayer(state, defPlayerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...p.discardPile, toCardInstance(factionEntry)],
+  }));
+  return { state: resolveCancelAttackEntry(discardedState) };
+}
+
+/**
  * Handle cancel-attack sourced from an in-play character (e.g. Adûnaphel
  * the Ringwraith's Darkhaven tap). Mirrors {@link handleCancelAttackByInPlayAlly}
  * but taps the character directly.
@@ -206,6 +238,10 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
     // or an in-play item with self-and-bearer cost (e.g. Torque of Hues).
     if (defPlayer.characters[action.cardInstanceId]) {
       return handleCancelAttackByInPlayCharacter(state, action, combat);
+    }
+    // A controlled faction in play discarded to cancel (Wild Hounds wh-40).
+    if (defPlayer.cardsInPlay.some(c => c.instanceId === action.cardInstanceId)) {
+      return handleCancelAttackByInPlayFaction(state, action, combat);
     }
     // Check items before falling through to ally handler.
     const defCompany = companyById(defPlayer.companies, combat.companyId);

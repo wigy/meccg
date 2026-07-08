@@ -2445,6 +2445,17 @@ export interface CancelAttackEffect extends EffectBase {
    * (as-102, `"ringwraith"`).
    */
   readonly costExemptRace?: string;
+  /**
+   * Dual-mode faction cancel (Wild Hounds wh-40). Set on a `cancel-attack`
+   * effect carrying `cost: { discard: "self" }` on a dual-alignment faction.
+   * The effect has two sources:
+   *   - the controlled faction in play, discarded (no covert/alignment gate); and
+   *   - the card in hand, played as a minion resource — but ONLY by a character
+   *     in a covert company (this flag), and only by a minion (Ringwraith) player.
+   * Backs "May also be used as a minion resource card that is only playable by a
+   * character in a covert company."
+   */
+  readonly handModeRequiresCovert?: true;
 }
 
 /**
