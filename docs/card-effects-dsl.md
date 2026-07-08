@@ -2482,6 +2482,23 @@ Supported targets:
   "siteType": "ruins-and-lairs" }, { "lairOf": { "$exists": false } }, {
   "adjacentSites": { "$exists": false } }, { "regionType": { "$in":
   ["wilderness", "border", "shadow"] } } ] }`.
+- `item` — a resource permanent event played "with" / "on" an **item** borne by
+  one of the active player's own characters (site-phase only). One
+  `play-permanent-event` action is emitted per company-character item whose
+  definition matches the `filter` (evaluated against `{ target: { name,
+  keywords, subtype } }`); the chosen item rides on the action's
+  `targetItemInstanceId`. On resolution the card enters its controller's
+  `cardsInPlay` bound via `CardInPlay.attachedToItem`, and its `stat-modifier`
+  effects flow to the item's bearer (collected in `collectCharacterEffects`
+  exactly as if printed on the item). The card is discarded by the
+  `discardOrphanedItemAttachedEvents` post-action sweep once no character bears
+  the host item. A companion `play-condition` `requires: "site-type"` gates the
+  site (e.g. Ruins & Lairs); `duplication-limit` `scope: "item"` limits copies
+  per item; `play-flag: "tap-bearer-on-play"` taps the bearer as the play cost
+  (so the bearer must be untapped). Used by Barrow-blade (dm-119): "Tap the
+  bearer of a Dagger of Westernesse during the site phase at a Ruins & Lairs
+  [{R}] and play this with the Dagger. Dagger receives +1 prowess (+3 versus
+  Undead and Nazgûl). Cannot be duplicated on a given Dagger."
 
 Optional fields:
 

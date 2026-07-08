@@ -1233,6 +1233,18 @@ export function countPermanentEventCopiesAtSite(state: GameState, name: string, 
 }
 
 /**
+ * Count copies of the permanent event named `name` currently attached to the
+ * item instance `itemInstanceId` (an `attachedToItem` binding in any player's
+ * `cardsInPlay`). Backs `duplication-limit` checks with `scope: "item"` (e.g.
+ * Barrow-blade dm-119: "Cannot be duplicated on a given Dagger").
+ */
+export function countItemAttachedCopies(state: GameState, itemInstanceId: CardInstanceId, name: string): number {
+  return state.players.reduce((count, p) =>
+    count + p.cardsInPlay.filter(c => c.attachedToItem === itemInstanceId && defById(state, c.definitionId)?.name === name).length,
+  0);
+}
+
+/**
  * Resolve a list of card instances (items, allies, possessions, …) to their
  * definition names, dropping any that fail to resolve. Centralizes the
  * `instances.map(defById(...)?.name).filter(defined)` pattern used to build
@@ -2086,6 +2098,40 @@ export function discardOrphanedAgentAttachedEvents(state: GameState): GameState 
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       const agent = player.agents.find(a => a.id === card.attachedToAgentId);
       logDetail(`agent-attached event: discarding "${def?.name ?? card.definitionId}" — bound agent ${card.attachedToAgentId as string} ${agent ? 'was revealed' : 'left play'}`);
+    },
+  );
+
+  if (removedInstanceIds.length === 0) return state;
+  const removedSources = new Set(removedInstanceIds.map(id => id as string));
+  return {
+    ...next,
+    activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+  };
+}
+
+/**
+ * Discard item-attached permanent events whose host item has left play. A card
+ * with `attachedToItem` set (Barrow-blade dm-119, "play this with the Dagger")
+ * is kept in cards-in-play bound to a specific item instance. When that item is
+ * no longer borne by any character on either side (discarded, stored, returned
+ * to hand, …) the event is orphaned and must be discarded. Mirrors
+ * {@link discardOrphanedSiteAttachedEvents}.
+ */
+export function discardOrphanedItemAttachedEvents(state: GameState): GameState {
+  // Collect every item instance currently borne by a character in play.
+  const itemIds = new Set<string>();
+  for (const p of state.players) {
+    for (const ch of Object.values(p.characters)) {
+      for (const it of ch.items) itemIds.add(it.instanceId as string);
+    }
+  }
+
+  const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+    state,
+    card => card.attachedToItem !== undefined && !itemIds.has(card.attachedToItem as string),
+    card => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`item-attached event: discarding "${def?.name ?? card.definitionId}" — host item ${card.attachedToItem as string} left play`);
     },
   );
 

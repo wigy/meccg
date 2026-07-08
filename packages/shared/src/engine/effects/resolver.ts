@@ -316,6 +316,18 @@ export function collectCharacterEffects(
       if (r.effect.type === 'stat-modifier' && r.effect.target === 'company') continue;
       results.push(r);
     }
+
+    // Item-attached permanent events (Barrow-blade dm-119, "play this with the
+    // Dagger"): a CardInPlay in either player's cardsInPlay bound to this active
+    // item via `attachedToItem`. Its effects flow to the item's bearer, exactly
+    // as if they were printed on the item itself.
+    for (const p of state.players) {
+      for (const cip of p.cardsInPlay) {
+        if (cip.attachedToItem !== item.instanceId) continue;
+        const evDef = resolveDef(state, cip.instanceId);
+        if (evDef) collectFromDef(evDef, cip.instanceId, context, results);
+      }
+    }
   }
 
   // Hazard card effects

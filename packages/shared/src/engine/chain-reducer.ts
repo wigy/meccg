@@ -1094,6 +1094,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // the chain entry (removed from hand at declaration), so every destination
   // sources it with `from: 'chain'` (ctx.chainCard, no-op removal).
   const targetCharId = entry.payload.type === 'permanent-event' ? entry.payload.targetCharacterId : undefined;
+  const targetItemId = entry.payload.type === 'permanent-event' ? entry.payload.targetItemInstanceId : undefined;
   const moveCtx: import('./reducer-move.js').MoveContext = {
     sourceCardId: card.instanceId,
     sourcePlayerIndex: playerIndex,
@@ -1143,7 +1144,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     const targetCompanyId = entry.payload.type === 'permanent-event' ? entry.payload.targetCompanyId : undefined;
     // Inner Cunning (dm-68) mode 1: a permanent event bound to a face-down agent.
     const targetAgentId = entry.payload.type === 'permanent-event' ? entry.payload.targetAgentId : undefined;
-    if (targetSiteDefId || targetCompanyId || targetAgentId) {
+    if (targetSiteDefId || targetCompanyId || targetAgentId || targetItemId) {
       working = updatePlayer(working, playerIndex, p => ({
         ...p,
         cardsInPlay: p.cardsInPlay.map(c => c.instanceId === card.instanceId
@@ -1152,6 +1153,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
               ...(targetSiteDefId ? { attachedToSite: targetSiteDefId } : {}),
               ...(targetCompanyId ? { companyId: targetCompanyId } : {}),
               ...(targetAgentId ? { attachedToAgentId: targetAgentId } : {}),
+              ...(targetItemId ? { attachedToItem: targetItemId } : {}),
             }
           : c),
       }));
@@ -1163,6 +1165,9 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }
       if (targetAgentId) {
         logDetail(`"${def?.name ?? card.definitionId}" attached to face-down agent ${targetAgentId as string}`);
+      }
+      if (targetItemId) {
+        logDetail(`"${def?.name ?? card.definitionId}" attached to item ${targetItemId as string}`);
       }
     }
   }
@@ -1282,6 +1287,26 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         logDetail(`"${def?.name ?? '?'}" tap-character-on-play: tapping character ${targetCharId as string}`);
         newState = updatePlayer(newState, pi, p => updateCharacter(p, targetCharId, () => ({
           ...char,
+          status: CardStatus.Tapped,
+        })));
+        break;
+      }
+    }
+  }
+
+  // tap-bearer-on-play: for an item-targeting permanent event, tap the character
+  // bearing the targeted item (Barrow-blade dm-119: "Tap the bearer of a Dagger
+  // of Westernesse … and play this with the Dagger").
+  if (targetItemId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'tap-bearer-on-play')) {
+    for (let pi = 0; pi < 2; pi++) {
+      const entry2 = Object.entries(newState.players[pi].characters).find(([, ch]) =>
+        ch.items.some(it => it.instanceId === targetItemId),
+      );
+      if (entry2) {
+        const [bearerId, bearer] = entry2;
+        logDetail(`"${def?.name ?? '?'}" tap-bearer-on-play: tapping bearer ${bearerId} of item ${targetItemId as string}`);
+        newState = updatePlayer(newState, pi, p => updateCharacter(p, bearerId as import('../types/common.js').CardInstanceId, () => ({
+          ...bearer,
           status: CardStatus.Tapped,
         })));
         break;
