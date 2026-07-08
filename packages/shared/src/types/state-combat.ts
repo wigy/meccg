@@ -128,6 +128,14 @@ export interface StrikeAssignment {
   readonly characterId: CardInstanceId;
   /** Number of excess strikes allocated to this character as -1 prowess each. */
   readonly excessStrikes: number;
+  /**
+   * Set on a voluntary extra strike added by a `face-extra-strike` item (Bow of
+   * Alatar wh-90). If this strike fails to wound the facing character (result
+   * `'success'` — the character won or tied), the combat's `creatureBody` is
+   * reduced by this amount for the remainder of the combat. Absent on all
+   * normal strikes.
+   */
+  readonly bodyReductionOnFail?: number;
   /** Whether this strike has been resolved via dice roll. */
   readonly resolved: boolean;
   /**

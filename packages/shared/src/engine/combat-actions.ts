@@ -25,7 +25,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FaceExtraStrikeEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
@@ -1157,6 +1157,68 @@ export function handleTapItemForStrike(state: GameState, action: GameAction, com
     state: {
       ...updatePlayer(state, defPlayerIndex, () => tapped.player),
       combat: { ...combat, strikeAssignments: newAssignments },
+    },
+  };
+}
+
+/**
+ * Bow of Alatar (wh-90): tap the item during the assign-strikes phase to have
+ * its bearer voluntarily face one **extra** strike from the current attack —
+ * bypassing the attack's normal strike count and the bearer's tapped/wounded
+ * status. The extra strike is appended to the combat's assignments (assigned to
+ * the bearer) with `bodyReductionOnFail` so that, if the strike fails to wound
+ * the bearer, `resolveStrikeCore` reduces the attack's body for the rest of the
+ * combat. `strikesTotal` is bumped so combat accounting stays balanced.
+ *
+ * Scoped to standard creature/automatic-attack combat (not CvCC, where each
+ * strike is backed by a specific attacker so there is no free extra strike).
+ */
+export function handleFaceExtraStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'face-extra-strike') return wrongActionType(state, action, 'face-extra-strike');
+  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only face an extra strike during the assign-strikes phase' };
+  if (combat.isCvCC) return { state, error: 'Extra strike not available in company-vs-company combat' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only the defending player may face an extra strike' };
+
+  const defPlayerIndex = getPlayerIndex(state, action.player);
+  const defPlayer = state.players[defPlayerIndex];
+
+  const bearer = defPlayer.characters[action.characterInstanceId];
+  if (!bearer) return { state, error: 'Bearer character not found' };
+
+  // The bearer must belong to the company under attack ("his company").
+  const company = companyById(defPlayer.companies, combat.companyId);
+  if (!company || !company.characters.includes(action.characterInstanceId)) {
+    return { state, error: 'Bearer is not in the attacked company' };
+  }
+
+  const tapped = updateAttachment(defPlayer, 'items', action.cardInstanceId, it => ({ ...it, status: CardStatus.Tapped }));
+  if (!tapped || tapped.charId !== action.characterInstanceId) return { state, error: 'Item not found on bearer' };
+  const item = tapped.attachment;
+  if (item.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
+
+  const itemDef = defById(state, item.definitionId);
+  const effect = getCardEffects(itemDef).find(
+    (e): e is FaceExtraStrikeEffect => e.type === 'face-extra-strike',
+  );
+  if (!effect) return { state, error: 'Item has no face-extra-strike effect' };
+
+  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (item.definitionId as string);
+  logDetail(`Face-extra-strike: tapping ${itemName} — ${action.characterInstanceId as string} faces one extra strike (attack body reduced by ${effect.bodyReductionOnFail} if it fails to wound)`);
+
+  const newAssignments: StrikeAssignment[] = [
+    ...combat.strikeAssignments,
+    {
+      characterId: action.characterInstanceId,
+      excessStrikes: 0,
+      resolved: false,
+      bodyReductionOnFail: effect.bodyReductionOnFail,
+    },
+  ];
+
+  return {
+    state: {
+      ...updatePlayer(state, defPlayerIndex, () => tapped.player),
+      combat: { ...combat, strikeAssignments: newAssignments, strikesTotal: combat.strikesTotal + 1 },
     },
   };
 }

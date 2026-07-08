@@ -437,6 +437,24 @@ export interface TapItemForStrikeAction {
 }
 
 /**
+ * Tap a `face-extra-strike` item (Bow of Alatar wh-90) during the assign-strikes
+ * sub-phase to have its bearer voluntarily face one additional strike from the
+ * current attack against its company — regardless of the attack's normal strike
+ * count and the bearer's tapped/wounded status. Taps the item and appends an
+ * extra {@link StrikeAssignment} for the bearer (carrying `bodyReductionOnFail`).
+ */
+export interface FaceExtraStrikeAction {
+  /** Action discriminant. */
+  readonly type: 'face-extra-strike';
+  /** The defending player tapping the item. */
+  readonly player: PlayerId;
+  /** The in-play item being tapped (the `face-extra-strike` source). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character bearing the item, who will face the extra strike. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * Tap an in-play ally during combat to grant an attack-scoped stat boost to
  * matching characters in the ally's own company (e.g. Great Lord of
  * Goblin-gate as-75: "Tap to give +2 prowess to all Orcs in its company").

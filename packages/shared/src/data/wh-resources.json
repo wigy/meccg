@@ -1257,6 +1257,24 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.avatar": "Alatar"
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.isAvatar": true
+        }
+      },
+      {
+        "type": "face-extra-strike",
+        "bodyReductionOnFail": 1
       }
     ],
     "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Bow of Alatar to allow him to face a strike from an attack against his company regardless of the attack’s normal capabilities and his status. If such a strike fails, the attack’s body is reduced by 1."

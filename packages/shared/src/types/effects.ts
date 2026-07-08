@@ -3563,6 +3563,7 @@ export type CardEffect =
   | RingwraithModeEffect
   | RingwraithFollowerSlotsEffect
   | AbsorbWoundEffect
+  | FaceExtraStrikeEffect
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
   | ExtraTrollLeaderSlotEffect
@@ -4218,6 +4219,34 @@ export interface AbsorbWoundEffect extends EffectBase {
   readonly type: 'absorb-wound';
   /** Roll total must strictly exceed this value for the item to be discarded (default 6). */
   readonly rollThreshold: number;
+}
+
+/**
+ * Lets the item's bearer voluntarily face one **extra** strike from an attack
+ * against its company, tapping the item to do so — bypassing the attack's
+ * normal strike-count capabilities and the bearer's own status (a tapped or
+ * wounded bearer may still take the strike). The extra strike is appended to
+ * the current combat's assignments (assigned to the bearer) and resolved like
+ * any other strike, on top of whatever strikes the bearer already faces.
+ *
+ * If the extra strike **fails to wound** the bearer (the bearer wins or ties
+ * the strike roll), the attack's body is permanently reduced by
+ * `bodyReductionOnFail` for the remainder of the combat — recorded on the
+ * appended {@link StrikeAssignment.bodyReductionOnFail} and applied in
+ * `resolveStrikeCore`, so subsequent creature body checks use the lowered body.
+ *
+ * Used by Bow of Alatar (wh-90): "If on Alatar, you may tap Bow of Alatar to
+ * allow him to face a strike from an attack against his company regardless of
+ * the attack's normal capabilities and his status. If such a strike fails, the
+ * attack's body is reduced by 1."
+ */
+export interface FaceExtraStrikeEffect extends EffectBase {
+  readonly type: 'face-extra-strike';
+  /**
+   * Amount the attack's body is reduced by (for the rest of the combat) when
+   * the extra strike fails to wound the bearer.
+   */
+  readonly bodyReductionOnFail: number;
 }
 
 /**

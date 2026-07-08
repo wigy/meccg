@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, FaceExtraStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -160,6 +160,9 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   // Tap-ally combat boosts (e.g. Great Lord of Goblin-gate) are available to
   // the ally's owner during the assign-strikes and resolve-strike windows.
   const allyCombatBoosts = tapAllyCombatBoostActions(state, playerId, combat);
+  // Bow of Alatar (wh-90): the defender may tap the item to face an extra strike
+  // during the assign-strikes windows.
+  const extraStrikeActions = faceExtraStrikeActions(state, playerId, combat);
 
   switch (combat.phase) {
     case 'assign-strikes':
@@ -180,11 +183,12 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...modifyActions,
           ...companyCombatBoosts,
           ...allyCombatBoosts,
+          ...extraStrikeActions,
           ...havenJoinAttackActions(state, playerId, combat),
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...allyCombatBoosts, ...extraStrikeActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       // Each-character auto-attacks pre-assign strikes and open here, skipping
       // the `assign-strikes` cancel window. cancelActions is gated to the
@@ -284,6 +288,55 @@ function havenJoinAttackActions(
       action: { type: 'haven-join-attack', player: playerId, characterId: offer.characterId },
       viable: true,
     });
+  }
+  return actions;
+}
+
+/**
+ * One `face-extra-strike` action per untapped `face-extra-strike` item borne by
+ * a character in the attacked company (Bow of Alatar wh-90). Offered to the
+ * defending player during the assign-strikes sub-phase (both the defender's own
+ * assignment window and the pre-assignment cancel-window of
+ * attacker-chooses-defenders attacks). Not offered in CvCC, where each strike is
+ * backed by a specific attacker.
+ */
+function faceExtraStrikeActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (combat.phase !== 'assign-strikes') return [];
+  if (combat.isCvCC) return [];
+  if (playerId !== combat.defendingPlayerId) return [];
+
+  const defender = playerById(state, playerId);
+  if (!defender) return [];
+  const company = companyById(defender.companies, combat.companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const charId of company.characters) {
+    const charData = defender.characters[charId];
+    if (!charData) continue;
+    for (const item of charData.items) {
+      if (item.status !== CardStatus.Untapped) continue;
+      const itemDef = defById(state, item.definitionId);
+      const effect = getCardEffects(itemDef).find(
+        (e): e is FaceExtraStrikeEffect => e.type === 'face-extra-strike',
+      );
+      if (!effect) continue;
+      const itemName = (itemDef as { name?: string } | undefined)?.name ?? (item.definitionId as string);
+      logDetail(`Face-extra-strike available: tap ${itemName} so ${charId as string} faces an extra strike (attack body -${effect.bodyReductionOnFail} if it fails)`);
+      actions.push({
+        action: {
+          type: 'face-extra-strike',
+          player: playerId,
+          cardInstanceId: item.instanceId,
+          characterInstanceId: charId,
+        },
+        viable: true,
+      });
+    }
   }
   return actions;
 }

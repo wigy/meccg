@@ -265,6 +265,18 @@ export function resolveStrikeCore(
     logDetail(`Tie — ineffectual${mode === 'dodge' ? ' (dodge: no tap)' : ', character taps'}`);
   }
 
+  // Bow of Alatar (wh-90): a voluntary extra strike (carrying
+  // `bodyReductionOnFail`) that fails to wound its facing character — the
+  // character won or tied, i.e. result 'success' — reduces the attack's body by
+  // that amount for the remainder of the combat. Reassigning `combat` threads
+  // the lowered body into this strike's own creature body check (if any) and
+  // every subsequent strike's body checks.
+  if (strike.bodyReductionOnFail && result === 'success' && combat.creatureBody !== null) {
+    const reducedBody = Math.max(0, combat.creatureBody - strike.bodyReductionOnFail);
+    logDetail(`Extra strike (Bow of Alatar) failed to wound — attack body reduced by ${strike.bodyReductionOnFail}: ${combat.creatureBody} → ${reducedBody}`);
+    combat = { ...combat, creatureBody: reducedBody };
+  }
+
   // An Article Missing (dm-43): on a successful agent strike the defender is not
   // wounded; the company must instead discard one item of their choice.
   const discardItemEffect = result === 'wounded' && !combat.detainment && combat.strikeEffect === 'discard-item';
