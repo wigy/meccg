@@ -33,7 +33,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companySubphaseScope, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, matchesDefinition, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companySubphaseScope, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -1812,7 +1812,16 @@ function collectHavenJumpOffers(
     const siteDef = company.currentSite
       ? defById(state, company.currentSite.definitionId)
       : undefined;
-    const atHaven = !!(siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven);
+    // "at a Haven" for this player. For a Fallen-wizard (Alatar wh-1) that
+    // means one of *his* Wizardhavens only, not any METW haven — `isHavenForPlayer`
+    // encodes that alignment distinction (and Hidden Haven conversions), so the
+    // same effect data restricts wh-1 to Wizardhavens while tw-117 (wizard) still
+    // triggers at any haven.
+    const atHaven = isHavenForPlayer(siteDef, defendingPlayer.alignment, {
+      state,
+      siteDefinitionId: company.currentSite?.definitionId,
+      playerId: defendingPlayer.id,
+    });
     if (!atHaven) continue;
     for (const charId of company.characters) {
       const charInPlay = defendingPlayer.characters[charId];
@@ -2044,6 +2053,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingSiteEffects: defendingSiteDef?.effects,
       defendingSiteName: defendingSiteDef?.name,
+      defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
     }),
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,
     multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,
@@ -2634,6 +2644,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               attackRace: race0 as import('../index.js').Race | null,
               defendingAlignment: current.players[activeIndex].alignment,
               defendingSiteEffects: destSiteDef.effects,
+              defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(current, current.players[activeIndex]),
             }),
             ...(aaAttackerChooses0 ? { attackerChoosesDefenders: true } : {}),
           });

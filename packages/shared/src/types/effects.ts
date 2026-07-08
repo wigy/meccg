@@ -336,6 +336,59 @@ export interface FallenWizardCharacterAllyMpEffect extends EffectBase {
 }
 
 /**
+ * Fallen-wizard kill marshalling-point exemption (MEWH §4 exception).
+ *
+ * MEWH §4 clamps every defeated creature a Fallen-wizard's companies kill to a
+ * flat **1** kill marshalling point. A character carrying this effect exempts
+ * the player from that clamp: hazard creatures his companies defeat score their
+ * *full* printed kill marshalling points instead. In addition, a defeated
+ * **detainment** creature — which normally awards 0 kill MP because it is
+ * discarded rather than routed to the kill pile (CoE rule 3.II.3) — is instead
+ * placed in the defending player's kill pile and scores its full kill MP too
+ * (the "even with *" clause; `*` marks a detainment attack). Both consequences
+ * are player-wide ("your companies"), not limited to the carrier's company.
+ *
+ * Used by Alatar (wh-1): "Hazards your companies defeat (even with *) are worth
+ * full kill marshalling points."
+ *
+ * ```json
+ * { "type": "fw-kill-mp-full" }
+ * ```
+ */
+export interface FallenWizardKillMpEffect extends EffectBase {
+  readonly type: 'fw-kill-mp-full';
+}
+
+/**
+ * Converts every detainment attack against the carrier's player's companies
+ * into a normal attack (CoE §3.II — a detainment attack taps rather than
+ * wounds, suppresses the body check, and awards no kill MP; a normal attack
+ * does none of those). While a character carrying this effect is in play and
+ * the player's stage-point total is strictly greater than
+ * {@link stagePointsAbove}, any attack the engine would otherwise treat as
+ * detainment — whether from a `combat-detainment` effect, a site-forced
+ * detainment rule, or the alignment-based §3.II keying rules — is resolved as a
+ * normal attack instead.
+ *
+ * Used by Alatar (wh-1): "If you have more than 7 stage points, all detainment
+ * attacks against your companies attack normally instead." Here
+ * `stagePointsAbove` is 7.
+ *
+ * ```json
+ * { "type": "detainment-attacks-normal", "stagePointsAbove": 7 }
+ * ```
+ */
+export interface DetainmentAttacksNormalEffect extends EffectBase {
+  readonly type: 'detainment-attacks-normal';
+  /**
+   * The player's stage-point total must be strictly greater than this for the
+   * conversion to apply. Defaults to 0 (always active while in play) when
+   * omitted.
+   */
+  readonly stagePointsAbove?: number;
+}
+
+/**
  * Contributes stage points to the Fallen-wizard who controls this card (MEWH).
  *
  * Stage points reflect how far a Fallen-wizard has deviated from his original
@@ -3465,6 +3518,8 @@ export type CardEffect =
   | MpModifierEffect
   | FallenWizardItemMpEffect
   | FallenWizardCharacterAllyMpEffect
+  | FallenWizardKillMpEffect
+  | DetainmentAttacksNormalEffect
   | CompanyModifierEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect
