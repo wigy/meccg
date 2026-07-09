@@ -458,6 +458,18 @@ non-Fallen-wizard players (who never hold stage cards).
 { "type": "stage-points", "value": 3 }
 ```
 
+The optional `whileCompanyAtSite: true` flag marks a **site** whose stage points
+are granted only while one of the Fallen-wizard's companies occupies it (rather
+than from being in play). Those points are tallied separately in
+`recompute-derived.ts` — once per distinct occupied `currentSite` instance, so two
+companies at the same site do not double it, while two different occupied sites
+each count. Used by Deep Mines (wh-55): "You receive the three stage points if any
+of your companies are at the site."
+
+```json
+{ "type": "stage-points", "value": 3, "whileCompanyAtSite": true }
+```
+
 ### 3c. `faction-mp-override`
 
 Re-values the controlling player's factions while the carrying card is in play
@@ -3067,6 +3079,30 @@ Rules:
 
   ```json
   { "type": "site-rule", "rule": "cancel-first-attack-if-in-play", "definitionId": "tw-12" }
+  ```
+
+- `deep-mines-movement` — marks a Fallen-wizard site as an Under-deeps-style
+  destination reachable **only** from one of the moving player's *protected
+  Wizardhavens* (a Wizardhaven for that player — `isHavenForPlayer` — that also
+  carries an active `site-protected` constraint owned by them) and **only** while
+  he has more than six stage points. The surface Wizardhaven and the site are
+  adjacent with a required movement roll of 0, so the descent auto-succeeds like
+  a roll-0 Under-deeps step; the adjacency runs both ways, so a company at the
+  site may ascend back to a protected Wizardhaven at roll 0 (no stage-point gate
+  on the ascent). The site is never reachable via ordinary starter/region
+  movement. The stage-point requirement is enforced at both the plan-movement
+  offer and the M/H declare-path (reveal) offer, so a drop below the threshold
+  before movement leaves the company put (rule 5.04 / CRF 22: it "does not move
+  at all"). The card's "Cannot be duplicated on a given Wizardhaven" clause is
+  enforced by rule 2.II.7.1 (no two same-origin companies to the same site
+  definition). Descent/ascent legality lives in `legal-actions/organization-companies.ts`
+  (`isDeepMinesDescentLegal` / `isDeepMinesAscentLegal`), consumed by the
+  plan-movement pass there and the declare-path pass in `legal-actions/movement-hazard.ts`.
+  Used by *Deep Mines* (wh-55). Pair with `{ stage-points, whileCompanyAtSite }`
+  for the site's occupancy stage points.
+
+  ```json
+  { "type": "site-rule", "rule": "deep-mines-movement" }
   ```
 
 ### 20. `item-play-site`

@@ -16,6 +16,9 @@ import type {
   PlayerState,
   CardEffect,
   CompanyId,
+  CardDefinition,
+  CardDefinitionId,
+  Alignment as AlignmentType,
 } from '../../index.js';
 import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission } from '../../effects/play-flags.js';
 import { buildMovementMap, getReachableSites } from '../../movement-map.js';
@@ -24,7 +27,7 @@ import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../.
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, effectiveGeneralInfluence } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, effectiveGeneralInfluence, hasSiteFlagForPlayer } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
 import { viableWithRegress } from '../reverse-actions.js';
@@ -96,6 +99,76 @@ export function isUnderDeepsAdjacent(state: GameState, origin: SiteCard, dest: S
   if (resolveAdjacency(state, origin, dest.name) !== undefined) return true;
   if (resolveAdjacency(state, dest, origin.name) !== undefined) return true;
   return false;
+}
+
+/**
+ * True when a site definition carries the Deep Mines movement rule (wh-55):
+ * an Under-deeps-style site reachable only from a protected Wizardhaven.
+ */
+export function isDeepMinesSite(def: CardDefinition | null | undefined): boolean {
+  if (!def) return false;
+  return getCardEffects(def).some(e => e.type === 'site-rule' && e.rule === 'deep-mines-movement');
+}
+
+/**
+ * True when `siteDef` is a *protected Wizardhaven* of the given Fallen-wizard
+ * player — a Wizardhaven for that player ({@link isHavenForPlayer}, so a
+ * Fallen-wizard haven or a Hidden-Haven conversion) that also carries an active
+ * `site-protected` constraint owned by them (Guarded Haven wh-74 family, or an
+ * inherently protected Wizardhaven such as Rhosgobel). This is the surface site
+ * from which Deep Mines (wh-55) may be reached. Only Fallen-wizards qualify.
+ */
+export function isProtectedWizardhavenFor(
+  state: GameState,
+  siteDef: CardDefinition | undefined,
+  siteDefId: CardDefinitionId | undefined,
+  playerId: PlayerId,
+  alignment: AlignmentType,
+): boolean {
+  if (alignment !== 'fallen-wizard') return false;
+  if (!isHavenForPlayer(siteDef, alignment, { state, siteDefinitionId: siteDefId, playerId })) return false;
+  return hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefId, playerId);
+}
+
+/** Minimum stage points a Fallen-wizard needs to descend to Deep Mines (>6). */
+export const DEEP_MINES_MIN_STAGE_POINTS = 6;
+
+/**
+ * True when the moving Fallen-wizard company at `origin` may descend to the Deep
+ * Mines site `dest`: `dest` is a Deep Mines site, `origin` is one of the
+ * player's protected Wizardhavens, and the player has more than six stage
+ * points. Consulted by both the plan-movement offer (organization phase) and
+ * the declare-path offer (movement/hazard phase).
+ */
+export function isDeepMinesDescentLegal(
+  state: GameState,
+  origin: SiteCard,
+  originDefId: CardDefinitionId | undefined,
+  dest: CardDefinition | undefined,
+  player: PlayerState,
+): boolean {
+  if (!isDeepMinesSite(dest)) return false;
+  if (player.stagePoints <= DEEP_MINES_MIN_STAGE_POINTS) return false;
+  return isProtectedWizardhavenFor(state, origin, originDefId, player.id, player.alignment);
+}
+
+/**
+ * True when a Fallen-wizard company **at** a Deep Mines site may ascend back to
+ * the surface — the card's "the sites are adjacent and the movement roll
+ * required to move between them is 0" runs both ways, so a company at Deep Mines
+ * may return to one of the player's protected Wizardhavens (roll 0). No stage
+ * point requirement applies to the ascent (only the descent is gated). Without
+ * this the site would be a movement dead-end (it carries no region/site path).
+ */
+export function isDeepMinesAscentLegal(
+  state: GameState,
+  origin: SiteCard,
+  dest: CardDefinition | undefined,
+  destDefId: CardDefinitionId | undefined,
+  player: PlayerState,
+): boolean {
+  if (!isDeepMinesSite(origin)) return false;
+  return isProtectedWizardhavenFor(state, dest, destDefId, player.id, player.alignment);
 }
 
 /**
@@ -338,7 +411,11 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     // Under-deeps sites are only reachable via under-deeps movement (handled below), never via
     // regular starter/region movement. When already at an under-deeps site, regular movement
     // does not apply at all.
-    const regularCandidates = currentIsUD ? [] : candidateSites.filter(s => !(s.keywords?.includes('under-deeps') ?? false));
+    // Deep Mines (wh-55) is reachable only via its own descent pass (below),
+    // never via ordinary starter/region movement — exclude it here too.
+    const regularCandidates = currentIsUD
+      ? []
+      : candidateSites.filter(s => !(s.keywords?.includes('under-deeps') ?? false) && !isDeepMinesSite(s));
     let reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions);
 
     // MEWH §7: a Fallen-wizard's companies must use region movement — they may
@@ -413,6 +490,41 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         continue;
       }
       logDetail(`  Under-deeps destination: ${dest.name}`);
+      const candidate: GameAction = {
+        type: 'plan-movement',
+        player: playerId,
+        companyId: company.id,
+        destinationSite: destInstId,
+      };
+      actions.push(viableWithRegress(candidate, state.reverseActions));
+    }
+
+    // --- Deep Mines descent / ascent pass (wh-55) ---
+    // A company may descend to a Deep Mines site only from one of the moving
+    // Fallen-wizard's protected Wizardhavens and only while he has more than six
+    // stage points (roll 0, resolved as Under-deeps movement). Rule 2.II.7.1
+    // ("no two same-origin companies to the same new site definition") already
+    // enforces the card's "Cannot be duplicated on a given Wizardhaven" clause.
+    // The adjacency runs both ways ("the movement roll required to move between
+    // them is 0"), so a company already at Deep Mines may ascend back to a
+    // protected Wizardhaven (no stage-point gate on the way out).
+    const originIsDeepMines = isDeepMinesSite(currentSiteDef);
+    for (const dest of candidateSites) {
+      const legal = originIsDeepMines
+        ? isDeepMinesAscentLegal(state, currentSiteDef, dest, dest.id, player)
+        : isDeepMinesDescentLegal(state, currentSiteDef, company.currentSite.definitionId, dest, player);
+      if (!legal) continue;
+      const destInstId = siteInstMap.get(dest.name);
+      if (!destInstId) continue;
+      if (seen.has(destInstId as string)) continue;
+      seen.add(destInstId as string);
+      if (blockedByRule_2_II_7_1.has(dest.id)) {
+        logDetail(`  ${dest.name} blocked by rule 2.II.7.1 (sibling at same origin already targets Deep Mines)`);
+        continue;
+      }
+      logDetail(originIsDeepMines
+        ? `  Deep Mines ascent destination: ${dest.name} (from ${currentSiteDef.name})`
+        : `  Deep Mines descent destination: ${dest.name} (from protected Wizardhaven ${currentSiteDef.name}, ${player.stagePoints} stage points)`);
       const candidate: GameAction = {
         type: 'plan-movement',
         player: playerId,

@@ -733,7 +733,24 @@ export function collectFactionInfluenceRestriction(
 export function stagePointsOfCard(def: CardDefinition | null | undefined): number {
   let total = 0;
   for (const effect of getCardEffects(def)) {
-    if (effect.type === 'stage-points') total += effect.value;
+    // `whileCompanyAtSite` stage points (Deep Mines wh-55, Rhosgobel wh-57) are
+    // granted by *occupying the site*, not by the card being in play, so they
+    // are tallied separately from the player's companies — never here.
+    if (effect.type === 'stage-points' && !effect.whileCompanyAtSite) total += effect.value;
+  }
+  return total;
+}
+
+/**
+ * Stage points a **site** definition grants while a company occupies it (the
+ * `whileCompanyAtSite` variant of the `stage-points` effect). Returns 0 for
+ * ordinary cards and for stage cards whose points come from being in play.
+ * Summed once per distinct occupied site instance in `recompute-derived.ts`.
+ */
+export function siteOccupancyStagePointsOfCard(def: CardDefinition | null | undefined): number {
+  let total = 0;
+  for (const effect of getCardEffects(def)) {
+    if (effect.type === 'stage-points' && effect.whileCompanyAtSite) total += effect.value;
   }
   return total;
 }

@@ -465,6 +465,17 @@ export interface StagePointsEffect extends EffectBase {
   readonly type: 'stage-points';
   /** Stage points this card contributes to its controller's running total. */
   readonly value: number;
+  /**
+   * When true, this card is a **site** that grants its stage points only while
+   * one of the controlling Fallen-wizard's companies occupies it — the points
+   * are not tallied from `cardsInPlay`/items but from a distinct occupied
+   * `currentSite` (deduplicated per site instance, so two companies at the same
+   * site do not double it). Used by Deep Mines (wh-55, "You receive the three
+   * stage points if any of your companies are at the site") and Rhosgobel
+   * (wh-57). Absent/false on ordinary stage cards, whose points are summed
+   * from in-play cards regardless of company location.
+   */
+  readonly whileCompanyAtSite?: boolean;
 }
 
 /**
