@@ -1199,8 +1199,28 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/SearchingEye.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Cancel and discard any card requiring scout skill before it is resolved or cancel any ongoing effect of a card that required scout skill to play. If this card is played as an on-guard card, it can be revealed during the opponent’s site phase to cancel and discard a card requiring scout skill before it is resolved."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "cancel-chain-entry",
+          "select": "target",
+          "requiredSkill": "scout"
+        }
+      },
+      {
+        "type": "on-guard-reveal",
+        "trigger": "resource-short-event",
+        "apply": {
+          "type": "cancel-chain-entry",
+          "select": "target",
+          "requiredSkill": "scout"
+        }
+      }
+    ],
+    "text": "Cancel and discard any card requiring scout skill before it is resolved or cancel any ongoing effect of a card that required scout skill to play. If this card is played as an on-guard card, it can be revealed during the opponent’s site phase to cancel and discard a card requiring scout skill before it is resolved.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "hazard-event",
