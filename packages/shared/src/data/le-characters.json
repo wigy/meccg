@@ -1737,8 +1737,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Southron Oasis",
-    "effects": [],
-    "text": "Unique. +2 direct influence against any faction playable at Southron Oasis."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.playableAt": "Southron Oasis"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against any faction playable at Southron Oasis.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-character",
