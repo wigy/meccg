@@ -341,9 +341,14 @@ export interface HazardLimitSiteRule extends EffectBase {
  * Declares that hazard creatures of the given race may be played at this site
  * regardless of normal keying requirements. The keying check is bypassed when
  * the attacking creature's race matches this rule's `race` field. The bypass
- * feeds both normal hazard-creature play against a company at the site **and**
- * the site's `dynamic-auto-attack` eligibility (such a creature becomes a legal
- * choice for the opponent's dynamically-played automatic-attack).
+ * feeds normal hazard-creature play against a company at the site. It **also**
+ * feeds the site's `dynamic-auto-attack` eligibility (such a creature becomes a
+ * legal choice for the opponent's dynamically-played automatic-attack) — but
+ * only when that attack keys by **site-type** (e.g. The Iron-deeps ba-91: "…
+ * keyed to a Ruins and Lairs"), since being keyed to *this site* is itself a
+ * form of site keying. When the attack keys by **region-type** (e.g. The
+ * Drowning-deeps ba-89: "…keyed to Coastal Seas"), keying to this site grants
+ * no region keying, so the race bypass does not feed the auto-attack.
  *
  * When the optional `except` condition is present, it is evaluated against the
  * creature's card definition (via the standard DSL matcher, dot-path keys); a
@@ -391,8 +396,8 @@ export interface AllowCreatureByRaceSiteRule extends EffectBase {
  * only the normal hazard-creature play path (not the site's dynamic
  * auto-attack, whose own `keying` filter already governs eligibility).
  *
- * Example — Remains of Thangorodrim (ba-95): "Creatures keyed to Coastal Seas
- * may be keyed to this site."
+ * Example — The Drowning-deeps (ba-89) and Remains of Thangorodrim (ba-95):
+ * "Creatures keyed to Coastal Seas may be keyed to this site."
  *
  * ```json
  * { "type": "site-rule", "rule": "allow-creature-by-keying",

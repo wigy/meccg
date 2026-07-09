@@ -551,9 +551,15 @@ function playSiteAutoAttackActions(
         }
       }
       // A site `allow-creature-by-race` rule ("any Drake may be keyed to this
-      // site", except Sea Serpent) makes the creature keyable to the site, so
-      // it also qualifies for the site's dynamically-played automatic-attack.
-      if (!keyable && siteRuleAllowsCreatureByRace(siteDef, def)) {
+      // site", except Sea Serpent) makes the creature keyable to *this site*.
+      // That keying-permission extends to the dynamically-played 2nd auto-attack
+      // only when the attack keys by SITE-TYPE (e.g. The Iron-deeps ba-91: "…
+      // keyed to a Ruins and Lairs") — being keyed to this site is itself a form
+      // of site keying, so it satisfies a site-type requirement. When the attack
+      // keys by REGION-TYPE (e.g. The Drowning-deeps ba-89: "…keyed to Coastal
+      // Seas"), keying to this site grants no region keying, so the race bypass
+      // does NOT feed the auto-attack.
+      if (!keyable && allowedSiteTypes.size > 0 && siteRuleAllowsCreatureByRace(siteDef, def)) {
         keyable = true;
       }
       if (!keyable) {
