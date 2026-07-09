@@ -30,7 +30,7 @@ import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
-import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
+import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { asViable as viable } from './evaluated.js';
 
 /**
@@ -1631,6 +1631,7 @@ function playResourcesActions(
               name: factionDef.name,
               race: factionDef.race,
               playableAt: buildFactionPlayableAt(factionDef),
+              playableRegions: buildFactionPlayableRegions(state, factionDef),
             },
             controller: {
               inPlay: buildControllerInPlayNames(state, playerId),

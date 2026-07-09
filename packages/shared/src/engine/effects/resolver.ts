@@ -120,6 +120,15 @@ export interface ResolverContext {
      * grants +3 DI against any faction playable at Dunnish Clan-hold).
      */
     readonly playableAt: readonly string[];
+    /**
+     * Geographic regions in which the faction can be played, resolved from its
+     * named `playableAt` sites (each site's `region`) plus explicit `region:`
+     * entries. Used by DSL conditions like
+     * `{ "faction.playableRegions": { "$includes": "Lamedon" } }` to target
+     * bonuses at factions tied to a set of regions (e.g. Firiel dm-10 grants
+     * +2 DI against factions playable in five Southern-Gondor regions).
+     */
+    readonly playableRegions?: readonly string[];
   };
   /** The target of an influence check (character being controlled). */
   readonly target?: {
