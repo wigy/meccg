@@ -1769,9 +1769,40 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Pallando"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "pallandos-hood-fetch",
+        "cost": {
+          "tap": "self"
+        },
+        "endOfTurnOnly": true,
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": {
+            "name": {
+              "$in": [
+                "Gifts as Given of Old",
+                "Wizard’s Voice",
+                "Eyes of Mandos"
+              ]
+            }
+          }
+        }
       }
     ],
-    "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Pallando’s Hood during your end-of-turn phase to take Gifts as Given of Old, Wizard’s Voice, or Eyes of Mandos from your discard pile to your hand."
+    "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Pallando’s Hood during your end-of-turn phase to take Gifts as Given of Old, Wizard’s Voice, or Eyes of Mandos from your discard pile to your hand.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
