@@ -1585,10 +1585,14 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 10,
     "race": "man",
-    "playableAt": [],
-    "effects": [],
-    "text": "Unique. Playable at Variag Camp  if the influence check is greater than 9. Standard Modifications: Haradrim (+2), Southrons (-2)."
+    "playableAt": [{ "site": "Variag Camp" }],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 2, "when": { "controller.inPlay": "Haradrim" } },
+      { "type": "check-modifier", "check": "influence", "value": -2, "when": { "controller.inPlay": "Southrons" } }
+    ],
+    "text": "Unique. Playable at Variag Camp  if the influence check is greater than 9. Standard Modifications: Haradrim (+2), Southrons (-2).",
+    "certified": "2026-07-09"
   }
 ]
