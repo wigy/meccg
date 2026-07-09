@@ -1038,9 +1038,34 @@
       {
         "type": "stage-points",
         "value": 4
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.stagePoints": {
+            "$gt": 6
+          }
+        }
+      },
+      {
+        "type": "fw-item-mp-full",
+        "filter": {
+          "$not": {
+            "keywords": {
+              "$includes": "ring"
+            }
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
       }
     ],
-    "text": "Playable if you have more than 6 stage points. Your non-ring items are each worth full marshalling points. Cannot be duplicated by a given player."
+    "text": "Playable if you have more than 6 stage points. Your non-ring items are each worth full marshalling points. Cannot be duplicated by a given player.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-resource-event",
