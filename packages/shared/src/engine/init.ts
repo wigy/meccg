@@ -240,6 +240,7 @@ function makeInitialPlayerState(opts: {
     stagePoints: 0,
     generalInfluenceUsed: 0,
     generalInfluenceBonus: 0,
+    generalInfluenceControlPenalty: 0,
     deckExhaustionCount: 0,
     freeCouncilCalled: false,
     lastDiceRoll: null,

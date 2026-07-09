@@ -1300,6 +1300,21 @@ export function effectiveGeneralInfluence(state: GameState, playerId: PlayerId):
   return GENERAL_INFLUENCE + bonus;
 }
 
+/**
+ * The portion of a player's general influence that may be spent to control
+ * characters (subtract `generalInfluenceUsed` for the remaining capacity).
+ * This is the full pool ({@link effectiveGeneralInfluence}) minus any
+ * `generalInfluenceControlPenalty` — the part of an in-play GI bonus that is
+ * restricted to defensive/unused use only (e.g. Truths of Doom wh-108: +6 to
+ * the pool but only +2 usable to control characters). For the common case
+ * (no control-restricted bonus) this equals {@link effectiveGeneralInfluence}.
+ */
+export function generalInfluenceControlLimit(state: GameState, playerId: PlayerId): number {
+  const player = playerById(state, playerId);
+  const penalty = player?.generalInfluenceControlPenalty ?? 0;
+  return effectiveGeneralInfluence(state, playerId) - penalty;
+}
+
 export function countCopiesInPlay(state: GameState, name: string): number {
   return state.players.reduce((count, p) =>
     count + p.cardsInPlay.filter(c => defById(state, c.definitionId)?.name === name).length,

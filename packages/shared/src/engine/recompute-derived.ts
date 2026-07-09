@@ -828,6 +828,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     : undefined;
   let generalInfluenceUsed = 0;
   let generalInfluenceBonus = 0;
+  let generalInfluenceControlPenalty = 0;
   let mp = ZERO_MARSHALLING_POINTS;
   // MEAS §6e: marshalling points of company-held cards (characters, their items
   // and allies) at an Under-deeps site, accumulated separately so they can be
@@ -975,20 +976,40 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   }
 
-  // General-influence bonus: sum stat-modifier general-influence effects from character items.
+  // General-influence bonus: sum stat-modifier general-influence effects. These
+  // ride two kinds of source: an item / attached permanent-event on a character
+  // (Bade to Rule le-167 on the Ringwraith, Great Shadow ba-62 on the Balrog),
+  // and a bare stage permanent-event sitting in `cardsInPlay` (Truths of Doom
+  // wh-108, which is not placed on any character). An optional `controlLimit`
+  // caps how many of the added points may control characters; the excess is
+  // accumulated as `generalInfluenceControlPenalty` (still part of the pool for
+  // defensive unused-GI purposes, but never usable to control characters).
+  const applyGeneralInfluenceEffect = (effect: CardEffect): void => {
+    if (effect.type !== 'stat-modifier') return;
+    const e = effect as { stat?: string; value?: number; controlLimit?: number };
+    if (e.stat !== 'general-influence') return;
+    const val = typeof e.value === 'number' ? e.value : 0;
+    generalInfluenceBonus += val;
+    if (typeof e.controlLimit === 'number') {
+      generalInfluenceControlPenalty += Math.max(0, val - e.controlLimit);
+    }
+  };
   for (const char of Object.values(player.characters)) {
     for (const item of char.items) {
       const itemDef = resolveDef(state, item.instanceId);
       const effects = itemDef && 'effects' in itemDef
         ? (itemDef as { effects?: readonly CardEffect[] }).effects ?? []
         : [];
-      for (const effect of effects) {
-        if (effect.type === 'stat-modifier' && (effect as { stat?: string }).stat === 'general-influence') {
-          const val = (effect as { value?: number }).value ?? 0;
-          generalInfluenceBonus += typeof val === 'number' ? val : 0;
-        }
-      }
+      for (const effect of effects) applyGeneralInfluenceEffect(effect);
     }
+  }
+  for (const card of player.cardsInPlay) {
+    if (card.setAsideHost !== undefined) continue;
+    const def = resolveDef(state, card.instanceId);
+    const effects = def && 'effects' in def
+      ? (def as { effects?: readonly CardEffect[] }).effects ?? []
+      : [];
+    for (const effect of effects) applyGeneralInfluenceEffect(effect);
   }
 
   // Cards in play: factions, permanent events, etc. Set-aside cards (MEAS §1)
@@ -1222,6 +1243,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     !charactersChanged &&
     player.generalInfluenceUsed === generalInfluenceUsed &&
     player.generalInfluenceBonus === generalInfluenceBonus &&
+    player.generalInfluenceControlPenalty === generalInfluenceControlPenalty &&
     player.marshallingPoints === mp &&
     player.callableMarshallingPoints === callable &&
     player.stagePoints === stagePoints
@@ -1234,6 +1256,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     characters: charactersChanged ? newCharacters : player.characters,
     generalInfluenceUsed,
     generalInfluenceBonus,
+    generalInfluenceControlPenalty,
     marshallingPoints: mp,
     callableMarshallingPoints: callable,
     stagePoints,

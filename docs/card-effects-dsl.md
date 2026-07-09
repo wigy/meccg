@@ -80,11 +80,29 @@ avatars), so "halving" effects can be expressed as a value expression. Example
 Used by the troll triplets (as-1/as-5/as-6, `value: -1`) and Awaiting the
 Call (le-165).
 
-The `general-influence` stat is a player-level modifier (not per-character). When a card
-carrying `stat: "general-influence"` is attached to a character, `PlayerState.generalInfluenceBonus`
-is incremented by `value` during `recomputeDerived`. Effective GI pool = `GENERAL_INFLUENCE (20) +
-generalInfluenceBonus`. Example: Bade to Rule (le-167) grants +5 GI to the Ringwraith
-player while attached to the Ringwraith.
+The `general-influence` stat is a player-level modifier (not per-character). It is collected
+during `recomputeDerived` from **both** an item / attached permanent-event on a character
+(Bade to Rule le-167 on the Ringwraith, Great Shadow ba-62 on the Balrog) **and** a bare
+stage permanent-event sitting in the player's `cardsInPlay` (Truths of Doom wh-108).
+`PlayerState.generalInfluenceBonus` is incremented by `value`; effective GI pool =
+`GENERAL_INFLUENCE (20) + generalInfluenceBonus` (for a Fallen-wizard, the avatar's
+white-hand number replaces the 20). Example: Bade to Rule (le-167) grants +5 GI to the
+Ringwraith player while attached to the Ringwraith.
+
+An optional `controlLimit` caps how many of the added `value` points may be used to
+**control characters**. The excess (`value - controlLimit`) is accumulated into
+`PlayerState.generalInfluenceControlPenalty`: it still counts toward the player's full pool
+(and thus toward *unused* general influence for defensive hazard subtraction) but is
+excluded from the character-control budget, which is
+`generalInfluenceControlLimit = effectiveGeneralInfluence - generalInfluenceControlPenalty`
+(the value every character-play / follower-to-GI gate uses). This mirrors the Ringwraith /
+Balrog +5 bonus that "cannot be used to control characters" (CoE 1.12.R1 / 1.12.B1).
+Example — Truths of Doom (wh-108): "+6 general influence; you may only use 2 of these 6
+points to control characters":
+
+```json
+{ "type": "stat-modifier", "stat": "general-influence", "value": 6, "controlLimit": 2 }
+```
 
 The `strikes` stat is used with `target: "all-attacks"` to modify the number
 of strikes on creature and automatic attacks (e.g. Wake of War), or with

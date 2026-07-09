@@ -1898,9 +1898,16 @@
       {
         "type": "stage-points",
         "value": 4
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "value": 6,
+        "controlLimit": 2
       }
     ],
-    "text": "Unique.Pallando specific. Your general influence is increased by 6 points. You may only use 2 of these 6 points to control characters."
+    "text": "Unique.Pallando specific. Your general influence is increased by 6 points. You may only use 2 of these 6 points to control characters.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
