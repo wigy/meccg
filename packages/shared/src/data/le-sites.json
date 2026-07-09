@@ -1486,7 +1486,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Minas Morgul. Automatic-attacks: Men — each character faces 1 strike with 5 prowess (detainment against covert company).",
-    "unique": true
+    "unique": true,
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-site",
