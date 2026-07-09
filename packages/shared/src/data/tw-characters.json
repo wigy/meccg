@@ -2093,7 +2093,7 @@
     "name": "Damrod",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Damrod.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "scout",
       "ranger"
@@ -2106,8 +2106,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Vale of Erech",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Men of Lamedon faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Men of Lamedon"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Men of Lamedon faction.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "hero-character",
