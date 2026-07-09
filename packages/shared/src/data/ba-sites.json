@@ -9,7 +9,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Númeriador",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Drake",
@@ -38,8 +41,23 @@
             "coastal"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-keying",
+        "keying": {
+          "regionTypes": [
+            "coastal"
+          ]
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "drake"
       }
-    ]
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
