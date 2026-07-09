@@ -740,10 +740,42 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gorgoroth",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Trolls",
+        "strikes": 3,
+        "prowess": 9
+      },
+      {
+        "creatureType": "Maia",
+        "strikes": 1,
+        "prowess": 24,
+        "combatRules": [
+          "cannot-be-canceled",
+          "wound-eliminates"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 4,
+    "unique": true,
+    "certified": "2026-07-09",
     "text": "Playable: Items (minor, major, greater)Automatic-attacks (3): (1st) Orcs — 4 strikes with 7 prowess (2nd) Trolls — 3 strikes with 9 prowess (3rd) Maia (cannot be canceled) — 1 strike with 24 prowess. Any character wounded by the Maia’s attack is automatically eliminatedSpecial: Creatures keyed to this site attack normally, not as detainment."
   },
   {
