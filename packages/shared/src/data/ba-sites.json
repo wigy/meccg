@@ -756,11 +756,33 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Angmar",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": ["minor", "major"],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Nazgûl",
+        "strikes": 1,
+        "prowess": 15,
+        "combatRules": [
+          "cannot-be-canceled"
+        ]
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Playable: Items (minor, major)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Nazgûl (cannot be canceled) — 1 strike with 15 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+    "text": "Playable: Items (minor, major)\nAutomatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess\n(2nd) Nazgûl (cannot be canceled) — 1 strike with 15 prowess\nSpecial: Creatures keyed to this site attack normally, not as detainment.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
