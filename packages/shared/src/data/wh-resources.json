@@ -1750,9 +1750,50 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.avatar": "Pallando"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "site.isOwnWizardhaven": true
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isAvatar": { "$ne": true } },
+            { "target.skills": { "$includes": "sage" } },
+            { "target.race": { "$ne": "hobbit" } },
+            { "target.race": { "$ne": "dwarf" } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1
+      },
+      {
+        "type": "control-restriction",
+        "cost": 2,
+        "sources": ["general", "fallen-wizard"]
+      },
+      {
+        "type": "play-flag",
+        "flag": "can-use-palantir"
       }
     ],
-    "text": "Unique. Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage character at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Pallando. This character may tap to use a Palantír he bears."
+    "text": "Unique. Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage character at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Pallando. This character may tap to use a Palantír he bears.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
