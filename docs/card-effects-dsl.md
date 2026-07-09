@@ -3017,8 +3017,8 @@ Rules:
   the site's `dynamic-auto-attack`, whose own `keying` filter already governs
   auto-attack eligibility. Consumed by
   `engine/legal-actions/movement-hazard.ts` `siteAllowsCreatureByKeying`. Used
-  by *The Drowning-deeps* (ba-89) — "Creatures keyed to Coastal Sea … may be
-  keyed to this site."
+  by *The Drowning-deeps* (ba-89) and *Remains of Thangorodrim* (ba-95) —
+  "Creatures keyed to Coastal Seas may be keyed to this site."
 
   ```json
   { "type": "site-rule", "rule": "allow-creature-by-keying",

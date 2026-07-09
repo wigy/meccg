@@ -3241,8 +3241,9 @@ function siteAllowsCreatureByRace(
  * else current) carries an `allow-creature-by-keying` site-rule whose region-
  * or site-type filter matches one of the creature's own `keyedTo` entries.
  * When it does, the creature keys as if the site matched its keying, so its
- * normal path/site keying check is bypassed (e.g. The Drowning-deeps ba-89:
- * "Creatures keyed to Coastal Sea may be keyed to this site.").
+ * normal path/site keying check is bypassed (e.g. The Drowning-deeps ba-89 and
+ * Remains of Thangorodrim ba-95: "Creatures keyed to Coastal Seas may be keyed
+ * to this site.").
  */
 function siteAllowsCreatureByKeying(
   state: GameState,

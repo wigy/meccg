@@ -396,8 +396,8 @@ export interface AllowCreatureByRaceSiteRule extends EffectBase {
  * only the normal hazard-creature play path (not the site's dynamic
  * auto-attack, whose own `keying` filter already governs eligibility).
  *
- * Example — The Drowning-deeps (ba-89): "Creatures keyed to Coastal Sea ...
- * may be keyed to this site."
+ * Example — The Drowning-deeps (ba-89) and Remains of Thangorodrim (ba-95):
+ * "Creatures keyed to Coastal Seas may be keyed to this site."
  *
  * ```json
  * { "type": "site-rule", "rule": "allow-creature-by-keying",

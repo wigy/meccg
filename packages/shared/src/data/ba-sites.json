@@ -243,7 +243,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "",
-    "playableResources": [],
+    "playableResources": ["information", "minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Drake",
@@ -261,10 +261,20 @@
     "hazardDraws": 2,
     "text": "Adjacent Sites: no surface site, The Drowning-deeps (9)\nPlayable: Information, Items (minor, major, greater)\nAutomatic-attacks (2): (1st) Drake — 2 strikes with 12 prowess\n(2nd) Opponent may play as an automatic-attack one hazard creature from his hand normally keyed to Coastal Sea.\nSpecial: Creatures keyed to Coastal Seas may be keyed to this site.",
     "unique": true,
+    "certified": "2026-07-09",
     "effects": [
       {
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
+        "keying": {
+          "regionTypes": [
+            "coastal"
+          ]
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-keying",
         "keying": {
           "regionTypes": [
             "coastal"
