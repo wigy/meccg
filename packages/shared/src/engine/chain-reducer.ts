@@ -33,7 +33,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companySubphaseScope, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, matchesDefinition, playerById, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companySubphaseScope, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -1094,6 +1094,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // the chain entry (removed from hand at declaration), so every destination
   // sources it with `from: 'chain'` (ctx.chainCard, no-op removal).
   const targetCharId = entry.payload.type === 'permanent-event' ? entry.payload.targetCharacterId : undefined;
+  const targetItemId = entry.payload.type === 'permanent-event' ? entry.payload.targetItemInstanceId : undefined;
   const moveCtx: import('./reducer-move.js').MoveContext = {
     sourceCardId: card.instanceId,
     sourcePlayerIndex: playerIndex,
@@ -1143,7 +1144,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     const targetCompanyId = entry.payload.type === 'permanent-event' ? entry.payload.targetCompanyId : undefined;
     // Inner Cunning (dm-68) mode 1: a permanent event bound to a face-down agent.
     const targetAgentId = entry.payload.type === 'permanent-event' ? entry.payload.targetAgentId : undefined;
-    if (targetSiteDefId || targetCompanyId || targetAgentId) {
+    if (targetSiteDefId || targetCompanyId || targetAgentId || targetItemId) {
       working = updatePlayer(working, playerIndex, p => ({
         ...p,
         cardsInPlay: p.cardsInPlay.map(c => c.instanceId === card.instanceId
@@ -1152,6 +1153,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
               ...(targetSiteDefId ? { attachedToSite: targetSiteDefId } : {}),
               ...(targetCompanyId ? { companyId: targetCompanyId } : {}),
               ...(targetAgentId ? { attachedToAgentId: targetAgentId } : {}),
+              ...(targetItemId ? { attachedToItem: targetItemId } : {}),
             }
           : c),
       }));
@@ -1163,6 +1165,9 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }
       if (targetAgentId) {
         logDetail(`"${def?.name ?? card.definitionId}" attached to face-down agent ${targetAgentId as string}`);
+      }
+      if (targetItemId) {
+        logDetail(`"${def?.name ?? card.definitionId}" attached to item ${targetItemId as string}`);
       }
     }
   }
@@ -1282,6 +1287,26 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         logDetail(`"${def?.name ?? '?'}" tap-character-on-play: tapping character ${targetCharId as string}`);
         newState = updatePlayer(newState, pi, p => updateCharacter(p, targetCharId, () => ({
           ...char,
+          status: CardStatus.Tapped,
+        })));
+        break;
+      }
+    }
+  }
+
+  // tap-bearer-on-play: for an item-targeting permanent event, tap the character
+  // bearing the targeted item (Barrow-blade dm-119: "Tap the bearer of a Dagger
+  // of Westernesse … and play this with the Dagger").
+  if (targetItemId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'tap-bearer-on-play')) {
+    for (let pi = 0; pi < 2; pi++) {
+      const entry2 = Object.entries(newState.players[pi].characters).find(([, ch]) =>
+        ch.items.some(it => it.instanceId === targetItemId),
+      );
+      if (entry2) {
+        const [bearerId, bearer] = entry2;
+        logDetail(`"${def?.name ?? '?'}" tap-bearer-on-play: tapping bearer ${bearerId} of item ${targetItemId as string}`);
+        newState = updatePlayer(newState, pi, p => updateCharacter(p, bearerId as import('../types/common.js').CardInstanceId, () => ({
+          ...bearer,
           status: CardStatus.Tapped,
         })));
         break;
@@ -1812,7 +1837,16 @@ function collectHavenJumpOffers(
     const siteDef = company.currentSite
       ? defById(state, company.currentSite.definitionId)
       : undefined;
-    const atHaven = !!(siteDef && isSiteCard(siteDef) && siteDef.siteType === SiteType.Haven);
+    // "at a Haven" for this player. For a Fallen-wizard (Alatar wh-1) that
+    // means one of *his* Wizardhavens only, not any METW haven — `isHavenForPlayer`
+    // encodes that alignment distinction (and Hidden Haven conversions), so the
+    // same effect data restricts wh-1 to Wizardhavens while tw-117 (wizard) still
+    // triggers at any haven.
+    const atHaven = isHavenForPlayer(siteDef, defendingPlayer.alignment, {
+      state,
+      siteDefinitionId: company.currentSite?.definitionId,
+      playerId: defendingPlayer.id,
+    });
     if (!atHaven) continue;
     for (const charId of company.characters) {
       const charInPlay = defendingPlayer.characters[charId];
@@ -2044,6 +2078,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingSiteEffects: defendingSiteDef?.effects,
       defendingSiteName: defendingSiteDef?.name,
+      defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
     }),
     forceSingleTarget: multiAttackCount > 1 ? true : undefined,
     multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,
@@ -2634,6 +2669,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               attackRace: race0 as import('../index.js').Race | null,
               defendingAlignment: current.players[activeIndex].alignment,
               defendingSiteEffects: destSiteDef.effects,
+              defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(current, current.players[activeIndex]),
             }),
             ...(aaAttackerChooses0 ? { attackerChoosesDefenders: true } : {}),
           });

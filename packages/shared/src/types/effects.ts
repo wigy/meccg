@@ -287,6 +287,11 @@ export interface DisplaceStoredItemEffect extends EffectBase {
  * are each worth full marshalling points." His filter excludes items keyworded
  * `weapon`, `armor`, `shield`, or `helmet`.
  *
+ * The effect may be carried by a character (Saruman is a character) or by a
+ * stage permanent-event in `cardsInPlay` (Join the Hunt wh-93). When
+ * {@link inAvatarCompany} is set, only items borne by characters in the same
+ * company as the player's revealed avatar qualify ("items in Alatar's company").
+ *
  * ```json
  * { "type": "fw-item-mp-full",
  *   "filter": { "$not": { "$or": [
@@ -303,6 +308,51 @@ export interface FallenWizardItemMpEffect extends EffectBase {
    * full printed MP for the Fallen-wizard; omit to exempt every item.
    */
   readonly filter?: Condition;
+  /**
+   * When `true`, the exemption applies only to items borne by characters in the
+   * same company as the player's revealed avatar (e.g. "your … items in Alatar's
+   * company", Join the Hunt wh-93). Omit for a player-wide exemption (Saruman).
+   */
+  readonly inAvatarCompany?: boolean;
+}
+
+/**
+ * Fallen-wizard ally marshalling-point exemption (MEWH §4 exception).
+ *
+ * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
+ * marshalling point. A card carrying this effect lets the player's **allies**
+ * matching {@link filter} each score their **full printed** MP instead of the
+ * clamped 1 (unlike {@link FallenWizardCharacterAllyMpEffect}, which pins the
+ * value to a fixed number). Allies that do not match remain clamped to 1.
+ *
+ * When {@link inAvatarCompany} is set, only allies borne by characters in the
+ * same company as the player's revealed avatar qualify ("allies in Alatar's
+ * company").
+ *
+ * Used by Join the Hunt (wh-93): "Your allies with a prowess attribute in
+ * Alatar's company are each worth full marshalling points." — `filter`
+ * `{ prowess: { $exists: true } }`, `inAvatarCompany: true`. Oromë's Warders
+ * (wh-94) reuses the same effect player-wide (no `inAvatarCompany`).
+ *
+ * ```json
+ * { "type": "fw-ally-mp-full",
+ *   "filter": { "prowess": { "$exists": true } },
+ *   "inAvatarCompany": true }
+ * ```
+ */
+export interface FallenWizardAllyMpFullEffect extends EffectBase {
+  readonly type: 'fw-ally-mp-full';
+  /**
+   * Condition matched against an ally's card definition. Allies that match score
+   * full printed MP for the Fallen-wizard; omit to exempt every ally.
+   */
+  readonly filter?: Condition;
+  /**
+   * When `true`, the exemption applies only to allies borne by characters in the
+   * same company as the player's revealed avatar (Join the Hunt wh-93). Omit for
+   * a player-wide exemption (Oromë's Warders wh-94).
+   */
+  readonly inAvatarCompany?: boolean;
 }
 
 /**
@@ -333,6 +383,59 @@ export interface FallenWizardCharacterAllyMpEffect extends EffectBase {
   readonly threshold: number;
   /** MP each qualifying character/ally is worth, overriding the §4 1-MP clamp. */
   readonly value: number;
+}
+
+/**
+ * Fallen-wizard kill marshalling-point exemption (MEWH §4 exception).
+ *
+ * MEWH §4 clamps every defeated creature a Fallen-wizard's companies kill to a
+ * flat **1** kill marshalling point. A character carrying this effect exempts
+ * the player from that clamp: hazard creatures his companies defeat score their
+ * *full* printed kill marshalling points instead. In addition, a defeated
+ * **detainment** creature — which normally awards 0 kill MP because it is
+ * discarded rather than routed to the kill pile (CoE rule 3.II.3) — is instead
+ * placed in the defending player's kill pile and scores its full kill MP too
+ * (the "even with *" clause; `*` marks a detainment attack). Both consequences
+ * are player-wide ("your companies"), not limited to the carrier's company.
+ *
+ * Used by Alatar (wh-1): "Hazards your companies defeat (even with *) are worth
+ * full kill marshalling points."
+ *
+ * ```json
+ * { "type": "fw-kill-mp-full" }
+ * ```
+ */
+export interface FallenWizardKillMpEffect extends EffectBase {
+  readonly type: 'fw-kill-mp-full';
+}
+
+/**
+ * Converts every detainment attack against the carrier's player's companies
+ * into a normal attack (CoE §3.II — a detainment attack taps rather than
+ * wounds, suppresses the body check, and awards no kill MP; a normal attack
+ * does none of those). While a character carrying this effect is in play and
+ * the player's stage-point total is strictly greater than
+ * {@link stagePointsAbove}, any attack the engine would otherwise treat as
+ * detainment — whether from a `combat-detainment` effect, a site-forced
+ * detainment rule, or the alignment-based §3.II keying rules — is resolved as a
+ * normal attack instead.
+ *
+ * Used by Alatar (wh-1): "If you have more than 7 stage points, all detainment
+ * attacks against your companies attack normally instead." Here
+ * `stagePointsAbove` is 7.
+ *
+ * ```json
+ * { "type": "detainment-attacks-normal", "stagePointsAbove": 7 }
+ * ```
+ */
+export interface DetainmentAttacksNormalEffect extends EffectBase {
+  readonly type: 'detainment-attacks-normal';
+  /**
+   * The player's stage-point total must be strictly greater than this for the
+   * conversion to apply. Defaults to 0 (always active while in play) when
+   * omitted.
+   */
+  readonly stagePointsAbove?: number;
 }
 
 /**
@@ -618,6 +721,14 @@ export interface HandSizeModifierEffect extends EffectBase {
  * Example: Alatar reduces the opponent's hazard draws by 1 for his company.
  * Example: Radagast adds +1 resource draw per Wilderness in the site path
  * via the expression `"sitePath.wildernessCount"`.
+ * Example: A Short Rest (td-95) — a resource long-event in the moving
+ * player's `cardsInPlay` — grants `"4 - sitePath.regionCount"` extra
+ * resource draws, gated on an actual region site path (`movementType`
+ * in `region`/`starter`, `sitePath.regionCount` in 1..3).
+ *
+ * Draw-modifiers are collected both from a moving company's characters and
+ * from the active player's own in-play events/environments, so a long-event
+ * (not carried by any character) can contribute.
  */
 export interface DrawModifierEffect extends EffectBase {
   readonly type: 'draw-modifier';
@@ -627,8 +738,10 @@ export interface DrawModifierEffect extends EffectBase {
    * The adjustment (negative = fewer draws). Accepts a value expression
    * evaluated against the resolver context, which exposes `sitePath`
    * counts (`wildernessCount`, `shadowCount`, `darkCount`,
-   * `coastalCount`, `freeCount`, `borderCount`) derived from the
-   * moving company's resolved site path.
+   * `coastalCount`, `freeCount`, `borderCount`, and `regionCount` — the
+   * total path length) derived from the moving company's resolved site
+   * path, plus the top-level `movementType`
+   * (`starter`/`region`/`special`/`under-deeps`).
    */
   readonly value: ValueExpr;
   /** Floor for the modified draw count. */
@@ -1720,6 +1833,11 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   permanent event resolves from the chain. Used by cards whose text
  *   explicitly says "Tap the site" as part of their play effect (e.g.
  *   The Windlord Found Me). Respects the `never-taps` site-rule.
+ * - `tap-bearer-on-play` — for an item-targeting permanent event
+ *   (`play-target` target `item`), taps the character bearing the targeted
+ *   item when the card resolves from the chain (e.g. Barrow-blade dm-119:
+ *   "Tap the bearer of a Dagger of Westernesse … and play this with the
+ *   Dagger").
  * - `healing-affects-all` — healing effects applied to one character in the
  *   company extend to all other wounded characters in the same company (e.g.
  *   Ioreth). Equivalent to the `healing-affects-all` site-rule but carried
@@ -1753,7 +1871,7 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -2189,9 +2307,12 @@ export interface PlayTargetEffect extends EffectBase {
    * scopes to the active player's own characters; hazard-side
    * `character` scopes to the active company's characters. Hazard-side
    * `stored-item` scopes to the opponent's stored items (items sitting in
-   * the opponent's marshalling-point pile).
+   * the opponent's marshalling-point pile). Resource-side `item` scopes to
+   * items borne by the active player's own characters (e.g. Barrow-blade
+   * dm-119, played "with the Dagger" — a permanent event attached to an
+   * item whose `stat-modifier` effects flow to the item's bearer).
    */
-  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item';
+  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item';
   /**
    * Optional DSL condition refining which candidates qualify. Evaluated
    * against the per-candidate context (e.g. `target.race`,
@@ -2745,6 +2866,36 @@ export interface ModifyAttackEffect extends EffectBase {
 }
 
 /**
+ * An in-play item (or character-attached permanent event) that may be tapped
+ * during a creature/automatic-attack's strike-assignment window to let its
+ * bearer face one of the attack's strikes **regardless of the attack's normal
+ * capabilities and the bearer's status** — i.e. the bearer takes on a strike
+ * even while tapped or wounded, and even when the attack's normal rules would
+ * not direct a strike at him. Offered only to the defending player during the
+ * `assign-strikes` defender phase, while the item is untapped, its bearer is in
+ * the defending company, and an unassigned strike remains. Activating taps the
+ * item and adds a forced strike assignment to the bearer.
+ *
+ * If `bodyReductionOnParry` is set and the bearer subsequently defeats (parries)
+ * that strike — the strike "fails" to wound him — the attack's body
+ * ({@link CombatState.creatureBody}) is reduced by that amount for the rest of
+ * the combat, making the creature easier to defeat via its own body checks.
+ *
+ * Used by Bow of Alatar (wh-90): "you may tap Bow of Alatar to allow him to face
+ * a strike from an attack against his company regardless of the attack's normal
+ * capabilities and his status. If such a strike fails, the attack's body is
+ * reduced by 1."
+ */
+export interface FaceStrikeOnTapEffect extends EffectBase {
+  readonly type: 'face-strike-on-tap';
+  /**
+   * Amount subtracted from the attack's body (floored at 0) when the bearer
+   * parries the strike he faced via this ability. Omit for no body reduction.
+   */
+  readonly bodyReductionOnParry?: number;
+}
+
+/**
  * Declares that an item can be stored during the Organization phase when
  * the bearer's company is at a matching site. Storing moves the item from
  * the character to the player's stored-items pile, where it earns
@@ -3047,6 +3198,28 @@ export interface SeizedByTerrorCheckEffect extends EffectBase {
   readonly type: 'seized-by-terror-check';
   /** Roll + character mind must meet or exceed this to stay in the moving company. */
   readonly threshold: number;
+}
+
+/**
+ * A play cost requiring the playing player to discard a card matching `filter`
+ * from the named `source` pile as part of playing this card. The discarded card
+ * is the player's choice — the legal-action layer offers one action per matching
+ * candidate — and (when `revealToOpponent` is set) its identity is shown to the
+ * opponent, satisfying a "show opponent" clause. If no matching card is
+ * available in the source, the card cannot be played.
+ *
+ * Used by Faces of the Dead (dm-57): "…if you discard any Undead hazard creature
+ * from your hand (show opponent)." (`source: 'hand'`,
+ * `filter: { cardType: 'hazard-creature', race: 'undead' }`, `revealToOpponent: true`).
+ */
+export interface PlayDiscardCostEffect extends EffectBase {
+  readonly type: 'play-discard-cost';
+  /** Source pile from which the cost card is discarded. Currently only `'hand'`. */
+  readonly source: 'hand';
+  /** DSL condition matched against candidate card definitions in the source pile. */
+  readonly filter: Condition;
+  /** When true, the discarded card's identity is revealed to the opponent. */
+  readonly revealToOpponent?: boolean;
 }
 
 /**
@@ -3481,7 +3654,10 @@ export type CardEffect =
   | BodyCheckModifierEffect
   | MpModifierEffect
   | FallenWizardItemMpEffect
+  | FallenWizardAllyMpFullEffect
   | FallenWizardCharacterAllyMpEffect
+  | FallenWizardKillMpEffect
+  | DetainmentAttacksNormalEffect
   | CompanyModifierEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect
@@ -3501,6 +3677,7 @@ export type CardEffect =
   | CancelInfluenceEffect
   | StrikeModifierEffect
   | ModifyAttackEffect
+  | FaceStrikeOnTapEffect
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect
   | CombatAttackerChoosesDefendersEffect
@@ -3530,6 +3707,7 @@ export type CardEffect =
   | ForceCheckAllCompanyTopEffect
   | CompanyStrikeEffect
   | SeizedByTerrorCheckEffect
+  | PlayDiscardCostEffect
   | RollRemoveHazardEventsEffect
   | AgentTapInfluenceEffect
   | AgentTapAttackEffect

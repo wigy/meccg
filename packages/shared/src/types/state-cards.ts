@@ -150,6 +150,16 @@ export interface CardInPlay {
    */
   readonly attachedToAgentId?: import('./common.js').CompanyId;
   /**
+   * If this permanent event is attached to a specific *item* in play rather
+   * than to its bearer directly — the item's {@link CardInstanceId}. The card
+   * lives in its controller's `cardsInPlay` while so attached; its
+   * `stat-modifier` effects flow to the character bearing the item (collected
+   * in `collectCharacterEffects`), and it is discarded when the host item
+   * leaves play (the orphaned-item-attached-event sweep). Used by Barrow-blade
+   * (dm-119): "play this with the Dagger [of Westernesse]".
+   */
+  readonly attachedToItem?: CardInstanceId;
+  /**
    * Instance ID of the card this is linked to via Crown of Flowers pairing
    * (mutual discard). When either linked card is discarded from cardsInPlay,
    * the other is discarded as well.

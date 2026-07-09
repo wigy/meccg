@@ -319,11 +319,16 @@ MP instead. The `filter` is matched against each item's card definition (via
 `matchesDefinition`); every item the Fallen-wizard player controls — on any
 character — that matches scores its printed MP while the card carrying this
 effect is in play. Items that do not match remain clamped to 1. Collected once
-per player from the player's in-play characters and consumed in
-`recompute-derived.ts` (`addItemMP`'s `fwItemMpExempt` path).
+per player from the player's in-play characters **and** `cardsInPlay` and
+consumed in `recompute-derived.ts` (`addItemMP`'s `fwItemMpExempt` path).
+
+The optional `inAvatarCompany: true` restricts the exemption to items borne by
+characters in the same company as the player's revealed avatar ("your … items in
+Alatar's company"); omit it for a player-wide exemption.
 
 Used by Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
-are each worth full marshalling points."
+are each worth full marshalling points." (player-wide). Join the Hunt (wh-93)
+uses the company-restricted form for its weapon/armor/shield/helmet items.
 
 ```json
 { "type": "fw-item-mp-full",
@@ -332,6 +337,27 @@ are each worth full marshalling points."
     { "keywords": { "$includes": "armor" } },
     { "keywords": { "$includes": "shield" } },
     { "keywords": { "$includes": "helmet" } } ] } } }
+```
+
+### 3b-ii. `fw-ally-mp-full`
+
+Fallen-wizard **ally** marshalling-point exemption (MEWH §4 exception). Like
+`fw-item-mp-full` but for allies: each ally matching `filter` scores its **full
+printed** MP instead of the §4 flat-1 clamp (distinct from `fw-character-ally-mp`,
+which pins a fixed value). The optional `inAvatarCompany: true` restricts the
+exemption to allies borne by characters in the player's avatar company. Collected
+per player from in-play characters and `cardsInPlay` and consumed in
+`recompute-derived.ts` (`addMP`'s `fwFullMp` path); full-MP takes precedence over
+any `fw-character-ally-mp` cap and never applies to stage cards or non-Fallen-wizards.
+
+Used by Join the Hunt (wh-93): "Your allies with a prowess attribute in Alatar's
+company are each worth full marshalling points." Oromë's Warders (wh-94) reuses
+the same effect player-wide (no `inAvatarCompany`).
+
+```json
+{ "type": "fw-ally-mp-full",
+  "filter": { "prowess": { "$exists": true } },
+  "inAvatarCompany": true }
 ```
 
 ### 3c. `fw-character-ally-mp`
@@ -353,6 +379,50 @@ and `value` are 2.
 
 ```json
 { "type": "fw-character-ally-mp", "threshold": 2, "value": 2 }
+```
+
+### 3d. `fw-kill-mp-full`
+
+Fallen-wizard kill marshalling-point exemption (MEWH §4 exception). MEWH §4 clamps
+every creature a Fallen-wizard's companies defeat to a flat **1** kill MP. A
+character carrying this effect exempts the player: defeated hazard creatures score
+their *full* printed kill MP instead. In addition, a defeated **detainment**
+creature — which normally awards 0 kill MP because it is discarded rather than
+routed to the kill pile (CoE §3.II.3) — is instead placed in the defending
+player's kill pile and scores full kill MP too (the "even with \*" clause; `*`
+marks a detainment attack). Both consequences are player-wide ("your companies"),
+not limited to the carrier's company. Collected from the player's in-play
+characters (`playerHasKillMpExemption` in `reducer-utils.ts`) and consumed in both
+`recompute-derived.ts` (kill-MP tally) and `combat-finalize.ts` (detainment
+disposition). Only Fallen-wizard players are ever subject to the §4 clamp.
+
+Used by Alatar (wh-1): "Hazards your companies defeat (even with \*) are worth full
+kill marshalling points."
+
+```json
+{ "type": "fw-kill-mp-full" }
+```
+
+### 3e. `detainment-attacks-normal`
+
+Converts every detainment attack against the carrier's player's companies into a
+normal attack (CoE §3.II — a detainment attack taps rather than wounds, suppresses
+the body check, and awards no kill MP; a normal attack does none of those). While
+a character carrying this effect is in play and the player's `stagePoints` total
+is strictly greater than `stagePointsAbove` (default 0), any attack the engine
+would otherwise treat as detainment — whether from a `combat-detainment` effect, a
+site-forced detainment rule, or the alignment-based §3.II keying rules — resolves
+as a normal attack instead. Computed per defending player via
+`playerConvertsDetainmentToNormal` (`reducer-utils.ts`) and threaded into
+`isDetainmentAttack` as `defenderForcesNormalAttacks`, which short-circuits the
+whole detainment computation to `false` at every combat-initiation call site.
+
+Used by Alatar (wh-1): "If you have more than 7 stage points, all detainment
+attacks against your companies attack normally instead." Here `stagePointsAbove`
+is 7.
+
+```json
+{ "type": "detainment-attacks-normal", "stagePointsAbove": 7 }
 ```
 
 ### 3a. `stage-points`
@@ -520,14 +590,40 @@ for the bearer's company. The `draw` field selects which pool to modify
 `value` may be a plain number or a {@link ValueExpr} string evaluated
 against a context exposing `sitePath` counts (`wildernessCount`,
 `shadowCount`, `darkCount`, `coastalCount`, `freeCount`,
-`borderCount`) derived from the moving company's resolved site path —
+`borderCount`, and `regionCount` — the total number of regions in the
+path) derived from the moving company's resolved site path, plus the
+top-level `movementType` (`starter`/`region`/`special`/`under-deeps`) —
 used by Radagast for "+1 resource draw per Wilderness in the site
 path".
+
+Draw-modifiers are collected from **both** a moving company's characters
+(items/hazards included) **and** the active (moving) player's own in-play
+events/environments in `cardsInPlay`. This lets a resource long-event that
+is not carried by any character contribute a draw bonus to every one of
+that player's moving companies. Collecting only from the *active* player's
+`cardsInPlay` means a long-event lingering across the opponent's turn never
+affects the opponent's draws.
 
 ```json
 { "type": "draw-modifier", "draw": "hazard", "value": -1, "min": 0 }
 { "type": "draw-modifier", "draw": "resource",
   "value": "sitePath.wildernessCount", "min": 0 }
+```
+
+A Short Rest (td-95) is a resource long-event: "Each moving company may
+draw an extra card for each region less than four in its site path." It
+draws `4 - regionCount` extra resource cards, gated on an actual region
+site path — the CRF 22 ruling excludes under-deeps and special movement,
+which resolve to an empty path:
+
+```json
+{ "type": "draw-modifier", "draw": "resource",
+  "value": "4 - sitePath.regionCount", "min": 0,
+  "when": { "$and": [
+    { "movementType": { "$in": ["region", "starter"] } },
+    { "sitePath.regionCount": { "$gt": 0 } },
+    { "sitePath.regionCount": { "$lt": 4 } }
+  ] } }
 ```
 
 ### 6c. `draw-cards`
@@ -1948,6 +2044,38 @@ Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
 and `engine/reducer-combat.ts` (`handleModifyAttack`), with cancel
 protection in `engine/combat-cancel.ts` (`resolveCancelAttackEntry`).
 
+### 10f. `face-strike-on-tap`
+
+Activated ability on an in-play item (or character-attached permanent event)
+that lets its bearer face one of an attack's strikes **regardless of the
+attack's normal capabilities and the bearer's status**. During the
+`assign-strikes` defender phase, while the item is untapped, its bearer is in
+the defending company, and an unassigned strike remains, the defending player
+may tap the item (the new `face-strike-on-tap` action) to add a strike-facing to
+the bearer — even if he is tapped or wounded (the ordinary untapped-status gate
+is bypassed) and even if the attack's normal rules would not direct a strike at
+him.
+
+If `bodyReductionOnParry` is set and the bearer then **parries** that strike (it
+fails to wound him — `characterTotal >= creature prowess`), the attack's body
+(`CombatState.creatureBody`) is reduced by that amount for the rest of the
+combat, applied immediately (including to that strike's own creature body
+check), making the creature easier to defeat via its body checks.
+
+```json
+{ "type": "face-strike-on-tap", "bodyReductionOnParry": 1 }
+```
+
+Example: Bow of Alatar (wh-90) — placed on Alatar (`play-target` `character`
+filter `{ "target.name": "Alatar" }`); tap to let Alatar face a strike
+regardless of capabilities/status, reducing the attack's body by 1 if he parries
+it. The card also carries `stage-points` 2.
+
+Implemented in `engine/legal-actions/combat.ts` (`assignStrikeActions` defender
+branch), `engine/combat-actions.ts` (`handleFaceStrikeOnTap`), and the parry
+body reduction in `engine/combat-strike.ts` (`resolveStrikeCore`), keyed by
+`StrikeAssignment.reduceAttackBodyOnParry`.
+
 ### 11. `cancel-strike`
 
 Pay a cost to cancel an incoming strike, with optional exclusions.
@@ -2526,6 +2654,23 @@ Supported targets:
   "siteType": "ruins-and-lairs" }, { "lairOf": { "$exists": false } }, {
   "adjacentSites": { "$exists": false } }, { "regionType": { "$in":
   ["wilderness", "border", "shadow"] } } ] }`.
+- `item` — a resource permanent event played "with" / "on" an **item** borne by
+  one of the active player's own characters (site-phase only). One
+  `play-permanent-event` action is emitted per company-character item whose
+  definition matches the `filter` (evaluated against `{ target: { name,
+  keywords, subtype } }`); the chosen item rides on the action's
+  `targetItemInstanceId`. On resolution the card enters its controller's
+  `cardsInPlay` bound via `CardInPlay.attachedToItem`, and its `stat-modifier`
+  effects flow to the item's bearer (collected in `collectCharacterEffects`
+  exactly as if printed on the item). The card is discarded by the
+  `discardOrphanedItemAttachedEvents` post-action sweep once no character bears
+  the host item. A companion `play-condition` `requires: "site-type"` gates the
+  site (e.g. Ruins & Lairs); `duplication-limit` `scope: "item"` limits copies
+  per item; `play-flag: "tap-bearer-on-play"` taps the bearer as the play cost
+  (so the bearer must be untapped). Used by Barrow-blade (dm-119): "Tap the
+  bearer of a Dagger of Westernesse during the site phase at a Ruins & Lairs
+  [{R}] and play this with the Dagger. Dagger receives +1 prowess (+3 versus
+  Undead and Nazgûl). Cannot be duplicated on a given Dagger."
 
 Optional fields:
 
@@ -6327,3 +6472,61 @@ revealed. Alternatively, as a short-event, take any agent who has a home site
 that is a Shadow-hold or Dark-hold from your play deck into your hand (reveal it
 to your opponent and reshuffle your play deck). Cannot be played if your opponent
 is a minion player."
+
+### 59. `seized-by-terror-check`
+
+Hazard short-event check played on a **character** in the active Movement/Hazard
+company (paired with a `play-target` `target: 'character'` and, typically, a
+`play-condition` `requires: 'site-path'`). When the short-event chain entry
+resolves un-negated (`chain-reducer.ts`), the engine enqueues a
+`seized-by-terror-roll` pending resolution: the targeted character's player rolls
+2d6 and adds the character's mind. If `roll + mind < threshold`, the character
+**splits off into a new company** that immediately returns to the original
+company's site of origin (`splitCharacterToOrigin` in `pending-reducers.ts` — a
+lone character's whole company returns to origin; otherwise the character forms a
+new solo company at the origin site). No card instance is lost.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `threshold` | yes | Roll + character mind must be **≥** this to keep the character in the moving company. |
+
+```json
+{ "type": "seized-by-terror-check", "threshold": 12 }
+```
+
+Used by Seized by Terror (dm-88, threshold 12, keyed to Shadow-land/Dark-domain)
+and Faces of the Dead (dm-57, threshold 13, keyed to two Wildernesses — see
+`play-discard-cost` below).
+
+### 60. `play-discard-cost`
+
+A **play cost** requiring the playing player to discard a card matching `filter`
+from the named `source` pile as part of playing the card. The legal-action layer
+offers one action per matching candidate (cross-multiplied with any character
+target) so the player chooses which card to sacrifice; if no candidate is
+available, the card is not playable at all. When `revealToOpponent` is set, the
+discarded card's identity is revealed to the opponent (`revealInstances`),
+satisfying a "show opponent" clause. The chosen card is carried on the
+`play-hazard` action as `costDiscardInstanceId`; the reducer
+(`mh-hazard-play.ts`) validates it against `filter`, moves it to the discard
+pile, and rejects the play if the cost was not paid.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `source` | yes | Pile the cost card is discarded from. Currently only `"hand"`. |
+| `filter` | yes | DSL condition matched against candidate card definitions in the source. |
+| `revealToOpponent` | no | When `true`, the discarded card's identity is revealed to the opponent. |
+
+```json
+{ "type": "play-discard-cost",
+  "source": "hand",
+  "filter": { "cardType": "hazard-creature", "race": "undead" },
+  "revealToOpponent": true }
+```
+
+Used by Faces of the Dead (dm-57): "Playable on a non-Wizard character moving
+with at least two Wildernesses [{w}] in his site path **if you discard any Undead
+hazard creature from your hand (show opponent)**." Modeled as a `play-condition`
+(`site-path`, `sitePath.wildernessCount >= 2`), this `play-discard-cost`, a
+`play-target` (`character`, `target.race != wizard`), and a
+`seized-by-terror-check` (`threshold: 13`).

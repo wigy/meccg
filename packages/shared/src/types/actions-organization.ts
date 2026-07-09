@@ -295,6 +295,8 @@ export interface PlayPermanentEventAction {
   readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
   /** For company-targeting permanent events (e.g. Fellowship), the target company ID. */
   readonly targetCompanyId?: import('./common.js').CompanyId;
+  /** For item-targeting permanent events (e.g. Barrow-blade dm-119), the target item instance. */
+  readonly targetItemInstanceId?: CardInstanceId;
   /** Card instance to discard as a play cost (e.g. Sapling of the White Tree for The White Tree). */
   readonly discardCardInstanceId?: CardInstanceId;
 }

@@ -23,7 +23,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { hasSiteFlag, makeCombatState, canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
+import { hasSiteFlag, makeCombatState, canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -565,6 +565,9 @@ function handleSiteAutomaticAttacks(
   const siteDefIdForAttacks = company.currentSite!.definitionId;
   const effectiveSiteType = getEffectiveSiteType(state, siteDefIdForAttacks, siteDef.siteType);
   const forcedDetainment = siteAutoAttacksForcedDetainment(state, siteDefIdForAttacks);
+  // Alatar wh-1: above 7 stage points, all detainment attacks against this
+  // player's companies become normal — overriding even site-forced detainment.
+  const convertsDetainment = playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]);
 
   // Advance past attacks that do not apply to this company's covert/overt
   // status (e.g. Minas Tirith's Dúnedain attack, "against overt company
@@ -650,13 +653,14 @@ function handleSiteAutomaticAttacks(
         const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR);
         const dupBodyR = resolveAttackBody(state, aa.body ?? null, inPlayNamesR, dupRace, dupBoostCtxR);
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
-        const dupDetainmentR = forcedDetainment || isDetainmentAttack({
+        const dupDetainmentR = (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
           attackEffects: siteDef.effects,
           attackRace: dupRace as Race | null,
           defendingAlignment: state.players[activePlayerIndex].alignment,
           defendingCovert,
           defendingSiteEffects: siteDef.effects,
           isAutomaticAttack: true,
+          defenderForcesNormalAttacks: convertsDetainment,
         });
         const dupCombatR: CombatState = makeCombatState({
           attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
@@ -699,13 +703,14 @@ function handleSiteAutomaticAttacks(
       const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
       const dupState = removeConstraint(state, dupConstraint.id);
-      const dupDetainment = forcedDetainment || isDetainmentAttack({
+      const dupDetainment = (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
         attackEffects: siteDef.effects,
         attackRace: creatureRace2 as Race | null,
         defendingAlignment: state.players[activePlayerIndex].alignment,
         defendingCovert,
         defendingSiteEffects: siteDef.effects,
         isAutomaticAttack: true,
+        defenderForcesNormalAttacks: convertsDetainment,
       });
       const dupCombat: CombatState = makeCombatState({
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
@@ -800,7 +805,7 @@ function handleSiteAutomaticAttacks(
     phase: isEachCharacter ? 'resolve-strike' : 'assign-strikes',
     assignmentPhase: isEachCharacter ? 'done' : (aaAttackerChooses ? 'cancel-window' : 'defender'),
     bodyCheckTarget: null,
-    detainment: forcedDetainment || isDetainmentAttack({
+    detainment: (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
       attackEffects: siteDef.effects,
       attackRace: creatureRace as Race | null,
       // Site auto-attacks are implicitly "keyed to" the site's type (§3.II.2.R1/B1).
@@ -812,6 +817,7 @@ function handleSiteAutomaticAttacks(
       defendingCovert,
       defendingSiteEffects: siteDef.effects,
       isAutomaticAttack: true,
+      defenderForcesNormalAttacks: convertsDetainment,
     }),
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
     // "cannot be canceled" (Vile Fumes' Gas wh-54, Shelob's Lair le-402)
@@ -871,6 +877,7 @@ function buildSiteRepeatedAttackCombat(
   const siteDefId = company.currentSite!.definitionId;
   const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType);
   const forcedDetainment = siteAutoAttacksForcedDetainment(state, siteDefId);
+  const convertsDetainment = playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]);
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = normalizeCreatureRace(aa.creatureType);
   const boostCtx = { companyId: company.id };
@@ -887,7 +894,7 @@ function buildSiteRepeatedAttackCombat(
     ? facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
     : [];
   const strikesTotalValue = isEachCharacter ? facingChars.length : effectiveStrikes;
-  const detainment = forcedDetainment || isDetainmentAttack({
+  const detainment = (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
     attackEffects: siteDef.effects,
     attackRace: creatureRace as Race | null,
     attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
@@ -895,6 +902,7 @@ function buildSiteRepeatedAttackCombat(
     defendingCovert,
     defendingSiteEffects: siteDef.effects,
     isAutomaticAttack: true,
+    defenderForcesNormalAttacks: convertsDetainment,
   });
   const base: CombatState = {
     attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex },
@@ -1398,7 +1406,7 @@ function handleSitePlaySiteAutoAttack(
     creatureBody: effectiveSiteDynBody,
     creatureRace,
     assignmentPhase: 'defender',
-    detainment: (company.currentSite ? siteAutoAttacksForcedDetainment(state, company.currentSite.definitionId) : false) || isDetainmentAttack({
+    detainment: (!playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]) && (company.currentSite ? siteAutoAttacksForcedDetainment(state, company.currentSite.definitionId) : false)) || isDetainmentAttack({
       attackEffects: creatureDef.effects,
       attackRace: creatureRace as Race | null,
       attackKeyedTo: creatureDef.keyedTo,
@@ -1406,6 +1414,7 @@ function handleSitePlaySiteAutoAttack(
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defendingSiteEffects: siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined,
       isAutomaticAttack: true,
+      defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
     }),
   });
 

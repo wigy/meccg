@@ -1284,9 +1284,19 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Alatar" }
+      },
+      {
+        "type": "face-strike-on-tap",
+        "bodyReductionOnParry": 1
       }
     ],
-    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Bow of Alatar to allow him to face a strike from an attack against his company regardless of the attack’s normal capabilities and his status. If such a strike fails, the attack’s body is reduced by 1."
+    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Bow of Alatar to allow him to face a strike from an attack against his company regardless of the attack’s normal capabilities and his status. If such a strike fails, the attack’s body is reduced by 1.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",
@@ -1322,9 +1332,36 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Alatar"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "huntsmans-garb-fetch",
+        "cost": {
+          "tap": "self"
+        },
+        "endOfTurnOnly": true,
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": {
+            "name": {
+              "$in": ["Risky Blow", "True Fána", "The Hunt"]
+            }
+          }
+        }
       }
     ],
-    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Huntsman’s Garb during your end-of-turn phase to take Risky Blow, True Fána, or The Hunt from your discard pile to your hand."
+    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Huntsman’s Garb during your end-of-turn phase to take Risky Blow, True Fána, or The Hunt from your discard pile to your hand.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",
@@ -1341,9 +1378,27 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "fw-item-mp-full",
+        "inAvatarCompany": true,
+        "filter": {
+          "$or": [
+            { "keywords": { "$includes": "weapon" } },
+            { "keywords": { "$includes": "armor" } },
+            { "keywords": { "$includes": "shield" } },
+            { "keywords": { "$includes": "helmet" } }
+          ]
+        }
+      },
+      {
+        "type": "fw-ally-mp-full",
+        "inAvatarCompany": true,
+        "filter": { "prowess": { "$exists": true } }
       }
     ],
-    "text": "Unique.Alatar specific. Your weapon/shield/ armor/helmet items in Alatar’s company are each worth full marshalling points. Your allies with a prowess attribute in Alatar’s company are each worth full marshalling points."
+    "text": "Unique.Alatar specific. Your weapon/shield/ armor/helmet items in Alatar’s company are each worth full marshalling points. Your allies with a prowess attribute in Alatar’s company are each worth full marshalling points.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",

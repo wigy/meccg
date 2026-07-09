@@ -678,8 +678,41 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/FacesoftheDead.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a non-Wizard character moving with at least two Wildernesses [{w}] in his site path if you discard any Undead hazard creature from your hand (show opponent). Target character's player makes a roll and adds character's mind. If the result is less than 13, that character splits off into a different company. This new company immediately returns to his original company’s site of origin."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "sitePath.wildernessCount": {
+            "$gte": 2
+          }
+        }
+      },
+      {
+        "type": "play-discard-cost",
+        "source": "hand",
+        "filter": {
+          "cardType": "hazard-creature",
+          "race": "undead"
+        },
+        "revealToOpponent": true
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": {
+            "$ne": "wizard"
+          }
+        }
+      },
+      {
+        "type": "seized-by-terror-check",
+        "threshold": 13
+      }
+    ],
+    "text": "Playable on a non-Wizard character moving with at least two Wildernesses [{w}] in his site path if you discard any Undead hazard creature from your hand (show opponent). Target character's player makes a roll and adds character's mind. If the result is less than 13, that character splits off into a different company. This new company immediately returns to his original company’s site of origin.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "hazard-event",

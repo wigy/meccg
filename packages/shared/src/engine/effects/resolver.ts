@@ -316,6 +316,18 @@ export function collectCharacterEffects(
       if (r.effect.type === 'stat-modifier' && r.effect.target === 'company') continue;
       results.push(r);
     }
+
+    // Item-attached permanent events (Barrow-blade dm-119, "play this with the
+    // Dagger"): a CardInPlay in either player's cardsInPlay bound to this active
+    // item via `attachedToItem`. Its effects flow to the item's bearer, exactly
+    // as if they were printed on the item itself.
+    for (const p of state.players) {
+      for (const cip of p.cardsInPlay) {
+        if (cip.attachedToItem !== item.instanceId) continue;
+        const evDef = resolveDef(state, cip.instanceId);
+        if (evDef) collectFromDef(evDef, cip.instanceId, context, results);
+      }
+    }
   }
 
   // Hazard card effects
@@ -349,6 +361,37 @@ export function collectCharacterEffects(
   const charConstraints = collectCharacterStatModifierEffects(state, char);
   results.push(...charConstraints);
 
+  return results;
+}
+
+/**
+ * Collects effects from a single player's own `cardsInPlay`, filtering by each
+ * effect's `when` condition against the given context.
+ *
+ * Unlike {@link collectGlobalEffects} (which walks both players and filters by
+ * a target scope), this gathers *all* effects — of any type — from one player's
+ * in-play events/environments so a downstream resolver can pick the type it
+ * cares about. Used by the movement/hazard draw step: a resource long-event
+ * such as A Short Rest (td-95) sits in the moving player's `cardsInPlay` and
+ * contributes a `draw-modifier` to that player's own moving companies.
+ *
+ * Scoping to a single player is what keeps the effect from ever benefiting the
+ * opponent: the draw step collects from the *active* (moving) player only, so a
+ * long-event lingering in one player's `cardsInPlay` across the opponent's turn
+ * never touches the opponent's draws.
+ */
+export function collectPlayerInPlayEffects(
+  state: GameState,
+  playerIndex: number,
+  context: ResolverContext,
+): CollectedEffect[] {
+  const results: CollectedEffect[] = [];
+  const player = state.players[playerIndex];
+  if (!player) return results;
+  for (const card of player.cardsInPlay) {
+    const def = resolveDef(state, card.instanceId);
+    if (def) collectFromDef(def, card.instanceId, context, results);
+  }
   return results;
 }
 

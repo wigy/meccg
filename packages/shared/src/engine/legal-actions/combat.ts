@@ -493,6 +493,35 @@ function assignStrikeActions(
       }
     }
 
+    // face-strike-on-tap (Bow of Alatar wh-90): a bearer in the defending
+    // company may tap such an item to face one of the attack's strikes even
+    // while tapped/wounded and beyond the attack's normal capabilities. Offered
+    // only when an unassigned strike remains, the bearer is not already facing a
+    // strike, and no forced-strike target is pending.
+    if (!restrictToForced && strikesRemaining > 0) {
+      for (const charId of company.characters) {
+        if (assignedCharIds.has(charId as string)) continue;
+        const charData = player.characters[charId];
+        if (!charData) continue;
+        for (const item of charData.items) {
+          if (item.status !== CardStatus.Untapped) continue;
+          const itemDef = defById(state, item.definitionId);
+          const hasFaceStrike = getCardEffects(itemDef).some(e => e.type === 'face-strike-on-tap');
+          if (!hasFaceStrike) continue;
+          logDetail(`Defender may tap ${item.instanceId as string} to have ${charId as string} face a strike (Bow of Alatar)`);
+          actions.push({
+            action: {
+              type: 'face-strike-on-tap',
+              player: playerId,
+              cardInstanceId: item.instanceId,
+              characterInstanceId: charId,
+            },
+            viable: true,
+          });
+        }
+      }
+    }
+
     // Defender may pass only when no forced-strike target is still unassigned.
     if (!restrictToForced) {
       logDetail(`Defender can pass (${strikesRemaining} strike(s) remaining)`);

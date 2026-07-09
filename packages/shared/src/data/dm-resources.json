@@ -403,8 +403,43 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Tap the bearer of a Dagger of Westernesse during the site phase at a Ruins & Lairs [{R}] and play this with the Dagger. Dagger receives +1 prowess (+3 versus Undead and Nazgûl). Cannot be duplicated on a given Dagger."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-type",
+        "siteTypes": ["ruins-and-lairs"]
+      },
+      {
+        "type": "play-target",
+        "target": "item",
+        "filter": { "target.name": "Dagger of Westernesse" }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-bearer-on-play"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "when": {
+          "reason": "combat",
+          "enemy.race": { "$in": ["undead", "nazgul"] }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "item",
+        "max": 1
+      }
+    ],
+    "text": "Tap the bearer of a Dagger of Westernesse during the site phase at a Ruins & Lairs [{R}] and play this with the Dagger. Dagger receives +1 prowess (+3 versus Undead and Nazgûl). Cannot be duplicated on a given Dagger.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "hero-resource-event",

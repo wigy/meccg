@@ -362,7 +362,22 @@
     "eventType": "long",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "draw-modifier",
+        "draw": "resource",
+        "value": "4 - sitePath.regionCount",
+        "min": 0,
+        "when": {
+          "$and": [
+            { "movementType": { "$in": ["region", "starter"] } },
+            { "sitePath.regionCount": { "$gt": 0 } },
+            { "sitePath.regionCount": { "$lt": 4 } }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-07-08",
     "text": "Each moving company may draw an extra card for each region less than four in its site path."
   },
   {

@@ -712,6 +712,46 @@ export function isWizardhavenConversionFor(
 }
 
 /**
+ * True when `player` has an in-play character carrying a `fw-kill-mp-full`
+ * effect (Alatar wh-1) — the MEWH §4 kill-MP exemption. Consulted by both the
+ * marshalling-point tally (`recompute-derived.ts`, full printed kill MP instead
+ * of the flat 1) and combat finalization (`combat-finalize.ts`, routing a
+ * defeated **detainment** creature to the kill pile so it scores at all — the
+ * "even with *" clause). Only Fallen-wizard players are ever subject to the §4
+ * clamp, so this returns `false` for any other alignment.
+ */
+export function playerHasKillMpExemption(state: GameState, player: PlayerState): boolean {
+  if (player.alignment !== 'fallen-wizard') return false;
+  for (const char of Object.values(player.characters)) {
+    const def = resolveDef(state, char.instanceId);
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-kill-mp-full') return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True when `player` has an in-play character carrying a
+ * `detainment-attacks-normal` effect (Alatar wh-1) whose stage-point gate is
+ * satisfied — the player's `stagePoints` total is strictly greater than the
+ * effect's `stagePointsAbove` (default 0). While true, every attack the engine
+ * would treat as detainment against the player's companies is resolved as a
+ * normal attack instead (see {@link isDetainmentAttack} / its call sites).
+ */
+export function playerConvertsDetainmentToNormal(state: GameState, player: PlayerState): boolean {
+  for (const char of Object.values(player.characters)) {
+    const def = resolveDef(state, char.instanceId);
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'detainment-attacks-normal') continue;
+      const threshold = effect.stagePointsAbove ?? 0;
+      if (player.stagePoints > threshold) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * True when the given player controls a **protected Wizardhaven** — a site that
  * is both (a) one of their Wizardhavens (a Fallen-wizard haven, or a site
  * converted into one via `wizardhaven-conversion`) and (b) protected for them
@@ -1249,6 +1289,18 @@ export function countPermanentEventCopiesAtSite(state: GameState, name: string, 
     count += p.cardsInPlay.filter(c => c.attachedToSite === siteDefId && defById(state, c.definitionId)?.name === name).length;
     return count;
   }, 0);
+}
+
+/**
+ * Count copies of the permanent event named `name` currently attached to the
+ * item instance `itemInstanceId` (an `attachedToItem` binding in any player's
+ * `cardsInPlay`). Backs `duplication-limit` checks with `scope: "item"` (e.g.
+ * Barrow-blade dm-119: "Cannot be duplicated on a given Dagger").
+ */
+export function countItemAttachedCopies(state: GameState, itemInstanceId: CardInstanceId, name: string): number {
+  return state.players.reduce((count, p) =>
+    count + p.cardsInPlay.filter(c => c.attachedToItem === itemInstanceId && defById(state, c.definitionId)?.name === name).length,
+  0);
 }
 
 /**
@@ -2105,6 +2157,40 @@ export function discardOrphanedAgentAttachedEvents(state: GameState): GameState 
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       const agent = player.agents.find(a => a.id === card.attachedToAgentId);
       logDetail(`agent-attached event: discarding "${def?.name ?? card.definitionId}" — bound agent ${card.attachedToAgentId as string} ${agent ? 'was revealed' : 'left play'}`);
+    },
+  );
+
+  if (removedInstanceIds.length === 0) return state;
+  const removedSources = new Set(removedInstanceIds.map(id => id as string));
+  return {
+    ...next,
+    activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+  };
+}
+
+/**
+ * Discard item-attached permanent events whose host item has left play. A card
+ * with `attachedToItem` set (Barrow-blade dm-119, "play this with the Dagger")
+ * is kept in cards-in-play bound to a specific item instance. When that item is
+ * no longer borne by any character on either side (discarded, stored, returned
+ * to hand, …) the event is orphaned and must be discarded. Mirrors
+ * {@link discardOrphanedSiteAttachedEvents}.
+ */
+export function discardOrphanedItemAttachedEvents(state: GameState): GameState {
+  // Collect every item instance currently borne by a character in play.
+  const itemIds = new Set<string>();
+  for (const p of state.players) {
+    for (const ch of Object.values(p.characters)) {
+      for (const it of ch.items) itemIds.add(it.instanceId as string);
+    }
+  }
+
+  const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+    state,
+    card => card.attachedToItem !== undefined && !itemIds.has(card.attachedToItem as string),
+    card => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`item-attached event: discarding "${def?.name ?? card.definitionId}" — host item ${card.attachedToItem as string} left play`);
     },
   );
 

@@ -421,6 +421,8 @@ export function describeAction(
         : `Play ${instName(action.cardInstanceId)} from hand to modify attack`;
     case 'tap-item-for-strike':
       return `Tap ${instName(action.cardInstanceId)} on ${instName(action.characterInstanceId)} — ${action.explanation}`;
+    case 'face-strike-on-tap':
+      return `Tap ${instName(action.cardInstanceId)} so ${instName(action.characterInstanceId)} faces a strike (regardless of the attack's capabilities and his status)`;
     case 'cancel-by-tap':
       return `Cancel attack by tapping ${instName(action.characterId)}`;
     case 'salvage-item':

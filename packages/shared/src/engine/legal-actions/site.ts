@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -967,6 +967,71 @@ function playResourcesActions(
           && !matchesCompanyContextCondition(state, player, company, companyContextCond.condition, siteState.uniqueHeroFactionPlayedAtFreeHold ?? false)) {
           logDetail(`Permanent event ${eventDef.name}: company-context play-condition not satisfied at ${siteName}`);
           actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
+          continue;
+        }
+
+        // play-target DSL: item-targeting permanent events (Barrow-blade
+        // dm-119, "play this with the Dagger [of Westernesse]"). One action per
+        // company-character item matching the filter, gated by an optional
+        // `site-type` play-condition (Ruins & Lairs) and limited per item by a
+        // `duplication-limit` scope "item". The card attaches to the item; its
+        // stat-modifiers flow to the bearer (see collectCharacterEffects).
+        const itemPlayTarget = eventDef.effects?.find(
+          (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'item',
+        );
+        if (itemPlayTarget) {
+          const siteTypeCond = findPlayConditionEffect(eventDef, 'site-type');
+          if (siteTypeCond) {
+            const companySiteType = siteDef && isSiteCard(siteDef) && siteDefId
+              ? getEffectiveSiteType(state, siteDefId, siteDef.siteType)
+              : undefined;
+            if (!companySiteType || !siteTypeCond.siteTypes?.includes(companySiteType)) {
+              logDetail(`Permanent event ${eventDef.name}: company not at required site type [${siteTypeCond.siteTypes?.join(', ') ?? '?'}] (actual: ${companySiteType ?? 'none'})`);
+              actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: not at a ${siteTypeCond.siteTypes?.join('/') ?? 'valid'} site`));
+              continue;
+            }
+          }
+          const itemDupLimit = findDuplicationLimitEffect(eventDef, 'item');
+          let anyItemTarget = false;
+          // The play taps the bearer as a cost (tap-bearer-on-play), so only an
+          // untapped bearer can pay it.
+          const requiresUntappedBearer = hasPlayFlag(eventDef, 'tap-bearer-on-play');
+          for (const charId of company.characters) {
+            const ch = player.characters[charId];
+            if (!ch) continue;
+            if (requiresUntappedBearer && ch.status !== CardStatus.Untapped) continue;
+            for (const item of ch.items) {
+              const itemDef = defById(state, item.definitionId);
+              if (!itemDef || !isItemCard(itemDef)) continue;
+              if (itemPlayTarget.filter) {
+                const ctx: Record<string, unknown> = {
+                  target: {
+                    name: itemDef.name,
+                    keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
+                    subtype: (itemDef as { subtype?: string }).subtype,
+                  },
+                };
+                if (!matchesCondition(itemPlayTarget.filter, ctx)) continue;
+              }
+              if (itemDupLimit && countItemAttachedCopies(state, item.instanceId, eventDef.name) >= itemDupLimit.max) {
+                logDetail(`Permanent event ${eventDef.name}: item duplication limit reached on ${itemDef.name} (${item.instanceId as string})`);
+                continue;
+              }
+              anyItemTarget = true;
+              logDetail(`Permanent event ${eventDef.name}: playable at ${siteName} on item ${itemDef.name} (${item.instanceId as string})`);
+              actions.push({
+                action: {
+                  type: 'play-permanent-event', player: playerId, cardInstanceId,
+                  targetItemInstanceId: item.instanceId,
+                },
+                viable: true,
+              });
+            }
+          }
+          if (!anyItemTarget) {
+            logDetail(`Permanent event ${eventDef.name}: no eligible item target in company`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: no valid item target`));
+          }
           continue;
         }
 

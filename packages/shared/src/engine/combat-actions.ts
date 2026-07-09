@@ -1162,6 +1162,84 @@ export function handleTapItemForStrike(state: GameState, action: GameAction, com
 }
 
 /**
+ * Tap a `face-strike-on-tap` item (e.g. Bow of Alatar wh-90) during the
+ * `assign-strikes` defender phase to let its bearer face one of the attack's
+ * strikes regardless of the attack's normal capabilities and the bearer's
+ * status. Taps the item and adds a forced strike assignment to the bearer,
+ * flagged (`reduceAttackBodyOnParry`) so that a parry lowers the attack's body.
+ *
+ * The bearer may already be tapped or wounded — the status check that gates
+ * ordinary defender assignment is intentionally bypassed here ("regardless of
+ * … his status"). The assignment always adds one strike-facing; combat advances
+ * to resolution once every strike is allocated.
+ */
+export function handleFaceStrikeOnTap(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'face-strike-on-tap') return wrongActionType(state, action, 'face-strike-on-tap');
+  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only face a strike via item during strike assignment' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only the defending player may activate a face-strike item' };
+
+  const defPlayerIndex = getPlayerIndex(state, action.player);
+  const defPlayer = state.players[defPlayerIndex];
+
+  const bearer = defPlayer.characters[action.characterInstanceId];
+  if (!bearer) return { state, error: 'Bearer not in play' };
+
+  // Bearer must be in the defending company.
+  const company = companyById(defPlayer.companies, combat.companyId);
+  if (!company || !company.characters.includes(action.characterInstanceId)) {
+    return { state, error: 'Bearer is not in the defending company' };
+  }
+
+  // The strike-facing consumes one of the attack's strikes.
+  const totalAllocated = combat.strikeAssignments.length
+    + combat.strikeAssignments.reduce((sum, a) => sum + a.excessStrikes, 0);
+  if (totalAllocated >= combat.strikesTotal) {
+    return { state, error: 'No unassigned strike remains for the bearer to face' };
+  }
+  if (combat.strikeAssignments.some(a => a.characterId === action.characterInstanceId)) {
+    return { state, error: 'Bearer is already facing a strike' };
+  }
+
+  // Tap the (untapped) face-strike item on the bearer.
+  const tapped = updateAttachment(defPlayer, 'items', action.cardInstanceId, it => ({ ...it, status: CardStatus.Tapped }));
+  if (!tapped || tapped.charId !== action.characterInstanceId) return { state, error: 'Item not found on bearer' };
+  const item = tapped.attachment;
+  if (item.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
+
+  const itemDef = defById(state, item.definitionId);
+  const effect = getCardEffects(itemDef).find(e => e.type === 'face-strike-on-tap');
+  if (!effect) return { state, error: 'Item has no face-strike-on-tap effect' };
+  const reduction = (effect as { bodyReductionOnParry?: number }).bodyReductionOnParry ?? 0;
+
+  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (item.definitionId as string);
+  const bearerName = cardName(state, bearer.definitionId, action.characterInstanceId as string);
+  logDetail(`Face-strike-on-tap: tapping ${itemName} — ${bearerName} faces a strike regardless of capabilities/status${reduction > 0 ? ` (attack body -${reduction} if parried)` : ''}`);
+
+  const newAssignments: StrikeAssignment[] = [...combat.strikeAssignments, {
+    characterId: action.characterInstanceId,
+    excessStrikes: 0,
+    resolved: false,
+    ...(reduction > 0 ? { reduceAttackBodyOnParry: reduction } : {}),
+  }];
+
+  const newTotalAllocated = newAssignments.length
+    + newAssignments.reduce((sum, a) => sum + a.excessStrikes, 0);
+
+  let newCombat: CombatState = { ...combat, strikeAssignments: newAssignments };
+  if (newTotalAllocated >= combat.strikesTotal) {
+    const next = nextStrikePhase(newCombat);
+    newCombat = { ...newCombat, assignmentPhase: 'done', ...next };
+  }
+
+  return {
+    state: {
+      ...updatePlayer(state, defPlayerIndex, () => tapped.player),
+      combat: newCombat,
+    },
+  };
+}
+
+/**
  * Tap an in-play ally carrying a `combat-tap-company-boost` effect to grant an
  * attack-scoped stat boost to every matching character in the ally's own
  * company. Mirrors the `company-combat-boost` short-event path (one
