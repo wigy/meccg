@@ -42,6 +42,21 @@ export interface PlayableAtRegion {
 }
 
 /**
+ * Any site satisfying an explicit `when` condition, rather than a fixed
+ * site type / name / region. The condition is evaluated against the site
+ * context (`site.siteType`, `site.regionType`, `site.name`, `site.region`,
+ * `site.autoAttack.race`), letting a card express a compound playability
+ * rule such as "any non-Haven, non-Shadow-hold, non-Dark-hold site in a
+ * Wilderness" (A Panoply of Wings wh-37). With no `when`, matches every site.
+ */
+export interface PlayableAtAny {
+  /** Discriminant: matches any site (subject to `when`). */
+  readonly any: true;
+  /** Optional constraint the site must satisfy. */
+  readonly when?: Condition;
+}
+
+/**
  * Describes a location where an ally or faction can be played.
  *
  * Most allies and factions are playable at a single named site, but
@@ -50,7 +65,7 @@ export interface PlayableAtRegion {
  * Entries may carry an optional `when` condition for extra constraints
  * (e.g. "Ruins & Lairs with a Wolf automatic-attack").
  */
-export type PlayableAtEntry = PlayableAtSite | PlayableAtSiteType | PlayableAtRegion;
+export type PlayableAtEntry = PlayableAtSite | PlayableAtSiteType | PlayableAtRegion | PlayableAtAny;
 
 // ---- Item subtype ----
 

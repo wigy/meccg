@@ -24,7 +24,7 @@ import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifie
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { availableDI, grantedActionActivations, playResourceShortEventActions, buildPlayerStateContext } from './organization.js';
+import { availableDI, grantedActionActivations, inPlayFactionGrantActions, playResourceShortEventActions, buildPlayerStateContext } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -127,9 +127,15 @@ function siteMatchesEntry(
     if (effectiveSiteType === 'haven') return false;
     return siteDef.region === entry.region;
   }
-  const baseMatches = 'site' in entry
-    ? siteDef.name === entry.site
-    : effectiveSiteType === entry.siteType;
+  // `any` entries match every site, subject only to the optional `when`
+  // condition (A Panoply of Wings wh-37: "any non-Haven, non-Shadow-hold,
+  // non-Dark-hold site in a Wilderness"). All other entries key on a fixed
+  // site name or site type.
+  const baseMatches = 'any' in entry
+    ? true
+    : 'site' in entry
+      ? siteDef.name === entry.site
+      : effectiveSiteType === entry.siteType;
   if (!baseMatches) return false;
   if (!entry.when) return true;
   const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
@@ -238,6 +244,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // their carried items during the play-resources step (e.g. Vile Fumes'
       // discard-to-transform feature).
       base.push(...grantedActionActivations(state, playerId, 'activeSitePhase'));
+      // Discard-to-effect abilities on the player's in-play factions
+      // (A Panoply of Wings wh-37: discard to make Information playable at
+      // such a site — activated during the site phase).
+      base.push(...inPlayFactionGrantActions(state, playerId));
       // Prisoner rescue (CoE rule 8.36): if the active company is at a site
       // holding its own prisoners (e.g. by Troll-purse), offer to face the
       // host's rescue-attack to free them.
@@ -1435,7 +1445,7 @@ function playResourcesActions(
       const matchesPlayTarget = siteDefForAlly !== undefined && sitePlayTarget !== undefined
         && (!sitePlayTarget.filter || matchesDefinition(siteDefForAlly, sitePlayTarget.filter));
       if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget)) {
-        const allowedSites = allyDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
+        const allowedSites = allyDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'any' in e ? 'any-qualifying-site' : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Ally ${allyDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: not playable at ${siteName}`));
         continue;
@@ -1536,7 +1546,7 @@ function playResourcesActions(
         : siteDefForFaction?.siteType;
       const factionRegionType = siteRegionTypeOf(state, siteDefForFaction);
       if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType, factionRegionType))) {
-        const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : e.siteType).join(', ');
+        const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'any' in e ? 'any-qualifying-site' : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: not playable at ${siteName}`));
         continue;

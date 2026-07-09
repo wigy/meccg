@@ -22,6 +22,7 @@ import type {
   MovementHazardPhaseState,
   GameAction,
   PlayerState,
+  SiteCard,
 } from '../../index.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
@@ -36,7 +37,7 @@ import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames } from '../reducer-utils.js';
+import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -398,6 +399,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Grant-action activations from attached hazards (e.g. Foolish Words removal)
   actions.push(...grantedActionActivations(state, playerId));
+
+  // Discard-to-effect abilities on the player's in-play factions
+  // (e.g. A Panoply of Wings wh-37)
+  actions.push(...inPlayFactionGrantActions(state, playerId));
 
   // Sage-tap ring tests granted by the company's current site (e.g. Mount Doom)
   actions.push(...siteSageRingTestActivations(state, playerId));
@@ -1098,6 +1103,44 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 }
 
 /**
+ * Grant-actions carried by the player's *in-play factions* (cards sitting in
+ * `cardsInPlay`, not attached to any character). Currently only the
+ * discard-self / add-constraint shape is emitted — A Panoply of Wings (wh-37):
+ * "Discard this faction to make information playable at such a site". Offered
+ * during the active player's organization and site phases; there is no
+ * activating character, so `characterId` self-references the faction instance
+ * (the reducer routes bearer-less sources to `handleInPlayCardGrantAction`).
+ */
+export function inPlayFactionGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const cip of player.cardsInPlay) {
+    const def = defById(state, cip.definitionId);
+    if (!def || !isFactionCard(def)) continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'grant-action') continue;
+      if (effect.cost.discard !== 'self') continue;
+      if (effect.apply?.type !== 'add-constraint') continue;
+      logDetail(`In-play faction grant-action ${effect.action} available: discard ${def.name} in play`);
+      actions.push({
+        action: {
+          type: 'activate-granted-action',
+          player: playerId,
+          characterId: cip.instanceId,
+          sourceCardId: cip.instanceId,
+          sourceCardDefinitionId: cip.definitionId,
+          actionId: effect.action,
+          rollThreshold: 0,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * Builds the DSL context used to evaluate a grant-action effect's
  * {@link EffectBase.when} condition. Exposes `bearer` (the character
  * holding the source card) and `company` (the company that character
@@ -1210,23 +1253,36 @@ function siteHasItemWithKeyword(
 /**
  * Returns true when an active `site-resource-unlocked` constraint owned by
  * `playerId` makes resource category `subtype` (e.g. `"information"`)
- * playable at sites of type `siteType` (e.g. `"shadow-hold"`). Backs
- * Records Unread (as-130) mode B, which discards the item to "make
- * Information playable at any Shadow-hold" for the rest of the turn.
+ * playable at `siteDef`. A constraint may select matching sites either by a
+ * fixed site type (Records Unread as-130 mode B: "Information at any
+ * Shadow-hold") or by a compound `siteCondition` evaluated against the site
+ * context (A Panoply of Wings wh-37: "Information at any non-Haven,
+ * non-Shadow-hold, non-Dark-hold site in a Wilderness"). Lasts for the turn.
  */
 function isSiteResourceUnlocked(
   state: GameState,
   playerId: PlayerId,
-  siteType: string,
+  siteDef: SiteCard,
   subtype: string,
 ): boolean {
-  return state.activeConstraints.some(c =>
-    c.kind.type === 'site-resource-unlocked'
-    && c.kind.siteType === siteType
-    && c.kind.subtype === subtype
-    && c.target.kind === 'player'
-    && c.target.playerId === playerId,
-  );
+  const regionType = siteRegionTypeOf(state, siteDef);
+  return state.activeConstraints.some(c => {
+    if (c.kind.type !== 'site-resource-unlocked') return false;
+    if (c.kind.subtype !== subtype) return false;
+    if (c.target.kind !== 'player' || c.target.playerId !== playerId) return false;
+    if (c.kind.siteType) return c.kind.siteType === siteDef.siteType;
+    if (c.kind.siteCondition) {
+      return matchesCondition(c.kind.siteCondition, {
+        site: {
+          name: siteDef.name,
+          siteType: siteDef.siteType,
+          regionType,
+          region: siteDef.region,
+        },
+      });
+    }
+    return false;
+  });
 }
 
 /**
@@ -2194,7 +2250,7 @@ export function playResourceShortEventActions(
             // constraint (e.g. Information at any Shadow-hold) makes the
             // category playable at matching site types even when the site
             // does not list it natively.
-            if (!siteHasResource && isSiteResourceUnlocked(state, playerId, siteDef.siteType, siteHasResourceCondition.subtype)) {
+            if (!siteHasResource && isSiteResourceUnlocked(state, playerId, siteDef, siteHasResourceCondition.subtype)) {
               logDetail(`${def.name}: ${siteHasResourceCondition.subtype} unlocked at ${siteDef.siteType} via site-resource-unlocked constraint`);
               siteHasResource = true;
             }

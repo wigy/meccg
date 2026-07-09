@@ -863,8 +863,17 @@ function buildPayloadConstraintKind(
     return { type: 'hand-size-modifier', value: apply.value };
   }
   if (name === 'site-resource-unlocked') {
-    if (typeof apply.siteType !== 'string' || typeof apply.subtype !== 'string') return null;
-    return { type: 'site-resource-unlocked', siteType: apply.siteType, subtype: apply.subtype };
+    if (typeof apply.subtype !== 'string') return null;
+    // Either a fixed site type (Records Unread as-130: Information at any
+    // Shadow-hold) or a compound site condition (A Panoply of Wings wh-37:
+    // Information at any non-Haven/non-Shadow-hold/non-Dark-hold Wilderness site).
+    if (typeof apply.siteType === 'string') {
+      return { type: 'site-resource-unlocked', siteType: apply.siteType, subtype: apply.subtype };
+    }
+    if (apply.siteCondition) {
+      return { type: 'site-resource-unlocked', siteCondition: apply.siteCondition, subtype: apply.subtype };
+    }
+    return null;
   }
   if (name === 'check-modifier') {
     // A one-shot roll modifier the engine collects when the targeted
@@ -944,6 +953,70 @@ function resolveConstraintTarget(
 }
 
 /**
+ * Resolve an activated ability on a *bearer-less* in-play card — a card in the
+ * player's `cardsInPlay` that is not attached to any character (currently an
+ * in-play faction). Only the `discard: self` cost and the `add-constraint`
+ * apply are supported: the source is discarded from `cardsInPlay` to the
+ * controller's discard pile, then the declared constraint is added.
+ *
+ * Used by A Panoply of Wings (wh-37): "Discard this faction to make
+ * information playable at such a site" — a `site-resource-unlocked` constraint
+ * (Information, keyed to a compound `siteCondition`), scope `turn`, targeting
+ * the discarding player.
+ */
+function handleInPlayCardGrantAction(
+  state: GameState,
+  action: Extract<GameAction, { type: 'activate-granted-action' }>,
+  playerIndex: number,
+): ReducerResult {
+  const player = state.players[playerIndex];
+  const source = player.cardsInPlay.find(c => c.instanceId === action.sourceCardId);
+  if (!source) return { state, error: `in-play grant-action: source ${action.sourceCardId as string} not in play` };
+  const sourceDef = defById(state, source.definitionId);
+  const sourceName = sourceDef?.name ?? '?';
+
+  const effect = getCardEffects(sourceDef).find(
+    (e): e is import('../types/effects.js').GrantActionEffect =>
+      e.type === 'grant-action' && e.action === action.actionId,
+  );
+  if (!effect?.apply) return { state, error: `in-play grant-action ${action.actionId} has no apply on ${sourceName}` };
+  if (effect.cost.discard !== 'self') {
+    return { state, error: `in-play grant-action ${action.actionId}: only discard-self cost supported (${sourceName})` };
+  }
+  const apply = effect.apply;
+  if (apply.type !== 'add-constraint') {
+    return { state, error: `in-play grant-action ${action.actionId}: only add-constraint apply supported (${sourceName})` };
+  }
+
+  // Discard the source card from cardsInPlay to the controller's discard pile.
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    cardsInPlay: newPlayers[playerIndex].cardsInPlay.filter(c => c.instanceId !== source.instanceId),
+    discardPile: [...newPlayers[playerIndex].discardPile, { instanceId: source.instanceId, definitionId: source.definitionId }],
+  };
+
+  const constraintKind = apply.constraint ?? '';
+  const kind = buildPayloadConstraintKind(constraintKind, apply) ?? constraintKindWithoutPayload(constraintKind);
+  if (!kind) return { state, error: `in-play grant-action: unsupported constraint kind "${constraintKind}" on ${sourceName}` };
+  const scope = parseConstraintScope(apply.scope, newPlayers[playerIndex], action.characterId);
+  if (!scope) return { state, error: `in-play grant-action: unknown scope "${apply.scope ?? ''}" on ${sourceName}` };
+  const target = resolveConstraintTarget(apply.target, newPlayers[playerIndex], action.characterId, action.player, action);
+  if (!target) return { state, error: `in-play grant-action: cannot resolve target "${apply.target ?? ''}" on ${sourceName}` };
+
+  logDetail(`In-play grant-action ${action.actionId}: discarding ${sourceName}, adding constraint ${constraintKind} (scope ${apply.scope ?? '?'})`);
+  let finalState = recomputeDerived({ ...state, players: newPlayers });
+  finalState = addConstraint(finalState, {
+    source: source.instanceId,
+    sourceDefinitionId: source.definitionId,
+    scope,
+    target,
+    kind,
+  });
+  return { state: finalState, effects: [] };
+}
+
+/**
  * Generic handler for grant-action effects that declare an `apply`.
  * Pays the effect's cost (discard source attachment or tap the bearer)
  * then dispatches on `apply.type` to mutate state. Shared across all
@@ -969,7 +1042,18 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const char = player.characters[action.characterId];
-  if (!char) return { state, error: 'Character not found' };
+  if (!char) {
+    // Bearer-less source: a card sitting in the player's `cardsInPlay` (not
+    // attached to any character) that carries an activated discard ability —
+    // e.g. an in-play faction discarded to add a constraint (A Panoply of
+    // Wings wh-37: "Discard this faction to make information playable at such
+    // a site"). The legal-action emitter sets `characterId = sourceCardId` as
+    // a self-reference since there is no activating character.
+    if (player.cardsInPlay.some(c => c.instanceId === action.sourceCardId)) {
+      return handleInPlayCardGrantAction(state, action, playerIndex);
+    }
+    return { state, error: 'Character not found' };
+  }
 
   const charDef = resolveDef(state, action.characterId);
   const charName = charDef?.name ?? '?';

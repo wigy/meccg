@@ -169,6 +169,12 @@ separate region card). This lets a faction gate on "Ruins & Lairs [{R}] in a
 Wilderness [{w}]" (Wild Hounds wh-40):
 `"playableAt": [ { "siteType": "ruins-and-lairs", "when": { "site.regionType": "wilderness" } } ]`.
 
+A `playableAt` entry may also be an **any-site** entry — `{ "any": true, "when": … }`
+— matching every site subject only to its `when` condition. Use it when "such a
+site" is not a single site type: A Panoply of Wings (wh-37) is playable at "any
+non-Haven, non-Shadow-hold, non-Dark-hold site in a Wilderness [{w}]":
+`"playableAt": [ { "any": true, "when": { "$and": [ { "$not": { "site.siteType": { "$in": ["haven", "shadow-hold", "dark-hold"] } } }, { "site.regionType": "wilderness" } ] } } ]`.
+
 For faction-influence checks the engine also collects `check-modifier` and
 `stat-modifier` (`direct-influence`) effects from every ally in the
 influencing character's company — e.g. The Warg-king's "+2 to any
@@ -1117,6 +1123,24 @@ Example (Gandalf's gold-ring test):
     "constraint": "site-resource-unlocked",
     "scope": "turn", "target": "player",
     "siteType": "shadow-hold", "subtype": "information" } }
+// A `site-resource-unlocked` add-constraint may select sites by a compound
+// `siteCondition` (evaluated against `site.siteType` / `site.regionType` / …)
+// instead of a single `siteType`, for "such a site" rules that are not one type.
+// A Panoply of Wings (wh-37): unlock Information at any non-Haven/non-Shadow-hold/
+// non-Dark-hold site in a Wilderness. This grant-action rides on an **in-play
+// faction** (a card sitting in cardsInPlay, not attached to a character):
+// `inPlayFactionGrantActions` offers it during the controller's organization /
+// site phase and `handleInPlayCardGrantAction` discards the faction + adds the
+// constraint (only the `discard: self` cost + `add-constraint` apply are supported
+// for bearer-less in-play sources).
+{ "type": "grant-action", "action": "panoply-unlock-information",
+  "cost": { "discard": "self" },
+  "apply": { "type": "add-constraint",
+    "constraint": "site-resource-unlocked",
+    "scope": "turn", "target": "player", "subtype": "information",
+    "siteCondition": { "$and": [
+      { "$not": { "site.siteType": { "$in": ["haven", "shadow-hold", "dark-hold"] } } },
+      { "site.regionType": "wilderness" } ] } } }
 { "type": "grant-action", "action": "extra-region-movement",
   "cost": { "discard": "self" } }
 { "type": "grant-action", "action": "saruman-fetch-spell",
@@ -1625,11 +1649,13 @@ itself (e.g. Adûnaphel the Ringwraith), or an item with
 **Dual-faction discard cancel.** `cost: { "discard": "self" }` marks the
 "discard this faction to cancel an attack" mode of a dual-alignment faction
 (*Wild Hounds* wh-40). It has two sources, both discarding the card:
-  - the controlled faction in `cardsInPlay` — discarded to cancel (available
-    to whoever controls it, no covert/alignment gate); and
-  - the card in hand — played as a **minion resource**, but only by a
-    **covert company** and only by a **minion (Ringwraith) player** when the
-    effect also carries `"handModeRequiresCovert": true`.
+
+- the controlled faction in `cardsInPlay` — discarded to cancel (available
+  to whoever controls it, no covert/alignment gate); and
+- the card in hand — played as a **minion resource**, but only by a
+  **covert company** and only by a **minion (Ringwraith) player** when the
+  effect also carries `"handModeRequiresCovert": true`.
+
 Both share the same `when` attack filter and are emitted by
 `cancelAttackActions` (combat.ts); the in-play discard applies immediately,
 the hand play routes through the chain. Example (Wild Hounds):
