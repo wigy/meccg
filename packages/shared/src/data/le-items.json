@@ -509,7 +509,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ALittleGoldRing.jpg",
     "unique": false,
     "subtype": "gold-ring",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 4,
@@ -585,7 +587,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BrightGoldRing.jpg",
     "unique": false,
     "subtype": "gold-ring",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 4,
@@ -636,7 +640,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DwarvenRingofBarinsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -654,7 +660,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DwarvenRingofBavorsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -672,7 +680,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DwarvenRingofDruinsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -690,7 +700,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DwarvenRingofDurinsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -708,7 +720,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DwarvenRingofDwalinsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -726,7 +740,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GoldRingthatSauronFancies.jpg",
     "unique": false,
     "subtype": "gold-ring",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 4,
@@ -762,7 +778,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MagicRingofDelusion.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -780,7 +798,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MagicRingofEnigma.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -798,7 +818,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MagicRingofFury.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -816,7 +838,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MagicRingofGuile.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -834,7 +858,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MagicRingofLies.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -852,7 +878,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MagicRingofSavagery.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -870,7 +898,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MagicRingofShadows.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -888,7 +918,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MagicRingofWeals.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -926,7 +958,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheOneRing.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 6,
     "marshallingCategory": "item",
     "corruptionPoints": 6,
@@ -944,7 +978,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheOraclesRing.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -1052,7 +1088,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/PaltryRing.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -1070,7 +1108,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/PerfectGoldRing.jpg",
     "unique": false,
     "subtype": "gold-ring",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 4,
@@ -1107,6 +1147,7 @@
     "unique": false,
     "subtype": "special",
     "keywords": [
+      "ring",
       "weapon"
     ],
     "marshallingPoints": 3,
@@ -1144,7 +1185,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TriflingRing.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -1163,6 +1206,7 @@
     "unique": false,
     "subtype": "special",
     "keywords": [
+      "ring",
       "armor"
     ],
     "marshallingPoints": 3,
