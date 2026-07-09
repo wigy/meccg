@@ -461,21 +461,24 @@ non-Fallen-wizard players (who never hold stage cards).
 ### 3c. `faction-mp-override`
 
 Re-values the controlling player's factions while the carrying card is in play
-(MEWH Fallen-wizard stage cards). Carried by a stage resource permanent-event.
-Each faction the player controls is scored against the ordered `rules`: every
-rule's `when` condition is evaluated against the per-faction context
+(MEWH Fallen-wizard cards). Carried by a stage resource permanent-event **or by a
+character** (Pallando wh-7). Each faction the player controls is scored against
+the ordered `rules`: every rule's `when` condition is evaluated against the
+per-faction context
 `{ faction: { unique, race, normalMp, name }, player: { avatar } }`
 (`faction.normalMp` is the faction's printed MP; `player.avatar` is the name of
 the controller's revealed avatar, e.g. `"Alatar"`). The **last** matching rule
 sets the faction's MP, so order entries from least to most specific. A faction
 matching no rule scores normally. The override value replaces both the printed
 MP and the Fallen-wizard §4 flat-1 clamp. Collected from the player's in-play
-cards and consumed in `recompute-derived.ts`.
+cards **and in-play characters** and consumed in `recompute-derived.ts`.
 
 Used by Gatherer of Loyalties (wh-70): "Your unique factions are each worth 2
 marshalling points. If you are Alatar, your unique Dragon factions are each
 worth 4 marshalling points. If you are Pallando, your unique factions normally
-worth 3 or more marshalling points are each worth 3 marshalling points."
+worth 3 or more marshalling points are each worth 3 marshalling points." Also by
+Pallando (wh-7), carried as a character: "Your Man, Dwarf, Elf, Dúnadan, Hobbit,
+Orc, and Troll factions are each worth 2 marshalling points."
 
 ```json
 { "type": "faction-mp-override",

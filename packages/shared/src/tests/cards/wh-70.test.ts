@@ -50,6 +50,7 @@ const ORCS_OF_MORIA  = 'le-278' as CardDefinitionId; // unique Orc faction, prin
 const GOBLINS_GG     = 'le-265' as CardDefinitionId; // unique Orc faction, printed 2 MP
 const SMAUG_ROUSED   = 'le-285' as CardDefinitionId; // unique Dragon faction, printed 5 MP
 const SNAGA_HAI      = 'le-286' as CardDefinitionId; // NON-unique Orc faction, printed 1 MP
+const GREAT_EAGLES   = 'tw-344' as CardDefinitionId; // unique Eagle faction, printed 3 MP (race outside Pallando wh-7's list)
 
 /** A Fallen-wizard (player 0) at Isengard with `avatar`, plus an idle opponent. */
 function fwState(avatar: CardDefinitionId) {
@@ -132,10 +133,14 @@ describe('Gatherer of Loyalties (wh-70)', () => {
   // ─── Rule: Pallando — unique factions normally worth 3+ worth 3 ──────────
 
   test('Pallando: unique faction normally worth 3+ → 3; one worth <3 → base 2', () => {
-    // Orcs of Moria (printed 3) → 3; Goblins of Goblin-gate (printed 2) → 2.
+    // Great Eagles (printed 3) → 3; Goblins of Goblin-gate (printed 2) → 2.
+    // The 3+ faction is an Eagle rather than an Orc so this exercises Gatherer's
+    // "if you are Pallando" clause in isolation: Pallando (wh-7) itself re-values
+    // its Man/Dwarf/Elf/Dúnadan/Hobbit/Orc/Troll factions to 2, which would
+    // otherwise collide with Gatherer's 3-MP clause on an Orc faction.
     let state = fwState(PALLANDO_FW);
     state = addCardInPlay(state, RESOURCE_PLAYER, GATHERER);
-    state = addCardInPlay(state, RESOURCE_PLAYER, ORCS_OF_MORIA);
+    state = addCardInPlay(state, RESOURCE_PLAYER, GREAT_EAGLES);
     state = addCardInPlay(state, RESOURCE_PLAYER, GOBLINS_GG);
     state = recomputeDerived(state);
 

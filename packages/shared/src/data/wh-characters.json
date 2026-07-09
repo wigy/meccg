@@ -178,7 +178,27 @@
     "generalInfluence": 20,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "The White Towers"
+    "homesite": "The White Towers",
+    "effects": [
+      {
+        "type": "faction-mp-override",
+        "rules": [
+          {
+            "when": {
+              "faction.race": {
+                "$in": ["man", "dwarf", "elf", "dunadan", "hobbit", "orc", "troll"]
+              }
+            },
+            "value": 2
+          }
+        ]
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": 1
+      }
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "hero-character",
