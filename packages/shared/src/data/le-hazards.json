@@ -1291,12 +1291,51 @@
   {
     "cardType": "hazard-event",
     "id": "le-137",
+    "certified": "2026-07-08",
     "name": "Shut Yer Mouth",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ShutYerMouth.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable on a non-Wizard, non-Ringwraith character. -2 to character’s direct influence (to a minimum of zero). Once during each of his organization phases, the character may attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "wizard" } },
+            { "target.race": { "$ne": "ringwraith" } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2,
+        "min": 0
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 8,
+          "onSuccess": {
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
+          }
+        }
+      }
+    ],
+    "text": "Playable on a non-Wizard, non-Ringwraith character. -2 to character’s direct influence (to a minimum of zero). Once during each of his organization phases, the character may attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character.",
+    "removalNumber": 7
   },
   {
     "cardType": "hazard-event",
