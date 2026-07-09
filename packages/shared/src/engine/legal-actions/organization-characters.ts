@@ -95,14 +95,25 @@ function orcTrollPlayPermission(
 function recruitmentVehicleInHand(
   state: GameState,
   player: { readonly hand: readonly { readonly instanceId: CardInstanceId; readonly definitionId: import('../../index.js').CardDefinitionId }[] },
-): { instanceId: CardInstanceId; maxMind: number } | undefined {
+): { instanceId: CardInstanceId; maxMind: number; agentRecruit: boolean } | undefined {
   for (const card of player.hand) {
     const def = defById(state, card.definitionId);
     const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects ?? [];
     const eff = effects.find((e): e is RecruitmentVehicleEffect => e.type === 'recruitment-vehicle');
-    if (eff) return { instanceId: card.instanceId, maxMind: eff.maxMind };
+    if (eff) return { instanceId: card.instanceId, maxMind: eff.maxMind, agentRecruit: eff.agentRecruit === true };
   }
   return undefined;
+}
+
+/**
+ * True if the site is a Darkhaven [{DH}] — a dark-side haven (a minion or Balrog
+ * site of type `haven`, e.g. Minas Morgul, Dol Guldur, Carn Dûm), as opposed to
+ * a hero haven. Open to the Summons (wh-46) lets an agent be summoned into a
+ * company "at a Darkhaven".
+ */
+function isDarkhavenSite(siteDef: SiteCard): boolean {
+  return siteDef.siteType === SiteType.Haven
+    && (siteDef.cardType === 'minion-site' || siteDef.cardType === 'balrog-site');
 }
 
 /**
@@ -186,12 +197,19 @@ function findPlayableSites(
   },
   charDef: CharacterCard,
   avatarInPlay: boolean,
+  /**
+   * Open to the Summons (wh-46): when true and `charDef` is an agent, Darkhavens
+   * are added to the agent's playable sites (in addition to its home site), so
+   * the agent may be summoned there via the vehicle.
+   */
+  includeDarkhavensForAgent = false,
 ): { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] {
   const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] = [];
   const seenInstances = new Set<string>();
   const seenSiteNames = new Set<string>();
   const homeSiteOnly = hasHomeSiteOnlyRestriction(charDef);
   const extraHavenNames = avatarExtraHavenNames(charDef);
+  const allowAgentDarkhaven = includeDarkhavensForAgent && isAgentCharacter(charDef);
 
   if (homeSiteOnly) {
     logDetail(`  play-restriction: ${charDef.name} has home-site-only — havens excluded`);
@@ -216,8 +234,9 @@ function findPlayableSites(
     let isHaven = getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType) === SiteType.Haven;
     if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
     const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
+    const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSite(siteDef);
 
-    if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
+    if ((homeSiteOnly ? isHomesite : (isHaven || isHomesite)) || agentDarkhaven) {
       if (isCharacterDeniedBySiteRule(charDef, siteDef)) {
         logDetail(`  play-restriction: ${charDef.name} denied at ${siteDef.name} by site rule`);
         continue;
@@ -243,8 +262,9 @@ function findPlayableSites(
     let isHaven = siteDef.siteType === SiteType.Haven;
     if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
     const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
+    const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSite(siteDef);
 
-    if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
+    if ((homeSiteOnly ? isHomesite : (isHaven || isHomesite)) || agentDarkhaven) {
       if (isCharacterDeniedBySiteRule(charDef, siteDef)) {
         logDetail(`  play-restriction: ${charDef.name} denied at ${siteDef.name} by site rule`);
         continue;
@@ -605,9 +625,20 @@ export function playCharacterActions(
       logDetail(`  → Orc/Troll play permitted${orcTrollAtWizardhavens ? ' (and at own Wizardhavens regardless of avatar location)' : ''}`);
     }
 
+    // Recruitment vehicle in hand (Thrall of the Voice wh-82; Open to the
+    // Summons wh-46). Detected before site selection because the agent-summons
+    // variant (wh-46) widens an agent's playable sites to include Darkhavens.
+    const vehicle = recruitmentVehicleInHand(state, player);
+    // Open to the Summons (wh-46): a Ringwraith or Fallen-wizard may summon one
+    // agent into a company at a Darkhaven, placing the card with the agent.
+    const isAgentSummonsCandidate = !isAvatar
+      && vehicle?.agentRecruit === true
+      && isAgentCharacter(cardDef)
+      && (player.alignment === Alignment.Ringwraith || player.alignment === Alignment.FallenWizard);
+
     // Find valid sites (homesite or haven — from companies or site deck)
     // Note: findPlayableSites already handles home-site-only and avatar restrictions
-    const playableSites = findPlayableSites(state, player, cardDef, avatarInPlay && !isAvatar);
+    const playableSites = findPlayableSites(state, player, cardDef, avatarInPlay && !isAvatar, isAgentSummonsCandidate);
 
     if (playableSites.length === 0) {
       const reason = hasHomeSiteOnlyRestriction(cardDef)
@@ -647,17 +678,27 @@ export function playCharacterActions(
       // by placing the vehicle with it. Per the CRF this cannot bring an Orc or
       // Troll into play. The recruit may be a minion agent. When recruiting, the
       // vehicle's "-1 to his mind" reduces the influence cost (min 1).
-      const vehicle = recruitmentVehicleInHand(state, player);
       const recruitViaVehicle = vehicle !== undefined
+        && vehicle.agentRecruit === false
         && player.alignment === Alignment.FallenWizard
         && charMind > 5
         && charMind <= vehicle.maxMind
         && cardDef.race !== Race.Orc
         && cardDef.race !== Race.Troll;
+      // Open to the Summons (wh-46): the reduced cost applies only at Darkhavens
+      // (computed per-site below). Thrall's reduction is site-independent.
+      const summonsCostMind = Math.max(1, charMind - 1);
       const costMind = recruitViaVehicle ? Math.max(1, charMind - 1) : charMind;
       const recruitField = recruitViaVehicle && vehicle ? { viaRecruitmentInstanceId: vehicle.instanceId } : {};
+      // Affordability gate below must use the *lowest* achievable cost so an
+      // agent affordable only at its Darkhaven (mind − 1) is not filtered out by
+      // the home-site cost (full mind).
+      const minCostMind = isAgentSummonsCandidate ? Math.min(costMind, summonsCostMind) : costMind;
       if (recruitViaVehicle) {
         logDetail(`  → recruitment vehicle available: ${charName} (mind ${charMind} → cost ${costMind}) may be brought in via Thrall of the Voice`);
+      }
+      if (isAgentSummonsCandidate) {
+        logDetail(`  → agent-summons vehicle available: ${charName} (mind ${charMind}) may be summoned at a Darkhaven for cost ${summonsCostMind}`);
       }
 
       // MEWH §11 / Characters: a Fallen-wizard may not start or bring into play
@@ -679,7 +720,10 @@ export function playCharacterActions(
       }
 
       const remainingGI = effectiveGeneralInfluence(state, playerId) - player.generalInfluenceUsed;
-      const canPlayUnderGI = costMind <= remainingGI;
+      // Gate on the lowest achievable cost (an agent summonable at a Darkhaven
+      // pays mind − 1 there even if the full mind is unaffordable). Per-site
+      // affordability is re-checked in the loop below.
+      const canPlayUnderGI = minCostMind <= remainingGI;
 
       // Find characters with enough DI to control this character as a follower.
       // Only characters under general influence can take followers. The Balrog
@@ -695,17 +739,17 @@ export function playCharacterActions(
         if (!isCharacterCard(ctrlDef)) continue;
         if (isBalrogAvatarDef(ctrlDef) && !hasFollowerGrantPermission(char.items, state.cardPool)) continue;
         const avail = availableDI(state, char.instanceId, player, cardDef);
-        if (avail >= costMind) {
+        if (avail >= minCostMind) {
           diControllers.push({ instanceId: key, name: ctrlDef.name, availDI: avail });
         }
       }
 
       if (!canPlayUnderGI && diControllers.length === 0) {
-        logDetail(`  → blocked: mind cost ${costMind} exceeds remaining GI (${remainingGI}) and no character has enough DI`);
+        logDetail(`  → blocked: mind cost ${minCostMind} exceeds remaining GI (${remainingGI}) and no character has enough DI`);
         results.push({
           action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
           viable: false,
-          reason: `${charName}: mind ${costMind} exceeds remaining general influence (${remainingGI}) and no character has sufficient direct influence`,
+          reason: `${charName}: mind ${minCostMind} exceeds remaining general influence (${remainingGI}) and no character has sufficient direct influence`,
         });
         continue;
       }
@@ -718,8 +762,14 @@ export function playCharacterActions(
         const isOwnWizardhaven = orcTrollAtWizardhavens
           && isHavenForPlayer(site.siteDef, player.alignment, { state, siteDefinitionId: site.siteDef.id, playerId });
         const giAllowedAtSite = !avatarInPlay || site.instanceId === avatarSiteId || isOwnWizardhaven;
-        if (canPlayUnderGI && giAllowedAtSite) {
-          logDetail(`  → viable: play under GI at ${site.siteName} (mind cost ${costMind}, remaining GI ${remainingGI})${recruitViaVehicle ? ' via recruitment vehicle' : ''}`);
+        // Open to the Summons (wh-46): the agent is summoned *via the vehicle*
+        // (card placed with it, mind − 1) only at a Darkhaven; at its home site
+        // it is played normally at full mind with no vehicle attached.
+        const summonHere = isAgentSummonsCandidate && isDarkhavenSite(site.siteDef);
+        const costHere = summonHere ? summonsCostMind : costMind;
+        const recruitFieldHere = summonHere && vehicle ? { viaRecruitmentInstanceId: vehicle.instanceId } : recruitField;
+        if (costHere <= remainingGI && giAllowedAtSite) {
+          logDetail(`  → viable: play under GI at ${site.siteName} (mind cost ${costHere}, remaining GI ${remainingGI})${recruitViaVehicle ? ' via recruitment vehicle' : ''}${summonHere ? ' via agent-summons at Darkhaven' : ''}`);
           results.push({
             action: {
               type: 'play-character',
@@ -727,7 +777,7 @@ export function playCharacterActions(
               characterInstanceId: cardInstanceId,
               atSite: site.instanceId,
               controlledBy: 'general',
-              ...recruitField,
+              ...recruitFieldHere,
             },
             viable: true,
           });
@@ -735,6 +785,7 @@ export function playCharacterActions(
 
         // DI followers must be played into the same company as the controller
         for (const ctrl of diControllers) {
+          if (ctrl.availDI < costHere) continue;
           // Check the controller is in a company at this site
           const companyAtSite = player.companies.find(
             c => c.currentSite?.instanceId === site.instanceId && c.characters.includes(ctrl.instanceId),
@@ -748,7 +799,7 @@ export function playCharacterActions(
             continue;
           }
 
-          logDetail(`  → viable: play under DI of ${ctrl.name} (avail DI ${ctrl.availDI}) at ${site.siteName}`);
+          logDetail(`  → viable: play under DI of ${ctrl.name} (avail DI ${ctrl.availDI}, cost ${costHere}) at ${site.siteName}${summonHere ? ' via agent-summons at Darkhaven' : ''}`);
           results.push({
             action: {
               type: 'play-character',
@@ -756,7 +807,7 @@ export function playCharacterActions(
               characterInstanceId: cardInstanceId,
               atSite: site.instanceId,
               controlledBy: ctrl.instanceId,
-              ...recruitField,
+              ...recruitFieldHere,
             },
             viable: true,
           });

@@ -5985,9 +5985,11 @@ that character.
 | Field | Required | Description |
 |-------|----------|-------------|
 | `maxMind` | yes | Maximum **printed** mind of a character the vehicle may bring in (above the Fallen-wizard maximum of 5). |
+| `agentRecruit` | no | Agent-summons variant — Open to the Summons (wh-46). See below. |
 
 ```json
 { "type": "recruitment-vehicle", "maxMind": 6 }
+{ "type": "recruitment-vehicle", "maxMind": 99, "agentRecruit": true }
 ```
 
 Behaviour:
@@ -6008,6 +6010,32 @@ Behaviour:
   `place-starting-company-event` with `targetCharacterInstanceId`) attaches it to
   that character and reduces its mind — "such a character may also be in your
   starting company."
+
+**`agentRecruit` (Open to the Summons, wh-46).** With this flag the vehicle is an
+*agent-summons* vehicle rather than a plain one:
+
+- Brings **one agent** character (not any character up to `maxMind`) into the
+  controller's own company **at a Darkhaven** [{DH}] — a dark-side haven, e.g.
+  Minas Morgul — rather than the agent's home site. Offered only when a Darkhaven
+  is available (company site or site deck), never at other sites.
+- Usable by a **Ringwraith or Fallen-wizard** player (the plain variant is
+  Fallen-wizard-only). It does **not** lift the Fallen-wizard mind-5 cap (CRF:
+  "Does not allow a Fallen-wizard to play a 6-mind character"), so a
+  Fallen-wizard may summon only an agent of mind ≤ 5; `maxMind` is left high (99)
+  and unused on this path.
+- **Draft gate (`legal-actions/draft.ts`, `reducer-setup.ts`).** Each copy sitting
+  in the play deck during the character draft lifts the Ringwraith/Fallen-wizard
+  agent draft-gate (rules 1.41/1.42) for **one** agent, so the agent may be a
+  starting character. `countAgentSummonsEnablersInDeck` / `countDraftedAgents`
+  (`reducer-utils.ts`) meter it: the gate is lifted while fewer agents have been
+  drafted than enablers held. During the item draft the copy is placed with that
+  agent "in lieu of a minor item" (offered only on an agent character).
+- The `-1` mind reduction (`stat-modifier`, min 1) and `starting-company-placement`
+  behaviour are shared with the plain variant. "Cannot be duplicated on a given
+  character" is declared via `duplication-limit` (scope `character`); structurally
+  each agent instance receives at most one vehicle. "Cannot be included in a
+  Balrog's deck" is enforced by deck validation (banned-id list), not a runtime
+  effect.
 
 ### 51. `recruit-character`
 

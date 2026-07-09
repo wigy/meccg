@@ -614,7 +614,30 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "keywords": [
+      "starting-item"
+    ],
+    "effects": [
+      {
+        "type": "recruitment-vehicle",
+        "maxMind": 99,
+        "agentRecruit": true
+      },
+      {
+        "type": "starting-company-placement"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": "max(1, bearer.baseMind - 1) - bearer.baseMind"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "certified": "2026-07-09",
     "text": "Playable on a company. One agent character may be played with target company at a Darkhaven [{DH}] or in your starting company — place this card with the agent. -1 to his mind to a minimum of 1. This card may be played with a starting company in lieu of a minor item. When played as such, reveal it when starting companies are determined as if it were a character.Does not allow you to start with a character that says he cannot be in the starting company. Cannot be duplicated on a given character. Cannot be included in a Balrog's deck."
   },
   {

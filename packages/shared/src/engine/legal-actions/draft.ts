@@ -20,7 +20,7 @@ import { Alignment, Race } from '../../types/common.js';
 import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
-import { defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, getCardEffects, matchesDefinition } from '../reducer-utils.js';
+import { defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, getCardEffects, matchesDefinition, countAgentSummonsEnablersInDeck, countDraftedAgents } from '../reducer-utils.js';
 import { siteMatchesStageResourceTarget, unpairedSiteStageResources, blockingSiteStageResources } from '../stage-resource-sites.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -108,7 +108,15 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // for the whole draft whenever the player is a Ringwraith.
   const isRingwraith = state.players[playerIndex].alignment === Alignment.Ringwraith;
 
-  logDetail(`Current total mind: ${currentMind}/${GENERAL_INFLUENCE}, pool size: ${draft.pool.length}, FW draft gate ${fwGateActive ? 'active' : 'inactive'} (vehicles ${vehiclesDrafted}, gated chars drafted ${gatedCharsDrafted}), RW agent gate ${isRingwraith ? 'active' : 'inactive'}`);
+  // Open to the Summons (wh-46): each copy in the play deck lets a Ringwraith or
+  // Fallen-wizard draft ONE agent as a starting character (the copy is later
+  // placed with that agent "in lieu of a minor item" during the item draft).
+  // The gate is lifted while fewer agents have been drafted than enablers held.
+  const agentSummonsEnablers = countAgentSummonsEnablersInDeck(state, state.players[playerIndex]);
+  const agentsDrafted = countDraftedAgents(state, draft.drafted);
+  const summonsAgentAllowed = agentsDrafted < agentSummonsEnablers;
+
+  logDetail(`Current total mind: ${currentMind}/${GENERAL_INFLUENCE}, pool size: ${draft.pool.length}, FW draft gate ${fwGateActive ? 'active' : 'inactive'} (vehicles ${vehiclesDrafted}, gated chars drafted ${gatedCharsDrafted}), RW agent gate ${isRingwraith ? 'active' : 'inactive'}, agent-summons enablers ${agentSummonsEnablers} (agents drafted ${agentsDrafted}, one more agent ${summonsAgentAllowed ? 'allowed' : 'not allowed'})`);
 
   const evaluated: EvaluatedAction[] = [];
 
@@ -168,8 +176,8 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
         mindLimit: GENERAL_INFLUENCE,
         projectedMind: currentMind + (mind !== null ? mind : 0),
         fwMindGateActive: fwGateActive,
-        fwAgentGateActive: fwGateActive,
-        ringwraithAgentGateActive: isRingwraith,
+        fwAgentGateActive: fwGateActive && !summonsAgentAllowed,
+        ringwraithAgentGateActive: isRingwraith && !summonsAgentAllowed,
         fwOrcTrollPermitted,
       },
     };

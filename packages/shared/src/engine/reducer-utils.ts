@@ -70,6 +70,69 @@ export function hasRecruitmentVehicleEffect(def: CardDefinition | undefined): bo
 }
 
 /**
+ * True if `def` carries an **agent-summons** recruitment-vehicle effect
+ * (`agentRecruit: true`) — Open to the Summons (wh-46). Such a card lets a
+ * Ringwraith/Fallen-wizard player bring one agent into a company at a Darkhaven
+ * and, sitting in the play deck during the character draft, lifts the agent
+ * draft-gate for one agent (rules 1.41/1.42). Detected by effect, not card id,
+ * so future enablers work unchanged.
+ */
+export function hasAgentSummonsEffect(def: CardDefinition | undefined): boolean {
+  const effects = (def as { effects?: readonly { type: string; agentRecruit?: boolean }[] } | undefined)?.effects ?? [];
+  return effects.some(e => e.type === 'recruitment-vehicle' && e.agentRecruit === true);
+}
+
+/**
+ * Counts the agent-summons enablers (Open to the Summons, wh-46) sitting in a
+ * player's play deck. During the character draft each such enabler lets the
+ * player draft **one** agent as a starting character — the play-deck copy is
+ * later placed with that agent "in lieu of a minor item" during the item draft.
+ * Used to lift the Ringwraith/Fallen-wizard agent draft-gate for that many agents.
+ */
+export function countAgentSummonsEnablersInDeck(
+  state: GameState,
+  player: { readonly playDeck: readonly { readonly definitionId: CardDefinitionId }[] },
+): number {
+  return player.playDeck.reduce(
+    (n, card) => (hasAgentSummonsEffect(defById(state, card.definitionId)) ? n + 1 : n),
+    0,
+  );
+}
+
+/**
+ * Counts how many agent characters a player has already drafted into their
+ * starting company (rules 1.41/1.42 — each requires an enabler). Used together
+ * with {@link countAgentSummonsEnablersInDeck} to decide whether one more agent
+ * may be drafted via an Open-to-the-Summons enabler.
+ */
+export function countDraftedAgents(
+  state: GameState,
+  drafted: readonly { readonly definitionId: CardDefinitionId }[],
+): number {
+  return drafted.reduce(
+    (n, card) => (isAgentCharacter(defById(state, card.definitionId)) ? n + 1 : n),
+    0,
+  );
+}
+
+/**
+ * True if the player's play deck holds any card that "may be played with a
+ * starting company in lieu of a minor item" — a `starting-company-placement`
+ * effect (Open to the Summons wh-46, Orders from Lugbúrz as-94, Thrall of the
+ * Voice wh-82…). Such a card keeps the item-draft step reachable even when the
+ * player drafted no minor items, so the placement can still be offered.
+ */
+export function hasStartingCompanyPlacementInDeck(
+  state: GameState,
+  player: { readonly playDeck: readonly { readonly definitionId: CardDefinitionId }[] },
+): boolean {
+  return player.playDeck.some(card => {
+    const effects = (defById(state, card.definitionId) as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [];
+    return effects.some(e => e.type === 'starting-company-placement');
+  });
+}
+
+/**
  * Count the minor items a player has placed on their starting characters.
  *
  * Only true minor items (item cards) count toward the starting-item budget of
