@@ -1056,10 +1056,62 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "her current site"
+        "site": "Bag End"
+      },
+      {
+        "site": "Bree"
       }
     ],
-    "effects": [],
-    "text": "Unique.Manifestation of Lobelia Sackville-Baggins. May only be played at Bag End or Bree. Discard this card if her company moves to any site other than Bree, Old Forest, The White Towers, or a site in The Shire. Tap Mistress Lobelia to search your discard pile or play deck for any one item, ally, or faction playable at her current site. Place the resource in your hand and reshuffle your play deck."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "lobelia-fetch-playable",
+        "cost": {
+          "tap": "self"
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["discard-pile", "deck"],
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "fetchTo": "hand",
+          "playableAtBearerSite": true,
+          "filter": {
+            "cardType": {
+              "$in": [
+                "hero-resource-item",
+                "hero-resource-ally",
+                "hero-resource-faction"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "$not": {
+            "$or": [
+              {
+                "destination.name": {
+                  "$in": ["Bree", "Old Forest", "The White Towers"]
+                }
+              },
+              {
+                "destination.region": "The Shire"
+              }
+            ]
+          }
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "to": "discard"
+        }
+      }
+    ],
+    "text": "Unique.Manifestation of Lobelia Sackville-Baggins. May only be played at Bag End or Bree. Discard this card if her company moves to any site other than Bree, Old Forest, The White Towers, or a site in The Shire. Tap Mistress Lobelia to search your discard pile or play deck for any one item, ally, or faction playable at her current site. Place the resource in your hand and reshuffle your play deck.",
+    "certified": "2026-07-10"
   }
 ]

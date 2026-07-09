@@ -780,6 +780,14 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       const grantActions = extractGrantActions(state, ally.definitionId);
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+        // A `tap: self` cost (e.g. Mistress Lobelia dm-178) requires the ally
+        // itself to be untapped; `discard: self` and cost-free abilities are
+        // always payable (canPayCost returns true when there is no tap cost).
+        if (!canPayCost(effect.cost, char, ally)) {
+          const def = defById(state, ally.definitionId);
+          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: cost not payable (ally tapped)`);
+          continue;
+        }
         const charDefForCtx = defById(state, char.definitionId);
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
         const company = findCharacterCompany(player.companies, charId);

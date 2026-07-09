@@ -16,7 +16,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition } from '../index.js';
 import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, PlayDiscardCostEffect } from '../types/effects.js';
 import type { CardInstance } from '../index.js';
 import { revealInstances } from './visibility.js';
@@ -1501,42 +1501,70 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
   }
 
   // --- Step 8a-2: Fire bearer-company-moves discard ---
-  // When a company has moved, discard any character items with an
-  // on-event: bearer-company-moves + self-discard move effect (e.g. Align Palantír).
+  // When a company has moved, discard any character items or allies with an
+  // on-event: bearer-company-moves + self-discard move effect. An unconditional
+  // trigger always discards (e.g. Align Palantír, an item that leaves play the
+  // moment its bearer's company moves). A trigger carrying a `when` condition
+  // discards only when that condition matches the *destination* site — used by
+  // Mistress Lobelia (dm-178), an ally discarded whenever her company moves to a
+  // site outside her allowed home region.
   if (company.destinationSite && !mhStateLocal.returnedToOrigin) {
     const movedCompany = newPlayers[activeIndex].companies[mhState.activeCompanyIndex];
+    // The destination-site context the `when` clause is evaluated against.
+    const destDef = defById(state, company.destinationSite.definitionId) as
+      { name?: string; region?: string; siteType?: string } | undefined;
+    const moveCtx = {
+      destination: {
+        name: destDef?.name,
+        region: destDef?.region,
+        siteType: destDef?.siteType,
+      },
+    };
+    // True when a `bearer-company-moves` self-discard effect should fire given
+    // its optional `when` gate against the destination site.
+    const shouldDiscardOnMove = (def: CardDefinition | undefined): boolean =>
+      getOnEventEffects(def, 'bearer-company-moves').some(
+        e => isSelfDiscardMove(e.apply) && (!e.when || matchesCondition(e.when, moveCtx)),
+      );
     let discardedAny = false;
     for (const charId of movedCompany.characters) {
       const charData = newPlayers[activeIndex].characters[charId];
       if (!charData) continue;
       const itemsToKeep: import('../index.js').ItemInPlay[] = [];
-      const itemsToDiscard: import('../index.js').CardInstance[] = [];
+      const alliesToKeep: import('../index.js').AllyInPlay[] = [];
+      const toDiscard: import('../index.js').CardInstance[] = [];
       for (const item of charData.items) {
         const itemDef = defById(state, item.definitionId);
-        const hasTrigger = getOnEventEffects(itemDef, 'bearer-company-moves').some(
-          e => isSelfDiscardMove(e.apply),
-        );
-        if (hasTrigger) {
-          logDetail(`bearer-company-moves: discarding "${itemDef?.name ?? item.definitionId}" from ${charId as string}`);
-          itemsToDiscard.push(toCardInstance(item));
+        if (shouldDiscardOnMove(itemDef)) {
+          logDetail(`bearer-company-moves: discarding item "${itemDef?.name ?? item.definitionId}" from ${charId as string}`);
+          toDiscard.push(toCardInstance(item));
         } else {
           itemsToKeep.push(item);
         }
       }
-      if (itemsToDiscard.length > 0) {
+      for (const ally of charData.allies) {
+        const allyDef = defById(state, ally.definitionId);
+        if (shouldDiscardOnMove(allyDef)) {
+          logDetail(`bearer-company-moves: discarding ally "${allyDef?.name ?? ally.definitionId}" from ${charId as string} (moved to ${destDef?.name ?? '?'})`);
+          toDiscard.push(toCardInstance(ally));
+        } else {
+          alliesToKeep.push(ally);
+        }
+      }
+      if (toDiscard.length > 0) {
         discardedAny = true;
         newPlayers[activeIndex] = {
           ...newPlayers[activeIndex],
           characters: {
             ...newPlayers[activeIndex].characters,
-            [charId as string]: { ...charData, items: itemsToKeep },
+            [charId as string]: { ...charData, items: itemsToKeep, allies: alliesToKeep },
           },
-          discardPile: [...newPlayers[activeIndex].discardPile, ...itemsToDiscard],
+          discardPile: [...newPlayers[activeIndex].discardPile, ...toDiscard],
         };
       }
     }
     if (discardedAny) {
-      logDetail('bearer-company-moves: finished discarding items from moving company');
+      logDetail('bearer-company-moves: finished discarding cards from moving company');
     }
   }
 
