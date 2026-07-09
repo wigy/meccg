@@ -1287,7 +1287,8 @@ function summonsFromLongSleepActions(
 
         const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
-          || siteAllowsCreatureByRace(state, targetCompany, creatureDef);
+          || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
+          || siteAllowsCreatureByKeying(state, targetCompany, creatureDef);
 
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(creatureDef);
@@ -1412,7 +1413,8 @@ function playCreatureFromDiscardActions(
 
       const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
       const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
-        || siteAllowsCreatureByRace(state, targetCompany, creatureDef);
+        || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
+        || siteAllowsCreatureByKeying(state, targetCompany, creatureDef);
 
       if (matches.length === 0 && !keyingBypassed) {
         logDetail(`${defName}: discard creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
@@ -1700,7 +1702,8 @@ function playHazardsActions(
         }
         const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
-          || siteAllowsCreatureByRace(state, targetCompany, def);
+          || siteAllowsCreatureByRace(state, targetCompany, def)
+          || siteAllowsCreatureByKeying(state, targetCompany, def);
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
@@ -3231,6 +3234,41 @@ function siteAllowsCreatureByRace(
   const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
   if (!siteDefId) return false;
   return siteRuleAllowsCreatureByRace(defById(state, siteDefId), creatureDef);
+}
+
+/**
+ * Check whether the target company's effective site (destination if moving,
+ * else current) carries an `allow-creature-by-keying` site-rule whose region-
+ * or site-type filter matches one of the creature's own `keyedTo` entries.
+ * When it does, the creature keys as if the site matched its keying, so its
+ * normal path/site keying check is bypassed (e.g. The Drowning-deeps ba-89:
+ * "Creatures keyed to Coastal Sea may be keyed to this site.").
+ */
+function siteAllowsCreatureByKeying(
+  state: GameState,
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
+  creatureDef: CreatureCard,
+): boolean {
+  const effectiveSiteInstanceId = targetCompany.destinationSite?.instanceId
+    ?? targetCompany.currentSite?.instanceId
+    ?? null;
+  if (!effectiveSiteInstanceId) return false;
+  const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
+  if (!siteDefId) return false;
+  const siteDef = defById(state, siteDefId);
+  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return false;
+  return siteDef.effects.some(e => {
+    if (e.type !== 'site-rule' || e.rule !== 'allow-creature-by-keying') return false;
+    const allowedSiteTypes = new Set(e.keying.siteTypes ?? []);
+    const allowedRegionTypes = new Set(e.keying.regionTypes ?? []);
+    return creatureDef.keyedTo.some(key =>
+      (key.siteTypes?.some(st => allowedSiteTypes.has(st)) ?? false)
+      || (key.regionTypes?.some(rt => allowedRegionTypes.has(rt)) ?? false),
+    );
+  });
 }
 
 /** Build a human-readable keying requirement string for error messages. */

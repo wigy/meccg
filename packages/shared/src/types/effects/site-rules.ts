@@ -36,6 +36,7 @@ export type SiteRuleEffect =
   | AlwaysReturnToDeckSiteRule
   | HazardLimitSiteRule
   | AllowCreatureByRaceSiteRule
+  | AllowCreatureByKeyingSiteRule
   | CreaturesAlwaysKeyedToSiteSiteRule
   | AllowItemsWhenTappedSiteRule
   | CancelFirstAttackIfInPlaySiteRule
@@ -340,9 +341,14 @@ export interface HazardLimitSiteRule extends EffectBase {
  * Declares that hazard creatures of the given race may be played at this site
  * regardless of normal keying requirements. The keying check is bypassed when
  * the attacking creature's race matches this rule's `race` field. The bypass
- * feeds both normal hazard-creature play against a company at the site **and**
- * the site's `dynamic-auto-attack` eligibility (such a creature becomes a legal
- * choice for the opponent's dynamically-played automatic-attack).
+ * feeds normal hazard-creature play against a company at the site. It **also**
+ * feeds the site's `dynamic-auto-attack` eligibility (such a creature becomes a
+ * legal choice for the opponent's dynamically-played automatic-attack) — but
+ * only when that attack keys by **site-type** (e.g. The Iron-deeps ba-91: "…
+ * keyed to a Ruins and Lairs"), since being keyed to *this site* is itself a
+ * form of site keying. When the attack keys by **region-type** (e.g. The
+ * Drowning-deeps ba-89: "…keyed to Coastal Seas"), keying to this site grants
+ * no region keying, so the race bypass does not feed the auto-attack.
  *
  * When the optional `except` condition is present, it is evaluated against the
  * creature's card definition (via the standard DSL matcher, dot-path keys); a
@@ -375,6 +381,37 @@ export interface AllowCreatureByRaceSiteRule extends EffectBase {
    * matches is excluded from the bypass (e.g. Sea Serpent for a Drake rule).
    */
   readonly except?: Condition;
+}
+
+/**
+ * Declares that any hazard creature whose own `keyedTo` includes one of the
+ * listed region-types or site-types may be played at this site regardless of
+ * the site's actual region/site type. This is the "Creatures keyed to X may be
+ * keyed to this site" clause: the creature keys as if the site matched its
+ * `keyedTo`, bypassing the normal path/site keying check.
+ *
+ * Distinct from {@link AllowCreatureByRaceSiteRule} (which keys on the
+ * creature's race): this rule keys on the creature's own keying requirement.
+ * The `keying` filter mirrors {@link DynamicAutoAttackSiteRule.keying}. Feeds
+ * only the normal hazard-creature play path (not the site's dynamic
+ * auto-attack, whose own `keying` filter already governs eligibility).
+ *
+ * Example — The Drowning-deeps (ba-89): "Creatures keyed to Coastal Sea ...
+ * may be keyed to this site."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "allow-creature-by-keying",
+ *   "keying": { "regionTypes": ["coastal"] } }
+ * ```
+ */
+export interface AllowCreatureByKeyingSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'allow-creature-by-keying';
+  /** Site-types and region-types whose presence in a creature's `keyedTo` grants the bypass. */
+  readonly keying: {
+    readonly siteTypes?: readonly SiteType[];
+    readonly regionTypes?: readonly RegionType[];
+  };
 }
 
 /**

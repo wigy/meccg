@@ -2981,13 +2981,17 @@ Rules:
   creatures whose race matches `race`. Any creature of that race may be
   played against a company whose effective site (destination if moving,
   else current) carries this rule, regardless of the creature's `keyedTo`
-  entries. The bypass feeds **both** normal hazard-creature play against a
-  company at the site (`engine/legal-actions/movement-hazard.ts`
-  `siteAllowsCreatureByRace`) **and** the site's `dynamic-auto-attack`
-  eligibility (`engine/legal-actions/site.ts` — such a creature becomes a
-  legal choice for the opponent's dynamically-played 2nd automatic-attack).
-  Both paths delegate the rule test to `reducer-utils.ts`
-  `siteRuleAllowsCreatureByRace`. An optional `except` condition (evaluated
+  entries. The bypass feeds normal hazard-creature play against a company at
+  the site (`engine/legal-actions/movement-hazard.ts`
+  `siteAllowsCreatureByRace`). It **also** feeds the site's
+  `dynamic-auto-attack` eligibility (`engine/legal-actions/site.ts` — such a
+  creature becomes a legal choice for the opponent's dynamically-played 2nd
+  automatic-attack), but only when that attack keys by **site-type** (being
+  keyed to *this site* satisfies a site-type requirement); a **region-type**
+  keyed auto-attack (e.g. Coastal Seas) is not fed, since keying to this site
+  grants no region keying. Both paths delegate the rule test to
+  `reducer-utils.ts` `siteRuleAllowsCreatureByRace`. An optional `except`
+  condition (evaluated
   against the creature's card definition via the standard DSL matcher)
   excludes matching creatures from the bypass. Used by *Geann a-Lisch*
   (as-138) — "Any Man hazard creature can be played at this site." — and by
@@ -3001,6 +3005,24 @@ Rules:
   ```json
   { "type": "site-rule", "rule": "allow-creature-by-race", "race": "drake",
     "except": { "name": "Sea Serpent" } }
+  ```
+
+- `allow-creature-by-keying` — bypasses the normal keying check for hazard
+  creatures whose own `keyedTo` names one of the region-types/site-types in
+  the rule's `keying` filter (same shape as `dynamic-auto-attack.keying`).
+  Such a creature keys as if the site matched its keying, so it may be played
+  against a company whose effective site (destination if moving, else current)
+  carries this rule. Distinct from `allow-creature-by-race` (which keys on the
+  creature's race). Feeds only the normal M/H hazard-creature play path — not
+  the site's `dynamic-auto-attack`, whose own `keying` filter already governs
+  auto-attack eligibility. Consumed by
+  `engine/legal-actions/movement-hazard.ts` `siteAllowsCreatureByKeying`. Used
+  by *The Drowning-deeps* (ba-89) — "Creatures keyed to Coastal Sea … may be
+  keyed to this site."
+
+  ```json
+  { "type": "site-rule", "rule": "allow-creature-by-keying",
+    "keying": { "regionTypes": ["coastal"] } }
   ```
 
 - `creatures-always-keyed-to-site` — any hazard creature that is keyable
