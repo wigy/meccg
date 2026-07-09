@@ -788,11 +788,25 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Imlad Morgul",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": ["minor", "major"],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Playable: Items (minor, major)Automatic-attacks (1): Orcs — 4 strikes with 7 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+    "text": "Playable: Items (minor, major)\nAutomatic-attacks (1): Orcs — 4 strikes with 7 prowess\nSpecial: Creatures keyed to this site attack normally, not as detainment.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
