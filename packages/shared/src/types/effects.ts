@@ -582,6 +582,22 @@ export interface RecruitmentVehicleEffect extends EffectBase {
   readonly type: 'recruitment-vehicle';
   /** Maximum printed mind of a character this vehicle may bring into play. */
   readonly maxMind: number;
+  /**
+   * Agent-summons variant — Open to the Summons (wh-46). When true the vehicle
+   * brings **one agent** character into the controller's own company at a
+   * **Darkhaven** [{DH}] (rather than the agent's home site), and may be used by
+   * a Ringwraith **or** Fallen-wizard player (Thrall of the Voice, the plain
+   * variant, is Fallen-wizard-only and covers any character up to {@link maxMind}).
+   *
+   * Unlike Thrall it does **not** lift the Fallen-wizard mind-5 cap: a
+   * Fallen-wizard may only summon an agent of mind ≤ 5 (CRF: "Does not allow a
+   * Fallen-wizard to play a 6-mind character"). The `-1 to his mind` reduction
+   * and the "may also be in your starting company" clause are shared with the
+   * plain variant (via the `stat-modifier` and `starting-company-placement`
+   * effects). During the character draft, one such enabler sitting in the
+   * player's play deck lifts the agent draft-gate for one agent (rules 1.41/1.42).
+   */
+  readonly agentRecruit?: boolean;
 }
 
 /**

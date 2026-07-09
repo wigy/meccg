@@ -19,7 +19,7 @@ import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, countStartingMinorItems } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersInDeck, countDraftedAgents } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 import { sameManifestationEntity } from './manifestations.js';
 
@@ -235,6 +235,14 @@ function handleCharacterDraft(
           return { state, error: 'A hazard agent cannot be drafted as a character' };
         }
 
+        // Open to the Summons (wh-46): each copy held in the play deck lets a
+        // Ringwraith or Fallen-wizard draft ONE agent as a starting character
+        // (rules 1.41/1.42). The gate is lifted while fewer agents have been
+        // drafted than enablers held.
+        const agentSummonsEnablers = countAgentSummonsEnablersInDeck(state, state.players[playerIndex]);
+        const agentsDrafted = countDraftedAgents(state, playerDraft.drafted);
+        const summonsAgentAllowed = agentsDrafted < agentSummonsEnablers;
+
         // Fallen-wizard draft gate (rules 1.42, 1.44): without an enabling Stage
         // resource (Thrall), a Fallen-wizard cannot draft a mind > 5 or agent
         // character. The enabler must already be revealed (in draftedStageResources).
@@ -244,16 +252,16 @@ function handleCharacterDraft(
             logDetail(`${charDef.name} (mind ${charDef.mind}) blocked: Fallen-wizard mind > 5 requires an enabling Stage resource`);
             return { state, error: 'A Fallen-wizard cannot draft a character with mind > 5 without an enabling Stage resource' };
           }
-          if (isAgentCharacter(charDef)) {
-            logDetail(`${charDef.name} (agent) blocked: Fallen-wizard agent draft requires an enabling Stage resource`);
+          if (isAgentCharacter(charDef) && !summonsAgentAllowed) {
+            logDetail(`${charDef.name} (agent) blocked: Fallen-wizard agent draft requires an enabling Stage resource or Open to the Summons`);
             return { state, error: 'A Fallen-wizard cannot draft an agent character without an enabling Stage resource' };
           }
         }
 
         // Ringwraith draft gate (rule 1.41, CoE 1.9.R2): a Ringwraith cannot draft
-        // agent characters. A Ringwraith never drafts resources during the
-        // character draft, so there is no enabler that can lift this gate.
-        if (state.players[playerIndex].alignment === Alignment.Ringwraith && isAgentCharacter(charDef)) {
+        // agent characters unless an enabling resource (Open to the Summons,
+        // wh-46) in the play deck lifts the gate for one agent.
+        if (state.players[playerIndex].alignment === Alignment.Ringwraith && isAgentCharacter(charDef) && !summonsAgentAllowed) {
           logDetail(`${charDef.name} (agent) blocked: a Ringwraith cannot draft agent characters`);
           return { state, error: 'A Ringwraith cannot draft an agent character during the character draft' };
         }
@@ -557,6 +565,12 @@ function handleItemDraft(
     ) ?? false;
     const targetCharId = action.targetCharacterInstanceId;
     const targetChar = targetCharId ? player.characters[targetCharId] : undefined;
+    // Open to the Summons (wh-46) is an agent-summons vehicle: "place this card
+    // with the agent" — it may only be placed with an agent character.
+    if (isRecruitmentVehicle && targetChar && hasAgentSummonsEffect(eventDef)
+      && !isAgentCharacter(defById(state, targetChar.definitionId))) {
+      return { state, error: 'Open to the Summons may only be placed with an agent character' };
+    }
 
     const stateWithCard = (isRecruitmentVehicle && targetChar)
       ? updatePlayer(state, playerIndex, p => ({
