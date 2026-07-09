@@ -804,11 +804,40 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Southern Mirkwood",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "information",
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 3,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Trolls",
+        "strikes": 2,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Nazgûl",
+        "strikes": 1,
+        "prowess": 15,
+        "combatRules": ["cannot-be-canceled"]
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Playable: Information, Items (minor, major)Automatic-attacks (3): (1st) Orcs — 3 strikes with 7 prowess (2nd) Trolls — 2 strikes with 8 prowess (3rd) Nazgûl (cannot be canceled) — 1 strike with 15 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+    "text": "Playable: Information, Items (minor, major)Automatic-attacks (3): (1st) Orcs — 3 strikes with 7 prowess (2nd) Trolls — 2 strikes with 8 prowess (3rd) Nazgûl (cannot be canceled) — 1 strike with 15 prowessSpecial: Creatures keyed to this site attack normally, not as detainment.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
