@@ -199,17 +199,18 @@ type FactionMpOverrideRule = { readonly when: Condition; readonly value: number 
 
 /**
  * Collects the faction-MP-override rule sets a player has in play (e.g. Gatherer
- * of Loyalties wh-70). Each in-play card carrying a `faction-mp-override` effect
- * contributes its ordered rule list; the lists are concatenated in card order so
- * the shared "last matching rule wins" precedence still holds. Returns an empty
- * array when no such card is in play.
+ * of Loyalties wh-70 as a stage permanent-event, or Pallando wh-7 as a
+ * character). Each in-play card or character carrying a `faction-mp-override`
+ * effect contributes its ordered rule list; the lists are concatenated in card
+ * order so the shared "last matching rule wins" precedence still holds. Returns
+ * an empty array when no such card is in play.
  */
 function factionMpOverrideRules(
   state: GameState,
   player: PlayerState,
 ): FactionMpOverrideRule[] {
   const rules: FactionMpOverrideRule[] = [];
-  for (const def of playerCardsInPlayDefs(state, player)) {
+  for (const def of playerInPlayAndCharacterDefs(state, player)) {
     for (const effect of getCardEffects(def)) {
       if (effect.type === 'faction-mp-override') rules.push(...effect.rules);
     }
@@ -249,6 +250,22 @@ function playerCardsInPlayDefs(state: GameState, player: PlayerState): CardDefin
   const defs: CardDefinition[] = [];
   for (const card of player.cardsInPlay) {
     const def = resolveDef(state, card.instanceId);
+    if (def) defs.push(def);
+  }
+  return defs;
+}
+
+/**
+ * Resolves the card definitions of every source a player-wide, in-play effect
+ * can live on: the player's `cardsInPlay` (permanent-events, factions, stage
+ * cards, …) plus their in-play characters. Character-carried player-wide effects
+ * (e.g. Pallando wh-7's `faction-mp-override`, Saruman wh-9's `fw-item-mp-full`)
+ * are collected the same way as ones carried by a stage permanent-event.
+ */
+function playerInPlayAndCharacterDefs(state: GameState, player: PlayerState): CardDefinition[] {
+  const defs = [...playerCardsInPlayDefs(state, player)];
+  for (const char of Object.values(player.characters)) {
+    const def = resolveDef(state, char.instanceId);
     if (def) defs.push(def);
   }
   return defs;
@@ -650,12 +667,7 @@ type FwMpFullEntry = { readonly filter: Condition | null; readonly inAvatarCompa
  * permanent-events).
  */
 function fwExemptionSourceDefs(state: GameState, player: PlayerState): CardDefinition[] {
-  const defs = [...playerCardsInPlayDefs(state, player)];
-  for (const char of Object.values(player.characters)) {
-    const def = resolveDef(state, char.instanceId);
-    if (def) defs.push(def);
-  }
-  return defs;
+  return playerInPlayAndCharacterDefs(state, player);
 }
 
 /**
