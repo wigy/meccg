@@ -1671,7 +1671,10 @@
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Southern Rhovanion",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -1681,7 +1684,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor, major)Automatic-attacks: Troll — 1 strike with 10 prowess"
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor, major)Automatic-attacks: Troll — 1 strike with 10 prowess",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-site",
