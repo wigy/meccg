@@ -115,7 +115,28 @@ export type AttackSource =
    * strike (not a creature attack — no race, uncancelable). `eventInstanceId`
    * is the played short-event card.
    */
-  | { readonly type: 'company-strike-event'; readonly eventInstanceId: CardInstanceId };
+  | { readonly type: 'company-strike-event'; readonly eventInstanceId: CardInstanceId }
+  /**
+   * Triggered by The Great Hunt (wh-91) via the `reveal-and-attack` effect. A
+   * revealed / discarded hazard-creature attacks the controller's Alatar
+   * company. The creature card is never moved out of its pile (deck or discard)
+   * — it is attacked "in place", exactly like a Lucky Search revealed card — so
+   * finalization does not discard or award it as a trophy.
+   *
+   * `continuation` distinguishes the two firing modes:
+   *  - `'reveal'` — part of the on-play reveal sequence. On finalization the
+   *    engine advances the `great-hunt-reveal` constraint queue: it either
+   *    initiates the next queued creature's attack or, when the queue is empty,
+   *    completes the process (reshuffling the opponent play deck if it was the
+   *    revealed pile) and removes the constraint.
+   *  - `'none'` — a one-off attack from the ongoing discard trigger; no queue.
+   */
+  | {
+      readonly type: 'great-hunt-attack';
+      readonly greatHuntInstanceId: CardInstanceId;
+      readonly creatureInstanceId: CardInstanceId;
+      readonly continuation: 'reveal' | 'none';
+    };
 
 /**
  * Tracks the assignment and resolution of a single strike against a character.

@@ -42,6 +42,7 @@ import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
 import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
 import { resolveWinConditionRoll } from './reducer-win-conditions.js';
 import { revealInstances } from './visibility.js';
+import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -1462,6 +1463,16 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           logDetail(`"${def?.name ?? '?'}" win-condition-roll: no avatar target — fizzle`);
         }
       }
+  }
+
+  // The Great Hunt (wh-91): on entering play, kick off the reveal-and-attack
+  // process (a `great-hunt-source` choice) and establish the ongoing discard
+  // trigger. General permanent event (no character/site/item target).
+  {
+    const revealAndAttack = findRevealAndAttackEffect(def);
+    if (revealAndAttack && !targetCharId) {
+      newState = kickoffGreatHunt(newState, card.instanceId, card.definitionId, entry.declaredBy, revealAndAttack);
+    }
   }
 
   // Trigger-auto-attack-on-play: initiate combat immediately after the card enters play.

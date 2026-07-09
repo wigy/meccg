@@ -31,6 +31,7 @@ import { handleChainAction } from './chain-reducer.js';
 import { accrueRevealedInstances } from './visibility.js';
 import { sweepSetAside } from './set-aside.js';
 import { sweepFallenWizardSpecific } from './fallen-wizard-specific.js';
+import { sweepGreatHuntDiscards } from './great-hunt.js';
 
 /**
  * Post-action housekeeping: sweep manifestation cascades (METD §4.2) and
@@ -40,7 +41,7 @@ import { sweepFallenWizardSpecific } from './fallen-wizard-specific.js';
  * moved, then record any newly-revealed card identities from public locations.
  */
 function postReduce(state: GameState): GameState {
-  return accrueRevealedInstances(recomputeDerived(sweepFallenWizardSpecific(sweepSetAside(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(state))))))))));
+  return accrueRevealedInstances(recomputeDerived(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepSetAside(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(state)))))))))));
 }
 
 export type { ReducerResult } from './reducer-utils.js';

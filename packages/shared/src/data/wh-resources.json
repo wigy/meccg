@@ -1349,10 +1349,31 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-07-09",
     "effects": [
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "player.avatar": "Alatar" },
+            { "player.stagePoints": { "$gte": 12 } }
+          ]
+        }
+      },
+      {
+        "type": "reveal-and-attack",
+        "maxCreatures": 5,
+        "attackAvatar": "Alatar"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
       }
     ],
     "text": "Alatar specific. Playable if you are Alatar and have at least 12 stage points. Your opponent reveals cards one at a time from his play deck or his discard pile (your choice). Any hazard creature revealed immediately attacks Alatar’s company. This process stops when 5 creatures or all cards of the deck (or pile) have been revealed. Reshuffle play deck if used. Thereafter, your opponent discards face-up. Whenever your opponent discards a creature during your turn, you may choose to have it attack Alatar’s company instead. Cannot be duplicated."

@@ -161,6 +161,8 @@ export type {
   RestoreCharacterByEffectAction,
   ArrangeDeckTopCardAction,
   ChooseRevealedCardAction,
+  ChooseGreatHuntSourceAction,
+  GreatHuntAttackWithCreatureAction,
 } from './actions-universal.js';
 
 // ---- Import concrete types for the union ----
@@ -170,7 +172,7 @@ import type { PlayShortEventAction, FetchFromPileAction, ReshuffleCardFromHandAc
 import type { PlayLongEventAction } from './actions-long-event.js';
 import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, SideboardWithNazgulAction, TapAltPermanentEventAction, PlayAgentManifestationAction, AssignStrikeAction, AllocateCvccExcessAction, ResolveStrikeAction, AgentStrikeRollAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction, CancelAttackAction, ConvertCreatureToAllyAction, CancelByTapAction, CancelStrikeAction, ProtectFromStrikeAssignmentAction, HalveStrikesAction, TapAllyCombatBoostAction, TapAllyBodyCheckBoostAction, ModifyAttackAction, TapItemForStrikeAction, FaceStrikeOnTapAction, SalvageItemAction, ShieldDiscardRollAction, DiscardItemFromCompanyAction, PlayStrikeEventAction, ResolveDiceCheckAction, SeizedByTerrorRollAction, HavenJoinAttackAction, CancelReturnToOriginAction, TapAllyDiscardHazardAction, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction, UnderDeepsRollAction, FlateryAttemptRollAction, TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction, TakeTrophyAction, ReserveCreatureAction, PlayReservedCreatureAction, PlayCreatureFromDiscardAction, StayHerAppetiteRollAction, ForceDiscardCardAction, TransferReturnedItemAction } from './actions-movement-hazard.js';
 import type { EnterSiteAction, PlaceOnGuardAction, RevealOnGuardAction, CancelAutoAttackAction, PlaySiteAutoAttackAction, RescuePrisonerAction, DeclareAgentAttackAction, PlayHeroResourceAction, InfluenceAttemptAction, OpponentInfluenceAttemptAction, OpponentInfluenceDefendAction, CancelInfluenceAction, FactionInfluenceRollAction, PlayMinorItemAction, SelectForewarnedAttackAction, DeclareCompanyAttackAction } from './actions-site.js';
-import type { SupportCorruptionCheckAction, CorruptionCheckAction, DrawCardsAction, DiscardCardAction, PassAction, CallFreeCouncilAction, DeckExhaustAction, ExchangeSideboardAction, StartSideboardToDeckAction, StartSideboardToDiscardAction, FetchFromSideboardAction, StartHazardSideboardToDeckAction, StartHazardSideboardToDiscardAction, FetchHazardFromSideboardAction, NotPlayableAction, PassChainPriorityAction, OrderPassivesAction, FinishedAction, HavenReturnAction, PayHazardEventMaintenanceAction, TapCharacterByEffectAction, RestoreCharacterByEffectAction, ArrangeDeckTopCardAction, ChooseRevealedCardAction } from './actions-universal.js';
+import type { SupportCorruptionCheckAction, CorruptionCheckAction, DrawCardsAction, DiscardCardAction, PassAction, CallFreeCouncilAction, DeckExhaustAction, ExchangeSideboardAction, StartSideboardToDeckAction, StartSideboardToDiscardAction, FetchFromSideboardAction, StartHazardSideboardToDeckAction, StartHazardSideboardToDiscardAction, FetchHazardFromSideboardAction, NotPlayableAction, PassChainPriorityAction, OrderPassivesAction, FinishedAction, HavenReturnAction, PayHazardEventMaintenanceAction, TapCharacterByEffectAction, RestoreCharacterByEffectAction, ArrangeDeckTopCardAction, ChooseRevealedCardAction, ChooseGreatHuntSourceAction, GreatHuntAttackWithCreatureAction } from './actions-universal.js';
 
 // ---- Discriminated union ----
 
@@ -312,6 +314,8 @@ export type GameAction =
   | RestoreCharacterByEffectAction
   | ArrangeDeckTopCardAction
   | ChooseRevealedCardAction
+  | ChooseGreatHuntSourceAction
+  | GreatHuntAttackWithCreatureAction
   | ReserveCreatureAction
   | PlayReservedCreatureAction
   | PlayCreatureFromDiscardAction

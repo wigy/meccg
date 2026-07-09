@@ -53,6 +53,7 @@ import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from 
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
+import { startGreatHuntReveal, buildGreatHuntCombat } from './great-hunt.js';
 
 /**
  * Shared tail of the roll-resolution handlers: mark every unresolved chain
@@ -2701,4 +2702,69 @@ export function applyStayHerAppetiteRollResolution(
     state: continued.state,
     effects: [roll1Effect, roll2Effect, ...(continued.effects ?? [])],
   };
+}
+
+/**
+ * Resolve a `great-hunt-source` pending resolution (The Great Hunt wh-91): the
+ * controller chose which of the opponent's piles to reveal. Kicks off the
+ * reveal-and-attack sequence (initiating the first creature's attack), or — if
+ * the controller passed because both piles were empty — clears the resolution.
+ */
+export function applyGreatHuntSourceResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'great-hunt-source') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for great-hunt-source' };
+  }
+  const { greatHuntInstanceId, maxCreatures, opponentId, companyId } = top.kind;
+  const cleared = dequeueResolution(state, top.id);
+
+  if (action.type === 'pass') {
+    logDetail(`great-hunt-source: nothing to reveal — passing`);
+    return { state: cleared };
+  }
+  if (action.type !== 'choose-great-hunt-source') {
+    return { state, error: `Pending great-hunt-source requires choose-great-hunt-source, got '${action.type}'` };
+  }
+  const next = startGreatHuntReveal(cleared, greatHuntInstanceId, action.source, maxCreatures, opponentId, companyId, action.player);
+  return { state: next };
+}
+
+/**
+ * Resolve a `great-hunt-discard-attack` pending resolution (The Great Hunt
+ * wh-91 ongoing trigger): the controller may have the discarded creature attack
+ * their Alatar company, or pass. The creature stays in the opponent's discard
+ * pile either way (it was already recorded as processed by the sweep).
+ */
+export function applyGreatHuntDiscardAttackResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'great-hunt-discard-attack') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for great-hunt-discard-attack' };
+  }
+  const { greatHuntInstanceId, creatureInstanceId, opponentId, companyId } = top.kind;
+  const cleared = dequeueResolution(state, top.id);
+
+  if (action.type === 'pass') {
+    logDetail(`great-hunt-discard-attack: ${action.player as string} declines the attack`);
+    return { state: cleared };
+  }
+  if (action.type !== 'great-hunt-attack-with-creature') {
+    return { state, error: `Pending great-hunt-discard-attack requires great-hunt-attack-with-creature, got '${action.type}'` };
+  }
+  if (action.creatureInstanceId !== creatureInstanceId) {
+    return { state, error: 'Great Hunt: creature mismatch' };
+  }
+  const combat = buildGreatHuntCombat(cleared, greatHuntInstanceId, creatureInstanceId, action.player, opponentId, companyId, 'none');
+  if (!combat) {
+    logDetail(`great-hunt-discard-attack: creature could not attack (missing definition/company)`);
+    return { state: cleared };
+  }
+  return { state: { ...cleared, combat } };
 }
