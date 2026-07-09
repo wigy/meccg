@@ -393,11 +393,12 @@ function buildEffectiveStatsContext(
   companionNames: readonly string[] = [],
   companionDefinitionIds: readonly string[] = [],
   ringwraithMode?: RingwraithModeEffect['mode'],
+  isFollower = false,
 ): ResolverContext {
   const charInfo = buildBearerContext(charDef);
   return {
     reason: 'effective-stats',
-    bearer: { ...charInfo, companionDefinitionIds, ringwraithMode },
+    bearer: { ...charInfo, companionDefinitionIds, ringwraithMode, isFollower },
     target: charInfo,
     inPlay: inPlayNames,
     company: { characterNames: companionNames },
@@ -454,7 +455,8 @@ function computeEffectiveStats(
   controllingPlayerId?: PlayerId,
   bearerPlayerAlignment?: Alignment,
 ): EffectiveStats {
-  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode);
+  const isFollower = char.controlledBy !== 'general';
+  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, isFollower);
   let charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
   // `own-characters`-scoped effects (e.g. A Strident Spawn wh-61) apply only to

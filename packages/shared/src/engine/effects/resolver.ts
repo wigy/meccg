@@ -85,6 +85,21 @@ export interface ResolverContext {
      * `{ "bearer.ringwraithMode": "heralded-lord" }` (Hoarmûrath le-53).
      */
     readonly ringwraithMode?: 'black-rider' | 'fell-rider' | 'heralded-lord';
+    /**
+     * True when this character is a follower — controlled by another
+     * character's direct influence (`controlledBy` is a character instance ID,
+     * not `"general"`). Exposed so effects can exclude followers, e.g.
+     * So You've Come Back (le-138) raises the mind of "each other
+     * **non-follower** … character" via `{ "bearer.isFollower": { "$ne": true } }`.
+     */
+    readonly isFollower?: boolean;
+    /**
+     * True when the character's company is currently at a Haven/Darkhaven
+     * (`siteType === "haven"`). Populated only in the effective-stats context.
+     * Used by organization-phase self-discard conditions, e.g.
+     * So You've Come Back (le-138).
+     */
+    readonly atHaven?: boolean;
   };
   /** The enemy creature/hazard (in combat contexts). */
   readonly enemy?: {
@@ -336,6 +351,22 @@ export function collectCharacterEffects(
     if (hDef) collectFromDef(hDef, hazard.instanceId, context, results);
   }
 
+  // `company-others` stat-modifiers never apply to their own bearer ("each
+  // *other* character in his company"). Strip any that leaked in from this
+  // character's own card / items / hazards; they are re-collected from every
+  // *other* company member below.
+  for (let i = results.length - 1; i >= 0; i--) {
+    const eff = results[i].effect;
+    if (eff.type === 'stat-modifier' && eff.target === 'company-others') results.splice(i, 1);
+  }
+
+  // `company-others` stat-modifiers carried by *other* characters' attached
+  // hazards/items in the same company (So You've Come Back le-138: an attached
+  // hazard raises the mind of every other company member). Filtered by each
+  // effect's `when` against this character's own context.
+  const companyOthersEffects = collectCompanyOthersEffects(state, char, context);
+  results.push(...companyOthersEffects);
+
   // Company-scoped stat-modifier effects from items on all characters in
   // the same company (e.g. The One Ring adds +1 CP to every company member).
   const companyItemEffects = collectCompanyItemEffects(state, char, context);
@@ -444,6 +475,49 @@ function collectCompanyPermanentEventEffects(
           };
           results.push({ effect: synthesized, sourceDef: def, sourceInstance: card.instanceId });
         }
+      }
+    }
+  }
+  return results;
+}
+
+/**
+ * Collects `stat-modifier` effects with `target: "company-others"` from the
+ * attached hazards and items of **every other** character in the same company
+ * as `char`.
+ *
+ * Unlike {@link collectCompanyItemEffects} (`target: "company"`, which applies
+ * to the bearer too), a `company-others` modifier explicitly excludes its own
+ * bearer — so when computing character X's stats we look at the hazards/items
+ * on companions Y ≠ X. Each effect's `when` is evaluated against X's context
+ * (`bearer.*`), letting the source card exclude e.g. followers or avatars.
+ *
+ * Used by So You've Come Back (le-138): the attached hazard raises the mind of
+ * "each other non-follower, non-Ringwraith, non-Wizard character in his
+ * company" by one.
+ */
+function collectCompanyOthersEffects(
+  state: GameState,
+  char: CharacterInPlay,
+  context: ResolverContext,
+): CollectedEffect[] {
+  const results: CollectedEffect[] = [];
+  const baseCtx = context as unknown as Record<string, unknown>;
+  const found = findPlayerAndCompany(state, char.instanceId);
+  if (!found) return results;
+  const { player, company } = found;
+  for (const companyCharId of company.characters) {
+    if (companyCharId === char.instanceId) continue; // "each *other* character"
+    const other = player.characters[companyCharId];
+    if (!other) continue;
+    const attached = [...other.hazards, ...other.items];
+    for (const card of attached) {
+      const def = resolveDef(state, card.instanceId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'stat-modifier' || effect.target !== 'company-others') continue;
+        if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
+        results.push({ effect, sourceDef: def, sourceInstance: card.instanceId });
       }
     }
   }
