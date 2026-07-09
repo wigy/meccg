@@ -125,6 +125,16 @@ export interface PlayerState {
    */
   readonly generalInfluenceBonus: number;
   /**
+   * Portion of `generalInfluenceBonus` that may NOT be used to control
+   * characters (`Σ max(0, value - controlLimit)` over in-play general-influence
+   * modifiers). The full bonus still counts toward the player's unused general
+   * influence for defensive hazard subtraction, but the character-control cap
+   * is `effectiveGeneralInfluence - generalInfluenceControlPenalty`. Non-zero
+   * only for cards like Truths of Doom (wh-108, +6 GI / control-limit 2).
+   * Recomputed by recomputeDerived.
+   */
+  readonly generalInfluenceControlPenalty: number;
+  /**
    * Number of times this player's play deck has been exhausted (reshuffled from discard).
    * The game ends via Free Council when a player exhausts their deck twice.
    */

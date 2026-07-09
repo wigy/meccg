@@ -36,7 +36,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
@@ -1158,7 +1158,7 @@ function returnCharacterToHand(
         return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
 
-    if (currentGIUsed + followerMind <= effectiveGeneralInfluence(state, player.id)) {
+    if (currentGIUsed + followerMind <= generalInfluenceControlLimit(state, player.id)) {
       newCharacters[followerId] = { ...follower, controlledBy: 'general' };
       logDetail(`Call of Home: follower ${followerId as string} falls to GI`);
     } else {
@@ -1278,7 +1278,7 @@ function discardCharacter(
         const def = defById(state, ch.definitionId);
         return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
-    if (currentGIUsed + followerMind <= effectiveGeneralInfluence(state, player.id)) {
+    if (currentGIUsed + followerMind <= generalInfluenceControlLimit(state, player.id)) {
       newCharacters[followerId] = { ...follower, controlledBy: 'general' };
     } else {
       for (const item of follower.items) newDiscard.push(toCardInstance(item));
