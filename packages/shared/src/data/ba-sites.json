@@ -334,7 +334,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gorgoroth",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -364,7 +367,8 @@
           ]
         }
       }
-    ]
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
