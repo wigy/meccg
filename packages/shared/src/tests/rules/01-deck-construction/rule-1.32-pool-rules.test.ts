@@ -69,4 +69,36 @@ describe('Rule 1.32 — Pool Rules', () => {
     const errors = validateDeck(deck, pool);
     expect(errors.some(e => e.section === 'pool' && e.message.includes('max 2'))).toBe(true);
   });
+
+  // Rule 1.7 — a card that may not be part of a starting company has no legal
+  // use in the pool (whose only purpose is starting-company setup) and must go
+  // in the play deck. td-91 = Fram Framson (hero-character flagged
+  // `not-starting-character`); as-130 = Records Unread (minor item flagged
+  // `no-starting-company`).
+  test('Pool with a `not-starting-character` character produces a pool error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Fram Framson', card: 'td-91' as CardDefinitionId, qty: 1 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'pool' && e.message.includes('may not be included with a starting company'))).toBe(true);
+  });
+
+  test('Pool with a `no-starting-company` minor item produces a pool error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Records Unread', card: 'as-130' as CardDefinitionId, qty: 1 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'pool' && e.message.includes('may not be included with a starting company'))).toBe(true);
+  });
+
+  test('Pool with an ordinary character has no starting-company error', () => {
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Aragorn II', card: 'tw-120' as CardDefinitionId, qty: 1 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.message.includes('may not be included with a starting company'))).toBe(false);
+  });
 });

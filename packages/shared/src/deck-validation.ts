@@ -973,6 +973,31 @@ export function validateDeck(
     });
   }
 
+  // Rule 1.7 — the pool exists solely to set up the starting company: its
+  // characters are drafted into the company (rule 1.9) and its minor items are
+  // placed on those characters. A card whose text forbids it from a starting
+  // company therefore has no legal use in the pool and must live in the play
+  // deck instead. Such cards carry a play-flag: characters flagged
+  // `not-starting-character` (e.g. the manifestation Trolls Bûrat/Tûma/Wûluag,
+  // Fram Framson) and minor items flagged `no-starting-company` (e.g. Records
+  // Unread, Secret Book). The draft/item-draft steps already refuse to place
+  // them; this check keeps them out of the pool at deck-construction time.
+  for (const entry of poolCards) {
+    if (entry.card === null) continue;
+    const def = cardPool[entry.card];
+    if (!def) continue;
+    const cannotStart =
+      (isCharacterCard(def) && defHasPlayFlag(def, 'not-starting-character')) ||
+      (isItemCard(def) && defHasPlayFlag(def, 'no-starting-company'));
+    if (cannotStart) {
+      errors.push({
+        section: 'pool',
+        message: `pool: "${(def as { name: string }).name}" may not be included with a starting company — it belongs in the play deck, not the pool (rule 1.7)`,
+        card: entry.card,
+      });
+    }
+  }
+
   // Rule 1.33 — fallen-wizard pool Stage resources (CoE 1.7.F1): a combined
   // total of exactly three stage points, including at least one non-unique
   // resource.
