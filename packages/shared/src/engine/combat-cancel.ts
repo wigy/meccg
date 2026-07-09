@@ -34,6 +34,7 @@ import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired 
 import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveStrikeCore, nextStrikePhase } from './combat-strike.js';
 import { discardCardTriggeredCard, recordHazardEncountered } from './combat-finalize.js';
+import { advanceGreatHuntReveal } from './great-hunt.js';
 
 /**
  * Handle cancel-attack sourced from an in-play ally (e.g. The Warg-king's
@@ -518,6 +519,13 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
         });
       }
     }
+  }
+
+  // The Great Hunt (wh-91): a canceled reveal-sequence attack still advances
+  // the reveal queue to the next creature (the creature never moved out of its
+  // pile, so nothing is disposed on cancel either).
+  if (combat.attackSource.type === 'great-hunt-attack' && combat.attackSource.continuation === 'reveal') {
+    stateWithCancelledPlayers = advanceGreatHuntReveal(stateWithCancelledPlayers, combat.attackSource.greatHuntInstanceId);
   }
 
   // Sweep attack-scoped constraints (e.g. duplication-limit markers from

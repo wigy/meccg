@@ -625,6 +625,40 @@ export interface PendingResolution {
         readonly revealedInstanceIds: readonly CardInstanceId[];
         /** Definition ID of the source card (for logging). */
         readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * The Great Hunt (wh-91): after the card enters play, the controller
+         * chooses whether the opponent reveals from their play deck or their
+         * discard pile (`choose-great-hunt-source` action). The choice kicks off
+         * the reveal-and-attack sequence.
+         */
+        readonly type: 'great-hunt-source';
+        /** The Great Hunt card instance driving the process. */
+        readonly greatHuntInstanceId: CardInstanceId;
+        /** Max creatures that may attack in the reveal sequence. */
+        readonly maxCreatures: number;
+        /** The opponent whose pile is revealed. */
+        readonly opponentId: PlayerId;
+        /** The controller's Alatar company that is attacked. */
+        readonly companyId: CompanyId;
+      }
+    | {
+        /**
+         * The Great Hunt (wh-91) ongoing trigger: the opponent discarded a
+         * hazard-creature during the controller's turn. The controller may pass
+         * or choose `great-hunt-attack-with-creature` to have that creature
+         * attack their Alatar company (it stays in the discard pile).
+         */
+        readonly type: 'great-hunt-discard-attack';
+        /** The Great Hunt card instance driving the trigger. */
+        readonly greatHuntInstanceId: CardInstanceId;
+        /** The discarded creature instance (in the opponent's discard pile). */
+        readonly creatureInstanceId: CardInstanceId;
+        /** The opponent who owns the discarded creature (the attacker). */
+        readonly opponentId: PlayerId;
+        /** The controller's Alatar company that would be attacked. */
+        readonly companyId: CompanyId;
       };
 }
 
@@ -1194,6 +1228,40 @@ export interface ActiveConstraint {
         readonly attacks: readonly import('./cards-sites.js').AutomaticAttack[];
         /** Index of the next attack to initiate (0 = first attack was already started). */
         readonly attackIndex: number;
+      }
+  /**
+   * The Great Hunt (wh-91) reveal-and-attack queue. Holds the ordered list of
+   * revealed hazard-creature instances that will attack the controller's Alatar
+   * company, and how far the sequence has progressed. Each `great-hunt-attack`
+   * combat's finalization advances `queueIndex`; when it reaches the end the
+   * process completes (reshuffling the opponent play deck if `reshuffleDeck`)
+   * and the constraint is removed. Scoped `until-cleared`; targeted at the
+   * controlling player.
+   */
+  | {
+        readonly type: 'great-hunt-reveal';
+        /** The Great Hunt card instance driving the process. */
+        readonly greatHuntInstanceId: CardInstanceId;
+        /** Ordered creature instances (in the opponent's deck/discard) to attack. */
+        readonly creatureInstanceIds: readonly CardInstanceId[];
+        /** Index of the next creature to attack (0 = none started yet). */
+        readonly queueIndex: number;
+        /** Whether to reshuffle the opponent's play deck when the sequence ends. */
+        readonly reshuffleDeck: boolean;
+      }
+  /**
+   * The Great Hunt (wh-91) ongoing discard tracker. While present (the card is
+   * in play), the post-reduce sweep offers the controller a
+   * `great-hunt-discard-attack` for each hazard-creature the opponent newly
+   * discards during the controller's turn. `processedDiscardIds` records every
+   * discard instance already handled (offered) so no creature is offered twice
+   * — the loop-prevention ruling. Scoped `until-cleared`; targeted at the
+   * controlling player; removed when the card leaves play.
+   */
+  | {
+        readonly type: 'great-hunt-active';
+        readonly greatHuntInstanceId: CardInstanceId;
+        readonly processedDiscardIds: readonly CardInstanceId[];
       };
 }
 

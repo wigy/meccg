@@ -4423,6 +4423,56 @@ Used by *Rescue Prisoners* (tw-315):
 { "type": "trigger-attack-on-play", "creatureType": "Spider", "strikes": 2, "prowess": 7 }
 ```
 
+### 35a. `reveal-and-attack`
+
+The Great Hunt (wh-91) — Alatar's signature stage permanent-event. Carried by a
+resource permanent-event; on entering play it runs a one-time reveal-and-attack
+process, then establishes a persistent "the opponent's discards may attack"
+trigger while it stays in play. Two firing modes, both spawning
+`great-hunt-attack` combats against the controller's `attackAvatar` company:
+
+1. **On-play reveal.** A `great-hunt-source` pending resolution asks the
+   controller which of the opponent's piles to reveal — play deck or discard
+   pile. On that choice the engine scans the chosen pile top-down, collecting up
+   to `maxCreatures` hazard-creatures; each attacks in turn (one interactive
+   combat at a time). The revealed cards are never moved out of their pile
+   (exactly like Lucky Search tw-269), so no instance is lost; if the play deck
+   was used it is reshuffled when the sequence completes. A `great-hunt-reveal`
+   active constraint holds the queue between combats; each combat's finalization
+   (or cancellation) advances it.
+
+2. **Ongoing discard trigger.** A `great-hunt-active` tracker constraint records
+   every opponent-discarded hazard-creature already offered. On each post-reduce
+   pass, during the controller's own turn, `sweepGreatHuntDiscards` offers a
+   `great-hunt-discard-attack` for each hazard-creature newly present in the
+   opponent's discard pile — "you may have it attack Alatar's company instead".
+   The discard pile at play time is seeded as already-processed so only *later*
+   discards fire. **Ruling:** each discarded creature instance is offered at most
+   once per turn (recorded in the tracker), so the unbounded printed wording
+   cannot loop forever; the creature is attacked in place and stays in the
+   discard pile.
+
+Fields:
+
+- `maxCreatures: number` — how many revealed creatures may attack (5 for wh-91).
+- `attackAvatar: string` — the avatar whose company is attacked, matched by name
+  against the controller's in-play avatar (e.g. `"Alatar"`). If that avatar is
+  not in a company the process fizzles / the trigger does not fire.
+
+Implementation: `engine/great-hunt.ts` (`kickoffGreatHunt`, `startGreatHuntReveal`,
+`buildGreatHuntCombat`, `advanceGreatHuntReveal`, `sweepGreatHuntDiscards`);
+`chain-reducer.ts` kicks off the process from `resolvePermanentEvent`;
+`combat-finalize.ts` / `combat-cancel.ts` advance the reveal queue; the two
+pending kinds live in `legal-actions/pending.ts` + `pending-reducers.ts`; the
+`great-hunt-attack` `AttackSource` variant is finalize-safe (the creature is
+never disposed or awarded as a trophy). The play gate ("if you are Alatar and
+have at least 12 stage points") is a `play-condition` `player-state`; "Cannot be
+duplicated" is a `duplication-limit` scope `game`.
+
+```json
+{ "type": "reveal-and-attack", "maxCreatures": 5, "attackAvatar": "Alatar" }
+```
+
 ### 36. `force-return-to-origin`
 
 Tags a hazard long-event (environment) whose resolution causes any moving

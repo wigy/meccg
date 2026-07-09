@@ -1113,6 +1113,12 @@ function applyOneConstraint(
       // chain successive Tidings of Bold Spies attacks — no broad legal-action
       // filtering needed here.
       return base;
+    case 'great-hunt-reveal':
+    case 'great-hunt-active':
+      // The Great Hunt (wh-91) state holders: the reveal queue is consumed by
+      // combat finalization and the discard tracker by the post-reduce sweep —
+      // neither restricts legal actions here.
+      return base;
   }
 }
 
@@ -1983,4 +1989,57 @@ export function agentPlayManifestationActions(
   }
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
   return actions;
+}
+
+/**
+ * Legal actions while a `great-hunt-source` resolution is pending (The Great
+ * Hunt wh-91): the controller chooses whether the opponent reveals from their
+ * play deck or discard pile. The choice is mandatory (no pass) — the card is
+ * already in play and the process must run.
+ */
+export function greatHuntSourceActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'great-hunt-source') return [];
+  const { opponentId } = top.kind;
+  const opponent = playerById(state, opponentId);
+  if (!opponent) return [];
+  const actions: EvaluatedAction[] = [];
+  // Only offer piles that actually have cards to reveal.
+  if (opponent.playDeck.length > 0) {
+    logDetail(`great-hunt-source: offering to reveal ${opponentId as string}'s play deck`);
+    actions.push({ action: { type: 'choose-great-hunt-source' as const, player: actor, source: 'deck' }, viable: true });
+  }
+  if (opponent.discardPile.length > 0) {
+    logDetail(`great-hunt-source: offering to reveal ${opponentId as string}'s discard pile`);
+    actions.push({ action: { type: 'choose-great-hunt-source' as const, player: actor, source: 'discard' }, viable: true });
+  }
+  // If both piles are empty there is nothing to reveal — allow a pass so the
+  // resolution can clear.
+  if (actions.length === 0) {
+    actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  }
+  return actions;
+}
+
+/**
+ * Legal actions while a `great-hunt-discard-attack` resolution is pending (The
+ * Great Hunt wh-91 ongoing trigger): the controller may have the discarded
+ * creature attack their Alatar company, or pass ("you may choose").
+ */
+export function greatHuntDiscardAttackActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'great-hunt-discard-attack') return [];
+  const { creatureInstanceId } = top.kind;
+  const defId = resolveInstanceId(state, creatureInstanceId);
+  logDetail(`great-hunt-discard-attack: offering to attack with ${defId ? cardName(state, defId, '?') : '?'}`);
+  return [
+    { action: { type: 'great-hunt-attack-with-creature' as const, player: actor, creatureInstanceId }, viable: true },
+    { action: { type: 'pass' as const, player: actor }, viable: true },
+  ];
 }

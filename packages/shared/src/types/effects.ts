@@ -2032,6 +2032,44 @@ export interface DeckSearchAttackEffect extends EffectBase {
 }
 
 /**
+ * The Great Hunt (wh-91) — Alatar's signature stage permanent-event. Carried
+ * by a resource permanent-event; fires when the card enters play and then
+ * establishes a persistent "discards attack" effect while it stays in play.
+ *
+ * On play (the reveal-and-attack process):
+ *  - The controller chooses whether the opponent reveals from their play deck
+ *    or their discard pile (a `great-hunt-source` pending resolution).
+ *  - Cards are revealed from the top of the chosen pile one at a time. Each
+ *    revealed hazard-creature immediately attacks the controller's Alatar
+ *    company (a `great-hunt-attack` combat). The process stops once
+ *    `maxCreatures` creatures have attacked or the pile is exhausted.
+ *  - The revealed cards never leave their pile (they are only revealed, exactly
+ *    like Lucky Search tw-269). If the play deck was used, it is reshuffled
+ *    when the process completes.
+ *
+ * Ongoing (the `great-hunt-active` tracker constraint added on play):
+ *  - "Whenever your opponent discards a creature during your turn, you may
+ *    choose to have it attack Alatar's company instead." Each hazard-creature
+ *    the opponent discards during the controller's own turn (while this card is
+ *    in play) offers a `great-hunt-discard-attack` resolution. Ruling: each
+ *    discarded creature instance is offered at most once per turn — after it
+ *    attacks (or is passed) it stays in the discard pile and is not re-offered,
+ *    even if it re-enters the discard pile — so the unbounded printed wording
+ *    cannot loop forever.
+ */
+export interface RevealAndAttackEffect extends EffectBase {
+  readonly type: 'reveal-and-attack';
+  /** Max number of revealed creatures that attack before the process stops. */
+  readonly maxCreatures: number;
+  /**
+   * The avatar whose company is attacked (both by the reveal process and by
+   * the ongoing discard trigger). Matched against the controller's in-play
+   * avatar character by name, e.g. `"Alatar"`.
+   */
+  readonly attackAvatar: string;
+}
+
+/**
  * Tap an agent of the specified skill at the target company's current site,
  * triggering an agent attack during the movement/hazard phase (rule 9.06).
  *
@@ -3733,6 +3771,7 @@ export type CardEffect =
   | SetCharacterStatusEffect
   | TriggerAttackOnPlayEffect
   | DeckSearchAttackEffect
+  | RevealAndAttackEffect
   | TapAgentEffect
   | ForceReturnToOriginEffect
   | TapSitesInPlayEffect

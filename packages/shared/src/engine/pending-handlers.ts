@@ -48,6 +48,8 @@ import {
   applyAgentPlayManifestationResolution,
   applyStayHerAppetiteRollResolution,
   applyTransferReturnedItemResolution,
+  applyGreatHuntSourceResolution,
+  applyGreatHuntDiscardAttackResolution,
 } from './pending-reducers.js';
 import {
   corruptionCheckActions,
@@ -72,6 +74,8 @@ import {
   agentPlayManifestationActions,
   stayHerAppetiteRollActions,
   transferReturnedItemActions,
+  greatHuntSourceActions,
+  greatHuntDiscardAttackActions,
 } from './legal-actions/pending.js';
 
 /** The discriminant of every {@link PendingResolution} kind. */
@@ -124,6 +128,8 @@ export const PENDING_HANDLERS: { readonly [K in PendingKindType]: PendingHandler
   'agent-play-manifestation-offer': { legalActions: agentPlayManifestationActions, apply: applyAgentPlayManifestationResolution },
   'stay-her-appetite-roll': { legalActions: stayHerAppetiteRollActions, apply: applyStayHerAppetiteRollResolution },
   'transfer-returned-item': { legalActions: transferReturnedItemActions, apply: applyTransferReturnedItemResolution },
+  'great-hunt-source': { legalActions: greatHuntSourceActions, apply: applyGreatHuntSourceResolution },
+  'great-hunt-discard-attack': { legalActions: greatHuntDiscardAttackActions, apply: applyGreatHuntDiscardAttackResolution },
 };
 
 /**

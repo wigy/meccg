@@ -42,6 +42,7 @@ import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired, removeConstraint } from './pending.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
+import { advanceGreatHuntReveal } from './great-hunt.js';
 
 export function discardCardTriggeredCard(
   state: GameState,
@@ -854,6 +855,14 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     const [reshuffled, newRng] = shuffle([...nonItemRevealed, ...remainingDeck], stateAfterCombat.rng);
     logDetail(`Lucky Search: reshuffling ${nonItemRevealed.length} revealed card(s) back into deck (${remainingDeck.length} remaining)`);
     stateAfterCombat = { ...updatePlayer(stateAfterCombat, defIdx, p => ({ ...p, playDeck: reshuffled })), rng: newRng };
+  }
+
+  // The Great Hunt (wh-91): after a reveal-sequence attack finalizes, advance
+  // the reveal queue — initiate the next queued creature's attack or complete
+  // the process (reshuffling the opponent play deck). The creature that just
+  // attacked was never moved out of its pile, so nothing is disposed here.
+  if (combat.attackSource.type === 'great-hunt-attack' && combat.attackSource.continuation === 'reveal') {
+    stateAfterCombat = advanceGreatHuntReveal(stateAfterCombat, combat.attackSource.greatHuntInstanceId);
   }
 
   // Clear attack-scoped constraints (e.g. company-combat-boost stat modifiers

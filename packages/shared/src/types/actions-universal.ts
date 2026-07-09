@@ -375,6 +375,32 @@ export interface ChooseRevealedCardAction {
 }
 
 /**
+ * Choose which of the opponent's piles is revealed by The Great Hunt (wh-91).
+ * Resolves a `great-hunt-source` pending resolution and kicks off the
+ * reveal-and-attack sequence against the controller's Alatar company.
+ */
+export interface ChooseGreatHuntSourceAction {
+  readonly type: 'choose-great-hunt-source';
+  /** The Great Hunt controller. */
+  readonly player: PlayerId;
+  /** Which of the opponent's piles to reveal. */
+  readonly source: 'deck' | 'discard';
+}
+
+/**
+ * Have a hazard-creature the opponent just discarded attack the controller's
+ * Alatar company (The Great Hunt wh-91 ongoing trigger). Resolves a
+ * `great-hunt-discard-attack` pending resolution; a `pass` declines it.
+ */
+export interface GreatHuntAttackWithCreatureAction {
+  readonly type: 'great-hunt-attack-with-creature';
+  /** The Great Hunt controller. */
+  readonly player: PlayerId;
+  /** The discarded creature instance to attack with. */
+  readonly creatureInstanceId: CardInstanceId;
+}
+
+/**
  * Pay the maintenance cost for a hazard permanent event that requires upkeep
  * at the end of the resource player's long-event phase (e.g. Thrice Outnumbered).
  *

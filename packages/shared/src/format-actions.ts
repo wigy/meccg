@@ -559,6 +559,10 @@ export function describeAction(
       return `Place ${instName(action.cardInstanceId)} next on top of your play deck`;
     case 'choose-revealed-card':
       return `Take revealed card ${instName(action.cardInstanceId)} into hand (shuffle the rest back into the play deck)`;
+    case 'choose-great-hunt-source':
+      return `${playerName(action.player)} has the opponent reveal from their ${action.source === 'deck' ? 'play deck' : 'discard pile'} (The Great Hunt)`;
+    case 'great-hunt-attack-with-creature':
+      return `${playerName(action.player)} has discarded creature ${instName(action.creatureInstanceId)} attack Alatar's company (The Great Hunt)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;
