@@ -6,7 +6,7 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
+import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
 import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
@@ -24,7 +24,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { logDetail, logHeading } from './log.js';
@@ -1287,7 +1287,7 @@ function summonsFromLongSleepActions(
 
         const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
-          || siteAllowsCreatureByRace(state, targetCompany, (creatureDef).race)
+          || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
           || siteAllowsCreatureByKeying(state, targetCompany, creatureDef);
 
         if (matches.length === 0 && !keyingBypassed) {
@@ -1413,7 +1413,7 @@ function playCreatureFromDiscardActions(
 
       const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
       const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
-        || siteAllowsCreatureByRace(state, targetCompany, creatureDef.race)
+        || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
         || siteAllowsCreatureByKeying(state, targetCompany, creatureDef);
 
       if (matches.length === 0 && !keyingBypassed) {
@@ -1702,7 +1702,7 @@ function playHazardsActions(
         }
         const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
-          || siteAllowsCreatureByRace(state, targetCompany, def.race)
+          || siteAllowsCreatureByRace(state, targetCompany, def)
           || siteAllowsCreatureByKeying(state, targetCompany, def);
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
@@ -3212,10 +3212,12 @@ function cancelAttacksSiteName(
 
 /**
  * Check whether the target company's effective site (destination if moving,
- * else current) carries an `allow-creature-by-race` site-rule that matches
- * the given creature race. When it does, the creature's normal keying check
- * is bypassed (e.g. Geann a-Lisch: "Any Man hazard creature can be played
- * at this site.").
+ * else current) carries an `allow-creature-by-race` site-rule that grants the
+ * given creature definition a keying bypass. When it does, the creature's
+ * normal keying check is bypassed (e.g. Geann a-Lisch: "Any Man hazard creature
+ * can be played at this site."). An optional `except` condition on the rule
+ * excludes matching creatures (e.g. The Iron-deeps ba-91: any Drake except Sea
+ * Serpent). Delegates the rule test to {@link siteRuleAllowsCreatureByRace}.
  */
 function siteAllowsCreatureByRace(
   state: GameState,
@@ -3223,7 +3225,7 @@ function siteAllowsCreatureByRace(
     readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
     readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
   },
-  race: string,
+  creatureDef: CardDefinition,
 ): boolean {
   const effectiveSiteInstanceId = targetCompany.destinationSite?.instanceId
     ?? targetCompany.currentSite?.instanceId
@@ -3231,12 +3233,7 @@ function siteAllowsCreatureByRace(
   if (!effectiveSiteInstanceId) return false;
   const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
   if (!siteDefId) return false;
-  const siteDef = defById(state, siteDefId);
-  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return false;
-  return siteDef.effects.some(
-    e => e.type === 'site-rule' && e.rule === 'allow-creature-by-race'
-      && 'race' in e && e.race === race,
-  );
+  return siteRuleAllowsCreatureByRace(defById(state, siteDefId), creatureDef);
 }
 
 /**

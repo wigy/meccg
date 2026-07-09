@@ -62,16 +62,6 @@
       "name": "Mîonid",
       "card": "as-3",
       "qty": 1
-    },
-    {
-      "name": "Odoacer",
-      "card": "le-28",
-      "qty": 1
-    },
-    {
-      "name": "Pon Opar",
-      "card": "le-37",
-      "qty": 1
     }
   ],
   "deck": {
@@ -80,6 +70,16 @@
         "name": "Ren the Ringwraith",
         "card": "le-56",
         "qty": 3
+      },
+      {
+        "name": "Odoacer",
+        "card": "le-28",
+        "qty": 1
+      },
+      {
+        "name": "Pon Opar",
+        "card": "le-37",
+        "qty": 1
       }
     ],
     "hazards": [
