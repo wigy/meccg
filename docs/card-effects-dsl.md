@@ -3003,6 +3003,26 @@ Rules:
     "except": { "name": "Sea Serpent" } }
   ```
 
+- `allow-creature-by-keying` — bypasses the normal keying check for hazard
+  creatures whose **own** `keyedTo` names one of the region-types or
+  site-types listed in the rule's `keying` filter. This is the "Creatures
+  keyed to X may be keyed to this site" clause: such a creature keys as if the
+  site matched its `keyedTo`. Distinct from `allow-creature-by-race` (which
+  keys on the creature's race); the `keying` filter mirrors
+  `dynamic-auto-attack.keying`. The bypass feeds **only** the normal
+  hazard-creature play path against a company whose effective site (destination
+  if moving, else current) carries this rule
+  (`engine/legal-actions/movement-hazard.ts` `siteAllowsCreatureByKeying`); it
+  does **not** feed the site's `dynamic-auto-attack` eligibility, whose own
+  `keying` filter already governs which creatures may be played as the 2nd
+  automatic-attack. Used by *Remains of Thangorodrim* (ba-95) — "Creatures
+  keyed to Coastal Seas may be keyed to this site."
+
+  ```json
+  { "type": "site-rule", "rule": "allow-creature-by-keying",
+    "keying": { "regionTypes": ["coastal"] } }
+  ```
+
 - `creatures-always-keyed-to-site` — any hazard creature that is keyable
   to the destination site's original type or name (via `siteTypes` or
   `siteNames` in any `keyedTo` entry) may be played even when a
