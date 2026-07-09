@@ -160,9 +160,14 @@ character is modified by -4" (Foolish Words, td-25).
 
 The `influence` check type is used on faction cards for standard modifications.
 The resolver context includes `bearer` (influencing character), `faction`
-(faction being influenced, with `name`, `race`, and `playableAt` — the flattened
+(faction being influenced, with `name`, `race`, `playableAt` — the flattened
 array of site names from the faction's `playableAt` entries, enabling conditions
-like `{ "faction.playableAt": "Variag Camp" }`), and `controller`
+like `{ "faction.playableAt": "Variag Camp" }` — and `playableRegions` — the
+geographic regions in which the faction can be played, resolved from each named
+`playableAt` site's `region` plus explicit `region:` entries, enabling conditions
+like `{ "faction.playableRegions": { "$includes": "Lamedon" } }`, e.g. Firiel
+(dm-10) "+2 direct influence against … factions that can be played in Anfalas,
+Anórien, Belfalas, Lamedon, and Lebennin"), and `controller`
 (`inPlay` — names of the controller's `cardsInPlay`; `factionRaces`; and
 `wizard` — the name of the controller's Wizard avatar in play). `controller.wizard`
 backs "Standard Modifications: if <Wizard> is your Wizard (+N)" — e.g. Wild Hounds

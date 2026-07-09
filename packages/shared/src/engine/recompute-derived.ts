@@ -30,7 +30,7 @@ import type {
   RingwraithModeEffect,
   FallenWizardCharacterAllyMpEffect,
 } from '../index.js';
-import { isCharacterCard, isItemCard, isFactionCard } from '../types/cards.js';
+import { isCharacterCard, isItemCard, isFactionCard, isSiteCard } from '../types/cards.js';
 import { MarshallingCategory, Race } from '../types/common.js';
 import { ZERO_MARSHALLING_POINTS } from '../types/state-cards.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
@@ -379,6 +379,38 @@ export function buildFactionPlayableAt(def: FactionCard): readonly string[] {
       : 'any' in entry ? 'any'
         : 'site' in entry ? entry.site
           : entry.siteType);
+}
+
+/**
+ * Resolves the geographic regions in which a faction can be played, by mapping
+ * each **named site** in its `playableAt` to that site's `region` (looked up in
+ * the card pool) and folding in explicit `region:` entries. Site-type and `any`
+ * entries contribute no specific region (a site type spans many regions, so it
+ * is not a definite "can be played in region X" claim). Multiple site defs may
+ * share a name across sets (e.g. TW and LE both print Pelargir); they resolve to
+ * the same region, so the de-duplicating set is unaffected.
+ *
+ * Used by DSL conditions like
+ * `{ "faction.playableRegions": { "$includes": "Lamedon" } }` — e.g. Firiel
+ * (dm-10): "+2 direct influence against … factions that can be played in
+ * Anfalas, Anórien, Belfalas, Lamedon, and Lebennin."
+ */
+export function buildFactionPlayableRegions(state: GameState, def: FactionCard): readonly string[] {
+  const namedSites = new Set(
+    def.playableAt.filter((e): e is { site: string } => 'site' in e).map(e => e.site),
+  );
+  const regions = new Set<string>();
+  for (const entry of def.playableAt) {
+    if ('region' in entry) regions.add(entry.region);
+  }
+  if (namedSites.size > 0) {
+    for (const cardDef of Object.values(state.cardPool)) {
+      if (isSiteCard(cardDef) && namedSites.has(cardDef.name)) {
+        regions.add(cardDef.region);
+      }
+    }
+  }
+  return [...regions];
 }
 
 /**
