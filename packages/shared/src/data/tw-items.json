@@ -1624,7 +1624,34 @@
     "prowessModifier": 2,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Weapon. Warrior only: +2 prowess (to a maximum of 7); +3 prowess if held by a Dwarf (to a maximum of 8)."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "max": 7,
+        "id": "dwarven-axe-prowess",
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "max": 8,
+        "overrides": "dwarven-axe-prowess",
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          },
+          "bearer.race": "dwarf"
+        }
+      }
+    ],
+    "text": "Weapon. Warrior only: +2 prowess (to a maximum of 7); +3 prowess if held by a Dwarf (to a maximum of 8).",
+    "certified": "2026-07-09"
   }
 ]
