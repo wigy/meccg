@@ -72,7 +72,7 @@ import { Phase, Alignment, SiteType } from '../../index.js';
 import { isDetainmentAttack } from '../../engine/detainment.js';
 import { Race } from '../../types/common.js';
 import type {
-  CardDefinitionId, GameState, SitePhaseState, SiteCard,
+  CardDefinitionId, GameState, SiteCard,
 } from '../../index.js';
 
 const BARAD_DUR = 'ba-84' as CardDefinitionId;
