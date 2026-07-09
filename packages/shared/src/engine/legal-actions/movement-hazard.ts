@@ -2431,6 +2431,26 @@ function playHazardsActions(
         }
         // Character-scoped duplication-limit: find the max copies allowed on one character
         const charDupLimit = findDuplicationLimitEffect(def, 'character');
+        // Company-scoped duplication-limit for a *character*-targeting hazard
+        // (So You've Come Back le-138: "Cannot be duplicated on a given
+        // company"). The card attaches to a character but is limited per
+        // company: count existing copies across every company member's hazards.
+        const companyDupLimitOnChar = findDuplicationLimitEffect(def, 'company');
+        if (companyDupLimitOnChar) {
+          const copiesInCompany = targetCompany.characters.reduce((sum, cId) => {
+            const ch = resourcePlayer.characters[cId];
+            if (!ch) return sum;
+            return sum + ch.hazards.filter(h => {
+              const hDef = defById(state, h.definitionId);
+              return hDef && hDef.name === def.name;
+            }).length;
+          }, 0);
+          if (copiesInCompany >= companyDupLimitOnChar.max) {
+            logDetail(`Hazard "${def.name}" already on target company (${copiesInCompany}/${companyDupLimitOnChar.max})`);
+            actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on this company` });
+            continue;
+          }
+        }
         for (const charId of targetCompany.characters) {
           // Apply play-target filter condition (e.g. non-wizard, non-ringwraith)
           if (playTarget.filter) {

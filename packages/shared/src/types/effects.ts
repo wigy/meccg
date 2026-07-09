@@ -168,8 +168,13 @@ export interface StatModifierEffect extends EffectBase {
    * - `"all-attacks"` — applies to every automatic-attack and hazard creature.
    * - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures).
    * - `"company"` — applies to every character in the bearer's company (e.g. The One Ring).
+   * - `"company-others"` — applies to every *other* character in the bearer's
+   *   company, excluding the bearer itself (e.g. So You've Come Back le-138:
+   *   "the mind of each **other** … character in his company increases by one").
+   *   Collected from a company member's attached hazards/items for every *other*
+   *   member; the effect's `when` gates the modified character (via `bearer.*`).
    */
-  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company';
+  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company' | 'company-others';
 }
 
 /**

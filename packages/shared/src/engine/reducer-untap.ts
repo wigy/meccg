@@ -14,6 +14,7 @@ import { isSiteCard, isAvatarCharacter, isCharacterCard } from '../types/cards.j
 import { CardStatus, SiteType } from '../types/common.js';
 import type { CardInstanceId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
+import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, defById, getCardEffects, isHavenForPlayer, isSelfDiscardMove, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -374,18 +375,31 @@ function advanceToOrganization(state: GameState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[activeIndex];
   const charSiteType = new Map<string, SiteType | null>();
+  const charCompanySize = new Map<string, number>();
   for (const company of player.companies) {
     const siteDef = company.currentSite ? state.cardPool[company.currentSite.definitionId] : undefined;
     const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : null;
-    for (const charId of company.characters) charSiteType.set(charId as string, siteType);
+    for (const charId of company.characters) {
+      charSiteType.set(charId as string, siteType);
+      charCompanySize.set(charId as string, company.characters.length);
+    }
   }
 
   // Collect items to self-discard from untap-phase-end triggers (processed after scan).
   const untapEndDiscards: Array<{ charId: CardInstanceId; slot: 'items' | 'hazards' | 'allies'; cardInstanceId: string }> = [];
+  // Collect cards to self-discard from organization-phase-start triggers (routed
+  // to each card's owner, so an opponent-owned hazard returns to their pile).
+  const orgStartDiscards: Array<{ charId: CardInstanceId; slot: 'items' | 'hazards' | 'allies'; cardInstanceId: string }> = [];
 
   for (const [charId, char] of Object.entries(player.characters)) {
     const siteType = charSiteType.get(charId) ?? null;
-    const bearerCtx = { bearer: { siteType, atHaven: siteType === SiteType.Haven } };
+    const atHaven = siteType === SiteType.Haven;
+    const companyCharCount = charCompanySize.get(charId) ?? 0;
+    const bearerCtx = { bearer: { siteType, atHaven } };
+    // Context for `organization-phase-start` self-discard conditions that also
+    // care about company size, e.g. So You've Come Back (le-138): "Discard …
+    // if target character is in a company by himself and at a Haven [{H}]."
+    const orgStartCtx = { bearer: { siteType, atHaven }, company: { characterCount: companyCharCount } };
     // Scan attached hazards, items, allies for matching on-event effects
     const attached = [...char.hazards, ...char.items, ...char.allies];
     for (const card of attached) {
@@ -393,6 +407,21 @@ function advanceToOrganization(state: GameState): ReducerResult {
       for (const e of getCardEffects(def)) {
         if (e.type !== 'on-event') continue;
         const oe: OnEventEffect = e;
+        // `organization-phase-start` self-discard on an attached card: discard
+        // it (to its owner) when the `when` condition holds at org-phase start.
+        if (oe.event === 'organization-phase-start') {
+          if (!isSelfDiscardMove(oe.apply)) continue;
+          if (oe.when && !matchesContext(oe.when, orgStartCtx)) {
+            logDetail(`organization-phase-start: skipping ${def?.name ?? '?'} on ${char.instanceId as string} — when not met (size=${companyCharCount}, atHaven=${atHaven})`);
+            continue;
+          }
+          const slot: 'items' | 'hazards' | 'allies' =
+            char.items.some(i => i.instanceId === card.instanceId) ? 'items'
+            : char.hazards.some(h => h.instanceId === card.instanceId) ? 'hazards' : 'allies';
+          logDetail(`organization-phase-start: queuing self-discard for ${def?.name ?? '?'} on ${charId} (slot=${slot}, size=${companyCharCount}, atHaven=${atHaven})`);
+          orgStartDiscards.push({ charId: charId as CardInstanceId, slot, cardInstanceId: card.instanceId as string });
+          continue;
+        }
         if (oe.event !== 'untap-phase-end') continue;
         if (oe.when && !matchesContext(oe.when, bearerCtx)) {
           logDetail(`Untap-phase-end: skipping ${def?.name ?? '?'} on ${char.instanceId as string} — when condition not met (siteType=${siteType ?? 'none'})`);
@@ -434,6 +463,31 @@ function advanceToOrganization(state: GameState): ReducerResult {
         ...p.characters,
         [charId]: { ...char, [slot]: char[slot].filter(c => c.instanceId !== cardInstanceId) },
       },
+      discardPile: [...p.discardPile, toCardInstance(cardToDiscard)],
+    }));
+  }
+
+  // Apply organization-phase-start self-discards. The card is removed from the
+  // active player's character and returned to *its owner's* discard pile — a
+  // hazard (owned by the opponent) goes back to the opponent's pile.
+  for (const { charId, slot, cardInstanceId } of orgStartDiscards) {
+    const char = advanced.players[activeIndex].characters[charId];
+    if (!char) continue;
+    const cardToDiscard = char[slot].find(c => c.instanceId === cardInstanceId);
+    if (!cardToDiscard) continue;
+    const ownerIndex = getPlayerIndex(advanced, ownerOf(cardToDiscard.instanceId));
+    logDetail(`organization-phase-start: discarding ${cardInstanceId} from ${charId} to owner player ${ownerIndex}`);
+    // Detach from the active player's character.
+    advanced = updatePlayer(advanced, activeIndex, p => ({
+      ...p,
+      characters: {
+        ...p.characters,
+        [charId]: { ...p.characters[charId], [slot]: p.characters[charId][slot].filter(c => c.instanceId !== cardInstanceId) },
+      },
+    }));
+    // Return to the owner's discard pile.
+    advanced = updatePlayer(advanced, ownerIndex, p => ({
+      ...p,
       discardPile: [...p.discardPile, toCardInstance(cardToDiscard)],
     }));
   }

@@ -1344,7 +1344,45 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SoYouveComeBack.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-07-09",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.mind": { "$lte": 5 } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": 1,
+        "target": "company-others",
+        "when": {
+          "$and": [
+            { "bearer.race": { "$ne": "wizard" } },
+            { "bearer.race": { "$ne": "ringwraith" } },
+            { "bearer.race": { "$ne": "fallen-wizard" } },
+            { "bearer.race": { "$ne": "balrog" } },
+            { "bearer.isFollower": { "$ne": true } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+        "when": {
+          "$and": [
+            { "company.characterCount": 1 },
+            { "bearer.atHaven": true }
+          ]
+        }
+      }
+    ],
     "text": "Playable on a character of 5 mind or less. The mind of each other non-follower, non-Ringwraith, non-Wizard character in his company increases by one. Discard this card during the organization phase if target character is in a company by himself and at a Haven/Darkhaven [{H}]. Cannot be duplicated on a given company."
   },
   {
