@@ -529,6 +529,30 @@ export function matchesDefinition(def: CardDefinition, condition: Condition): bo
 }
 
 /**
+ * Returns `true` when the given site definition carries an
+ * `allow-creature-by-race` site-rule that grants the given creature definition a
+ * keying bypass at the site: the rule's `race` matches the creature's race and,
+ * if the rule carries an optional `except` condition, the creature does **not**
+ * match it. Shared by the normal hazard-creature keying path
+ * (`legal-actions/movement-hazard.ts`) and the `dynamic-auto-attack` eligibility
+ * check (`legal-actions/site.ts`) so both honour the same "any <race> (except …)
+ * may be keyed to this site" rule (Geann a-Lisch as-138, The Iron-deeps ba-91).
+ */
+export function siteRuleAllowsCreatureByRace(
+  siteDef: CardDefinition | undefined,
+  creatureDef: CardDefinition,
+): boolean {
+  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return false;
+  const race = (creatureDef as unknown as { race?: string }).race;
+  if (!race) return false;
+  return siteDef.effects.some(
+    e => e.type === 'site-rule' && e.rule === 'allow-creature-by-race'
+      && 'race' in e && e.race === race
+      && (!('except' in e) || !e.except || !matchesDefinition(creatureDef, e.except)),
+  );
+}
+
+/**
  * Build the DSL condition context for a "target company" — the active
  * movement/hazard company a hazard is being evaluated against. Exposes under
  * `company`:

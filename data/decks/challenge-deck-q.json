@@ -72,11 +72,6 @@
       "name": "Oin",
       "card": "tw-172",
       "qty": 1
-    },
-    {
-      "name": "Tros Hesnef",
-      "card": "le-46",
-      "qty": 1
     }
   ],
   "deck": {
@@ -85,6 +80,11 @@
         "name": "Pallando",
         "card": "wh-7",
         "qty": 3
+      },
+      {
+        "name": "Tros Hesnef",
+        "card": "le-46",
+        "qty": 1
       }
     ],
     "hazards": [

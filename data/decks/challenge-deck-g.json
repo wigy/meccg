@@ -40,11 +40,6 @@
       "qty": 2
     },
     {
-      "name": "Burat",
-      "card": "as-1",
-      "qty": 1
-    },
-    {
       "name": "Orc Captain",
       "card": "le-31",
       "qty": 1
@@ -52,16 +47,6 @@
     {
       "name": "Shagrat",
       "card": "le-39",
-      "qty": 1
-    },
-    {
-      "name": "Tuma",
-      "card": "as-5",
-      "qty": 1
-    },
-    {
-      "name": "Wuluag",
-      "card": "as-6",
       "qty": 1
     }
   ],
@@ -76,6 +61,21 @@
         "name": "Orc Veteran",
         "card": "le-35",
         "qty": 2
+      },
+      {
+        "name": "Burat",
+        "card": "as-1",
+        "qty": 1
+      },
+      {
+        "name": "Tuma",
+        "card": "as-5",
+        "qty": 1
+      },
+      {
+        "name": "Wuluag",
+        "card": "as-6",
+        "qty": 1
       }
     ],
     "hazards": [

@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -549,6 +549,12 @@ function playSiteAutoAttackActions(
             break;
           }
         }
+      }
+      // A site `allow-creature-by-race` rule ("any Drake may be keyed to this
+      // site", except Sea Serpent) makes the creature keyable to the site, so
+      // it also qualifies for the site's dynamically-played automatic-attack.
+      if (!keyable && siteRuleAllowsCreatureByRace(siteDef, def)) {
+        keyable = true;
       }
       if (!keyable) {
         logDetail(`Creature "${def.name}" keying does not match dynamic auto-attack filter — skipping`);

@@ -37,11 +37,6 @@
       "qty": 1
     },
     {
-      "name": "Bûrat",
-      "card": "as-1",
-      "qty": 1
-    },
-    {
       "name": "Gorbag",
       "card": "le-11",
       "qty": 1
@@ -55,16 +50,6 @@
       "name": "Shagrat",
       "card": "le-39",
       "qty": 1
-    },
-    {
-      "name": "Tûma",
-      "card": "as-5",
-      "qty": 1
-    },
-    {
-      "name": "Wûluag",
-      "card": "as-6",
-      "qty": 1
     }
   ],
   "deck": {
@@ -73,6 +58,21 @@
         "name": "The Balrog",
         "card": "ba-3",
         "qty": 3
+      },
+      {
+        "name": "Bûrat",
+        "card": "as-1",
+        "qty": 1
+      },
+      {
+        "name": "Tûma",
+        "card": "as-5",
+        "qty": 1
+      },
+      {
+        "name": "Wûluag",
+        "card": "as-6",
+        "qty": 1
       }
     ],
     "hazards": [
