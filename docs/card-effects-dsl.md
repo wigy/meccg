@@ -150,10 +150,24 @@ character is modified by -4" (Foolish Words, td-25).
 ```
 
 The `influence` check type is used on faction cards for standard modifications.
-The resolver context includes `bearer` (influencing character) and `faction`
+The resolver context includes `bearer` (influencing character), `faction`
 (faction being influenced, with `name`, `race`, and `playableAt` — the flattened
 array of site names from the faction's `playableAt` entries, enabling conditions
-like `{ "faction.playableAt": "Variag Camp" }`).
+like `{ "faction.playableAt": "Variag Camp" }`), and `controller`
+(`inPlay` — names of the controller's `cardsInPlay`; `factionRaces`; and
+`wizard` — the name of the controller's Wizard avatar in play). `controller.wizard`
+backs "Standard Modifications: if <Wizard> is your Wizard (+N)" — e.g. Wild Hounds
+(wh-40) `{ "type": "check-modifier", "check": "influence", "value": 3, "when": { "controller.wizard": "Radagast" } }`.
+The avatar is a company character, not a `cardsInPlay` entry, so it is reached via
+`controller.wizard`, not `controller.inPlay`.
+
+A faction/ally `playableAt` entry may itself carry a `when` clause matched by
+`siteMatchesEntry`. Its context exposes `site.name`, `site.siteType`,
+`site.region` (the named region), `site.autoAttack.race`, and — for the faction
+paths — `site.regionType` (the site's **region type**, folded in from the
+separate region card). This lets a faction gate on "Ruins & Lairs [{R}] in a
+Wilderness [{w}]" (Wild Hounds wh-40):
+`"playableAt": [ { "siteType": "ruins-and-lairs", "when": { "site.regionType": "wilderness" } } ]`.
 
 For faction-influence checks the engine also collects `check-modifier` and
 `stat-modifier` (`direct-influence`) effects from every ally in the
@@ -1594,11 +1608,41 @@ combat context that includes:
   never a "company" and so are never hero-company. Used by *Helm of
   Fear* (as-126): "May not cancel combat with a hero company" →
   `"when": { "attack.heroCompany": { "$ne": true } }`.
+- `attack.siteKeyingTypes` — array of **site types** the creature is
+  keyed to (e.g. `["ruins-and-lairs"]`); only populated for creature
+  hazards. Lets a card gate on "an attack keyed to Ruins & Lairs".
+- `site.type` — the defending company's current site type (e.g.
+  `"ruins-and-lairs"`, `"haven"`). Lets a card gate on "an
+  automatic-attack at a Ruins & Lairs".
+- `defender.covert` — `true` when the defending company is covert
+  (contains no Orc/Troll, Balrog avatar, or `company-overt` source).
 
 The effect may be declared on in-play sources too: an ally attached
 to a company character (e.g. The Warg-king), the character card
 itself (e.g. Adûnaphel the Ringwraith), or an item with
 `cost: { "tap": "self-and-bearer" }` (e.g. Torque of Hues).
+
+**Dual-faction discard cancel.** `cost: { "discard": "self" }` marks the
+"discard this faction to cancel an attack" mode of a dual-alignment faction
+(*Wild Hounds* wh-40). It has two sources, both discarding the card:
+  - the controlled faction in `cardsInPlay` — discarded to cancel (available
+    to whoever controls it, no covert/alignment gate); and
+  - the card in hand — played as a **minion resource**, but only by a
+    **covert company** and only by a **minion (Ringwraith) player** when the
+    effect also carries `"handModeRequiresCovert": true`.
+Both share the same `when` attack filter and are emitted by
+`cancelAttackActions` (combat.ts); the in-play discard applies immediately,
+the hand play routes through the chain. Example (Wild Hounds):
+
+```json
+{ "type": "cancel-attack",
+  "cost": { "discard": "self" },
+  "handModeRequiresCovert": true,
+  "when": { "$or": [
+    { "$and": [ { "attack.source": "automatic-attack" }, { "site.type": "ruins-and-lairs" } ] },
+    { "attack.keying": "wilderness" },
+    { "attack.siteKeyingTypes": "ruins-and-lairs" } ] } }
+```
 
 ```json
 { "type": "cancel-attack",

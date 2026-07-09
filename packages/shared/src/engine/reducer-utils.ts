@@ -1021,6 +1021,25 @@ export function findPlayerAvatar(
 }
 
 /**
+ * The name of a player's Wizard avatar in play (e.g. "Radagast", "Gandalf"),
+ * or `undefined` when no avatar is in play. Backs faction "Standard
+ * Modifications: if <Wizard> is your Wizard (+N)" clauses — exposed on the
+ * faction-influence resolver context as `controller.wizard` so a
+ * `check-modifier` can gate on `{ "controller.wizard": "Radagast" }`
+ * (Wild Hounds wh-40). The avatar is a company character, not a `cardsInPlay`
+ * entry, so it is not reachable via `controller.inPlay`.
+ */
+export function playerWizardName(
+  state: GameState,
+  player: { readonly characters: Readonly<Record<string, CharacterInPlay>> },
+): string | undefined {
+  const avatar = findPlayerAvatar(state, player);
+  if (!avatar) return undefined;
+  const def = resolveDef(state, avatar.instanceId);
+  return def && 'name' in def ? (def as { name: string }).name : undefined;
+}
+
+/**
  * Returns the name of the Fallen-wizard a player counts "as" for the play of
  * Stage resources (CoE 2.2.F2), or `undefined` if the player has no such
  * identity. Used to evaluate the `player.avatar` predicate of "Playable if you
