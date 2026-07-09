@@ -1321,7 +1321,7 @@
     "id": "le-403",
     "name": "Shrel-Kain",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ShrelKain.jpg",
-    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major) — weapon, armor, shield, or helmet only Automatic-attacks: Men — each character faces 1 strike with 8 prowess (detainment against covert company)",
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major*) *—weapon, armor, shield, or helmet only Automatic-attacks: Men — each character faces 1 strike with 8 prowess (detainment against covert company)",
     "alignment": "ringwraith",
     "siteType": "border-hold",
     "sitePath": [
@@ -1335,9 +1335,64 @@
       "minor",
       "major"
     ],
-    "automaticAttacks": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 8,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-item",
+        "when": {
+          "$and": [
+            {
+              "subtype": "major"
+            },
+            {
+              "$not": {
+                "$or": [
+                  {
+                    "keywords": {
+                      "$includes": "weapon"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "armor"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "shield"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "helmet"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 2,
+    "certified": "2026-07-09",
     "unique": true
   },
   {
