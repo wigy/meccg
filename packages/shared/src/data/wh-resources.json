@@ -422,11 +422,51 @@
     "race": "animal",
     "playableAt": [
       {
-        "site": "any"
+        "any": true,
+        "when": {
+          "$and": [
+            { "$not": { "site.siteType": { "$in": ["haven", "shadow-hold", "dark-hold"] } } },
+            { "site.regionType": "wilderness" }
+          ]
+        }
       }
     ],
-    "effects": [],
-    "text": "Playable at any tapped or untapped non-Haven, non-Shadow-hold, non-Dark-hold site in a Wilderness [{w}] if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Discard this faction to make information playable at such a site."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 3,
+        "when": {
+          "controller.wizard": "Radagast"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "panoply-unlock-information",
+        "cost": {
+          "discard": "self"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-resource-unlocked",
+          "scope": "turn",
+          "target": "player",
+          "subtype": "information",
+          "siteCondition": {
+            "$and": [
+              { "$not": { "site.siteType": { "$in": ["haven", "shadow-hold", "dark-hold"] } } },
+              { "site.regionType": "wilderness" }
+            ]
+          }
+        }
+      }
+    ],
+    "text": "Playable at any tapped or untapped non-Haven, non-Shadow-hold, non-Dark-hold site in a Wilderness [{w}] if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Discard this faction to make information playable at such a site.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-resource-faction",

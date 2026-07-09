@@ -1116,8 +1116,21 @@ export interface ActiveConstraint {
          * Targeted at the discarding player and scoped to `turn`.
          */
         readonly type: 'site-resource-unlocked';
-        /** Site type at which the resource category becomes playable. */
-        readonly siteType: string;
+        /**
+         * Site type at which the resource category becomes playable
+         * (e.g. `"shadow-hold"` for Records Unread). Mutually exclusive with
+         * {@link siteCondition}: exactly one of the two selects the matching
+         * sites.
+         */
+        readonly siteType?: string;
+        /**
+         * Compound site selector, evaluated against the site context
+         * (`site.siteType`, `site.regionType`, `site.name`, `site.region`).
+         * Used when "such a site" is not a single site type — e.g. A Panoply
+         * of Wings (wh-37) unlocks Information at "any non-Haven,
+         * non-Shadow-hold, non-Dark-hold site in a Wilderness".
+         */
+        readonly siteCondition?: Condition;
         /** Resource category unlocked (e.g. `"information"`). */
         readonly subtype: string;
       }

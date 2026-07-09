@@ -374,7 +374,11 @@ export function buildControllerFactionRaces(
  * when the corresponding site name appears in this array.
  */
 export function buildFactionPlayableAt(def: FactionCard): readonly string[] {
-  return def.playableAt.map(entry => 'region' in entry ? `region:${entry.region}` : 'site' in entry ? entry.site : entry.siteType);
+  return def.playableAt.map(entry =>
+    'region' in entry ? `region:${entry.region}`
+      : 'any' in entry ? 'any'
+        : 'site' in entry ? entry.site
+          : entry.siteType);
 }
 
 /**

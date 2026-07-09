@@ -1485,9 +1485,17 @@ function playableAtEntryMatchesSite(
     if (siteDef.siteType === 'haven') return false;
     return siteDef.region === entry.region;
   }
-  const baseMatches = 'site' in entry
-    ? siteDef.name === entry.site
-    : siteDef.siteType === entry.siteType;
+  // `any` entries match every site subject to the optional `when` condition.
+  // NOTE: this path (backing `isCardPlayableAtSiteDef`, e.g. Strider's
+  // discard-pile fetch) has no `state`, so `site.regionType` is not populated
+  // here — a `when` gating on region type under-approximates (safe: never a
+  // false positive). The primary faction-play path (`siteMatchesEntry` in
+  // `legal-actions/site.ts`) supplies `regionType` and evaluates it fully.
+  const baseMatches = 'any' in entry
+    ? true
+    : 'site' in entry
+      ? siteDef.name === entry.site
+      : siteDef.siteType === entry.siteType;
   if (!baseMatches) return false;
   if (!entry.when) return true;
   const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));

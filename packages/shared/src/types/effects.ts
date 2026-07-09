@@ -1383,6 +1383,13 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly strikes?: number;
   /** Site type for site-type-override / site-resource-unlocked / auto-attack-prowess-boost. */
   readonly siteType?: string;
+  /**
+   * Compound site selector for a `site-resource-unlocked` add-constraint whose
+   * "such a site" is not a single site type — evaluated against the site
+   * context (A Panoply of Wings wh-37: "any non-Haven, non-Shadow-hold,
+   * non-Dark-hold site in a Wilderness"). Mutually exclusive with {@link siteType}.
+   */
+  readonly siteCondition?: Condition;
   /** Resource category for site-resource-unlocked. */
   readonly subtype?: string;
   /** Override target type for site-type-override / region-type-override. */
