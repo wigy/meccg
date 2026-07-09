@@ -68,20 +68,21 @@
       "name": "Pon Opar",
       "card": "le-37",
       "qty": 1
-    },
-    {
-      "name": "Tros Hesnef",
-      "card": "le-46",
-      "qty": 1
-    },
-    {
-      "name": "Woffung",
-      "card": "dm-26",
-      "qty": 1
     }
   ],
   "deck": {
-    "characters": [],
+    "characters": [
+      {
+        "name": "Tros Hesnef",
+        "card": "le-46",
+        "qty": 1
+      },
+      {
+        "name": "Woffung",
+        "card": "dm-26",
+        "qty": 1
+      }
+    ],
     "hazards": [
       {
         "name": "Ambusher",

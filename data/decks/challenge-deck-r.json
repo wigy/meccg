@@ -78,16 +78,6 @@
       "name": "Galdor",
       "card": "td-92",
       "qty": 1
-    },
-    {
-      "name": "Ostisen",
-      "card": "le-36",
-      "qty": 1
-    },
-    {
-      "name": "Voteli",
-      "card": "tw-185",
-      "qty": 1
     }
   ],
   "deck": {
@@ -96,6 +86,16 @@
         "name": "Radagast",
         "card": "wh-8",
         "qty": 3
+      },
+      {
+        "name": "Ostisen",
+        "card": "le-36",
+        "qty": 1
+      },
+      {
+        "name": "Voteli",
+        "card": "tw-185",
+        "qty": 1
       }
     ],
     "hazards": [

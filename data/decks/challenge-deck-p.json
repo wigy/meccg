@@ -73,16 +73,6 @@
       "name": "Gloin",
       "card": "tw-160",
       "qty": 1
-    },
-    {
-      "name": "Kili",
-      "card": "tw-167",
-      "qty": 1
-    },
-    {
-      "name": "Oin",
-      "card": "tw-172",
-      "qty": 1
     }
   ],
   "deck": {
@@ -91,6 +81,16 @@
         "name": "Alatar",
         "card": "wh-1",
         "qty": 3
+      },
+      {
+        "name": "Kili",
+        "card": "tw-167",
+        "qty": 1
+      },
+      {
+        "name": "Oin",
+        "card": "tw-172",
+        "qty": 1
       }
     ],
     "hazards": [

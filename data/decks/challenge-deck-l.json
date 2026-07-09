@@ -64,21 +64,6 @@
       "name": "Grishnakh",
       "card": "le-12",
       "qty": 1
-    },
-    {
-      "name": "Lagduf",
-      "card": "le-18",
-      "qty": 1
-    },
-    {
-      "name": "Nevido Smod",
-      "card": "le-27",
-      "qty": 1
-    },
-    {
-      "name": "Odoacer",
-      "card": "le-28",
-      "qty": 1
     }
   ],
   "deck": {
@@ -87,6 +72,21 @@
         "name": "Uvatha the Ringwraith",
         "card": "le-57",
         "qty": 3
+      },
+      {
+        "name": "Lagduf",
+        "card": "le-18",
+        "qty": 1
+      },
+      {
+        "name": "Nevido Smod",
+        "card": "le-27",
+        "qty": 1
+      },
+      {
+        "name": "Odoacer",
+        "card": "le-28",
+        "qty": 1
       }
     ],
     "hazards": [

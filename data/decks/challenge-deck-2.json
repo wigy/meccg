@@ -33,21 +33,6 @@
       "qty": 1
     },
     {
-      "name": "Bûrat",
-      "card": "as-1",
-      "qty": 1
-    },
-    {
-      "name": "Tûma",
-      "card": "as-5",
-      "qty": 1
-    },
-    {
-      "name": "Wûluag",
-      "card": "as-6",
-      "qty": 1
-    },
-    {
       "name": "Orc Tracker",
       "card": "le-34",
       "qty": 2
@@ -64,6 +49,21 @@
         "name": "The Balrog",
         "card": "ba-3",
         "qty": 3
+      },
+      {
+        "name": "Bûrat",
+        "card": "as-1",
+        "qty": 1
+      },
+      {
+        "name": "Tûma",
+        "card": "as-5",
+        "qty": 1
+      },
+      {
+        "name": "Wûluag",
+        "card": "as-6",
+        "qty": 1
       }
     ],
     "hazards": [

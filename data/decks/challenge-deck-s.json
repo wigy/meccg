@@ -78,16 +78,6 @@
       "name": "Forlong",
       "card": "tw-151",
       "qty": 1
-    },
-    {
-      "name": "Freca",
-      "card": "dm-182",
-      "qty": 1
-    },
-    {
-      "name": "Herion",
-      "card": "dm-16",
-      "qty": 1
     }
   ],
   "deck": {
@@ -96,6 +86,16 @@
         "name": "Gandalf",
         "card": "wh-4",
         "qty": 3
+      },
+      {
+        "name": "Freca",
+        "card": "dm-182",
+        "qty": 1
+      },
+      {
+        "name": "Herion",
+        "card": "dm-16",
+        "qty": 1
       }
     ],
     "hazards": [

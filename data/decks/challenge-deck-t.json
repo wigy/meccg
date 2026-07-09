@@ -66,25 +66,26 @@
       "name": "Ioreth",
       "card": "td-93",
       "qty": 1
-    },
-    {
-      "name": "Kili",
-      "card": "tw-167",
-      "qty": 1
-    },
-    {
-      "name": "Oin",
-      "card": "tw-172",
-      "qty": 1
-    },
-    {
-      "name": "Theoden",
-      "card": "tw-182",
-      "qty": 1
     }
   ],
   "deck": {
-    "characters": [],
+    "characters": [
+      {
+        "name": "Kili",
+        "card": "tw-167",
+        "qty": 1
+      },
+      {
+        "name": "Oin",
+        "card": "tw-172",
+        "qty": 1
+      },
+      {
+        "name": "Theoden",
+        "card": "tw-182",
+        "qty": 1
+      }
+    ],
     "hazards": [
       {
         "name": "Ambusher",
