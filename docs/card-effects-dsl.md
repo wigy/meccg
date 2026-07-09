@@ -2981,12 +2981,26 @@ Rules:
   creatures whose race matches `race`. Any creature of that race may be
   played against a company whose effective site (destination if moving,
   else current) carries this rule, regardless of the creature's `keyedTo`
-  entries. Consumed by `engine/legal-actions/movement-hazard.ts`
-  `siteAllowsCreatureByRace`. Used by *Geann a-Lisch* (as-138) — "Any
-  Man hazard creature can be played at this site."
+  entries. The bypass feeds **both** normal hazard-creature play against a
+  company at the site (`engine/legal-actions/movement-hazard.ts`
+  `siteAllowsCreatureByRace`) **and** the site's `dynamic-auto-attack`
+  eligibility (`engine/legal-actions/site.ts` — such a creature becomes a
+  legal choice for the opponent's dynamically-played 2nd automatic-attack).
+  Both paths delegate the rule test to `reducer-utils.ts`
+  `siteRuleAllowsCreatureByRace`. An optional `except` condition (evaluated
+  against the creature's card definition via the standard DSL matcher)
+  excludes matching creatures from the bypass. Used by *Geann a-Lisch*
+  (as-138) — "Any Man hazard creature can be played at this site." — and by
+  *The Iron-deeps* (ba-91) — "Any Drake creature (except Sea Serpent) may be
+  keyed to this site."
 
   ```json
   { "type": "site-rule", "rule": "allow-creature-by-race", "race": "men" }
+  ```
+
+  ```json
+  { "type": "site-rule", "rule": "allow-creature-by-race", "race": "drake",
+    "except": { "name": "Sea Serpent" } }
   ```
 
 - `creatures-always-keyed-to-site` — any hazard creature that is keyable

@@ -93,7 +93,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Angmar",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -111,8 +114,9 @@
     },
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Adjacent Sites: Carn Dûm (0), The Under-leas (6), The Under-vaults (7)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Trolls — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins and Lairs.",
+    "text": "Adjacent Sites: Carn Dûm (0), The Under-leas (6), The Under-vaults (7)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Trolls — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins and Lairs.\nSpecial: Creatures keyed to this site attack normally, not as detainment. Any Drake creature (except Sea Serpent) may be keyed to this site.",
     "unique": true,
+    "certified": "2026-07-09",
     "effects": [
       {
         "type": "site-rule",
@@ -121,6 +125,18 @@
           "siteTypes": [
             "ruins-and-lairs"
           ]
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "drake",
+        "except": {
+          "name": "Sea Serpent"
         }
       }
     ]
