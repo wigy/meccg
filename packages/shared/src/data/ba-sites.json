@@ -792,10 +792,36 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Imlad Morgul",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Nazgûl",
+        "strikes": 1,
+        "prowess": 15,
+        "combatRules": [
+          "cannot-be-canceled"
+        ]
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 4,
-    "text": "Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess (2nd) Nazgûl (cannot be canceled) — 1 strike with 15 prowess Special: Creatures keyed to this site attack normally, not as detainment."
+    "unique": true,
+    "certified": "2026-07-09",
+    "text": "Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess (2nd) Nazgûl (cannot be canceled) — 1 strike with 15 prowess Special: Creatures keyed to this site attack normally, not as detainment.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ]
   }
 ]
