@@ -762,11 +762,34 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Udûn",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 5,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Trolls",
+        "strikes": 2,
+        "prowess": 10
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 8 prowess (2nd) Trolls — 2 strikes with 10 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+    "unique": true,
+    "text": "Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 8 prowess (2nd) Trolls — 2 strikes with 10 prowessSpecial: Creatures keyed to this site attack normally, not as detainment.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
