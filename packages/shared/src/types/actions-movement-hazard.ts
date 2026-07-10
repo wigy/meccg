@@ -728,6 +728,24 @@ export interface UnderDeepsRollAction {
 }
 
 /**
+ * Gangways over the Fire (ba-60): during the `gangways-offer` step the active
+ * player selects a new Under-deeps destination for the company that just
+ * finished its movement/hazard phase, triggering another Under-deeps
+ * movement/hazard phase (with a cumulative roll penalty). Passing instead
+ * finishes the company.
+ */
+export interface GangwaysExtraMoveAction {
+  /** Action discriminant. */
+  readonly type: 'gangways-extra-move';
+  /** The active (resource) player. */
+  readonly player: PlayerId;
+  /** The company taking another Under-deeps movement/hazard phase. */
+  readonly companyId: CompanyId;
+  /** The chosen Under-deeps destination site (an instance in the site deck). */
+  readonly destinationSite: CardInstanceId;
+}
+
+/**
  * Tap an in-play ally (Goldberry) to negate a `force-return-to-origin`
  * chain entry before it resolves. Legal during M/H chain declaring when
  * the ally is untapped and the chain contains an unresolved entry tagged

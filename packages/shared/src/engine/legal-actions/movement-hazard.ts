@@ -126,6 +126,17 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
     return resetHandActions(state, playerId);
   }
 
+  // gangways-offer step (Gangways over the Fire, ba-60): the active player may
+  // send the company that just finished its M/H phase on another Under-deeps
+  // movement, or pass to finish it.
+  if (mhState.step === 'gangways-offer') {
+    if (!isActive) {
+      logDetail(`Not active player — no actions during gangways-offer step`);
+      return [];
+    }
+    return viable(gangwaysOfferActions(state, playerId, mhState));
+  }
+
   // TODO: assign-strike, resolve-strike, support-strike
   if (!isActive) {
     logDetail(`Not active player, no movement/hazard actions`);
@@ -133,6 +144,45 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
   }
 
   return viable([{ type: 'pass', player: playerId }]);
+}
+
+/**
+ * Generate actions for the gangways-offer step (Gangways over the Fire, ba-60).
+ *
+ * The active player may send the company that just finished its movement/hazard
+ * phase on another Under-deeps movement to a site it has not used this turn
+ * (each offered as a `gangways-extra-move`), or pass to finish the company.
+ * Candidate destinations are Under-deeps-adjacent sites still in the site deck,
+ * excluding any site the company has already occupied this turn.
+ */
+function gangwaysOfferActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): GameAction[] {
+  const activeIndex = getPlayerIndex(state, playerId);
+  const player = state.players[activeIndex];
+  const company = player.companies[mhState.activeCompanyIndex];
+  const actions: GameAction[] = [];
+  if (company?.moved) {
+    const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+    const used = new Set((mhState.gangwaysSitesUsed?.[company.id as string] ?? []).map(id => id as string));
+    const seen = new Set<string>();
+    if (currentDef && isSiteCard(currentDef)) {
+      for (const siteInst of player.siteDeck) {
+        if (used.has(siteInst.definitionId as string) || seen.has(siteInst.definitionId as string)) continue;
+        const destDef = defById(state, siteInst.definitionId);
+        if (!destDef || !isSiteCard(destDef)) continue;
+        if (!isUnderDeepsAdjacent(state, currentDef, destDef)) continue;
+        seen.add(siteInst.definitionId as string);
+        actions.push({ type: 'gangways-extra-move', player: playerId, companyId: company.id, destinationSite: siteInst.instanceId });
+        logDetail(`Gangways over the Fire: offering extra Under-deeps move to ${destDef.name}`);
+      }
+    }
+  }
+  // Always allow passing to finish the company.
+  actions.push({ type: 'pass', player: playerId });
+  return actions;
 }
 
 /**

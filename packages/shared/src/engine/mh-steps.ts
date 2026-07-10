@@ -237,6 +237,17 @@ export function handleRevealNewSite(
         required = boosted;
       }
     }
+    // Gangways over the Fire (ba-60): "Subtract the number of complete
+    // movement/hazard phases the company has taken so far this turn from its
+    // Under-deeps movement rolls" — modeled as an equal increase of the
+    // required roll. Zero for the company's first (normal) under-deeps move,
+    // and only applied where an actual roll is required (required > 0).
+    const gangwaysPenalty = mhState.gangwaysPhaseCounts?.[company.id as string] ?? 0;
+    if (required > 0 && gangwaysPenalty > 0) {
+      const penalised = required + gangwaysPenalty;
+      logDetail(`Gangways over the Fire: -${gangwaysPenalty} to under-deeps roll (${gangwaysPenalty} complete M/H phase(s) this turn) — required ${required} → ${penalised}`);
+      required = penalised;
+    }
     logDetail(`Under-deeps roll required: ${required}`);
     if (required === 0) {
       logDetail(`Under-deeps: roll not required (0) — auto-advancing through set-hazard-limit`);

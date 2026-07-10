@@ -3850,6 +3850,7 @@ export type CardEffect =
   | PermanentEventAutoAttackEffect
   | PassiveMovementBonusEffect
   | UnderDeepsRollModifierEffect
+  | ExtraUnderDeepsMhPhaseEffect
   | RegionMovementLimitEffect
   | HazardLimitEnvironmentEffect
   | TakePrisonerEffect
@@ -4040,6 +4041,25 @@ export interface UnderDeepsRollModifierEffect extends EffectBase {
   readonly type: 'under-deeps-roll-modifier';
   /** Bonus added to the roll (equivalently subtracted from the required roll). */
   readonly value: number;
+}
+
+/**
+ * Permanent-event effect granting repeated Under-deeps movement/hazard phases
+ * (Gangways over the Fire, ba-60). While the controlling player has a card
+ * carrying this effect in play, each of their **moving** companies may — at the
+ * end of its movement/hazard phase — attempt another Under-deeps movement to a
+ * new site it has not used yet this turn; another site card is played and a
+ * fresh movement/hazard phase immediately follows for that company.
+ *
+ * The Under-deeps movement roll for each such extra phase is penalised by the
+ * number of complete movement/hazard phases the company has already taken this
+ * turn (the first extra move is at −1, the second at −2, and so on). The engine
+ * tracks these counts and the sites used per company on the movement/hazard
+ * phase state (`gangwaysPhaseCounts` / `gangwaysSitesUsed`) and offers the
+ * choice at the dedicated `gangways-offer` step.
+ */
+export interface ExtraUnderDeepsMhPhaseEffect extends EffectBase {
+  readonly type: 'extra-under-deeps-mh-phase';
 }
 
 /**
