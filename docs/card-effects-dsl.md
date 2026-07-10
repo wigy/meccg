@@ -6385,9 +6385,13 @@ as an equivalent reduction of the *required* roll (floored at 0) — the same
 trick already used for the Balrog's built-in "+3 to the roll for his company to
 move between adjacent Under-deeps sites" (`companyContainsBalrogAvatar`).
 Collected via `collectCharacterEffects` over every character in the moving
-company, so modifiers from multiple company members stack. Used by Iron Shield
-of Old (as-127): "+2 to all rolls required for bearer's company to move to
-adjacent Under-deeps sites."
+company, so modifiers from multiple company members stack. Allies travelling
+with a character are collected separately (their card definitions are scanned
+directly at the same call site, since `collectCharacterEffects` does not descend
+into `char.allies`). Used by Iron Shield of Old (as-127): "+2 to all rolls
+required for bearer's company to move to adjacent Under-deeps sites" (an item),
+and by Cave Troll (ba-35): "+1 to rolls required for its controller's company to
+move to adjacent Under-deeps sites" (an ally).
 
 ### 52b. `extra-under-deeps-mh-phase`
 

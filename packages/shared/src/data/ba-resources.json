@@ -200,11 +200,22 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "a tapped or untapped Under-deeps site with a Troll automatic-attack"
+        "any": true,
+        "when": {
+          "$and": [
+            { "site.keywords": { "$includes": "under-deeps" } },
+            { "site.autoAttack.race": "troll" }
+          ]
+        }
       }
     ],
-    "effects": [],
-    "text": "Playable at a tapped or untapped Under-deeps site with a Troll automatic-attack. Its controlling character's company is overt. +1 to rolls required for its controller’s company to move to adjacent Under-deeps sites."
+    "effects": [
+      { "type": "company-overt" },
+      { "type": "under-deeps-roll-modifier", "value": 1 },
+      { "type": "play-flag", "flag": "playable-at-tapped-site" }
+    ],
+    "text": "Playable at a tapped or untapped Under-deeps site with a Troll automatic-attack. Its controlling character's company is overt. +1 to rolls required for its controller’s company to move to adjacent Under-deeps sites.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",

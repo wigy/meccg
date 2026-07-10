@@ -226,9 +226,19 @@ export function handleRevealNewSite(
         const char = player.characters[charInstId];
         if (!char) return sum;
         const effects = collectCharacterEffects(state, char, underDeepsModContext);
-        const bonus = effects
+        let bonus = effects
           .filter((r): r is CollectedEffect & { effect: UnderDeepsRollModifierEffect } => r.effect.type === 'under-deeps-roll-modifier')
           .reduce((s, r) => s + r.effect.value, 0);
+        // Allies travelling with the character are not covered by
+        // `collectCharacterEffects`; scan the ally card definitions directly so
+        // an ally carrying the modifier (Cave Troll ba-35) contributes too.
+        for (const ally of char.allies) {
+          const allyDef = defById(state, ally.definitionId);
+          if (!allyDef) continue;
+          for (const eff of getCardEffects(allyDef)) {
+            if (eff.type === 'under-deeps-roll-modifier') bonus += eff.value;
+          }
+        }
         return sum + bonus;
       }, 0);
       if (underDeepsModValue !== 0) {
