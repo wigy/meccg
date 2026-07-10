@@ -133,6 +133,13 @@ export interface OpponentInfluenceAttempt {
    */
   readonly crossAlignmentPenalty: number;
   /**
+   * Region-distance penalty subtracted from the attacker's roll, used by
+   * Prophet of Doom (wh-106): the inclusive number of regions between the
+   * influencer's site and the target's site. 0 (or absent) for a normal
+   * same-site attempt.
+   */
+  readonly regionPenalty?: number;
+  /**
    * The card instance revealed from hand for a comparison value of 0.
    * Null if no card was revealed.
    */

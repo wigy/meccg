@@ -3868,6 +3868,8 @@ export type CardEffect =
   | DisplaceStoredItemEffect
   | AgentAttackOutcomeEffect
   | AgentTapReturnCharacterEffect
+  | OpponentInfluenceOverrideEffect
+  | DiscardSelfWhenEffect
   | FactionInfluenceRestrictionEffect;
 
 /**
@@ -4699,4 +4701,65 @@ export interface AgentTapReturnCharacterEffect extends EffectBase {
   readonly atHomeSiteBonus: number;
   /** Amount added to the target's mind to form the roll threshold. */
   readonly mindBonus: number;
+}
+
+/**
+ * Modifies a *named* influencer's opponent-influence attempts (CoE rule 10.10:
+ * influencing away an opponent's in-play character/ally/faction during your
+ * site phase). Carried by an in-play stage permanent-event; while the card is
+ * in play, every opponent-influence attempt made by the influencer whose name
+ * matches {@link influencer} (the active player's avatar) is modified:
+ *
+ * - `fromAnySite` — the influencer "need not be at the appropriate site": the
+ *   normal same-site requirement is lifted, so he may target the opponent's
+ *   cards in any of their companies (and any of their in-play factions),
+ *   regardless of where his own (active) company stands.
+ * - `generalInfluenceSubstitution` — the influence check adds a value derived
+ *   from the influencer's *player's unused general influence* (half, rounded up
+ *   per `roundUp`, capped at `max`) **instead of** the influencer's unused
+ *   direct influence.
+ * - `regionDistancePenalty` — subtract the number of regions between the
+ *   influencer's site and the site where the attempt would normally be made
+ *   (CRF 22: the count is inclusive of both endpoint regions, i.e. same region
+ *   = 1, adjacent = 2, …).
+ *
+ * Used by Prophet of Doom (wh-106).
+ */
+export interface OpponentInfluenceOverrideEffect extends EffectBase {
+  readonly type: 'opponent-influence-override';
+  /** The influencer name this override applies to (e.g. "Pallando"). */
+  readonly influencer: string;
+  /** Lift the same-site requirement — target opponents at any site. */
+  readonly fromAnySite?: boolean;
+  /**
+   * Substitute the influencer's unused DI with a value derived from the
+   * player's unused general influence.
+   */
+  readonly generalInfluenceSubstitution?: {
+    /** Divisor applied to the unused general influence (e.g. 2 = half). */
+    readonly divisor: number;
+    /** Round the quotient up when true (rounded down otherwise). */
+    readonly roundUp?: boolean;
+    /** Maximum value the substitution may contribute. */
+    readonly max: number;
+  };
+  /** Subtract the inclusive region distance to the target's site. */
+  readonly regionDistancePenalty?: boolean;
+}
+
+/**
+ * Discards the carrying in-play card the moment a player-state condition holds.
+ * Evaluated as post-action housekeeping against the card controller's
+ * player-state context (the same context used by `play-condition`
+ * `requires: "player-state"`: `player.avatar`, `player.stagePoints`,
+ * `player.factionCount`, …). Distinct from the play-condition, which gates
+ * *entry*; this gates *staying in play*.
+ *
+ * Used by Prophet of Doom (wh-106): "Discard if you have fewer than 5 factions
+ * in play."
+ */
+export interface DiscardSelfWhenEffect extends EffectBase {
+  readonly type: 'discard-self-when';
+  /** Condition (against the player-state context) that forces the discard. */
+  readonly condition: Condition;
 }

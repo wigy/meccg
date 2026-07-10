@@ -23,7 +23,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { hasSiteFlag, makeCombatState, canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
+import { hasSiteFlag, makeCombatState, canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -2478,7 +2478,43 @@ function handleOpponentInfluenceAttempt(
   // CoE rules 8.W1, 8.R1, 8.F1, 8.B1: cross-alignment influence penalty.
   const crossAlignmentPenalty = crossAlignmentInfluencePenalty(player.alignment, opponent.alignment);
 
-  logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${effectiveTargetMind}${revealedCard ? ' [revealed]' : ''}, controller DI: ${controllerDI}, cross-alignment penalty: ${crossAlignmentPenalty})`);
+  // Prophet of Doom (wh-106): when the named influencer (Pallando) makes this
+  // attempt while the override is in play, substitute half (rounded up) of the
+  // player's unused general influence — capped — for the influencer's unused
+  // direct influence, and subtract the inclusive region distance to the target.
+  const override = getOpponentInfluenceOverride(state, player);
+  const overrideActive = override !== undefined && override.influencer === charName;
+  let influencerContribution = influencerDI;
+  let regionPenalty = 0;
+  if (overrideActive && override) {
+    if (override.generalInfluenceSubstitution) {
+      const unusedGI = effectiveGeneralInfluence(state, player.id) - player.generalInfluenceUsed;
+      influencerContribution = generalInfluenceSubstitutionValue(unusedGI, override.generalInfluenceSubstitution);
+      logDetail(`Prophet of Doom: substituting general influence — unused GI ${unusedGI} → contribution ${influencerContribution} (was DI ${influencerDI})`);
+    }
+    if (override.regionDistancePenalty) {
+      const influencerRegion = companySiteRegion(state, findCharacterCompany(player.companies, charId));
+      let targetRegions: readonly string[];
+      if (action.targetKind === 'faction') {
+        const tf = findById(opponent.cardsInPlay, action.targetInstanceId);
+        const fdef = tf ? defById(state, tf.definitionId) : undefined;
+        targetRegions = fdef ? factionPlayableSiteRegions(state, fdef) : [];
+      } else {
+        let holderId = action.targetInstanceId;
+        if (action.targetKind === 'ally') {
+          for (const [cid, ch] of characterEntries(opponent)) {
+            if (ch.allies.some(a => a.instanceId === action.targetInstanceId)) { holderId = cid; break; }
+          }
+        }
+        const r = companySiteRegion(state, findCharacterCompany(opponent.companies, holderId));
+        targetRegions = r ? [r] : [];
+      }
+      regionPenalty = influenceRegionPenalty(state, influencerRegion, targetRegions);
+      logDetail(`Prophet of Doom: region penalty ${regionPenalty} (from ${influencerRegion ?? '?'} to [${targetRegions.join(', ')}])`);
+    }
+  }
+
+  logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (contribution: ${influencerContribution}, opponent GI: ${opponentGI}, target mind: ${effectiveTargetMind}${revealedCard ? ' [revealed]' : ''}, controller DI: ${controllerDI}, cross-alignment penalty: ${crossAlignmentPenalty}, region penalty: ${regionPenalty})`);
 
   // Enqueue a pending opponent-influence-defend resolution for the
   // hazard player. The unified pending system replaces the old
@@ -2505,11 +2541,12 @@ function handleOpponentInfluenceAttempt(
           targetKind: action.targetKind,
           targetPlayer: action.targetPlayer,
           attackerRoll,
-          influencerDI,
+          influencerDI: influencerContribution,
           opponentGI,
           targetMind: effectiveTargetMind,
           controllerDI,
           crossAlignmentPenalty,
+          regionPenalty,
           revealedCard,
         },
       },
@@ -2549,9 +2586,11 @@ export function resolveOpponentInfluenceDefend(
   // Calculate final result:
   // attacker roll + influencer DI - opponent GI - defender roll
   //   - controller DI + cross-alignment penalty (non-positive; 0 or -5)
-  const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI + attempt.crossAlignmentPenalty;
+  //   - region penalty (Prophet of Doom wh-106; 0 for normal same-site attempts)
+  const regionPenalty = attempt.regionPenalty ?? 0;
+  const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI + attempt.crossAlignmentPenalty - regionPenalty;
 
-  logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) = ${finalResult} vs mind ${attempt.targetMind}`);
+  logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) - ${regionPenalty} (region) = ${finalResult} vs mind ${attempt.targetMind}`);
 
   const newPlayers = clonePlayers(state);
 

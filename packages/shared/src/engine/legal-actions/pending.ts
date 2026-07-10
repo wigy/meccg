@@ -258,6 +258,9 @@ export function opponentInfluenceDefendActions(
   if (attempt.crossAlignmentPenalty !== 0) {
     parts.push(`Cross-alignment penalty: ${attempt.crossAlignmentPenalty}`);
   }
+  if (attempt.regionPenalty && attempt.regionPenalty !== 0) {
+    parts.push(`Region penalty: -${attempt.regionPenalty}`);
+  }
 
   const explanation = `${influencerName} influences ${targetName}: ${parts.join(', ')}`;
 

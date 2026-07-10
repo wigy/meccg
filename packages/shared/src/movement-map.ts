@@ -218,6 +218,27 @@ export function buildMovementMap(
 const DEFAULT_MAX_REGION_DISTANCE = 4;
 
 /**
+ * Inclusive region distance between two regions, counting both endpoints:
+ * same region = 1, adjacent = 2, … (the rules-style region count used by
+ * Prophet of Doom wh-106, per CRF 22 — "«Number of regions between» includes
+ * the region of Pallando's site and the region the faction is played in").
+ *
+ * Returns `null` when the regions are unknown or unreachable in the region
+ * graph (callers decide how to treat that — Prophet of Doom treats it as an
+ * impossible reach).
+ */
+export function regionDistanceInclusive(
+  map: MovementMap,
+  regionA: string,
+  regionB: string,
+): number | null {
+  if (regionA === regionB) return 1;
+  const edges = map.regionPathEdges.get(regionA)?.get(regionB);
+  if (edges === undefined) return null;
+  return edges + 1;
+}
+
+/**
  * Determine which sites a company can move to from its current site.
  *
  * Checks both starter movement (haven-based) and region movement
