@@ -24,7 +24,7 @@ import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifie
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { availableDI, grantedActionActivations, inPlayFactionGrantActions, playResourceShortEventActions, buildPlayerStateContext } from './organization.js';
+import { availableDI, grantedActionActivations, inPlayFactionGrantActions, playResourceShortEventActions, buildPlayerStateContext, buildActiveCompanyContext } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -835,9 +835,26 @@ function playResourcesActions(
         // (The Fortress of Isen wh-68, Guarded Haven wh-74, …) are offered there
         // (see legal-actions/organization-events.ts), not in the site phase — so
         // leave them unevaluated here and they fall through to "not playable".
-        if ((eventDef as { alignment?: string }).alignment === 'stage') {
+        //
+        // Exception: a Stage resource whose text declares its own site-phase
+        // timing carries an `active-company` play-condition (Delver's Harvest
+        // wh-65: "Playable during the site phase if one of your companies enters
+        // the Deep Mines site."). Such a card is evaluated here against the
+        // active company and is NOT offered during the organization phase.
+        const stageActiveCompanyCond = (eventDef as { alignment?: string }).alignment === 'stage'
+          ? findPlayConditionEffect(eventDef, 'active-company')
+          : undefined;
+        if ((eventDef as { alignment?: string }).alignment === 'stage' && !stageActiveCompanyCond) {
           logDetail(`Permanent event ${eventDef.name}: Stage resource — only playable during the organization phase (rule 5.F1)`);
           continue;
+        }
+        if (stageActiveCompanyCond?.condition) {
+          const ctx = buildActiveCompanyContext(state, player, company);
+          if (!matchesCondition(stageActiveCompanyCond.condition, ctx)) {
+            logDetail(`Permanent event ${eventDef.name}: active-company play-condition not satisfied at ${siteName}`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
+            continue;
+          }
         }
         evaluatedInstances.add(cardInstanceId as string);
 

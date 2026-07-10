@@ -3447,8 +3447,9 @@ check) and `reducer-events.ts` (discard execution).
 { "type": "play-condition", "requires": "same-site-has-character-race", "race": "ringwraith" }
 ```
 
-- `active-company` — for site-phase resource short-events: a generic DSL
-  `condition` evaluated against the active company's aggregate context
+- `active-company` — for site-phase resource short-events **and site-phase
+  permanent-events**: a generic DSL `condition` evaluated against the active
+  company's aggregate context
   `{ site: { name, type }, company: { itemNames, characterNames, allyNames } }`.
   `itemNames`/`allyNames` are the names of every item / ally borne by any
   character in the company. Lets a card express a positional play
@@ -3457,6 +3458,17 @@ check) and `reducer-events.ts` (discard execution).
   (tw-247) additionally requires Gollum. Implemented in
   `legal-actions/organization.ts` (`playResourceShortEventActions`,
   `buildActiveCompanyContext`).
+
+  A **Stage** permanent-event that carries an `active-company` play-condition
+  declares its own site-phase timing, an explicit exception to rule 5.F1 (Stage
+  resource permanent-events are otherwise organization-phase only). Such a card
+  is evaluated against the active company in the site-phase play path
+  (`legal-actions/site.ts`) and is **never** offered during the organization
+  phase (`legal-actions/organization-events.ts` skips any permanent-event with
+  an `active-company` play-condition). Used by Delver's Harvest (wh-65):
+  "Playable during the site phase if one of your companies enters the Deep Mines
+  site." — a bare Stage permanent-event worth 1 miscellaneous MP, gated by
+  `{ "site.name": "Deep Mines" }`.
 
 ```json
 { "type": "play-condition", "requires": "active-company",
