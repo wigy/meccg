@@ -559,6 +559,8 @@ export function describeAction(
       return `Place ${instName(action.cardInstanceId)} next on top of your play deck`;
     case 'choose-revealed-card':
       return `Take revealed card ${instName(action.cardInstanceId)} into hand (shuffle the rest back into the play deck)`;
+    case 'remove-revealed-card':
+      return `${playerName(action.player)} removes revealed card ${instName(action.cardInstanceId)} from play (opponent's discard → out of play)`;
     case 'choose-great-hunt-source':
       return `${playerName(action.player)} has the opponent reveal from their ${action.source === 'deck' ? 'play deck' : 'discard pile'} (The Great Hunt)`;
     case 'great-hunt-attack-with-creature':

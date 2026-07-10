@@ -628,6 +628,26 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Aware of their Ways (dm-46): the card-player has revealed a random
+         * subset of the opponent's discard pile (a `reveal-remove-from-discard`
+         * effect) and may now choose at most one **non-unique** revealed card to
+         * remove from the game. A `remove-revealed-card` action moves the chosen
+         * card from the opponent's discard pile to their out-of-play pile; a
+         * `pass` declines. The un-chosen revealed cards stay in the discard pile.
+         */
+        readonly type: 'reveal-remove-from-discard';
+        /**
+         * Instance ids of the non-unique revealed cards the card-player may
+         * choose to remove from play (at most one). Empty is never enqueued.
+         */
+        readonly removableInstanceIds: readonly CardInstanceId[];
+        /** The opponent whose discard pile the cards belong to. */
+        readonly opponentId: PlayerId;
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * The Great Hunt (wh-91): after the card enters play, the controller
          * chooses whether the opponent reveals from their play deck or their
          * discard pile (`choose-great-hunt-source` action). The choice kicks off

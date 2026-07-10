@@ -836,6 +836,40 @@ Pallando" clauses are modeled by a `play-window` (`phase: organization`) plus a
 `play-target` (`target: character`, `filter: { "target.name": "Pallando" }`,
 `cost: { tap: character }`).
 
+### 6h. `reveal-remove-from-discard`
+
+Carried by a **hazard** short-event. When the event resolves un-negated on the
+chain, the card-player peeks at a random slice of the **opponent's** discard
+pile and may remove one non-unique card from the game:
+
+1. `count` cards are drawn **at random** from the opponent's discard pile (via
+   the seeded RNG, so replays stay deterministic) and revealed to the card-player
+   (recorded in `GameState.revealedInstances`). If the pile holds fewer than
+   `count` cards, all of them are revealed; an empty pile makes the event fizzle.
+2. A card is **removable** only if it is non-unique. Per the French errata,
+   **sites are treated as unique** (never removable). When at least one revealed
+   card is removable, a `reveal-remove-from-discard` pending resolution is
+   enqueued (actor = the card-player).
+3. The card-player picks one removable card via a `remove-revealed-card` action —
+   moving it from the opponent's discard pile to their **out-of-play pile**
+   (removed from the game) — or declines with `pass` ("You may choose…"). The
+   un-chosen revealed cards stay in the discard pile ("Opponent discards the
+   other three").
+
+Like the other discard-pick resolutions the pending resolution is independent of
+the chain (the entry is still marked resolved). The resolution lives in
+`legal-actions/pending.ts` (`revealRemoveFromDiscardActions`) and
+`pending-reducers.ts` (`applyRevealRemoveFromDiscardResolution`); the reveal +
+enqueue is in `chain-reducer.ts` (`resolveEntry`).
+
+```json
+{ "type": "reveal-remove-from-discard", "count": 4 }
+```
+
+Used by Aware of their Ways (dm-46): "Opponent reveals four cards at random from
+his discard pile. You may choose a non-unique one and remove it from play.
+Opponent discards the other three."
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,
