@@ -608,7 +608,21 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "site", "filter": { "name": { "$in": ["The Under-galleries", "The Under-courts"] } } },
+      { "type": "play-flag", "flag": "untapped-site-required" },
+      { "type": "play-flag", "flag": "tap-site-on-play" },
+      { "type": "play-condition", "requires": "company-context", "condition": { "company.characterNames": { "$includes": "The Balrog" } } },
+      { "type": "play-target", "target": "character", "filter": { "target.name": "The Balrog" } },
+      { "type": "duplication-limit", "scope": "site", "max": 1 },
+      { "type": "trigger-attack-on-play", "afterAttack": "move-to-mp-pile", "attacks": [
+        { "creatureType": "Trolls", "strikes": 5, "prowess": 8 },
+        { "creatureType": "Trolls", "strikes": 4, "prowess": 10 },
+        { "creatureType": "Trolls", "strikes": 3, "prowess": 12 }
+      ] },
+      { "type": "stat-modifier", "stat": "prowess", "value": 1, "target": "own-characters" },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1, "target": "own-characters", "when": { "target.keywords": { "$includes": "leader" } } }
+    ],
     "text": "Balrog specific. Playable during the site phase if The Balrog is at an untapped The Under-galleries or The Under-courts. Tap the site. The Balrog’s company faces 3 attacks (Trolls – 5 strikes with 8 prowess, 4 strikes with 10 prowess, 3 strikes with 12 prowess). Following the attacks, tap The Balrog or discard this card. If not discarded, place this card in your marshalling point pile. All your characters receive +1 prowess and all your leaders receive +1 direct influence. Cannot be duplicated at a given site.",
     "keywords": [
       "balrog-specific"

@@ -530,6 +530,58 @@ export function matchesDefinition(def: CardDefinition, condition: Condition): bo
 }
 
 /**
+ * Returns the `filter` condition of a `trigger-attack-on-play` card's
+ * `play-target: character` effect, or `undefined` when the card either has no
+ * such effect or the effect carries no filter.
+ *
+ * For cards that trigger a company auto-attack on play (Rescue Prisoners
+ * tw-315, Burning Rick le-173, Descent through Fire ba-56), the character the
+ * card *targets* (via `play-target: character`) is also the character that may
+ * be tapped after the attacks to keep the card in play. When the target filter
+ * names a specific character — Descent's "tap **The Balrog**" — that same
+ * filter restricts the post-attack bearer choice. Cards with no character
+ * filter (Rescue Prisoners, Burning Rick: "tap **one** character in the
+ * company") return `undefined`, leaving the choice unrestricted.
+ */
+export function triggerAttackBearerFilter(
+  state: GameState,
+  cardInstanceId: CardInstanceId,
+): Condition | undefined {
+  const defId = resolveInstanceId(state, cardInstanceId);
+  const def = defId ? defById(state, defId) : undefined;
+  if (!def) return undefined;
+  const charTarget = getCardEffects(def).find(
+    (e) => e.type === 'play-target' && (e as { target?: string }).target === 'character',
+  ) as { filter?: Condition } | undefined;
+  return charTarget?.filter;
+}
+
+/**
+ * Evaluates a {@link triggerAttackBearerFilter} condition against a character
+ * in play. Builds the same `target.*` context shape used by the site-phase
+ * character play-target gate (name, race, skills, keywords, avatar flag) so a
+ * filter such as `{ "target.name": "The Balrog" }` resolves consistently.
+ */
+export function characterMatchesBearerFilter(
+  state: GameState,
+  ch: CharacterInPlay,
+  filter: Condition,
+): boolean {
+  const charDef = defById(state, ch.definitionId);
+  if (!charDef || !isCharacterCard(charDef)) return false;
+  const ctx: Record<string, unknown> = {
+    target: {
+      name: charDef.name,
+      race: charDef.race,
+      skills: charDef.skills,
+      keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
+      isAvatar: isAvatarCharacter(charDef),
+    },
+  };
+  return matchesCondition(filter, ctx);
+}
+
+/**
  * Returns `true` when the given site definition carries an
  * `allow-creature-by-race` site-rule that grants the given creature definition a
  * keying bypass at the site: the rule's `race` matches the creature's race and,

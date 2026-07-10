@@ -36,7 +36,7 @@ import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
-import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerConvertsDetainmentToNormal, playerHasKillMpExemption, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerConvertsDetainmentToNormal, playerHasKillMpExemption, sweepLeaderLeavesCompanyEvents, toCardInstance, triggerAttackBearerFilter, characterMatchesBearerFilter, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -758,13 +758,19 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       });
       stateAfterCombat = { ...stateAfterCombat, combat: nextCombat };
     } else {
-      // Final (or only) attack — check for untapped characters
+      // Final (or only) attack — check for untapped characters eligible to
+      // bear the card. When the card's `play-target: character` filter names a
+      // specific character (Descent through Fire ba-56: "tap The Balrog"), only
+      // that character counts; cards with no filter (Rescue Prisoners, Burning
+      // Rick) accept any untapped character in the company.
       const defPlayer = stateAfterCombat.players[defIdx];
       const company = companyById(defPlayer.companies, combat.companyId);
+      const bearerFilter = triggerAttackBearerFilter(stateAfterCombat, cardInstanceId);
       const anyUntapped = company
         ? company.characters.some(charId => {
             const ch = defPlayer.characters[charId];
-            return ch && ch.status === CardStatus.Untapped;
+            if (!ch || ch.status !== CardStatus.Untapped) return false;
+            return !bearerFilter || characterMatchesBearerFilter(stateAfterCombat, ch, bearerFilter);
           })
         : false;
 

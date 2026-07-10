@@ -42,7 +42,7 @@ import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions 
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, triggerAttackBearerFilter, characterMatchesBearerFilter } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { asViable as viable } from './evaluated.js';
 
@@ -1490,9 +1490,16 @@ export function selectCardBearerActions(
   const cardDefId = resolveInstanceId(state, cardInstanceId);
   const cardLabel = cardName(state, cardDefId!, '?');
 
+  // When the card's `play-target: character` filter names a specific bearer
+  // (Descent through Fire ba-56: "tap The Balrog"), only characters matching
+  // that filter are offered; an unfiltered card (Rescue Prisoners, Burning
+  // Rick) offers every untapped character in the company.
+  const bearerFilter = triggerAttackBearerFilter(state, cardInstanceId);
+
   for (const charId of company.characters) {
     const ch = defPlayer.characters[charId];
     if (!ch || ch.status !== CardStatus.Untapped) continue;
+    if (bearerFilter && !characterMatchesBearerFilter(state, ch, bearerFilter)) continue;
     logDetail(`select-card-bearer: offering ${charId as string} as bearer for "${cardLabel}"`);
     actions.push({
       action: {
