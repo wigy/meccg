@@ -22,7 +22,7 @@ import type { CardInstance } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
-import type { CompanyId } from '../types/common.js';
+import type { CompanyId, CardDefinitionId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
 import { buildMovementMap, getReachableSites } from '../movement-map.js';
@@ -42,12 +42,12 @@ import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js'
 import { getEffectiveRegionType } from './effective.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, playerById, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, playerById, playerHasExtraUnderDeepsMH, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
-import { resolveAdjacency } from './legal-actions/organization-companies.js';
+import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { collectRegionKeyingBoosts, regionPathsWithBoosts } from './region-keying.js';
 import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter } from './mh-agents.js';
@@ -1823,10 +1823,84 @@ export function fireAllyArrivalEffects(
 }
 
 /**
- * Advance to the next company's M/H sub-phase or to the Site phase
- * after the current company's step 8 is fully resolved.
+ * Enumerate the Under-deeps destination sites (instances in the active
+ * player's site deck) a company may reach via a Gangways over the Fire
+ * (ba-60) extra move: Under-deeps-adjacent to the company's current site and
+ * not among the sites it has already used this turn.
+ */
+export function gangwaysExtraDestinations(
+  state: GameState,
+  activeIndex: number,
+  company: Company,
+  usedSiteDefIds: readonly CardDefinitionId[],
+): readonly CardInstance[] {
+  const player = state.players[activeIndex];
+  const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  if (!currentDef || !isSiteCard(currentDef)) return [];
+  const used = new Set(usedSiteDefIds.map(id => id as string));
+  const seenDefs = new Set<string>();
+  const dests: CardInstance[] = [];
+  for (const siteInst of player.siteDeck) {
+    if (used.has(siteInst.definitionId as string)) continue;
+    if (seenDefs.has(siteInst.definitionId as string)) continue;
+    const destDef = defById(state, siteInst.definitionId);
+    if (!destDef || !isSiteCard(destDef)) continue;
+    if (!isUnderDeepsAdjacent(state, currentDef, destDef)) continue;
+    seenDefs.add(siteInst.definitionId as string);
+    dests.push(siteInst);
+  }
+  return dests;
+}
+
+/**
+ * Advance after a company finishes its movement/hazard phase.
+ *
+ * Gangways over the Fire (ba-60): before finalizing the company, record that
+ * it completed one more M/H phase this turn (for the roll penalty) and which
+ * site it now occupies (for the "not used yet" restriction). If the active
+ * player has an `extra-under-deeps-mh-phase` effect in play, the company
+ * moved this turn, and a new Under-deeps destination remains available, offer
+ * the choice of another Under-deeps movement/hazard phase (`gangways-offer`)
+ * rather than finalizing. Otherwise the company is finalized normally.
  */
 export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
+
+  if (playerHasExtraUnderDeepsMH(state, activeIndex)) {
+    const cid = currentCompany.id as string;
+    // Record this completed M/H phase and the site the company now occupies.
+    const phaseCounts = { ...(mhState.gangwaysPhaseCounts ?? {}) };
+    phaseCounts[cid] = (phaseCounts[cid] ?? 0) + 1;
+    const sitesUsed = { ...(mhState.gangwaysSitesUsed ?? {}) };
+    const prevUsed = sitesUsed[cid] ?? [];
+    const curDef = currentCompany.currentSite?.definitionId;
+    sitesUsed[cid] = curDef && !prevUsed.includes(curDef) ? [...prevUsed, curDef] : prevUsed;
+    const trackedMhState: MovementHazardPhaseState = {
+      ...mhState,
+      gangwaysPhaseCounts: phaseCounts,
+      gangwaysSitesUsed: sitesUsed,
+    };
+
+    const dests = currentCompany.moved
+      ? gangwaysExtraDestinations(state, activeIndex, currentCompany, sitesUsed[cid])
+      : [];
+    if (dests.length > 0) {
+      logDetail(`Gangways over the Fire: company ${cid} completed M/H phase #${phaseCounts[cid]} and may take another Under-deeps movement (${dests.length} destination(s), roll penalty -${phaseCounts[cid]}) → gangways-offer`);
+      return { state: { ...state, phaseState: { ...trackedMhState, step: 'gangways-offer' as const } } };
+    }
+    return finalizeCompanyMH(state, trackedMhState);
+  }
+
+  return finalizeCompanyMH(state, mhState);
+}
+
+/**
+ * Finalize the current company's movement/hazard phase: sweep company-scoped
+ * constraints, then advance to the next company's M/H sub-phase or to the Site
+ * phase once every company is handled.
+ */
+export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
   const updatedHandled = [...mhState.handledCompanyIds, currentCompany.id];
@@ -1922,6 +1996,99 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
       },
     },
   };
+}
+
+/**
+ * Handle the `gangways-offer` step (Gangways over the Fire, ba-60): the active
+ * player either finishes the company (`pass` → finalize) or selects a new
+ * Under-deeps destination for another movement/hazard phase.
+ *
+ * On selection, the chosen site is drawn from the site deck and installed as
+ * the company's destination; the phase re-enters at `reveal-new-site` with the
+ * per-phase state reset, so the company proceeds through the normal Under-deeps
+ * declare-path/roll flow. The roll for this extra phase is penalised by the
+ * number of complete phases the company has already taken this turn (applied in
+ * `handleRevealNewSite` from `gangwaysPhaseCounts`).
+ */
+export function handleGangwaysOffer(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+
+  if (action.type === 'pass') {
+    logDetail(`Gangways over the Fire: active player declined another Under-deeps movement — finalizing company`);
+    return finalizeCompanyMH(state, mhState);
+  }
+
+  if (action.type !== 'gangways-extra-move') {
+    return wrongActionType(state, action, 'gangways-extra-move', 'gangways-offer step');
+  }
+
+  const player = state.players[activeIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIdx !== mhState.activeCompanyIndex) {
+    return { state, error: 'Gangways extra move must target the company that just finished its M/H phase' };
+  }
+  const company = player.companies[companyIdx];
+
+  // The destination must be one of the offered Under-deeps sites (adjacent,
+  // in the site deck, not used this turn).
+  const usedSiteDefIds = mhState.gangwaysSitesUsed?.[action.companyId as string] ?? [];
+  const dest = gangwaysExtraDestinations(state, activeIndex, company, usedSiteDefIds)
+    .find(s => s.instanceId === action.destinationSite);
+  if (!dest) {
+    return { state, error: 'Chosen site is not a legal Gangways Under-deeps destination' };
+  }
+
+  const companies = [...player.companies];
+  companies[companyIdx] = {
+    ...company,
+    destinationSite: { ...toCardInstance(dest), status: CardStatus.Untapped },
+    movementPath: [],
+  };
+  const siteDeck = removeById(player.siteDeck, dest.instanceId);
+  const destName = cardNameLocal(state, dest.definitionId);
+  logDetail(`Gangways over the Fire: company ${action.companyId as string} sets Under-deeps destination ${destName} → re-entering reveal-new-site (extra M/H phase)`);
+
+  return {
+    state: {
+      ...updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })),
+      phaseState: {
+        ...mhState,
+        step: 'reveal-new-site' as const,
+        movementType: null,
+        declaredRegionPath: [],
+        maxRegionDistance: BASE_MAX_REGION_DISTANCE,
+        hazardsPlayedThisCompany: 0,
+        hazardLimitAtReveal: 0,
+        preRevealHazardLimitConstraintIds: [],
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: null,
+        destinationSiteName: null,
+        resourceDrawMax: 0,
+        hazardDrawMax: 0,
+        resourceDrawCount: 0,
+        hazardDrawCount: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+        siteRevealed: true,
+        onGuardPlacedThisCompany: false,
+        returnedToOrigin: false,
+        hazardsEncountered: [],
+        ahuntAttacksResolved: 0,
+        ahuntGroupOutcomes: [],
+      },
+    },
+  };
+}
+
+/** Local card-name lookup (definition name or the id as a fallback). */
+function cardNameLocal(state: GameState, defId: CardDefinitionId): string {
+  const def = defById(state, defId);
+  return def?.name ?? (defId as string);
 }
 
 /**

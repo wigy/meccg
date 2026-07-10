@@ -6256,6 +6256,39 @@ company, so modifiers from multiple company members stack. Used by Iron Shield
 of Old (as-127): "+2 to all rolls required for bearer's company to move to
 adjacent Under-deeps sites."
 
+### 52b. `extra-under-deeps-mh-phase`
+
+Carried by an in-play permanent-event; grants repeated Under-deeps
+movement/hazard phases (Gangways over the Fire, ba-60). While the controlling
+player has any card with this effect in play, each of their **moving** companies
+may — at the end of its movement/hazard phase — attempt another Under-deeps
+movement to a site it has **not used yet this turn**; a new site card is played
+and a fresh movement/hazard phase immediately follows for that company. The
+Under-deeps roll for each such extra phase is penalised by the number of
+complete movement/hazard phases the company has already taken this turn (the
+first extra move is at −1, the second at −2, and so on).
+
+This effect has no fields:
+
+```json
+{ "type": "extra-under-deeps-mh-phase" }
+```
+
+Behaviour: after a company finishes its M/H phase, `advanceAfterCompanyMH`
+(`mh-hazard-play.ts`) records the completed-phase count and the site now
+occupied on the phase state (`gangwaysPhaseCounts` / `gangwaysSitesUsed`, keyed
+by company id). If `playerHasExtraUnderDeepsMH` holds, the company moved this
+turn, and a new Under-deeps-adjacent site remains in the site deck, the engine
+enters the dedicated `gangways-offer` step (`legal-actions/movement-hazard.ts`
+`gangwaysOfferActions`); the active player either selects a destination
+(`gangways-extra-move`, `handleGangwaysOffer` re-enters `reveal-new-site` with
+the per-phase state reset) or passes to finalize the company
+(`finalizeCompanyMH`). The roll penalty is applied in `handleRevealNewSite` from
+`gangwaysPhaseCounts` (only where an actual roll is required). Ba-60 also carries
+`starting-company-placement` (it "may start the game … in lieu of playing a minor
+item", via the `starting-item` keyword) and `duplication-limit` scope `game`
+("Cannot be duplicated").
+
 ### 53. `site-item-trap`
 
 Carried by a hazard **permanent-event** attached to a site (via

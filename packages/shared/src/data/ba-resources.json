@@ -575,11 +575,17 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "extra-under-deeps-mh-phase" },
+      { "type": "starting-company-placement" },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
     "text": "Balrog specific. At the end of its movement/hazard phase, each of your moving companies may attempt to move with Under-deeps movement to a new site they have not used yet this turn. Another site card is played and a movement/hazard phase immmediately follows. Subtract the number of complete movement/ hazard phases the company has taken so far this turn from its Under-deeps movement rolls. You may start the game with this card in lieu of playing a minor item. Cannot be duplicated.",
     "keywords": [
-      "balrog-specific"
-    ]
+      "balrog-specific",
+      "starting-item"
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",

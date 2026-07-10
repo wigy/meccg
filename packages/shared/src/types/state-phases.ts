@@ -352,7 +352,17 @@ export type MHStep =
    * Drawing up is automatic. Advances to next company or Site phase
    * once both players are at hand size.
    */
-  | 'reset-hand';
+  | 'reset-hand'
+  /**
+   * Gangways over the Fire (ba-60): after a moving company completes its
+   * movement/hazard phase, if the active player has an
+   * `extra-under-deeps-mh-phase` effect in play the company may attempt
+   * another Under-deeps movement to a site it has not used this turn. The
+   * active player either selects a new Under-deeps destination
+   * (`gangways-extra-move`) — re-entering the phase at `reveal-new-site` with
+   * a cumulative roll penalty — or passes to finish the company.
+   */
+  | 'gangways-offer';
 
 export interface MovementHazardPhaseState {
   /** Phase discriminant. */
@@ -532,6 +542,22 @@ export interface MovementHazardPhaseState {
   readonly nazgulSideboardDestination: 'discard' | 'deck' | null;
   /** Number of cards fetched so far during the active Nazgûl sideboard sub-flow. */
   readonly nazgulSideboardFetched: number;
+  /**
+   * Gangways over the Fire (ba-60): number of complete movement/hazard phases
+   * each company has taken so far this turn, keyed by company id. Incremented
+   * when a company finishes its M/H phase (whether or not it moved). The count
+   * for a company is subtracted from that company's Under-deeps movement rolls
+   * on any extra Gangways phase. Absent for games without the effect in play.
+   */
+  readonly gangwaysPhaseCounts?: { readonly [companyId: string]: number };
+  /**
+   * Gangways over the Fire (ba-60): site definition ids each company has
+   * occupied so far this turn, keyed by company id. A Gangways extra move may
+   * only target an Under-deeps site the company has not used yet this turn, so
+   * these sites are excluded from the offered destinations. Absent for games
+   * without the effect in play.
+   */
+  readonly gangwaysSitesUsed?: { readonly [companyId: string]: readonly CardDefinitionId[] };
 }
 
 /**

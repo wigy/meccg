@@ -692,6 +692,21 @@ export function getCardEffects(
 }
 
 /**
+ * True when the player at `playerIndex` has any card in play carrying an
+ * `extra-under-deeps-mh-phase` effect (Gangways over the Fire, ba-60). Such a
+ * card lets each of the player's moving companies take repeated Under-deeps
+ * movement/hazard phases. Detected by effect, not card id, so future enablers
+ * work unchanged.
+ */
+export function playerHasExtraUnderDeepsMH(state: GameState, playerIndex: number): boolean {
+  const player = state.players[playerIndex];
+  if (!player) return false;
+  return player.cardsInPlay.some(cip =>
+    getCardEffects(defById(state, cip.definitionId)).some(e => e.type === 'extra-under-deeps-mh-phase'),
+  );
+}
+
+/**
  * Collect any `faction-influence-restriction` environment (e.g. Mordor in Arms
  * dm-72) that applies to a faction influence attempt at a site in
  * `siteRegionName`. Returns the summed check modifier and the set of card names
