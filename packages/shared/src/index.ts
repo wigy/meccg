@@ -17,7 +17,7 @@ export { resolveThrallCharacterPairings } from './stage-resource-characters.js';
 export type { StageResourceCharacterRef, ThrallCharacterPairing } from './stage-resource-characters.js';
 export { buildMovementMap, getReachableSites, findRegionPaths } from './movement-map.js';
 export type { MovementMap, MovementType, ReachableSite } from './movement-map.js';
-export { effectiveGeneralInfluence } from './engine/reducer-utils.js';
+export { effectiveGeneralInfluence, generalInfluenceControlLimit } from './engine/reducer-utils.js';
 export { reduce } from './engine/reducer.js';
 export type { ReducerResult } from './engine/reducer.js';
 export { computeLegalActions } from './engine/legal-actions/index.js';

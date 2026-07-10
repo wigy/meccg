@@ -27,7 +27,7 @@ import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../.
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, effectiveGeneralInfluence, hasSiteFlagForPlayer } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, generalInfluenceControlLimit, hasSiteFlagForPlayer } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
 import { viableWithRegress } from '../reverse-actions.js';
@@ -624,7 +624,7 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
       } else if (char.controlledBy !== 'general') {
         // Rule 228: Move a follower to general influence if GI allows. A
         // `control-restriction` may override the influence-to-control cost.
-        const remainingGI = effectiveGeneralInfluence(state, playerId) - player.generalInfluenceUsed;
+        const remainingGI = generalInfluenceControlLimit(state, playerId) - player.generalInfluenceUsed;
         const controlCost = controlCostOf(state, char, charDef.mind);
         if (controlCost !== null && controlCost <= remainingGI) {
           logDetail(`  → viable: move ${charDef.name} (control cost ${controlCost}) to GI (remaining GI ${remainingGI})`);

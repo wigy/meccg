@@ -1750,9 +1750,50 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.avatar": "Pallando"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "site.isOwnWizardhaven": true
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isAvatar": { "$ne": true } },
+            { "target.skills": { "$includes": "sage" } },
+            { "target.race": { "$ne": "hobbit" } },
+            { "target.race": { "$ne": "dwarf" } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1
+      },
+      {
+        "type": "control-restriction",
+        "cost": 2,
+        "sources": ["general", "fallen-wizard"]
+      },
+      {
+        "type": "play-flag",
+        "flag": "can-use-palantir"
       }
     ],
-    "text": "Unique. Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage character at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Pallando. This character may tap to use a Palantír he bears."
+    "text": "Unique. Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage character at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Pallando. This character may tap to use a Palantír he bears.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -1769,9 +1810,40 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Pallando"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "pallandos-hood-fetch",
+        "cost": {
+          "tap": "self"
+        },
+        "endOfTurnOnly": true,
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": {
+            "name": {
+              "$in": [
+                "Gifts as Given of Old",
+                "Wizard’s Voice",
+                "Eyes of Mandos"
+              ]
+            }
+          }
+        }
       }
     ],
-    "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Pallando’s Hood during your end-of-turn phase to take Gifts as Given of Old, Wizard’s Voice, or Eyes of Mandos from your discard pile to your hand."
+    "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Pallando’s Hood during your end-of-turn phase to take Gifts as Given of Old, Wizard’s Voice, or Eyes of Mandos from your discard pile to your hand.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -1826,9 +1898,16 @@
       {
         "type": "stage-points",
         "value": 4
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "value": 6,
+        "controlLimit": 2
       }
     ],
-    "text": "Unique.Pallando specific. Your general influence is increased by 6 points. You may only use 2 of these 6 points to control characters."
+    "text": "Unique.Pallando specific. Your general influence is increased by 6 points. You may only use 2 of these 6 points to control characters.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",

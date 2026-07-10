@@ -15,7 +15,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, effectiveGeneralInfluence, isUniqueCharacterInPlay } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
@@ -719,7 +719,7 @@ export function playCharacterActions(
         continue;
       }
 
-      const remainingGI = effectiveGeneralInfluence(state, playerId) - player.generalInfluenceUsed;
+      const remainingGI = generalInfluenceControlLimit(state, playerId) - player.generalInfluenceUsed;
       // Gate on the lowest achievable cost (an agent summonable at a Darkhaven
       // pays mind − 1 there even if the full mind is unaffordable). Per-site
       // affordability is re-checked in the loop below.

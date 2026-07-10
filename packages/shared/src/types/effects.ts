@@ -175,6 +175,18 @@ export interface StatModifierEffect extends EffectBase {
    *   member; the effect's `when` gates the modified character (via `bearer.*`).
    */
   readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company' | 'company-others';
+  /**
+   * Only meaningful for `stat: 'general-influence'`. Caps how many of the
+   * `value` points added to the general-influence pool may be spent to control
+   * characters; the remainder (`value - controlLimit`) still counts toward the
+   * player's *unused* general influence (defensive hazard subtraction, CoE
+   * step 1338) but can never control characters — mirroring the Ringwraith /
+   * Balrog +5 bonus (CoE 1.12.R1 / 1.12.B1). Used by Truths of Doom (wh-108):
+   * "+6 general influence; you may only use 2 of these 6 points to control
+   * characters" (`value: 6, controlLimit: 2`). Absent = all `value` points may
+   * control characters (the ordinary Bade to Rule / Great Shadow behaviour).
+   */
+  readonly controlLimit?: number;
 }
 
 /**
