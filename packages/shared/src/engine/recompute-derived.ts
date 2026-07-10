@@ -1330,7 +1330,17 @@ export function computeCombatProwess(
 
   const charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
-  const collected = [...charEffects, ...globalEffects];
+  // `own-characters`-scoped effects (e.g. Descent through Fire ba-56: "+1
+  // prowess to all your characters") apply only to characters controlled by
+  // the source card's owner. Find the player whose `characters` dict holds this
+  // character so the bonus is scoped to that player's own company members.
+  const ownerPlayer = state.players.find(
+    p => Object.prototype.hasOwnProperty.call(p.characters, char.instanceId as string),
+  );
+  const ownEffects = ownerPlayer
+    ? collectGlobalEffects(state, 'own-characters', context, undefined, ownerPlayer.id)
+    : [];
+  const collected = [...charEffects, ...globalEffects, ...ownEffects];
 
   if (collected.length > 0) {
     return resolveStatModifiers(collected, 'prowess', charDef.prowess, context);

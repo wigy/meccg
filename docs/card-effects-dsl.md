@@ -4596,19 +4596,67 @@ Fields:
   `normalizeCreatureRace()` for combat-modifier lookups.
 - `strikes: number` — number of strikes the attack delivers.
 - `prowess: number` — prowess of each strike.
+- `attacks: TriggerAttackEntry[]` — **multi-attack form**: an array of
+  `{ creatureType, strikes, prowess }` entries triggered in sequence
+  (the top-level `creatureType`/`strikes`/`prowess` are ignored). Each
+  entry runs as its own combat; the next starts as the previous
+  finalizes (`combat-finalize.ts` chains them via `remainingAttacks`).
+- `afterAttack: "attach-with-constraint" | "move-to-mp-pile"` — post-attack
+  placement. `"attach-with-constraint"` (default) attaches the card to the
+  bearer's items with a `bearer-cannot-untap` constraint (Rescue Prisoners);
+  `"move-to-mp-pile"` taps the chosen character and leaves the card in
+  `cardsInPlay` (Burning Rick le-173, Descent through Fire ba-56).
+- `discardFactionsAtSite: boolean` — after bearer selection, discard any of the
+  active player's in-play factions playable at the company's current site.
+
+**Restricting the keep target.** After the attacks, the bearer offered by the
+`select-card-bearer` resolution honours the card's `play-target: character`
+filter, if any. A card with no filter (Rescue Prisoners, Burning Rick, The
+Windlord Found Me) offers every untapped company member; Descent through Fire
+(ba-56) carries `{ "target.name": "The Balrog" }` so only The Balrog may be
+tapped to keep it ("tap The Balrog or discard this card"). If no untapped
+character satisfies the filter, only `pass` (discard) is available.
+
+**Ongoing effects while kept.** A `move-to-mp-pile` card may also carry ongoing
+effects (e.g. Descent through Fire's "+1 prowess to all your characters, +1
+direct influence to all your leaders" — two `own-characters` `stat-modifier`
+effects). Such a card enters `cardsInPlay` *before* the attacks it triggers, so
+the entry is flagged `pendingTriggerAttack` (`CardInPlay`) while the attacks
+resolve — `collectGlobalEffects` ignores a pending card's effects, so the buff
+does **not** help the company survive its own attacks. The flag is cleared when
+the card is kept (the bearer is chosen); the card is discarded otherwise. Note
+`computeCombatProwess` collects `own-characters` effects (scoped to the
+character's controller) so such a buff applies during later real combats too.
 
 Implementation: `chain-reducer.ts` `resolvePermanentEvent()` detects
-the effect and sets `state.combat` with an `attackSource` of type
-`card-triggered-attack`. `reducer-combat.ts` `finalizeCombat()` handles the
-discard-or-keep logic and adds the `bearer-cannot-untap` constraint.
-`reducer-untap.ts` `performUntap()` skips characters with an active
-`bearer-cannot-untap` constraint. `reducer-organization.ts`
-`handleStoreItem()` sweeps matching constraints when the card is stored.
+the effect, places the card, sets `state.combat` with an `attackSource` of type
+`card-triggered-attack`, and stamps `pendingTriggerAttack`. `combat-finalize.ts`
+`finalizeCombat()` chains the remaining attacks then runs the discard-or-keep
+logic (`select-card-bearer` pending resolution). `legal-actions/pending.ts`
+`selectCardBearerActions()` applies the bearer filter; `pending-reducers.ts`
+`applySelectCardBearerResolution()` taps the bearer, clears
+`pendingTriggerAttack` (move-to-mp-pile) or adds `bearer-cannot-untap`
+(attach-with-constraint). `reducer-untap.ts` skips characters with an active
+`bearer-cannot-untap` constraint; `handleStoreItem()` sweeps it on store.
 
-Used by *Rescue Prisoners* (tw-315):
+Used by *Rescue Prisoners* (tw-315, single-attack form):
 
 ```json
 { "type": "trigger-attack-on-play", "creatureType": "Spider", "strikes": 2, "prowess": 7 }
+```
+
+Used by *Descent through Fire* (ba-56, multi-attack + move-to-mp-pile + buffs):
+
+```json
+{
+  "type": "trigger-attack-on-play",
+  "attacks": [
+    { "creatureType": "Trolls", "strikes": 5, "prowess": 8 },
+    { "creatureType": "Trolls", "strikes": 4, "prowess": 10 },
+    { "creatureType": "Trolls", "strikes": 3, "prowess": 12 }
+  ],
+  "afterAttack": "move-to-mp-pile"
+}
 ```
 
 ### 35a. `reveal-and-attack`
