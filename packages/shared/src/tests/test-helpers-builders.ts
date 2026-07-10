@@ -881,6 +881,7 @@ export function makeCancelWindowCombat(
     creatureRace?: string;
     attackKeying?: readonly RegionType[];
     attackSiteKeyingTypes?: readonly SiteType[];
+    attackKeyingRegionNames?: readonly string[];
     attackSourceType?: 'creature' | 'on-guard-creature' | 'automatic-attack';
     strikesTotal?: number;
     strikeProwess?: number;
@@ -927,6 +928,7 @@ export function makeCancelWindowCombat(
     creatureRace,
     attackKeying: opts.attackKeying && opts.attackKeying.length > 0 ? opts.attackKeying : undefined,
     attackSiteKeyingTypes: opts.attackSiteKeyingTypes && opts.attackSiteKeyingTypes.length > 0 ? opts.attackSiteKeyingTypes : undefined,
+    attackKeyingRegionNames: opts.attackKeyingRegionNames && opts.attackKeyingRegionNames.length > 0 ? opts.attackKeyingRegionNames : undefined,
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',
