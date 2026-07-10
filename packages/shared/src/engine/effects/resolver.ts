@@ -240,6 +240,11 @@ export function collectGlobalEffects(
     // reduces only *your* Half-orcs' control cost). Skip other players' cards.
     if (targetScope === 'own-characters' && ownerPlayerId !== undefined && player.id !== ownerPlayerId) continue;
     for (const card of player.cardsInPlay) {
+      // A `trigger-attack-on-play` card in play whose self-inflicted attacks
+      // are still resolving (Descent through Fire ba-56) must not yet apply its
+      // ongoing effects — the "+1 prowess" bonus only takes hold once the card
+      // is kept after the attacks (see CardInPlay.pendingTriggerAttack).
+      if (card.pendingTriggerAttack) continue;
       // Company-bound cards: only include when the defending company matches.
       // Without a defender context, skip company-bound cards entirely to
       // prevent their targeted effects from applying globally.

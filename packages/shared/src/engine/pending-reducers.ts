@@ -2028,6 +2028,16 @@ export function applySelectCardBearerResolution(
       status: CardStatus.Tapped,
     })));
 
+    // The card is kept in the marshalling-point pile — activate any ongoing
+    // effects that were suppressed while its self-inflicted attacks resolved
+    // (Descent through Fire ba-56). Clear the pending flag on the kept card.
+    s = updatePlayer(s, cardOwnerIdx, p => ({
+      ...p,
+      cardsInPlay: p.cardsInPlay.map(c => c.instanceId === cardInstanceId && c.pendingTriggerAttack
+        ? (() => { const { pendingTriggerAttack: _drop, ...rest } = c; return rest; })()
+        : c),
+    }));
+
     // Discard factions playable at the company's current site if requested
     if (shouldDiscardFactions) {
       const company = s.players[defIdx].companies.find(co => co.id === companyId);

@@ -765,21 +765,36 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       const defPlayer = newState.players[defPlayerIndex];
       const company = companyById(defPlayer.companies, combat.companyId);
       if (company) {
+        const charCtx = (charCardDef: CardDefinition) => ({
+          target: {
+            race: ('race' in charCardDef ? (charCardDef as { race?: string }).race : undefined) ?? '',
+            name: (charCardDef?.name) ?? '',
+            skills: ('skills' in charCardDef ? (charCardDef as { skills?: readonly string[] }).skills : undefined) ?? [],
+            keywords: ('keywords' in charCardDef ? (charCardDef as { keywords?: readonly string[] }).keywords : undefined) ?? [],
+          },
+        });
         for (const boostEffect of companyCombatBoosts) {
+          // A `companyFilter` gates the whole company: only apply the boost (to
+          // every character) if at least one member satisfies it (Foe Dismayed's
+          // leader-or-Balrog gate). A `filter` restricts which members receive it.
+          if (boostEffect.companyFilter) {
+            const companyQualifies = company.characters.some(charId => {
+              const char = defPlayer.characters[charId];
+              const cDef = char ? defById(newState, char.definitionId) : undefined;
+              return cDef ? matchesCondition(boostEffect.companyFilter!, charCtx(cDef)) : false;
+            });
+            if (!companyQualifies) {
+              logDetail(`${def.name}: company does not satisfy companyFilter — no boost applied`);
+              continue;
+            }
+          }
           for (const charId of company.characters) {
             const char = defPlayer.characters[charId];
             if (!char) continue;
             const charCardDef = defById(newState, char.definitionId);
             if (!charCardDef) continue;
             if (boostEffect.filter) {
-              const ctx = {
-                target: {
-                  race: ('race' in charCardDef ? (charCardDef as { race?: string }).race : undefined) ?? '',
-                  name: (charCardDef?.name) ?? '',
-                  skills: ('skills' in charCardDef ? (charCardDef as { skills?: readonly string[] }).skills : undefined) ?? [],
-                },
-              };
-              if (!matchesCondition(boostEffect.filter, ctx)) continue;
+              if (!matchesCondition(boostEffect.filter, charCtx(charCardDef))) continue;
             }
             logDetail(`${def.name}: adding attack-scoped +${boostEffect.value} ${boostEffect.stat} to ${charId as string}`);
             newState = addConstraint(newState, {

@@ -1662,8 +1662,11 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
  * `filter` or a {@link PlayOptionEffect}'s `when` against a candidate
  * target character. The context exposes:
  *
- *  - `target.race`, `target.status`, `target.skills`, `target.name` —
- *    per-character attributes for filtering.
+ *  - `target.race`, `target.status`, `target.skills`, `target.keywords`,
+ *    `target.name` — per-character attributes for filtering. `target.keywords`
+ *    exposes the character's card keywords (e.g. `"leader"`), used by Foe
+ *    Dismayed (ba-59) to gate its +3 influence boost on "a leader or The
+ *    Balrog".
  *  - `target.inAvatarCompany` — `true` iff the character belongs to the
  *    same company as the player's avatar (wizard/ringwraith/etc.).
  *    Requires the `player` parameter to be passed.
@@ -1774,6 +1777,7 @@ export function buildPlayOptionContext(
       race: def.race,
       status: statusToken(char.status),
       skills: [...(def.skills as readonly string[]), ...getItemGrantedSkills(state, char)],
+      keywords: (def.keywords as readonly string[] | undefined) ?? [],
       name: def.name,
       mind: def.mind,
       inAvatarCompany,

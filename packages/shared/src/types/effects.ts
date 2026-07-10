@@ -2307,12 +2307,27 @@ export interface CompanyCombatBoostEffect extends EffectBase {
   /** The modifier value (positive to boost, negative to penalise). */
   readonly value: number;
   /**
-   * Optional DSL condition evaluated against `{ target: { race, name, skills } }`
-   * for each character in the defending company. Only characters that satisfy
-   * the condition receive the modifier. When absent, every character in the
-   * company receives it.
+   * Optional DSL condition evaluated against
+   * `{ target: { race, name, skills, keywords } }` for each character in the
+   * defending company. Only characters that satisfy the condition receive the
+   * modifier. When absent (and no `companyFilter` is set), every character in
+   * the company receives it.
    */
   readonly filter?: Condition;
+  /**
+   * Optional company-level eligibility gate. When present, the event may be
+   * played (and the boost applied to *every* character in the defending
+   * company) only if at least one character in that company satisfies the
+   * condition — evaluated with the same per-character context as `filter`.
+   * Unlike `filter`, which restricts *which* characters receive the boost,
+   * `companyFilter` gates the *whole* company on the presence of a qualifying
+   * member and then boosts all of them.
+   *
+   * Used by Foe Dismayed (ba-59): "+1 prowess against an attack for all
+   * characters in a leader's or The Balrog's company" — the company must
+   * contain a Leader or The Balrog, and then every character is boosted.
+   */
+  readonly companyFilter?: Condition;
 }
 
 /**

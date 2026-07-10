@@ -219,6 +219,17 @@ export interface CardInPlay {
    * `leader-control` effect.
    */
   readonly controlledBy?: CardInstanceId;
+  /**
+   * Set on a `trigger-attack-on-play` permanent event (e.g. Descent through
+   * Fire ba-56) while its self-inflicted attacks are still resolving. Such a
+   * card enters `cardsInPlay` *before* the attacks it triggers, but its own
+   * ongoing effects (e.g. "+1 prowess to all your characters") must not apply
+   * until the card is actually kept in the marshalling-point pile after the
+   * attacks. While this flag is set, {@link collectGlobalEffects} ignores the
+   * card's effects; it is cleared when the bearer is selected
+   * (`move-to-mp-pile` keep) and the card is gone if instead discarded.
+   */
+  readonly pendingTriggerAttack?: boolean;
 }
 
 /**

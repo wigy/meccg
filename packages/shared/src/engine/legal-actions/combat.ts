@@ -2531,17 +2531,27 @@ function companyCombatBoostActions(
       }
     }
 
-    // At least one boost effect must match a character in the defending company.
+    // At least one boost effect must match a character in the defending
+    // company. A boost with neither `filter` nor `companyFilter` matches
+    // unconditionally; a `filter` matches when any character satisfies it
+    // (per-character grant); a `companyFilter` gates the whole company on a
+    // qualifying member (e.g. Foe Dismayed's leader-or-Balrog gate).
     let hasMatch = false;
     for (const effect of boostEffects) {
-      if (!effect.filter) { hasMatch = true; break; }
+      const gate = effect.companyFilter ?? effect.filter;
+      if (!gate) { hasMatch = true; break; }
       for (const charId of company.characters) {
         const char = player.characters[charId];
         if (!char) continue;
         const charCardDef = defById(state, char.definitionId);
         if (!charCardDef || !('race' in charCardDef)) continue;
-        const ctx = { target: { race: (charCardDef as { race?: string }).race ?? '', name: (charCardDef as { name?: string }).name ?? '', skills: (charCardDef as { skills?: readonly string[] }).skills ?? [] } };
-        if (matchesCondition(effect.filter, ctx)) { hasMatch = true; break; }
+        const ctx = { target: {
+          race: (charCardDef as { race?: string }).race ?? '',
+          name: (charCardDef as { name?: string }).name ?? '',
+          skills: (charCardDef as { skills?: readonly string[] }).skills ?? [],
+          keywords: (charCardDef as { keywords?: readonly string[] }).keywords ?? [],
+        } };
+        if (matchesCondition(gate, ctx)) { hasMatch = true; break; }
       }
       if (hasMatch) break;
     }
