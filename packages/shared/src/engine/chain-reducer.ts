@@ -1270,6 +1270,23 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         logDetail(`"${def?.name ?? card.definitionId}" attached to item ${targetItemId as string}`);
       }
     }
+
+    // A `trigger-attack-on-play` permanent event that lingers after its attacks
+    // (Descent through Fire ba-56: kept in the marshalling-point pile) carries
+    // ongoing effects that must NOT apply during the self-inflicted attacks it
+    // is about to trigger. Mark the just-placed entry pending so
+    // `collectGlobalEffects` ignores it until the bearer is chosen; the flag is
+    // cleared on `move-to-mp-pile` keep, and the card is discarded otherwise.
+    const hasTriggerAttack = getCardEffects(def).some(e => e.type === 'trigger-attack-on-play');
+    if (hasTriggerAttack) {
+      logDetail(`"${def?.name ?? card.definitionId}" trigger-attack-on-play: suppressing its ongoing effects until bearer selection`);
+      working = updatePlayer(working, playerIndex, p => ({
+        ...p,
+        cardsInPlay: p.cardsInPlay.map(c => c.instanceId === card.instanceId
+          ? { ...c, pendingTriggerAttack: true }
+          : c),
+      }));
+    }
   }
 
   const newPlayers: [PlayerState, PlayerState] = [working.players[0], working.players[1]];

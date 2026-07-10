@@ -42,7 +42,7 @@ import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions 
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { asViable as viable } from './evaluated.js';
 
@@ -1490,9 +1490,39 @@ export function selectCardBearerActions(
   const cardDefId = resolveInstanceId(state, cardInstanceId);
   const cardLabel = cardName(state, cardDefId!, '?');
 
+  // Honour the source card's `play-target: character` filter, if any: the
+  // bearer that taps to keep the card must satisfy the same filter used at play
+  // time. Descent through Fire (ba-56) restricts the bearer to The Balrog
+  // ("tap The Balrog or discard this card"); cards with no filter (Burning
+  // Rick le-173, The Windlord Found Me dm-164) offer every untapped character.
+  const sourceDef = cardDefId ? defById(state, cardDefId) : undefined;
+  const bearerFilter = sourceDef
+    ? getCardEffects(sourceDef).find(
+        (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+      )?.filter
+    : undefined;
+
   for (const charId of company.characters) {
     const ch = defPlayer.characters[charId];
     if (!ch || ch.status !== CardStatus.Untapped) continue;
+    if (bearerFilter) {
+      const chDef = defById(state, ch.definitionId);
+      if (!chDef || !isCharacterCard(chDef)) continue;
+      const ctx: Record<string, unknown> = {
+        target: {
+          race: chDef.race,
+          skills: [...chDef.skills, ...getItemGrantedSkills(state, ch)],
+          status: ch.status,
+          name: chDef.name,
+          itemNames: defNamesOf(state, ch.items),
+          isAvatar: isAvatarCharacter(chDef),
+        },
+      };
+      if (!matchesCondition(bearerFilter, ctx)) {
+        logDetail(`select-card-bearer: ${charId as string} does not match "${cardLabel}" bearer filter — skipping`);
+        continue;
+      }
+    }
     logDetail(`select-card-bearer: offering ${charId as string} as bearer for "${cardLabel}"`);
     actions.push({
       action: {
