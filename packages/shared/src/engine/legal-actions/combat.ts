@@ -2305,6 +2305,11 @@ function modifyAttackActions(
             ) && !(combat.attackKeying && combat.attackKeying.length > 0)
               && !!(combat.attackSiteKeyingTypes && combat.attackSiteKeyingTypes.length > 0);
             attackCtx['siteKeyed'] = isSiteKeyedCreature;
+            // `attack.weaponsIneffective` is true for attacks whose strikes carry
+            // the printed "weapons do not modify prowess" clause (Trap, Lava
+            // Flows, Rock Fall). Dwarven Light-stone (dm-168) taps to lower such
+            // an attack's prowess by 2.
+            attackCtx['weaponsIneffective'] = combat.weaponsIneffective === true;
             ctx['attack'] = attackCtx;
             if (!matchesCondition(effect.when, ctx)) {
               const itemName = itemDef?.name ?? item.definitionId as string;

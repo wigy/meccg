@@ -1983,6 +1983,29 @@ minimum 1. Uses `strikesModifier: -1`; result clamped to minimum 1.
 Example: Star-glass (tw-330) — tap bearer to give -2 prowess to a Spiders,
 Animals, or Wolves attack; bearer makes a corruption check.
 
+Example: Dwarven Light-stone (dm-168) — tap to give -2 prowess to one Orc or
+Troll attack *or* to one attack for which "weapons do not modify the target's
+prowess". The second alternative is expressed by gating on
+`attack.weaponsIneffective` (see [Site auto-attack `combatRules`](#site-auto-attack-combatrules)
+for how an attack acquires that flag):
+
+```json
+{ "type": "modify-attack",
+  "cost": { "tap": "self" },
+  "prowessModifier": -2,
+  "when": { "$or": [
+    { "enemy.race": { "$in": ["orc", "orcs", "troll", "trolls"] } },
+    { "attack.weaponsIneffective": true }
+  ] } }
+```
+
+The `when` context for an item `modify-attack` exposes `bearer.*`
+(`race`/`skills`/`name`), `enemy.race` (the attacking creature's race), and
+`attack.*`: `source` (the attack-source discriminator), `keying`,
+`siteKeyed`, and `weaponsIneffective` (true for attacks whose strikes carry the
+printed "weapons do not modify prowess" clause — see the `weapons-ineffective`
+combat rule below).
+
 - `strikesModifier` — amount added to `strikesTotal` (usually negative);
   clamped so result is never below 1.
 
@@ -4859,6 +4882,13 @@ attack record itself. Supported values:
   text: "any character wounded is immediately eliminated". Used by the
   Spider at *Shelob's Lair* (le-402). Implemented in `reducer-combat.ts`
   (`resolveStrikeCore` → `eliminateCombatantFromStrike`).
+- `"weapons-ineffective"` — weapons do not modify the target's prowess against
+  this attack's strikes (sets `weaponsIneffective` on the combat). Card text:
+  "(weapons do not modify prowess against these strikes)", used by Trap-style
+  and hazard-added attacks (Lava Flows, Rock Fall). Exposed to the item
+  `modify-attack` `when` gate as `attack.weaponsIneffective`, so an item can
+  target "one attack for which weapons do not modify prowess" (Dwarven
+  Light-stone dm-168).
 
 ### Site auto-attack `appliesTo` (covert/overt guardians)
 

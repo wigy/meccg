@@ -825,6 +825,7 @@ function handleSiteAutomaticAttacks(
     // dealt by this attack into immediate elimination.
     ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
     ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
+    ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
   };
@@ -924,6 +925,7 @@ function buildSiteRepeatedAttackCombat(
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
     ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
+    ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
   };
   if (isEachCharacter && preAssignedStrikes.length > 1) {
