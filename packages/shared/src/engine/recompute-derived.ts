@@ -44,7 +44,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -1235,6 +1235,18 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       for (const card of draft.draftedStageResources) {
         stagePoints += stagePointsOfCard(defById(state, card.definitionId));
       }
+    }
+    // A Fallen-wizard site that grants stage points *while occupied* (Deep Mines
+    // wh-55: "You receive the three stage points if any of your companies are at
+    // the site") contributes from each distinct occupied site instance. Dedup by
+    // instance so two companies at the same site do not double the points; two
+    // different occupied Deep Mines each count once.
+    const countedSiteInstances = new Set<string>();
+    for (const company of player.companies) {
+      const site = company.currentSite;
+      if (!site || countedSiteInstances.has(site.instanceId as string)) continue;
+      countedSiteInstances.add(site.instanceId as string);
+      stagePoints += siteOccupancyStagePointsOfCard(defById(state, site.definitionId));
     }
   }
 
