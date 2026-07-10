@@ -18,7 +18,7 @@ import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, defById, getCardEffects, isHavenForPlayer, isSelfDiscardMove, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
-import { enqueueCorruptionCheck } from './pending.js';
+import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
 
@@ -396,10 +396,16 @@ function advanceToOrganization(state: GameState): ReducerResult {
     const atHaven = siteType === SiteType.Haven;
     const companyCharCount = charCompanySize.get(charId) ?? 0;
     const bearerCtx = { bearer: { siteType, atHaven } };
+    // Host character (the bearer of the attached cards) identity, for
+    // conditions gated on who controls an ally — Evil Things Lingering (ba-45):
+    // "If this ally's controlling character is not The Balrog …".
+    const hostDef = defById(state, char.definitionId);
+    const hostName = hostDef && isCharacterCard(hostDef) ? hostDef.name : undefined;
+    const hostMind = hostDef && isCharacterCard(hostDef) && hostDef.mind !== null ? hostDef.mind : 0;
     // Context for `organization-phase-start` self-discard conditions that also
     // care about company size, e.g. So You've Come Back (le-138): "Discard …
     // if target character is in a company by himself and at a Haven [{H}]."
-    const orgStartCtx = { bearer: { siteType, atHaven }, company: { characterCount: companyCharCount } };
+    const orgStartCtx = { bearer: { siteType, atHaven, name: hostName, mind: hostMind }, company: { characterCount: companyCharCount } };
     // Scan attached hazards, items, allies for matching on-event effects
     const attached = [...char.hazards, ...char.items, ...char.allies];
     for (const card of attached) {
@@ -407,19 +413,48 @@ function advanceToOrganization(state: GameState): ReducerResult {
       for (const e of getCardEffects(def)) {
         if (e.type !== 'on-event') continue;
         const oe: OnEventEffect = e;
-        // `organization-phase-start` self-discard on an attached card: discard
-        // it (to its owner) when the `when` condition holds at org-phase start.
+        // `organization-phase-start` on an attached card: either a self-discard
+        // (le-138) or an opponent elimination roll (ba-45). Both honour the same
+        // optional `when` gate evaluated at org-phase start.
         if (oe.event === 'organization-phase-start') {
-          if (!isSelfDiscardMove(oe.apply)) continue;
           if (oe.when && !matchesContext(oe.when, orgStartCtx)) {
             logDetail(`organization-phase-start: skipping ${def?.name ?? '?'} on ${char.instanceId as string} — when not met (size=${companyCharCount}, atHaven=${atHaven})`);
             continue;
           }
-          const slot: 'items' | 'hazards' | 'allies' =
-            char.items.some(i => i.instanceId === card.instanceId) ? 'items'
-            : char.hazards.some(h => h.instanceId === card.instanceId) ? 'hazards' : 'allies';
-          logDetail(`organization-phase-start: queuing self-discard for ${def?.name ?? '?'} on ${charId} (slot=${slot}, size=${companyCharCount}, atHaven=${atHaven})`);
-          orgStartDiscards.push({ charId: charId as CardInstanceId, slot, cardInstanceId: card.instanceId as string });
+          if (isSelfDiscardMove(oe.apply)) {
+            const slot: 'items' | 'hazards' | 'allies' =
+              char.items.some(i => i.instanceId === card.instanceId) ? 'items'
+              : char.hazards.some(h => h.instanceId === card.instanceId) ? 'hazards' : 'allies';
+            logDetail(`organization-phase-start: queuing self-discard for ${def?.name ?? '?'} on ${charId} (slot=${slot}, size=${companyCharCount}, atHaven=${atHaven})`);
+            orgStartDiscards.push({ charId: charId as CardInstanceId, slot, cardInstanceId: card.instanceId as string });
+            continue;
+          }
+          if (oe.apply.type === 'enqueue-opponent-elimination-roll') {
+            // The opponent (the active player's opponent) rolls 2d6 + modifier;
+            // the controlling character (this bearer) is eliminated if the total
+            // exceeds his mind. Enqueued as a generic dice-check resolution.
+            const opponentIndex = activeIndex === 0 ? 1 : 0;
+            const opponentId = state.players[opponentIndex].id;
+            logDetail(`organization-phase-start: enqueuing opponent elimination roll for ${def?.name ?? '?'} on ${charId} (opponent ${opponentId as string} rolls, modifier ${oe.apply.modifier}, threshold mind ${hostMind})`);
+            advanced = enqueueResolution(advanced, {
+              source: card.instanceId,
+              actor: opponentId,
+              scope: { kind: 'phase', phase: Phase.Organization },
+              kind: {
+                type: 'dice-check',
+                label: `${def?.name ?? 'Elimination roll'}: ${hostName ?? '?'}`,
+                roller: opponentId,
+                modifiers: [{ kind: 'constant', value: oe.apply.modifier }],
+                threshold: hostMind,
+                comparison: 'gt',
+                onPass: { type: 'eliminate-character' },
+                continuation: { kind: 'dequeue-only' },
+                requireTargetPresent: true,
+                targetCharacterId: char.instanceId,
+              },
+            });
+            continue;
+          }
           continue;
         }
         if (oe.event !== 'untap-phase-end') continue;

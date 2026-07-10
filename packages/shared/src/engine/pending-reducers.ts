@@ -906,6 +906,19 @@ function applyDiceCheckBranch(
     if (!charInPlay) return { state };
     return { state: discardCharacter(state, ctx.rollerIndex, ctx.targetCharacterId, charInPlay) };
   }
+  if (branch.type === 'eliminate-character') {
+    if (!ctx.targetCharacterId) return { state };
+    // The target may belong to a different player than the roller (Evil Things
+    // Lingering ba-45: the *opponent* rolls, but the eliminated character is the
+    // ally's controller — the roller's opponent), so locate the actual owner.
+    const ownerIndex = state.players.findIndex(p => !!p.characters[ctx.targetCharacterId!]);
+    if (ownerIndex === -1) {
+      logDetail(`dice-check eliminate-character: ${ctx.targetCharacterId as string} no longer in play — no-op`);
+      return { state };
+    }
+    const charInPlay = state.players[ownerIndex].characters[ctx.targetCharacterId];
+    return { state: eliminateCharacter(state, ownerIndex, ctx.targetCharacterId, charInPlay) };
+  }
   if (branch.type === 'set-character-status') {
     if (!ctx.targetCharacterId || !branch.status) return { state };
     const statusEnum = branch.status === 'untapped' ? CardStatus.Untapped
@@ -1242,12 +1255,18 @@ function returnCharacterToHand(
  * Discard a character to their owner's discard pile (body check / hazard discard).
  * Items and allies are discarded to the resource player's discard pile; hazards
  * go to the hazard player's discard pile. Followers fall to GI if room, else discarded.
+ *
+ * `characterDestination` controls where the character *card itself* lands:
+ * `'discard'` (the default — a plain discard) or `'out-of-play'` (elimination,
+ * per CoE: an eliminated character is removed from the game rather than
+ * discarded). Its possessions/followers are handled identically either way.
  */
 function discardCharacter(
   state: GameState,
   playerIndex: number,
   characterId: import('../index.js').CardInstanceId,
   charInPlay: import('../index.js').CharacterInPlay,
+  characterDestination: 'discard' | 'out-of-play' = 'discard',
 ): GameState {
   const newPlayers = clonePlayers(state);
   const player = newPlayers[playerIndex];
@@ -1299,14 +1318,21 @@ function discardCharacter(
     return { ...company, characters: company.characters.filter(id => id !== characterId) };
   });
 
-  // Character card goes to the resource player's discard pile (not hand)
-  newDiscard.push(toCardInstance(charInPlay));
+  // The character card itself: discarded (default) or eliminated to the owner's
+  // out-of-play pile. Its possessions were already pushed to newDiscard above.
+  const newOutOfPlay = characterDestination === 'out-of-play'
+    ? [...player.outOfPlayPile, toCardInstance(charInPlay)]
+    : player.outOfPlayPile;
+  if (characterDestination === 'discard') {
+    newDiscard.push(toCardInstance(charInPlay));
+  }
 
   newPlayers[playerIndex] = {
     ...player,
     characters: newCharacters,
     companies: newCompanies,
     discardPile: newDiscard,
+    outOfPlayPile: newOutOfPlay,
   };
   newPlayers[opponentIndex] = { ...opponent, discardPile: newOpponentDiscard };
 
@@ -1321,6 +1347,23 @@ function discardCharacter(
     result = sweepLeaderLeavesCompanyEvents(result, affectedCompanies);
   }
   return result;
+}
+
+/**
+ * Eliminate a character (CoE): remove it from its company and send the character
+ * card to its owner's out-of-play pile, discarding its possessions (allies/items
+ * to the owner's discard, hazards to the hazard owner) and freeing its followers
+ * to general influence. Thin wrapper over {@link discardCharacter} with the
+ * character-card destination set to the out-of-play pile. Used by the dice-check
+ * `eliminate-character` branch (Evil Things Lingering ba-45).
+ */
+export function eliminateCharacter(
+  state: GameState,
+  playerIndex: number,
+  characterId: import('../index.js').CardInstanceId,
+  charInPlay: import('../index.js').CharacterInPlay,
+): GameState {
+  return discardCharacter(state, playerIndex, characterId, charInPlay, 'out-of-play');
 }
 
 /**

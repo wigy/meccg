@@ -347,14 +347,54 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "The Under-galleries, The Under-courts, or Remains of Thangorodrim"
+        "site": "The Under-galleries"
+      },
+      {
+        "site": "The Under-courts"
+      },
+      {
+        "site": "Remains of Thangorodrim"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-overt"
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "movementType": {
+            "$in": ["region", "starter"]
+          }
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "when": {
+          "bearer.name": {
+            "$ne": "The Balrog"
+          }
+        },
+        "apply": {
+          "type": "enqueue-opponent-elimination-roll",
+          "modifier": -4
+        }
+      }
+    ],
     "text": "Unique. Balrog specific. Spawn. Playable at The Under-galleries, The Under-courts, or Remains of Thangorodrim. Its controlling character's company is overt. Discard this ally if its company moves using region or starter movement. If this ally’s controlling character is not The Balrog, your opponent makes a roll during your organization phase and subtracts four. The controlling character is eliminated if the result is greater than his mind.",
     "keywords": [
-      "balrog-specific"
-    ]
+      "balrog-specific",
+      "spawn"
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-ally",
