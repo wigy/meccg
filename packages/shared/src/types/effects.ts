@@ -1287,6 +1287,8 @@ export type TriggeredActionType =
   | 'remove-constraint'
   | 'cancel-chain-entry'
   | 'discard-character'
+  | 'eliminate-character'
+  | 'enqueue-opponent-elimination-roll'
   | 'discard-target-character'
   | 'force-discard-one-company-item'
   | 'enqueue-corruption-check'
@@ -1494,6 +1496,38 @@ export interface DiscardCharacterAction extends TriggeredActionBase {
   readonly type: 'discard-character';
 }
 
+/**
+ * `eliminate-character` — eliminate the resolution-context target character
+ * (remove it from its company and send the character card to its owner's
+ * out-of-play pile; its non-hazard possessions are discarded, its hazards go to
+ * the hazard owner, and its followers revert to general influence). Distinct
+ * from `discard-character` (which sends the character card to the discard pile).
+ * Used as the `onPass` branch of the dice-check enqueued by Evil Things
+ * Lingering (ba-45): the controlling character is *eliminated* if the opponent's
+ * organization-phase roll beats his mind.
+ */
+export interface EliminateCharacterAction extends TriggeredActionBase {
+  readonly type: 'eliminate-character';
+}
+
+/**
+ * `enqueue-opponent-elimination-roll` — an `organization-phase-start` on-event
+ * apply (carried by an attached ally) that enqueues a generic `dice-check`
+ * resolution for the *opponent* (the bearer's controller's opponent): the
+ * opponent rolls 2d6, adds `modifier` (negative), and the bearer's controlling
+ * character is eliminated (`onPass`) when the modified total is strictly greater
+ * than that character's mind. Used by Evil Things Lingering (ba-45): "If this
+ * ally's controlling character is not The Balrog, your opponent makes a roll
+ * during your organization phase and subtracts four. The controlling character
+ * is eliminated if the result is greater than his mind." (The `not The Balrog`
+ * gate is expressed by the effect's `when: { "bearer.name": { "$ne": … } }`.)
+ */
+export interface EnqueueOpponentEliminationRollAction extends TriggeredActionBase {
+  readonly type: 'enqueue-opponent-elimination-roll';
+  /** Constant added to the opponent's 2d6 roll (e.g. `-4` = "subtracts four"). */
+  readonly modifier: number;
+}
+
 /** `discard-target-character` — discard the grant-action's target character (type-only marker). */
 export interface DiscardTargetCharacterAction extends TriggeredActionBase {
   readonly type: 'discard-target-character';
@@ -1692,6 +1726,8 @@ export type TriggeredAction =
   | SetSitePhaseFlagAction
   | MoveEffect
   | DiscardCharacterAction
+  | EliminateCharacterAction
+  | EnqueueOpponentEliminationRollAction
   | DiscardTargetCharacterAction
   | ForceDiscardOneCompanyItemAction
   | SetCharacterStatusAction

@@ -1514,6 +1514,12 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     const destDef = defById(state, company.destinationSite.definitionId) as
       { name?: string; region?: string; siteType?: string } | undefined;
     const moveCtx = {
+      // The movement type the company used to reach the destination. Lets a
+      // `bearer-company-moves` self-discard fire only for certain movement
+      // kinds — Evil Things Lingering (ba-45) discards "if its company moves
+      // using region or starter movement" (not Under-deeps/special movement),
+      // expressed as `when: { movementType: { $in: ["region", "starter"] } }`.
+      movementType: mhState.movementType,
       destination: {
         name: destDef?.name,
         region: destDef?.region,
