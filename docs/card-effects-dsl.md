@@ -6789,6 +6789,44 @@ with prowess greater than 4, it must return to its site of origin." Its
 so the short-event mode is only offered against a *moving hero* company (whereas
 its creature mode targets minion companies).
 
+### 56b-ii. `company-site-phase-do-nothing`
+
+Forbids the active movement/hazard company from doing anything during its
+**upcoming site phase this turn** — a `site-phase-do-nothing` constraint is added
+to the target company (the same constraint `company-return-to-origin` uses to
+block a returned company's site phase), but the company keeps its destination
+site and its movement is unaffected (only the site phase is blocked). Carried by
+a hazard short-event and applied on chain resolution
+(`applyCompanySitePhaseDoNothing`, `chain-reducer.ts`).
+
+```json
+{ "type": "company-site-phase-do-nothing" }
+```
+
+Playability is expressed with a companion **`play-target: "company"` filter**.
+The short-event company-target path (`legal-actions/movement-hazard.ts`) exposes,
+for the active company (using its destination site if moving, else its current
+site), the context:
+
+- `target.siteType` — the site's type (`ruins-and-lairs`, `shadow-hold`, …);
+- `target.siteKeywords` — the site's keywords (e.g. `under-deeps`);
+- `target.characterCount` — number of characters in the company (allies excluded);
+- `target.spawnInPlayCount` — Spawn cards **in play** across both players
+  (`countSpawnCardsInPlay`: cards carrying the `spawn` keyword in any
+  `cardsInPlay`, plus Spawn characters in companies and Spawn allies attached to
+  characters — cards in a discard / elimination pile are **not** counted);
+- `target.moreSpawnThanCompany` — the precomputed boolean
+  `spawnInPlayCount > characterCount` (the condition-matcher's `$gt` compares a
+  field to a literal, not two fields, so the comparison is precomputed here).
+
+Used by **Darkness Made by Malice (ba-15)**: "Playable on a company at or moving
+to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn cards in
+play than characters in the company. Eliminated Spawn do not count. The company
+must do nothing during its site phase this turn." — a `play-target: "company"`
+whose filter is `$and[ $or[ target.siteType == ruins-and-lairs,
+target.siteKeywords $includes under-deeps ], target.moreSpawnThanCompany ]`, plus
+the `company-site-phase-do-nothing` effect.
+
 ### 56c. `creature-alt-event` permanent-event mode + `tap-character`
 
 The `creature-alt-event` primitive (§56a) also supports `mode: "permanent-event"`

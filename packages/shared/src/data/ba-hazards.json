@@ -133,8 +133,28 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DarknessMadebyMalice.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a company at or moving to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn cards in play than characters in the company. Eliminated Spawn do not count. The company must do nothing during its site phase this turn."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$and": [
+            {
+              "$or": [
+                { "target.siteType": "ruins-and-lairs" },
+                { "target.siteKeywords": { "$includes": "under-deeps" } }
+              ]
+            },
+            { "target.moreSpawnThanCompany": true }
+          ]
+        }
+      },
+      {
+        "type": "company-site-phase-do-nothing"
+      }
+    ],
+    "text": "Playable on a company at or moving to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn cards in play than characters in the company. Eliminated Spawn do not count. The company must do nothing during its site phase this turn.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",

@@ -24,7 +24,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { logDetail, logHeading } from './log.js';
@@ -2233,6 +2233,45 @@ function playHazardsActions(
           if (!hasAllyTarget) {
             logDetail(`Hazard short-event "${def.name}" not playable — no allies in company`);
             actions.push({ action, viable: false, reason: 'No allies in company' });
+          }
+          continue;
+        }
+
+        // Company-targeting short events (e.g. Darkness Made by Malice ba-15):
+        // played on the active M/H company (at or moving to a site). The
+        // play-target filter gates on the target company's site type / keywords
+        // and a Spawn-count comparison. Use the destination site if the company
+        // is moving ("moving to"), otherwise its current site ("at").
+        if (shortPlayTarget?.target === 'company') {
+          const compSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+          let compSiteType: string | null = null;
+          let compSiteKeywords: readonly string[] = [];
+          if (compSiteInst) {
+            const compSiteDefId = resolveInstanceId(state, compSiteInst.instanceId);
+            const compSiteDef = compSiteDefId ? defById(state, compSiteDefId) : undefined;
+            if (compSiteDef && isSiteCard(compSiteDef)) {
+              compSiteType = compSiteDef.siteType;
+              compSiteKeywords = compSiteDef.keywords ?? [];
+            }
+          }
+          const characterCount = targetCompany.characters.length;
+          const spawnInPlayCount = countSpawnCardsInPlay(state);
+          const companyCtx = {
+            target: {
+              siteType: compSiteType,
+              siteKeywords: compSiteKeywords,
+              alignment: resourcePlayer.alignment,
+              characterCount,
+              spawnInPlayCount,
+              moreSpawnThanCompany: spawnInPlayCount > characterCount,
+            },
+          };
+          if (shortPlayTarget.filter && !matchesContext(shortPlayTarget.filter, companyCtx)) {
+            logDetail(`Hazard short-event "${def.name}": company filter not met (siteType=${compSiteType ?? 'none'}, spawn=${spawnInPlayCount}, chars=${characterCount})`);
+            actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company` });
+          } else {
+            logDetail(`Hazard short-event "${def.name}" playable on company (siteType=${compSiteType ?? 'none'}, spawn=${spawnInPlayCount} > chars=${characterCount})`);
+            actions.push({ action, viable: true });
           }
           continue;
         }
