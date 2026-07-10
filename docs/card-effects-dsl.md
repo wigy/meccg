@@ -6449,6 +6449,45 @@ the per-phase state reset) or passes to finalize the company
 item", via the `starting-item` keyword) and `duplication-limit` scope `game`
 ("Cannot be duplicated").
 
+### 52c. `surface-region-adjacency`
+
+Carried by a Balrog **permanent-event** played on an Under-deeps site during the
+organization phase (paired with a `play-target: { target: "site" }` filtered to
+the `under-deeps` keyword). Used by Caverns Unchoked (ba-51): "Playable on an
+Under-deeps site during the organization phase. This site is never discarded or
+returned to its location deck. Each other site (of yours) in the same region as
+its surface site is considered adjacent to this Under-deeps site … only if the
+other site is normally a Shadow-hold [{S}], Ruins & Lairs [{R}], or Border-hold
+[{B}]."
+
+```json
+{
+  "type": "surface-region-adjacency",
+  "siteTypes": ["shadow-hold", "ruins-and-lairs", "border-hold"]
+}
+```
+
+`siteTypes` lists the **printed** site types a same-region site must have to
+become adjacent. Behaviour, while the card is in play bound to Under-deeps site
+`U` (`CardInPlay.attachedToSite`):
+
+- **Permanence** — the card is exempt from the site-attached orphan sweep
+  (`discardOrphanedSiteAttachedEvents`, `reducer-utils.ts`), so it persists even
+  while `U` is unoccupied; and when a company leaves `U`, `U` is always returned
+  to the owner's location deck (never discarded — `mh-hazard-play.ts` step 8),
+  keeping it re-accessible ("never discarded or returned to its location deck").
+- **Adjacency** — each *other* site of the card's owner that is normally one of
+  `siteTypes` and lies in `U`'s region is treated as Under-deeps-adjacent to `U`
+  at a required roll of 0. (An Under-deeps site and its surface site always share
+  a region, so `U`'s own `region` names the surface region.) The dynamic
+  adjacency is added by `cavernsUnchokedAdjacencyRoll`
+  (`legal-actions/organization-companies.ts`) and consulted by
+  `isUnderDeepsAdjacent` and `getUnderDeepsRequiredRoll` via the moving player
+  (`forPlayer`), so only the owner's own companies benefit ("of yours"). Because
+  the movement-destination enumeration and the required-roll both bottom out in
+  those two helpers, both org-phase plan-movement and the M/H declare-path pick
+  it up automatically.
+
 ### 53. `site-item-trap`
 
 Carried by a hazard **permanent-event** attached to a site (via

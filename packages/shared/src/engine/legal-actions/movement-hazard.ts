@@ -173,7 +173,7 @@ function gangwaysOfferActions(
         if (used.has(siteInst.definitionId as string) || seen.has(siteInst.definitionId as string)) continue;
         const destDef = defById(state, siteInst.definitionId);
         if (!destDef || !isSiteCard(destDef)) continue;
-        if (!isUnderDeepsAdjacent(state, currentDef, destDef)) continue;
+        if (!isUnderDeepsAdjacent(state, currentDef, destDef, playerId)) continue;
         seen.add(siteInst.definitionId as string);
         actions.push({ type: 'gangways-extra-move', player: playerId, companyId: company.id, destinationSite: siteInst.instanceId });
         logDetail(`Gangways over the Fire: offering extra Under-deeps move to ${destDef.name}`);
@@ -310,7 +310,7 @@ function revealNewSiteActions(
   }
 
   // --- Under-deeps movement ---
-  if (isUnderDeepsAdjacent(state, originDef, destDef)) {
+  if (isUnderDeepsAdjacent(state, originDef, destDef, playerId)) {
     logDetail(`Under-deeps movement available: ${originDef.name} → ${destDef.name}`);
     actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.UnderDeeps });
   }

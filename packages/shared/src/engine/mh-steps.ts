@@ -32,7 +32,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, playerById, playerConvertsDetainmentToNormal, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
-import { resolveAdjacency } from './legal-actions/organization-companies.js';
+import { resolveAdjacency, cavernsUnchokedAdjacencyRoll } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
 import { isDetainmentAttack } from './detainment.js';
 import { advanceAfterCompanyMH } from './mh-hazard-play.js';
@@ -208,7 +208,7 @@ export function handleRevealNewSite(
     // Under-deeps: no region path — only site-type keyed hazards apply.
     // Determine required roll and either advance directly or enter the roll step.
     logDetail(`Under-deeps movement: no region path — only site-keyed hazards apply`);
-    let required = getUnderDeepsRequiredRoll(state, originDef, destDef);
+    let required = getUnderDeepsRequiredRoll(state, originDef, destDef, action.player);
     // The Balrog (ba-3): "+3 to the roll for his company to move between
     // adjacent Under-deeps sites" — modeled as -3 to the required roll,
     // mathematically equivalent for a single 2d6 comparison.
@@ -307,9 +307,10 @@ export function handleRevealNewSite(
  *
  * Checks origin's `adjacentSites` for the destination, then (if not found)
  * checks the destination's `adjacentSites` for the origin. When the origin
- * is a surface site (not under-deeps), the roll is always 0.
+ * is a surface site (not under-deeps), the roll is always 0. Caverns Unchoked
+ * (ba-51) adjacency for `forPlayer` also resolves to a roll of 0.
  */
-export function getUnderDeepsRequiredRoll(state: GameState, origin: import('../index.js').SiteCard, dest: import('../index.js').SiteCard): number {
+export function getUnderDeepsRequiredRoll(state: GameState, origin: import('../index.js').SiteCard, dest: import('../index.js').SiteCard, forPlayer?: import('../index.js').PlayerId): number {
   const originIsUD = origin.keywords?.includes('under-deeps') ?? false;
   if (!originIsUD) return 0;
 
@@ -318,6 +319,9 @@ export function getUnderDeepsRequiredRoll(state: GameState, origin: import('../i
 
   const fromDest = resolveAdjacency(state, dest, origin.name);
   if (fromDest !== undefined) return fromDest;
+
+  const caverns = cavernsUnchokedAdjacencyRoll(state, origin, dest, forPlayer);
+  if (caverns !== undefined) return caverns;
 
   return 0;
 }

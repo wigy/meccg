@@ -520,11 +520,22 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "keywords": { "$includes": "under-deeps" } }
+      },
+      {
+        "type": "surface-region-adjacency",
+        "siteTypes": ["shadow-hold", "ruins-and-lairs", "border-hold"]
+      }
+    ],
     "text": "Balrog specific. Playable on an Under-deeps site during the organization phase. This site is never discarded or returned to its location deck. Each other site (of yours) in the same region as its surface site is considered adjacent to this Under-deeps site. This only applies if the other site is normally a Shadow-hold [{S}], Ruins & Lairs [{R}], or Border-hold [{B}].",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
