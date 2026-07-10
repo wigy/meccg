@@ -111,6 +111,17 @@ export function phaseStateAs<T extends GameState['phaseState']>(state: GameState
   return state.phaseState as T;
 }
 
+/**
+ * The queued `opponent-influence-defend` attempt payload (attacker roll,
+ * influencer contribution, opponent GI, region penalty, …), or `undefined` if
+ * no such resolution is pending. Used by opponent-influence tests to inspect the
+ * computed modifiers before the defender rolls.
+ */
+export function opponentInfluenceAttempt(state: GameState) {
+  const pending = state.pendingResolutions.find(r => r.kind.type === 'opponent-influence-defend');
+  return pending?.kind.type === 'opponent-influence-defend' ? pending.kind.attempt : undefined;
+}
+
 /** Get all viable play-character actions for a player. */
 export function viablePlayCharacterActions(state: GameState, playerId: PlayerId) {
   return computeLegalActions(state, playerId)

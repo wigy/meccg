@@ -1860,9 +1860,37 @@
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "player.avatar": "Pallando" },
+            { "player.stagePoints": { "$gte": 12 } },
+            { "player.factionCount": { "$gte": 5 } }
+          ]
+        }
+      },
+      {
+        "type": "opponent-influence-override",
+        "influencer": "Pallando",
+        "fromAnySite": true,
+        "generalInfluenceSubstitution": { "divisor": 2, "roundUp": true, "max": 10 },
+        "regionDistancePenalty": true
+      },
+      {
+        "type": "discard-self-when",
+        "condition": { "player.factionCount": { "$lt": 5 } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
       }
     ],
-    "text": "Pallando specific. Playable if you are Pallando and have at least 12 stage points and 5 factions in play. Pallando need not be at the appropriate site when making an influence attempt on an opponent’s resource or character. Such an influence check is modified by half (rounded up) of Pallando’s unused general influence (to a maximum of 10) instead of his unused direct influence. Subtract from the attempt the number of regions between Pallando’s site and the site where the influence attempt would normally be made. Discard if you have fewer than 5 factions in play. Cannot be duplicated."
+    "text": "Pallando specific. Playable if you are Pallando and have at least 12 stage points and 5 factions in play. Pallando need not be at the appropriate site when making an influence attempt on an opponent’s resource or character. Such an influence check is modified by half (rounded up) of Pallando’s unused general influence (to a maximum of 10) instead of his unused direct influence. Subtract from the attempt the number of regions between Pallando’s site and the site where the influence attempt would normally be made. Discard if you have fewer than 5 factions in play. Cannot be duplicated.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",

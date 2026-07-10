@@ -6705,3 +6705,73 @@ hazard creature from your hand (show opponent)**." Modeled as a `play-condition`
 (`site-path`, `sitePath.wildernessCount >= 2`), this `play-discard-cost`, a
 `play-target` (`character`, `target.race != wizard`), and a
 `seized-by-terror-check` (`threshold: 13`).
+
+### 61. `opponent-influence-override` (Prophet of Doom)
+
+Modifies a **named influencer's** opponent-influence attempts (CoE rule 10.10 —
+influencing away an opponent's in-play character/ally/faction during your site
+phase). Carried by an in-play stage permanent-event; while the card is in play,
+every opponent-influence attempt made by the influencer whose name matches
+`influencer` (the active player's avatar) is modified:
+
+- `fromAnySite` — the influencer "need not be at the appropriate site": the
+  normal same-site requirement is lifted, so he may target the opponent's cards
+  in any of their companies (and any of their in-play factions), regardless of
+  where his own (active) company stands. The legal-action generator
+  (`opponentInfluenceActions` in `legal-actions/site.ts`) offers the override
+  influencer targets at every opponent company / faction; other influencers stay
+  bound to the same site.
+- `generalInfluenceSubstitution` — the influence check adds a value derived from
+  the influencer's *player's unused general influence* (`unusedGI / divisor`,
+  rounded up when `roundUp`, capped at `max`) **instead of** the influencer's
+  unused direct influence.
+- `regionDistancePenalty` — subtract the number of regions between the
+  influencer's site and the site where the attempt would normally be made (for a
+  character/ally, the opponent company's site; for a faction, the nearest region
+  it is playable in). Per CRF 22 the count is **inclusive** of both endpoint
+  regions (same region = 1, adjacent = 2, …).
+
+The reducer (`handleOpponentInfluenceAttempt` in `reducer-site.ts`) detects the
+override from state (matching `influencer` to the tapping character's name and
+finding the card in play), substitutes the general-influence contribution for
+the influencer's DI in the queued `opponent-influence-defend` payload, and
+records the `regionPenalty`, which `resolveOpponentInfluenceDefend` subtracts
+from the attacker's final result.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `influencer` | yes | Name of the influencer this override applies to (e.g. `"Pallando"`). |
+| `fromAnySite` | no | Lift the same-site requirement — target opponents at any site. |
+| `generalInfluenceSubstitution` | no | `{ divisor, roundUp?, max }` — substitute the influencer's DI with `unusedGI / divisor` (rounded up / down), capped at `max`. |
+| `regionDistancePenalty` | no | Subtract the inclusive region distance to the target's site. |
+
+```json
+{ "type": "opponent-influence-override",
+  "influencer": "Pallando",
+  "fromAnySite": true,
+  "generalInfluenceSubstitution": { "divisor": 2, "roundUp": true, "max": 10 },
+  "regionDistancePenalty": true }
+```
+
+Used by Prophet of Doom (wh-106).
+
+### 62. `discard-self-when`
+
+Discards the carrying in-play card the moment a player-state condition holds.
+Evaluated as `postReduce` housekeeping (`sweepDiscardSelfWhen` in
+`discard-self-when.ts`) against the card controller's player-state context — the
+same context used by `play-condition` `requires: "player-state"`
+(`player.avatar`, `player.stagePoints`, `player.factionCount`, …). Distinct from
+the play-condition, which gates *entry* to play; this gates *staying* in play.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `condition` | yes | DSL condition (against the player-state context) that forces the discard. |
+
+```json
+{ "type": "discard-self-when",
+  "condition": { "player.factionCount": { "$lt": 5 } } }
+```
+
+Used by Prophet of Doom (wh-106): "Discard if you have fewer than 5 factions in
+play."

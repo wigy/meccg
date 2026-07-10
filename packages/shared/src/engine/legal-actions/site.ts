@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1994,13 +1994,33 @@ function opponentInfluenceActions(
     ? ''
     : `, cross-alignment penalty: ${crossAlignmentPenalty}`;
 
-  // Find opponent companies at the same site
+  // Prophet of Doom (wh-106): while the override is in play, its named influencer
+  // (Pallando, an untapped character in this company) "need not be at the
+  // appropriate site" — he may target the opponent's cards at any site. Other
+  // influencers remain bound to the same site.
+  const override = getOpponentInfluenceOverride(state, player);
+  const overrideInfluencer = override
+    ? untappedCharacters.find(ch => {
+      const d = defById(state, ch.definitionId);
+      return d && isCharacterCard(d) && d.name === override.influencer;
+    })
+    : undefined;
+
+  // Find opponent companies (same site normally; any site for the override
+  // influencer).
   for (const oppCompany of opponent.companies) {
     if (!oppCompany.currentSite) continue;
     const oppSiteDef = resolveDef(state, oppCompany.currentSite.instanceId);
-    if (!oppSiteDef || !isSiteCard(oppSiteDef) || oppSiteDef.name !== siteDef.name) continue;
+    if (!oppSiteDef || !isSiteCard(oppSiteDef)) continue;
+    const sameSite = oppSiteDef.name === siteDef.name;
+    // Influencers eligible for this company: everyone at the same site, else
+    // only the override influencer reaching out from afar.
+    const eligibleInfluencers = sameSite
+      ? untappedCharacters
+      : overrideInfluencer ? [overrideInfluencer] : [];
+    if (eligibleInfluencers.length === 0) continue;
 
-    logDetail(`Opponent influence: opponent company at same site ${siteDef.name}`);
+    logDetail(`Opponent influence: opponent company at ${oppSiteDef.name}${sameSite ? ' (same site)' : ' (reachable via Prophet of Doom)'}`);
 
     // Check each opponent character at this site
     for (const oppCharId of oppCompany.characters) {
@@ -2035,8 +2055,8 @@ function opponentInfluenceActions(
         controllerDI = availableDI(state, oppChar.controlledBy, opponent);
       }
 
-      // Generate action per untapped influencer
-      for (const ch of untappedCharacters) {
+      // Generate action per eligible influencer
+      for (const ch of eligibleInfluencers) {
         const charDef = defById(state, ch.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
 
@@ -2092,7 +2112,7 @@ function opponentInfluenceActions(
         // Controller DI for ally = DI of the character controlling it
         const allyControllerDI = availableDI(state, oppCharId, opponent);
 
-        for (const ch of untappedCharacters) {
+        for (const ch of eligibleInfluencers) {
           const charDef = defById(state, ch.definitionId);
           if (!charDef || !isCharacterCard(charDef)) continue;
 
@@ -2151,14 +2171,21 @@ function opponentInfluenceActions(
     const factionDef = defById(state, factionInPlay.definitionId);
     if (!factionDef || !isFactionCard(factionDef)) continue;
 
-    if (!factionDef.playableAt.some(entry => siteMatchesEntry(siteDef, entry, undefined, siteRegionTypeOf(state, siteDef)))) {
+    // Normally re-influence requires the active company to be at a site where
+    // the faction is playable. Prophet of Doom's override influencer may reach
+    // any of the opponent's in-play factions regardless of the current site.
+    const playableHere = factionDef.playableAt.some(entry => siteMatchesEntry(siteDef, entry, undefined, siteRegionTypeOf(state, siteDef)));
+    const factionInfluencers = playableHere
+      ? untappedCharacters
+      : overrideInfluencer ? [overrideInfluencer] : [];
+    if (factionInfluencers.length === 0) {
       logDetail(`Opponent influence: ${factionDef.name} not playable at ${siteDef.name} — skip`);
       continue;
     }
 
     const targetValue = factionDef.inPlayInfluenceNumber ?? factionDef.influenceNumber;
 
-    for (const ch of untappedCharacters) {
+    for (const ch of factionInfluencers) {
       const charDef = defById(state, ch.definitionId);
       if (!charDef || !isCharacterCard(charDef)) continue;
 
