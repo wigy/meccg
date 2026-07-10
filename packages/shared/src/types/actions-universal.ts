@@ -375,6 +375,20 @@ export interface ChooseRevealedCardAction {
 }
 
 /**
+ * Choose one of the opponent's revealed discard-pile cards to remove from the
+ * game (Aware of their Ways, dm-46). Resolves a `reveal-remove-from-discard`
+ * pending resolution: the chosen non-unique card moves from the opponent's
+ * discard pile to their out-of-play pile. Declining is a `pass`.
+ */
+export interface RemoveRevealedCardAction {
+  readonly type: 'remove-revealed-card';
+  /** The card-player choosing which revealed discard card to remove. */
+  readonly player: PlayerId;
+  /** The instance ID of the revealed card to remove from play. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Choose which of the opponent's piles is revealed by The Great Hunt (wh-91).
  * Resolves a `great-hunt-source` pending resolution and kicks off the
  * reveal-and-attack sequence against the controller's Alatar company.

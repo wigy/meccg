@@ -995,6 +995,32 @@ export interface RevealChooseShuffleEffect extends EffectBase {
 }
 
 /**
+ * Reveals `count` cards chosen **at random** from the opponent's discard pile,
+ * then lets the card-player pick at most one **non-unique** revealed card and
+ * remove it from the game (to the owner's out-of-play pile). The remaining
+ * revealed cards stay in the discard pile.
+ *
+ * Carried by a hazard short-event and resolved when the event resolves on the
+ * chain. If the opponent's discard pile is empty the effect fizzles; if fewer
+ * than `count` cards are present, all of them are revealed. The random subset
+ * is drawn with the seeded RNG so replays stay deterministic.
+ *
+ * Per the French errata, **sites are treated as unique** (never removable),
+ * so `removableFilter` defaults to "non-unique, non-site". A choice is only
+ * offered when at least one revealed card is removable; the player may still
+ * decline ("You may choose…").
+ *
+ * Used by *Aware of their Ways* (dm-46): "Opponent reveals four cards at random
+ * from his discard pile. You may choose a non-unique one and remove it from
+ * play. Opponent discards the other three."
+ */
+export interface RevealRemoveFromDiscardEffect extends EffectBase {
+  readonly type: 'reveal-remove-from-discard';
+  /** How many cards are revealed at random from the opponent's discard pile. */
+  readonly count: number;
+}
+
+/**
  * Removes an opponent's face-up agent from play, or (as an alternative mode)
  * discards one of the opponent's unrevealed on-guard cards.
  *
@@ -3756,6 +3782,7 @@ export type CardEffect =
   | ForceOpponentDiscardEffect
   | CycleHandEffect
   | RevealChooseShuffleEffect
+  | RevealRemoveFromDiscardEffect
   | WithdrawAgentEffect
   | GrantActionEffect
   | OnEventEffect

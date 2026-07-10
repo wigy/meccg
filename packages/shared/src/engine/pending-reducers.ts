@@ -2523,6 +2523,64 @@ export function applyRevealChooseToHandResolution(
 }
 
 /**
+ * Resolve a `reveal-remove-from-discard` pending resolution (Aware of their
+ * Ways, dm-46).
+ *
+ * The card-player picks one of the revealed non-unique cards in the opponent's
+ * discard pile via a `remove-revealed-card` action (moving it to the opponent's
+ * out-of-play pile — removed from the game), or declines with `pass`. Either
+ * way the remaining revealed cards stay in the discard pile. The choice is
+ * optional ("You may choose…").
+ */
+export function applyRevealRemoveFromDiscardResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'reveal-remove-from-discard') return null;
+
+  if (action.type === 'pass') {
+    if (action.player !== top.actor) {
+      return { state, error: 'Wrong player for reveal-remove-from-discard' };
+    }
+    logDetail('reveal-remove-from-discard: card-player declines — no card removed from play');
+    return { state: dequeueResolution(state, top.id) };
+  }
+  if (action.type !== 'remove-revealed-card') {
+    return { state, error: `Pending reveal-remove-from-discard requires remove-revealed-card or pass, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for reveal-remove-from-discard' };
+  }
+
+  const { removableInstanceIds, opponentId } = top.kind;
+  if (!removableInstanceIds.includes(action.cardInstanceId)) {
+    return { state, error: `Card ${action.cardInstanceId as string} is not a removable revealed card` };
+  }
+
+  const opponentIdx = getPlayerIndex(state, opponentId);
+  const opponent = state.players[opponentIdx];
+  const chosen = opponent.discardPile.find(c => c.instanceId === action.cardInstanceId);
+  if (!chosen) {
+    return { state, error: `Revealed card ${action.cardInstanceId as string} not found in discard pile` };
+  }
+
+  const chosenName = cardName(state, chosen.definitionId);
+  logDetail(
+    `reveal-remove-from-discard: ${action.player as string} removes "${chosenName}" from play ` +
+    `(${opponent.name}'s discard → out-of-play)`,
+  );
+  // Move the chosen card from the opponent's discard pile to their out-of-play
+  // pile (removed from the game). No instance is lost.
+  const newState = updatePlayer(state, opponentIdx, p => ({
+    ...p,
+    discardPile: p.discardPile.filter(c => c.instanceId !== action.cardInstanceId),
+    outOfPlayPile: [...p.outOfPlayPile, chosen],
+  }));
+  return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
  * Resolve a `agent-play-manifestation-offer` pending resolution (My Precious
  * dm-29): after My Precious attacks and fails but survives, the defender may tap
  * a character in the target company to play Gollum from hand — discarding My
