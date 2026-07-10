@@ -22,7 +22,8 @@ import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceR
 import { isSiteCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
-import { playerById, getCardEffects, defById } from '../reducer-utils.js';
+import { playerById, getCardEffects, defById, companyById } from '../reducer-utils.js';
+import { companyContainsBalrogAvatar } from '../../state-utils.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { heroResourceShortEventActions } from './long-event.js';
 
@@ -64,6 +65,12 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // Goldberry and similar allies: tap to cancel a force-return-to-origin chain entry
   if (chain.restriction === 'normal' && state.phaseState.phase === Phase.MovementHazard) {
     actions.push(...cancelReturnToOriginChainActions(state, playerId));
+  }
+
+  // Great Fissure (ba-61): the Balrog attacker may counter-cancel an opponent's
+  // chain entry that would cancel their company-vs-company attack.
+  if (chain.restriction === 'normal') {
+    actions.push(...counterCancelAttackChainActions(state, playerId));
   }
 
   // Granted-action constraints (Great Ship, and any future card whose
@@ -358,6 +365,64 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
     }
   }
 
+  return actions;
+}
+
+/**
+ * Great Fissure (ba-61): during a chain, the Balrog player whose company is
+ * attacking an opponent's company (CvCC) may play a resource short-event
+ * carrying `cancel-chain-attack-cancel` from hand to negate an unresolved chain
+ * entry — declared by the opponent — that would cancel that attack (carries a
+ * `cancel-attack` effect).
+ *
+ * Emits one `counter-cancel-attack` action per (hand card, target entry) pair.
+ * Only offered to the CvCC attacker whose attacking company contains The Balrog.
+ */
+function counterCancelAttackChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const chain = state.chain;
+  if (!chain) return [];
+  const combat = state.combat;
+  if (!combat || !combat.isCvCC || combat.attackSource.type !== 'company-attack') return [];
+  // Only the attacking player may counter-cancel a cancel of their own attack.
+  if (combat.attackingPlayerId !== playerId) return [];
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  // The attack must be by The Balrog's company.
+  const attackingCompany = companyById(player.companies, combat.attackSource.attackingCompanyId);
+  if (!attackingCompany || !companyContainsBalrogAvatar(state, player, attackingCompany)) return [];
+
+  // Collect unresolved, un-negated chain entries declared by the opponent that
+  // carry a cancel-attack effect (the effect that would cancel the attack).
+  const cancelEntries: CardInstanceId[] = [];
+  for (const e of chain.entries) {
+    if (e.resolved || e.negated || !e.card) continue;
+    if (e.declaredBy === playerId) continue;
+    const def = defById(state, e.card.definitionId);
+    if (getCardEffects(def).some(eff => eff.type === 'cancel-attack')) {
+      cancelEntries.push(e.card.instanceId);
+    }
+  }
+  if (cancelEntries.length === 0) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const handCard of player.hand) {
+    const def = defById(state, handCard.definitionId);
+    if (!getCardEffects(def).some(e => e.type === 'cancel-chain-attack-cancel')) continue;
+    for (const targetInstanceId of cancelEntries) {
+      logDetail(`counter-cancel-attack: ${(def as { name?: string }).name ?? (handCard.definitionId as string)} can negate an opponent's cancel-attack on the chain`);
+      actions.push({
+        action: {
+          type: 'counter-cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetInstanceId,
+        },
+        viable: true,
+      });
+    }
+  }
   return actions;
 }
 

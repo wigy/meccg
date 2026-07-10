@@ -1739,6 +1739,16 @@ function cancelAttackActions(
   const destSiteDef = company.destinationSite ? state.cardPool[company.destinationSite.definitionId] : undefined;
   const destinationRegion = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.region : undefined;
 
+  // Whether the defending company is at, or moving to or from, an Under-deeps
+  // site. During movement `currentSite` is the origin and `destinationSite` the
+  // target, so checking both covers "at" (origin, not moving), "moving from"
+  // (origin), and "moving to" (destination). Lets a cancel-attack `when` gate on
+  // `attack.atUnderDeeps` — Great Fissure (ba-61).
+  const hasUnderDeeps = (d: unknown): boolean =>
+    !!d && 'keywords' in (d as object)
+    && !!(d as { keywords?: readonly string[] }).keywords?.includes('under-deeps');
+  const atUnderDeeps = hasUnderDeeps(siteDef) || hasUnderDeeps(destSiteDef);
+
   const whenContext = (): Record<string, unknown> => {
     const ctx: Record<string, unknown> = {};
     if (combat.creatureRace) {
@@ -1779,6 +1789,10 @@ function cancelAttackActions(
       heroCompany = atkAlignment === Alignment.Wizard || atkAlignment === Alignment.FallenWizard;
     }
     attackCtx['heroCompany'] = heroCompany;
+    // Whether the defending company is at, or moving to or from, an Under-deeps
+    // site. Backs Great Fissure (ba-61): "cancel an attack against a company at,
+    // or moving to or from, an Under-deeps site."
+    attackCtx['atUnderDeeps'] = atUnderDeeps;
     ctx['attack'] = attackCtx;
     ctx['bearer'] = { companySize: company.characters.length, atHaven, destinationRegion };
     // The defending company's current site type (e.g. "ruins-and-lairs"). Lets a
