@@ -667,6 +667,14 @@ export type ChainEntryPayload =
   | {
       readonly type: 'short-event';
       readonly targetInstanceId?: CardInstanceId;
+      /**
+       * For a counter-cancel-roll short-event (Black Vapour ba-14), the chain
+       * entry (a cancel-attack) this card is countering. Distinct from
+       * {@link targetInstanceId} because that field triggers the Twilight-style
+       * environment-cancel path; this one is read only by the
+       * counter-cancel-attack-roll resolution branch, which enqueues a roll.
+       */
+      readonly counterCancelTargetInstanceId?: CardInstanceId;
       readonly targetCharacterId?: CardInstanceId;
       readonly targetFactionInstanceId?: CardInstanceId;
       /** For Stay Her Appetite (le-140): the ally being targeted. */

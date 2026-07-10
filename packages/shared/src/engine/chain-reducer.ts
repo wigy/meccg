@@ -33,7 +33,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companySubphaseScope, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companySubphaseScope, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -182,6 +182,8 @@ export function handleChainAction(state: GameState, action: GameAction): Reducer
       return handleChainRevealOnGuard(state, chain, action);
     case 'cancel-return-to-origin':
       return handleCancelReturnToOrigin(state, chain, action);
+    case 'counter-cancel-roll':
+      return handleCounterCancelRoll(state, chain, action);
     default:
       return { state, error: `Unexpected chain action: ${action.type}` };
   }
@@ -407,6 +409,133 @@ function handleCancelReturnToOrigin(
   };
 
   return { state: { ...state, players: newPlayers, chain: newChain } };
+}
+
+/**
+ * Handles a `counter-cancel-roll` action (Black Vapour ba-14): the attacking
+ * (hazard) player plays the card — from hand or from an on-guard slot on the
+ * defending company — to counter an opponent-declared chain entry that would
+ * cancel a creature attack of a matching race (Spider).
+ *
+ * Unlike Goldberry's {@link handleCancelReturnToOrigin}, the counter is not
+ * automatic: the card is pushed onto the chain as a short-event entry carrying
+ * the target's instance id in `payload.targetInstanceId`. When that entry
+ * resolves (LIFO, before the cancel it targets) it enqueues a `dice-check`
+ * (roll 2d6 + the attack's prowess) in {@link resolveEntry}. On a total greater
+ * than the card's threshold the cancel entry is negated and the attack gains
+ * prowess; otherwise the cancel resolves and ends the attack.
+ */
+function handleCounterCancelRoll(
+  state: GameState,
+  chain: ChainState,
+  action: import('../index.js').PlayCounterCancelRollAction,
+): ReducerResult {
+  logHeading(`Chain: counter-cancel-roll by player ${action.player as string}`);
+
+  if (chain.mode !== 'declaring') {
+    return { state, error: 'counter-cancel-roll: chain is not in declaring mode' };
+  }
+  if (action.player !== chain.priority) {
+    return { state, error: 'counter-cancel-roll: player does not have priority' };
+  }
+
+  const combat = state.combat;
+  if (!combat) {
+    return { state, error: 'counter-cancel-roll: no attack in progress' };
+  }
+  if (combat.attackingPlayerId !== action.player) {
+    return { state, error: 'counter-cancel-roll: only the attacking player may counter-cancel' };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  // Locate the card: in the attacker's hand, or on-guard on the defending
+  // company (the hazard player owns the on-guard cards during a site-phase
+  // attack, so an on-guard reveal plays exactly like a hand card here).
+  let handCard = findById(player.hand, action.cardInstanceId);
+  let onGuard: { defenderIndex: number; companyIndex: number; ogIndex: number } | undefined;
+  if (!handCard) {
+    const defenderIndex = getPlayerIndex(state, combat.defendingPlayerId);
+    const defender = state.players[defenderIndex];
+    const companyIndex = defender.companies.findIndex(c => c.id === combat.companyId);
+    if (companyIndex >= 0) {
+      const ogIndex = defender.companies[companyIndex].onGuardCards.findIndex(
+        og => !og.revealed && og.instanceId === action.cardInstanceId,
+      );
+      if (ogIndex >= 0) {
+        const og = defender.companies[companyIndex].onGuardCards[ogIndex];
+        handCard = { instanceId: og.instanceId, definitionId: og.definitionId };
+        onGuard = { defenderIndex, companyIndex, ogIndex };
+      }
+    }
+  }
+  if (!handCard) return { state, error: 'counter-cancel-roll: card not in hand or on-guard' };
+
+  const cardDef = defById(state, handCard.definitionId);
+  const rollEffect = getCardEffects(cardDef).find(
+    (e): e is import('../types/effects.js').CounterCancelAttackRollEffect => e.type === 'counter-cancel-attack-roll',
+  );
+  if (!rollEffect) return { state, error: 'counter-cancel-roll: card has no counter-cancel-attack-roll effect' };
+
+  // The attack being defended must be of a race this card can counter.
+  const attackRace = combat.creatureRace ?? '';
+  if (!rollEffect.race.includes(attackRace)) {
+    return { state, error: `counter-cancel-roll: attack race "${attackRace}" not counterable by this card` };
+  }
+
+  // The target must be an unresolved, un-negated chain entry declared by the
+  // opponent that carries a cancel-attack effect (the effect being countered).
+  const entryIdx = chain.entries.findIndex(
+    e => e.card?.instanceId === action.targetInstanceId && !e.resolved && !e.negated,
+  );
+  if (entryIdx === -1) return { state, error: 'counter-cancel-roll: target chain entry not found' };
+  const targetEntry = chain.entries[entryIdx];
+  if (targetEntry.declaredBy === action.player) {
+    return { state, error: 'counter-cancel-roll: cannot target your own chain entry' };
+  }
+  const targetDef = defById(state, targetEntry.card!.definitionId);
+  if (!getCardEffects(targetDef).some(e => e.type === 'cancel-attack')) {
+    return { state, error: 'counter-cancel-roll: target does not cancel an attack' };
+  }
+
+  const cardName = (cardDef as { name?: string })?.name ?? (handCard.definitionId as string);
+  const targetName = (targetDef as { name?: string })?.name ?? (action.targetInstanceId as string);
+  logDetail(`counter-cancel-roll: ${cardName} targets "${targetName}" (attack prowess ${combat.strikeProwess}, threshold ${rollEffect.threshold})`);
+
+  // Remove the card from its source and place it in the attacker's discard pile
+  // (short events are physically discarded at play time; the chain holds only a
+  // reference).
+  const discarded = toCardInstance(handCard);
+  let resultState: GameState;
+  if (onGuard) {
+    const og = onGuard;
+    const withoutOnGuard = updatePlayer(state, og.defenderIndex, p => {
+      const companies = [...p.companies];
+      const company = companies[og.companyIndex];
+      const onGuardCards = [...company.onGuardCards];
+      onGuardCards.splice(og.ogIndex, 1);
+      companies[og.companyIndex] = { ...company, onGuardCards };
+      return { ...p, companies };
+    });
+    resultState = updatePlayer(withoutOnGuard, playerIndex, p => ({ ...p, discardPile: [...p.discardPile, discarded] }));
+  } else {
+    resultState = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+      discardPile: [...p.discardPile, discarded],
+    }));
+  }
+
+  // Push Black Vapour as a short-event chain entry carrying the target. It sits
+  // above the cancel entry (LIFO) so it resolves first; priority flips to the
+  // opponent so they may respond further.
+  resultState = pushChainEntry(resultState, action.player, discarded, {
+    type: 'short-event',
+    counterCancelTargetInstanceId: action.targetInstanceId,
+  });
+
+  return { state: resultState };
 }
 
 /**
@@ -2526,6 +2655,47 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         });
         return { state: current, needsInput: true };
       }
+    }
+  }
+
+  // Counter-cancel-attack-roll (Black Vapour ba-14): when the countering short
+  // event resolves un-negated, enqueue a `dice-check` for the attacking (hazard)
+  // player: roll 2d6 + the attack's current prowess. On a total greater than the
+  // threshold, negate the targeted cancel entry and boost the attack (the onPass
+  // `counter-cancel-attack` verb); otherwise the cancel resolves normally. The
+  // check's `continuation` marks this entry resolved and resumes the chain, so
+  // the (now negated or intact) cancel entry is processed next.
+  if (entry.payload.type === 'short-event'
+    && entry.payload.counterCancelTargetInstanceId
+    && !entry.negated
+    && entry.card
+    && current.combat) {
+    const cardDef = defById(current, entry.card.definitionId);
+    const rollEffect = getCardEffects(cardDef).find(
+      (e): e is import('../types/effects.js').CounterCancelAttackRollEffect => e.type === 'counter-cancel-attack-roll',
+    );
+    if (rollEffect) {
+      const attackProwess = current.combat.strikeProwess;
+      const scope = companySubphaseScope(current.phaseState.phase, current.combat.companyId);
+      const targetInstanceId = entry.payload.counterCancelTargetInstanceId;
+      logDetail(`Counter-cancel-attack-roll: enqueuing dice-check (roll + attack prowess ${attackProwess} > ${rollEffect.threshold}) to counter "${targetInstanceId as string}"`);
+      current = enqueueResolution(current, {
+        source: entry.card.instanceId,
+        actor: entry.declaredBy,
+        scope,
+        kind: {
+          type: 'dice-check',
+          label: 'Black Vapour counter-cancel',
+          roller: entry.declaredBy,
+          modifiers: [{ kind: 'constant', value: attackProwess }],
+          threshold: rollEffect.threshold,
+          comparison: 'gt',
+          onPass: { type: 'counter-cancel-attack', prowessBonus: rollEffect.prowessBonus },
+          continuation: { kind: 'chain-entry', match: 'source' },
+          targetInstanceId,
+        },
+      });
+      return { state: current, needsInput: true };
     }
   }
 

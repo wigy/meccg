@@ -763,6 +763,25 @@ export interface CancelReturnToOriginAction {
 }
 
 /**
+ * Play a hazard short-event (Black Vapour ba-14) from hand — or reveal it from
+ * on-guard — during a combat chain to counter an opponent's chain entry that
+ * would cancel a creature attack of a matching race. The card is pushed onto
+ * the chain as a short-event entry carrying {@link targetInstanceId}; when it
+ * resolves it enqueues a roll (2d6 + the attack's prowess) that, on success,
+ * negates the target cancel and boosts the surviving attack.
+ */
+export interface PlayCounterCancelRollAction {
+  /** Action discriminant. */
+  readonly type: 'counter-cancel-roll';
+  /** The attacking (hazard) player playing the counter-cancel card. */
+  readonly player: PlayerId;
+  /** The Black Vapour card being played (in hand or on-guard on the defender). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The chain entry's card instance to counter (the opponent's cancel-attack). */
+  readonly targetInstanceId: CardInstanceId;
+}
+
+/**
  * Tap an in-play ally to discard a hazard permanent-event attached to the
  * ally's (moving) company or to a character in it. Backs the discard mode of
  * Last Child of Ungoliant (le-153): "tap this ally to ... discard one hazard
