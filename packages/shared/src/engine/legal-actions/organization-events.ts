@@ -159,11 +159,24 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // Haven wh-74, Double-dealing wh-66, Saruman's Machinery wh-120) is
       // offered here against any of the player's companies whose current site
       // matches the play-target filter; playing it binds the card to that site.
-      // Non-Stage site-targeting permanent events (e.g. hero events erratated
-      // "Playable during the site phase") are handled by the site phase instead.
-      if (!isStageResource) {
+      // Caverns Unchoked (ba-51) is a Balrog resource permanent-event that
+      // likewise declares organization-phase-on-site timing (via its
+      // `surface-region-adjacency` effect). Non-Stage site-targeting permanent
+      // events without such a marker (e.g. hero events erratated "Playable
+      // during the site phase") are handled by the site phase instead.
+      const isCavernsUnchoked = def.effects?.some(e => e.type === 'surface-region-adjacency') ?? false;
+      const orgPhaseSiteTiming = isStageResource || isCavernsUnchoked;
+      if (!orgPhaseSiteTiming) {
         logDetail(`Permanent event ${def.name}: requires a site target — only playable during the site phase`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during the site phase`));
+        continue;
+      }
+      // Caverns Unchoked (ba-51) is "Playable ... during the organization
+      // phase." Stage resources are already blocked outside the organization
+      // phase above; block the non-stage Caverns Unchoked here too so the
+      // rule-2.1.1 "any phase" allowance does not offer it during movement/hazard.
+      if (isCavernsUnchoked && state.phaseState.phase !== Phase.Organization) {
+        logDetail(`Permanent event ${def.name}: only playable during the organization phase (current ${state.phaseState.phase})`);
         continue;
       }
 

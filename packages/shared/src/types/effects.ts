@@ -3462,6 +3462,39 @@ export interface FactionInfluenceRestrictionEffect extends EffectBase {
 }
 
 /**
+ * Caverns Unchoked (ba-51): a Balrog permanent-event played on an Under-deeps
+ * site during the organization phase (via a companion `play-target: site`
+ * filtered to the `under-deeps` keyword). While in play the card is bound to
+ * that Under-deeps site (`CardInPlay.attachedToSite`) and has two effects:
+ *
+ * 1. **Permanence** — the bound site "is never discarded or returned to its
+ *    location deck". The card itself is exempted from the site-attached orphan
+ *    sweep ({@link import('../engine/reducer-utils.js').discardOrphanedSiteAttachedEvents}),
+ *    so it persists even while the site is unoccupied, and when a company
+ *    leaves the bound site it is always returned to the owner's location deck
+ *    (never discarded), keeping it re-accessible.
+ * 2. **Surface-region adjacency** — each *other* site of the card's owner that
+ *    is normally one of `siteTypes` (Shadow-hold / Ruins & Lairs / Border-hold)
+ *    and lies in the same region as the Under-deeps site's surface site is
+ *    treated as Under-deeps-adjacent to it at a required roll of 0. Because an
+ *    Under-deeps site and its surface site always share a region, the region is
+ *    taken from the Under-deeps site's own `region` field. The adjacency is
+ *    consulted by {@link import('../engine/legal-actions/organization-companies.js').isUnderDeepsAdjacent}
+ *    and {@link import('../engine/mh-steps.js').getUnderDeepsRequiredRoll} via the
+ *    moving player (`forPlayer`), so only the owner's own companies benefit
+ *    ("of yours").
+ */
+export interface SurfaceRegionAdjacencyEffect extends EffectBase {
+  readonly type: 'surface-region-adjacency';
+  /**
+   * The *normal* (printed) site types that a same-region site must have to
+   * become adjacent. Caverns Unchoked uses shadow-hold / ruins-and-lairs /
+   * border-hold.
+   */
+  readonly siteTypes: readonly SiteType[];
+}
+
+/**
  * Augments a Dragon's lair with an additional automatic-attack while this
  * "At-Home" permanent-event is in play and the same Dragon's Ahunt
  * long-event is *not* in play.
@@ -3935,6 +3968,7 @@ export type CardEffect =
   | AgentTapReturnCharacterEffect
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
+  | SurfaceRegionAdjacencyEffect
   | FactionInfluenceRestrictionEffect;
 
 /**

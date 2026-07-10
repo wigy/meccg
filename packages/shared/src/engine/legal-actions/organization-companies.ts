@@ -88,16 +88,93 @@ export function resolveAdjacency(state: GameState, site: SiteCard, targetName: s
   return undefined;
 }
 
+/** Printed site types that Caverns Unchoked (ba-51) may bridge to. */
+const CAVERNS_UNCHOKED_DEFAULT_SITE_TYPES: readonly SiteType[] = [
+  SiteType.ShadowHold,
+  SiteType.RuinsAndLairs,
+  SiteType.BorderHold,
+];
+
+/**
+ * True when `player` owns the site definition `siteDefId` — it sits in their
+ * location deck or is one of their companies' current sites. Backs the "each
+ * other site (of yours)" clause of Caverns Unchoked (ba-51).
+ */
+function playerOwnsSiteDef(player: PlayerState, siteDefId: CardDefinitionId): boolean {
+  if (player.siteDeck.some(s => s.definitionId === siteDefId)) return true;
+  return player.companies.some(
+    c => c.currentSite?.definitionId === siteDefId || c.destinationSite?.definitionId === siteDefId,
+  );
+}
+
+/**
+ * Dynamic Under-deeps adjacency granted by Caverns Unchoked (ba-51). While the
+ * card is in `forPlayer`'s `cardsInPlay` bound to an Under-deeps site U
+ * (`attachedToSite`), each *other* site of theirs that is normally a Shadow-hold
+ * / Ruins & Lairs / Border-hold and lies in U's region is adjacent to U at a
+ * required roll of 0 (an Under-deeps site and its surface site always share a
+ * region, so U's own `region` names the surface region).
+ *
+ * Returns 0 when one of `siteA`/`siteB` is such a bound Under-deeps site and the
+ * other is a qualifying same-region site of `forPlayer`; otherwise `undefined`.
+ * `forPlayer` is required — only the card owner's companies benefit ("of
+ * yours"), so player-agnostic callers (e.g. hazard-creature keying) pass
+ * `undefined` and see no dynamic adjacency.
+ */
+export function cavernsUnchokedAdjacencyRoll(
+  state: GameState,
+  siteA: SiteCard,
+  siteB: SiteCard,
+  forPlayer: PlayerId | undefined,
+): number | undefined {
+  if (!forPlayer) return undefined;
+  const player = playerById(state, forPlayer);
+  if (!player) return undefined;
+
+  for (const card of player.cardsInPlay) {
+    if (card.attachedToSite === undefined) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const effect = getCardEffects(def).find(
+      (e): e is import('../../index.js').SurfaceRegionAdjacencyEffect => e.type === 'surface-region-adjacency',
+    );
+    if (!effect) continue;
+
+    const udDefId = card.attachedToSite;
+    const udDef = defById(state, udDefId);
+    if (!udDef || !isSiteCard(udDef)) continue;
+
+    // Identify which side is the bound Under-deeps site and which is the "other"
+    // same-region site X.
+    let other: SiteCard;
+    if (siteA.id === udDefId) other = siteB;
+    else if (siteB.id === udDefId) other = siteA;
+    else continue;
+    if (other.id === udDefId) continue; // the UD site paired with itself — no adjacency
+
+    if (other.region !== udDef.region) continue;
+    const siteTypes = effect.siteTypes.length > 0 ? effect.siteTypes : CAVERNS_UNCHOKED_DEFAULT_SITE_TYPES;
+    if (!siteTypes.includes(other.siteType)) continue;
+    if (!playerOwnsSiteDef(player, other.id)) continue;
+
+    logDetail(`Caverns Unchoked: ${udDef.name} ↔ ${other.name} adjacent (roll 0) for ${forPlayer as string}`);
+    return 0;
+  }
+  return undefined;
+}
+
 /**
  * Check whether two sites are Under-deeps-adjacent in either direction.
  *
  * Returns true when either site's `adjacentSites` lists the other (or
- * matches via a wildcard region key). At least one of the two sites must
- * carry the `under-deeps` keyword for the result to be meaningful.
+ * matches via a wildcard region key), or when Caverns Unchoked (ba-51) bridges
+ * them for `forPlayer`. At least one of the two sites must carry the
+ * `under-deeps` keyword for the result to be meaningful.
  */
-export function isUnderDeepsAdjacent(state: GameState, origin: SiteCard, dest: SiteCard): boolean {
+export function isUnderDeepsAdjacent(state: GameState, origin: SiteCard, dest: SiteCard, forPlayer?: PlayerId): boolean {
   if (resolveAdjacency(state, origin, dest.name) !== undefined) return true;
   if (resolveAdjacency(state, dest, origin.name) !== undefined) return true;
+  if (cavernsUnchokedAdjacencyRoll(state, origin, dest, forPlayer) !== undefined) return true;
   return false;
 }
 
@@ -176,7 +253,7 @@ export function isDeepMinesAscentLegal(
  * current site. At least one side of each pair must carry the
  * `under-deeps` keyword; adjacency is checked bidirectionally.
  */
-function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, candidateSites: readonly SiteCard[]): SiteCard[] {
+function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, candidateSites: readonly SiteCard[], forPlayer: PlayerId): SiteCard[] {
   const currentIsUD = currentSiteDef.keywords?.includes('under-deeps') ?? false;
   const results: SiteCard[] = [];
 
@@ -187,7 +264,7 @@ function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, cand
     // At least one side must be Under-deeps
     if (!currentIsUD && !destIsUD) continue;
 
-    if (isUnderDeepsAdjacent(state, currentSiteDef, dest)) {
+    if (isUnderDeepsAdjacent(state, currentSiteDef, dest, forPlayer)) {
       results.push(dest);
     }
   }
@@ -478,7 +555,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     }
 
     // --- Under-deeps movement pass ---
-    const udReachable = getUnderDeepsReachable(state, currentSiteDef, candidateSites);
+    const udReachable = getUnderDeepsReachable(state, currentSiteDef, candidateSites, playerId);
     logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: ${udReachable.length} Under-deeps destination(s)`);
     for (const dest of udReachable) {
       const destInstId = siteInstMap.get(dest.name);
