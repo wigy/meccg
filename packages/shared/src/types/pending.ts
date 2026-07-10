@@ -133,6 +133,13 @@ export interface OpponentInfluenceAttempt {
    */
   readonly crossAlignmentPenalty: number;
   /**
+   * Region-distance penalty subtracted from the attacker's roll, used by
+   * Prophet of Doom (wh-106): the inclusive number of regions between the
+   * influencer's site and the target's site. 0 (or absent) for a normal
+   * same-site attempt.
+   */
+  readonly regionPenalty?: number;
+  /**
    * The card instance revealed from hand for a comparison value of 0.
    * Null if no card was revealed.
    */
@@ -623,6 +630,26 @@ export interface PendingResolution {
          * from (top-first). Exactly one is taken into hand on resolution.
          */
         readonly revealedInstanceIds: readonly CardInstanceId[];
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Aware of their Ways (dm-46): the card-player has revealed a random
+         * subset of the opponent's discard pile (a `reveal-remove-from-discard`
+         * effect) and may now choose at most one **non-unique** revealed card to
+         * remove from the game. A `remove-revealed-card` action moves the chosen
+         * card from the opponent's discard pile to their out-of-play pile; a
+         * `pass` declines. The un-chosen revealed cards stay in the discard pile.
+         */
+        readonly type: 'reveal-remove-from-discard';
+        /**
+         * Instance ids of the non-unique revealed cards the card-player may
+         * choose to remove from play (at most one). Empty is never enqueued.
+         */
+        readonly removableInstanceIds: readonly CardInstanceId[];
+        /** The opponent whose discard pile the cards belong to. */
+        readonly opponentId: PlayerId;
         /** Definition ID of the source card (for logging). */
         readonly sourceDefinitionId: CardDefinitionId;
       }

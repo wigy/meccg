@@ -40,7 +40,8 @@ export type SiteRuleEffect =
   | CreaturesAlwaysKeyedToSiteSiteRule
   | AllowItemsWhenTappedSiteRule
   | CancelFirstAttackIfInPlaySiteRule
-  | StolenKnowledgeSiteRule;
+  | StolenKnowledgeSiteRule
+  | DeepMinesMovementSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -487,4 +488,36 @@ export interface StolenKnowledgeSiteRule extends EffectBase {
   readonly rule: 'stolen-knowledge';
   /** Miscellaneous marshalling points awarded when the site is stored. */
   readonly marshallingPoints: number;
+}
+
+/**
+ * Declares that this site is an Under-deeps-style destination reachable **only**
+ * from one of the moving Fallen-wizard's own *protected Wizardhavens*, and only
+ * while that player has more than six stage points. The protected Wizardhaven is
+ * the site's "surface site": the two are adjacent and the movement roll required
+ * to move between them is 0 (so the move auto-succeeds like a roll-0 Under-deeps
+ * step). The site is never reachable via ordinary starter/region movement.
+ *
+ * A "protected Wizardhaven" is a site that (a) is a Wizardhaven for the moving
+ * Fallen-wizard (`isHavenForPlayer` — a Fallen-wizard haven or a Hidden-Haven
+ * conversion) and (b) carries an active `site-protected` constraint owned by
+ * that player (Guarded Haven wh-74 / The Fortress of … family, or an inherently
+ * protected Wizardhaven such as Rhosgobel wh-57). Per CRF 22 the phrase
+ * "protected Wizardhaven" is otherwise just a keyword.
+ *
+ * The stage-point requirement (>6) is enforced at both the plan-movement offer
+ * and the M/H declare-path offer, so if the total drops before the company's
+ * movement/hazard phase the descent is no longer a legal path and the company
+ * simply stays put (rule 5.04) — matching the CRF ruling that "if [the stage
+ * point requirement] is not met the company does not move at all."
+ *
+ * Example — Deep Mines (wh-55):
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "deep-mines-movement" }
+ * ```
+ */
+export interface DeepMinesMovementSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'deep-mines-movement';
 }

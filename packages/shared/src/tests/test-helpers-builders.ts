@@ -881,6 +881,7 @@ export function makeCancelWindowCombat(
     creatureRace?: string;
     attackKeying?: readonly RegionType[];
     attackSiteKeyingTypes?: readonly SiteType[];
+    attackKeyingRegionNames?: readonly string[];
     attackSourceType?: 'creature' | 'on-guard-creature' | 'automatic-attack';
     strikesTotal?: number;
     strikeProwess?: number;
@@ -927,6 +928,7 @@ export function makeCancelWindowCombat(
     creatureRace,
     attackKeying: opts.attackKeying && opts.attackKeying.length > 0 ? opts.attackKeying : undefined,
     attackSiteKeyingTypes: opts.attackSiteKeyingTypes && opts.attackSiteKeyingTypes.length > 0 ? opts.attackSiteKeyingTypes : undefined,
+    attackKeyingRegionNames: opts.attackKeyingRegionNames && opts.attackKeyingRegionNames.length > 0 ? opts.attackKeyingRegionNames : undefined,
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',
@@ -1357,6 +1359,68 @@ export function buildTargetState(opts: {
     turnNumber: 3,
     phaseState: makeSitePhase(),
   };
+}
+
+/**
+ * Build a Fallen-wizard influence scenario: player 0 is a Fallen-wizard with
+ * `avatar` at `p1Site`; player 1 is the opponent at `p2Site`. In-play
+ * `factions` and extra in-play cards (`p1CardsInPlay`, e.g. Prophet of Doom)
+ * are seeded onto player 0, and an explicit `stagePoints` override is applied
+ * last (after `recomputeDerived`, which otherwise derives it from in-play stage
+ * cards) so the Pallando-specific stage-point play gate can be exercised
+ * directly. In the default Site phase both companies have entered their sites
+ * on turn 3, so opponent-influence attempts are legal (CoE 10.10 guards met).
+ */
+export function buildFallenWizardInfluenceState(opts: {
+  avatar: CardDefinitionId;
+  p1Site: CardDefinitionId;
+  p2Site: CardDefinitionId;
+  p2Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
+  p1Hand?: CardDefinitionId[];
+  stagePoints?: number;
+  factions?: CardDefinitionId[];
+  p1CardsInPlay?: CardDefinitionId[];
+  turnNumber?: number;
+  phase?: Phase;
+  p2Alignment?: Alignment;
+}): GameState {
+  const phase = opts.phase ?? Phase.Site;
+  let state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        alignment: Alignment.FallenWizard,
+        companies: [{ site: opts.p1Site, characters: [opts.avatar] }],
+        hand: opts.p1Hand ?? [],
+        siteDeck: [MINAS_TIRITH],
+      },
+      {
+        id: PLAYER_2,
+        alignment: opts.p2Alignment,
+        companies: [{ site: opts.p2Site, characters: opts.p2Chars ?? [LEGOLAS] }],
+        hand: [],
+        siteDeck: [LORIEN],
+      },
+    ],
+  });
+  for (const faction of opts.factions ?? []) state = addCardInPlay(state, RESOURCE_PLAYER, faction);
+  for (const card of opts.p1CardsInPlay ?? []) state = addCardInPlay(state, RESOURCE_PLAYER, card);
+  state = recomputeDerived(state);
+  if (phase === Phase.Site) {
+    state = { ...state, turnNumber: opts.turnNumber ?? 3, phaseState: makeSitePhase() };
+  } else if (opts.turnNumber !== undefined) {
+    state = { ...state, turnNumber: opts.turnNumber };
+  }
+  if (opts.stagePoints !== undefined) {
+    const players = state.players.map(
+      (p, i) => i === RESOURCE_PLAYER ? { ...p, stagePoints: opts.stagePoints! } : p,
+    ) as unknown as typeof state.players;
+    state = { ...state, players };
+  }
+  return state;
 }
 
 /**

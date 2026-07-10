@@ -43,6 +43,7 @@ import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestatio
 import { resolveWinConditionRoll } from './reducer-win-conditions.js';
 import { revealInstances } from './visibility.js';
 import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
+import { shuffle } from '../rng.js';
 
 /**
  * Returns the opponent of the given player in a two-player game.
@@ -2061,6 +2062,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const attackSiteKeyingTypes = Array.from(new Set(
     creatureDef.keyedTo.flatMap(k => k.siteTypes ?? []),
   ));
+  const attackKeyingRegionNames = Array.from(new Set(
+    creatureDef.keyedTo.flatMap(k => k.regionNames ?? []),
+  ));
   // Scan for on-event: creature-attack-begins → offer-char-join-attack
   // (e.g. Alatar). If any pending offers match, force a cancel-window so
   // the defender has an explicit opt-in before strike assignment begins.
@@ -2078,6 +2082,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     creatureRace,
     attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
     attackSiteKeyingTypes: attackSiteKeyingTypes.length > 0 ? attackSiteKeyingTypes : undefined,
+    attackKeyingRegionNames: attackKeyingRegionNames.length > 0 ? attackKeyingRegionNames : undefined,
     assignmentPhase: (attackerChooses || havenJumpOffers.length > 0) ? 'cancel-window' : 'defender',
     havenJumpOffers: havenJumpOffers.length > 0 ? havenJumpOffers : undefined,
     attackerChoosesDefenders: attackerChooses ? true : undefined,
@@ -2351,6 +2356,80 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     );
     if (cycle) {
       current = applyCycleHand(current, entry, cycle);
+    }
+  }
+
+  // Aware of their Ways (dm-46): a hazard short-event carrying a
+  // reveal-remove-from-discard effect. When it resolves un-negated, reveal a
+  // random subset of the opponent's discard pile to the card-player; if any
+  // revealed card is non-unique (sites treated as unique per errata), enqueue a
+  // reveal-remove-from-discard pending resolution so the card-player may remove
+  // one of them from the game. The un-chosen revealed cards stay in the discard
+  // pile ("Opponent discards the other three"). Like the other discard-pick
+  // resolutions, the pending resolution is independent of the chain (the entry
+  // is still marked resolved below).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const revealRemove = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').RevealRemoveFromDiscardEffect =>
+        e.type === 'reveal-remove-from-discard',
+    );
+    if (revealRemove) {
+      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const opponentId = opponent(current, entry.declaredBy);
+      const opponentIdx = getPlayerIndex(current, opponentId);
+      const opponentState = current.players[opponentIdx];
+      const pile = opponentState.discardPile;
+
+      if (pile.length === 0) {
+        logDetail(`${cardName}: ${opponentState.name}'s discard pile is empty — no effect`);
+      } else {
+        // Pick `count` cards at random from the discard pile (the seeded RNG
+        // keeps replays deterministic). If fewer than `count` are present, all
+        // are revealed.
+        const [shuffled, nextRng] = shuffle(pile, current.rng);
+        current = { ...current, rng: nextRng };
+        const revealCount = Math.min(revealRemove.count, shuffled.length);
+        const revealed = shuffled.slice(0, revealCount);
+        current = revealInstances(current, revealed);
+        logDetail(
+          `${cardName}: ${opponentState.name} reveals ${revealCount} random card(s) from their ` +
+          `discard pile (pile size ${pile.length}) to ${entry.declaredBy as string}`,
+        );
+
+        // A card is removable only if it is non-unique; sites are treated as
+        // unique per the French errata ("les sites sont considérés comme uniques").
+        const isRemovable = (defId: CardDefinitionId): boolean => {
+          const cardDef = defById(current, defId);
+          if (!cardDef) return false;
+          if (isSiteCard(cardDef)) return false;
+          const unique = 'unique' in cardDef ? (cardDef as { unique?: boolean }).unique : undefined;
+          return unique !== true;
+        };
+        const removableInstanceIds = revealed
+          .filter(c => isRemovable(c.definitionId))
+          .map(c => c.instanceId);
+
+        if (removableInstanceIds.length > 0) {
+          logDetail(
+            `${cardName}: ${removableInstanceIds.length} of the revealed card(s) are non-unique — ` +
+            `enqueuing reveal-remove-from-discard for ${entry.declaredBy as string}`,
+          );
+          current = enqueueResolution(current, {
+            source: entry.card.instanceId,
+            actor: entry.declaredBy,
+            scope: { kind: 'phase', phase: Phase.MovementHazard },
+            kind: {
+              type: 'reveal-remove-from-discard',
+              removableInstanceIds,
+              opponentId,
+              sourceDefinitionId: entry.card.definitionId,
+            },
+          });
+        } else {
+          logDetail(`${cardName}: none of the revealed card(s) are non-unique — nothing to remove`);
+        }
+      }
     }
   }
 

@@ -476,6 +476,18 @@ non-Fallen-wizard players (who never hold stage cards).
 { "type": "stage-points", "value": 3 }
 ```
 
+The optional `whileCompanyAtSite: true` flag marks a **site** whose stage points
+are granted only while one of the Fallen-wizard's companies occupies it (rather
+than from being in play). Those points are tallied separately in
+`recompute-derived.ts` — once per distinct occupied `currentSite` instance, so two
+companies at the same site do not double it, while two different occupied sites
+each count. Used by Deep Mines (wh-55): "You receive the three stage points if any
+of your companies are at the site."
+
+```json
+{ "type": "stage-points", "value": 3, "whileCompanyAtSite": true }
+```
+
 ### 3c. `faction-mp-override`
 
 Re-values the controlling player's factions while the carrying card is in play
@@ -835,6 +847,40 @@ deck." The "playable on Pallando during the organization phase" and "tap
 Pallando" clauses are modeled by a `play-window` (`phase: organization`) plus a
 `play-target` (`target: character`, `filter: { "target.name": "Pallando" }`,
 `cost: { tap: character }`).
+
+### 6h. `reveal-remove-from-discard`
+
+Carried by a **hazard** short-event. When the event resolves un-negated on the
+chain, the card-player peeks at a random slice of the **opponent's** discard
+pile and may remove one non-unique card from the game:
+
+1. `count` cards are drawn **at random** from the opponent's discard pile (via
+   the seeded RNG, so replays stay deterministic) and revealed to the card-player
+   (recorded in `GameState.revealedInstances`). If the pile holds fewer than
+   `count` cards, all of them are revealed; an empty pile makes the event fizzle.
+2. A card is **removable** only if it is non-unique. Per the French errata,
+   **sites are treated as unique** (never removable). When at least one revealed
+   card is removable, a `reveal-remove-from-discard` pending resolution is
+   enqueued (actor = the card-player).
+3. The card-player picks one removable card via a `remove-revealed-card` action —
+   moving it from the opponent's discard pile to their **out-of-play pile**
+   (removed from the game) — or declines with `pass` ("You may choose…"). The
+   un-chosen revealed cards stay in the discard pile ("Opponent discards the
+   other three").
+
+Like the other discard-pick resolutions the pending resolution is independent of
+the chain (the entry is still marked resolved). The resolution lives in
+`legal-actions/pending.ts` (`revealRemoveFromDiscardActions`) and
+`pending-reducers.ts` (`applyRevealRemoveFromDiscardResolution`); the reveal +
+enqueue is in `chain-reducer.ts` (`resolveEntry`).
+
+```json
+{ "type": "reveal-remove-from-discard", "count": 4 }
+```
+
+Used by Aware of their Ways (dm-46): "Opponent reveals four cards at random from
+his discard pile. You may choose a non-unique one and remove it from play.
+Opponent discards the other three."
 
 ### 7. `grant-action`
 
@@ -1670,6 +1716,12 @@ combat context that includes:
 - `attack.siteKeyingTypes` — array of **site types** the creature is
   keyed to (e.g. `["ruins-and-lairs"]`); only populated for creature
   hazards. Lets a card gate on "an attack keyed to Ruins & Lairs".
+- `attack.keyingRegionNames` — array of specific **region names** the
+  creature is keyed to *by name* (e.g. `["Fangorn"]`); only populated for
+  creature hazards. Lets a card gate on "an attack keyed by name to
+  <one of these regions>" — e.g. *Beasts of the Wood* wh-38, matched with
+  a `$or` of `{ "attack.keyingRegionNames": { "$includes": "<name>" } }`
+  clauses (one per region).
 - `site.type` — the defending company's current site type (e.g.
   `"ruins-and-lairs"`, `"haven"`). Lets a card gate on "an
   automatic-attack at a Ruins & Lairs".
@@ -1681,19 +1733,23 @@ to a company character (e.g. The Warg-king), the character card
 itself (e.g. Adûnaphel the Ringwraith), or an item with
 `cost: { "tap": "self-and-bearer" }` (e.g. Torque of Hues).
 
-**Dual-faction discard cancel.** `cost: { "discard": "self" }` marks the
-"discard this faction to cancel an attack" mode of a dual-alignment faction
-(*Wild Hounds* wh-40). It has two sources, both discarding the card:
+**Dual-faction cancel (`handModeRequiresCovert`).** A dual-alignment faction
+that cancels an attack has two sources:
 
-- the controlled faction in `cardsInPlay` — discarded to cancel (available
-  to whoever controls it, no covert/alignment gate); and
+- the controlled faction in `cardsInPlay` — paid with the effect's own `cost`
+  (available to whoever controls it, no covert/alignment gate); and
 - the card in hand — played as a **minion resource**, but only by a
   **covert company** and only by a **minion (Ringwraith) player** when the
-  effect also carries `"handModeRequiresCovert": true`.
+  effect carries `"handModeRequiresCovert": true`.
 
-Both share the same `when` attack filter and are emitted by
-`cancelAttackActions` (combat.ts); the in-play discard applies immediately,
-the hand play routes through the chain. Example (Wild Hounds):
+The in-play cost is either `cost: { "discard": "self" }` — discard the faction
+to cancel (*Wild Hounds* wh-40) — or `cost: { "tap": "self" }` — tap the faction
+in place, leaving it in play (*Beasts of the Wood* wh-38). The hand mode always
+spends the card by discarding it from hand regardless of the in-play cost.
+
+Both sources share the same `when` attack filter and are emitted by
+`cancelAttackActions` (combat.ts); the in-play source applies immediately,
+the hand play routes through the chain. Example (Wild Hounds — discard):
 
 ```json
 { "type": "cancel-attack",
@@ -1703,6 +1759,17 @@ the hand play routes through the chain. Example (Wild Hounds):
     { "$and": [ { "attack.source": "automatic-attack" }, { "site.type": "ruins-and-lairs" } ] },
     { "attack.keying": "wilderness" },
     { "attack.siteKeyingTypes": "ruins-and-lairs" } ] } }
+```
+
+Example (Beasts of the Wood — tap, keyed by region name):
+
+```json
+{ "type": "cancel-attack",
+  "cost": { "tap": "self" },
+  "handModeRequiresCovert": true,
+  "when": { "$or": [
+    { "attack.keyingRegionNames": { "$includes": "Fangorn" } },
+    { "attack.keyingRegionNames": { "$includes": "Cardolan" } } ] } }
 ```
 
 ```json
@@ -3110,6 +3177,30 @@ Rules:
   { "type": "site-rule", "rule": "cancel-first-attack-if-in-play", "definitionId": "tw-12" }
   ```
 
+- `deep-mines-movement` — marks a Fallen-wizard site as an Under-deeps-style
+  destination reachable **only** from one of the moving player's *protected
+  Wizardhavens* (a Wizardhaven for that player — `isHavenForPlayer` — that also
+  carries an active `site-protected` constraint owned by them) and **only** while
+  he has more than six stage points. The surface Wizardhaven and the site are
+  adjacent with a required movement roll of 0, so the descent auto-succeeds like
+  a roll-0 Under-deeps step; the adjacency runs both ways, so a company at the
+  site may ascend back to a protected Wizardhaven at roll 0 (no stage-point gate
+  on the ascent). The site is never reachable via ordinary starter/region
+  movement. The stage-point requirement is enforced at both the plan-movement
+  offer and the M/H declare-path (reveal) offer, so a drop below the threshold
+  before movement leaves the company put (rule 5.04 / CRF 22: it "does not move
+  at all"). The card's "Cannot be duplicated on a given Wizardhaven" clause is
+  enforced by rule 2.II.7.1 (no two same-origin companies to the same site
+  definition). Descent/ascent legality lives in `legal-actions/organization-companies.ts`
+  (`isDeepMinesDescentLegal` / `isDeepMinesAscentLegal`), consumed by the
+  plan-movement pass there and the declare-path pass in `legal-actions/movement-hazard.ts`.
+  Used by *Deep Mines* (wh-55). Pair with `{ stage-points, whileCompanyAtSite }`
+  for the site's occupancy stage points.
+
+  ```json
+  { "type": "site-rule", "rule": "deep-mines-movement" }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site
@@ -3413,8 +3504,9 @@ check) and `reducer-events.ts` (discard execution).
 { "type": "play-condition", "requires": "same-site-has-character-race", "race": "ringwraith" }
 ```
 
-- `active-company` — for site-phase resource short-events: a generic DSL
-  `condition` evaluated against the active company's aggregate context
+- `active-company` — for site-phase resource short-events **and site-phase
+  permanent-events**: a generic DSL `condition` evaluated against the active
+  company's aggregate context
   `{ site: { name, type }, company: { itemNames, characterNames, allyNames } }`.
   `itemNames`/`allyNames` are the names of every item / ally borne by any
   character in the company. Lets a card express a positional play
@@ -3423,6 +3515,17 @@ check) and `reducer-events.ts` (discard execution).
   (tw-247) additionally requires Gollum. Implemented in
   `legal-actions/organization.ts` (`playResourceShortEventActions`,
   `buildActiveCompanyContext`).
+
+  A **Stage** permanent-event that carries an `active-company` play-condition
+  declares its own site-phase timing, an explicit exception to rule 5.F1 (Stage
+  resource permanent-events are otherwise organization-phase only). Such a card
+  is evaluated against the active company in the site-phase play path
+  (`legal-actions/site.ts`) and is **never** offered during the organization
+  phase (`legal-actions/organization-events.ts` skips any permanent-event with
+  an `active-company` play-condition). Used by Delver's Harvest (wh-65):
+  "Playable during the site phase if one of your companies enters the Deep Mines
+  site." — a bare Stage permanent-event worth 1 miscellaneous MP, gated by
+  `{ "site.name": "Deep Mines" }`.
 
 ```json
 { "type": "play-condition", "requires": "active-company",
@@ -6735,3 +6838,73 @@ hazard creature from your hand (show opponent)**." Modeled as a `play-condition`
 (`site-path`, `sitePath.wildernessCount >= 2`), this `play-discard-cost`, a
 `play-target` (`character`, `target.race != wizard`), and a
 `seized-by-terror-check` (`threshold: 13`).
+
+### 61. `opponent-influence-override` (Prophet of Doom)
+
+Modifies a **named influencer's** opponent-influence attempts (CoE rule 10.10 —
+influencing away an opponent's in-play character/ally/faction during your site
+phase). Carried by an in-play stage permanent-event; while the card is in play,
+every opponent-influence attempt made by the influencer whose name matches
+`influencer` (the active player's avatar) is modified:
+
+- `fromAnySite` — the influencer "need not be at the appropriate site": the
+  normal same-site requirement is lifted, so he may target the opponent's cards
+  in any of their companies (and any of their in-play factions), regardless of
+  where his own (active) company stands. The legal-action generator
+  (`opponentInfluenceActions` in `legal-actions/site.ts`) offers the override
+  influencer targets at every opponent company / faction; other influencers stay
+  bound to the same site.
+- `generalInfluenceSubstitution` — the influence check adds a value derived from
+  the influencer's *player's unused general influence* (`unusedGI / divisor`,
+  rounded up when `roundUp`, capped at `max`) **instead of** the influencer's
+  unused direct influence.
+- `regionDistancePenalty` — subtract the number of regions between the
+  influencer's site and the site where the attempt would normally be made (for a
+  character/ally, the opponent company's site; for a faction, the nearest region
+  it is playable in). Per CRF 22 the count is **inclusive** of both endpoint
+  regions (same region = 1, adjacent = 2, …).
+
+The reducer (`handleOpponentInfluenceAttempt` in `reducer-site.ts`) detects the
+override from state (matching `influencer` to the tapping character's name and
+finding the card in play), substitutes the general-influence contribution for
+the influencer's DI in the queued `opponent-influence-defend` payload, and
+records the `regionPenalty`, which `resolveOpponentInfluenceDefend` subtracts
+from the attacker's final result.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `influencer` | yes | Name of the influencer this override applies to (e.g. `"Pallando"`). |
+| `fromAnySite` | no | Lift the same-site requirement — target opponents at any site. |
+| `generalInfluenceSubstitution` | no | `{ divisor, roundUp?, max }` — substitute the influencer's DI with `unusedGI / divisor` (rounded up / down), capped at `max`. |
+| `regionDistancePenalty` | no | Subtract the inclusive region distance to the target's site. |
+
+```json
+{ "type": "opponent-influence-override",
+  "influencer": "Pallando",
+  "fromAnySite": true,
+  "generalInfluenceSubstitution": { "divisor": 2, "roundUp": true, "max": 10 },
+  "regionDistancePenalty": true }
+```
+
+Used by Prophet of Doom (wh-106).
+
+### 62. `discard-self-when`
+
+Discards the carrying in-play card the moment a player-state condition holds.
+Evaluated as `postReduce` housekeeping (`sweepDiscardSelfWhen` in
+`discard-self-when.ts`) against the card controller's player-state context — the
+same context used by `play-condition` `requires: "player-state"`
+(`player.avatar`, `player.stagePoints`, `player.factionCount`, …). Distinct from
+the play-condition, which gates *entry* to play; this gates *staying* in play.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `condition` | yes | DSL condition (against the player-state context) that forces the discard. |
+
+```json
+{ "type": "discard-self-when",
+  "condition": { "player.factionCount": { "$lt": 5 } } }
+```
+
+Used by Prophet of Doom (wh-106): "Discard if you have fewer than 5 factions in
+play."

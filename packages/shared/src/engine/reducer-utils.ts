@@ -7,7 +7,8 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
-import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect } from '../types/effects.js';
+import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -733,7 +734,24 @@ export function collectFactionInfluenceRestriction(
 export function stagePointsOfCard(def: CardDefinition | null | undefined): number {
   let total = 0;
   for (const effect of getCardEffects(def)) {
-    if (effect.type === 'stage-points') total += effect.value;
+    // `whileCompanyAtSite` stage points (Deep Mines wh-55, Rhosgobel wh-57) are
+    // granted by *occupying the site*, not by the card being in play, so they
+    // are tallied separately from the player's companies — never here.
+    if (effect.type === 'stage-points' && !effect.whileCompanyAtSite) total += effect.value;
+  }
+  return total;
+}
+
+/**
+ * Stage points a **site** definition grants while a company occupies it (the
+ * `whileCompanyAtSite` variant of the `stage-points` effect). Returns 0 for
+ * ordinary cards and for stage cards whose points come from being in play.
+ * Summed once per distinct occupied site instance in `recompute-derived.ts`.
+ */
+export function siteOccupancyStagePointsOfCard(def: CardDefinition | null | undefined): number {
+  let total = 0;
+  for (const effect of getCardEffects(def)) {
+    if (effect.type === 'stage-points' && effect.whileCompanyAtSite) total += effect.value;
   }
   return total;
 }
@@ -1571,6 +1589,98 @@ export function isUniqueCharacterInPlay(state: GameState, charName: string): boo
     }
   }
   return false;
+}
+
+// ─── Opponent-influence override (Prophet of Doom wh-106) ────────────────────
+
+/** Sentinel penalty when the target region is unreachable in the region graph. */
+const UNREACHABLE_REGION_PENALTY = 99;
+
+/**
+ * The active player's in-play `opponent-influence-override` effect (Prophet of
+ * Doom wh-106), or `undefined` if none is in play. The effect is carried by a
+ * stage permanent-event in the player's `cardsInPlay`.
+ */
+export function getOpponentInfluenceOverride(
+  state: GameState,
+  player: PlayerState,
+): OpponentInfluenceOverrideEffect | undefined {
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    const eff = getCardEffects(def).find(e => e.type === 'opponent-influence-override');
+    if (eff) return eff;
+  }
+  return undefined;
+}
+
+/**
+ * The value an `opponent-influence-override` contributes to the influence check
+ * in place of the influencer's unused direct influence: the player's unused
+ * general influence divided by `divisor` (rounded per `roundUp`), clamped to
+ * `[0, max]`. Prophet of Doom: half of unused GI, rounded up, capped at 10.
+ */
+export function generalInfluenceSubstitutionValue(
+  unusedGeneralInfluence: number,
+  sub: NonNullable<OpponentInfluenceOverrideEffect['generalInfluenceSubstitution']>,
+): number {
+  const quotient = unusedGeneralInfluence / sub.divisor;
+  const rounded = sub.roundUp ? Math.ceil(quotient) : Math.floor(quotient);
+  return Math.max(0, Math.min(sub.max, rounded));
+}
+
+/** Region name of the site a company currently occupies, or undefined. */
+export function companySiteRegion(state: GameState, company: Company | undefined): string | undefined {
+  const siteId = company?.currentSite?.instanceId;
+  if (!siteId) return undefined;
+  const def = resolveDef(state, siteId);
+  return def && isSiteCard(def) ? def.region : undefined;
+}
+
+/**
+ * The set of region names where a faction may be played, resolved from its
+ * `playableAt` entries: named-site entries map to that site's region and
+ * named-region entries contribute directly. Site-type / any entries have no
+ * single region and are skipped. Used to approximate "the region the faction is
+ * played in" for Prophet of Doom's region-distance penalty when re-influencing
+ * an opponent's in-play faction (the game does not record the exact site a
+ * faction was played at).
+ */
+export function factionPlayableSiteRegions(state: GameState, factionDef: CardDefinition): readonly string[] {
+  if (!isFactionCard(factionDef)) return [];
+  const regions = new Set<string>();
+  for (const entry of factionDef.playableAt) {
+    if ('region' in entry) {
+      regions.add(entry.region);
+    } else if ('site' in entry) {
+      for (const d of Object.values(state.cardPool)) {
+        if (isSiteCard(d) && d.name === entry.site && d.region) regions.add(d.region);
+      }
+    }
+  }
+  return [...regions];
+}
+
+/**
+ * The inclusive region-distance penalty (CRF 22: both endpoint regions count)
+ * for a Prophet-of-Doom influence attempt: the minimum distance from the
+ * influencer's region to any of the candidate target regions. Returns 0 when
+ * either side is undeterminable (no penalty) and a large sentinel when a
+ * determinable target is unreachable in the region graph.
+ */
+export function influenceRegionPenalty(
+  state: GameState,
+  influencerRegion: string | undefined,
+  targetRegions: readonly string[],
+): number {
+  if (!influencerRegion || targetRegions.length === 0) return 0;
+  const map = buildMovementMap(state.cardPool);
+  let best: number | null = null;
+  for (const target of targetRegions) {
+    const d = regionDistanceInclusive(map, influencerRegion, target);
+    if (d === null) continue;
+    if (best === null || d < best) best = d;
+  }
+  return best ?? UNREACHABLE_REGION_PENALTY;
 }
 
 /**

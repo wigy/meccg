@@ -258,6 +258,9 @@ export function opponentInfluenceDefendActions(
   if (attempt.crossAlignmentPenalty !== 0) {
     parts.push(`Cross-alignment penalty: ${attempt.crossAlignmentPenalty}`);
   }
+  if (attempt.regionPenalty && attempt.regionPenalty !== 0) {
+    parts.push(`Region penalty: -${attempt.regionPenalty}`);
+  }
 
   const explanation = `${influencerName} influences ${targetName}: ${parts.join(', ')}`;
 
@@ -1950,6 +1953,45 @@ export function revealChooseToHandActions(
       viable: true,
     });
   }
+  return actions;
+}
+
+/**
+ * Legal actions while a `reveal-remove-from-discard` resolution is pending
+ * (Aware of their Ways, dm-46): the card-player may choose one of the revealed
+ * non-unique cards in the opponent's discard pile to remove from the game, or
+ * `pass` to remove none ("You may choose…"). One `remove-revealed-card` action
+ * per removable card, plus a pass.
+ */
+export function revealRemoveFromDiscardActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'reveal-remove-from-discard') return [];
+  const { removableInstanceIds, opponentId } = top.kind;
+  const opponent = playerById(state, opponentId);
+  if (!opponent) return [];
+
+  // The removable cards are still in the opponent's discard pile; offer each.
+  const inPile = new Set(opponent.discardPile.map(c => c.instanceId as string));
+  const actions: EvaluatedAction[] = [];
+  for (const id of removableInstanceIds) {
+    if (!inPile.has(id as string)) continue;
+    const card = opponent.discardPile.find(c => c.instanceId === id)!;
+    const name = cardName(state, card.definitionId);
+    logDetail(`reveal-remove-from-discard: offering to remove "${name}" from play`);
+    actions.push({
+      action: {
+        type: 'remove-revealed-card' as const,
+        player: actor,
+        cardInstanceId: id,
+      },
+      viable: true,
+    });
+  }
+  // "You may" — declining is always allowed.
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
   return actions;
 }
 
