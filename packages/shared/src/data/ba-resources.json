@@ -699,11 +699,48 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "value": 1,
+        "companyFilter": {
+          "$or": [
+            { "target.keywords": { "$includes": "leader" } },
+            { "target.name": "The Balrog" }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$or": [
+            { "target.keywords": { "$includes": "leader" } },
+            { "target.name": "The Balrog" }
+          ]
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "influence-boost",
+        "when": {
+          "player.hasFactionInHand": true
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "value": 3
+        }
+      }
+    ],
     "text": "Balrog specific. +1 prowess against an attack for all characters in a leader’s or The Balrog’s company or +3 to an influence attempt by a leader or The Balrog.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
