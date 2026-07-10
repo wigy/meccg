@@ -282,6 +282,14 @@ export interface CombatState {
    * unconditionally for that case).
    */
   readonly attackSiteKeyingTypes?: readonly SiteType[];
+  /**
+   * The specific *region names* this attack is keyed to, flattened from the
+   * creature's `keyedTo` entries (e.g. a creature keyed by name to "Fangorn").
+   * Used to evaluate cancel-attack conditions like Beasts of the Wood wh-38's
+   * "an attack keyed by name to one of the regions listed above". Only
+   * populated for creature hazards; automatic attacks leave this absent.
+   */
+  readonly attackKeyingRegionNames?: readonly string[];
   /** The assignment of each strike to a defending character, with resolution status. */
   readonly strikeAssignments: readonly StrikeAssignment[];
   /** Index into strikeAssignments for the strike currently being resolved. */

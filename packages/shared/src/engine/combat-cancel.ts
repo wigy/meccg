@@ -75,13 +75,17 @@ export function handleCancelAttackByInPlayAlly(
 }
 
 /**
- * Handle cancel-attack sourced from an in-play controlled faction that is
- * discarded to cancel (Wild Hounds wh-40: "Discard this faction to cancel an
- * automatic-attack at a Ruins & Lairs or an attack keyed to Wilderness or
- * Ruins & Lairs"). Unlike a tap source, the faction card is moved from
- * `cardsInPlay` to the discard pile (paying with the loss of its marshalling
- * point), then the cancellation applies immediately via
- * {@link resolveCancelAttackEntry}.
+ * Handle cancel-attack sourced from an in-play controlled faction. The cost is
+ * taken from the faction's `cancel-attack` effect:
+ *   - `discard: "self"` — the faction is moved from `cardsInPlay` to the discard
+ *     pile (paying with the loss of its marshalling point). Wild Hounds wh-40:
+ *     "Discard this faction to cancel an automatic-attack at a Ruins & Lairs or
+ *     an attack keyed to Wilderness or Ruins & Lairs."
+ *   - `tap: "self"` — the faction card is tapped in place (it stays in play).
+ *     Beasts of the Wood wh-38: "Tap this faction to cancel an attack keyed by
+ *     name to one of the regions listed above."
+ * Either way the cancellation applies immediately via
+ * {@link resolveCancelAttackEntry} (in-play sources never push a chain entry).
  */
 export function handleCancelAttackByInPlayFaction(
   state: GameState,
@@ -95,7 +99,28 @@ export function handleCancelAttackByInPlayFaction(
   const factionEntry = defPlayer.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
   if (!factionEntry) return { state, error: 'Cancel-attack faction not in play' };
 
+  const factionDef = defById(state, factionEntry.definitionId);
+  const cancelEffect = getCardEffects(factionDef).find(
+    (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
+  );
+  const tapCost = cancelEffect?.cost?.tap === 'self';
+
   const factionName = cardName(state, factionEntry.definitionId);
+
+  if (tapCost) {
+    if (factionEntry.status !== CardStatus.Untapped) {
+      return { state, error: 'Faction must be untapped to tap to cancel attack' };
+    }
+    logDetail(`Cancel-attack declared: tapping ${factionName} (in-play faction) to cancel ${combat.creatureRace ?? 'attack'}`);
+    const tappedState = updatePlayer(state, defPlayerIndex, p => ({
+      ...p,
+      cardsInPlay: p.cardsInPlay.map(c =>
+        c.instanceId === action.cardInstanceId ? { ...c, status: CardStatus.Tapped } : c,
+      ),
+    }));
+    return { state: resolveCancelAttackEntry(tappedState) };
+  }
+
   logDetail(`Cancel-attack declared: discarding ${factionName} (in-play faction) to cancel ${combat.creatureRace ?? 'attack'}`);
 
   const discardedState = updatePlayer(state, defPlayerIndex, p => ({

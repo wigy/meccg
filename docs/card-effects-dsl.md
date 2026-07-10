@@ -1670,6 +1670,12 @@ combat context that includes:
 - `attack.siteKeyingTypes` — array of **site types** the creature is
   keyed to (e.g. `["ruins-and-lairs"]`); only populated for creature
   hazards. Lets a card gate on "an attack keyed to Ruins & Lairs".
+- `attack.keyingRegionNames` — array of specific **region names** the
+  creature is keyed to *by name* (e.g. `["Fangorn"]`); only populated for
+  creature hazards. Lets a card gate on "an attack keyed by name to
+  <one of these regions>" — e.g. *Beasts of the Wood* wh-38, matched with
+  a `$or` of `{ "attack.keyingRegionNames": { "$includes": "<name>" } }`
+  clauses (one per region).
 - `site.type` — the defending company's current site type (e.g.
   `"ruins-and-lairs"`, `"haven"`). Lets a card gate on "an
   automatic-attack at a Ruins & Lairs".
@@ -1681,19 +1687,23 @@ to a company character (e.g. The Warg-king), the character card
 itself (e.g. Adûnaphel the Ringwraith), or an item with
 `cost: { "tap": "self-and-bearer" }` (e.g. Torque of Hues).
 
-**Dual-faction discard cancel.** `cost: { "discard": "self" }` marks the
-"discard this faction to cancel an attack" mode of a dual-alignment faction
-(*Wild Hounds* wh-40). It has two sources, both discarding the card:
+**Dual-faction cancel (`handModeRequiresCovert`).** A dual-alignment faction
+that cancels an attack has two sources:
 
-- the controlled faction in `cardsInPlay` — discarded to cancel (available
-  to whoever controls it, no covert/alignment gate); and
+- the controlled faction in `cardsInPlay` — paid with the effect's own `cost`
+  (available to whoever controls it, no covert/alignment gate); and
 - the card in hand — played as a **minion resource**, but only by a
   **covert company** and only by a **minion (Ringwraith) player** when the
-  effect also carries `"handModeRequiresCovert": true`.
+  effect carries `"handModeRequiresCovert": true`.
 
-Both share the same `when` attack filter and are emitted by
-`cancelAttackActions` (combat.ts); the in-play discard applies immediately,
-the hand play routes through the chain. Example (Wild Hounds):
+The in-play cost is either `cost: { "discard": "self" }` — discard the faction
+to cancel (*Wild Hounds* wh-40) — or `cost: { "tap": "self" }` — tap the faction
+in place, leaving it in play (*Beasts of the Wood* wh-38). The hand mode always
+spends the card by discarding it from hand regardless of the in-play cost.
+
+Both sources share the same `when` attack filter and are emitted by
+`cancelAttackActions` (combat.ts); the in-play source applies immediately,
+the hand play routes through the chain. Example (Wild Hounds — discard):
 
 ```json
 { "type": "cancel-attack",
@@ -1703,6 +1713,17 @@ the hand play routes through the chain. Example (Wild Hounds):
     { "$and": [ { "attack.source": "automatic-attack" }, { "site.type": "ruins-and-lairs" } ] },
     { "attack.keying": "wilderness" },
     { "attack.siteKeyingTypes": "ruins-and-lairs" } ] } }
+```
+
+Example (Beasts of the Wood — tap, keyed by region name):
+
+```json
+{ "type": "cancel-attack",
+  "cost": { "tap": "self" },
+  "handModeRequiresCovert": true,
+  "when": { "$or": [
+    { "attack.keyingRegionNames": { "$includes": "Fangorn" } },
+    { "attack.keyingRegionNames": { "$includes": "Cardolan" } } ] } }
 ```
 
 ```json
