@@ -409,14 +409,36 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "a non-Darkhaven Under-deeps site and only by The Balrog"
+        "any": true,
+        "when": {
+          "$and": [
+            {
+              "site.keywords": {
+                "$includes": "under-deeps"
+              }
+            },
+            {
+              "site.siteType": {
+                "$ne": "haven"
+              }
+            }
+          ]
+        }
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-overt"
+      },
+      {
+        "type": "assign-strike-when-tapped"
+      }
+    ],
     "text": "Balrog specific. Playable at a non-Darkhaven Under-deeps site and only by The Balrog. Troll. Its controlling character's company is overt. Even if tapped or wounded, you may assign a strike to this ally as though it were untapped.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-ally",

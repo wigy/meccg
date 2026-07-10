@@ -476,10 +476,14 @@ function assignStrikeActions(
           logDetail(`Ally ${ally.instanceId as string} immune to this attack — excluded from defender strike assignment`);
           continue;
         }
-        // Noble Hound and similar allies with `alwaysCountsAsUntapped` are always assignable.
+        // Noble Hound (strike-shield + `alwaysCountsAsUntapped`) and Great Troll
+        // (`assign-strike-when-tapped`) remain legal strike targets even while
+        // tapped or wounded — their status is treated as untapped for
+        // assignability only.
         const allyDef = defById(state, ally.definitionId);
         const alwaysUntapped = getCardEffects(allyDef).some(
-          e => e.type === 'strike-shield' && (e as { alwaysCountsAsUntapped?: boolean }).alwaysCountsAsUntapped,
+          e => (e.type === 'strike-shield' && (e as { alwaysCountsAsUntapped?: boolean }).alwaysCountsAsUntapped)
+            || e.type === 'assign-strike-when-tapped',
         );
         if (!alwaysUntapped && ally.status !== CardStatus.Untapped) {
           logDetail(`Ally ${ally.instanceId as string} is ${ally.status} — not available for defender assignment`);
