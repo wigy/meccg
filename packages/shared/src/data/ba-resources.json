@@ -466,11 +466,35 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.status": "tapped"
+            },
+            {
+              "target.inAvatarCompany": true
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "untap",
+        "apply": {
+          "type": "set-character-status",
+          "status": "untapped"
+        }
+      }
+    ],
     "text": "Balrog specific. Untap a character in The Balrog’s company.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
