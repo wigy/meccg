@@ -5419,6 +5419,29 @@ Goblin-gate (as-75), Last Child of Ungoliant (le-153).
 
 ---
 
+### 53a. `assign-strike-when-tapped`
+
+Marks an ally as always a **legal strike target** during the defender's
+strike-assignment phase, even while it is tapped or wounded — its status is
+treated as untapped for assignability only.
+
+Unlike `strike-shield` with `alwaysCountsAsUntapped`, this effect does **not**
+force strikes onto the ally before its controlling character (no allied
+protection); the ally simply remains a voluntary strike target regardless of
+its combat status. The defender-phase ally offer in
+`legal-actions/combat.ts` treats such an ally as untapped.
+
+No fields beyond `type`.
+
+```json
+{ "type": "assign-strike-when-tapped" }
+```
+
+Used by Great Troll (ba-46): "Even if tapped or wounded, you may assign a strike
+to this ally as though it were untapped."
+
+---
+
 ### 53b. `combat-tap-company-boost`
 
 Tap an in-play ally **during combat** to grant an attack-scoped stat boost to

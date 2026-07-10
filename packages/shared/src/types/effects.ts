@@ -3866,6 +3866,7 @@ export type CardEffect =
   | GrantSkillEffect
   | ItemSlotModifierEffect
   | CompanyOvertEffect
+  | AssignStrikeWhenTappedEffect
   | CombatTapCompanyBoostEffect
   | RingwraithModeEffect
   | RingwraithFollowerSlotsEffect
@@ -4423,6 +4424,23 @@ export interface ItemSlotModifierEffect extends EffectBase {
  */
 export interface CompanyOvertEffect extends EffectBase {
   readonly type: 'company-overt';
+}
+
+/**
+ * Marks an ally as always assignable a strike during the defender's
+ * strike-assignment phase, even while it is tapped or wounded — its status is
+ * treated as untapped for the purpose of being a legal strike target only.
+ *
+ * Unlike {@link StrikeShieldEffect} with `alwaysCountsAsUntapped`, this does
+ * NOT force strikes onto the ally before its controlling character (no allied
+ * protection): the ally simply remains a voluntary strike target regardless of
+ * its combat status.
+ *
+ * Used by Great Troll (ba-46): "Even if tapped or wounded, you may assign a
+ * strike to this ally as though it were untapped."
+ */
+export interface AssignStrikeWhenTappedEffect extends EffectBase {
+  readonly type: 'assign-strike-when-tapped';
 }
 
 /**
