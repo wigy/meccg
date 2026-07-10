@@ -1127,13 +1127,48 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TempestofFire.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 3,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "siteType": { "$in": ["border-hold", "shadow-hold"] } },
+            { "$not": { "keywords": { "$includes": "under-deeps" } } },
+            { "isUnderDeepsSurface": false }
+          ]
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "untapped-site-required"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          { "creatureType": "Men", "strikes": 5, "prowess": 8 },
+          { "creatureType": "Men", "strikes": 4, "prowess": 9 },
+          { "creatureType": "Men", "strikes": 3, "prowess": 10 }
+        ],
+        "creatureTypeBySiteType": {
+          "border-hold": "Men",
+          "shadow-hold": "Orcs"
+        },
+        "afterAttack": "move-to-mp-pile",
+        "returnFactionsAtSite": true
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on an untapped Border-hold [{B}] or Shadow-hold [{S}]; the site cannot be an Under-deeps site or surface site thereof. Tap the site. The company faces three attacks (Men at a Border-hold [{B}], Orcs at a Shadow-hold [{S}] — 5 strikes with 8 prowess, 4 strikes with 9 prowess, 3 strikes with 10 prowess). Following these attacks: discard this card or tap a character, place this card in your marshalling point pile, and return each unique faction playable at the site to its owner’s hand.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",

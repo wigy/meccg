@@ -785,6 +785,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           : null;
         const afterAttack = triggerEffect?.afterAttack ?? 'attach-with-constraint';
         const discardFactionsAtSite = triggerEffect?.discardFactionsAtSite ?? false;
+        const returnFactionsAtSite = triggerEffect?.returnFactionsAtSite ?? false;
         logDetail(
           `Card-auto-attack: untapped characters remain — queuing select-card-bearer for "${cardLabel}" ` +
           `(company ${combat.companyId as string}, mode: ${afterAttack})`,
@@ -799,6 +800,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
             companyId: combat.companyId,
             ...(afterAttack !== 'attach-with-constraint' ? { mode: afterAttack } : {}),
             ...(discardFactionsAtSite ? { discardFactionsAtSite: true } : {}),
+            ...(returnFactionsAtSite ? { returnFactionsAtSite: true } : {}),
           },
         });
       }
