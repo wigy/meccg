@@ -18,7 +18,7 @@ import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharact
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType, SiteType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { defenderAlignmentLabel } from '../detainment.js';
-import { isUnderDeepsAdjacent } from './organization-companies.js';
+import { isUnderDeepsAdjacent, isDeepMinesSite, isDeepMinesDescentLegal, isDeepMinesAscentLegal } from './organization-companies.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
@@ -234,6 +234,27 @@ function revealNewSiteActions(
   if (company.specialMovement === 'gwaihir') {
     logDetail(`Special movement (Gwaihir): ${originDef.name} → ${destDef.name}`);
     actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.Special });
+    return actions;
+  }
+
+  // --- Deep Mines descent / ascent (wh-55) ---
+  // Descent (surface → Deep Mines) is reachable only from a protected
+  // Wizardhaven with >6 stage points; ascent (Deep Mines → protected
+  // Wizardhaven) runs back the same roll-0 adjacency. If the descent's
+  // stage-point requirement is no longer met at reveal time, no path is offered
+  // and the company stays put (rule 5.04) — matching the CRF ruling that the
+  // company then "does not move at all".
+  if (isDeepMinesSite(destDef) || isDeepMinesSite(originDef)) {
+    const descentLegal = isDeepMinesSite(destDef)
+      && isDeepMinesDescentLegal(state, originDef, company.currentSite?.definitionId, destDef, player);
+    const ascentLegal = isDeepMinesSite(originDef)
+      && isDeepMinesAscentLegal(state, originDef, destDef, company.destinationSite.definitionId, player);
+    if (descentLegal || ascentLegal) {
+      logDetail(`Deep Mines ${descentLegal ? 'descent' : 'ascent'} available: ${originDef.name} → ${destDef.name} (roll 0)`);
+      actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.UnderDeeps });
+    } else {
+      logDetail(`Deep Mines move ${originDef.name} → ${destDef.name} no longer legal (stage points ${player.stagePoints} or origin/dest not a protected Wizardhaven) — no path offered`);
+    }
     return actions;
   }
 

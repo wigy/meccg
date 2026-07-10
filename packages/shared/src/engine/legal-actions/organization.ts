@@ -1779,7 +1779,7 @@ export function buildPlayOptionContext(
  * prerequisites (e.g. The One Ring and Gollum at Mount Doom) without a
  * per-card keyword.
  */
-function buildActiveCompanyContext(
+export function buildActiveCompanyContext(
   state: GameState,
   player: PlayerState,
   company: import('../../types/state-cards.js').Company,

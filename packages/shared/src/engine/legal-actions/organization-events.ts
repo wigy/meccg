@@ -77,6 +77,16 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       continue;
     }
 
+    // A permanent-event carrying an `active-company` play-condition declares its
+    // own site-phase timing (Delver's Harvest wh-65: "Playable during the site
+    // phase if one of your companies enters the Deep Mines site."). Such a card
+    // is offered only by the site-phase play path (legal-actions/site.ts),
+    // never here — even during the organization phase.
+    if (findPlayConditionEffect(def, 'active-company')) {
+      logDetail(`Permanent event ${def.name}: site-phase timing (active-company play-condition) — not offered in this phase`);
+      continue;
+    }
+
     // Check uniqueness: unique permanent events can't be played if already in play
     if (def.unique) {
       const alreadyInPlay = countCopiesInPlay(state, def.name) > 0;

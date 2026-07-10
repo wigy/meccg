@@ -481,11 +481,60 @@
     "race": "animal",
     "playableAt": [
       {
-        "site": "any"
+        "any": true,
+        "when": {
+          "$and": [
+            { "site.siteType": { "$ne": "haven" } },
+            { "site.siteType": { "$ne": "dark-hold" } },
+            {
+              "site.region": {
+                "$in": [
+                  "Woodland Realm",
+                  "Western Mirkwood",
+                  "Heart of Mirkwood",
+                  "Southern Mirkwood",
+                  "Fangorn",
+                  "Cardolan"
+                ]
+              }
+            }
+          ]
+        }
       }
     ],
-    "effects": [],
-    "text": "Playable at any tapped or untapped non-Haven, non-Darkhaven, non-Dark-hold site in Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Fangorn, or Cardolan if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Tap this faction to cancel an attack keyed by name to one of the regions listed above. May also be used as a minion resource card that is only playable by a character in a covert company."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 3,
+        "when": {
+          "controller.wizard": "Radagast"
+        }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "handModeRequiresCovert": true,
+        "when": {
+          "$or": [
+            { "attack.keyingRegionNames": { "$includes": "Woodland Realm" } },
+            { "attack.keyingRegionNames": { "$includes": "Western Mirkwood" } },
+            { "attack.keyingRegionNames": { "$includes": "Heart of Mirkwood" } },
+            { "attack.keyingRegionNames": { "$includes": "Southern Mirkwood" } },
+            { "attack.keyingRegionNames": { "$includes": "Fangorn" } },
+            { "attack.keyingRegionNames": { "$includes": "Cardolan" } }
+          ]
+        }
+      }
+    ],
+    "text": "Playable at any tapped or untapped non-Haven, non-Darkhaven, non-Dark-hold site in Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Fangorn, or Cardolan if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Tap this faction to cancel an attack keyed by name to one of the regions listed above. May also be used as a minion resource card that is only playable by a character in a covert company.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "hero-resource-faction",
@@ -816,10 +865,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/DelversHarvest.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the site phase if one of your companies enters the Deep Mines site."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": { "site.name": "Deep Mines" }
+      }
+    ],
+    "text": "Playable during the site phase if one of your companies enters the Deep Mines site.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -1860,9 +1916,37 @@
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "player.avatar": "Pallando" },
+            { "player.stagePoints": { "$gte": 12 } },
+            { "player.factionCount": { "$gte": 5 } }
+          ]
+        }
+      },
+      {
+        "type": "opponent-influence-override",
+        "influencer": "Pallando",
+        "fromAnySite": true,
+        "generalInfluenceSubstitution": { "divisor": 2, "roundUp": true, "max": 10 },
+        "regionDistancePenalty": true
+      },
+      {
+        "type": "discard-self-when",
+        "condition": { "player.factionCount": { "$lt": 5 } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
       }
     ],
-    "text": "Pallando specific. Playable if you are Pallando and have at least 12 stage points and 5 factions in play. Pallando need not be at the appropriate site when making an influence attempt on an opponent’s resource or character. Such an influence check is modified by half (rounded up) of Pallando’s unused general influence (to a maximum of 10) instead of his unused direct influence. Subtract from the attempt the number of regions between Pallando’s site and the site where the influence attempt would normally be made. Discard if you have fewer than 5 factions in play. Cannot be duplicated."
+    "text": "Pallando specific. Playable if you are Pallando and have at least 12 stage points and 5 factions in play. Pallando need not be at the appropriate site when making an influence attempt on an opponent’s resource or character. Such an influence check is modified by half (rounded up) of Pallando’s unused general influence (to a maximum of 10) instead of his unused direct influence. Subtract from the attempt the number of regions between Pallando’s site and the site where the influence attempt would normally be made. Discard if you have fewer than 5 factions in play. Cannot be duplicated.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",

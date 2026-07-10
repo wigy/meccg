@@ -477,6 +477,17 @@ export interface StagePointsEffect extends EffectBase {
   readonly type: 'stage-points';
   /** Stage points this card contributes to its controller's running total. */
   readonly value: number;
+  /**
+   * When true, this card is a **site** that grants its stage points only while
+   * one of the controlling Fallen-wizard's companies occupies it — the points
+   * are not tallied from `cardsInPlay`/items but from a distinct occupied
+   * `currentSite` (deduplicated per site instance, so two companies at the same
+   * site do not double it). Used by Deep Mines (wh-55, "You receive the three
+   * stage points if any of your companies are at the site") and Rhosgobel
+   * (wh-57). Absent/false on ordinary stage cards, whose points are summed
+   * from in-play cards regardless of company location.
+   */
+  readonly whileCompanyAtSite?: boolean;
 }
 
 /**
@@ -980,6 +991,32 @@ export interface CycleHandEffect extends EffectBase {
 export interface RevealChooseShuffleEffect extends EffectBase {
   readonly type: 'reveal-choose-shuffle';
   /** Maximum number of cards revealed from the top of the play deck. */
+  readonly count: number;
+}
+
+/**
+ * Reveals `count` cards chosen **at random** from the opponent's discard pile,
+ * then lets the card-player pick at most one **non-unique** revealed card and
+ * remove it from the game (to the owner's out-of-play pile). The remaining
+ * revealed cards stay in the discard pile.
+ *
+ * Carried by a hazard short-event and resolved when the event resolves on the
+ * chain. If the opponent's discard pile is empty the effect fizzles; if fewer
+ * than `count` cards are present, all of them are revealed. The random subset
+ * is drawn with the seeded RNG so replays stay deterministic.
+ *
+ * Per the French errata, **sites are treated as unique** (never removable),
+ * so `removableFilter` defaults to "non-unique, non-site". A choice is only
+ * offered when at least one revealed card is removable; the player may still
+ * decline ("You may choose…").
+ *
+ * Used by *Aware of their Ways* (dm-46): "Opponent reveals four cards at random
+ * from his discard pile. You may choose a non-unique one and remove it from
+ * play. Opponent discards the other three."
+ */
+export interface RevealRemoveFromDiscardEffect extends EffectBase {
+  readonly type: 'reveal-remove-from-discard';
+  /** How many cards are revealed at random from the opponent's discard pile. */
   readonly count: number;
 }
 
@@ -3745,6 +3782,7 @@ export type CardEffect =
   | ForceOpponentDiscardEffect
   | CycleHandEffect
   | RevealChooseShuffleEffect
+  | RevealRemoveFromDiscardEffect
   | WithdrawAgentEffect
   | GrantActionEffect
   | OnEventEffect
@@ -3858,6 +3896,8 @@ export type CardEffect =
   | DisplaceStoredItemEffect
   | AgentAttackOutcomeEffect
   | AgentTapReturnCharacterEffect
+  | OpponentInfluenceOverrideEffect
+  | DiscardSelfWhenEffect
   | FactionInfluenceRestrictionEffect;
 
 /**
@@ -4708,4 +4748,65 @@ export interface AgentTapReturnCharacterEffect extends EffectBase {
   readonly atHomeSiteBonus: number;
   /** Amount added to the target's mind to form the roll threshold. */
   readonly mindBonus: number;
+}
+
+/**
+ * Modifies a *named* influencer's opponent-influence attempts (CoE rule 10.10:
+ * influencing away an opponent's in-play character/ally/faction during your
+ * site phase). Carried by an in-play stage permanent-event; while the card is
+ * in play, every opponent-influence attempt made by the influencer whose name
+ * matches {@link influencer} (the active player's avatar) is modified:
+ *
+ * - `fromAnySite` — the influencer "need not be at the appropriate site": the
+ *   normal same-site requirement is lifted, so he may target the opponent's
+ *   cards in any of their companies (and any of their in-play factions),
+ *   regardless of where his own (active) company stands.
+ * - `generalInfluenceSubstitution` — the influence check adds a value derived
+ *   from the influencer's *player's unused general influence* (half, rounded up
+ *   per `roundUp`, capped at `max`) **instead of** the influencer's unused
+ *   direct influence.
+ * - `regionDistancePenalty` — subtract the number of regions between the
+ *   influencer's site and the site where the attempt would normally be made
+ *   (CRF 22: the count is inclusive of both endpoint regions, i.e. same region
+ *   = 1, adjacent = 2, …).
+ *
+ * Used by Prophet of Doom (wh-106).
+ */
+export interface OpponentInfluenceOverrideEffect extends EffectBase {
+  readonly type: 'opponent-influence-override';
+  /** The influencer name this override applies to (e.g. "Pallando"). */
+  readonly influencer: string;
+  /** Lift the same-site requirement — target opponents at any site. */
+  readonly fromAnySite?: boolean;
+  /**
+   * Substitute the influencer's unused DI with a value derived from the
+   * player's unused general influence.
+   */
+  readonly generalInfluenceSubstitution?: {
+    /** Divisor applied to the unused general influence (e.g. 2 = half). */
+    readonly divisor: number;
+    /** Round the quotient up when true (rounded down otherwise). */
+    readonly roundUp?: boolean;
+    /** Maximum value the substitution may contribute. */
+    readonly max: number;
+  };
+  /** Subtract the inclusive region distance to the target's site. */
+  readonly regionDistancePenalty?: boolean;
+}
+
+/**
+ * Discards the carrying in-play card the moment a player-state condition holds.
+ * Evaluated as post-action housekeeping against the card controller's
+ * player-state context (the same context used by `play-condition`
+ * `requires: "player-state"`: `player.avatar`, `player.stagePoints`,
+ * `player.factionCount`, …). Distinct from the play-condition, which gates
+ * *entry*; this gates *staying in play*.
+ *
+ * Used by Prophet of Doom (wh-106): "Discard if you have fewer than 5 factions
+ * in play."
+ */
+export interface DiscardSelfWhenEffect extends EffectBase {
+  readonly type: 'discard-self-when';
+  /** Condition (against the player-state context) that forces the discard. */
+  readonly condition: Condition;
 }

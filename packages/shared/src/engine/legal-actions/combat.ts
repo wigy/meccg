@@ -1754,6 +1754,12 @@ function cancelAttackActions(
     if (combat.attackSiteKeyingTypes && combat.attackSiteKeyingTypes.length > 0) {
       attackCtx['siteKeyingTypes'] = combat.attackSiteKeyingTypes;
     }
+    // Region-name keying (e.g. a creature keyed by name to "Fangorn"). Lets a
+    // card gate on "an attack keyed by name to <one of these regions>" (Beasts
+    // of the Wood wh-38) via `attack.keyingRegionNames $includes <name>`.
+    if (combat.attackKeyingRegionNames && combat.attackKeyingRegionNames.length > 0) {
+      attackCtx['keyingRegionNames'] = combat.attackKeyingRegionNames;
+    }
     const isSiteKeyedCreature = (
       combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
     ) && !(combat.attackKeying && combat.attackKeying.length > 0);
@@ -1884,25 +1890,36 @@ function cancelAttackActions(
     }
   }
 
-  // Wild Hounds family (wh-40): a dual-alignment faction carrying a
-  // `cancel-attack` effect with `cost: { discard: "self" }`. Two sources:
-  //   (a) the controlled faction in play — discard it to cancel a qualifying
-  //       attack (available to whoever controls it, no covert/alignment gate); and
+  // Wild Hounds family (wh-40) / Beasts of the Wood family (wh-38): a
+  // dual-alignment faction carrying a `cancel-attack` effect with
+  // `handModeRequiresCovert`. Two sources:
+  //   (a) the controlled faction in play — paid with the effect's cost
+  //       (`discard: "self"` for wh-40, `tap: "self"` for wh-38), available to
+  //       whoever controls it, no covert/alignment gate; and
   //   (b) the card in hand — played as a minion resource, but ONLY by a covert
   //       company and only by a minion (Ringwraith) player.
   // Both are handled here so they are not double-offered by the generic hand
-  // loop below (which skips discard-cost cancel-attack cards).
+  // loop below (which skips discard-cost / tap-cost cancel-attack cards).
   for (const inPlayCard of player.cardsInPlay) {
     const def = defById(state, inPlayCard.definitionId);
     const cancelEffect = getCardEffects(def).find(
       (e): e is CancelAttackEffect => e.type === 'cancel-attack',
     );
-    if (!cancelEffect || cancelEffect.cost?.discard !== 'self') continue;
-    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
-      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: when condition not met (in-play faction discard)`);
+    if (!cancelEffect) continue;
+    const inPlayCost = cancelEffect.cost;
+    const discardCost = inPlayCost?.discard === 'self';
+    const tapCost = inPlayCost?.tap === 'self';
+    if (!discardCost && !tapCost) continue;
+    // A tap-cost faction (Beasts of the Wood wh-38) must itself be untapped.
+    if (tapCost && inPlayCard.status !== CardStatus.Untapped) {
+      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: in-play faction is tapped, cannot tap to cancel`);
       continue;
     }
-    logDetail(`Cancel-attack available: discard ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string} (in-play faction)`);
+    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
+      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: when condition not met (in-play faction)`);
+      continue;
+    }
+    logDetail(`Cancel-attack available: ${tapCost ? 'tap' : 'discard'} ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string} (in-play faction)`);
     actions.push({
       action: { type: 'cancel-attack', player: playerId, cardInstanceId: inPlayCard.instanceId },
       viable: true,
@@ -1913,7 +1930,7 @@ function cancelAttackActions(
     const cancelEffect = getCardEffects(def).find(
       (e): e is CancelAttackEffect => e.type === 'cancel-attack',
     );
-    if (!cancelEffect || cancelEffect.cost?.discard !== 'self' || !cancelEffect.handModeRequiresCovert) continue;
+    if (!cancelEffect || !cancelEffect.handModeRequiresCovert) continue;
     // Minion resource card, only playable by a character in a covert company.
     if (player.alignment !== Alignment.Ringwraith) {
       logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: hand (minion resource) mode requires a minion player`);
