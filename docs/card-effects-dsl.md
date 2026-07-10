@@ -5442,6 +5442,38 @@ to this ally as though it were untapped."
 
 ---
 
+### 53a-bis. `company-combat-boost`
+
+Played from hand as a resource **short event during combat** (the pre-assignment
+window of the defending company's `assign-strikes` phase). Applies an
+attack-scoped stat modifier to characters in the **defending** company. The
+boost is realised as one `character-stat-modifier` active constraint per boosted
+character with `scope: { kind: 'attack' }`, swept when the attack finalizes.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `stat` | yes | `"prowess"` or `"body"`. |
+| `value` | yes | Modifier value (positive boosts, negative penalises). |
+| `filter` | no | Per-character grant filter, matched against `{ target: { race, name, skills, keywords } }`. Only matching characters receive the boost; the card is offered when at least one member matches. When absent (and no `companyFilter`), every member is boosted. |
+| `companyFilter` | no | Company-level eligibility gate. When present, the event may be played only if at least one member satisfies it — and then **every** character in the company is boosted (the per-character `filter` is not used). Distinguishes "boost characters that are X" (`filter`) from "boost the whole company if it contains an X" (`companyFilter`). |
+
+```json
+{ "type": "company-combat-boost", "stat": "prowess", "value": 1,
+  "companyFilter": { "$or": [
+    { "target.keywords": { "$includes": "leader" } },
+    { "target.name": "The Balrog" } ] } }
+```
+
+Used by The Dwarves Are upon You! (dm-124): `filter: { "target.race": "dwarf" }`
+(+2 prowess / −1 body to the Dwarves only), and by Foe Dismayed (ba-59):
+`companyFilter` gating +1 prowess for **all** characters in a company that
+contains a Leader or The Balrog. Implemented in
+`engine/legal-actions/combat.ts` (`companyCombatBoostActions`) and
+`engine/reducer-events.ts` (the `company-combat-boost` block of
+`handlePlayResourceShortEvent`).
+
+---
+
 ### 53b. `combat-tap-company-boost`
 
 Tap an in-play ally **during combat** to grant an attack-scoped stat boost to
