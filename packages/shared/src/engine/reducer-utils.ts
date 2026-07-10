@@ -1591,7 +1591,7 @@ export function getOpponentInfluenceOverride(
   for (const card of player.cardsInPlay) {
     const def = defById(state, card.definitionId);
     const eff = getCardEffects(def).find(e => e.type === 'opponent-influence-override');
-    if (eff) return eff as OpponentInfluenceOverrideEffect;
+    if (eff) return eff;
   }
   return undefined;
 }

@@ -2494,7 +2494,7 @@ function handleOpponentInfluenceAttempt(
     }
     if (override.regionDistancePenalty) {
       const influencerRegion = companySiteRegion(state, findCharacterCompany(player.companies, charId));
-      let targetRegions: readonly string[] = [];
+      let targetRegions: readonly string[];
       if (action.targetKind === 'faction') {
         const tf = findById(opponent.cardsInPlay, action.targetInstanceId);
         const fdef = tf ? defById(state, tf.definitionId) : undefined;
