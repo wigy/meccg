@@ -511,6 +511,14 @@ export interface MovementHazardPhaseState {
    */
   readonly hazardsEncountered: readonly string[];
   /**
+   * Instance IDs of in-play permanent-events (Monstrosity of Diverse Shape,
+   * ba-21) that have already used their once-per-turn
+   * `grant-replay-attacked-creature` replay against the current company this
+   * M/H sub-phase. Reset alongside {@link hazardsEncountered} whenever a new
+   * company's M/H phase begins. Absent is treated as an empty list.
+   */
+  readonly spawnReplayUsedSources?: readonly CardInstanceId[];
+  /**
    * Number of ahunt-attack effects resolved during the order-effects step.
    * Tracks progress through the list of matching ahunt long-events so
    * combat is initiated one at a time.
