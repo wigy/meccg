@@ -816,10 +816,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/DelversHarvest.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the site phase if one of your companies enters the Deep Mines site."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": { "site.name": "Deep Mines" }
+      }
+    ],
+    "text": "Playable during the site phase if one of your companies enters the Deep Mines site.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
