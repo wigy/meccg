@@ -149,6 +149,10 @@ function siteMatchesEntry(
       // that have `state` in scope (the faction paths); undefined elsewhere.
       regionType,
       region: siteDef.region,
+      // The site's printed keywords (e.g. `under-deeps`, `hoard`). Lets an
+      // ally/faction gate on "an Under-deeps site with a Troll automatic-attack"
+      // (Cave Troll ba-35) via `when: { "site.keywords": { "$includes": "under-deeps" } }`.
+      keywords: siteDef.keywords ?? [],
       autoAttack: { race: autoAttackRaces },
     },
   };
