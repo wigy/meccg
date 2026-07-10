@@ -509,6 +509,17 @@ export interface CombatState {
    */
   readonly woundEliminates?: boolean;
   /**
+   * When true, weapons do not modify the target's prowess against this attack's
+   * strikes (the printed "weapons do not modify prowess against these strikes"
+   * clause, e.g. Trap, Lava Flows dm-152, Rock Fall dm-156). Set by the
+   * `weapons-ineffective` automatic-attack combat rule and exposed as
+   * `attack.weaponsIneffective` in the `modify-attack` `when` context, so an
+   * item like Dwarven Light-stone (dm-168) can gate its tap-to-lower-prowess
+   * ability on "one attack for which weapons do not modify the target's
+   * prowess".
+   */
+  readonly weaponsIneffective?: boolean;
+  /**
    * When true, this attack was reduced from multiple attacks by
    * *Forewarned Is Forearmed*. Exposed as `attack.isolated` in the
    * `attack-defeated` condition context so the card can self-discard
