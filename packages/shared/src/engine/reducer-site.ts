@@ -1982,6 +1982,11 @@ function handleSitePlayHeroResource(
   if (isItem) {
     afterAttach = applyWardToBearer(afterAttach, playerIndex, targetCharId, def, action.cardInstanceId);
     afterAttach = fireCharacterGainsItemChecks(afterAttach, playerIndex, siteState.activeCompanyIndex);
+    // Greed (le-113 / tw-42): if a turn-scoped item-play-corruption-check
+    // constraint is bound to this site, every non-exempt character at the
+    // site (other than the item-player) makes a corruption check modified by
+    // subtracting the item's corruption points.
+    afterAttach = fireItemPlayCorruptionChecks(afterAttach, playerIndex, siteState.activeCompanyIndex, targetCharId, def);
   }
 
   // auto-test-gold-ring site-rule (Rule 9.21): playing a gold-ring item at a
@@ -2073,6 +2078,79 @@ function fireCharacterGainsItemChecks(
           possessions,
         });
       }
+    }
+  }
+  return newState;
+}
+
+/**
+ * Greed (le-113 / tw-42): fire the item-play corruption checks. When an item
+ * is played at a site carrying a turn-scoped `item-play-corruption-check`
+ * constraint, every character at the site — except the character who played
+ * the item and any character matching the constraint's `exemptFilter`
+ * (Hobbits, Wizards, Ringwraiths for Greed) — makes a corruption check. Each
+ * check is modified by subtracting the item's printed corruption points.
+ *
+ * Multiple Greed constraints at the same site each fire their own check per
+ * eligible character (the card is `duplication-limit` scope `site` max 1, so
+ * in practice only one is ever bound to a given site — but the loop is written
+ * generally).
+ */
+function fireItemPlayCorruptionChecks(
+  state: GameState,
+  playerIndex: number,
+  companyIndex: number,
+  itemPlayerCharId: CardInstanceId,
+  itemDef: ReturnType<typeof defById>,
+): GameState {
+  const player = state.players[playerIndex];
+  const company = player.companies[companyIndex];
+  const siteDefId = company.currentSite ? resolveInstanceId(state, company.currentSite.instanceId) : undefined;
+  if (!siteDefId) return state;
+
+  const constraints = state.activeConstraints.filter(
+    c => c.kind.type === 'item-play-corruption-check' && c.kind.siteDefinitionId === siteDefId,
+  );
+  if (constraints.length === 0) return state;
+
+  const cp = isItemCard(itemDef) ? itemDef.corruptionPoints : 0;
+  const modifier = cp > 0 ? -cp : 0;
+  const itemName = (itemDef as { name?: string } | undefined)?.name ?? 'item';
+
+  let newState = state;
+  for (const constraint of constraints) {
+    if (constraint.kind.type !== 'item-play-corruption-check') continue;
+    const exemptFilter = constraint.kind.exemptFilter;
+    for (const charId of company.characters) {
+      // The character playing the item need not make a corruption check.
+      if (charId === itemPlayerCharId) continue;
+      const char = player.characters[charId];
+      if (!char) continue;
+      const charDef = defById(newState, char.definitionId);
+      if (!charDef || !isCharacterCard(charDef)) continue;
+      // Exempt characters (Hobbits, Wizards, Ringwraiths) make no check.
+      if (exemptFilter) {
+        const ctx = { target: { race: charDef.race, skills: charDef.skills, name: charDef.name } };
+        if (matchesCondition(exemptFilter, ctx)) {
+          logDetail(`Greed: ${charDef.name} is exempt (matches exempt filter) — no corruption check`);
+          continue;
+        }
+      }
+      logDetail(`Greed: item "${itemName}" (cp ${cp}) played at site — ${charDef.name} makes a corruption check (modifier ${formatSignedNumber(modifier)})`);
+      const possessions = [
+        ...char.items.map(i => i.instanceId),
+        ...char.allies.map(a => a.instanceId),
+        ...char.hazards.map(h => h.instanceId),
+      ];
+      newState = enqueueCorruptionCheck(newState, {
+        source: constraint.source,
+        actor: player.id,
+        scope: { kind: 'phase', phase: Phase.Site },
+        characterId: charId,
+        modifier,
+        reason: `Greed (${itemName})`,
+        possessions,
+      });
     }
   }
   return newState;

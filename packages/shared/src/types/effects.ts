@@ -2409,6 +2409,31 @@ export interface RegionKeyingBoostEffect extends EffectBase {
 }
 
 /**
+ * Greed (le-113 / tw-42): a hazard short-event played on a site. Until the
+ * end of the turn, every character at the bound site (except the one playing
+ * the item) must make a corruption check each time an item is played at the
+ * site, the check modified by subtracting the item's printed corruption
+ * points. Characters matching {@link exemptFilter} (Hobbits, Wizards, and
+ * Ringwraiths for Greed) never make the check.
+ *
+ * On resolution the short-event installs a turn-scoped
+ * `item-play-corruption-check` {@link import('./pending.js').ActiveConstraint}
+ * bound to the target site (via the chain payload's `targetSiteDefinitionId`);
+ * the site-phase item-play handler fires the checks. Per CRF 22, a special
+ * ring item being *played* triggers the checks, but transferring an item does
+ * not — the trigger rides only the item-play path, never the transfer path.
+ */
+export interface ItemPlayCorruptionCheckEffect extends EffectBase {
+  readonly type: 'item-play-corruption-check';
+  /**
+   * Characters whose `target.*` context matches this condition are exempt
+   * from the corruption check (for Greed: Hobbits, Wizards, Ringwraiths).
+   * When absent, every character at the site (other than the item-player) checks.
+   */
+  readonly exemptFilter?: Condition;
+}
+
+/**
  * While this card is in play, each agent owned by the hazard player may take
  * this many additional agent actions each time it normally takes an agent action.
  * The extra action(s) do not trigger further extras (only a "normal" first
@@ -3891,6 +3916,7 @@ export type CardEffect =
   | NameAliasEffect
   | ManifestationSwapEffect
   | RegionKeyingBoostEffect
+  | ItemPlayCorruptionCheckEffect
   | PlayTargetEffect
   | PlayOptionEffect
   | PlayWindowEffect

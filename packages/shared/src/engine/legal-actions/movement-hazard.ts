@@ -1858,6 +1858,33 @@ function playHazardsActions(
           let blocked = false;
           for (const effect of getCardEffects(def)) {
             if (effect.type !== 'duplication-limit') continue;
+            // Greed (le-113 / tw-42): "Cannot be duplicated on a given site."
+            // Count resolved copies by their turn-scoped item-play-corruption-check
+            // constraint bound to the same target site, plus same-site chain copies.
+            if (effect.scope === 'site') {
+              const siteInstId = targetCompany.destinationSite?.instanceId
+                ?? targetCompany.currentSite?.instanceId ?? null;
+              const siteDefId = siteInstId ? resolveInstanceId(state, siteInstId) : null;
+              if (!siteDefId) continue;
+              const constraintCopies = state.activeConstraints.filter(
+                c => c.kind.type === 'item-play-corruption-check'
+                  && c.sourceDefinitionId === def.id
+                  && c.kind.siteDefinitionId === siteDefId,
+              ).length;
+              const chainCopies = state.chain?.entries.filter(e => {
+                if (e.payload.type !== 'short-event') return false;
+                if (e.payload.targetSiteDefinitionId !== siteDefId) return false;
+                const cDef = e.card ? defById(state, e.card.definitionId) : undefined;
+                return cDef?.name === def.name;
+              }).length ?? 0;
+              if (constraintCopies + chainCopies >= effect.max) {
+                logDetail(`Hazard short-event "${def.name}" cannot be duplicated on this site (${constraintCopies} active, ${chainCopies} on chain)`);
+                actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on a given site` });
+                blocked = true;
+                break;
+              }
+              continue;
+            }
             if (effect.scope !== 'game' && effect.scope !== 'turn') continue;
             const copiesOnChain = state.chain?.entries.filter(e => {
               const cDef = e.card ? defById(state, e.card.definitionId) : undefined;

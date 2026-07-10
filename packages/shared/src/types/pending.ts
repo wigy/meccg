@@ -1073,6 +1073,26 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Greed (le-113 / tw-42): while this turn-scoped constraint is bound to
+         * the site, each character at the site (other than the character playing
+         * the item) must make a corruption check each time an item is played at
+         * the site, modified by subtracting the item's printed corruption points.
+         * Installed by the Greed short-event on resolution and fired by the
+         * site-phase item-play handler (`fireItemPlayCorruptionChecks`). Matched
+         * by `siteDefinitionId` against the item-playing company's current site.
+         */
+        readonly type: 'item-play-corruption-check';
+        /** The definition ID of the bound site (matches all versions). */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+        /**
+         * Characters whose `target.*` context matches this condition are exempt
+         * from the check (for Greed: Hobbits, Wizards, Ringwraiths). Absent =
+         * every character at the site (other than the item-player) checks.
+         */
+        readonly exemptFilter?: import('./effects.js').Condition;
+      }
+    | {
+        /**
          * METD §7 / rule 10.08 — once a player attempts the no-tap
          * variant of removing a corruption card from a character, no
          * further attempts (tap or no-tap) on the same
