@@ -240,8 +240,15 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a company during the organization phase. The company cannot use starter movement. In addition, if they move with region movement, they are limited in all cases to 3 regions maximum and their hazard limit is reduced by one (to a minimum of two). Discard this card from play and make a roll to attempt to cancel an attack against them by an opponent’s company. If the roll plus the number of scouts in the company is greater than 7, the attack is canceled. Discard during your organization phase if you choose. Cannot be duplicated on a given company."
+    "effects": [
+      { "type": "play-target", "target": "company" },
+      { "type": "company-movement-restriction", "noStarterMovement": true, "regionMovementMax": 3, "hazardLimitModifier": -1, "hazardLimitFloor": 2 },
+      { "type": "cancel-attack", "requiresCvCC": true, "cost": { "discard": "self" }, "roll": { "threshold": 7, "comparison": "gt", "scoutBonus": true } },
+      { "type": "voluntary-discard", "phase": "organization" },
+      { "type": "duplication-limit", "scope": "company", "max": 1 }
+    ],
+    "text": "Playable on a company during the organization phase. The company cannot use starter movement. In addition, if they move with region movement, they are limited in all cases to 3 regions maximum and their hazard limit is reduced by one (to a minimum of two). Discard this card from play and make a roll to attempt to cancel an attack against them by an opponent’s company. If the roll plus the number of scouts in the company is greater than 7, the attack is canceled. Discard during your organization phase if you choose. Cannot be duplicated on a given company.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
