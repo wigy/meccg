@@ -33,7 +33,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companySubphaseScope, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companySubphaseScope, countSpawnCardsInPlay, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -3022,6 +3022,51 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         // here would leave the entry unresolved and re-initiate combat after it
         // finalizes.
         current = { ...current, combat };
+      }
+    }
+  }
+
+  // The Reek (ba-23): company-tap-characters — hazard short event that taps every
+  // untapped character in the active M/H company whose effective mind is below a
+  // threshold (here "2 + spawnCardsInPlay") and that matches the effect filter
+  // (excluding Wizards and Ringwraiths). Applied directly here, then the chain
+  // entry is marked resolved and the event is discarded with the chain.
+  if (entry.payload.type === 'short-event'
+    && !entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.MovementHazard) {
+    const reekCardDef = defById(current, entry.card.definitionId);
+    const tapEffect = getCardEffects(reekCardDef).find(
+      (e): e is import('../index.js').CompanyTapCharactersEffect => e.type === 'company-tap-characters',
+    );
+    if (tapEffect) {
+      const activePlayerId = current.activePlayer!;
+      const activeIndex = getPlayerIndex(current, activePlayerId);
+      const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
+      if (company) {
+        const spawnCardsInPlay = countSpawnCardsInPlay(current);
+        const threshold = evaluateExpr(tapEffect.mindBelow, { spawnCardsInPlay });
+        logDetail(
+          `company-tap-characters "${(reekCardDef as { name?: string }).name ?? '?'}": ` +
+          `${spawnCardsInPlay} Spawn card(s) in play → tapping untapped characters with mind < ${threshold}`,
+        );
+        for (const charId of company.characters) {
+          const ch = current.players[activeIndex].characters[charId];
+          if (!ch || ch.status !== CardStatus.Untapped) continue;
+          const charDef = defById(current, ch.definitionId);
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          const effMind = ch.effectiveStats.mind ?? charDef.mind ?? 0;
+          if (effMind >= threshold) continue;
+          if (tapEffect.filter) {
+            const ctx = { target: { race: charDef.race, mind: effMind, name: charDef.name, skills: charDef.skills } };
+            if (!matchesCondition(tapEffect.filter, ctx)) continue;
+          }
+          logDetail(`  tapping "${charDef.name}" (mind ${effMind})`);
+          current = updatePlayer(current, activeIndex, p =>
+            updateCharacter(p, charId, c => ({ ...c, status: CardStatus.Tapped })),
+          );
+        }
       }
     }
   }

@@ -6201,6 +6201,48 @@ card's "not an attack" wording.
 
 Used by: *Cruel Caradhras* (td-9).
 
+### 44a. `company-tap-characters`
+
+A hazard short-event effect that, on chain resolution during the M/H phase,
+**taps every untapped character** in the active company whose effective mind is
+strictly below a computed threshold and that matches an optional per-character
+`filter`. Already-tapped/wounded characters are left as-is. Models the The Reek
+(ba-23) mechanic. The event is played on the company as a whole via a
+`play-target` with `target: "company"` (site filter) — there is no per-character
+target.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `mindBelow` | yes | A [value expression](#value-expressions). A character is tapped only if its effective mind is strictly below this value. The expression context exposes `spawnCardsInPlay` — the number of `spawn`-keyword cards currently in play across both players (characters, allies, attached hazards/items, and bare permanent-events in `cardsInPlay`), per "the number of Spawn cards in play". "Eliminated Spawn do not count" is automatic: eliminated cards leave the in-play zones. |
+| `filter` | no | A DSL condition evaluated per character against `{ target: { race, mind, name, skills } }`. Only matching characters are tapped. The Reek uses it to exclude the `wizard` and `ringwraith` races. |
+
+```json
+{
+  "type": "company-tap-characters",
+  "mindBelow": "2 + spawnCardsInPlay",
+  "filter": {
+    "$and": [
+      { "target.race": { "$ne": "wizard" } },
+      { "target.race": { "$ne": "ringwraith" } }
+    ]
+  }
+}
+```
+
+**Resolution**: `chain-reducer.ts` finds the `company-tap-characters` effect on a
+bare (no `targetCharacterId`) short-event entry during the M/H phase, computes
+`spawnCardsInPlay` via `countSpawnCardsInPlay` (`reducer-utils.ts`), evaluates
+`mindBelow`, and taps each qualifying untapped character in the active company.
+Wizards and Ringwraiths are avatar races with a `null` printed mind (treated as
+`0`, so always under the threshold) — the `filter` is what keeps them from being
+tapped.
+
+**Play cost**: The Reek pairs this with a `play-discard-cost` (discard an
+Animal/Spider hazard-creature from hand) and the company `play-target` site
+filter (`ruins-and-lairs` site type **or** the `under-deeps` site keyword).
+
+Used by: *The Reek* (ba-23).
+
 ### 45. `force-return-to-origin`
 
 Hazard environment (long-event) clause enforcing **CoE rule 5.31 — Company
