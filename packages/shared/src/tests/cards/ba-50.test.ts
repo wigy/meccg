@@ -45,7 +45,7 @@ import {
   attachItemToChar,
 } from '../test-helpers.js';
 import type {
-  CardDefinitionId, CardInstanceId, GameState, SiteCard,
+  CardDefinitionId, SiteCard,
   PlayPermanentEventAction, SelectCardBearerAction,
   PendingResolution, ResolutionId,
 } from '../../index.js';
