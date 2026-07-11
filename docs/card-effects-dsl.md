@@ -1772,6 +1772,24 @@ bearer's status is irrelevant (it need not be untapped and is not tapped).
 The item itself must be untapped. Used by *Helm of Fear* (as-126) — tap the
 item to cancel an attack against the Ringwraith's company.
 
+When the effect is declared on a **company-bound permanent-event** in
+`cardsInPlay` (`CardInPlay.companyId` set — see `play-target` `target: "company"`)
+with `cost: { "discard": "self" }`, it is sourced only for the bound company and
+only in the pre-strike cancel window. Two extra fields specialize it for *Going
+Ever Under Dark* (ba-37):
+
+- `"requiresCvCC": true` — the cancel is offered only against a company-vs-company
+  attack (`combat.isCvCC`) — "an attack against them by an opponent's company".
+- `"roll": { "threshold": 7, "comparison": "gt", "scoutBonus": true }` — the
+  cancel is **not** automatic. Paying the cost discards the card and enqueues a
+  2d6 `dice-check` (roller = the defending player) whose modified total must
+  satisfy `total comparison threshold` to cancel; `"scoutBonus": true` adds the
+  number of Scout-skilled characters in the defending company to the roll. On
+  success the check's `onPass: { type: "cancel-current-attack" }` verb cancels the
+  combat; on failure combat continues. Backs "Discard this card from play and
+  make a roll to attempt to cancel an attack … If the roll plus the number of
+  scouts in the company is greater than 7, the attack is canceled."
+
 **Dual-mode cancel / reduce-prowess.** A `prowessPenalty: N` field turns the
 card into a two-option play: the legal-action emitter offers both the outright
 cancellation and a "reduce the attack's prowess by N" variant (carried on the
@@ -6781,6 +6799,55 @@ floor. Consumed both at movement-plan time (`organization-companies.ts`
 (dm-75): "The number of region cards that may be played by a moving company
 using region movement is reduced by one (by two if Doors of Night is in play) to
 a minimum of two."
+
+### 52b. `company-movement-restriction`
+
+Carried by a permanent-event **bound to a company** (`play-target`
+`target: "company"`, so `CardInPlay.companyId` is set). Constrains how the bound
+company may move and how many hazards it faces while region-moving. Multiple
+restriction cards on one company stack: `noStarterMovement` OR-s, the region cap
+takes the strictest declared maximum, and hazard modifiers sum.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `noStarterMovement` | no | When `true`, the bound company may not use starter movement. |
+| `regionMovementMax` | no | Hard cap on the number of regions the company may span in region movement ("limited in all cases to N regions maximum"). |
+| `hazardLimitModifier` | no | Added to the company's hazard limit **only when it moves via region movement** (negative reduces it). |
+| `hazardLimitFloor` | no | Floor the hazard limit is never reduced below by `hazardLimitModifier`. |
+
+```json
+{ "type": "company-movement-restriction", "noStarterMovement": true, "regionMovementMax": 3, "hazardLimitModifier": -1, "hazardLimitFloor": 2 }
+```
+
+Behaviour (`effects/company-restrictions.ts` `companyMovementRestrictions`): the
+aggregate is read at four sites — organization plan-movement
+(`organization-companies.ts`, drops starter destinations and caps region
+distance), M/H select-company (`mh-steps.ts`, caps `phaseState.maxRegionDistance`),
+M/H declare-path (`legal-actions/movement-hazard.ts`, suppresses the starter
+path), and the hazard-limit snapshot (`mh-steps.ts` `snapshotHazardLimit`, applies
+the floored hazard modifier). The hazard modifier is gated on a region-moving
+company (`movementType === region`), per CRF 22: "The hazard limit reduction only
+works if the company is moving." Used by Going Ever Under Dark (ba-37).
+
+### 52c. `voluntary-discard`
+
+Lets the controller voluntarily discard the carrying in-play permanent-event
+during their own organization phase ("Discard during your organization phase if
+you choose"). One `voluntary-discard-in-play` action is offered per matching
+card in the organization aggregator (`legal-actions/organization.ts`
+`voluntaryDiscardInPlayActions`); the reducer
+(`reducer-organization.ts` `handleVoluntaryDiscardInPlay`) moves the card to the
+discard pile, severing any company binding and lifting its restrictions.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `phase` | yes | The phase during which the discard may be chosen (currently `"organization"`). |
+
+```json
+{ "type": "voluntary-discard", "phase": "organization" }
+```
+
+Used by Going Ever Under Dark (ba-37).
 
 ### 52a. `under-deeps-roll-modifier`
 

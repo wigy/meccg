@@ -28,6 +28,7 @@ import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.j
 import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
+import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import { grantedActionActivations } from './organization.js';
@@ -284,16 +285,25 @@ function revealNewSiteActions(
   const isUnderDeepsMovement = originIsUD || destIsUD;
 
   // MEBA: a company containing The Balrog avatar may not use starter or region
-  // movement ("as stated on his card") — only Under-deeps movement. Movement-
-  // expanding resources (Going Ever Under Dark ba-37, Gangways over the Fire
-  // ba-60), when certified, must explicitly grant an exception here.
+  // movement ("as stated on his card") — only Under-deeps movement. (Going Ever
+  // Under Dark ba-37 is a restriction, not a movement grant — it never lifts
+  // this lock; it only *removes* starter movement and caps region distance for
+  // whatever company it is bound to.)
   const balrogMovementLocked = companyContainsBalrogAvatar(state, player, company);
   if (balrogMovementLocked) {
     logDetail(`Company ${company.id as string} contains The Balrog — starter/region movement suppressed (Under-deeps only)`);
   }
 
+  // A company-bound movement restriction (Going Ever Under Dark ba-37) forbids
+  // starter movement for the bound company ("The company cannot use starter
+  // movement"). The region cap is enforced separately via mhState.maxRegionDistance.
+  const noStarterRestriction = companyMovementRestrictions(player, company, state)?.noStarterMovement === true;
+  if (noStarterRestriction) {
+    logDetail(`Company ${company.id as string}: a movement-restriction card forbids starter movement`);
+  }
+
   // --- Starter movement ---
-  if (!isUnderDeepsMovement && !balrogMovementLocked && isStarterMovementPossible(movementMap, originDef, destDef)) {
+  if (!isUnderDeepsMovement && !balrogMovementLocked && !noStarterRestriction && isStarterMovementPossible(movementMap, originDef, destDef)) {
     logDetail(`Starter movement available: ${originDef.name} → ${destDef.name}`);
     actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.Starter });
   }

@@ -1933,6 +1933,17 @@ function cancelAttackActions(
       logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: in-play faction is tapped, cannot tap to cancel`);
       continue;
     }
+    // Company-bound restriction cards (Going Ever Under Dark ba-37) may only
+    // cancel an attack against their own company, and only in company-vs-company
+    // combat ("an attack against them by an opponent's company").
+    if (inPlayCard.companyId && inPlayCard.companyId !== combat.companyId) {
+      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: bound to a different company — skipping`);
+      continue;
+    }
+    if (cancelEffect.requiresCvCC && !combat.isCvCC) {
+      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: requires a company-vs-company attack — skipping`);
+      continue;
+    }
     if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
       logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: when condition not met (in-play faction)`);
       continue;

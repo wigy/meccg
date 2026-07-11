@@ -1357,6 +1357,7 @@ export type TriggeredActionType =
   | 'roll-then-apply'
   | 'transform-site'
   | 'untap-site'
+  | 'cancel-current-attack'
   | 'win-condition-roll'
   | 'win-game';
 
@@ -1761,6 +1762,16 @@ export interface UntapSiteAction extends TriggeredActionBase {
 }
 
 /**
+ * `cancel-current-attack` — cancel the combat currently in `state.combat`
+ * (delegates to the shared `resolveCancelAttackEntry`). Used as the `onPass`
+ * verb of a `dice-check` enqueued by a roll-to-cancel ability (Going Ever
+ * Under Dark ba-37). Type-only marker.
+ */
+export interface CancelCurrentAttackAction extends TriggeredActionBase {
+  readonly type: 'cancel-current-attack';
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -1801,7 +1812,8 @@ export type TriggeredAction =
   | IncrementCompanyExtraRegionDistanceAction
   | ModifyCurrentStrikeProwessAction
   | TransformSiteAction
-  | UntapSiteAction;
+  | UntapSiteAction
+  | CancelCurrentAttackAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -2443,6 +2455,46 @@ export interface DuplicationLimitEffect extends EffectBase {
 }
 
 /**
+ * Movement/hazard restrictions imposed on the company a permanent-event is
+ * bound to (`CardInPlay.companyId`). Consulted at the movement legal-action
+ * sites (organization plan-movement, M/H select-company / declare-path) and at
+ * the hazard-limit snapshot. Multiple restriction cards on one company stack
+ * (strictest wins for the region cap; hazard modifiers sum).
+ *
+ * Used by Going Ever Under Dark (ba-37): "The company cannot use starter
+ * movement. In addition, if they move with region movement, they are limited
+ * in all cases to 3 regions maximum and their hazard limit is reduced by one
+ * (to a minimum of two)."
+ */
+export interface CompanyMovementRestrictionEffect extends EffectBase {
+  readonly type: 'company-movement-restriction';
+  /** When true, the bound company may not use starter movement. */
+  readonly noStarterMovement?: true;
+  /** Hard cap on the number of regions the bound company may span in region movement. */
+  readonly regionMovementMax?: number;
+  /**
+   * Amount added to the bound company's hazard limit when it moves with region
+   * movement (negative reduces it). Applied only for a region-moving company
+   * (CRF 22: "The hazard limit reduction only works if the company is moving").
+   */
+  readonly hazardLimitModifier?: number;
+  /** Floor the hazard limit is never reduced below by {@link hazardLimitModifier}. */
+  readonly hazardLimitFloor?: number;
+}
+
+/**
+ * Lets the controller voluntarily discard the carrying in-play permanent-event
+ * during their own organization phase ("Discard during your organization phase
+ * if you choose"). Offered as a `voluntary-discard-in-play` action in the
+ * organization aggregator. Used by Going Ever Under Dark (ba-37).
+ */
+export interface VoluntaryDiscardEffect extends EffectBase {
+  readonly type: 'voluntary-discard';
+  /** The phase during which the discard may be chosen (currently "organization"). */
+  readonly phase: 'organization';
+}
+
+/**
  * Makes a card count as another named card for the purpose of `inPlay`
  * condition checks. While the bearer is in play, the alias name is added to
  * the in-play names list, so any DSL `when` clause that tests
@@ -2879,6 +2931,28 @@ export interface CancelAttackEffect extends EffectBase {
    * character in a covert company."
    */
   readonly handModeRequiresCovert?: true;
+  /**
+   * When true, the cancel is only available against a company-vs-company
+   * combat (`combat.isCvCC`) — "an attack against them by an opponent's
+   * company". Used by Going Ever Under Dark (ba-37).
+   */
+  readonly requiresCvCC?: true;
+  /**
+   * When set, the cancel is not automatic: paying the cost enqueues a 2d6
+   * dice-check that only cancels the attack on success. Backs "make a roll to
+   * attempt to cancel an attack … If the roll plus the number of scouts in the
+   * company is greater than 7, the attack is canceled" (Going Ever Under Dark
+   * ba-37). The roller is the defending player; the modified 2d6 total is
+   * compared to `threshold` via `comparison`.
+   */
+  readonly roll?: {
+    /** Success requires `roll (+ bonuses) comparison threshold`. */
+    readonly threshold: number;
+    /** `'gt'` (strictly greater) or `'gte'` (≥). */
+    readonly comparison: 'gt' | 'gte';
+    /** When true, add the number of Scout-skilled characters in the company to the roll. */
+    readonly scoutBonus?: true;
+  };
 }
 
 /**
@@ -4221,6 +4295,8 @@ export type CardEffect =
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
   | SurfaceRegionAdjacencyEffect
+  | CompanyMovementRestrictionEffect
+  | VoluntaryDiscardEffect
   | FactionInfluenceRestrictionEffect;
 
 /**

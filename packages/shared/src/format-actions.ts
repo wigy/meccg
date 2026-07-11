@@ -577,6 +577,8 @@ export function describeAction(
       return `${playerName(action.player)} has discarded creature ${instName(action.creatureInstanceId)} attack Alatar's company (The Great Hunt)`;
     case 'gangways-extra-move':
       return `${playerName(action.player)} sends company ${action.companyId} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
+    case 'voluntary-discard-in-play':
+      return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} from play`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;
