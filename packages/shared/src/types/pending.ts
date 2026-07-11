@@ -655,6 +655,48 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Desire All for Thy Belly (ba-16), step 1: the card-player has revealed
+         * the top cards of the opponent's play deck and must choose exactly one
+         * (`desire-choose-shown-card`) to show to the opponent. The choice is
+         * mandatory (no pass). On resolution a `desire-belly-choose-penalty`
+         * resolution is enqueued for the opponent.
+         */
+        readonly type: 'desire-belly-choose-card';
+        /**
+         * Instance ids of the revealed top-of-deck cards (top-first). They stay
+         * on top of the opponent's play deck while the choice is pending.
+         */
+        readonly revealedInstanceIds: readonly CardInstanceId[];
+        /** The player whose play deck was revealed (the opponent). */
+        readonly opponentId: PlayerId;
+        /** The card-player who played the event. */
+        readonly cardPlayerId: PlayerId;
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Desire All for Thy Belly (ba-16), step 2: the card-player has shown a
+         * revealed card; the opponent must choose (`desire-choose-penalty`) to
+         * either remove that card from the game or permanently reduce his hand
+         * size by one. The choice is mandatory (no pass). On resolution the
+         * remaining revealed cards are shuffled back on top of the opponent's
+         * deck.
+         */
+        readonly type: 'desire-belly-choose-penalty';
+        /** The revealed card the card-player chose and showed to the opponent. */
+        readonly chosenInstanceId: CardInstanceId;
+        /** Instance ids of all revealed top-of-deck cards (top-first). */
+        readonly revealedInstanceIds: readonly CardInstanceId[];
+        /** The player whose play deck / hand size is affected (the opponent). */
+        readonly opponentId: PlayerId;
+        /** The card-player who played the event. */
+        readonly cardPlayerId: PlayerId;
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * The Great Hunt (wh-91): after the card enters play, the controller
          * chooses whether the opponent reveals from their play deck or their
          * discard pile (`choose-great-hunt-source` action). The choice kicks off
