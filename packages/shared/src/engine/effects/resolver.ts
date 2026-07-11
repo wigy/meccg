@@ -100,6 +100,15 @@ export interface ResolverContext {
      * So You've Come Back (le-138).
      */
     readonly atHaven?: boolean;
+    /**
+     * True when the character's company is at, moving to, or moving from an
+     * Under-deeps site (its `currentSite`, planned `destinationSite`, or
+     * `siteOfOrigin` carries the `under-deeps` keyword). Populated only in the
+     * effective-stats context. Used by environments that spare characters near
+     * the Under-deeps, e.g. The Sun Shone Fiercely (ba-25):
+     * `{ "bearer.atOrMovingUnderDeeps": { "$ne": true } }`.
+     */
+    readonly atOrMovingUnderDeeps?: boolean;
   };
   /** The enemy creature/hazard (in combat contexts). */
   readonly enemy?: {

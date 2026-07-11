@@ -1123,6 +1123,12 @@ function applyOneConstraint(
       // combat finalization and the discard tracker by the post-reduce sweep —
       // neither restricts legal actions here.
       return base;
+    case 'item-play-corruption-check':
+      // Greed (le-113 / tw-42): consumed directly by the site-phase item-play
+      // handler (`fireItemPlayCorruptionChecks` in `reducer-site.ts`), which
+      // enqueues the corruption checks when an item is played at the bound
+      // site — no broad legal-action filtering needed here.
+      return base;
   }
 }
 
@@ -2023,6 +2029,61 @@ export function revealRemoveFromDiscardActions(
   // "You may" — declining is always allowed.
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
   return actions;
+}
+
+/**
+ * Legal actions while a `desire-belly-choose-card` resolution is pending
+ * (Desire All for Thy Belly, ba-16, step 1): the card-player must choose one of
+ * the revealed top-of-deck cards to show to the opponent. One
+ * `desire-choose-shown-card` action per revealed card; the choice is mandatory
+ * (no pass).
+ */
+export function desireBellyChooseCardActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'desire-belly-choose-card') return [];
+  const { revealedInstanceIds, opponentId } = top.kind;
+  const opponent = playerById(state, opponentId);
+  if (!opponent) return [];
+  const inDeck = new Set(opponent.playDeck.map(c => c.instanceId as string));
+  const actions: EvaluatedAction[] = [];
+  for (const id of revealedInstanceIds) {
+    if (!inDeck.has(id as string)) continue;
+    const card = opponent.playDeck.find(c => c.instanceId === id)!;
+    logDetail(`Desire All for Thy Belly: offering to show "${cardName(state, card.definitionId)}"`);
+    actions.push({
+      action: { type: 'desire-choose-shown-card' as const, player: actor, cardInstanceId: id },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
+ * Legal actions while a `desire-belly-choose-penalty` resolution is pending
+ * (Desire All for Thy Belly, ba-16, step 2): the opponent must choose to either
+ * remove the shown card from the game or permanently reduce his hand size by
+ * one. Both options are offered; the choice is mandatory (no pass).
+ */
+export function desireBellyChoosePenaltyActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'desire-belly-choose-penalty') return [];
+  void state;
+  return [
+    {
+      action: { type: 'desire-choose-penalty' as const, player: actor, penalty: 'remove-from-game' as const },
+      viable: true,
+    },
+    {
+      action: { type: 'desire-choose-penalty' as const, player: actor, penalty: 'reduce-hand-size' as const },
+      viable: true,
+    },
+  ];
 }
 
 /**

@@ -203,6 +203,27 @@ export interface FetchFromSideboardAction {
   readonly sideboardCardInstanceId: CardInstanceId;
 }
 
+/**
+ * Bring a specific card from the sideboard into the play deck during the
+ * organization phase, driven by an ability on the card itself.
+ *
+ * Distinct from the CoE 2.II.6 avatar-tap sideboard access
+ * ({@link StartSideboardToDeckAction} / {@link FetchFromSideboardAction}):
+ * this is a *card-granted* self-relocation carried by a `move`
+ * (`select: 'self'`, `from: ['sideboard']`, `to: 'deck'`) effect. It taps
+ * nothing, has no deck-size requirement, and is limited to the one card that
+ * declares it. Used by Terror Heralds Doom (ba-78) and the rest of the Balrog
+ * sideboard family: "You may bring this card from your sideboard into your
+ * play deck and reshuffle during your organization phase."
+ */
+export interface CardSideboardToDeckAction {
+  readonly type: 'card-sideboard-to-deck';
+  /** The player relocating their sideboard card. */
+  readonly player: PlayerId;
+  /** The sideboard card moving itself into the play deck. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
 // ---- Untap hazard sideboard access ----
 
 /**
@@ -386,6 +407,33 @@ export interface RemoveRevealedCardAction {
   readonly player: PlayerId;
   /** The instance ID of the revealed card to remove from play. */
   readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * Choose one of the cards revealed from the top of the opponent's play deck and
+ * show it to the opponent (Desire All for Thy Belly, ba-16). Resolves a
+ * `desire-belly-choose-card` pending resolution; the choice is mandatory.
+ */
+export interface DesireChooseShownCardAction {
+  readonly type: 'desire-choose-shown-card';
+  /** The card-player choosing which revealed deck card to show. */
+  readonly player: PlayerId;
+  /** The instance ID of the revealed card to show to the opponent. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * The opponent's forced choice after a card was shown by Desire All for Thy
+ * Belly (ba-16): either remove the shown card from the game, or permanently
+ * reduce his hand size by one. Resolves a `desire-belly-choose-penalty` pending
+ * resolution; the choice is mandatory ("He must choose to either…").
+ */
+export interface DesireChoosePenaltyAction {
+  readonly type: 'desire-choose-penalty';
+  /** The opponent making the forced choice. */
+  readonly player: PlayerId;
+  /** Which penalty the opponent accepts. */
+  readonly penalty: 'remove-from-game' | 'reduce-hand-size';
 }
 
 /**

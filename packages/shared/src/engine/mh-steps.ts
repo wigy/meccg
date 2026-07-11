@@ -247,6 +247,29 @@ export function handleRevealNewSite(
         required = boosted;
       }
     }
+    // The Under-roads (as-106): a game-wide environment (in-play resource
+    // long-event) decreasing the Under-deeps movement roll for every
+    // Ringwraith-minion company. Collected from either player's `cardsInPlay`
+    // (it is an environment) and applied only when the moving player is a
+    // minion — same required-roll-reduction equivalence as above.
+    if (required > 0 && player.alignment === Alignment.Ringwraith) {
+      let minionEnvBonus = 0;
+      for (const p of state.players) {
+        for (const cardInPlay of p.cardsInPlay) {
+          const cDef = defById(state, cardInPlay.definitionId);
+          for (const eff of getCardEffects(cDef)) {
+            if (eff.type === 'under-deeps-roll-modifier' && eff.scope === 'minion-companies') {
+              minionEnvBonus += eff.value;
+            }
+          }
+        }
+      }
+      if (minionEnvBonus !== 0) {
+        const boosted = Math.max(0, required - minionEnvBonus);
+        logDetail(`under-deeps-roll-modifier (minion environment): +${minionEnvBonus} to roll — required ${required} → ${boosted}`);
+        required = boosted;
+      }
+    }
     // Gangways over the Fire (ba-60): "Subtract the number of complete
     // movement/hazard phases the company has taken so far this turn from its
     // Under-deeps movement rolls" — modeled as an equal increase of the

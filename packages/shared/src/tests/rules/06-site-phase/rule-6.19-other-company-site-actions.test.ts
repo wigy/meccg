@@ -23,6 +23,7 @@ import {
 } from '../../test-helpers.js';
 import type { CardDefinitionId } from '../../test-helpers.js';
 import type { PlayShortEventAction } from '../../../types/actions-short-event.js';
+import { reduce } from '../../../engine/reducer.js';
 
 // Marvels Told (td-134): "Sage only. Tap a sage to force the discard of a
 // hazard non-environment permanent-event or long-event." A tap-cost
@@ -65,6 +66,48 @@ describe('Rule 6.19 — Other Company Actions During Site Phase', () => {
     const plays = viableActions(state, PLAYER_1, 'play-short-event') as { action: PlayShortEventAction }[];
 
     expect(plays.some(a => a.action.targetScoutInstanceId === gandalfId)).toBe(true);
+  });
+
+  // Regression (game mrevwcn5-itaw75, seq 193): the AI froze after playing a
+  // resource short-event during the select-company step. `siteActions` offered
+  // the play (per rule 2.1.1, above), but the reducer's select-company handler
+  // rejected any action that was not `select-company`, so the play produced an
+  // error with no state update — the client/AI received nothing and got stuck.
+  // Playing a resource short-event during select-company must be accepted.
+  test('a resource short-event played during the select-company step is accepted by the reducer, not rejected', () => {
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: RIVENDELL, characters: [ARAGORN] },
+            { site: MORIA, characters: [GANDALF] },
+          ],
+          hand: [MARVELS_TOLD],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const state = {
+      ...addCardInPlay(built, 1, EYE_OF_SAURON_HAZARD),
+      phaseState: makeSitePhase({ step: 'select-company', activeCompanyIndex: 0, handledCompanyIds: [] }),
+    };
+
+    const gandalfId = findCharInstanceId(state, RESOURCE_PLAYER, GANDALF);
+    const plays = viableActions(state, PLAYER_1, 'play-short-event') as { action: PlayShortEventAction }[];
+    const play = plays.find(a => a.action.targetScoutInstanceId === gandalfId);
+    expect(play).toBeDefined();
+
+    const { state: after, error } = reduce(state, play!.action);
+
+    // The reducer must not reject an action it advertised as legal.
+    expect(error).toBeUndefined();
+    // Marvels Told left the hand — proof the short-event actually played
+    // rather than being bounced with the state unchanged.
+    expect(after.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === play!.action.cardInstanceId)).toBe(false);
   });
 
   // The "unless the action would cancel an attack or untap a site" carve-out

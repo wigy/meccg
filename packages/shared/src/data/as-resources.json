@@ -1429,8 +1429,21 @@
     "eventType": "long",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "The roll required for minions to move between adjacent Under-deeps sites is decreased by 3. Discards and prohibits the subsequent play of The Way is Shut."
+    "effects": [
+      {
+        "type": "under-deeps-roll-modifier",
+        "value": 3,
+        "scope": "minion-companies"
+      },
+      {
+        "type": "prohibit-card-play",
+        "cardNames": [
+          "The Way is Shut"
+        ]
+      }
+    ],
+    "text": "The roll required for minions to move between adjacent Under-deeps sites is decreased by 3. Discards and prohibits the subsequent play of The Way is Shut.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",

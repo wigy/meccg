@@ -81,8 +81,13 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Animals. Each wounded character faces one strike. All body checks resulting from successful strikes are modified by an additional +1. Each untapped character in the company may tap to cancel a strike against a wounded character."
+    "effects": [
+      { "type": "combat-one-strike-per-character", "onlyWounded": true },
+      { "type": "combat-body-check-modifier", "value": 1 },
+      { "type": "combat-tap-to-cancel-strike" }
+    ],
+    "text": "Animals. Each wounded character faces one strike. All body checks resulting from successful strikes are modified by an additional +1. Each untapped character in the company may tap to cancel a strike against a wounded character.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "hazard-creature",
@@ -121,8 +126,12 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "spiders",
-    "keyedTo": [],
+    "keyedTo": [
+      { "siteKeywords": ["under-deeps"] },
+      { "adjacentToSiteKeywords": ["under-deeps"] }
+    ],
     "effects": [],
+    "certified": "2026-07-10",
     "text": "Spiders. Four strikes. Playable at any Under-deeps site or surface site thereof."
   }
 ]
