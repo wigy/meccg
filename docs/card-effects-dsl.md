@@ -2366,8 +2366,34 @@ strings to chase through the engine.
   excludes avatar characters (Wizards and Ringwraiths, `mind === null`)
   from the strike count and assignment: `strikesTotal = non-avatar
   characters`. Card text is "Each non-Wizard/non-Ringwraith character in
-  the company faces one strike" (e.g. Neeker-breekers). (implemented in
+  the company faces one strike" (e.g. Neeker-breekers). Optional
+  `onlyWounded: true` restricts the strikes to **wounded** (inverted)
+  characters: `strikesTotal = wounded characters`, one strike pre-assigned
+  to each wounded character, unwounded characters never assigned a strike.
+  With no wounded characters the creature has no effect and is discarded
+  without combat (no trivial "all strikes defeated" kill MP). Card text is
+  "Each wounded character faces one strike" (e.g. Carrion Feeders ba-11).
+  Mutually exclusive with `excludeAvatars`. (implemented in
   `chain-reducer.ts`, `legal-actions/combat.ts`)
+- `combat-body-check-modifier` — attack-wide body-check modifier carried by
+  a hazard creature: `value` is added to every character body-check roll this
+  attack produces (on top of the already-wounded +1 and any item modifiers).
+  Positive values make elimination more likely. Threaded into
+  `CombatState.bodyCheckModifier` at combat initiation and consumed in
+  `handleBodyCheckRoll`. Card text is "All body checks resulting from
+  successful strikes are modified by an additional +1" (e.g. Carrion Feeders
+  ba-11). (implemented in `chain-reducer.ts`, `combat-actions.ts`)
+- `combat-tap-to-cancel-strike` — the defending company may tap an untapped
+  character to cancel one of this attack's strikes against a wounded character.
+  Pairs with `combat-one-strike-per-character: onlyWounded` (every strike is
+  against a wounded character). On combat initiation the engine opens a
+  `cancel-by-tap` sub-phase (`CombatState.cancelStrikeAgainstWounded`): each
+  untapped company character may tap to remove one pre-assigned strike (the
+  defender chooses which wounded character to protect, via the `cancel-by-tap`
+  action's `strikeCharacterId`), or pass to proceed to resolution. Card text is
+  "Each untapped character in the company may tap to cancel a strike against a
+  wounded character" (e.g. Carrion Feeders ba-11). (implemented in
+  `chain-reducer.ts`, `legal-actions/combat.ts`, `combat-cancel.ts`)
 - `combat-defender-prowess-from-mind` — each defending character's prowess
   for this attack is replaced by their mind attribute value. Status modifiers
   (tapped −1, wounded −2) and support bonuses still apply on top of the

@@ -13,7 +13,8 @@
  */
 
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
-import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
+import type { HavenJumpOffer, PostAttackEffect, StrikeAssignment } from '../types/state-combat.js';
+import { nextStrikePhase } from './combat-strike.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, TapSitesInPlayEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -2041,7 +2042,23 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   );
   const oneStrikePerCharacter = oneStrikePerCharacterEffect !== undefined;
   const excludeAvatarStrikes = oneStrikePerCharacterEffect?.excludeAvatars === true;
+  // Carrion Feeders (ba-11): "Each wounded character faces one strike." Only
+  // wounded (inverted) characters face a strike, one pre-assigned per wounded.
+  const onlyWounded = oneStrikePerCharacterEffect?.onlyWounded === true;
   const defenderProwessFromMind = hasPlayFlag(creatureDef, 'combat-defender-prowess-from-mind');
+
+  // combat-body-check-modifier (Carrion Feeders ba-11): +N to every character
+  // body check produced by this attack (threaded into CombatState.bodyCheckModifier).
+  const bodyCheckModEffect = creatureDef.effects?.find(
+    e => e.type === 'combat-body-check-modifier',
+  );
+  const attackBodyCheckModifier = bodyCheckModEffect?.value ?? 0;
+
+  // combat-tap-to-cancel-strike (Carrion Feeders ba-11): untapped company
+  // characters may tap to cancel a strike against a wounded character.
+  const tapToCancelStrike = creatureDef.effects?.some(
+    e => e.type === 'combat-tap-to-cancel-strike',
+  ) ?? false;
 
   // Check for tap-low-mind combat rule (e.g. Wisp of Pale Sheen — facing
   // characters with mind ≤ strike prowess tap after the strike resolves).
@@ -2085,12 +2102,24 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx);
   const effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
 
+  // Wounded (inverted) characters in the defending company — the strike
+  // targets for `onlyWounded` mode (Carrion Feeders ba-11).
+  const woundedCharacters = onlyWounded
+    ? company.characters.filter(
+        charId => resourcePlayer.characters[charId]?.status === CardStatus.Inverted,
+      )
+    : [];
+
   // Total strikes resolution. Precedence:
+  //   0. onlyWounded                     → strikes = wounded characters
   //   1. combat-one-strike-per-character → strikes = company.characters.length
   //   2. combat-multi-attack             → strikes = count × effectiveStrikes
   //   3. default                         → strikes = effectiveStrikes
   let totalStrikes: number;
-  if (oneStrikePerCharacter) {
+  if (onlyWounded) {
+    totalStrikes = woundedCharacters.length;
+    logDetail(`One strike per wounded character: ${totalStrikes} wounded character(s) in company → ${totalStrikes} total strikes`);
+  } else if (oneStrikePerCharacter) {
     if (excludeAvatarStrikes) {
       const nonAvatarCount = company.characters.filter(charId => {
         const def = resolveDef(state, charId);
@@ -2109,6 +2138,33 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     }
   }
 
+  // onlyWounded with no wounded characters: the creature has no target and no
+  // effect — discard it to the hazard player without initiating combat (so no
+  // trivial "all strikes defeated" kill MP is awarded).
+  if (onlyWounded && woundedCharacters.length === 0) {
+    logDetail(`Creature "${creatureDef.name}" has no wounded targets — discarding without combat`);
+    const hazardIdx = getPlayerIndex(state, hazardPlayerId);
+    return updatePlayer(state, hazardIdx, p => ({
+      ...p,
+      discardPile: [...p.discardPile, {
+        instanceId: entry.card!.instanceId,
+        definitionId: entry.card!.definitionId,
+        status: CardStatus.Untapped,
+      }],
+    }));
+  }
+
+  // Pre-assign one strike per wounded character (onlyWounded mode).
+  const preAssignedWoundedStrikes: StrikeAssignment[] = woundedCharacters.map(
+    charId => ({ characterId: charId, excessStrikes: 0, resolved: false }),
+  );
+  // Untapped company characters that may tap to cancel a strike (ba-11).
+  const untappedCancelCount = onlyWounded
+    ? company.characters.filter(
+        charId => resourcePlayer.characters[charId]?.status === CardStatus.Untapped,
+      ).length
+    : 0;
+
   const attackKeying = Array.from(new Set(
     creatureDef.keyedTo.flatMap(k => k.regionTypes ?? []),
   ));
@@ -2124,7 +2180,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const havenJumpOffers = collectHavenJumpOffers(state, resourcePlayer, company.id);
   const defendingSiteDef = resolveDefendingSiteDef(state, company);
 
-  const combat: CombatState = makeCombatState({
+  let combat: CombatState = makeCombatState({
     attackSource,
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -2157,8 +2213,35 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     excludeAvatarStrikes: excludeAvatarStrikes ? true : undefined,
     defenderProwessFromMind: defenderProwessFromMind ? true : undefined,
     tapLowMindAfterStrike: tapLowMindAfterStrike ? true : undefined,
+    bodyCheckModifier: attackBodyCheckModifier !== 0 ? attackBodyCheckModifier : undefined,
     ...(forewarnedActive ? { isolated: true, uncancelable: true } : {}),
   });
+
+  // Carrion Feeders (ba-11): strikes are pre-assigned one per wounded character.
+  // Either open the tap-to-cancel window, or (no untapped defender / no such
+  // ability) go straight to strike resolution — the defender's pre-assignment
+  // cancel window is skipped exactly as for site "each character faces one
+  // strike" attacks (cancel-attack items still apply at resolve-strike Step 1).
+  if (onlyWounded) {
+    const useCancelWindow = tapToCancelStrike && untappedCancelCount > 0 && preAssignedWoundedStrikes.length > 0;
+    if (useCancelWindow) {
+      logDetail(`Carrion Feeders: ${preAssignedWoundedStrikes.length} strike(s) pre-assigned to wounded; opening tap-to-cancel window (${untappedCancelCount} untapped defender(s))`);
+      combat = {
+        ...combat,
+        strikeAssignments: preAssignedWoundedStrikes,
+        phase: 'assign-strikes',
+        assignmentPhase: 'cancel-by-tap',
+        cancelByTapRemaining: untappedCancelCount,
+        cancelStrikeAgainstWounded: true,
+        eachCharacterFacesOneStrike: true,
+      };
+    } else {
+      const base: CombatState = { ...combat, strikeAssignments: preAssignedWoundedStrikes, assignmentPhase: 'done', eachCharacterFacesOneStrike: true };
+      const next = nextStrikePhase(base);
+      combat = next ? { ...base, ...next } : base;
+      logDetail(`Carrion Feeders: ${preAssignedWoundedStrikes.length} strike(s) pre-assigned to wounded; no cancel window → phase ${combat.phase}`);
+    }
+  }
 
   logDetail(`Creature combat initiated: ${creatureDef.name} (${creatureDef.strikes} strikes${effectiveStrikes !== creatureDef.strikes ? ` → ${effectiveStrikes}` : ''}, ${creatureDef.prowess} prowess${effectiveProwess !== creatureDef.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== creatureDef.strikes || effectiveProwess !== creatureDef.prowess ? ' after global effects' : ''}) vs company ${company.id as string}`);
 

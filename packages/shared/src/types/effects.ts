@@ -1918,6 +1918,47 @@ export interface CombatOneStrikePerCharacterEffect extends EffectBase {
   readonly type: 'combat-one-strike-per-character';
   /** When true, avatar characters (mind === null) are excluded from strike assignment. */
   readonly excludeAvatars?: boolean;
+  /**
+   * When true, only **wounded** (inverted) characters face a strike:
+   * `strikesTotal = wounded characters` and one strike is pre-assigned to each
+   * wounded character. Unwounded characters are never assigned a strike. Card
+   * text is "Each wounded character faces one strike" (e.g. Carrion Feeders
+   * ba-11). Mutually exclusive with `excludeAvatars`.
+   */
+  readonly onlyWounded?: boolean;
+}
+
+/**
+ * Attack-wide body-check modifier carried by a hazard creature: `value` is
+ * added to every character body-check roll this attack produces (on top of
+ * the already-wounded +1 and any item modifiers). Positive values make
+ * elimination more likely. Threaded into `CombatState.bodyCheckModifier` at
+ * combat initiation and consumed in `handleBodyCheckRoll`. Card text is
+ * "All body checks resulting from successful strikes are modified by an
+ * additional +1" (e.g. Carrion Feeders ba-11). (implemented in
+ * `chain-reducer.ts`, `combat-actions.ts`)
+ */
+export interface CombatBodyCheckModifierEffect extends EffectBase {
+  readonly type: 'combat-body-check-modifier';
+  /** Amount added to every character body-check roll from this attack. */
+  readonly value: number;
+}
+
+/**
+ * The defending company may tap an untapped character to cancel one of this
+ * attack's strikes against a wounded character. Pairs with
+ * `combat-one-strike-per-character: onlyWounded` (every strike is against a
+ * wounded character). On combat initiation the engine opens a `cancel-by-tap`
+ * sub-phase (`CombatState.cancelStrikeAgainstWounded`): each untapped company
+ * character may tap to remove one pre-assigned strike (defender chooses which
+ * wounded character to protect), or pass to proceed to resolution. Card text
+ * is "Each untapped character in the company may tap to cancel a strike
+ * against a wounded character" (e.g. Carrion Feeders ba-11). Presence of this
+ * effect is the entire payload. (implemented in `chain-reducer.ts`,
+ * `legal-actions/combat.ts`, `combat-cancel.ts`)
+ */
+export interface CombatTapToCancelStrikeEffect extends EffectBase {
+  readonly type: 'combat-tap-to-cancel-strike';
 }
 
 /**
@@ -4014,6 +4055,8 @@ export type CardEffect =
   | CombatDetainmentEffect
   | CombatTapLowMindEffect
   | CombatOneStrikePerCharacterEffect
+  | CombatBodyCheckModifierEffect
+  | CombatTapToCancelStrikeEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
   | NameAliasEffect
