@@ -343,7 +343,7 @@ function revealOnGuardAttacksActions(
 
   // Rule 2.V.i: creature reveals only allowed if the site has automatic-attacks
   const hasAutoAttacks = siteDef && isSiteCard(siteDef)
-    && getActiveAutoAttacks(state, siteDef).length > 0;
+    && getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId).length > 0;
 
   const actions: GameAction[] = [];
 
@@ -429,7 +429,7 @@ function forewarnedSelectAttackActions(
   if (!company?.currentSite) return [];
   const siteDef = defById(state, company.currentSite.definitionId);
   if (!siteDef || !isSiteCard(siteDef)) return [];
-  const autoAttacks = getActiveAutoAttacks(state, siteDef);
+  const autoAttacks = getActiveAutoAttacks(state, siteDef, company.currentSite.instanceId);
   if (autoAttacks.length <= 1) return [];
   return autoAttacks.map((_aa, i) => ({
     type: 'select-forewarned-attack' as const,
@@ -470,7 +470,7 @@ function automaticAttacksActions(
     const company = player.companies[siteState.activeCompanyIndex];
     const siteDef = company?.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
     const siteName = siteDef && isSiteCard(siteDef) ? siteDef.name : undefined;
-    const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef) : [];
+    const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef, company?.currentSite?.instanceId) : [];
 
     if (company && siteName && siteState.automaticAttacksResolved < autoAttacks.length) {
       for (const charId of company.characters) {
@@ -927,7 +927,7 @@ function playResourcesActions(
           // dynamically (Guarded Haven wh-74 on a Hidden Haven site). The raw
           // `siteType` field remains the printed type for filters that need it.
           const effectiveSiteType = siteDefId && isSiteCard(siteDef)
-            ? getEffectiveSiteType(state, siteDefId, siteDef.siteType)
+            ? getEffectiveSiteType(state, siteDefId, siteDef.siteType, siteInstanceId ?? undefined)
             : undefined;
           // Expose whether this site is the surface entrance of an Under-deeps
           // site so a filter can exclude it (Tempest of Fire ba-77: "the site
@@ -1031,7 +1031,7 @@ function playResourcesActions(
           const siteTypeCond = findPlayConditionEffect(eventDef, 'site-type');
           if (siteTypeCond) {
             const companySiteType = siteDef && isSiteCard(siteDef) && siteDefId
-              ? getEffectiveSiteType(state, siteDefId, siteDef.siteType)
+              ? getEffectiveSiteType(state, siteDefId, siteDef.siteType, siteInstanceId ?? undefined)
               : undefined;
             if (!companySiteType || !siteTypeCond.siteTypes?.includes(companySiteType)) {
               logDetail(`Permanent event ${eventDef.name}: company not at required site type [${siteTypeCond.siteTypes?.join(', ') ?? '?'}] (actual: ${companySiteType ?? 'none'})`);
@@ -1474,7 +1474,7 @@ function playResourcesActions(
       // Check ally is playable at this site via playableAt entries or a play-target site filter
       const siteDefForAlly = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
       const allyEffSiteType = siteDefForAlly && siteDefId
-        ? getEffectiveSiteType(state, siteDefId, siteDefForAlly.siteType)
+        ? getEffectiveSiteType(state, siteDefId, siteDefForAlly.siteType, siteInstanceId ?? undefined)
         : siteDefForAlly?.siteType;
       // `nothingPlayableAsWritten` (Hidden Haven) does NOT gate allies: an ally's
       // playability is written on the ally card naming the site, not on the site
@@ -1580,7 +1580,7 @@ function playResourcesActions(
       // printed resource list — so it survives the conversion to a Wizardhaven.
       const siteDefForFaction = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
       const factionEffSiteType = siteDefForFaction && siteDefId
-        ? getEffectiveSiteType(state, siteDefId, siteDefForFaction.siteType)
+        ? getEffectiveSiteType(state, siteDefId, siteDefForFaction.siteType, siteInstanceId ?? undefined)
         : siteDefForFaction?.siteType;
       const factionRegionType = siteRegionTypeOf(state, siteDefForFaction);
       if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType, factionRegionType))) {

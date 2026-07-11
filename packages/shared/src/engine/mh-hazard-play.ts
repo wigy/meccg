@@ -1437,13 +1437,16 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       } else {
         const originDef = defById(state, originSite.definitionId);
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
-        // Caverns Unchoked (ba-51): a bound Under-deeps site "is never discarded
-        // or returned to its location deck". There is no unoccupied-in-play site
-        // zone, so the closest faithful model is to always return it to the
-        // owner's location deck (never discard it) so it stays re-accessible.
+        // Caverns Unchoked (ba-51) / Roots of the Earth (ba-74): a bound
+        // Under-deeps site "is never discarded or returned to its location
+        // deck". There is no unoccupied-in-play site zone, so the closest
+        // faithful model is to always return it to the owner's location deck
+        // (never discard it) so it stays re-accessible.
         const cavernsBound = resourcePlayer.cardsInPlay.some(
           c => c.attachedToSite === originSite.definitionId
-            && getCardEffects(defById(state, c.definitionId)).some(e => e.type === 'surface-region-adjacency'),
+            && getCardEffects(defById(state, c.definitionId)).some(
+              e => e.type === 'surface-region-adjacency' || e.type === 'site-instance-transform',
+            ),
         );
         const alwaysReturnToDeck = cavernsBound || (originDef && isSiteCard(originDef)
           && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'always-return-to-deck'));

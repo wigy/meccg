@@ -3724,6 +3724,65 @@ export interface PermanentEventAutoAttackEffect extends EffectBase {
 }
 
 /**
+ * Splits a site's effective type and automatic-attacks between the **one
+ * instance the carrying card is attached to** ("the associated site") and
+ * **every other in-play copy of the same site definition** ("all other
+ * versions"). Carried by a kept resource permanent-event bound to a site
+ * (`attachedToSite`); scanned dynamically by {@link getEffectiveSiteType} and
+ * `getActiveAutoAttacks`, both of which take an optional site *instance* id so
+ * they can distinguish the associated copy (the controller's own current site)
+ * from the other copies.
+ *
+ * Unlike the generic `site-type-override` `attribute-modifier` (Hold Rebuilt
+ * and Repaired, as-88), this effect **bypasses the MEAS §6(d) Under-deeps
+ * type-immutability short-circuit** — it exists precisely to retype an
+ * Under-deeps site — and it discriminates by instance rather than applying to
+ * every copy uniformly.
+ *
+ * Used by Roots of the Earth (ba-74): the associated Under-deeps Ruins & Lairs
+ * becomes a Darkhaven [{H}] that loses all automatic-attacks, while every other
+ * version becomes a Shadow-hold [{S}] that gains an Orcs 5-strike/9-prowess
+ * automatic-attack.
+ */
+export interface SiteInstanceTransformEffect extends EffectBase {
+  readonly type: 'site-instance-transform';
+  /** How the single instance this card is attached to is transformed. */
+  readonly associated: {
+    /** Effective {@link SiteType} of the associated instance. */
+    readonly siteType: SiteType;
+    /** When true, the associated instance loses all automatic-attacks. */
+    readonly removeAllAutoAttacks?: boolean;
+  };
+  /** How every other in-play copy of the same site definition is transformed. */
+  readonly others: {
+    /** Effective {@link SiteType} of every other version. */
+    readonly siteType: SiteType;
+    /** When set, every other version gains this automatic-attack. */
+    readonly addAutoAttack?: TriggerAttackEntry;
+  };
+}
+
+/**
+ * Grants a fixed bonus to the carrying in-play card's own marshalling-point
+ * value when a named card is in play attached to the **same site**. Folded into
+ * the `cardsInPlay` marshalling-point tally in `recompute-derived.ts` on top of
+ * the card's printed `marshallingPoints`.
+ *
+ * Used by Roots of the Earth (ba-74): "If Breach the Hold is on the same site,
+ * this card gives 3 marshalling points" (printed 1 + bonus 2).
+ */
+export interface ConditionalMpEffect extends EffectBase {
+  readonly type: 'conditional-mp';
+  /** Points added to the carrying card's marshalling value when the condition holds. */
+  readonly bonus: number;
+  /**
+   * The bonus applies while a card with this exact name is in play (either
+   * player's `cardsInPlay`) attached to the same site as the carrying card.
+   */
+  readonly requiresCardOnSameSite: string;
+}
+
+/**
  * Declares that, while the carrying card is in play, any hazard creature whose
  * card definition matches `creatureFilter` may be keyed to any site matching
  * `siteFilter` (its effective site type is one of `siteTypes` and it carries
@@ -4121,6 +4180,8 @@ export type CardEffect =
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
   | PermanentEventAutoAttackEffect
+  | SiteInstanceTransformEffect
+  | ConditionalMpEffect
   | GrantCreatureKeyingEffect
   | PassiveMovementBonusEffect
   | UnderDeepsRollModifierEffect
