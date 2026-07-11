@@ -3832,6 +3832,41 @@ export interface PermanentEventAutoAttackEffect extends EffectBase {
 }
 
 /**
+ * Grants the controller of the carrying in-play card an **optional, per-attack**
+ * combat modifier: for each attack whose creature race matches `creatureRace`
+ * that their opponent faces, the controller (the attacking / hazard player) may
+ * choose to apply `prowessModifier` and/or make the attack `detainment`.
+ *
+ * The choice is offered as an `apply-attacker-attack-option` combat action in
+ * the attacking player's Step 1 priority window (CoE rule 3.iv.1), before any of
+ * the attack's strikes have resolved — so the modifier, once applied, affects
+ * the whole attack. It is a genuine option: the controller may simply decline
+ * (pass), leaving the attack unmodified. Applying it once flags the combat so it
+ * cannot be applied again.
+ *
+ * Example — Ungoliant's Progeny (ba-27): "for each Spider attack your opponent
+ * faces, you can choose for it to be at +1 prowess and detainment."
+ *
+ * ```json
+ * { "type": "attacker-attack-option",
+ *   "creatureRace": "spider", "prowessModifier": 1, "detainment": true }
+ * ```
+ */
+export interface AttackerAttackOptionEffect extends EffectBase {
+  readonly type: 'attacker-attack-option';
+  /**
+   * The normalized (lowercase, singular) creature race the faced attack must
+   * have for the option to be offered (e.g. `"spider"`). Matched against
+   * {@link import('./state-combat.js').CombatState.creatureRace}.
+   */
+  readonly creatureRace: string;
+  /** Prowess added to every strike of the attack when the option is applied. */
+  readonly prowessModifier?: number;
+  /** When true, applying the option makes the attack a detainment attack. */
+  readonly detainment?: boolean;
+}
+
+/**
  * Splits a site's effective type and automatic-attacks between the **one
  * instance the carrying card is attached to** ("the associated site") and
  * **every other in-play copy of the same site definition** ("all other
@@ -4308,6 +4343,7 @@ export type CardEffect =
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
   | PermanentEventAutoAttackEffect
+  | AttackerAttackOptionEffect
   | SiteInstanceTransformEffect
   | ConditionalMpEffect
   | GrantCreatureKeyingEffect

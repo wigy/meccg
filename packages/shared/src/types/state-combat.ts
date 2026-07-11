@@ -360,6 +360,14 @@ export interface CombatState {
    */
   readonly detainment: boolean;
   /**
+   * Set once the attacking player has applied an `attacker-attack-option`
+   * (e.g. Ungoliant's Progeny ba-27's "+1 prowess and detainment" for a Spider
+   * attack). Prevents the one-shot per-attack option from being applied twice
+   * and hides the offer once used. Absent means the option is still available
+   * (or the carrying card is not in play).
+   */
+  readonly attackerAttackOptionApplied?: boolean;
+  /**
    * When true, this is a Company vs Company Combat (CvCC) encounter.
    * Absent or false means standard creature combat. When true:
    * - Each strike is backed by a specific attacking character (no excess-strike overflow)
