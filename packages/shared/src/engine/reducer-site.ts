@@ -2260,6 +2260,19 @@ export function resolveInfluenceAttemptRoll(
     if (consumedConstraintIds.length > 0) {
       state = { ...state, activeConstraints: state.activeConstraints.filter(c => !consumedConstraintIds.includes(c.id as string)) };
     }
+
+    // Player-scoped influence check-modifier constraints (Terror Heralds Doom
+    // ba-78: "+2 to all influence attempts this turn by any of your
+    // characters"): applied to every influence check by any character of the
+    // targeted player, and NOT consumed (persist for the constraint's scope).
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'influence') continue;
+      if (constraint.target.kind !== 'player') continue;
+      if (constraint.target.playerId !== player.id) continue;
+      modifier += constraint.kind.value;
+      logDetail(`Influence player-wide constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string}`);
+    }
   }
 
   // Roll 2d6 + modifier vs influence number

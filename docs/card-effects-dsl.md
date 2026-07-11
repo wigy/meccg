@@ -240,6 +240,23 @@ This fires only for corruption checks whose `source` card (the one that
 enqueued the resolution) carries the `"spell"` keyword — e.g. the
 check a Wizard makes after playing *Wizard's Laughter*.
 
+A **player-scoped, non-consumed** influence `check-modifier` may be added as an
+active constraint via an `on-event: self-enters-play` → `add-constraint` apply
+carrying `"target": "player"` (in addition to `constraint: "check-modifier"`,
+`check: "influence"`, `value`, and `scope`). Unlike the one-shot
+character-targeted influence constraint (Muster), a player-targeted one applies
+to **every** influence attempt by any character of that player for the
+constraint's scope and is never consumed — read by both the faction
+influence-attempt display (`legal-actions/site.ts`) and the roll resolver
+(`reducer-site.ts`). Used by Terror Heralds Doom (ba-78): "+2 to all influence
+attempts this turn by any of your characters."
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "check-modifier",
+             "check": "influence", "value": 2, "scope": "turn", "target": "player" } }
+```
+
 ### 2a. `body-check-modifier`
 
 Modifies the 2d6 **body-check** roll made against the bearer during combat
@@ -3579,7 +3596,12 @@ check) and `reducer-events.ts` (discard execution).
   is evaluated against the controller's OWN in-play names (so an opponent's
   copy of the named card does not satisfy "if **you** have … in play") —
   used by Half-orcs (wh-87) / Greater Half-orcs (wh-86) ("if you have A
-  Strident Spawn in play").
+  Strident Spawn in play"). On a **resource short-event** the gate is likewise
+  evaluated against the playing player's own in-play cards, *including
+  character-attached permanent events* (`isCardNameInPlayForPlayer`,
+  `legal-actions/organization.ts`) — used by Terror Heralds Doom (ba-78),
+  "Playable during the organization phase if Flame of Udûn is in play" (Flame of
+  Udûn is a permanent-event held in The Balrog's items).
 
 ```json
 { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }
@@ -3954,6 +3976,17 @@ for reference:
 | `reshuffle-self-from-hand` | `{ select: 'self', from: 'hand', to: 'deck', shuffleAfter: true }` | Sudden Call |
 | `fetch-to-deck` | `{ select: 'target', from: ['sideboard','discard'], to: 'deck', shuffleAfter: true, filter, count }` | Smoke Rings, Longbottom Leaf |
 | `bounce-hazard-events` | `{ select: 'filter-all', from: 'attached-to-target-company', to: 'hand', toOwner: 'opponent', filter, corruptionCheck }` | Wizard Uncloaked |
+| `sideboard-self-to-deck` | `{ select: 'self', from: ['sideboard'], to: 'deck', shuffleAfter: true }` | Terror Heralds Doom (ba-78) |
+
+A `select: 'self'` move with `from: ['sideboard']`, `to: 'deck'` models the
+Balrog sideboard family's "You may bring this card from your sideboard into
+your play deck and reshuffle during your organization phase." `locateSelf`
+(reducer-move.ts) scans the sideboard for the source card. The organization
+phase offers it as a dedicated `card-sideboard-to-deck` action —
+`cardSideboardToDeckActions` (legal-actions/organization-sideboard.ts) emits one
+per sideboard card carrying such a move; `handleCardSideboardToDeck`
+(reducer-organization.ts) applies it. This is card-granted and taps nothing —
+distinct from the CoE 2.II.6 avatar-tap sideboard access.
 
 **Shape**
 
