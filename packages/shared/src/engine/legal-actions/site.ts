@@ -1710,6 +1710,19 @@ function playResourcesActions(
             infParts.push(`constraint bonus ${formatSignedNumber(constraint.kind.value)}`);
           }
 
+          // Player-scoped influence check-modifier (Terror Heralds Doom ba-78:
+          // "+2 to all influence attempts this turn by any of your characters").
+          // Applies to every influence check by any character of the targeted
+          // player; not consumed.
+          for (const constraint of state.activeConstraints) {
+            if (constraint.kind.type !== 'check-modifier') continue;
+            if (constraint.kind.check !== 'influence') continue;
+            if (constraint.target.kind !== 'player') continue;
+            if (constraint.target.playerId !== playerId) continue;
+            infModifier += constraint.kind.value;
+            infParts.push(`player-wide bonus ${formatSignedNumber(constraint.kind.value)}`);
+          }
+
           // Site-wide influence modifiers (Blasting Fire wh-51): every
           // influence attempt against a faction at the company's current
           // site is modified for the rest of the turn.

@@ -12,13 +12,13 @@
  * helpers from this module to push entries onto the chain stack.
  */
 
-import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction } from '../index.js';
+import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction, CounterCancelAttackAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect, StrikeAssignment } from '../types/state-combat.js';
 import { nextStrikePhase } from './combat-strike.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, TapSitesInPlayEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
-import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
+import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard } from '../types/cards.js';
 import { CardStatus, SiteType, Race, RegionType } from '../types/common.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -34,7 +34,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companySubphaseScope, countSpawnCardsInPlay, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -183,6 +183,8 @@ export function handleChainAction(state: GameState, action: GameAction): Reducer
       return handleChainRevealOnGuard(state, chain, action);
     case 'cancel-return-to-origin':
       return handleCancelReturnToOrigin(state, chain, action);
+    case 'counter-cancel-attack':
+      return handleCounterCancelAttack(state, chain, action);
     default:
       return { state, error: `Unexpected chain action: ${action.type}` };
   }
@@ -398,6 +400,102 @@ function handleCancelReturnToOrigin(
   // Flip priority to opponent so they may respond
   const newPriority = opponent(state, action.player);
   logDetail(`cancel-return-to-origin: priority flips to ${newPriority as string}`);
+
+  const newChain: ChainState = {
+    ...chain,
+    entries: newEntries,
+    priority: newPriority,
+    priorityPlayerPassed: false,
+    nonPriorityPlayerPassed: false,
+  };
+
+  return { state: { ...state, players: newPlayers, chain: newChain } };
+}
+
+/**
+ * Handles a `counter-cancel-attack` action (Great Fissure ba-61): the Balrog
+ * player, whose company is attacking an opponent's company (CvCC), plays the
+ * card from hand to negate an unresolved chain entry — declared by the
+ * opponent — that carries a `cancel-attack` effect and would cancel the attack.
+ *
+ * Mirrors {@link handleCancelReturnToOrigin} (Goldberry) but the source is a
+ * discarded hand card, not a tapped ally: the card is moved hand → discard, the
+ * target entry is negated, and priority flips to the opponent so they may
+ * respond further.
+ */
+function handleCounterCancelAttack(
+  state: GameState,
+  chain: ChainState,
+  action: CounterCancelAttackAction,
+): ReducerResult {
+  logHeading(`Chain: counter-cancel-attack by player ${action.player as string}`);
+
+  if (chain.mode !== 'declaring') {
+    return { state, error: 'counter-cancel-attack: chain is not in declaring mode' };
+  }
+  if (action.player !== chain.priority) {
+    return { state, error: 'counter-cancel-attack: player does not have priority' };
+  }
+
+  const combat = state.combat;
+  if (!combat || !combat.isCvCC || combat.attackSource.type !== 'company-attack') {
+    return { state, error: 'counter-cancel-attack: no company-vs-company attack in progress' };
+  }
+  if (combat.attackingPlayerId !== action.player) {
+    return { state, error: 'counter-cancel-attack: only the attacking player may counter-cancel' };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  // The attack must be by The Balrog's company (the attacking company must
+  // contain the Balrog avatar).
+  const attackingCompany = companyById(player.companies, combat.attackSource.attackingCompanyId);
+  if (!attackingCompany || !companyContainsBalrogAvatar(state, player, attackingCompany)) {
+    return { state, error: 'counter-cancel-attack: attacking company is not The Balrog’s company' };
+  }
+
+  // The played card must be in hand and carry the cancel-chain-attack-cancel marker.
+  const handCard = findById(player.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'counter-cancel-attack: card not in hand' };
+  const cardDef = defById(state, handCard.definitionId);
+  const hasMarker = getCardEffects(cardDef).some(e => e.type === 'cancel-chain-attack-cancel');
+  if (!hasMarker) return { state, error: 'counter-cancel-attack: card has no cancel-chain-attack-cancel effect' };
+
+  // The target must be an unresolved, un-negated chain entry declared by the
+  // opponent that carries a cancel-attack effect (the effect being countered).
+  const entryIdx = chain.entries.findIndex(
+    e => e.card?.instanceId === action.targetInstanceId && !e.resolved && !e.negated,
+  );
+  if (entryIdx === -1) return { state, error: 'counter-cancel-attack: target chain entry not found' };
+  const targetEntry = chain.entries[entryIdx];
+  if (targetEntry.declaredBy === action.player) {
+    return { state, error: 'counter-cancel-attack: cannot target your own chain entry' };
+  }
+  const targetDef = defById(state, targetEntry.card!.definitionId);
+  const targetCancels = getCardEffects(targetDef).some(e => e.type === 'cancel-attack');
+  if (!targetCancels) {
+    return { state, error: 'counter-cancel-attack: target does not cancel an attack' };
+  }
+
+  const targetName = (targetDef as { name?: string })?.name ?? (action.targetInstanceId as string);
+  const cardName = (cardDef as { name?: string })?.name ?? (handCard.definitionId as string);
+  logDetail(`counter-cancel-attack: ${cardName} negates chain entry "${targetName}" — the Balrog’s attack survives`);
+
+  // Discard the played card (short events are physically discarded at play time).
+  const newHand = removeById(player.hand, handCard.instanceId);
+  const newDiscard = [...player.discardPile, toCardInstance(handCard)];
+
+  const newEntries = chain.entries.map((e, i) =>
+    i === entryIdx ? { ...e, negated: true } : e,
+  );
+
+  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  newPlayers[playerIndex] = { ...player, hand: newHand, discardPile: newDiscard };
+
+  // Flip priority to opponent so they may respond.
+  const newPriority = opponent(state, action.player);
+  logDetail(`counter-cancel-attack: priority flips to ${newPriority as string}`);
 
   const newChain: ChainState = {
     ...chain,
@@ -798,6 +896,46 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
 }
 
 /**
+ * Greed (le-113 / tw-42): install the turn-scoped `item-play-corruption-check`
+ * constraint bound to the target site. The constraint targets the resource
+ * (active) player — the one who plays items at the site during the site phase —
+ * and is swept at turn-end. The site-phase item-play handler
+ * (`fireItemPlayCorruptionChecks`) consults it to fire the checks.
+ */
+function applyItemPlayCorruptionCheckConstraint(
+  state: GameState,
+  entry: ChainEntry,
+  siteDefinitionId: CardDefinitionId,
+): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  if (!def) return state;
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').ItemPlayCorruptionCheckEffect =>
+      e.type === 'item-play-corruption-check',
+  );
+  if (!effect) return state;
+  // The player whose characters make the checks is the active/resource player
+  // (the item-player during the upcoming site phase), i.e. the hazard's opponent.
+  const targetPlayerId = state.activePlayer ?? entry.declaredBy;
+  const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  const siteName = (defById(state, siteDefinitionId) as { name?: string } | undefined)?.name ?? (siteDefinitionId as string);
+  logDetail(`${cardName}: installing item-play-corruption-check at ${siteName} (until end of turn) for player ${targetPlayerId as string}`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'turn' },
+    target: { kind: 'player', playerId: targetPlayerId },
+    kind: {
+      type: 'item-play-corruption-check',
+      siteDefinitionId,
+      ...(effect.exemptFilter ? { exemptFilter: effect.exemptFilter } : {}),
+    },
+  });
+}
+
+/**
  * Build the evaluation context for a `company-arrives-at-site` `when`
  * clause. Exposes the active company's destination site type, destination
  * region type, and whether Doors of Night is in play — enough for a
@@ -936,6 +1074,48 @@ function applyCompanyReturnToOrigin(state: GameState, entry: ChainEntry): GameSt
     kind: { type: 'site-phase-do-nothing' },
   });
   return next;
+}
+
+/**
+ * Applies a `company-site-phase-do-nothing` short-event effect on chain
+ * resolution: adds a `site-phase-do-nothing` constraint to the active
+ * movement/hazard company so it cannot act during its upcoming site phase this
+ * turn. Unlike {@link applyCompanyReturnToOrigin} the company keeps its
+ * destination site (its movement is unaffected — only the site phase is
+ * blocked). Used by Darkness Made by Malice (ba-15).
+ */
+function applyCompanySitePhaseDoNothing(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(e => e.type === 'company-site-phase-do-nothing');
+  if (!effect) return state;
+
+  if (state.phaseState.phase !== Phase.MovementHazard) return state;
+  const mhState = state.phaseState;
+
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[resourceIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company) return state;
+
+  // Idempotent: don't stack a second constraint if one is already present.
+  if (state.activeConstraints.some(c =>
+    c.kind.type === 'site-phase-do-nothing'
+    && c.target.kind === 'company'
+    && c.target.companyId === company.id
+  )) {
+    return state;
+  }
+
+  logDetail(`${def?.name ?? 'card'}: company ${company.id as string} must do nothing during its site phase this turn (ba-15)`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'company-site-phase', companyId: company.id },
+    target: { kind: 'company', companyId: company.id },
+    kind: { type: 'site-phase-do-nothing' },
+  });
 }
 
 /**
@@ -1768,9 +1948,45 @@ function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
     ? (logDetail(`Long event enters-play move failed (${moved.error}) — card not placed`), state)
     : moved.state;
 
+  // prohibit-card-play (The Under-roads, as-106): on entering play, discard
+  // every named card already in play (either player) to its owner's discard
+  // pile. The ongoing "may not be played" lock is enforced separately in the
+  // hazard legal-action layer.
+  const afterProhibit = applyProhibitCardPlayOnResolve(afterPlay, def);
+
   // Apply any tap-sites-in-play clause now that the environment is in play
   // (e.g. Foul Fumes / Long Winter "if Doors of Night is in play, ... tapped").
-  return applyTapSitesInPlayOnResolve(afterPlay, def);
+  return applyTapSitesInPlayOnResolve(afterProhibit, def);
+}
+
+/**
+ * Apply a resolving card's {@link ProhibitCardPlayEffect} clauses: discard
+ * every named card already in play (from either player's `cardsInPlay`) to its
+ * owner's discard pile. One-time effect applied at resolution; the ongoing
+ * play-lock is enforced in `playHazardsActions`.
+ */
+function applyProhibitCardPlayOnResolve(
+  state: GameState,
+  def: import('../index.js').CardDefinition | undefined,
+): GameState {
+  const prohibitEffects = getCardEffects(def).filter(
+    (e): e is import('../types/effects.js').ProhibitCardPlayEffect => e.type === 'prohibit-card-play',
+  );
+  if (prohibitEffects.length === 0) return state;
+  const prohibited = new Set<string>();
+  for (const eff of prohibitEffects) for (const name of eff.cardNames) prohibited.add(name);
+
+  return discardCardsInPlayWhere(
+    state,
+    card => {
+      const cDef = defById(state, card.definitionId);
+      return !!cDef?.name && prohibited.has(cDef.name);
+    },
+    card => {
+      const cDef = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`prohibit-card-play (${def?.name ?? '?'}): discarding "${cDef?.name ?? card.definitionId}" from play`);
+    },
+  ).state;
 }
 
 /**
@@ -2345,6 +2561,20 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     current = applyShortEventSelfEntersPlayConstraints(current, entry);
   }
 
+  // Greed (le-113 / tw-42): a hazard short-event played on a site installs a
+  // turn-scoped `item-play-corruption-check` constraint bound to that site, so
+  // every item played at the site for the rest of the turn triggers corruption
+  // checks on the (non-exempt) characters there. The target site rode on the
+  // chain payload; the card goes to discard as a normal short event.
+  if (
+    entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && entry.payload.targetSiteDefinitionId
+  ) {
+    current = applyItemPlayCorruptionCheckConstraint(current, entry, entry.payload.targetSiteDefinitionId);
+  }
+
   // Short events with fetch-to-deck effects (e.g. An Unexpected Outpost):
   // move the card from the declaring player's discard pile to cardsInPlay
   // and queue the pending effects so the player can pick cards to fetch.
@@ -2358,6 +2588,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // prowess > 4) is met.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyCompanyReturnToOrigin(current, entry);
+  }
+
+  // Short events that forbid the active M/H company from acting during its site
+  // phase this turn without moving it back to origin (Darkness Made by Malice
+  // ba-15).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyCompanySitePhaseDoNothing(current, entry);
   }
 
   // Short events that tap one chosen character (e.g. Adûnaphel tw-2's on-tap

@@ -1123,6 +1123,12 @@ function applyOneConstraint(
       // combat finalization and the discard tracker by the post-reduce sweep —
       // neither restricts legal actions here.
       return base;
+    case 'item-play-corruption-check':
+      // Greed (le-113 / tw-42): consumed directly by the site-phase item-play
+      // handler (`fireItemPlayCorruptionChecks` in `reducer-site.ts`), which
+      // enqueues the corruption checks when an item is played at the bound
+      // site — no broad legal-action filtering needed here.
+      return base;
   }
 }
 

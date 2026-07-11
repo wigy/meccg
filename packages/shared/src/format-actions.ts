@@ -353,6 +353,8 @@ export function describeAction(
       return 'Tap avatar: fetch up to 5 cards from sideboard to discard';
     case 'fetch-from-sideboard':
       return `Fetch ${instName(action.sideboardCardInstanceId)} from sideboard`;
+    case 'card-sideboard-to-deck':
+      return `Bring ${instName(action.cardInstanceId)} from sideboard to play deck`;
     case 'start-hazard-sideboard-to-deck':
       return 'Fetch 1 hazard from sideboard to play deck';
     case 'start-hazard-sideboard-to-discard':
@@ -453,6 +455,8 @@ export function describeAction(
       return `${instName(action.characterId)} joins attacked company from haven`;
     case 'cancel-return-to-origin':
       return `${instName(action.allyInstanceId)} taps to cancel return-to-origin effect`;
+    case 'counter-cancel-attack':
+      return `Play ${instName(action.cardInstanceId)} to counter-cancel ${instName(action.targetInstanceId)} (the Balrog’s attack survives)`;
     case 'select-forewarned-attack':
       return `Select auto-attack ${action.attackIndex} (Forewarned Is Forearmed)`;
     case 'pair-resource-with-cof':

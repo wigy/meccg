@@ -774,11 +774,15 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "cancel-chain-attack-cancel" },
+      { "type": "cancel-attack", "when": { "attack.atUnderDeeps": true } }
+    ],
     "text": "Balrog specific. Target and cancel any effect (declared earlier in the same chain of effects) that would cancel an attack by The Balrog’s company against an opponent’s company. Alternatively, cancel an attack against a company at, or moving to or from, an Under-deeps site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -1180,11 +1184,43 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Flame of Udûn"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "value": 2,
+          "scope": "turn",
+          "target": "player"
+        }
+      },
+      {
+        "type": "move",
+        "select": "self",
+        "from": [
+          "sideboard"
+        ],
+        "to": "deck",
+        "shuffleAfter": true
+      }
+    ],
     "text": "Balrog specific. Playable during the organization phase if Flame of Udûn is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. +2 to all influence attempts this turn by any of your characters.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
