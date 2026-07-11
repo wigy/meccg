@@ -29,11 +29,13 @@ import type {
   PlayerState,
   SiteCard,
 } from '../index.js';
+import type { CardInstanceId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { ownerOf } from '../types/state.js';
 import { isBalrogAvatarDef } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import { cardName, defById, toCardInstance } from './reducer-utils.js';
+import { resolveSiteInstanceTransform } from './effective.js';
 
 /**
  * Extracts a card definition's {@link ManifestId} if it has one.
@@ -222,6 +224,7 @@ export function applyManifestationCascade(state: GameState): GameState {
 export function getActiveAutoAttacks(
   state: GameState,
   siteDef: SiteCard,
+  siteInstanceId?: CardInstanceId,
 ): readonly AutomaticAttack[] {
   const lairOf = (siteDef as { lairOf?: ManifestId }).lairOf;
 
@@ -297,6 +300,24 @@ export function getActiveAutoAttacks(
       ...(a.body !== undefined ? { body: a.body } : {}),
       ...(combatRules.length > 0 ? { combatRules } : {}),
     }];
+  }
+
+  // Roots of the Earth (ba-74): a `site-instance-transform` strips all
+  // automatic-attacks from the associated Darkhaven instance and adds an Orcs
+  // 5/9 auto-attack to every other version. Requires the queried site instance
+  // to distinguish the two.
+  const transform = resolveSiteInstanceTransform(state, siteDef.id, siteInstanceId);
+  if (transform) {
+    if (transform.role === 'associated') {
+      if (transform.effect.associated.removeAllAutoAttacks) {
+        logDetail(`site-instance-transform: ${siteDef.name} is the associated Darkhaven — all automatic-attacks removed`);
+        return [];
+      }
+    } else if (transform.effect.others.addAutoAttack) {
+      const add = transform.effect.others.addAutoAttack;
+      logDetail(`site-instance-transform: other version of ${siteDef.name} gains ${add.creatureType} auto-attack (${add.strikes} strikes, ${add.prowess} prowess)`);
+      combined = [...combined, { creatureType: add.creatureType, strikes: add.strikes, prowess: add.prowess }];
+    }
   }
 
   return combined;

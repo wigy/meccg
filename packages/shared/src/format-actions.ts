@@ -455,6 +455,8 @@ export function describeAction(
       return `${instName(action.characterId)} joins attacked company from haven`;
     case 'cancel-return-to-origin':
       return `${instName(action.allyInstanceId)} taps to cancel return-to-origin effect`;
+    case 'counter-cancel-attack':
+      return `Play ${instName(action.cardInstanceId)} to counter-cancel ${instName(action.targetInstanceId)} (the Balrog’s attack survives)`;
     case 'select-forewarned-attack':
       return `Select auto-attack ${action.attackIndex} (Forewarned Is Forearmed)`;
     case 'pair-resource-with-cof':
@@ -529,6 +531,8 @@ export function describeAction(
       return `${playerName(action.player)} plays reserved creature from ${instName(action.sourceCardInstanceId)} against company ${compName(action.targetCompanyId)}`;
     case 'play-creature-from-discard':
       return `${playerName(action.player)} plays creature ${instName(action.creatureInstanceId)} from discard pile against company ${compName(action.targetCompanyId)}`;
+    case 'spawn-replay-creature':
+      return `${playerName(action.player)} replays creature ${instName(action.creatureInstanceId)} from discard pile against company ${compName(action.targetCompanyId)} (${instName(action.sourceInstanceId)})`;
     case 'stay-her-appetite-roll':
       return `${playerName(action.player)} rolls for Stay Her Appetite`;
     case 'transfer-returned-item':
@@ -577,6 +581,8 @@ export function describeAction(
       return `${playerName(action.player)} sends company ${action.companyId} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
     case 'apply-attacker-attack-option':
       return `${playerName(action.player)} applies ${instName(action.cardInstanceId)} to the attack (+prowess / detainment)`;
+    case 'voluntary-discard-in-play':
+      return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} from play`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

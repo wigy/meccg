@@ -352,6 +352,10 @@ export function collectCharacterEffects(
     collectFromDef(itemDef, item.instanceId, context, itemResults);
     for (const r of itemResults) {
       if (r.effect.type === 'stat-modifier' && r.effect.target === 'company') continue;
+      // Company-scoped check-modifiers are re-collected for every company
+      // member (including the bearer) by collectCompanyItemEffects below;
+      // skip here to avoid double-counting on the bearer.
+      if (r.effect.type === 'check-modifier' && r.effect.target === 'company') continue;
       results.push(r);
     }
 
@@ -548,12 +552,14 @@ function collectCompanyOthersEffects(
 }
 
 /**
- * Collects `stat-modifier` effects with `target: "company"` from items on
- * every character in the same company as `char`.
+ * Collects company-scoped effects (`stat-modifier` and `check-modifier` with
+ * `target: "company"`) from items on every character in the same company as
+ * `char`.
  *
  * This ensures that a company-scoped item bonus (e.g. The One Ring's +1
- * corruption) applies uniformly to all company members regardless of who
- * bears the item.
+ * corruption, or I'll Be At Your Heels' +1 to company corruption checks)
+ * applies uniformly to all company members regardless of who bears the item /
+ * attached permanent-event.
  */
 function collectCompanyItemEffects(
   state: GameState,
@@ -574,7 +580,9 @@ function collectCompanyItemEffects(
       const itemDef = resolveDef(state, item.instanceId);
       if (!itemDef) continue;
       for (const effect of getCardEffects(itemDef)) {
-        if (effect.type !== 'stat-modifier' || effect.target !== 'company') continue;
+        const isCompanyStat = effect.type === 'stat-modifier' && effect.target === 'company';
+        const isCompanyCheck = effect.type === 'check-modifier' && effect.target === 'company';
+        if (!isCompanyStat && !isCompanyCheck) continue;
         if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
         results.push({ effect, sourceDef: itemDef, sourceInstance: item.instanceId });
       }

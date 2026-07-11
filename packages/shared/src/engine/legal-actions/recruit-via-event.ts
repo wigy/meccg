@@ -73,7 +73,7 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
       if (!c.currentSite) return false;
       const siteDef = resolveDef(state, c.currentSite.instanceId);
       if (!isSiteCard(siteDef)) return false;
-      const effType = getEffectiveSiteType(state, c.currentSite.definitionId, siteDef.siteType);
+      const effType = getEffectiveSiteType(state, c.currentSite.definitionId, siteDef.siteType, c.currentSite.instanceId);
       return event.effect.siteTypes.includes(effType);
     });
     if (qualifyingCompanies.length === 0) {

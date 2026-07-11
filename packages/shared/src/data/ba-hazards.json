@@ -23,10 +23,23 @@
           "strikes": 2,
           "prowess": 15,
           "body": 9
+        },
+        "onDefeat": "remove-from-play"
+      },
+      {
+        "type": "grant-replay-attacked-creature",
+        "filter": {
+          "race": {
+            "$in": [
+              "wolves",
+              "animals"
+            ]
+          }
         }
       }
     ],
-    "text": "Unique. Spawn. The Drowning-deeps and Remains of Thangorodrim each have an additional automatic-attack: Spawn — 2 strikes with 15/9."
+    "certified": "2026-07-11",
+    "text": "Unique. Spawn. The Drowning-deeps and Remains of Thangorodrim each have an additional automatic-attack: Spawn — 2 strikes with 15/9. In addition, once per turn the hazard player may use one against the hazard limit to play a Wolf or Animal hazard creature from his discard pile. This card must have already attacked the company this turn."
   },
   {
     "cardType": "hazard-event",
@@ -169,8 +182,28 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DarknessMadebyMalice.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a company at or moving to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn cards in play than characters in the company. Eliminated Spawn do not count. The company must do nothing during its site phase this turn."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$and": [
+            {
+              "$or": [
+                { "target.siteType": "ruins-and-lairs" },
+                { "target.siteKeywords": { "$includes": "under-deeps" } }
+              ]
+            },
+            { "target.moreSpawnThanCompany": true }
+          ]
+        }
+      },
+      {
+        "type": "company-site-phase-do-nothing"
+      }
+    ],
+    "text": "Playable on a company at or moving to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn cards in play than characters in the company. Eliminated Spawn do not count. The company must do nothing during its site phase this turn.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",

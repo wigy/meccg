@@ -253,6 +253,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
           onGuardPlacedThisCompany: false,
           returnedToOrigin: false,
           hazardsEncountered: [],
+          spawnReplayUsedSources: [],
           ahuntAttacksResolved: 0,
           corruptionCardsPlayedPerChar: {},
           nazgulSideboardDestination: null,
