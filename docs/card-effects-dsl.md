@@ -6726,9 +6726,11 @@ while the source card is present on any character in the moving company,
 | Field | Required | Description |
 |-------|----------|-------------|
 | `value` | yes | Bonus added to the roll. |
+| `scope` | no | `"minion-companies"` makes the effect a game-wide environment that applies to every Ringwraith-minion company (collected from either player's `cardsInPlay`). Omitted = carried by an item/ally/character and applies only to that company. |
 
 ```json
 { "type": "under-deeps-roll-modifier", "value": 2 }
+{ "type": "under-deeps-roll-modifier", "value": 3, "scope": "minion-companies" }
 ```
 
 Behaviour (`mh-steps.ts`, at the `getUnderDeepsRequiredRoll` call site): modeled
@@ -6743,6 +6745,37 @@ into `char.allies`). Used by Iron Shield of Old (as-127): "+2 to all rolls
 required for bearer's company to move to adjacent Under-deeps sites" (an item),
 and by Cave Troll (ba-35): "+1 to rolls required for its controller's company to
 move to adjacent Under-deeps sites" (an ally).
+
+With `scope: "minion-companies"` the modifier is instead a global environment:
+collected from either player's `cardsInPlay` and applied only when the moving
+player's alignment is Ringwraith. Multiple in-play copies stack. Used by The
+Under-roads (as-106): "The roll required for minions to move between adjacent
+Under-deeps sites is decreased by 3" (`value: 3`).
+
+### 52a-1. `prohibit-card-play`
+
+While the carrying card is in play, the named cards may not be played, and any
+copy already in play is discarded the moment this card enters play. The generic
+"discards and prohibits the subsequent play of X" primitive — a hard play-lock
+keyed by card name, distinct from `cancel-card-effects` (which only suppresses
+an in-play card's *constraints* while leaving it in play and re-playable).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `cardNames` | yes | Names of the cards discarded on entry and barred from play. |
+
+```json
+{ "type": "prohibit-card-play", "cardNames": ["The Way is Shut"] }
+```
+
+Behaviour: on enter-play the resolving long-event discards every matching card
+from either player's `cardsInPlay` to its owner's discard pile
+(`resolveLongEvent` → `applyProhibitCardPlayOnResolve`, `chain-reducer.ts`). The
+ongoing play-lock is enforced in the hazard legal-action layer
+(`playHazardsActions` → `isCardPlayProhibited`, `legal-actions/movement-hazard.ts`),
+which refuses to offer any prohibited card while the source remains in play.
+Used by The Under-roads (as-106): "Discards and prohibits the subsequent play of
+The Way is Shut."
 
 ### 52b. `extra-under-deeps-mh-phase`
 
