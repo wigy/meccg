@@ -13,7 +13,8 @@
  */
 
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction, CounterCancelAttackAction } from '../index.js';
-import type { HavenJumpOffer, PostAttackEffect } from '../types/state-combat.js';
+import type { HavenJumpOffer, PostAttackEffect, StrikeAssignment } from '../types/state-combat.js';
+import { nextStrikePhase } from './combat-strike.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, TapSitesInPlayEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -33,7 +34,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companyById, companySubphaseScope, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -852,10 +853,86 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
 
   let newState = state;
   const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  // A hazard short-event played on a character (targetCharacterId) may carry
+  // `character-stat-modifier` add-constraint applies — e.g. Glance of Arien
+  // (ba-19): -2/-1 prowess/body on The Balrog, -4/-2 while Gates of Morning is
+  // in play. Each effect targets the chosen character; its `when` gate is
+  // evaluated against the current in-play names so the doubled modifier only
+  // fires when its companion card is out.
+  const targetCharId = entry.payload.type === 'short-event' ? entry.payload.targetCharacterId : undefined;
   for (const onEvent of onEvents) {
+    if (onEvent.apply.type === 'add-constraint'
+      && onEvent.apply.constraint === 'character-stat-modifier') {
+      if (!targetCharId) {
+        logDetail(`"${cardName}": character-stat-modifier self-enters-play — no target character, fizzle`);
+        continue;
+      }
+      if (onEvent.when) {
+        const ctx = { inPlay: buildInPlayNames(newState) };
+        if (!matchesCondition(onEvent.when, ctx as unknown as Record<string, unknown>)) {
+          logDetail(`"${cardName}": character-stat-modifier self-enters-play — when gate not met, skip`);
+          continue;
+        }
+      }
+      const stat = onEvent.apply.stat;
+      const value = onEvent.apply.value;
+      if ((stat !== 'prowess' && stat !== 'body' && stat !== 'direct-influence') || typeof value !== 'number') {
+        logDetail(`"${cardName}": character-stat-modifier self-enters-play — missing/invalid stat or value, fizzle`);
+        continue;
+      }
+      logDetail(`"${cardName}" resolved — character-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} on ${targetCharId as string} (scope turn)`);
+      newState = addConstraint(newState, {
+        source: card.instanceId,
+        sourceDefinitionId: card.definitionId,
+        scope: { kind: 'turn' },
+        target: { kind: 'character', characterId: targetCharId },
+        kind: { type: 'character-stat-modifier', stat, value, characterId: targetCharId },
+      });
+      continue;
+    }
     newState = applyAddConstraintFromOnEvent(newState, entry, onEvent, cardName);
   }
   return newState;
+}
+
+/**
+ * Greed (le-113 / tw-42): install the turn-scoped `item-play-corruption-check`
+ * constraint bound to the target site. The constraint targets the resource
+ * (active) player — the one who plays items at the site during the site phase —
+ * and is swept at turn-end. The site-phase item-play handler
+ * (`fireItemPlayCorruptionChecks`) consults it to fire the checks.
+ */
+function applyItemPlayCorruptionCheckConstraint(
+  state: GameState,
+  entry: ChainEntry,
+  siteDefinitionId: CardDefinitionId,
+): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  if (!def) return state;
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').ItemPlayCorruptionCheckEffect =>
+      e.type === 'item-play-corruption-check',
+  );
+  if (!effect) return state;
+  // The player whose characters make the checks is the active/resource player
+  // (the item-player during the upcoming site phase), i.e. the hazard's opponent.
+  const targetPlayerId = state.activePlayer ?? entry.declaredBy;
+  const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  const siteName = (defById(state, siteDefinitionId) as { name?: string } | undefined)?.name ?? (siteDefinitionId as string);
+  logDetail(`${cardName}: installing item-play-corruption-check at ${siteName} (until end of turn) for player ${targetPlayerId as string}`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'turn' },
+    target: { kind: 'player', playerId: targetPlayerId },
+    kind: {
+      type: 'item-play-corruption-check',
+      siteDefinitionId,
+      ...(effect.exemptFilter ? { exemptFilter: effect.exemptFilter } : {}),
+    },
+  });
 }
 
 /**
@@ -1612,10 +1689,28 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
         // Multi-attack form: use attacks[0] for first combat, pass rest as remainingAttacks.
         // Single-attack form: use the top-level fields (backward-compatible).
-        const firstAttack = triggerEffect.attacks?.length
+        let firstAttack: import('../types/effects.js').TriggerAttackEntry = triggerEffect.attacks?.length
           ? triggerEffect.attacks[0]
           : { creatureType: triggerEffect.creatureType!, strikes: triggerEffect.strikes!, prowess: triggerEffect.prowess! };
-        const remaining = triggerEffect.attacks?.length ? triggerEffect.attacks.slice(1) : [];
+        let remaining: readonly import('../types/effects.js').TriggerAttackEntry[] =
+          triggerEffect.attacks?.length ? triggerEffect.attacks.slice(1) : [];
+
+        // Dynamic creature race: resolve every attack's creatureType from the
+        // played site type when the effect declares `creatureTypeBySiteType`
+        // (Tempest of Fire ba-77: Men at a Border-hold, Orcs at a Shadow-hold).
+        if (triggerEffect.creatureTypeBySiteType) {
+          const activeCompany = defPlayer.companies.find(co => co.id === companyId);
+          const siteDef = activeCompany?.currentSite
+            ? defById(newState, activeCompany.currentSite.definitionId)
+            : undefined;
+          const siteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : undefined;
+          const mappedRace = siteType ? triggerEffect.creatureTypeBySiteType[siteType] : undefined;
+          if (mappedRace) {
+            logDetail(`"${def?.name ?? '?'}" creatureTypeBySiteType: site type ${siteType ?? '?'} → ${mappedRace} attacks`);
+            firstAttack = { ...firstAttack, creatureType: mappedRace };
+            remaining = remaining.map(a => ({ ...a, creatureType: mappedRace }));
+          }
+        }
 
         const creatureRace = normalizeCreatureRace(firstAttack.creatureType);
         const effectiveProwess = resolveAttackProwess(
@@ -1811,9 +1906,45 @@ function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
     ? (logDetail(`Long event enters-play move failed (${moved.error}) — card not placed`), state)
     : moved.state;
 
+  // prohibit-card-play (The Under-roads, as-106): on entering play, discard
+  // every named card already in play (either player) to its owner's discard
+  // pile. The ongoing "may not be played" lock is enforced separately in the
+  // hazard legal-action layer.
+  const afterProhibit = applyProhibitCardPlayOnResolve(afterPlay, def);
+
   // Apply any tap-sites-in-play clause now that the environment is in play
   // (e.g. Foul Fumes / Long Winter "if Doors of Night is in play, ... tapped").
-  return applyTapSitesInPlayOnResolve(afterPlay, def);
+  return applyTapSitesInPlayOnResolve(afterProhibit, def);
+}
+
+/**
+ * Apply a resolving card's {@link ProhibitCardPlayEffect} clauses: discard
+ * every named card already in play (from either player's `cardsInPlay`) to its
+ * owner's discard pile. One-time effect applied at resolution; the ongoing
+ * play-lock is enforced in `playHazardsActions`.
+ */
+function applyProhibitCardPlayOnResolve(
+  state: GameState,
+  def: import('../index.js').CardDefinition | undefined,
+): GameState {
+  const prohibitEffects = getCardEffects(def).filter(
+    (e): e is import('../types/effects.js').ProhibitCardPlayEffect => e.type === 'prohibit-card-play',
+  );
+  if (prohibitEffects.length === 0) return state;
+  const prohibited = new Set<string>();
+  for (const eff of prohibitEffects) for (const name of eff.cardNames) prohibited.add(name);
+
+  return discardCardsInPlayWhere(
+    state,
+    card => {
+      const cDef = defById(state, card.definitionId);
+      return !!cDef?.name && prohibited.has(cDef.name);
+    },
+    card => {
+      const cDef = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`prohibit-card-play (${def?.name ?? '?'}): discarding "${cDef?.name ?? card.definitionId}" from play`);
+    },
+  ).state;
 }
 
 /**
@@ -2103,7 +2234,23 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   );
   const oneStrikePerCharacter = oneStrikePerCharacterEffect !== undefined;
   const excludeAvatarStrikes = oneStrikePerCharacterEffect?.excludeAvatars === true;
+  // Carrion Feeders (ba-11): "Each wounded character faces one strike." Only
+  // wounded (inverted) characters face a strike, one pre-assigned per wounded.
+  const onlyWounded = oneStrikePerCharacterEffect?.onlyWounded === true;
   const defenderProwessFromMind = hasPlayFlag(creatureDef, 'combat-defender-prowess-from-mind');
+
+  // combat-body-check-modifier (Carrion Feeders ba-11): +N to every character
+  // body check produced by this attack (threaded into CombatState.bodyCheckModifier).
+  const bodyCheckModEffect = creatureDef.effects?.find(
+    e => e.type === 'combat-body-check-modifier',
+  );
+  const attackBodyCheckModifier = bodyCheckModEffect?.value ?? 0;
+
+  // combat-tap-to-cancel-strike (Carrion Feeders ba-11): untapped company
+  // characters may tap to cancel a strike against a wounded character.
+  const tapToCancelStrike = creatureDef.effects?.some(
+    e => e.type === 'combat-tap-to-cancel-strike',
+  ) ?? false;
 
   // Check for tap-low-mind combat rule (e.g. Wisp of Pale Sheen — facing
   // characters with mind ≤ strike prowess tap after the strike resolves).
@@ -2147,12 +2294,24 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx);
   const effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
 
+  // Wounded (inverted) characters in the defending company — the strike
+  // targets for `onlyWounded` mode (Carrion Feeders ba-11).
+  const woundedCharacters = onlyWounded
+    ? company.characters.filter(
+        charId => resourcePlayer.characters[charId]?.status === CardStatus.Inverted,
+      )
+    : [];
+
   // Total strikes resolution. Precedence:
+  //   0. onlyWounded                     → strikes = wounded characters
   //   1. combat-one-strike-per-character → strikes = company.characters.length
   //   2. combat-multi-attack             → strikes = count × effectiveStrikes
   //   3. default                         → strikes = effectiveStrikes
   let totalStrikes: number;
-  if (oneStrikePerCharacter) {
+  if (onlyWounded) {
+    totalStrikes = woundedCharacters.length;
+    logDetail(`One strike per wounded character: ${totalStrikes} wounded character(s) in company → ${totalStrikes} total strikes`);
+  } else if (oneStrikePerCharacter) {
     if (excludeAvatarStrikes) {
       const nonAvatarCount = company.characters.filter(charId => {
         const def = resolveDef(state, charId);
@@ -2171,6 +2330,33 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     }
   }
 
+  // onlyWounded with no wounded characters: the creature has no target and no
+  // effect — discard it to the hazard player without initiating combat (so no
+  // trivial "all strikes defeated" kill MP is awarded).
+  if (onlyWounded && woundedCharacters.length === 0) {
+    logDetail(`Creature "${creatureDef.name}" has no wounded targets — discarding without combat`);
+    const hazardIdx = getPlayerIndex(state, hazardPlayerId);
+    return updatePlayer(state, hazardIdx, p => ({
+      ...p,
+      discardPile: [...p.discardPile, {
+        instanceId: entry.card!.instanceId,
+        definitionId: entry.card!.definitionId,
+        status: CardStatus.Untapped,
+      }],
+    }));
+  }
+
+  // Pre-assign one strike per wounded character (onlyWounded mode).
+  const preAssignedWoundedStrikes: StrikeAssignment[] = woundedCharacters.map(
+    charId => ({ characterId: charId, excessStrikes: 0, resolved: false }),
+  );
+  // Untapped company characters that may tap to cancel a strike (ba-11).
+  const untappedCancelCount = onlyWounded
+    ? company.characters.filter(
+        charId => resourcePlayer.characters[charId]?.status === CardStatus.Untapped,
+      ).length
+    : 0;
+
   const attackKeying = Array.from(new Set(
     creatureDef.keyedTo.flatMap(k => k.regionTypes ?? []),
   ));
@@ -2186,7 +2372,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const havenJumpOffers = collectHavenJumpOffers(state, resourcePlayer, company.id);
   const defendingSiteDef = resolveDefendingSiteDef(state, company);
 
-  const combat: CombatState = makeCombatState({
+  let combat: CombatState = makeCombatState({
     attackSource,
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -2219,8 +2405,35 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     excludeAvatarStrikes: excludeAvatarStrikes ? true : undefined,
     defenderProwessFromMind: defenderProwessFromMind ? true : undefined,
     tapLowMindAfterStrike: tapLowMindAfterStrike ? true : undefined,
+    bodyCheckModifier: attackBodyCheckModifier !== 0 ? attackBodyCheckModifier : undefined,
     ...(forewarnedActive ? { isolated: true, uncancelable: true } : {}),
   });
+
+  // Carrion Feeders (ba-11): strikes are pre-assigned one per wounded character.
+  // Either open the tap-to-cancel window, or (no untapped defender / no such
+  // ability) go straight to strike resolution — the defender's pre-assignment
+  // cancel window is skipped exactly as for site "each character faces one
+  // strike" attacks (cancel-attack items still apply at resolve-strike Step 1).
+  if (onlyWounded) {
+    const useCancelWindow = tapToCancelStrike && untappedCancelCount > 0 && preAssignedWoundedStrikes.length > 0;
+    if (useCancelWindow) {
+      logDetail(`Carrion Feeders: ${preAssignedWoundedStrikes.length} strike(s) pre-assigned to wounded; opening tap-to-cancel window (${untappedCancelCount} untapped defender(s))`);
+      combat = {
+        ...combat,
+        strikeAssignments: preAssignedWoundedStrikes,
+        phase: 'assign-strikes',
+        assignmentPhase: 'cancel-by-tap',
+        cancelByTapRemaining: untappedCancelCount,
+        cancelStrikeAgainstWounded: true,
+        eachCharacterFacesOneStrike: true,
+      };
+    } else {
+      const base: CombatState = { ...combat, strikeAssignments: preAssignedWoundedStrikes, assignmentPhase: 'done', eachCharacterFacesOneStrike: true };
+      const next = nextStrikePhase(base);
+      combat = next ? { ...base, ...next } : base;
+      logDetail(`Carrion Feeders: ${preAssignedWoundedStrikes.length} strike(s) pre-assigned to wounded; no cancel window → phase ${combat.phase}`);
+    }
+  }
 
   logDetail(`Creature combat initiated: ${creatureDef.name} (${creatureDef.strikes} strikes${effectiveStrikes !== creatureDef.strikes ? ` → ${effectiveStrikes}` : ''}, ${creatureDef.prowess} prowess${effectiveProwess !== creatureDef.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== creatureDef.strikes || effectiveProwess !== creatureDef.prowess ? ' after global effects' : ''}) vs company ${company.id as string}`);
 
@@ -2304,6 +2517,20 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // already moved to discard at play time.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyShortEventSelfEntersPlayConstraints(current, entry);
+  }
+
+  // Greed (le-113 / tw-42): a hazard short-event played on a site installs a
+  // turn-scoped `item-play-corruption-check` constraint bound to that site, so
+  // every item played at the site for the rest of the turn triggers corruption
+  // checks on the (non-exempt) characters there. The target site rode on the
+  // chain payload; the card goes to discard as a normal short event.
+  if (
+    entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && entry.payload.targetSiteDefinitionId
+  ) {
+    current = applyItemPlayCorruptionCheckConstraint(current, entry, entry.payload.targetSiteDefinitionId);
   }
 
   // Short events with fetch-to-deck effects (e.g. An Unexpected Outpost):
@@ -2544,6 +2771,78 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         } else {
           logDetail(`${cardName}: none of the revealed card(s) are non-unique — nothing to remove`);
         }
+      }
+    }
+  }
+
+  // Desire All for Thy Belly (ba-16): a hazard short-event carrying a
+  // `reveal-deck-choose-penalty` effect. When it resolves un-negated, reveal the
+  // top N cards of the opponent's play deck (N = the number of in-play cards
+  // matching the effect's filter — Spawn cards — across either player's
+  // cardsInPlay, so eliminated spawn do not count). The card-player then chooses
+  // one to show (step-1 pending resolution `desire-belly-choose-card`) and the
+  // opponent chooses the penalty (step-2 `desire-belly-choose-penalty`). The
+  // event card is always removed from the game.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const penaltyEff = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').RevealDeckChoosePenaltyEffect =>
+        e.type === 'reveal-deck-choose-penalty',
+    );
+    if (penaltyEff) {
+      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const opponentId = opponent(current, entry.declaredBy);
+      const opponentIdx = getPlayerIndex(current, opponentId);
+
+      // Count matching cards in play across both players' cardsInPlay.
+      let inPlayCount = 0;
+      for (const p of current.players) {
+        for (const cip of p.cardsInPlay) {
+          const cipDef = defById(current, cip.definitionId);
+          if (cipDef && matchesCondition(penaltyEff.countInPlayMatching, cipDef as unknown as Record<string, unknown>)) {
+            inPlayCount++;
+          }
+        }
+      }
+
+      const deck = current.players[opponentIdx].playDeck;
+      const revealCount = Math.min(inPlayCount, deck.length);
+      logDetail(
+        `${cardName}: ${inPlayCount} matching card(s) in play → revealing ${revealCount} card(s) ` +
+        `from the top of ${current.players[opponentIdx].name}'s play deck (deck ${deck.length})`,
+      );
+
+      // "Remove this card from the game." — move the event from the card-player's
+      // discard pile (where it was placed at play time) to their out-of-play pile.
+      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
+      const eventInstId = entry.card.instanceId;
+      if (current.players[declarerIdx].discardPile.some(c => c.instanceId === eventInstId)) {
+        const eventCard = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId)!;
+        current = updatePlayer(current, declarerIdx, p => ({
+          ...p,
+          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
+          outOfPlayPile: [...p.outOfPlayPile, eventCard],
+        }));
+        logDetail(`${cardName}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
+      }
+
+      if (revealCount === 0) {
+        logDetail(`${cardName}: nothing to reveal — the event fizzles`);
+      } else {
+        const revealed = deck.slice(0, revealCount);
+        current = revealInstances(current, revealed);
+        current = enqueueResolution(current, {
+          source: entry.card.instanceId,
+          actor: entry.declaredBy,
+          scope: { kind: 'phase', phase: Phase.MovementHazard },
+          kind: {
+            type: 'desire-belly-choose-card',
+            revealedInstanceIds: revealed.map(c => c.instanceId),
+            opponentId,
+            cardPlayerId: entry.declaredBy,
+            sourceDefinitionId: entry.card.definitionId,
+          },
+        });
       }
     }
   }
@@ -3012,6 +3311,51 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         // here would leave the entry unresolved and re-initiate combat after it
         // finalizes.
         current = { ...current, combat };
+      }
+    }
+  }
+
+  // The Reek (ba-23): company-tap-characters — hazard short event that taps every
+  // untapped character in the active M/H company whose effective mind is below a
+  // threshold (here "2 + spawnCardsInPlay") and that matches the effect filter
+  // (excluding Wizards and Ringwraiths). Applied directly here, then the chain
+  // entry is marked resolved and the event is discarded with the chain.
+  if (entry.payload.type === 'short-event'
+    && !entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.MovementHazard) {
+    const reekCardDef = defById(current, entry.card.definitionId);
+    const tapEffect = getCardEffects(reekCardDef).find(
+      (e): e is import('../index.js').CompanyTapCharactersEffect => e.type === 'company-tap-characters',
+    );
+    if (tapEffect) {
+      const activePlayerId = current.activePlayer!;
+      const activeIndex = getPlayerIndex(current, activePlayerId);
+      const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
+      if (company) {
+        const spawnCardsInPlay = countSpawnCardsInPlay(current);
+        const threshold = evaluateExpr(tapEffect.mindBelow, { spawnCardsInPlay });
+        logDetail(
+          `company-tap-characters "${(reekCardDef as { name?: string }).name ?? '?'}": ` +
+          `${spawnCardsInPlay} Spawn card(s) in play → tapping untapped characters with mind < ${threshold}`,
+        );
+        for (const charId of company.characters) {
+          const ch = current.players[activeIndex].characters[charId];
+          if (!ch || ch.status !== CardStatus.Untapped) continue;
+          const charDef = defById(current, ch.definitionId);
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          const effMind = ch.effectiveStats.mind ?? charDef.mind ?? 0;
+          if (effMind >= threshold) continue;
+          if (tapEffect.filter) {
+            const ctx = { target: { race: charDef.race, mind: effMind, name: charDef.name, skills: charDef.skills } };
+            if (!matchesCondition(tapEffect.filter, ctx)) continue;
+          }
+          logDetail(`  tapping "${charDef.name}" (mind ${effMind})`);
+          current = updatePlayer(current, activeIndex, p =>
+            updateCharacter(p, charId, c => ({ ...c, status: CardStatus.Tapped })),
+          );
+        }
       }
     }
   }

@@ -18,6 +18,7 @@ import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharact
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType, SiteType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { defenderAlignmentLabel } from '../detainment.js';
+import { getEffectiveSiteType } from '../effective.js';
 import { isUnderDeepsAdjacent, isDeepMinesSite, isDeepMinesDescentLegal, isDeepMinesAscentLegal } from './organization-companies.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -54,6 +55,23 @@ function countUnresolvedChainHazards(state: GameState): number {
     if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) n++;
   }
   return n;
+}
+
+/**
+ * True if a card named {@link name} is prohibited from being played by any
+ * card currently in play carrying a `prohibit-card-play` effect that lists it.
+ * Implements "prohibits the subsequent play of X" (The Under-roads, as-106).
+ */
+function isCardPlayProhibited(state: GameState, name: string): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      for (const eff of getCardEffects(def)) {
+        if (eff.type === 'prohibit-card-play' && eff.cardNames.includes(name)) return true;
+      }
+    }
+  }
+  return false;
 }
 
 /**
@@ -1359,7 +1377,8 @@ function summonsFromLongSleepActions(
         const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
           || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
-          || siteAllowsCreatureByKeying(state, targetCompany, creatureDef);
+          || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
+          || inPlayGrantsCreatureKeying(state, targetCompany, creatureDef);
 
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(creatureDef);
@@ -1485,7 +1504,8 @@ function playCreatureFromDiscardActions(
       const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
       const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
         || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
-        || siteAllowsCreatureByKeying(state, targetCompany, creatureDef);
+        || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
+        || inPlayGrantsCreatureKeying(state, targetCompany, creatureDef);
 
       if (matches.length === 0 && !keyingBypassed) {
         logDetail(`${defName}: discard creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
@@ -1668,6 +1688,15 @@ function playHazardsActions(
         targetCompanyId: targetCompany.id,
       };
 
+      // prohibit-card-play (The Under-roads, as-106 prohibits The Way is Shut):
+      // a card named by any in-play `prohibit-card-play` effect may not be
+      // played while that source remains in play.
+      if (isCardPlayProhibited(state, def.name)) {
+        logDetail(`Hazard "${def.name}" is prohibited from play by a card in play`);
+        actions.push({ action, viable: false, reason: `${def.name} may not be played (prohibited by a card in play)` });
+        continue;
+      }
+
       // Hazard limit reached (cards with no-hazard-limit bypass this)
       const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
       const raceExempt = isCreature && isCreatureRaceExemptFromLimit(state, targetCompany.id, def.race);
@@ -1774,7 +1803,8 @@ function playHazardsActions(
         const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
           || siteAllowsCreatureByRace(state, targetCompany, def)
-          || siteAllowsCreatureByKeying(state, targetCompany, def);
+          || siteAllowsCreatureByKeying(state, targetCompany, def)
+          || inPlayGrantsCreatureKeying(state, targetCompany, def);
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
@@ -1858,6 +1888,33 @@ function playHazardsActions(
           let blocked = false;
           for (const effect of getCardEffects(def)) {
             if (effect.type !== 'duplication-limit') continue;
+            // Greed (le-113 / tw-42): "Cannot be duplicated on a given site."
+            // Count resolved copies by their turn-scoped item-play-corruption-check
+            // constraint bound to the same target site, plus same-site chain copies.
+            if (effect.scope === 'site') {
+              const siteInstId = targetCompany.destinationSite?.instanceId
+                ?? targetCompany.currentSite?.instanceId ?? null;
+              const siteDefId = siteInstId ? resolveInstanceId(state, siteInstId) : null;
+              if (!siteDefId) continue;
+              const constraintCopies = state.activeConstraints.filter(
+                c => c.kind.type === 'item-play-corruption-check'
+                  && c.sourceDefinitionId === def.id
+                  && c.kind.siteDefinitionId === siteDefId,
+              ).length;
+              const chainCopies = state.chain?.entries.filter(e => {
+                if (e.payload.type !== 'short-event') return false;
+                if (e.payload.targetSiteDefinitionId !== siteDefId) return false;
+                const cDef = e.card ? defById(state, e.card.definitionId) : undefined;
+                return cDef?.name === def.name;
+              }).length ?? 0;
+              if (constraintCopies + chainCopies >= effect.max) {
+                logDetail(`Hazard short-event "${def.name}" cannot be duplicated on this site (${constraintCopies} active, ${chainCopies} on chain)`);
+                actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on a given site` });
+                blocked = true;
+                break;
+              }
+              continue;
+            }
             if (effect.scope !== 'game' && effect.scope !== 'turn') continue;
             const copiesOnChain = state.chain?.entries.filter(e => {
               const cDef = e.card ? defById(state, e.card.definitionId) : undefined;
@@ -1972,6 +2029,19 @@ function playHazardsActions(
             if (!checkRegionThroughOrLeave(mhState, playCondition.regionNames ?? [])) {
               logDetail(`Hazard short-event "${def.name}": company is not moving through or leaving a required region`);
               actions.push({ action, viable: false, reason: `${def.name} requires region movement through or leaving a named region` });
+              continue;
+            }
+          } else if (playCondition && playCondition.requires === 'company-site' && playCondition.condition) {
+            // Glance of Arien (ba-19): gate on the active company's relevant
+            // site — its destination when moving, else its current site.
+            const relevantSite = targetCompany.destinationSite ?? targetCompany.currentSite;
+            const siteDef = relevantSite ? defById(state, relevantSite.definitionId) : undefined;
+            const siteCtx = siteDef && isSiteCard(siteDef)
+              ? { site: { name: siteDef.name, siteType: siteDef.siteType, region: siteDef.region, keywords: siteDef.keywords ?? [] } }
+              : { site: {} };
+            if (!matchesCondition(playCondition.condition, siteCtx as unknown as Record<string, unknown>)) {
+              logDetail(`Hazard short-event "${def.name}": company-site condition not met (site ${siteDef && isSiteCard(siteDef) ? siteDef.name : 'none'})`);
+              actions.push({ action, viable: false, reason: `${def.name}: company's site does not satisfy play condition` });
               continue;
             }
           }
@@ -2100,6 +2170,64 @@ function playHazardsActions(
           if (!hasFactionTarget) {
             logDetail(`Hazard short-event "${def.name}" not playable — no factions in play`);
             actions.push({ action, viable: false, reason: 'No factions in play' });
+          }
+          continue;
+        }
+
+        // Company-targeting short events (e.g. The Reek ba-23): played on the
+        // active company as a whole (no per-character/ally/site target). The
+        // play-target filter gates on the company's current-or-destination site
+        // type/keywords, alignment, and member count. A play-discard-cost is
+        // cross-multiplied so the player picks which card to sacrifice.
+        if (shortPlayTarget?.target === 'company') {
+          const compSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+          const compSiteDef = compSiteInst ? resolveDef(state, compSiteInst.instanceId) : undefined;
+          const compSiteType = compSiteDef && isSiteCard(compSiteDef) ? compSiteDef.siteType : null;
+          const compSiteKeywords = compSiteDef && isSiteCard(compSiteDef) ? (compSiteDef.keywords ?? []) : [];
+          const allyCount = targetCompany.characters.reduce((sum, cId) => {
+            const ch = resourcePlayer.characters[cId];
+            return sum + (ch ? ch.allies.length : 0);
+          }, 0);
+          const companyCtx = {
+            target: {
+              siteType: compSiteType,
+              siteKeywords: compSiteKeywords,
+              alignment: resourcePlayer.alignment,
+              memberCount: targetCompany.characters.length + allyCount,
+            },
+          };
+          if (shortPlayTarget.filter && !matchesContext(shortPlayTarget.filter, companyCtx)) {
+            logDetail(`Hazard short-event "${def.name}": company filter not met (siteType=${compSiteType ?? 'none'}, keywords=[${compSiteKeywords.join(',')}])`);
+            actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company at this site` });
+            continue;
+          }
+          // play-discard-cost (The Reek ba-23): must discard a matching card from
+          // hand as a cost. Gather candidates; if none match, the card is not
+          // playable at all. One action per matching cost card.
+          const compDiscardCostEffect = getCardEffects(def).find(
+            (e): e is import('../../index.js').PlayDiscardCostEffect => e.type === 'play-discard-cost',
+          );
+          if (compDiscardCostEffect) {
+            const compDiscardCostCards = player.hand.filter(c => {
+              if (c.instanceId === cardInstId) return false;
+              const cDef = defById(state, c.definitionId);
+              return cDef ? matchesCondition(compDiscardCostEffect.filter, cDef as unknown as Record<string, unknown>) : false;
+            });
+            if (compDiscardCostCards.length === 0) {
+              logDetail(`Hazard short-event "${def.name}": no card in hand matches the discard cost`);
+              actions.push({ action, viable: false, reason: `${def.name}: no matching card in hand to discard as cost` });
+              continue;
+            }
+            for (const costCard of compDiscardCostCards) {
+              logDetail(`Hazard short-event "${def.name}" playable on company (discard cost "${defById(state, costCard.definitionId)?.name ?? costCard.definitionId}")`);
+              actions.push({
+                action: { ...action, costDiscardInstanceId: costCard.instanceId },
+                viable: true,
+              });
+            }
+          } else {
+            logDetail(`Hazard short-event "${def.name}" playable on company`);
+            actions.push({ action, viable: true });
           }
           continue;
         }
@@ -2379,6 +2507,35 @@ function playHazardsActions(
             actions.push({ action, viable: false, reason: 'Destination site has no automatic attacks' });
             continue;
           }
+        }
+
+        // play-discard-cost on an untargeted short event (Desire All for Thy
+        // Belly ba-16): the hazard player must discard a matching card (a Spawn
+        // card) from hand as a play cost. Offer one action per candidate cost
+        // card so the player picks which to sacrifice; if none match, the card
+        // is not playable. The reducer validates and pays the cost generically.
+        const untargetedDiscardCost = getCardEffects(def).find(
+          (e): e is import('../../index.js').PlayDiscardCostEffect => e.type === 'play-discard-cost',
+        );
+        if (untargetedDiscardCost) {
+          const costCards = player.hand.filter(c => {
+            if (c.instanceId === cardInstId) return false;
+            const cDef = defById(state, c.definitionId);
+            return cDef ? matchesCondition(untargetedDiscardCost.filter, cDef as unknown as Record<string, unknown>) : false;
+          });
+          if (costCards.length === 0) {
+            logDetail(`Hazard short-event "${def.name}": no card in hand matches the discard cost`);
+            actions.push({ action, viable: false, reason: `${def.name}: no matching card in hand to discard as cost` });
+            continue;
+          }
+          for (const costCard of costCards) {
+            logDetail(`Hazard short-event "${def.name}" playable (discard cost: ${cardName(state, costCard.definitionId)})`);
+            actions.push({
+              action: { ...action, costDiscardInstanceId: costCard.instanceId },
+              viable: true,
+            });
+          }
+          continue;
         }
 
         logDetail(`Hazard short-event "${def.name}" is playable`);
@@ -3341,6 +3498,54 @@ function siteAllowsCreatureByKeying(
       || (key.regionTypes?.some(rt => allowedRegionTypes.has(rt)) ?? false),
     );
   });
+}
+
+/**
+ * Check whether any in-play card (either player's `cardsInPlay`) carries a
+ * `grant-creature-keying` effect that lets the given creature be keyed to the
+ * target company's effective site (destination if moving, else current). The
+ * grant matches when the creature's card definition satisfies `creatureFilter`
+ * and the effective site's type is one of `siteFilter.siteTypes` and the site
+ * carries every keyword in `siteFilter.siteKeywords`. This is the in-play
+ * permanent-event analogue of the site-bound keying-bypass rules.
+ *
+ * Used by Ungoliant's Foul Issue (ba-28): "non-unique Spider creatures can be
+ * keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}]."
+ */
+function inPlayGrantsCreatureKeying(
+  state: GameState,
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
+  creatureDef: CardDefinition,
+): boolean {
+  const effectiveSiteInstanceId = targetCompany.destinationSite?.instanceId
+    ?? targetCompany.currentSite?.instanceId
+    ?? null;
+  if (!effectiveSiteInstanceId) return false;
+  const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
+  if (!siteDefId) return false;
+  const siteDef = defById(state, siteDefId);
+  if (!siteDef || !isSiteCard(siteDef)) return false;
+  const effSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType);
+  const siteKeywords = new Set<string>(siteDef.keywords ?? []);
+
+  const creatureCtx = creatureDef as unknown as Record<string, unknown>;
+  for (const player of state.players) {
+    for (const cardInPlay of player.cardsInPlay) {
+      const def = defById(state, cardInPlay.definitionId);
+      if (!def) continue;
+      for (const e of getCardEffects(def)) {
+        if (e.type !== 'grant-creature-keying') continue;
+        if (!matchesCondition(e.creatureFilter, creatureCtx)) continue;
+        if (e.siteFilter.siteTypes && !e.siteFilter.siteTypes.includes(effSiteType)) continue;
+        if (e.siteFilter.siteKeywords && !e.siteFilter.siteKeywords.every(k => siteKeywords.has(k))) continue;
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Build a human-readable keying requirement string for error messages. */

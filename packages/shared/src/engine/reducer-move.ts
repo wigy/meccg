@@ -276,6 +276,19 @@ function locateSelf(state: GameState, ctx: MoveContext): LocatedInstance | null 
         remove: s => removeFromDiscard(s, pi, sourceId),
       };
     }
+    // sideboard — a card in the sideboard may relocate itself into the play
+    // deck (Terror Heralds Doom ba-78 and the Balrog sideboard family:
+    // "You may bring this card from your sideboard into your play deck").
+    const sideboardIdx = player.sideboard.findIndex(c => c.instanceId === sourceId);
+    if (sideboardIdx >= 0) {
+      const inst = player.sideboard[sideboardIdx];
+      return {
+        instance: inst,
+        ownerIndex: pi,
+        zone: 'sideboard',
+        remove: s => removeFromNamedPile(s, pi, 'sideboard', sourceId),
+      };
+    }
     // cardsInPlay
     const cipIdx = player.cardsInPlay.findIndex(c => c.instanceId === sourceId);
     if (cipIdx >= 0) {

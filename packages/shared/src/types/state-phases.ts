@@ -124,6 +124,17 @@ export type SetupStepState =
       readonly step: SetupStep.CharacterPlacement;
       /** Whether each player has finished placing characters. */
       readonly placementDone: readonly [boolean, boolean];
+      /**
+       * Character instance IDs each player has already explicitly placed into
+       * their chosen company during this step, indexed by player. A character
+       * may be placed at most once so that placement makes monotonic progress
+       * and can never cycle: without this mark, the reversible place-character
+       * moves let a player (notably an AI) shuffle characters between companies
+       * forever without ever converging. Every valid starting-company partition
+       * remains reachable because each unplaced character is offered every
+       * company it is not currently in, and its single placement is final.
+       */
+      readonly placed: readonly [readonly CardInstanceId[], readonly CardInstanceId[]];
     }
   | {
       readonly step: SetupStep.DeckShuffle;

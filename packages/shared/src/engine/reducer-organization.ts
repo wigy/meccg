@@ -18,7 +18,7 @@ import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere } from './reducer-utils.js';
+import { clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint } from './pending.js';
@@ -59,6 +59,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'start-sideboard-to-deck': handleStartSideboard,
   'start-sideboard-to-discard': handleStartSideboard,
   'fetch-from-sideboard': handleFetchFromSideboard,
+  'card-sideboard-to-deck': handleCardSideboardToDeck,
   'activate-granted-action': handleActivateGrantedAction,
   'test-ring-at-site': handleTestRingAtSite,
   'discard-stage-resource': handleDiscardStageResource,
@@ -997,6 +998,32 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
       phaseState: newOrgState,
     },
   };
+}
+
+/**
+ * Handle `card-sideboard-to-deck`: a card carrying a `select: 'self'`
+ * sideboard→deck `move` effect brings itself from the player's sideboard into
+ * their play deck (reshuffling) during the organization phase. Card-granted
+ * relocation of the Balrog sideboard family (Terror Heralds Doom ba-78), it
+ * taps nothing and has no deck-size gate — distinct from the CoE 2.II.6
+ * avatar-tap access.
+ */
+function handleCardSideboardToDeck(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'card-sideboard-to-deck') return wrongActionType(state, action, 'card-sideboard-to-deck');
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const card = findById(player.sideboard, action.cardInstanceId);
+  if (!card) return { state, error: 'Sideboard card not found' };
+  const def = defById(state, card.definitionId);
+  const move = selfSideboardToDeckMove(def);
+  if (!move) return { state, error: `${def?.name ?? String(card.definitionId)} has no sideboard-to-deck move effect` };
+
+  logDetail(`Sideboard self-relocation: ${def?.name ?? String(card.definitionId)} → play deck (reshuffling)`);
+  const ctx: MoveContext = { sourceCardId: action.cardInstanceId, sourcePlayerIndex: playerIndex };
+  const result = applyMove(state, move, ctx);
+  if ('error' in result) return { state, error: result.error };
+  return { state: result.state };
 }
 
 /**

@@ -16,7 +16,30 @@ import { requirePhaseState } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { logDetail } from './log.js';
-import { findPlayerAvatar, filterSideboardByDef, playerById } from '../reducer-utils.js';
+import { findPlayerAvatar, filterSideboardByDef, playerById, defById, selfSideboardToDeckMove } from '../reducer-utils.js';
+
+/**
+ * Card-granted sideboard self-relocation actions during the organization phase.
+ * Independent of the CoE 2.II.6 avatar-tap access ({@link fetchFromSideboardActions}):
+ * emits one `card-sideboard-to-deck` per card in the player's sideboard that
+ * carries a `select: 'self'` sideboard→deck `move` effect. Taps nothing and has
+ * no deck-size gate. Used by Terror Heralds Doom (ba-78).
+ */
+export function cardSideboardToDeckActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const card of player.sideboard) {
+    const def = defById(state, card.definitionId);
+    if (!selfSideboardToDeckMove(def)) continue;
+    logDetail(`Sideboard self-relocation: ${def?.name ?? card.definitionId} → play deck (viable)`);
+    actions.push({
+      action: { type: 'card-sideboard-to-deck', player: playerId, cardInstanceId: card.instanceId },
+      viable: true,
+    });
+  }
+  return actions;
+}
 
 /** Maximum number of sideboard cards fetchable to the discard pile per avatar tap. */
 const MAX_SIDEBOARD_TO_DISCARD = 5;

@@ -408,6 +408,15 @@ export interface CombatState {
    */
   readonly cancelByTapAllowTarget?: boolean;
   /**
+   * When true, the `cancel-by-tap` sub-phase uses the "cancel a strike against
+   * a wounded character" variant (Carrion Feeders ba-11, `combat-tap-to-cancel-
+   * strike`): the defender taps an untapped company character to remove one
+   * pre-assigned strike, choosing which wounded character to protect. The
+   * `cancel-by-tap` action carries `strikeCharacterId` (the wounded character
+   * whose strike is canceled) instead of popping the last assignment.
+   */
+  readonly cancelStrikeAgainstWounded?: boolean;
+  /**
    * Items available for salvage transfer from an eliminated character.
    * Only set during the 'item-salvage' phase (CoE rule 3.I.2).
    */
@@ -671,6 +680,13 @@ export type ChainEntryPayload =
       readonly targetFactionInstanceId?: CardInstanceId;
       /** For Stay Her Appetite (le-140): the ally being targeted. */
       readonly targetAllyId?: CardInstanceId;
+      /**
+       * For site-targeting short-events (e.g. Greed le-113): the site
+       * definition ID the event is bound to. On resolution the event
+       * installs its turn-scoped `item-play-corruption-check` constraint
+       * bound to this site so item plays there trigger the checks.
+       */
+      readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
       /**
        * For hazard short-events with `play-option` effects (e.g. Weariness of
        * the Heart le-149), the id of the option the hazard player chose at

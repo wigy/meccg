@@ -353,6 +353,8 @@ export function describeAction(
       return 'Tap avatar: fetch up to 5 cards from sideboard to discard';
     case 'fetch-from-sideboard':
       return `Fetch ${instName(action.sideboardCardInstanceId)} from sideboard`;
+    case 'card-sideboard-to-deck':
+      return `Bring ${instName(action.cardInstanceId)} from sideboard to play deck`;
     case 'start-hazard-sideboard-to-deck':
       return 'Fetch 1 hazard from sideboard to play deck';
     case 'start-hazard-sideboard-to-discard':
@@ -563,6 +565,12 @@ export function describeAction(
       return `Take revealed card ${instName(action.cardInstanceId)} into hand (shuffle the rest back into the play deck)`;
     case 'remove-revealed-card':
       return `${playerName(action.player)} removes revealed card ${instName(action.cardInstanceId)} from play (opponent's discard → out of play)`;
+    case 'desire-choose-shown-card':
+      return `${playerName(action.player)} shows revealed card ${instName(action.cardInstanceId)} to the opponent (Desire All for Thy Belly)`;
+    case 'desire-choose-penalty':
+      return action.penalty === 'remove-from-game'
+        ? `${playerName(action.player)} removes the shown card from the game (Desire All for Thy Belly)`
+        : `${playerName(action.player)} reduces his hand size by one for the rest of the game (Desire All for Thy Belly)`;
     case 'choose-great-hunt-source':
       return `${playerName(action.player)} has the opponent reveal from their ${action.source === 'deck' ? 'play deck' : 'discard pile'} (The Great Hunt)`;
     case 'great-hunt-attack-with-creature':
