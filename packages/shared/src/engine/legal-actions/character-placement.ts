@@ -28,8 +28,16 @@ export function characterPlacementActions(state: GameState, playerId: PlayerId):
 
   const actions: GameAction[] = [];
 
-  // For each character, offer placing in any company they're not already in
+  // For each character, offer placing in any company they're not already in.
+  // A character that has already been placed this step is not offered again:
+  // placement is monotonic so it cannot cycle (which previously let AI players
+  // shuffle characters between companies indefinitely). Its single placement is
+  // final, and every company was offered as a target, so all valid partitions
+  // are still reachable.
+  const alreadyPlaced = stepState.placed[playerIndex];
   for (const charId of characterIds(player)) {
+    if (alreadyPlaced.includes(charId)) continue;
+
     const charInPlay = player.characters[charId];
     const charDef = defById(state, charInPlay.definitionId);
     const charName = charDef?.name ?? charId;

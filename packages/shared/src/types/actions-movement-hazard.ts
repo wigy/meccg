@@ -522,6 +522,13 @@ export interface CancelByTapAction {
   readonly player: PlayerId;
   /** The character being tapped to cancel one attack. */
   readonly characterId: CardInstanceId;
+  /**
+   * In the "cancel a strike against a wounded character" variant (Carrion
+   * Feeders ba-11, `cancelStrikeAgainstWounded`), the wounded character whose
+   * pre-assigned strike is removed. Absent for the single-target Assassin
+   * variant, which pops the last assignment.
+   */
+  readonly strikeCharacterId?: CardInstanceId;
 }
 
 /**
@@ -759,6 +766,24 @@ export interface CancelReturnToOriginAction {
   /** The ally instance being tapped (e.g. Goldberry). */
   readonly allyInstanceId: CardInstanceId;
   /** The chain entry's card instance to negate. */
+  readonly targetInstanceId: CardInstanceId;
+}
+
+/**
+ * Play a Balrog resource short-event (Great Fissure ba-61) from hand during a
+ * chain to negate an unresolved chain entry that would cancel an attack by The
+ * Balrog's company against an opponent's company. The counter-cancel counterpart
+ * to {@link CancelReturnToOriginAction}: sourced from a discarded hand card
+ * rather than a tapped ally.
+ */
+export interface CounterCancelAttackAction {
+  /** Action discriminant. */
+  readonly type: 'counter-cancel-attack';
+  /** The Balrog player playing the counter-cancel card. */
+  readonly player: PlayerId;
+  /** The hand card being played and discarded (e.g. Great Fissure). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The chain entry's card instance to negate (the opponent's cancel-attack). */
   readonly targetInstanceId: CardInstanceId;
 }
 

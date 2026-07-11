@@ -37,7 +37,7 @@ import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -56,7 +56,7 @@ import {
   moveToCompanyActions,
   mergeCompaniesActions,
 } from './organization-companies.js';
-import { fetchFromSideboardActions } from './organization-sideboard.js';
+import { fetchFromSideboardActions, cardSideboardToDeckActions } from './organization-sideboard.js';
 import { canPayCost } from '../cost-evaluator.js';
 
 /**
@@ -423,6 +423,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Fetch-from-sideboard actions (tap avatar to bring cards from sideboard)
   actions.push(...fetchFromSideboardActions(state, playerId));
+
+  // Card-granted sideboard self-relocation (Terror Heralds Doom ba-78 et al.):
+  // a card in the sideboard may bring itself into the play deck.
+  actions.push(...cardSideboardToDeckActions(state, playerId));
 
   // Grant-action activations from attached hazards (e.g. Foolish Words removal)
   actions.push(...grantedActionActivations(state, playerId));
@@ -2366,6 +2370,20 @@ export function playResourceShortEventActions(
       if (!met) {
         logDetail(`${def.name}: play-condition player-state not satisfied`);
         actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: play conditions not met`));
+        continue;
+      }
+    }
+
+    // play-condition requires: "card-in-play" — a named card must be in play for
+    // the playing player (any in-play zone, including character-attached
+    // permanent events). Used by Terror Heralds Doom (ba-78): "Playable during
+    // the organization phase if Flame of Udûn is in play."
+    const cardInPlayCondition = findPlayConditionEffect(def, 'card-in-play');
+    if (cardInPlayCondition?.cardName) {
+      const requiredName = cardInPlayCondition.cardName;
+      if (!isCardNameInPlayForPlayer(state, player, requiredName)) {
+        logDetail(`${def.name}: play-condition card-in-play requires ${requiredName} in play`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires ${requiredName} in play`));
         continue;
       }
     }

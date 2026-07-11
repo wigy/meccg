@@ -565,6 +565,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
           : null;
         const afterAttack = triggerEffect?.afterAttack ?? 'attach-with-constraint';
         const discardFactionsAtSite = triggerEffect?.discardFactionsAtSite ?? false;
+        const returnFactionsAtSite = triggerEffect?.returnFactionsAtSite ?? false;
         logDetail(
           `Card-auto-attack cancelled: untapped characters remain — queuing select-card-bearer for "${cardLabel}"`,
         );
@@ -578,6 +579,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
             companyId: combat.companyId,
             ...(afterAttack !== 'attach-with-constraint' ? { mode: afterAttack } : {}),
             ...(discardFactionsAtSite ? { discardFactionsAtSite: true } : {}),
+            ...(returnFactionsAtSite ? { returnFactionsAtSite: true } : {}),
           },
         });
       }
@@ -681,6 +683,67 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
   const company = companyById(defPlayer.companies, combat.companyId);
   if (!company || !company.characters.includes(action.characterId)) {
     return { state, error: 'Character not in defending company' };
+  }
+
+  // Carrion Feeders (ba-11): tap an untapped company character to cancel the
+  // pre-assigned strike against a chosen wounded character.
+  if (combat.cancelStrikeAgainstWounded) {
+    const canceler = defPlayer.characters[action.characterId];
+    if (!canceler || canceler.status !== CardStatus.Untapped) {
+      return { state, error: 'Character must be untapped to cancel a strike' };
+    }
+    const strikeCharId = action.strikeCharacterId;
+    const idx = strikeCharId
+      ? combat.strikeAssignments.findIndex(a => !a.resolved && a.characterId === strikeCharId)
+      : combat.strikeAssignments.findIndex(a => !a.resolved);
+    if (idx < 0) return { state, error: 'No unresolved strike against that character to cancel' };
+
+    const newPlayersW = clonePlayers(state);
+    const newCharsW = { ...defPlayer.characters };
+    newCharsW[action.characterId] = { ...canceler, status: CardStatus.Tapped };
+    newPlayersW[defPlayerIndex] = { ...defPlayer, characters: newCharsW };
+
+    logDetail(`Cancel-strike-vs-wounded: ${action.characterId as string} tapped to cancel the strike against ${strikeCharId as string}`);
+
+    const newAssignmentsW = combat.strikeAssignments.filter((_, i) => i !== idx);
+    const newCancelRemainingW = combat.cancelByTapRemaining - 1;
+    const newStrikesTotalW = combat.strikesTotal - 1;
+
+    // All wounded-character strikes canceled → the attack is fully canceled.
+    if (newAssignmentsW.length === 0) {
+      logDetail('All wounded-character strikes canceled — combat ends');
+      const atkIdxW = getPlayerIndex(state, combat.attackingPlayerId);
+      const creatureInstanceIdW =
+        combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
+          : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
+            : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
+              : null;
+      if (creatureInstanceIdW) {
+        const creatureInPlayW = findById(newPlayersW[atkIdxW].cardsInPlay, creatureInstanceIdW);
+        if (creatureInPlayW) {
+          newPlayersW[atkIdxW] = {
+            ...newPlayersW[atkIdxW],
+            cardsInPlay: newPlayersW[atkIdxW].cardsInPlay.filter(c => c.instanceId !== creatureInstanceIdW),
+            discardPile: [...newPlayersW[atkIdxW].discardPile, toCardInstance(creatureInPlayW)],
+          };
+        }
+      }
+      return { state: { ...state, players: newPlayersW, combat: null } };
+    }
+
+    let newCombatW: CombatState = {
+      ...combat,
+      strikeAssignments: newAssignmentsW,
+      strikesTotal: newStrikesTotalW,
+      cancelByTapRemaining: newCancelRemainingW > 0 ? newCancelRemainingW : undefined,
+    };
+    // No untapped characters left to tap → proceed to strike resolution.
+    if (newCancelRemainingW <= 0) {
+      logDetail('No more untapped characters to cancel — proceeding to resolution');
+      const nextW = nextStrikePhase(newCombatW);
+      newCombatW = { ...newCombatW, assignmentPhase: 'done', ...nextW };
+    }
+    return { state: { ...state, players: newPlayersW, combat: newCombatW } };
   }
 
   // By default the target character cannot tap to cancel (Assassin: "not the defending character").

@@ -1355,6 +1355,51 @@ export function countCopiesInPlay(state: GameState, name: string): number {
 }
 
 /**
+ * True when the card definition `defId` carries the given (lowercased) keyword.
+ * Keyword matching is case-insensitive so `"Spawn"` in card data matches
+ * `"spawn"`.
+ */
+function defHasKeyword(state: GameState, defId: CardDefinitionId, keyword: string): boolean {
+  const def = defById(state, defId);
+  const kws = (def as { keywords?: readonly string[] } | undefined)?.keywords;
+  return kws ? kws.some(k => k.toLowerCase() === keyword) : false;
+}
+
+/**
+ * Count all `spawn`-keyword cards currently in play across both players, backing
+ * "the number of Spawn cards in play" (The Reek ba-23, Darkness Made by Malice
+ * ba-15, Desire All for Thy Belly ba-16). "Eliminated Spawn do not count" is
+ * satisfied automatically: eliminated cards leave the in-play zones for a
+ * discard/out-of-play pile, so they are not scanned here.
+ *
+ * Spawn cards may be in play as characters (The Balrog ba-3), allies (Evil
+ * Things Lingering ba-45), attached hazards, or bare permanent-events in
+ * `cardsInPlay` (Spawn of Ungoliant ba-24 and its kin). All of these zones are
+ * counted.
+ */
+export function countSpawnCardsInPlay(state: GameState): number {
+  let count = 0;
+  for (const p of state.players) {
+    for (const cip of p.cardsInPlay) {
+      if (defHasKeyword(state, cip.definitionId, 'spawn')) count += 1;
+    }
+    for (const ch of Object.values(p.characters)) {
+      if (defHasKeyword(state, ch.definitionId, 'spawn')) count += 1;
+      for (const ally of ch.allies) {
+        if (defHasKeyword(state, ally.definitionId, 'spawn')) count += 1;
+      }
+      for (const hazard of ch.hazards) {
+        if (defHasKeyword(state, hazard.definitionId, 'spawn')) count += 1;
+      }
+      for (const item of ch.items) {
+        if (defHasKeyword(state, item.definitionId, 'spawn')) count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+/**
  * Count cards named `name` that `player` holds: copies in their `cardsInPlay`
  * (non-attached permanent events like Great Patron wh-72) plus copies among
  * their characters' `items`. Backs `duplication-limit` checks with
@@ -1543,6 +1588,49 @@ export function isCardNameInPlayOrCharacters(state: GameState, name: string): bo
     Object.values(p.characters).some(ch => defById(state, ch.definitionId)?.name === name) ||
     p.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name),
   );
+}
+
+/**
+ * The `move` effect by which a card relocates *itself* from the sideboard into
+ * the play deck — the Balrog sideboard family's "You may bring this card from
+ * your sideboard into your play deck and reshuffle during your organization
+ * phase" (Terror Heralds Doom ba-78 et al.). Returns undefined when the card
+ * declares no such effect. Shared by the organization-phase legal-action
+ * generator and its reducer.
+ */
+export function selfSideboardToDeckMove(
+  def: CardDefinition | undefined,
+): import('../types/effects.js').MoveEffect | undefined {
+  if (!def) return undefined;
+  return getCardEffects(def).find((e): e is import('../types/effects.js').MoveEffect => {
+    if (e.type !== 'move' || e.select !== 'self' || e.to !== 'deck') return false;
+    const from = Array.isArray(e.from) ? e.from : [e.from];
+    return from.includes('sideboard');
+  });
+}
+
+/**
+ * True if a named card is in play for the given player, checking every in-play
+ * zone the player controls: `cardsInPlay` (permanent/long events, factions,
+ * stage cards), the player's characters, and cards attached to those characters
+ * (items and hazards). Attachment-aware because some "in play" cards live only
+ * as character-attached permanent events — e.g. Flame of Udûn (ba-58), a Demon
+ * fána played on The Balrog and held in his `items`. Backs the resource
+ * short-event `card-in-play` play-condition (Terror Heralds Doom ba-78:
+ * "Playable ... if Flame of Udûn is in play").
+ */
+export function isCardNameInPlayForPlayer(
+  state: GameState,
+  player: PlayerState,
+  name: string,
+): boolean {
+  if (player.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name)) return true;
+  for (const ch of Object.values(player.characters)) {
+    if (defById(state, ch.definitionId)?.name === name) return true;
+    if (ch.items.some(i => defById(state, i.definitionId)?.name === name)) return true;
+    if (ch.hazards.some(h => defById(state, h.definitionId)?.name === name)) return true;
+  }
+  return false;
 }
 
 /**

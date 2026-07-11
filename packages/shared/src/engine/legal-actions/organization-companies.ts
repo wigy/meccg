@@ -180,6 +180,33 @@ export function isUnderDeepsAdjacent(state: GameState, origin: SiteCard, dest: S
 }
 
 /**
+ * True when `siteDef` is the **surface site** of an Under-deeps site — i.e. it
+ * is the roll-0 surface entrance named in some Under-deeps site's
+ * `adjacentSites` map (the entry whose required roll is 0 and whose key is a
+ * concrete site name, not a `*region:` wildcard). Under-deeps sites themselves
+ * are not surface sites. Used by Tempest of Fire (ba-77), which "cannot be
+ * played on an Under-deeps site or surface site thereof".
+ */
+export function isUnderDeepsSurfaceSite(state: GameState, siteDef: CardDefinition | null | undefined): boolean {
+  if (!siteDef || !isSiteCard(siteDef)) return false;
+  // A surface site is itself never an Under-deeps site.
+  if (siteDef.keywords?.includes('under-deeps')) return false;
+  const targetName = siteDef.name;
+  for (const def of Object.values(state.cardPool)) {
+    if (!isSiteCard(def)) continue;
+    if (!def.keywords?.includes('under-deeps')) continue;
+    const adj = def.adjacentSites;
+    if (!adj) continue;
+    for (const [key, roll] of Object.entries(adj)) {
+      if (roll === 0 && !key.startsWith('*region:') && key === targetName) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * True when a site definition carries the Deep Mines movement rule (wh-55):
  * an Under-deeps-style site reachable only from a protected Wizardhaven.
  */
