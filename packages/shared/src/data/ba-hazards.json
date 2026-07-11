@@ -111,10 +111,25 @@
           "strikes": 2,
           "prowess": 17,
           "body": 7
+        },
+        "onDefeat": "remove-from-play"
+      },
+      {
+        "type": "grant-creature-keying",
+        "creatureFilter": {
+          "$and": [
+            { "race": { "$in": ["spider", "spiders"] } },
+            { "unique": { "$ne": true } }
+          ]
+        },
+        "siteFilter": {
+          "siteTypes": ["ruins-and-lairs", "shadow-hold"],
+          "siteKeywords": ["under-deeps"]
         }
       }
     ],
-    "text": "Unique. Spawn. Ancient Deep-hold has an additional automatic-attack: Spawn — 2 strikes with 17/7 prowess/body."
+    "text": "Unique. Spawn. Ancient Deep-hold has an additional automatic-attack: Spawn — 2 strikes with 17/7 prowess/body. In addition, non-unique Spider creatures can be keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}].",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",

@@ -5009,6 +5009,41 @@ Used by *Witch-king of Angmar* (tw-113), *Khamûl the Easterling* (tw-47), and
 }
 ```
 
+### `grant-creature-keying`
+
+Carried by an in-play permanent-event. While the card is in play (checked
+across **both** players' `cardsInPlay`), any hazard creature whose card
+definition matches `creatureFilter` may be keyed to any site whose effective
+type is one of `siteFilter.siteTypes` **and** which carries every keyword in
+`siteFilter.siteKeywords` — regardless of the creature's own `keyedTo`. It is
+the in-play (environment-card) analogue of the site-bound
+`allow-creature-by-race` / `allow-creature-by-keying` site rules: the grant
+travels with the card rather than living on one site, so it applies at every
+site of the matching kind for as long as the card stays in play. It feeds the
+normal M/H hazard-creature play path via the shared
+`keyedBy: { method: "keying-bypass" }` mechanism (`inPlayGrantsCreatureKeying`
+in `legal-actions/movement-hazard.ts`). Omit `siteTypes` to match any type;
+omit `siteKeywords` to impose no keyword requirement.
+
+Used by Ungoliant's Foul Issue (ba-28): "non-unique Spider creatures can be
+keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}]."
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": {
+    "$and": [
+      { "race": { "$in": ["spider", "spiders"] } },
+      { "unique": { "$ne": true } }
+    ]
+  },
+  "siteFilter": {
+    "siteTypes": ["ruins-and-lairs", "shadow-hold"],
+    "siteKeywords": ["under-deeps"]
+  }
+}
+```
+
 ### Site auto-attack `combatRules`
 
 A site's printed `automaticAttacks[]` entries (and the runtime-injected

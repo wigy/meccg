@@ -18,6 +18,7 @@ import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharact
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType, SiteType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { defenderAlignmentLabel } from '../detainment.js';
+import { getEffectiveSiteType } from '../effective.js';
 import { isUnderDeepsAdjacent, isDeepMinesSite, isDeepMinesDescentLegal, isDeepMinesAscentLegal } from './organization-companies.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -1359,7 +1360,8 @@ function summonsFromLongSleepActions(
         const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
           || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
-          || siteAllowsCreatureByKeying(state, targetCompany, creatureDef);
+          || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
+          || inPlayGrantsCreatureKeying(state, targetCompany, creatureDef);
 
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(creatureDef);
@@ -1485,7 +1487,8 @@ function playCreatureFromDiscardActions(
       const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
       const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
         || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
-        || siteAllowsCreatureByKeying(state, targetCompany, creatureDef);
+        || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
+        || inPlayGrantsCreatureKeying(state, targetCompany, creatureDef);
 
       if (matches.length === 0 && !keyingBypassed) {
         logDetail(`${defName}: discard creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
@@ -1774,7 +1777,8 @@ function playHazardsActions(
         const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
           || siteAllowsCreatureByRace(state, targetCompany, def)
-          || siteAllowsCreatureByKeying(state, targetCompany, def);
+          || siteAllowsCreatureByKeying(state, targetCompany, def)
+          || inPlayGrantsCreatureKeying(state, targetCompany, def);
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
@@ -3341,6 +3345,54 @@ function siteAllowsCreatureByKeying(
       || (key.regionTypes?.some(rt => allowedRegionTypes.has(rt)) ?? false),
     );
   });
+}
+
+/**
+ * Check whether any in-play card (either player's `cardsInPlay`) carries a
+ * `grant-creature-keying` effect that lets the given creature be keyed to the
+ * target company's effective site (destination if moving, else current). The
+ * grant matches when the creature's card definition satisfies `creatureFilter`
+ * and the effective site's type is one of `siteFilter.siteTypes` and the site
+ * carries every keyword in `siteFilter.siteKeywords`. This is the in-play
+ * permanent-event analogue of the site-bound keying-bypass rules.
+ *
+ * Used by Ungoliant's Foul Issue (ba-28): "non-unique Spider creatures can be
+ * keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}]."
+ */
+function inPlayGrantsCreatureKeying(
+  state: GameState,
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
+  creatureDef: CardDefinition,
+): boolean {
+  const effectiveSiteInstanceId = targetCompany.destinationSite?.instanceId
+    ?? targetCompany.currentSite?.instanceId
+    ?? null;
+  if (!effectiveSiteInstanceId) return false;
+  const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
+  if (!siteDefId) return false;
+  const siteDef = defById(state, siteDefId);
+  if (!siteDef || !isSiteCard(siteDef)) return false;
+  const effSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType);
+  const siteKeywords = new Set<string>(siteDef.keywords ?? []);
+
+  const creatureCtx = creatureDef as unknown as Record<string, unknown>;
+  for (const player of state.players) {
+    for (const cardInPlay of player.cardsInPlay) {
+      const def = defById(state, cardInPlay.definitionId);
+      if (!def) continue;
+      for (const e of getCardEffects(def)) {
+        if (e.type !== 'grant-creature-keying') continue;
+        if (!matchesCondition(e.creatureFilter, creatureCtx)) continue;
+        if (e.siteFilter.siteTypes && !e.siteFilter.siteTypes.includes(effSiteType)) continue;
+        if (e.siteFilter.siteKeywords && !e.siteFilter.siteKeywords.every(k => siteKeywords.has(k))) continue;
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Build a human-readable keying requirement string for error messages. */
