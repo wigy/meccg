@@ -5009,6 +5009,42 @@ Used by *Witch-king of Angmar* (tw-113), *Khamûl the Easterling* (tw-47), and
 }
 ```
 
+### `attacker-attack-option`
+
+Grants the controller of the carrying in-play card an **optional, per-attack**
+combat modifier: for each attack whose creature race equals `creatureRace` that
+their **opponent** faces, the controller (the attacking / hazard player) may
+choose to apply `prowessModifier` (added to every strike) and/or make the attack
+`detainment`.
+
+The choice is offered as an `apply-attacker-attack-option` combat action in the
+attacking player's Step 1 priority window (CoE rule 3.iv.1), before any of the
+attack's strikes have resolved — so the modifier, once applied, affects the
+whole attack. It is a genuine option: the controller may simply pass, leaving
+the attack unmodified. Applying it once flags the combat
+(`attackerAttackOptionApplied`) so it cannot be applied again.
+
+| Field | Required | Meaning |
+|-------|----------|---------|
+| `creatureRace` | yes | Normalized (lowercase, singular) creature race the faced attack must have, e.g. `"spider"`. Matched against `combat.creatureRace`. |
+| `prowessModifier` | no | Prowess added to every strike when the option is applied. |
+| `detainment` | no | When `true`, applying the option makes the attack detainment. |
+
+Implemented by `attackerAttackOptionActions` (`engine/legal-actions/combat.ts`)
+and `handleApplyAttackerAttackOption` (`engine/reducer-combat.ts`).
+
+Used by *Ungoliant's Progeny* (ba-27): "for each Spider attack your opponent
+faces, you can choose for it to be at +1 prowess and detainment."
+
+```json
+{
+  "type": "attacker-attack-option",
+  "creatureRace": "spider",
+  "prowessModifier": 1,
+  "detainment": true
+}
+```
+
 ### Site auto-attack `combatRules`
 
 A site's printed `automaticAttacks[]` entries (and the runtime-injected

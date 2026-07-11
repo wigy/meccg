@@ -216,17 +216,19 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       // passes. Without this gate the defender could resolve immediately,
       // burning the attacker's chance to play cards like Dragon's Curse.
       const hazardPlays = combatHazardPermanentPlays(state, playerId, combat);
+      const attackOptions = attackerAttackOptionActions(state, playerId, combat);
       if (!combat.attackerStep1Done) {
-        const attackerHazardCount = combatHazardPermanentPlays(
+        const attackerWindowCount = combatHazardPermanentPlays(
           state,
           combat.attackingPlayerId,
           combat,
-        ).length;
-        if (attackerHazardCount > 0) {
+        ).length + attackerAttackOptionActions(state, combat.attackingPlayerId, combat).length;
+        if (attackerWindowCount > 0) {
           if (playerId === combat.attackingPlayerId) {
-            logDetail(`Strike sequence Step 1: attacker has ${attackerHazardCount} hazard(s) to declare — defender waits`);
+            logDetail(`Strike sequence Step 1: attacker has ${attackerWindowCount} action(s) to declare — defender waits`);
             return [
               ...hazardPlays,
+              ...attackOptions,
               { action: { type: 'pass' as const, player: playerId }, viable: true },
             ];
           }
@@ -241,6 +243,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
         ...cancelActions,
         ...resolveStrikeActions(state, playerId, combat),
         ...hazardPlays,
+        ...attackOptions,
         ...allyCombatBoosts,
       ];
     }
@@ -2908,6 +2911,57 @@ function combatHazardPermanentPlays(
       },
       viable: true,
     });
+  }
+  return results;
+}
+
+/**
+ * Offers the attacking (hazard) player the option to apply an in-play
+ * `attacker-attack-option` to the current attack. Used by Ungoliant's Progeny
+ * (ba-27): "for each Spider attack your opponent faces, you can choose for it to
+ * be at +1 prowess and detainment."
+ *
+ * Legal only in the attacker's Step 1 priority window (`resolve-strike`, CoE
+ * rule 3.iv.1) before any strike has resolved — so the modifier, once applied,
+ * affects the whole attack — and only once per attack. The option is offered
+ * when the attacking player controls an in-play card whose
+ * `attacker-attack-option` effect names the current attack's creature race and
+ * applying it would still change something (add prowess, or make an
+ * as-yet-non-detainment attack detainment).
+ */
+function attackerAttackOptionActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (combat.phase !== 'resolve-strike') return [];
+  if (playerId !== combat.attackingPlayerId) return [];
+  if (combat.attackerAttackOptionApplied) return [];
+  // Whole-attack decision: only before any strike has resolved.
+  if (combat.strikeAssignments.some(s => s.resolved)) return [];
+  const race = combat.creatureRace;
+  if (!race) return [];
+  const attacker = playerById(state, playerId);
+  if (!attacker) return [];
+
+  const results: EvaluatedAction[] = [];
+  for (const card of attacker.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'attacker-attack-option') continue;
+      if (effect.creatureRace !== race) continue;
+      const addsProwess = (effect.prowessModifier ?? 0) !== 0;
+      const addsDetainment = effect.detainment === true && !combat.detainment;
+      if (!addsProwess && !addsDetainment) continue; // nothing left to apply
+      logDetail(
+        `Attacker-attack-option available from "${def.name}" for ${race} attack (${effect.prowessModifier ? `${formatSignedNumber(effect.prowessModifier)} prowess` : ''}${addsDetainment ? ' detainment' : ''})`,
+      );
+      results.push({
+        action: { type: 'apply-attacker-attack-option' as const, player: playerId, cardInstanceId: card.instanceId },
+        viable: true,
+      });
+    }
   }
   return results;
 }
