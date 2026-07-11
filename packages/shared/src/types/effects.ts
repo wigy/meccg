@@ -3621,6 +3621,42 @@ export interface PermanentEventAutoAttackEffect extends EffectBase {
 }
 
 /**
+ * Declares that, while the carrying card is in play, any hazard creature whose
+ * card definition matches `creatureFilter` may be keyed to any site matching
+ * `siteFilter` (its effective site type is one of `siteTypes` and it carries
+ * every keyword in `siteKeywords`), regardless of the creature's own `keyedTo`.
+ *
+ * This is the in-play permanent-event analogue of the site-bound
+ * {@link import('./effects/site-rules.js').AllowCreatureByRaceSiteRule} /
+ * {@link import('./effects/site-rules.js').AllowCreatureByKeyingSiteRule}: the
+ * grant travels with an environment card rather than living on a single site,
+ * so it applies at every site of the matching kind for as long as the card
+ * stays in play. Feeds only the normal M/H hazard-creature play path (the same
+ * `keyedBy: { method: 'keying-bypass' }` mechanism the site rules use).
+ *
+ * Example — Ungoliant's Foul Issue (ba-28): "non-unique Spider creatures can
+ * be keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}]."
+ *
+ * ```json
+ * { "type": "grant-creature-keying",
+ *   "creatureFilter": { "race": { "$in": ["spider", "spiders"] }, "unique": { "$ne": true } },
+ *   "siteFilter": { "siteTypes": ["ruins-and-lairs", "shadow-hold"], "siteKeywords": ["under-deeps"] } }
+ * ```
+ */
+export interface GrantCreatureKeyingEffect extends EffectBase {
+  readonly type: 'grant-creature-keying';
+  /** DSL condition on the hazard-creature's card definition (dot-path keys). */
+  readonly creatureFilter: Condition;
+  /** The site(s) matching creatures may be keyed to while this card is in play. */
+  readonly siteFilter: {
+    /** Effective site type must be one of these (omit = any type). */
+    readonly siteTypes?: readonly SiteType[];
+    /** Site must carry every keyword listed here (omit = no keyword requirement). */
+    readonly siteKeywords?: readonly string[];
+  };
+}
+
+/**
  * Triggers the "call the council" endgame transition — the card-based
  * equivalent of the `call-free-council` action. Sets `freeCouncilCalled`
  * on the caller, advances the turn, and marks who gets the final last
@@ -3979,6 +4015,7 @@ export type CardEffect =
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
   | PermanentEventAutoAttackEffect
+  | GrantCreatureKeyingEffect
   | PassiveMovementBonusEffect
   | UnderDeepsRollModifierEffect
   | ExtraUnderDeepsMhPhaseEffect
