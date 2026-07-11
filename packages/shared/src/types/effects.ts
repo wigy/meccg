@@ -3894,6 +3894,24 @@ export interface CancelChainReturnToOriginEffect extends EffectBase {
 }
 
 /**
+ * Marker on a Balrog resource short-event (Great Fissure ba-61): while a chain
+ * is active during a company-vs-company attack made *by* The Balrog's company
+ * against an opponent, the card may be played from hand to target and negate an
+ * unresolved chain entry declared by the opponent that would cancel that attack
+ * (a `cancel-attack` effect). It is the counter-cancel counterpart to
+ * {@link CancelChainReturnToOriginEffect} (Goldberry): a chain-declaring
+ * response, not a combat pre-assignment cancel, but sourced from a discarded
+ * hand card rather than a tapped in-play ally.
+ *
+ * Great Fissure's other mode ("cancel an attack against a company at, or moving
+ * to or from, an Under-deeps site") is a plain {@link CancelAttackEffect} gated
+ * on `attack.atUnderDeeps`.
+ */
+export interface CancelChainAttackCancelEffect extends EffectBase {
+  readonly type: 'cancel-chain-attack-cancel';
+}
+
+/**
  * While the carrying card is in play, any active constraint sourced from a
  * card whose name is listed in {@link cardNames} is suppressed — its effect
  * is treated as absent for as long as this card remains in play. This is the
@@ -4141,6 +4159,7 @@ export type CardEffect =
   | ForceReturnToOriginEffect
   | TapSitesInPlayEffect
   | CancelChainReturnToOriginEffect
+  | CancelChainAttackCancelEffect
   | CancelCardEffectsEffect
   | TapDiscardAttachedHazardEffect
   | FetchWizardOnStoreEffect

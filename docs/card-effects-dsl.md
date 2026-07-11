@@ -1825,6 +1825,12 @@ combat context that includes:
   automatic-attack at a Ruins & Lairs".
 - `defender.covert` — `true` when the defending company is covert
   (contains no Orc/Troll, Balrog avatar, or `company-overt` source).
+- `attack.atUnderDeeps` — `true` when the defending company is **at**, or
+  **moving to or from**, an Under-deeps site (its current site — the origin
+  while moving — or its destination site carries the `under-deeps` keyword).
+  Used by *Great Fissure* (ba-61): `"when": { "attack.atUnderDeeps": true }`
+  cancels an attack against a company at / moving to-or-from an Under-deeps
+  site.
 
 The effect may be declared on in-play sources too: an ally attached
 to a company character (e.g. The Warg-king), the character card
@@ -5003,6 +5009,33 @@ Used by *Goldberry* (tw-245).
 
 ```json
 { "type": "cancel-chain-return-to-origin", "cost": { "tap": "self" } }
+```
+
+### 37a. `cancel-chain-attack-cancel`
+
+Marker on a Balrog resource short-event. While a chain is active during a
+**company-vs-company attack made by The Balrog's company** against an opponent
+(the combat is a CvCC whose `attackingPlayerId` is the Balrog player and whose
+attacking company contains The Balrog avatar), the card may be played from hand
+to **target and negate** an unresolved chain entry — declared by the opponent —
+that would cancel that attack (i.e. carries a `cancel-attack` effect). It is the
+counter-cancel counterpart of `cancel-chain-return-to-origin` (Goldberry): a
+chain-declaring response, but sourced from a discarded hand card rather than a
+tapped in-play ally.
+
+Only the CvCC **attacker** (the priority player during the chain) is offered the
+action; one `counter-cancel-attack` action is emitted per (hand card, target
+entry) pair. On dispatch the card is moved hand → discard, the target entry is
+marked `negated: true` (so its `cancel-attack` never fires and the attack
+survives), and priority flips to the opponent so they may respond.
+
+Implementation: `legal-actions/chain.ts` `counterCancelAttackChainActions()`
+emits the legal actions; `chain-reducer.ts` `handleCounterCancelAttack()` applies
+them. Used by *Great Fissure* (ba-61), whose other mode is a plain
+`cancel-attack` gated on `attack.atUnderDeeps`.
+
+```json
+{ "type": "cancel-chain-attack-cancel" }
 ```
 
 ### 38. `fetch-wizard-on-store`
