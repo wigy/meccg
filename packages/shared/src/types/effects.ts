@@ -3146,7 +3146,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'company-site';
   /**
    * `requires: 'site-protected'` takes no extra fields. On a faction it gates
    * the influence attempt on the company's current site being **protected by
@@ -3199,6 +3199,15 @@ export interface PlayConditionEffect extends EffectBase {
    * unique hero faction at a Free-hold [{F}] (not Bag End)." — and the
    * Fallen-wizard squire companions (Squire of the Hunt wh-95) via
    * `{ "site.isOwnWizardhaven": true }`.
+   *
+   * For `requires: 'company-site'`: a generic DSL condition evaluated,
+   * during the M/H play-hazards step, against the active company's relevant
+   * site — its **destination** site when moving, otherwise its current site —
+   * exposing `{ site: { name, siteType, region, keywords } }`. Lets a hazard
+   * short-event gate on where the targeted company is (or is moving) without a
+   * per-card keyword. Used by Glance of Arien (ba-19): "Playable on The Balrog
+   * at or moving to a non-Under-deeps site" via
+   * `{ "$not": { "site.keywords": { "$includes": "under-deeps" } } }`.
    *
    * For `requires: 'player-state'`: a generic DSL condition evaluated
    * against the active player's avatar/alignment context:

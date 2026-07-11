@@ -187,7 +187,16 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.name": "The Balrog" } },
+      { "type": "play-condition", "requires": "company-site", "condition": { "$not": { "site.keywords": { "$includes": "under-deeps" } } } },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 },
+      { "type": "on-event", "event": "self-enters-play", "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "prowess", "value": -2, "scope": "turn" } },
+      { "type": "on-event", "event": "self-enters-play", "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "body", "value": -1, "scope": "turn" } },
+      { "type": "on-event", "event": "self-enters-play", "when": { "inPlay": "Gates of Morning" }, "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "prowess", "value": -2, "scope": "turn" } },
+      { "type": "on-event", "event": "self-enters-play", "when": { "inPlay": "Gates of Morning" }, "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "body", "value": -1, "scope": "turn" } }
+    ],
+    "certified": "2026-07-11",
     "text": "Environment. Playable on The Balrog at or moving to a non-Under-deeps site. -2/-1 to his prowess/body until the end of the turn. This modification is -4/-2 if Gates of Morning is in play. Cannot be duplicated on a given turn."
   },
   {

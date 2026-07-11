@@ -754,7 +754,43 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
 
   let newState = state;
   const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  // A hazard short-event played on a character (targetCharacterId) may carry
+  // `character-stat-modifier` add-constraint applies — e.g. Glance of Arien
+  // (ba-19): -2/-1 prowess/body on The Balrog, -4/-2 while Gates of Morning is
+  // in play. Each effect targets the chosen character; its `when` gate is
+  // evaluated against the current in-play names so the doubled modifier only
+  // fires when its companion card is out.
+  const targetCharId = entry.payload.type === 'short-event' ? entry.payload.targetCharacterId : undefined;
   for (const onEvent of onEvents) {
+    if (onEvent.apply.type === 'add-constraint'
+      && onEvent.apply.constraint === 'character-stat-modifier') {
+      if (!targetCharId) {
+        logDetail(`"${cardName}": character-stat-modifier self-enters-play — no target character, fizzle`);
+        continue;
+      }
+      if (onEvent.when) {
+        const ctx = { inPlay: buildInPlayNames(newState) };
+        if (!matchesCondition(onEvent.when, ctx as unknown as Record<string, unknown>)) {
+          logDetail(`"${cardName}": character-stat-modifier self-enters-play — when gate not met, skip`);
+          continue;
+        }
+      }
+      const stat = onEvent.apply.stat;
+      const value = onEvent.apply.value;
+      if ((stat !== 'prowess' && stat !== 'body' && stat !== 'direct-influence') || typeof value !== 'number') {
+        logDetail(`"${cardName}": character-stat-modifier self-enters-play — missing/invalid stat or value, fizzle`);
+        continue;
+      }
+      logDetail(`"${cardName}" resolved — character-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} on ${targetCharId as string} (scope turn)`);
+      newState = addConstraint(newState, {
+        source: card.instanceId,
+        sourceDefinitionId: card.definitionId,
+        scope: { kind: 'turn' },
+        target: { kind: 'character', characterId: targetCharId },
+        kind: { type: 'character-stat-modifier', stat, value, characterId: targetCharId },
+      });
+      continue;
+    }
     newState = applyAddConstraintFromOnEvent(newState, entry, onEvent, cardName);
   }
   return newState;
