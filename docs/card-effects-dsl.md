@@ -882,6 +882,53 @@ Used by Aware of their Ways (dm-46): "Opponent reveals four cards at random from
 his discard pile. You may choose a non-unique one and remove it from play.
 Opponent discards the other three."
 
+### 6i. `reveal-deck-choose-penalty`
+
+Carried by a **hazard** short-event. When the event resolves un-negated on the
+chain, the card-player peeks at the **top** cards of the **opponent's** play
+deck and forces the opponent to pay one of two penalties:
+
+1. The reveal count equals the number of cards in play (either player's
+   `cardsInPlay`) whose definition matches `countInPlayMatching`. For ba-16 this
+   is Spawn cards (`{ "keywords": { "$includes": "spawn" } }`); "eliminated spawn
+   do not count" falls out for free — an eliminated card is no longer in
+   `cardsInPlay`. The count is capped by the deck length; a zero count (or empty
+   deck) makes the reveal fizzle.
+2. The top N cards are revealed (recorded in `GameState.revealedInstances`) and a
+   `desire-belly-choose-card` pending resolution is enqueued (actor = the
+   card-player). The card-player **must** choose one revealed card via a
+   `desire-choose-shown-card` action to show to the opponent (no pass).
+3. A `desire-belly-choose-penalty` resolution is then enqueued (actor = the
+   opponent), who **must** choose (`desire-choose-penalty`) one of:
+   - `remove-from-game` — the shown card is moved to the opponent's out-of-play
+     pile; the other revealed cards are shuffled back on top of the deck.
+   - `reduce-hand-size` — an `until-cleared` player-scoped `hand-size-modifier`
+     of `-1` is added to the opponent (permanent, "for the rest of the game");
+     **all** revealed cards (including the shown one) are shuffled back on top.
+4. In either case the rest of the deck below the revealed cards is left
+   untouched, and the event card itself is **removed from the game** (its own
+   discard → out-of-play pile) as part of the resolution.
+
+The resolutions live in `legal-actions/pending.ts`
+(`desireBellyChooseCardActions` / `desireBellyChoosePenaltyActions`) and
+`pending-reducers.ts` (`applyDesireBellyChooseCardResolution` /
+`applyDesireBellyChoosePenaltyResolution`); the reveal + first enqueue is in
+`chain-reducer.ts` (`resolveEntry`). The "discard a Spawn card to play" cost is a
+separate `play-discard-cost` effect (see §6h family / dm-57).
+
+```json
+{ "type": "reveal-deck-choose-penalty", "countInPlayMatching": { "keywords": { "$includes": "spawn" } } }
+```
+
+Used by Desire All for Thy Belly (ba-16): "Reveal to yourself a number of cards
+from the top of opponent's play deck equal to the number of Spawn cards in play.
+Eliminated spawn do not count. Choose one card and show it to your opponent. He
+must choose to either: remove the card from the game or decrease the number of
+cards he may hold in his hand by one for the rest of the game. Shuffle and
+replace all remaining cards back on top of his play deck. Remove this card from
+the game." (Paired with `play-discard-cost` for "discard a Spawn card from your
+hand.")
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,
@@ -6996,7 +7043,9 @@ discarded card's identity is revealed to the opponent (`revealInstances`),
 satisfying a "show opponent" clause. The chosen card is carried on the
 `play-hazard` action as `costDiscardInstanceId`; the reducer
 (`mh-hazard-play.ts`) validates it against `filter`, moves it to the discard
-pile, and rejects the play if the cost was not paid.
+pile, and rejects the play if the cost was not paid. The cost is offered on both
+**character-targeting** short events (dm-57) and **untargeted** short events
+(Desire All for Thy Belly ba-16, "discard a Spawn card from your hand").
 
 | Field | Required | Description |
 |-------|----------|-------------|

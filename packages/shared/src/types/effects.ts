@@ -1021,6 +1021,43 @@ export interface RevealRemoveFromDiscardEffect extends EffectBase {
 }
 
 /**
+ * Reveal the top cards of the opponent's play deck (count = the number of the
+ * controller's in-play cards matching `countInPlayMatching`), let the
+ * card-player choose one and show it to the opponent, who must then choose
+ * between removing that card from the game or permanently reducing his hand
+ * size by one; the remaining revealed cards are shuffled back on top of the
+ * deck. The event card itself is removed from the game.
+ *
+ * Carried by a hazard short-event and resolved when the event resolves on the
+ * chain. If the reveal count is zero (no matching in-play cards, or the deck is
+ * empty) the effect fizzles — the event card is still removed from the game.
+ * The count is measured against `cardsInPlay` (both players), so "eliminated
+ * spawn do not count" falls out naturally: an eliminated card is no longer in
+ * `cardsInPlay`.
+ *
+ * The interaction is a two-step pending resolution: first a
+ * `desire-belly-choose-card` (actor = card-player) to pick the shown card, then
+ * a `desire-belly-choose-penalty` (actor = opponent) to pick the penalty.
+ *
+ * Used by *Desire All for Thy Belly* (ba-16): "Reveal to yourself a number of
+ * cards from the top of opponent's play deck equal to the number of Spawn cards
+ * in play. Eliminated spawn do not count. Choose one card and show it to your
+ * opponent. He must choose to either: remove the card from the game or decrease
+ * the number of cards he may hold in his hand by one for the rest of the game.
+ * Shuffle and replace all remaining cards back on top of his play deck."
+ * (Paired with a `play-discard-cost` for the "discard a Spawn card" play cost.)
+ */
+export interface RevealDeckChoosePenaltyEffect extends EffectBase {
+  readonly type: 'reveal-deck-choose-penalty';
+  /**
+   * How many top cards of the opponent's deck are revealed = the number of
+   * cards in play (either player's `cardsInPlay`) whose definition matches this
+   * condition. For ba-16 this is `{ keywords: { $includes: 'spawn' } }`.
+   */
+  readonly countInPlayMatching: Condition;
+}
+
+/**
  * Removes an opponent's face-up agent from play, or (as an alternative mode)
  * discards one of the opponent's unrevealed on-guard cards.
  *
@@ -3867,6 +3904,7 @@ export type CardEffect =
   | CycleHandEffect
   | RevealChooseShuffleEffect
   | RevealRemoveFromDiscardEffect
+  | RevealDeckChoosePenaltyEffect
   | WithdrawAgentEffect
   | GrantActionEffect
   | OnEventEffect

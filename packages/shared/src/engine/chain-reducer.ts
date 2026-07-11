@@ -2450,6 +2450,78 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // Desire All for Thy Belly (ba-16): a hazard short-event carrying a
+  // `reveal-deck-choose-penalty` effect. When it resolves un-negated, reveal the
+  // top N cards of the opponent's play deck (N = the number of in-play cards
+  // matching the effect's filter — Spawn cards — across either player's
+  // cardsInPlay, so eliminated spawn do not count). The card-player then chooses
+  // one to show (step-1 pending resolution `desire-belly-choose-card`) and the
+  // opponent chooses the penalty (step-2 `desire-belly-choose-penalty`). The
+  // event card is always removed from the game.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const penaltyEff = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').RevealDeckChoosePenaltyEffect =>
+        e.type === 'reveal-deck-choose-penalty',
+    );
+    if (penaltyEff) {
+      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const opponentId = opponent(current, entry.declaredBy);
+      const opponentIdx = getPlayerIndex(current, opponentId);
+
+      // Count matching cards in play across both players' cardsInPlay.
+      let inPlayCount = 0;
+      for (const p of current.players) {
+        for (const cip of p.cardsInPlay) {
+          const cipDef = defById(current, cip.definitionId);
+          if (cipDef && matchesCondition(penaltyEff.countInPlayMatching, cipDef as unknown as Record<string, unknown>)) {
+            inPlayCount++;
+          }
+        }
+      }
+
+      const deck = current.players[opponentIdx].playDeck;
+      const revealCount = Math.min(inPlayCount, deck.length);
+      logDetail(
+        `${cardName}: ${inPlayCount} matching card(s) in play → revealing ${revealCount} card(s) ` +
+        `from the top of ${current.players[opponentIdx].name}'s play deck (deck ${deck.length})`,
+      );
+
+      // "Remove this card from the game." — move the event from the card-player's
+      // discard pile (where it was placed at play time) to their out-of-play pile.
+      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
+      const eventInstId = entry.card.instanceId;
+      if (current.players[declarerIdx].discardPile.some(c => c.instanceId === eventInstId)) {
+        const eventCard = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId)!;
+        current = updatePlayer(current, declarerIdx, p => ({
+          ...p,
+          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
+          outOfPlayPile: [...p.outOfPlayPile, eventCard],
+        }));
+        logDetail(`${cardName}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
+      }
+
+      if (revealCount === 0) {
+        logDetail(`${cardName}: nothing to reveal — the event fizzles`);
+      } else {
+        const revealed = deck.slice(0, revealCount);
+        current = revealInstances(current, revealed);
+        current = enqueueResolution(current, {
+          source: entry.card.instanceId,
+          actor: entry.declaredBy,
+          scope: { kind: 'phase', phase: Phase.MovementHazard },
+          kind: {
+            type: 'desire-belly-choose-card',
+            revealedInstanceIds: revealed.map(c => c.instanceId),
+            opponentId,
+            cardPlayerId: entry.declaredBy,
+            sourceDefinitionId: entry.card.definitionId,
+          },
+        });
+      }
+    }
+  }
+
   // Inner Cunning (dm-68) mode 2: a hazard short-event carrying a
   // `fetch-agent-to-hand` effect. When it resolves un-negated, enqueue a
   // fetch-to-deck pending effect (source: play deck, to: hand) restricted to

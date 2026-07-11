@@ -2381,6 +2381,35 @@ function playHazardsActions(
           }
         }
 
+        // play-discard-cost on an untargeted short event (Desire All for Thy
+        // Belly ba-16): the hazard player must discard a matching card (a Spawn
+        // card) from hand as a play cost. Offer one action per candidate cost
+        // card so the player picks which to sacrifice; if none match, the card
+        // is not playable. The reducer validates and pays the cost generically.
+        const untargetedDiscardCost = getCardEffects(def).find(
+          (e): e is import('../../index.js').PlayDiscardCostEffect => e.type === 'play-discard-cost',
+        );
+        if (untargetedDiscardCost) {
+          const costCards = player.hand.filter(c => {
+            if (c.instanceId === cardInstId) return false;
+            const cDef = defById(state, c.definitionId);
+            return cDef ? matchesCondition(untargetedDiscardCost.filter, cDef as unknown as Record<string, unknown>) : false;
+          });
+          if (costCards.length === 0) {
+            logDetail(`Hazard short-event "${def.name}": no card in hand matches the discard cost`);
+            actions.push({ action, viable: false, reason: `${def.name}: no matching card in hand to discard as cost` });
+            continue;
+          }
+          for (const costCard of costCards) {
+            logDetail(`Hazard short-event "${def.name}" playable (discard cost: ${cardName(state, costCard.definitionId)})`);
+            actions.push({
+              action: { ...action, costDiscardInstanceId: costCard.instanceId },
+              viable: true,
+            });
+          }
+          continue;
+        }
+
         logDetail(`Hazard short-event "${def.name}" is playable`);
         actions.push({ action, viable: true });
         continue;
