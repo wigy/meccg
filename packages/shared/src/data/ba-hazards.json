@@ -54,10 +54,23 @@
           "strikes": 3,
           "prowess": 15,
           "body": 8
+        },
+        "onDefeat": "remove-from-play"
+      },
+      {
+        "type": "body-check-modifier",
+        "value": 1,
+        "scope": "all-attacks",
+        "when": {
+          "$and": [
+            { "attack.creatureRace": "spider" },
+            { "target.race": { "$in": ["elf", "dwarf", "hobbit", "dunadan", "man"] } }
+          ]
         }
       }
     ],
-    "text": "Unique. Spawn. The Pûkel-deeps and The Gem-deeps each have an additional automatic-attack: Spawn — 3 strikes with 15/8 prowess/body."
+    "text": "Unique. Spawn. The Pûkel-deeps and The Gem-deeps each have an additional automatic-attack: Spawn — 3 strikes with 15/8 prowess/body. In addition, +1 to all body checks for Elves, Dwarves, Hobbits, Dúnedain, and Men resulting from Spider attacks.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",
@@ -111,10 +124,25 @@
           "strikes": 2,
           "prowess": 17,
           "body": 7
+        },
+        "onDefeat": "remove-from-play"
+      },
+      {
+        "type": "grant-creature-keying",
+        "creatureFilter": {
+          "$and": [
+            { "race": { "$in": ["spider", "spiders"] } },
+            { "unique": { "$ne": true } }
+          ]
+        },
+        "siteFilter": {
+          "siteTypes": ["ruins-and-lairs", "shadow-hold"],
+          "siteKeywords": ["under-deeps"]
         }
       }
     ],
-    "text": "Unique. Spawn. Ancient Deep-hold has an additional automatic-attack: Spawn — 2 strikes with 17/7 prowess/body."
+    "text": "Unique. Spawn. Ancient Deep-hold has an additional automatic-attack: Spawn — 2 strikes with 17/7 prowess/body. In addition, non-unique Spider creatures can be keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}].",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",
@@ -143,8 +171,19 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DesireAllforThyBelly.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "To play this card, you must discard a Spawn card from your hand. Reveal to yourself a number of cards from the top of opponent’s play deck equal to the number of Spawn cards in play. Eliminated spawn do not count. Choose one card and show it to your opponent. He must choose to either: remove the card from the game or decrease the number of cards he may hold in his hand by one for the rest of the game. Shuffle and replace all remaining cards back on top of his play deck. Remove this card from the game."
+    "effects": [
+      {
+        "type": "play-discard-cost",
+        "source": "hand",
+        "filter": { "keywords": { "$includes": "spawn" } }
+      },
+      {
+        "type": "reveal-deck-choose-penalty",
+        "countInPlayMatching": { "keywords": { "$includes": "spawn" } }
+      }
+    ],
+    "text": "To play this card, you must discard a Spawn card from your hand. Reveal to yourself a number of cards from the top of opponent’s play deck equal to the number of Spawn cards in play. Eliminated spawn do not count. Choose one card and show it to your opponent. He must choose to either: remove the card from the game or decrease the number of cards he may hold in his hand by one for the rest of the game. Shuffle and replace all remaining cards back on top of his play deck. Remove this card from the game.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",
@@ -176,7 +215,16 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.name": "The Balrog" } },
+      { "type": "play-condition", "requires": "company-site", "condition": { "$not": { "site.keywords": { "$includes": "under-deeps" } } } },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 },
+      { "type": "on-event", "event": "self-enters-play", "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "prowess", "value": -2, "scope": "turn" } },
+      { "type": "on-event", "event": "self-enters-play", "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "body", "value": -1, "scope": "turn" } },
+      { "type": "on-event", "event": "self-enters-play", "when": { "inPlay": "Gates of Morning" }, "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "prowess", "value": -2, "scope": "turn" } },
+      { "type": "on-event", "event": "self-enters-play", "when": { "inPlay": "Gates of Morning" }, "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "body", "value": -1, "scope": "turn" } }
+    ],
+    "certified": "2026-07-11",
     "text": "Environment. Playable on The Balrog at or moving to a non-Under-deeps site. -2/-1 to his prowess/body until the end of the turn. This modification is -4/-2 if Gates of Morning is in play. Cannot be duplicated on a given turn."
   },
   {
@@ -206,7 +254,37 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheReek.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-07-11",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$or": [
+            { "target.siteType": "ruins-and-lairs" },
+            { "target.siteKeywords": { "$includes": "under-deeps" } }
+          ]
+        }
+      },
+      {
+        "type": "play-discard-cost",
+        "source": "hand",
+        "filter": {
+          "cardType": "hazard-creature",
+          "race": { "$in": ["animal", "animals", "spider", "spiders"] }
+        }
+      },
+      {
+        "type": "company-tap-characters",
+        "mindBelow": "2 + spawnCardsInPlay",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "wizard" } },
+            { "target.race": { "$ne": "ringwraith" } }
+          ]
+        }
+      }
+    ],
     "text": "Playable on a company at or moving to a Ruins & Lairs [{R}] or Under-deeps site if you discard an Animal or Spider creature from your hand. Tap all untapped characters in the company with a mind less than 2 plus the number of Spawn cards in play. Eliminated Spawn do not count. Does not affect Wizards or Ringwraiths."
   },
   {
@@ -219,8 +297,40 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. -1 prowess to all Orc, Troll, Dwarf, and Ringwraith characters not at, nor moving to or from, an Under-deeps site. This modification is -2 if Doors of Night is not in play. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -2,
+        "target": "all-characters",
+        "when": {
+          "$and": [
+            { "target.race": { "$in": ["orc", "troll", "dwarf", "ringwraith"] } },
+            { "bearer.atOrMovingUnderDeeps": { "$ne": true } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-characters",
+        "when": {
+          "$and": [
+            { "inPlay": "Doors of Night" },
+            { "target.race": { "$in": ["orc", "troll", "dwarf", "ringwraith"] } },
+            { "bearer.atOrMovingUnderDeeps": { "$ne": true } }
+          ]
+        }
+      }
+    ],
+    "text": "Environment. -1 prowess to all Orc, Troll, Dwarf, and Ringwraith characters not at, nor moving to or from, an Under-deeps site. This modification is -2 if Doors of Night is not in play. Cannot be duplicated.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",

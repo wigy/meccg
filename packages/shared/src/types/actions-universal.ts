@@ -389,6 +389,33 @@ export interface RemoveRevealedCardAction {
 }
 
 /**
+ * Choose one of the cards revealed from the top of the opponent's play deck and
+ * show it to the opponent (Desire All for Thy Belly, ba-16). Resolves a
+ * `desire-belly-choose-card` pending resolution; the choice is mandatory.
+ */
+export interface DesireChooseShownCardAction {
+  readonly type: 'desire-choose-shown-card';
+  /** The card-player choosing which revealed deck card to show. */
+  readonly player: PlayerId;
+  /** The instance ID of the revealed card to show to the opponent. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * The opponent's forced choice after a card was shown by Desire All for Thy
+ * Belly (ba-16): either remove the shown card from the game, or permanently
+ * reduce his hand size by one. Resolves a `desire-belly-choose-penalty` pending
+ * resolution; the choice is mandatory ("He must choose to either…").
+ */
+export interface DesireChoosePenaltyAction {
+  readonly type: 'desire-choose-penalty';
+  /** The opponent making the forced choice. */
+  readonly player: PlayerId;
+  /** Which penalty the opponent accepts. */
+  readonly penalty: 'remove-from-game' | 'reduce-hand-size';
+}
+
+/**
  * Choose which of the opponent's piles is revealed by The Great Hunt (wh-91).
  * Resolves a `great-hunt-source` pending resolution and kicks off the
  * reveal-and-attack sequence against the controller's Alatar company.
