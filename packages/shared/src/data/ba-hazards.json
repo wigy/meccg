@@ -239,8 +239,40 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. -1 prowess to all Orc, Troll, Dwarf, and Ringwraith characters not at, nor moving to or from, an Under-deeps site. This modification is -2 if Doors of Night is not in play. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -2,
+        "target": "all-characters",
+        "when": {
+          "$and": [
+            { "target.race": { "$in": ["orc", "troll", "dwarf", "ringwraith"] } },
+            { "bearer.atOrMovingUnderDeeps": { "$ne": true } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-characters",
+        "when": {
+          "$and": [
+            { "inPlay": "Doors of Night" },
+            { "target.race": { "$in": ["orc", "troll", "dwarf", "ringwraith"] } },
+            { "bearer.atOrMovingUnderDeeps": { "$ne": true } }
+          ]
+        }
+      }
+    ],
+    "text": "Environment. -1 prowess to all Orc, Troll, Dwarf, and Ringwraith characters not at, nor moving to or from, an Under-deeps site. This modification is -2 if Doors of Night is not in play. Cannot be duplicated.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",

@@ -125,7 +125,16 @@ when Doors of Night is in play:
 
 Optional `target` scopes:
 
-- `"all-characters"` — applies to every character in play
+- `"all-characters"` — applies to every character in play. The per-character
+  effective-stats `when` context exposes `bearer.atOrMovingUnderDeeps` (true when
+  the character's company is at, moving to, or moving from an Under-deeps site —
+  its `currentSite`/`destinationSite` carries the `under-deeps` keyword; the
+  `currentSite` stays the origin for the whole M/H phase so it covers "moving
+  from" too). Used by *The Sun Shone Fiercely* (ba-25): "-1 prowess to all Orc,
+  Troll, Dwarf, and Ringwraith characters **not** at, nor moving to or from, an
+  Under-deeps site (-2 if Doors of Night is not in play)" — a base -2 prowess
+  `{ "target": "all-characters", "when": { "$and": [ { "target.race": { "$in": ["orc","troll","dwarf","ringwraith"] } }, { "bearer.atOrMovingUnderDeeps": { "$ne": true } } ] } }`
+  plus a +1 softening gated on `{ "inPlay": "Doors of Night" }` (net -1 with DoN).
 - `"own-characters"` — applies to every character controlled by the **player
   who controls the card carrying this effect** (collected per-player in
   `recompute-derived.ts` and filtered in `collectGlobalEffects` by the target
