@@ -571,11 +571,27 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "organization", "step": "end-of-org" },
+      { "type": "play-condition", "requires": "card-in-play", "cardName": "Great Shadow" },
+      { "type": "play-target", "target": "company" },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-modifier",
+          "scope": "company-mh-phase",
+          "value": -1
+        }
+      },
+      { "type": "move", "select": "self", "from": ["sideboard"], "to": "deck", "shuffleAfter": true }
+    ],
     "text": "Balrog specific. Playable on a company if Great Shadow is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. The hazard limit against the company is reduced by one to no minimum.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
