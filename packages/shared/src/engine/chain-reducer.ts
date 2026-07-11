@@ -1077,6 +1077,48 @@ function applyCompanyReturnToOrigin(state: GameState, entry: ChainEntry): GameSt
 }
 
 /**
+ * Applies a `company-site-phase-do-nothing` short-event effect on chain
+ * resolution: adds a `site-phase-do-nothing` constraint to the active
+ * movement/hazard company so it cannot act during its upcoming site phase this
+ * turn. Unlike {@link applyCompanyReturnToOrigin} the company keeps its
+ * destination site (its movement is unaffected — only the site phase is
+ * blocked). Used by Darkness Made by Malice (ba-15).
+ */
+function applyCompanySitePhaseDoNothing(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(e => e.type === 'company-site-phase-do-nothing');
+  if (!effect) return state;
+
+  if (state.phaseState.phase !== Phase.MovementHazard) return state;
+  const mhState = state.phaseState;
+
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[resourceIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company) return state;
+
+  // Idempotent: don't stack a second constraint if one is already present.
+  if (state.activeConstraints.some(c =>
+    c.kind.type === 'site-phase-do-nothing'
+    && c.target.kind === 'company'
+    && c.target.companyId === company.id
+  )) {
+    return state;
+  }
+
+  logDetail(`${def?.name ?? 'card'}: company ${company.id as string} must do nothing during its site phase this turn (ba-15)`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'company-site-phase', companyId: company.id },
+    target: { kind: 'company', companyId: company.id },
+    kind: { type: 'site-phase-do-nothing' },
+  });
+}
+
+/**
  * Applies a `tap-character` short-event effect on chain resolution: taps the
  * character chosen when the card was played/tapped (the chain entry payload's
  * `targetCharacterId`). Used by Adûnaphel tw-2's permanent-event on-tap ("causes
@@ -2546,6 +2588,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // prowess > 4) is met.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyCompanyReturnToOrigin(current, entry);
+  }
+
+  // Short events that forbid the active M/H company from acting during its site
+  // phase this turn without moving it back to origin (Darkness Made by Malice
+  // ba-15).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyCompanySitePhaseDoNothing(current, entry);
   }
 
   // Short events that tap one chosen character (e.g. Adûnaphel tw-2's on-tap
