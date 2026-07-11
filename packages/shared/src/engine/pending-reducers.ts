@@ -927,6 +927,11 @@ function applyDiceCheckBranch(
     const targetCharacterId = ctx.targetCharacterId;
     return { state: updatePlayer(state, ctx.rollerIndex, p => updateCharacter(p, targetCharacterId, c => ({ ...c, status: statusEnum }))) };
   }
+  if (branch.type === 'cancel-current-attack') {
+    // Roll-to-cancel (Going Ever Under Dark ba-37): the check passed, so cancel
+    // the combat currently in progress. Fizzles harmlessly if combat is gone.
+    return { state: resolveCancelAttackEntry(state) };
+  }
   logDetail(`dice-check: branch verb "${branch.type}" not handled in resolution context — no-op`);
   return { state };
 }

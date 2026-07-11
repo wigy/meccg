@@ -240,8 +240,15 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a company during the organization phase. The company cannot use starter movement. In addition, if they move with region movement, they are limited in all cases to 3 regions maximum and their hazard limit is reduced by one (to a minimum of two). Discard this card from play and make a roll to attempt to cancel an attack against them by an opponent’s company. If the roll plus the number of scouts in the company is greater than 7, the attack is canceled. Discard during your organization phase if you choose. Cannot be duplicated on a given company."
+    "effects": [
+      { "type": "play-target", "target": "company" },
+      { "type": "company-movement-restriction", "noStarterMovement": true, "regionMovementMax": 3, "hazardLimitModifier": -1, "hazardLimitFloor": 2 },
+      { "type": "cancel-attack", "requiresCvCC": true, "cost": { "discard": "self" }, "roll": { "threshold": 7, "comparison": "gt", "scoutBonus": true } },
+      { "type": "voluntary-discard", "phase": "organization" },
+      { "type": "duplication-limit", "scope": "company", "max": 1 }
+    ],
+    "text": "Playable on a company during the organization phase. The company cannot use starter movement. In addition, if they move with region movement, they are limited in all cases to 3 regions maximum and their hazard limit is reduced by one (to a minimum of two). Discard this card from play and make a roll to attempt to cancel an attack against them by an opponent’s company. If the roll plus the number of scouts in the company is greater than 7, the attack is canceled. Discard during your organization phase if you choose. Cannot be duplicated on a given company.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -621,11 +628,27 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "organization", "step": "end-of-org" },
+      { "type": "play-condition", "requires": "card-in-play", "cardName": "Great Shadow" },
+      { "type": "play-target", "target": "company" },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-modifier",
+          "scope": "company-mh-phase",
+          "value": -1
+        }
+      },
+      { "type": "move", "select": "self", "from": ["sideboard"], "to": "deck", "shuffleAfter": true }
+    ],
     "text": "Balrog specific. Playable on a company if Great Shadow is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. The hazard limit against the company is reduced by one to no minimum.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
@@ -1008,13 +1031,53 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/MemoriesofOldTorture.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
-    "marshallingCategory": "misc",
-    "effects": [],
+    "marshallingPoints": 1,
+    "marshallingCategory": "ally",
+    "effects": [
+      {
+        "type": "convert-creature-to-ally",
+        "races": [
+          "man",
+          "men",
+          "drake",
+          "drakes",
+          "orc",
+          "orcs",
+          "troll",
+          "trolls",
+          "giant",
+          "giants"
+        ],
+        "maxStrikes": 1,
+        "controllerTaps": false,
+        "ally": {
+          "mind": 1,
+          "body": 7,
+          "prowessModifier": -7
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "$or": [
+            { "sitePath.regionTypes": { "$includes": "free" } },
+            { "sitePath.regionTypes": { "$includes": "dark" } }
+          ]
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
     "text": "Balrog specific. Playable on a Man, Drake, Orc, Troll, or Giant hazard creature attack with one strike for each of its attacks. All attacks of the creature are canceled. The creature becomes an ally under the control of any character in the company. The character need not tap. The ally has a mind of 1, body of 7, and prowess equal to its normal prowess minus 7. It gives 1 ally marshalling point. Discard this card and the ally if the company moves through a Free-domain [{f}] or Dark-domain [{d}].",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
@@ -1133,13 +1196,55 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/RootsoftheEarth.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "keywords": { "$includes": "under-deeps" } },
+            { "siteType": "ruins-and-lairs" }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "The Balrog" }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          { "creatureType": "Drake", "strikes": 2, "prowess": 13 }
+        ],
+        "afterAttack": "move-to-mp-pile"
+      },
+      {
+        "type": "site-instance-transform",
+        "associated": { "siteType": "haven", "removeAllAutoAttacks": true },
+        "others": {
+          "siteType": "shadow-hold",
+          "addAutoAttack": { "creatureType": "Orcs", "strikes": 5, "prowess": 9 }
+        }
+      },
+      {
+        "type": "conditional-mp",
+        "bonus": 2,
+        "requiresCardOnSameSite": "Breach the Hold"
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on an Under-deeps site normally a Ruins & Lairs [{R}] if The Balrog is there. The Balrog’s company faces an attack (Drake — 2 strikes with 13 prowess). Following the attack, tap The Balrog or discard this card. The associated site is a Darkhaven [{H}] and loses all automatic-attacks. All other versions of the site become a Shadow-hold [{S}] and gain an additional automatic-attack: Orcs — 5 strikes with 9 prowess. If Breach the Hold is on the same site, this card gives 3 marshalling points. This site is never discarded or returned to its location deck. Cannot be duplicated on a given site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",

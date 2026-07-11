@@ -30,6 +30,7 @@ import { logDetail } from './log.js';
 import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, generalInfluenceControlLimit, hasSiteFlagForPlayer } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
+import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { viableWithRegress } from '../reverse-actions.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { availableDI } from './organization.js';
@@ -549,9 +550,17 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     }
     // Environment hazards (e.g. No Way Forward) reduce the max region distance
     // game-wide, never below the environment's floor.
-    const effectiveMaxRegions = applyRegionMovementReduction(state, cappedMaxRegions);
+    let effectiveMaxRegions = applyRegionMovementReduction(state, cappedMaxRegions);
     if (effectiveMaxRegions < cappedMaxRegions) {
       logDetail(`Company ${company.id as string}: region distance reduced to ${effectiveMaxRegions} by an in-play environment (was ${cappedMaxRegions})`);
+    }
+    // A company-bound movement restriction (Going Ever Under Dark ba-37) hard-
+    // caps region distance ("limited in all cases to N regions maximum") and
+    // forbids starter movement.
+    const moveRestriction = companyMovementRestrictions(player, company, state);
+    if (moveRestriction?.regionMovementMax != null && moveRestriction.regionMovementMax < effectiveMaxRegions) {
+      logDetail(`Company ${company.id as string}: region distance capped at ${moveRestriction.regionMovementMax} by a movement-restriction card (was ${effectiveMaxRegions})`);
+      effectiveMaxRegions = moveRestriction.regionMovementMax;
     }
     const currentIsUD = currentSiteDef.keywords?.includes('under-deeps') ?? false;
     // Under-deeps sites are only reachable via under-deeps movement (handled below), never via
@@ -571,6 +580,16 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       reachable = reachable.filter(r => r.movementType === 'region');
       if (reachable.length !== beforeStarter) {
         logDetail(`Company ${company.id as string}: Fallen-wizard must use region movement — dropped ${beforeStarter - reachable.length} starter destination(s)`);
+      }
+    }
+
+    // A company-bound movement restriction (Going Ever Under Dark ba-37)
+    // forbids starter movement: drop every starter-only destination.
+    if (moveRestriction?.noStarterMovement) {
+      const beforeStarter = reachable.length;
+      reachable = reachable.filter(r => r.movementType !== 'starter');
+      if (reachable.length !== beforeStarter) {
+        logDetail(`Company ${company.id as string}: movement-restriction forbids starter movement — dropped ${beforeStarter - reachable.length} starter destination(s)`);
       }
     }
 

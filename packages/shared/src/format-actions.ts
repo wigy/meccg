@@ -531,6 +531,8 @@ export function describeAction(
       return `${playerName(action.player)} plays reserved creature from ${instName(action.sourceCardInstanceId)} against company ${compName(action.targetCompanyId)}`;
     case 'play-creature-from-discard':
       return `${playerName(action.player)} plays creature ${instName(action.creatureInstanceId)} from discard pile against company ${compName(action.targetCompanyId)}`;
+    case 'spawn-replay-creature':
+      return `${playerName(action.player)} replays creature ${instName(action.creatureInstanceId)} from discard pile against company ${compName(action.targetCompanyId)} (${instName(action.sourceInstanceId)})`;
     case 'stay-her-appetite-roll':
       return `${playerName(action.player)} rolls for Stay Her Appetite`;
     case 'transfer-returned-item':
@@ -577,6 +579,8 @@ export function describeAction(
       return `${playerName(action.player)} has discarded creature ${instName(action.creatureInstanceId)} attack Alatar's company (The Great Hunt)`;
     case 'gangways-extra-move':
       return `${playerName(action.player)} sends company ${action.companyId} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
+    case 'voluntary-discard-in-play':
+      return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} from play`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

@@ -2387,12 +2387,15 @@ export function discardOrphanedControlledFactions(state: GameState): GameState {
  * Such a card is exempt from the site-attached orphan sweep (it persists while
  * its site is unoccupied) and its bound origin site is always returned to the
  * owner's location deck rather than discarded when a company leaves it. Shared
- * by Caverns Unchoked (ba-51, `surface-region-adjacency`) and Breach the Hold
- * (ba-50, `surface-site-roll-zero`).
+ * by Caverns Unchoked (ba-51, `surface-region-adjacency`), Breach the Hold
+ * (ba-50, `surface-site-roll-zero`), and Roots of the Earth (ba-74,
+ * `site-instance-transform`).
  */
 export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefined): boolean {
   return getCardEffects(def).some(
-    e => e.type === 'surface-region-adjacency' || e.type === 'surface-site-roll-zero',
+    e => e.type === 'surface-region-adjacency'
+      || e.type === 'surface-site-roll-zero'
+      || e.type === 'site-instance-transform',
   );
 }
 
@@ -2461,10 +2464,10 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
     card => card.attachedToSite !== undefined
       && !occupied.has(card.attachedToSite as string)
       && !activeHosts.has(card.instanceId as string)
-      // Caverns Unchoked (ba-51) / Breach the Hold (ba-50): "This site is never
-      // discarded or returned to its location deck." The card is permanent and
-      // keeps its bound Under-deeps site in play even while unoccupied — exempt
-      // it from the orphan sweep.
+      // Caverns Unchoked (ba-51) / Breach the Hold (ba-50) / Roots of the Earth
+      // (ba-74): "This site is never discarded or returned to its location
+      // deck." The card is permanent and keeps its bound Under-deeps site in
+      // play even while unoccupied — exempt it from the orphan sweep.
       && !cardKeepsBoundSitePermanent(defById(state, card.definitionId)),
     card => {
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;

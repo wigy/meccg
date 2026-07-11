@@ -21,7 +21,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import type { StrikeModifierEffect, TriggerAttackOnPlayEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
-import { CardStatus } from '../types/common.js';
+import { CardStatus, Skill } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
@@ -106,6 +106,44 @@ export function handleCancelAttackByInPlayFaction(
   const tapCost = cancelEffect?.cost?.tap === 'self';
 
   const factionName = cardName(state, factionEntry.definitionId);
+
+  // Roll-to-cancel (Going Ever Under Dark ba-37): the card is discarded and a
+  // 2d6 dice-check enqueued; the attack is cancelled only if the check passes.
+  if (cancelEffect?.roll) {
+    const roll = cancelEffect.roll;
+    const company = companyById(defPlayer.companies, combat.companyId);
+    let scoutBonus = 0;
+    if (roll.scoutBonus && company) {
+      for (const charId of company.characters) {
+        const ch = defPlayer.characters[charId];
+        const cDef = ch ? defById(state, ch.definitionId) : undefined;
+        if (cDef && isCharacterCard(cDef) && cDef.skills.includes(Skill.Scout)) scoutBonus++;
+      }
+    }
+    logDetail(`Cancel-attack declared: discarding ${factionName} and rolling to cancel (threshold ${roll.comparison} ${roll.threshold}, +${scoutBonus} scouts)`);
+    const discardedForRoll = updatePlayer(state, defPlayerIndex, p => ({
+      ...p,
+      cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+      discardPile: [...p.discardPile, toCardInstance(factionEntry)],
+    }));
+    const scope = companySubphaseScope(state.phaseState.phase, combat.companyId);
+    const queued = enqueueResolution(discardedForRoll, {
+      source: action.cardInstanceId,
+      actor: action.player,
+      scope,
+      kind: {
+        type: 'dice-check',
+        label: `${factionName}: roll to cancel attack`,
+        roller: action.player,
+        modifiers: scoutBonus > 0 ? [{ kind: 'constant', value: scoutBonus }] : [],
+        threshold: roll.threshold,
+        comparison: roll.comparison,
+        onPass: { type: 'cancel-current-attack' },
+        continuation: { kind: 'dequeue-only' },
+      },
+    });
+    return { state: queued };
+  }
 
   if (tapCost) {
     if (factionEntry.status !== CardStatus.Untapped) {
