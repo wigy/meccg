@@ -183,7 +183,17 @@ character is modified by -4" (Foolish Words, td-25).
   "when": { "bearer.race": "dunadan" } }
 { "type": "check-modifier",
   "check": ["influence", "riddling", "offering"], "value": -4 }
+{ "type": "check-modifier", "check": "corruption", "value": 1,
+  "target": "company" }
 ```
+
+An optional `"target": "company"` broadens the modifier from the bearer alone
+to **every character in the bearer's company**. It is collected once per company
+(from items / attached permanent-events on any company member) and folded into
+each member's check by `resolveCheckModifier`, mirroring the company-scoped
+`stat-modifier`. Used by I'll Be At Your Heels (le-195): "+1 to all corruption
+checks by characters in his company." (Without `target`, the default scope is
+the bearer only.)
 
 The `influence` check type is used on faction cards for standard modifications.
 The resolver context includes `bearer` (influencing character), `faction`

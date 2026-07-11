@@ -209,6 +209,15 @@ export interface CheckModifierEffect extends EffectBase {
   readonly check: import('./common.js').CheckKind | readonly import('./common.js').CheckKind[];
   /** The bonus (or penalty if negative) to the roll. */
   readonly value: ValueExpr;
+  /**
+   * Scope of the modifier. Absent (default) applies only to the bearer of the
+   * card carrying the effect. `'company'` applies to every character in the
+   * bearer's company — collected once per company (from items / attached
+   * permanent-events on any company member) and folded into each member's
+   * check via {@link resolveCheckModifier}. Used by I'll Be At Your Heels
+   * (le-195): "+1 to all corruption checks by characters in his company."
+   */
+  readonly target?: 'company';
 }
 
 /**

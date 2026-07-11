@@ -3205,7 +3205,59 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "keywords": [
+      "Command"
+    ],
+    "certified": "2026-07-11",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.keywords": {
+            "$includes": "leader"
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": "items-on-target",
+          "to": "hand",
+          "filter": {
+            "keywords": {
+              "$includes": "Command"
+            }
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2,
+        "min": 0
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 1,
+        "target": "company"
+      },
+      {
+        "type": "grant-action",
+        "action": "return-self-to-hand",
+        "cost": {},
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "hand"
+        }
+      }
+    ],
     "text": "Command. Playable on a leader during the organization phase. Return all other command cards on target leader to your hand when this card is played. -2 to leader’s direct influence (to a minimum of 0) and +1 to all corruption checks by characters in his company. You may return this card to your hand during any organization phase."
   },
   {
