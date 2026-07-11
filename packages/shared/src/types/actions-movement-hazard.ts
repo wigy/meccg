@@ -420,6 +420,23 @@ export interface ModifyAttackAction {
 }
 
 /**
+ * Apply an in-play card's optional `attacker-attack-option` to the current
+ * combat: the attacking (hazard) player chooses to modify a matching-race
+ * attack their opponent faces (e.g. Ungoliant's Progeny ba-27 — a Spider
+ * attack gains +1 prowess and becomes detainment). Legal only in the
+ * attacking player's `resolve-strike` Step 1 window before any strike has
+ * resolved, and only once per attack.
+ */
+export interface ApplyAttackerAttackOptionAction {
+  /** Action discriminant. */
+  readonly type: 'apply-attacker-attack-option';
+  /** The attacking (hazard) player applying the option. */
+  readonly player: PlayerId;
+  /** The in-play card whose `attacker-attack-option` effect is applied. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Tap an in-play item to boost the bearer's prowess for the single
  * strike currently being resolved. Legal during `resolve-strike` when
  * the item is untapped and belongs to the character currently assigned

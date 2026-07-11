@@ -109,10 +109,18 @@
           "strikes": 2,
           "prowess": 16,
           "body": 8
-        }
+        },
+        "onDefeat": "remove-from-play"
+      },
+      {
+        "type": "attacker-attack-option",
+        "creatureRace": "spider",
+        "prowessModifier": 1,
+        "detainment": true
       }
     ],
-    "text": "Unique. Spawn. The Wind-deeps and The Rusted-deeps each have an additional automatic-attack: Spawn — 2 strikes with 16/8 prowess/body."
+    "certified": "2026-07-11",
+    "text": "Unique. Spawn. The Wind-deeps and The Rusted-deeps each have an additional automatic-attack: Spawn — 2 strikes with 16/8 prowess/body. In addition, for each Spider attack your opponent faces, you can choose for it to be at +1 prowess and detainment."
   },
   {
     "cardType": "hazard-event",
