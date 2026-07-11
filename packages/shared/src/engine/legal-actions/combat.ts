@@ -2664,11 +2664,40 @@ function cancelByTapActions(
   const company = companyById(player.companies, combat.companyId);
   if (!company) return [];
 
+  const actions: EvaluatedAction[] = [];
+
+  // Carrion Feeders (ba-11): "Each untapped character in the company may tap to
+  // cancel a strike against a wounded character." Each strike is pre-assigned
+  // to a distinct wounded character; the defender taps an untapped company
+  // character to remove one strike, choosing which wounded character to protect.
+  if (combat.cancelStrikeAgainstWounded) {
+    const remainingStrikeChars = Array.from(new Set(
+      combat.strikeAssignments.filter(a => !a.resolved).map(a => a.characterId as string),
+    ));
+    for (const charId of company.characters) {
+      const charData = player.characters[charId];
+      if (!charData || charData.status !== CardStatus.Untapped) continue;
+      for (const woundedId of remainingStrikeChars) {
+        logDetail(`Cancel-strike-vs-wounded available: tap ${charId as string} to cancel the strike against ${woundedId}`);
+        actions.push({
+          action: {
+            type: 'cancel-by-tap',
+            player: playerId,
+            characterId: charId,
+            strikeCharacterId: woundedId as CardInstanceId,
+          },
+          viable: true,
+        });
+      }
+    }
+    logDetail(`Defender can pass cancel-strike-vs-wounded (${combat.cancelByTapRemaining} tap(s) remaining)`);
+    actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+    return actions;
+  }
+
   // The target character is the one all strikes are assigned to
   const targetCharId = combat.strikeAssignments[0]?.characterId;
   if (!targetCharId) return [];
-
-  const actions: EvaluatedAction[] = [];
 
   for (const charId of company.characters) {
     // By default the target character cannot tap to cancel (Assassin: "not the defending character").

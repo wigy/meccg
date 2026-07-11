@@ -28,6 +28,7 @@ import { availableDI, grantedActionActivations, inPlayFactionGrantActions, playR
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
+import { isUnderDeepsSurfaceSite } from './organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -928,7 +929,11 @@ function playResourcesActions(
           const effectiveSiteType = siteDefId && isSiteCard(siteDef)
             ? getEffectiveSiteType(state, siteDefId, siteDef.siteType)
             : undefined;
-          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType };
+          // Expose whether this site is the surface entrance of an Under-deeps
+          // site so a filter can exclude it (Tempest of Fire ba-77: "the site
+          // cannot be an Under-deeps site or surface site thereof").
+          const isUnderDeepsSurface = isUnderDeepsSurfaceSite(state, siteDef);
+          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType, isUnderDeepsSurface };
           if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
             logDetail(`Permanent event ${eventDef.name}: site filter excludes ${siteName}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: site ${siteName} does not match play-target filter`));
@@ -1703,6 +1708,19 @@ function playResourcesActions(
             if (boostSourceName && blockedBoosts.has(boostSourceName)) continue; // suppressed
             infModifier += constraint.kind.value;
             infParts.push(`constraint bonus ${formatSignedNumber(constraint.kind.value)}`);
+          }
+
+          // Player-scoped influence check-modifier (Terror Heralds Doom ba-78:
+          // "+2 to all influence attempts this turn by any of your characters").
+          // Applies to every influence check by any character of the targeted
+          // player; not consumed.
+          for (const constraint of state.activeConstraints) {
+            if (constraint.kind.type !== 'check-modifier') continue;
+            if (constraint.kind.check !== 'influence') continue;
+            if (constraint.target.kind !== 'player') continue;
+            if (constraint.target.playerId !== playerId) continue;
+            infModifier += constraint.kind.value;
+            infParts.push(`player-wide bonus ${formatSignedNumber(constraint.kind.value)}`);
           }
 
           // Site-wide influence modifiers (Blasting Fire wh-51): every

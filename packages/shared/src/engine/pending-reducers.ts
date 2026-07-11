@@ -52,6 +52,7 @@ import { eligibleRingCategories } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
+import { revealInstances } from './visibility.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
 import { startGreatHuntReveal, buildGreatHuntCombat } from './great-hunt.js';
 
@@ -1938,7 +1939,7 @@ export function applySelectCardBearerResolution(
 ): ReducerResult | null {
   if (top.kind.type !== 'select-card-bearer') return null;
 
-  const { cardInstanceId, companyId, mode: bearerMode, discardFactionsAtSite: shouldDiscardFactions } = top.kind;
+  const { cardInstanceId, companyId, mode: bearerMode, discardFactionsAtSite: shouldDiscardFactions, returnFactionsAtSite: shouldReturnFactions } = top.kind;
 
   if (action.type === 'pass') {
     // Player declines bearer assignment — discard the card
@@ -2064,6 +2065,52 @@ export function applySelectCardBearerResolution(
             cardsInPlay: p.cardsInPlay.filter(c => !discardIds.has(c.instanceId as string)),
             discardPile: [...p.discardPile, ...factionsToDiscard.map(toCardInstance)],
           }));
+        }
+      }
+    }
+
+    // Return each unique faction (of either player) playable at the company's
+    // current site to its owner's hand (Tempest of Fire ba-77). Unlike
+    // `discardFactionsAtSite`, this scans both players' cardsInPlay, is limited
+    // to unique factions, and returns to hand rather than discarding.
+    if (shouldReturnFactions) {
+      const company = s.players[defIdx].companies.find(co => co.id === companyId);
+      const currentSiteDef = company?.currentSite
+        ? defById(s, company.currentSite.definitionId)
+        : undefined;
+      const siteName = currentSiteDef?.name;
+      const siteType = currentSiteDef && 'siteType' in currentSiteDef ? (currentSiteDef as { siteType: string }).siteType : undefined;
+
+      if (siteName || siteType) {
+        // Collect every unique faction in play (either player's cardsInPlay)
+        // that is playable at the site, then remove each from where it sits and
+        // hand it back to its true owner (instance-id prefix — normally the
+        // holder, but an influenced-away faction returns to its deck owner).
+        for (let pi = 0; pi < 2; pi++) {
+          const factionsToReturn: import('../types/state-cards.js').CardInPlay[] = [];
+          for (const card of s.players[pi].cardsInPlay) {
+            const fDef = defById(s, card.definitionId);
+            if (!fDef || !isFactionCard(fDef)) continue;
+            if (fDef.unique !== true) continue;
+            const playableAt = fDef.playableAt as readonly ({ site?: string; siteType?: string; region?: string })[];
+            const matches = playableAt.some(entry =>
+              (siteName && 'site' in entry && entry.site === siteName) ||
+              (siteType && 'siteType' in entry && entry.siteType === siteType),
+            );
+            if (matches) factionsToReturn.push(card);
+          }
+          if (factionsToReturn.length === 0) continue;
+          const returnIds = new Set(factionsToReturn.map(c => c.instanceId as string));
+          s = updatePlayer(s, pi, p => ({
+            ...p,
+            cardsInPlay: p.cardsInPlay.filter(c => !returnIds.has(c.instanceId as string)),
+          }));
+          for (const card of factionsToReturn) {
+            const ownerIdx = getPlayerIndex(s, ownerOf(card.instanceId));
+            const fName = defById(s, card.definitionId)?.name ?? (card.definitionId as string);
+            logDetail(`select-card-bearer: returning unique faction "${fName}" to owner ${s.players[ownerIdx].id as string}'s hand — playable at ${siteName ?? siteType ?? '?'}`);
+            s = updatePlayer(s, ownerIdx, p => ({ ...p, hand: [...p.hand, toCardInstance(card)] }));
+          }
         }
       }
     }
@@ -2630,6 +2677,138 @@ export function applyRevealRemoveFromDiscardResolution(
     discardPile: p.discardPile.filter(c => c.instanceId !== action.cardInstanceId),
     outOfPlayPile: [...p.outOfPlayPile, chosen],
   }));
+  return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
+ * Resolve a `desire-belly-choose-card` pending resolution (Desire All for Thy
+ * Belly, ba-16, step 1): the card-player chooses one of the revealed
+ * top-of-deck cards to show to the opponent. The choice is mandatory. On
+ * resolution a `desire-belly-choose-penalty` resolution is enqueued for the
+ * opponent.
+ */
+export function applyDesireBellyChooseCardResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'desire-belly-choose-card') return null;
+  if (action.type !== 'desire-choose-shown-card') {
+    return { state, error: `Pending desire-belly-choose-card requires desire-choose-shown-card, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for desire-belly-choose-card' };
+  }
+  const { revealedInstanceIds, opponentId, cardPlayerId, sourceDefinitionId } = top.kind;
+  if (!revealedInstanceIds.includes(action.cardInstanceId)) {
+    return { state, error: `Card ${action.cardInstanceId as string} is not one of the revealed cards` };
+  }
+
+  // Show the chosen card to the opponent (the whole set was already revealed to
+  // the card-player when the effect resolved).
+  const opponentIdx = getPlayerIndex(state, opponentId);
+  const chosen = state.players[opponentIdx].playDeck.find(c => c.instanceId === action.cardInstanceId);
+  let newState = state;
+  if (chosen) {
+    newState = revealInstances(newState, [chosen]);
+    logDetail(`Desire All for Thy Belly: card-player shows "${cardName(newState, chosen.definitionId)}" to the opponent`);
+  }
+
+  // Hand off to the opponent's forced penalty choice.
+  newState = dequeueResolution(newState, top.id);
+  newState = enqueueResolution(newState, {
+    source: top.source,
+    actor: opponentId,
+    scope: { kind: 'phase', phase: Phase.MovementHazard },
+    kind: {
+      type: 'desire-belly-choose-penalty',
+      chosenInstanceId: action.cardInstanceId,
+      revealedInstanceIds,
+      opponentId,
+      cardPlayerId,
+      sourceDefinitionId,
+    },
+  });
+  return { state: newState };
+}
+
+/**
+ * Resolve a `desire-belly-choose-penalty` pending resolution (Desire All for
+ * Thy Belly, ba-16, step 2): the opponent must choose to either remove the
+ * shown card from the game or permanently reduce his hand size by one. Either
+ * way the remaining revealed cards are shuffled back on top of his play deck.
+ * The choice is mandatory.
+ */
+export function applyDesireBellyChoosePenaltyResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'desire-belly-choose-penalty') return null;
+  if (action.type !== 'desire-choose-penalty') {
+    return { state, error: `Pending desire-belly-choose-penalty requires desire-choose-penalty, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for desire-belly-choose-penalty' };
+  }
+  const { chosenInstanceId, revealedInstanceIds, opponentId } = top.kind;
+  const sourceId = top.source;
+  if (!sourceId) {
+    return { state, error: 'desire-belly-choose-penalty resolution is missing its source card' };
+  }
+  const opponentIdx = getPlayerIndex(state, opponentId);
+  const deck = state.players[opponentIdx].playDeck;
+  const revealedSet = new Set(revealedInstanceIds as readonly string[] as string[]);
+
+  // The rest of the deck (everything below the revealed cards), order preserved.
+  const rest = deck.filter(c => !revealedSet.has(c.instanceId as string));
+
+  let newState = state;
+  if (action.penalty === 'remove-from-game') {
+    const chosen = deck.find(c => c.instanceId === chosenInstanceId);
+    if (!chosen) {
+      return { state, error: `Shown card ${chosenInstanceId as string} not found in the play deck` };
+    }
+    // The other revealed cards (all revealed except the removed one) are
+    // shuffled and placed back on top of the play deck.
+    const remainingRevealed = deck.filter(
+      c => revealedSet.has(c.instanceId as string) && c.instanceId !== chosenInstanceId,
+    );
+    const [shuffled, nextRng] = shuffle(remainingRevealed, state.rng);
+    newState = { ...newState, rng: nextRng };
+    newState = updatePlayer(newState, opponentIdx, p => ({
+      ...p,
+      playDeck: [...shuffled, ...rest],
+      outOfPlayPile: [...p.outOfPlayPile, chosen],
+    }));
+    logDetail(
+      `Desire All for Thy Belly: opponent removes "${cardName(newState, chosen.definitionId)}" from the game; ` +
+      `${shuffled.length} card(s) shuffled back on top of the deck`,
+    );
+  } else {
+    // Reduce hand size by one for the rest of the game: a permanent (until-cleared)
+    // player-scoped hand-size-modifier constraint of -1 on the opponent.
+    newState = addConstraint(newState, {
+      source: sourceId,
+      sourceDefinitionId: top.kind.sourceDefinitionId,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'player', playerId: opponentId },
+      kind: { type: 'hand-size-modifier', value: -1 },
+    });
+    // All revealed cards (including the shown one) are shuffled back on top.
+    const allRevealed = deck.filter(c => revealedSet.has(c.instanceId as string));
+    const [shuffled, nextRng] = shuffle(allRevealed, state.rng);
+    newState = { ...newState, rng: nextRng };
+    newState = updatePlayer(newState, opponentIdx, p => ({
+      ...p,
+      playDeck: [...shuffled, ...rest],
+    }));
+    logDetail(
+      `Desire All for Thy Belly: opponent reduces hand size by 1 for the rest of the game; ` +
+      `${shuffled.length} revealed card(s) shuffled back on top of the deck`,
+    );
+  }
+
   return { state: dequeueResolution(newState, top.id) };
 }
 
