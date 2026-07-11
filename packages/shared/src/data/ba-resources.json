@@ -965,13 +965,53 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/MemoriesofOldTorture.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
-    "marshallingCategory": "misc",
-    "effects": [],
+    "marshallingPoints": 1,
+    "marshallingCategory": "ally",
+    "effects": [
+      {
+        "type": "convert-creature-to-ally",
+        "races": [
+          "man",
+          "men",
+          "drake",
+          "drakes",
+          "orc",
+          "orcs",
+          "troll",
+          "trolls",
+          "giant",
+          "giants"
+        ],
+        "maxStrikes": 1,
+        "controllerTaps": false,
+        "ally": {
+          "mind": 1,
+          "body": 7,
+          "prowessModifier": -7
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "$or": [
+            { "sitePath.regionTypes": { "$includes": "free" } },
+            { "sitePath.regionTypes": { "$includes": "dark" } }
+          ]
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
     "text": "Balrog specific. Playable on a Man, Drake, Orc, Troll, or Giant hazard creature attack with one strike for each of its attacks. All attacks of the creature are canceled. The creature becomes an ally under the control of any character in the company. The character need not tap. The ally has a mind of 1, body of 7, and prowess equal to its normal prowess minus 7. It gives 1 ally marshalling point. Discard this card and the ally if the company moves through a Free-domain [{f}] or Dark-domain [{d}].",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
