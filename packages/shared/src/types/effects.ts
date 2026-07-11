@@ -229,6 +229,18 @@ export interface CheckModifierEffect extends EffectBase {
  * creature's normalized race) and `target.race` (the body-checked character's
  * race). Used by Spawn of Ungoliant (ba-24) — "+1 to all body checks for
  * Elves, Dwarves, Hobbits, Dúnedain, and Men resulting from Spider attacks."
+ *
+ * A `scope: 'bearer-combat'` modifier is carried by an item / attached
+ * permanent-event on a **participating character** and applies to body checks
+ * that arise from that bearer's combat, gated by `when` against a context
+ * exposing `bodyCheck.target` (`'creature' | 'character' | 'attacker-character'`),
+ * `bodyCheck.fromFailedStrike` (true when a strike against the bearer failed and
+ * the striker now body-checks), and `combat.isCvCC`. The relevant bearer is the
+ * parrying defender (for `creature` / `attacker-character` checks) or the
+ * successful CvCC attacker (for a `character` check). Used by Flame of Udûn
+ * (ba-58) — "+1 to all body checks resulting from failed strikes against The
+ * Balrog" and, in CvCC where The Balrog attacks successfully, "+1 to defending
+ * character's body check."
  */
 export interface BodyCheckModifierEffect extends EffectBase {
   readonly type: 'body-check-modifier';
@@ -241,8 +253,12 @@ export interface BodyCheckModifierEffect extends EffectBase {
    * - `'all-attacks'`: a global effect on an in-play permanent-event; applies to
    *   every combat body check, gated by `when` against `attack.creatureRace` /
    *   `target.race` (Spawn of Ungoliant ba-24).
+   * - `'bearer-combat'`: an item / attached permanent-event on a participating
+   *   character; applies to body checks arising from that bearer's combat, gated
+   *   by `when` against `bodyCheck.target` / `bodyCheck.fromFailedStrike` /
+   *   `combat.isCvCC` (Flame of Udûn ba-58).
    */
-  readonly scope?: 'bearer' | 'all-attacks';
+  readonly scope?: 'bearer' | 'all-attacks' | 'bearer-combat';
 }
 
 /**
@@ -2067,6 +2083,11 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   company (`CardInPlay.companyId`), no ally and no direct-influence follower
  *   may join that company. On play the company's existing allies and follower
  *   characters are discarded. Used by Fell Rider (le-183).
+ * - `no-allies-in-company` — while an item / attached permanent-event carrying
+ *   this flag is on a character in a company, no ally may be played to that
+ *   company. (Allies are only ever played during the site phase, so this
+ *   realizes "no allies in his company outside the organization phase" without a
+ *   phase gate.) Used by Flame of Udûn (ba-58).
  * - `bearer-cannot-untap-until-stored` — when this storable permanent event is
  *   attached to a character on play (taps the character via a play-target tap
  *   cost or a direct storable-at attachment, or is assigned a bearer after a
@@ -2078,7 +2099,7 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -3974,6 +3995,7 @@ export interface FetchWizardOnStoreEffect extends EffectBase {
  *    `discard-self` and `reshuffle-self-from-hand`.
  *  - `in-play` — any player's `cardsInPlay` or character attachments.
  *  - `items-on-target` — items attached to `ctx.targetCardId`.
+ *  - `allies-on-target` — allies borne by `ctx.targetCardId`.
  *  - `items-on-wounded` — items attached to the combat wounded character.
  *  - `attached-to-target-company` — hazards/items attached to any
  *    character in the target company.
@@ -3988,6 +4010,7 @@ export type MoveZone =
   | 'self-location'
   | 'in-play'
   | 'items-on-target'
+  | 'allies-on-target'
   | 'items-on-wounded'
   | 'attached-to-target-company'
   /** Source: a single instance attached to ANY character's `hazards` or

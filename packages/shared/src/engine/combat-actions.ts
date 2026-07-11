@@ -365,6 +365,65 @@ function globalBodyCheckRollModifier(state: GameState, targetRace: string | unde
 }
 
 /**
+ * Sums `scope: 'bearer-combat'` `body-check-modifier` effects carried by an
+ * item / attached permanent-event on the character *participating* in the
+ * current body check, gated by `when` against a context describing the check.
+ *
+ * The relevant bearer depends on `combat.bodyCheckTarget`:
+ * - `'creature'` / `'attacker-character'` — a strike against the defending
+ *   character failed (was parried); the striker now body-checks. The bearer is
+ *   the parrying **defender** (`strike.characterId`).
+ * - `'character'` — the strike succeeded and the struck character body-checks.
+ *   The bearer is the **successful striker**: in CvCC the attacking character
+ *   (`strike.attackingCharacterId`); a hazard-creature striker bears nothing.
+ *
+ * Backs Flame of Udûn (ba-58): "+1 to all body checks resulting from failed
+ * strikes against The Balrog" (`when: { bodyCheck.fromFailedStrike: true }`) and
+ * "+1 to defending character's body check" when The Balrog attacks successfully
+ * in CvCC (`when: { bodyCheck.target: 'character', combat.isCvCC: true }`).
+ * Returns 0 when no participating bearer carries a matching effect.
+ */
+function bearerCombatBodyCheckModifier(state: GameState, combat: CombatState, strike: StrikeAssignment | undefined): number {
+  if (!strike) return 0;
+  const target = combat.bodyCheckTarget;
+  const fromFailedStrike = target === 'creature' || target === 'attacker-character';
+
+  let bearerCharId: CardInstanceId | undefined;
+  let bearerPlayerId = combat.defendingPlayerId;
+  if (fromFailedStrike) {
+    // The defending character parried; the striker body-checks. Bearer = defender.
+    bearerCharId = strike.characterId;
+    bearerPlayerId = combat.defendingPlayerId;
+  } else if (target === 'character' && combat.isCvCC && strike.attackingCharacterId) {
+    // CvCC: the attacking character struck successfully. Bearer = the attacker.
+    bearerCharId = strike.attackingCharacterId;
+    bearerPlayerId = combat.attackingPlayerId;
+  }
+  if (!bearerCharId) return 0;
+
+  const bearer = state.players[getPlayerIndex(state, bearerPlayerId)]?.characters[bearerCharId];
+  if (!bearer) return 0;
+
+  const ctx = {
+    bodyCheck: { target, fromFailedStrike },
+    combat: { isCvCC: !!combat.isCvCC },
+  };
+  let total = 0;
+  for (const item of bearer.items) {
+    const itemDef = defById(state, item.definitionId);
+    if (!itemDef) continue;
+    for (const effect of getCardEffects(itemDef)) {
+      if (effect.type !== 'body-check-modifier') continue;
+      if (effect.scope !== 'bearer-combat') continue;
+      if (effect.when && !matchesCondition(effect.when, ctx)) continue;
+      logDetail(`Bearer-combat body-check modifier ${formatSignedNumber(effect.value)} from ${(itemDef as { name?: string }).name ?? (item.definitionId as string)} (target ${target ?? '?'}, failedStrike ${fromFailedStrike}, cvcc ${!!combat.isCvCC})`);
+      total += effect.value;
+    }
+  }
+  return total;
+}
+
+/**
  * Discard a character defeated by a body check: mark its strike eliminated
  * (auto-resolving its other unresolved strikes, CoE 3.i.5), remove it from
  * its company, move it plus its allies/items to the defender's discard and
@@ -528,9 +587,12 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       : undefined;
     const agentAlreadyWounded = agentBefore?.character.status === CardStatus.Inverted;
     const woundedBonus = agentAlreadyWounded ? 1 : 0;
-    const effectiveRoll = rollTotal + woundedBonus;
+    // bearer-combat body-check modifier (Flame of Udûn ba-58): a failed strike
+    // against the parrying character raises the striker's body check.
+    const bearerMod = bearerCombatBodyCheckModifier(stateWithRoll, combat, strike2);
+    const effectiveRoll = rollTotal + woundedBonus + bearerMod;
     const entityLabel = isAgent ? 'agent' : 'creature';
-    logDetail(`Body check vs ${entityLabel}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''} = ${effectiveRoll} vs body ${body}`);
+    logDetail(`Body check vs ${entityLabel}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll} vs body ${body}`);
     // CoE 3.iv.7: the strike is defeated only if the body check FAILS (roll >
     // body). If the body check passes, the strike was not defeated and the
     // creature/agent survives. Record 'survived' (vs the parry's 'success') so
@@ -641,9 +703,12 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       ? (defById(stateWithRoll, charData.definitionId) as { race?: string }).race
       : undefined;
     const globalBodyMod = globalBodyCheckRollModifier(stateWithRoll, targetRaceForBody, combat.creatureRace);
-    const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod + globalBodyMod;
+    // bearer-combat body-check modifier (Flame of Udûn ba-58): a successful CvCC
+    // strike by the bearer raises the defending character's body check.
+    const bearerMod = bearerCombatBodyCheckModifier(stateWithRoll, combat, strike);
+    const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod + globalBodyMod + bearerMod;
 
-    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${globalBodyMod ? `${formatSignedNumber(globalBodyMod)}(global)` : ''} = ${effectiveRoll} vs body ${body}`);
+    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${globalBodyMod ? `${formatSignedNumber(globalBodyMod)}(global)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll} vs body ${body}`);
 
     // MELE §8.R1: if the *unmodified* roll is exactly 7 or 8 and the target is a
     // Ringwraith avatar, the Ringwraith returns to hand instead of being eliminated.
@@ -804,8 +869,12 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // Item-granted body-check modifiers (e.g. Helm of Fear -1) apply to the
     // bearer regardless of whether they are attacking or defending in CvCC.
     const itemBodyMod = bodyCheckRollModifier(stateWithRoll, charData);
-    const effectiveRoll = rollTotal + itemBodyMod;
-    logDetail(`CvCC body check vs attacking character ${charName} (body ${body}): roll ${rollTotal}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''} = ${effectiveRoll}`);
+    // bearer-combat body-check modifier (Flame of Udûn ba-58): the CvCC defender
+    // parried this attacking character's strike, so a failed strike against the
+    // defender raises the attacker's body check.
+    const bearerMod = bearerCombatBodyCheckModifier(stateWithRoll, combat, strike);
+    const effectiveRoll = rollTotal + itemBodyMod + bearerMod;
+    logDetail(`CvCC body check vs attacking character ${charName} (body ${body}): roll ${rollTotal}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll}`);
 
     const newAssignments = combat.strikeAssignments.map((a, i) =>
       i === combat.currentStrikeIndex ? { ...a, resolved: true } : a,

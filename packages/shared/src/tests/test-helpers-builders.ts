@@ -830,6 +830,13 @@ export function makeBodyCheckCombat(opts: {
   bodyCheckTarget?: CombatState['bodyCheckTarget'];
   detainment?: boolean;
   attackSource?: CombatState['attackSource'];
+  /** Recorded strike result (default `'wounded'`; use `'success'` for a parry
+   * so a `bodyCheckTarget: 'creature'` check reads as a defeated strike). */
+  result?: 'success' | 'wounded' | 'eliminated' | 'survived';
+  /** Marks the combat as company-vs-company (Balrog CvCC body-check tests). */
+  isCvCC?: boolean;
+  /** CvCC attacking character whose successful strike caused this body check. */
+  attackingCharacterId?: CardInstanceId;
 }): CombatState {
   return {
     attackSource: opts.attackSource ?? {
@@ -844,13 +851,15 @@ export function makeBodyCheckCombat(opts: {
     strikeProwess: opts.strikeProwess ?? 10,
     creatureBody: opts.creatureBody ?? null,
     creatureRace: opts.creatureRace ?? 'orc',
+    ...(opts.isCvCC ? { isCvCC: true } : {}),
     strikeAssignments: [
       {
         characterId: opts.characterId,
         excessStrikes: 0,
         resolved: true,
-        result: 'wounded',
+        result: opts.result ?? 'wounded',
         wasAlreadyWounded: opts.wasAlreadyWounded ?? false,
+        ...(opts.attackingCharacterId ? { attackingCharacterId: opts.attackingCharacterId } : {}),
       },
     ],
     currentStrikeIndex: 0,

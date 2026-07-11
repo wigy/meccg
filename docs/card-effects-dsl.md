@@ -302,6 +302,31 @@ character's race). Collected by `globalBodyCheckRollModifier` in
 Used by *Spawn of Ungoliant* (ba-24): "+1 to all body checks for Elves,
 Dwarves, Hobbits, Dúnedain, and Men resulting from Spider attacks."
 
+An optional `scope: "bearer-combat"` makes the modifier apply to body checks
+arising from the **bearer's** combat rather than to body checks against the
+bearer. It is carried by an item / attached permanent-event on a participating
+character and collected by `bearerCombatBodyCheckModifier` in
+`combat-actions.ts`. The relevant bearer is chosen per body check:
+
+- for a `creature` / `attacker-character` body check (a strike against the
+  bearer *failed* and the striker now body-checks) the bearer is the **parrying
+  defender**; and
+- for a `character` body check the bearer is the **successful CvCC attacker**.
+
+The `when` context exposes `bodyCheck.target` (`"creature" | "character" |
+"attacker-character"`), `bodyCheck.fromFailedStrike` (true for the first case),
+and `combat.isCvCC`.
+
+```json
+{ "type": "body-check-modifier", "value": 1, "scope": "bearer-combat",
+  "when": { "bodyCheck.fromFailedStrike": true } }
+```
+
+Used by *Flame of Udûn* (ba-58): "+1 to all body checks resulting from failed
+strikes against The Balrog" and, gated on `{ "bodyCheck.target": "character",
+"combat.isCvCC": true }`, "+1 to defending character's body check" when The
+Balrog attacks successfully in company-vs-company combat.
+
 ### 2b. `attribute-modifier` active constraint
 
 Generic conditional override of an entity attribute. Produced by an
@@ -2734,6 +2759,19 @@ the company; none may join the company."
 
 ```json
 { "type": "play-flag", "flag": "block-company-joins" }
+```
+
+The related `play-flag: "no-allies-in-company"` is carried instead by an **item /
+attached permanent-event on a character**: while any company member bears it, no
+ally may be played to that company (`companyHasNoAllyRestriction` in
+`reducer-utils.ts`, consulted by the ally-play emitter in `legal-actions/site.ts`).
+Allies are only ever played during the site phase, so this realizes "no allies in
+his company outside the organization phase" without a phase gate. To discard the
+allies already on the bearer, pair it with an `on-event: self-enters-play`
+`move` from `allies-on-target` to `discard`. Used by Flame of Udûn (ba-58).
+
+```json
+{ "type": "play-flag", "flag": "no-allies-in-company" }
 ```
 
 ### 15c. `play-flag: "bearer-cannot-untap-until-stored"`
