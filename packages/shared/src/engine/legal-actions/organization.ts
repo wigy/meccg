@@ -37,7 +37,7 @@ import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -199,6 +199,30 @@ export function discardStageResourceActions(state: GameState, playerId: PlayerId
 }
 
 /**
+ * Voluntary-discard actions ("Discard during your organization phase if you
+ * choose" — Going Ever Under Dark ba-37). One action per in-play permanent-event
+ * the player controls that carries a `voluntary-discard` effect with
+ * `phase: "organization"`.
+ */
+export function voluntaryDiscardInPlayActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    const eff = getCardEffects(def).find(e => e.type === 'voluntary-discard');
+    if (!eff || (eff as { phase?: string }).phase !== 'organization') continue;
+    logDetail(`Voluntary-discard: ${cardName(state, card.definitionId)} can be discarded during the organization phase`);
+    actions.push({
+      action: { type: 'voluntary-discard-in-play', player: playerId, cardInstanceId: card.instanceId },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
  * Org-phase-fetch activations (A Strident Spawn wh-61: "During your
  * organization phase, you may take one Half-orc character from your discard
  * pile to your hand"). For each in-play permanent-event the player controls that
@@ -311,6 +335,9 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // MEWH: a Fallen-wizard may discard an in-play stage resource (keeping ≥3 stage points)
   actions.push(...discardStageResourceActions(state, playerId));
+
+  // "Discard during your organization phase if you choose" (Going Ever Under Dark ba-37)
+  actions.push(...voluntaryDiscardInPlayActions(state, playerId));
 
   // Org-phase fetch granted by an in-play permanent-event (A Strident Spawn wh-61)
   actions.push(...orgPhaseFetchActivations(state, playerId));
@@ -2136,6 +2163,20 @@ export function playResourceShortEventActions(
     // not-playable with a reason if their play-target constraints aren't met
     // so the UI can explain why.
     if (playWindow?.step === 'end-of-org') {
+      // play-condition requires: "card-in-play" — a named card must be in play
+      // for the playing player (any in-play zone, including character-attached
+      // permanent events). Enforced here for end-of-org cards because this
+      // branch `continue`s before the generic card-in-play check further down.
+      // Used by Cloaked by Darkness (ba-53): "Playable on a company if Great
+      // Shadow is in play."
+      const endOfOrgCardInPlay = findPlayConditionEffect(def, 'card-in-play');
+      if (endOfOrgCardInPlay?.cardName
+          && !isCardNameInPlayForPlayer(state, player, endOfOrgCardInPlay.cardName)) {
+        logDetail(`${def.name}: end-of-org play-condition card-in-play requires ${endOfOrgCardInPlay.cardName} in play`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires ${endOfOrgCardInPlay.cardName} in play`));
+        continue;
+      }
+
       const eligibility = endOfOrgEligibility(state, player, def);
       if (!eligibility.eligible) {
         logDetail(`${def.name}: end-of-org card not eligible — ${eligibility.reason}`);

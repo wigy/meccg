@@ -1634,14 +1634,6 @@ function convertCreatureToAllyActions(
   const company = companyById(player.companies, combat.companyId);
   if (!company) return [];
 
-  // Candidate controlling characters: untapped characters in the company (they
-  // must be able to tap to take control).
-  const untappedChars = company.characters.filter(charId => {
-    const ch = player.characters[charId];
-    return ch && ch.status === CardStatus.Untapped;
-  });
-  if (untappedChars.length === 0) return [];
-
   const actions: EvaluatedAction[] = [];
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
@@ -1657,7 +1649,18 @@ function convertCreatureToAllyActions(
       logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: creature race "${creatureRace}" not eligible — not playable`);
       continue;
     }
-    for (const charId of untappedChars) {
+    // Candidate controlling characters. When the card requires the controller
+    // to tap (Ready to His Will le-220), only untapped characters qualify.
+    // When it does not (Memories of Old Torture ba-67, "the character need
+    // not tap"), any character in the company may take control.
+    const candidateChars = effect.controllerTaps
+      ? company.characters.filter(charId => {
+          const ch = player.characters[charId];
+          return ch && ch.status === CardStatus.Untapped;
+        })
+      : [...company.characters];
+    if (candidateChars.length === 0) continue;
+    for (const charId of candidateChars) {
       logDetail(`Convert-creature-to-ally available: "${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}" controlled by ${charId as string}`);
       actions.push({
         action: {
@@ -1739,6 +1742,16 @@ function cancelAttackActions(
   const destSiteDef = company.destinationSite ? state.cardPool[company.destinationSite.definitionId] : undefined;
   const destinationRegion = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.region : undefined;
 
+  // Whether the defending company is at, or moving to or from, an Under-deeps
+  // site. During movement `currentSite` is the origin and `destinationSite` the
+  // target, so checking both covers "at" (origin, not moving), "moving from"
+  // (origin), and "moving to" (destination). Lets a cancel-attack `when` gate on
+  // `attack.atUnderDeeps` — Great Fissure (ba-61).
+  const hasUnderDeeps = (d: unknown): boolean =>
+    !!d && 'keywords' in (d as object)
+    && !!(d as { keywords?: readonly string[] }).keywords?.includes('under-deeps');
+  const atUnderDeeps = hasUnderDeeps(siteDef) || hasUnderDeeps(destSiteDef);
+
   const whenContext = (): Record<string, unknown> => {
     const ctx: Record<string, unknown> = {};
     if (combat.creatureRace) {
@@ -1779,6 +1792,10 @@ function cancelAttackActions(
       heroCompany = atkAlignment === Alignment.Wizard || atkAlignment === Alignment.FallenWizard;
     }
     attackCtx['heroCompany'] = heroCompany;
+    // Whether the defending company is at, or moving to or from, an Under-deeps
+    // site. Backs Great Fissure (ba-61): "cancel an attack against a company at,
+    // or moving to or from, an Under-deeps site."
+    attackCtx['atUnderDeeps'] = atUnderDeeps;
     ctx['attack'] = attackCtx;
     ctx['bearer'] = { companySize: company.characters.length, atHaven, destinationRegion };
     // The defending company's current site type (e.g. "ruins-and-lairs"). Lets a
@@ -1917,6 +1934,17 @@ function cancelAttackActions(
     // A tap-cost faction (Beasts of the Wood wh-38) must itself be untapped.
     if (tapCost && inPlayCard.status !== CardStatus.Untapped) {
       logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: in-play faction is tapped, cannot tap to cancel`);
+      continue;
+    }
+    // Company-bound restriction cards (Going Ever Under Dark ba-37) may only
+    // cancel an attack against their own company, and only in company-vs-company
+    // combat ("an attack against them by an opponent's company").
+    if (inPlayCard.companyId && inPlayCard.companyId !== combat.companyId) {
+      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: bound to a different company — skipping`);
+      continue;
+    }
+    if (cancelEffect.requiresCvCC && !combat.isCvCC) {
+      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: requires a company-vs-company attack — skipping`);
       continue;
     }
     if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {

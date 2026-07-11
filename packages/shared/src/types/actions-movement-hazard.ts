@@ -770,6 +770,24 @@ export interface CancelReturnToOriginAction {
 }
 
 /**
+ * Play a Balrog resource short-event (Great Fissure ba-61) from hand during a
+ * chain to negate an unresolved chain entry that would cancel an attack by The
+ * Balrog's company against an opponent's company. The counter-cancel counterpart
+ * to {@link CancelReturnToOriginAction}: sourced from a discarded hand card
+ * rather than a tapped ally.
+ */
+export interface CounterCancelAttackAction {
+  /** Action discriminant. */
+  readonly type: 'counter-cancel-attack';
+  /** The Balrog player playing the counter-cancel card. */
+  readonly player: PlayerId;
+  /** The hand card being played and discarded (e.g. Great Fissure). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The chain entry's card instance to negate (the opponent's cancel-attack). */
+  readonly targetInstanceId: CardInstanceId;
+}
+
+/**
  * Tap an in-play ally to discard a hazard permanent-event attached to the
  * ally's (moving) company or to a character in it. Backs the discard mode of
  * Last Child of Ungoliant (le-153): "tap this ally to ... discard one hazard
@@ -1178,6 +1196,32 @@ export interface PlayCreatureFromDiscardAction {
   readonly player: PlayerId;
   /** The short-event card instance (in hand) driving the effect. */
   readonly cardInstanceId: CardInstanceId;
+  /** The hazard-creature instance in the discard pile being brought into play. */
+  readonly creatureInstanceId: CardInstanceId;
+  /** The company the creature is targeting. */
+  readonly targetCompanyId: CompanyId;
+  /** Keying match (same as a play-hazard creature). */
+  readonly keyedBy?: CreatureKeyingMatch;
+}
+
+/**
+ * Replay a hazard creature from the hazard player's own discard pile as an
+ * immediate attack, granted by an in-play permanent-event carrying a
+ * `grant-replay-attacked-creature` effect (Monstrosity of Diverse Shape,
+ * ba-21).
+ *
+ * The creature must have already attacked the target company earlier this
+ * movement/hazard phase. Unlike {@link PlayCreatureFromDiscardAction}, this
+ * play DOES count against the hazard limit and may be used only once per
+ * company's movement/hazard phase per source permanent-event.
+ */
+export interface SpawnReplayCreatureAction {
+  /** Action discriminant. */
+  readonly type: 'spawn-replay-creature';
+  /** The hazard player replaying the creature. */
+  readonly player: PlayerId;
+  /** The in-play permanent-event instance granting the ability. */
+  readonly sourceInstanceId: CardInstanceId;
   /** The hazard-creature instance in the discard pile being brought into play. */
   readonly creatureInstanceId: CardInstanceId;
   /** The company the creature is targeting. */

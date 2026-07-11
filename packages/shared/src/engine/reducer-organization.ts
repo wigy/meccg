@@ -63,6 +63,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'activate-granted-action': handleActivateGrantedAction,
   'test-ring-at-site': handleTestRingAtSite,
   'discard-stage-resource': handleDiscardStageResource,
+  'voluntary-discard-in-play': handleVoluntaryDiscardInPlay,
   'activate-org-fetch': handleActivateOrgFetch,
 };
 
@@ -145,6 +146,34 @@ function handleDiscardStageResource(state: GameState, action: GameAction): Reduc
   }
 
   logDetail(`Organization: ${player.name} discards stage resource ${def.name} (stage points ${player.stagePoints} → ${player.stagePoints - contribution})`);
+  const next = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+  return { state: recomputeDerived(next) };
+}
+
+/**
+ * Voluntarily discards one of the player's in-play permanent-events carrying a
+ * `voluntary-discard` effect during their organization phase ("Discard during
+ * your organization phase if you choose" — Going Ever Under Dark ba-37). The
+ * card leaves `cardsInPlay` for the discard pile; any company binding is
+ * severed automatically (the entry is gone), lifting its restrictions.
+ */
+function handleVoluntaryDiscardInPlay(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'voluntary-discard-in-play') return wrongActionType(state, action, 'voluntary-discard-in-play');
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: 'Voluntary-discard target not found in play' };
+  const def = defById(state, card.definitionId);
+  const eff = def ? getCardEffects(def).find(e => e.type === 'voluntary-discard') : undefined;
+  if (!eff || eff.type !== 'voluntary-discard' || eff.phase !== 'organization') {
+    return { state, error: 'Target does not allow voluntary discard during the organization phase' };
+  }
+
+  logDetail(`Organization: ${player.name} voluntarily discards ${def?.name ?? '?'} from play`);
   const next = updatePlayer(state, playerIndex, p => ({
     ...p,
     cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),

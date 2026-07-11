@@ -209,6 +209,15 @@ export interface CheckModifierEffect extends EffectBase {
   readonly check: import('./common.js').CheckKind | readonly import('./common.js').CheckKind[];
   /** The bonus (or penalty if negative) to the roll. */
   readonly value: ValueExpr;
+  /**
+   * Scope of the modifier. Absent (default) applies only to the bearer of the
+   * card carrying the effect. `'company'` applies to every character in the
+   * bearer's company — collected once per company (from items / attached
+   * permanent-events on any company member) and folded into each member's
+   * check via {@link resolveCheckModifier}. Used by I'll Be At Your Heels
+   * (le-195): "+1 to all corruption checks by characters in his company."
+   */
+  readonly target?: 'company';
 }
 
 /**
@@ -1373,6 +1382,7 @@ export type TriggeredActionType =
   | 'roll-then-apply'
   | 'transform-site'
   | 'untap-site'
+  | 'cancel-current-attack'
   | 'win-condition-roll'
   | 'win-game';
 
@@ -1777,6 +1787,16 @@ export interface UntapSiteAction extends TriggeredActionBase {
 }
 
 /**
+ * `cancel-current-attack` — cancel the combat currently in `state.combat`
+ * (delegates to the shared `resolveCancelAttackEntry`). Used as the `onPass`
+ * verb of a `dice-check` enqueued by a roll-to-cancel ability (Going Ever
+ * Under Dark ba-37). Type-only marker.
+ */
+export interface CancelCurrentAttackAction extends TriggeredActionBase {
+  readonly type: 'cancel-current-attack';
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -1817,7 +1837,8 @@ export type TriggeredAction =
   | IncrementCompanyExtraRegionDistanceAction
   | ModifyCurrentStrikeProwessAction
   | TransformSiteAction
-  | UntapSiteAction;
+  | UntapSiteAction
+  | CancelCurrentAttackAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -2464,6 +2485,46 @@ export interface DuplicationLimitEffect extends EffectBase {
 }
 
 /**
+ * Movement/hazard restrictions imposed on the company a permanent-event is
+ * bound to (`CardInPlay.companyId`). Consulted at the movement legal-action
+ * sites (organization plan-movement, M/H select-company / declare-path) and at
+ * the hazard-limit snapshot. Multiple restriction cards on one company stack
+ * (strictest wins for the region cap; hazard modifiers sum).
+ *
+ * Used by Going Ever Under Dark (ba-37): "The company cannot use starter
+ * movement. In addition, if they move with region movement, they are limited
+ * in all cases to 3 regions maximum and their hazard limit is reduced by one
+ * (to a minimum of two)."
+ */
+export interface CompanyMovementRestrictionEffect extends EffectBase {
+  readonly type: 'company-movement-restriction';
+  /** When true, the bound company may not use starter movement. */
+  readonly noStarterMovement?: true;
+  /** Hard cap on the number of regions the bound company may span in region movement. */
+  readonly regionMovementMax?: number;
+  /**
+   * Amount added to the bound company's hazard limit when it moves with region
+   * movement (negative reduces it). Applied only for a region-moving company
+   * (CRF 22: "The hazard limit reduction only works if the company is moving").
+   */
+  readonly hazardLimitModifier?: number;
+  /** Floor the hazard limit is never reduced below by {@link hazardLimitModifier}. */
+  readonly hazardLimitFloor?: number;
+}
+
+/**
+ * Lets the controller voluntarily discard the carrying in-play permanent-event
+ * during their own organization phase ("Discard during your organization phase
+ * if you choose"). Offered as a `voluntary-discard-in-play` action in the
+ * organization aggregator. Used by Going Ever Under Dark (ba-37).
+ */
+export interface VoluntaryDiscardEffect extends EffectBase {
+  readonly type: 'voluntary-discard';
+  /** The phase during which the discard may be chosen (currently "organization"). */
+  readonly phase: 'organization';
+}
+
+/**
  * Makes a card count as another named card for the purpose of `inPlay`
  * condition checks. While the bearer is in play, the alias name is added to
  * the in-play names list, so any DSL `when` clause that tests
@@ -2900,6 +2961,28 @@ export interface CancelAttackEffect extends EffectBase {
    * character in a covert company."
    */
   readonly handModeRequiresCovert?: true;
+  /**
+   * When true, the cancel is only available against a company-vs-company
+   * combat (`combat.isCvCC`) — "an attack against them by an opponent's
+   * company". Used by Going Ever Under Dark (ba-37).
+   */
+  readonly requiresCvCC?: true;
+  /**
+   * When set, the cancel is not automatic: paying the cost enqueues a 2d6
+   * dice-check that only cancels the attack on success. Backs "make a roll to
+   * attempt to cancel an attack … If the roll plus the number of scouts in the
+   * company is greater than 7, the attack is canceled" (Going Ever Under Dark
+   * ba-37). The roller is the defending player; the modified 2d6 total is
+   * compared to `threshold` via `comparison`.
+   */
+  readonly roll?: {
+    /** Success requires `roll (+ bonuses) comparison threshold`. */
+    readonly threshold: number;
+    /** `'gt'` (strictly greater) or `'gte'` (≥). */
+    readonly comparison: 'gt' | 'gte';
+    /** When true, add the number of Scout-skilled characters in the company to the roll. */
+    readonly scoutBonus?: true;
+  };
 }
 
 /**
@@ -3770,6 +3853,65 @@ export interface PermanentEventAutoAttackEffect extends EffectBase {
 }
 
 /**
+ * Splits a site's effective type and automatic-attacks between the **one
+ * instance the carrying card is attached to** ("the associated site") and
+ * **every other in-play copy of the same site definition** ("all other
+ * versions"). Carried by a kept resource permanent-event bound to a site
+ * (`attachedToSite`); scanned dynamically by {@link getEffectiveSiteType} and
+ * `getActiveAutoAttacks`, both of which take an optional site *instance* id so
+ * they can distinguish the associated copy (the controller's own current site)
+ * from the other copies.
+ *
+ * Unlike the generic `site-type-override` `attribute-modifier` (Hold Rebuilt
+ * and Repaired, as-88), this effect **bypasses the MEAS §6(d) Under-deeps
+ * type-immutability short-circuit** — it exists precisely to retype an
+ * Under-deeps site — and it discriminates by instance rather than applying to
+ * every copy uniformly.
+ *
+ * Used by Roots of the Earth (ba-74): the associated Under-deeps Ruins & Lairs
+ * becomes a Darkhaven [{H}] that loses all automatic-attacks, while every other
+ * version becomes a Shadow-hold [{S}] that gains an Orcs 5-strike/9-prowess
+ * automatic-attack.
+ */
+export interface SiteInstanceTransformEffect extends EffectBase {
+  readonly type: 'site-instance-transform';
+  /** How the single instance this card is attached to is transformed. */
+  readonly associated: {
+    /** Effective {@link SiteType} of the associated instance. */
+    readonly siteType: SiteType;
+    /** When true, the associated instance loses all automatic-attacks. */
+    readonly removeAllAutoAttacks?: boolean;
+  };
+  /** How every other in-play copy of the same site definition is transformed. */
+  readonly others: {
+    /** Effective {@link SiteType} of every other version. */
+    readonly siteType: SiteType;
+    /** When set, every other version gains this automatic-attack. */
+    readonly addAutoAttack?: TriggerAttackEntry;
+  };
+}
+
+/**
+ * Grants a fixed bonus to the carrying in-play card's own marshalling-point
+ * value when a named card is in play attached to the **same site**. Folded into
+ * the `cardsInPlay` marshalling-point tally in `recompute-derived.ts` on top of
+ * the card's printed `marshallingPoints`.
+ *
+ * Used by Roots of the Earth (ba-74): "If Breach the Hold is on the same site,
+ * this card gives 3 marshalling points" (printed 1 + bonus 2).
+ */
+export interface ConditionalMpEffect extends EffectBase {
+  readonly type: 'conditional-mp';
+  /** Points added to the carrying card's marshalling value when the condition holds. */
+  readonly bonus: number;
+  /**
+   * The bonus applies while a card with this exact name is in play (either
+   * player's `cardsInPlay`) attached to the same site as the carrying card.
+   */
+  readonly requiresCardOnSameSite: string;
+}
+
+/**
  * Declares that, while the carrying card is in play, any hazard creature whose
  * card definition matches `creatureFilter` may be keyed to any site matching
  * `siteFilter` (its effective site type is one of `siteTypes` and it carries
@@ -3912,6 +4054,24 @@ export interface TapSitesInPlayEffect extends EffectBase {
 export interface CancelChainReturnToOriginEffect extends EffectBase {
   readonly type: 'cancel-chain-return-to-origin';
   readonly cost: { readonly tap: 'self' };
+}
+
+/**
+ * Marker on a Balrog resource short-event (Great Fissure ba-61): while a chain
+ * is active during a company-vs-company attack made *by* The Balrog's company
+ * against an opponent, the card may be played from hand to target and negate an
+ * unresolved chain entry declared by the opponent that would cancel that attack
+ * (a `cancel-attack` effect). It is the counter-cancel counterpart to
+ * {@link CancelChainReturnToOriginEffect} (Goldberry): a chain-declaring
+ * response, not a combat pre-assignment cancel, but sourced from a discarded
+ * hand card rather than a tapped in-play ally.
+ *
+ * Great Fissure's other mode ("cancel an attack against a company at, or moving
+ * to or from, an Under-deeps site") is a plain {@link CancelAttackEffect} gated
+ * on `attack.atUnderDeeps`.
+ */
+export interface CancelChainAttackCancelEffect extends EffectBase {
+  readonly type: 'cancel-chain-attack-cancel';
 }
 
 /**
@@ -4164,12 +4324,15 @@ export type CardEffect =
   | ForceReturnToOriginEffect
   | TapSitesInPlayEffect
   | CancelChainReturnToOriginEffect
+  | CancelChainAttackCancelEffect
   | CancelCardEffectsEffect
   | TapDiscardAttachedHazardEffect
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
   | PermanentEventAutoAttackEffect
+  | SiteInstanceTransformEffect
+  | ConditionalMpEffect
   | GrantCreatureKeyingEffect
   | PassiveMovementBonusEffect
   | UnderDeepsRollModifierEffect
@@ -4203,6 +4366,7 @@ export type CardEffect =
   | SummonsFromLongSleepEffect
   | SetAsideEffect
   | PlayCreatureFromDiscardEffect
+  | GrantReplayAttackedCreatureEffect
   | LeaderControlEffect
   | StagePointsEffect
   | ControlRestrictionEffect
@@ -4216,6 +4380,7 @@ export type CardEffect =
   | AllyBodyCheckBoostEffect
   | CreatureAltEventEffect
   | CompanyReturnToOriginEffect
+  | CompanySitePhaseDoNothingEffect
   | TapCharacterEffect
   | MpInPileEffect
   | DisplaceStoredItemEffect
@@ -4224,6 +4389,8 @@ export type CardEffect =
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
   | SurfaceRegionAdjacencyEffect
+  | CompanyMovementRestrictionEffect
+  | VoluntaryDiscardEffect
   | FactionInfluenceRestrictionEffect;
 
 /**
@@ -4284,6 +4451,30 @@ export interface CompanyReturnToOriginEffect extends EffectBase {
   readonly type: 'company-return-to-origin';
   /** When this condition matches the target company, the return is skipped. */
   readonly unless?: Condition;
+}
+
+/**
+ * Forbids the active movement/hazard company from doing anything during its
+ * upcoming site phase this turn — a `site-phase-do-nothing` constraint is added
+ * to the target company (the same mechanism `company-return-to-origin` uses),
+ * but the company keeps its destination site and its movement is unaffected
+ * (only the site phase is blocked). Carried by a hazard short-event and applied
+ * on chain resolution.
+ *
+ * Playability is expressed with a companion `play-target: "company"` filter (the
+ * short-event company-target path in `legal-actions/movement-hazard.ts` exposes
+ * `target.siteType`, `target.siteKeywords`, `target.characterCount`,
+ * `target.spawnInPlayCount`, and the precomputed `target.moreSpawnThanCompany`
+ * boolean so the filter can gate on the site type and the Spawn-count
+ * comparison).
+ *
+ * Used by **Darkness Made by Malice (ba-15)**: "Playable on a company at or
+ * moving to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn
+ * cards in play than characters in the company. Eliminated Spawn do not count.
+ * The company must do nothing during its site phase this turn."
+ */
+export interface CompanySitePhaseDoNothingEffect extends EffectBase {
+  readonly type: 'company-site-phase-do-nothing';
 }
 
 /**
@@ -5084,6 +5275,40 @@ export interface PlayCreatureFromDiscardEffect extends EffectBase {
    * Exhalation of Decay). Added directly to the creature's combat prowess.
    */
   readonly prowessModifier: number;
+}
+
+/**
+ * Effect carried by an in-play hazard permanent-event (Monstrosity of Diverse
+ * Shape, ba-21) that grants its controller a once-per-turn "replay" of a
+ * creature from their own discard pile against a moving company.
+ *
+ * During the play-hazards window of a company's movement/hazard phase, the
+ * hazard player may bring one hazard-creature matching `filter` out of their
+ * discard pile as an immediate attack, provided that same creature has already
+ * attacked that company earlier this movement/hazard phase (its name appears in
+ * `MovementHazardPhaseState.hazardsEncountered`). Unlike
+ * {@link PlayCreatureFromDiscardEffect}, this play:
+ *  - is granted by an in-play permanent-event (not a card in hand),
+ *  - counts one against the hazard limit, and
+ *  - may be used only once per company's movement/hazard phase
+ *    (tracked via `MovementHazardPhaseState.spawnReplayUsedSources`).
+ *
+ * The creature's race is matched by the card's authoritative `race` string
+ * (e.g. "wolves", "animals"); the source permanent-event's own name in the
+ * printed text ("This card must have already attacked the company this turn")
+ * is realised as the "already attacked this turn" gate — the Balrog set's
+ * intent, confirmed by the French text ("Cette créature doit déjà avoir
+ * attaquée cette compagnie ce tour-ci").
+ */
+export interface GrantReplayAttackedCreatureEffect extends EffectBase {
+  readonly type: 'grant-replay-attacked-creature';
+  /**
+   * Condition matched against each candidate creature's card definition to
+   * decide which discard-pile creatures may be replayed (e.g.
+   * `{ "race": { "$in": ["wolves", "animals"] } }`). Reuses the shared
+   * condition-matcher rather than a card-specific keyword.
+   */
+  readonly filter: Condition;
 }
 
 /**

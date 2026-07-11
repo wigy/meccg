@@ -25,9 +25,10 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
+import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import { grantedActionActivations } from './organization.js';
@@ -284,16 +285,25 @@ function revealNewSiteActions(
   const isUnderDeepsMovement = originIsUD || destIsUD;
 
   // MEBA: a company containing The Balrog avatar may not use starter or region
-  // movement ("as stated on his card") — only Under-deeps movement. Movement-
-  // expanding resources (Going Ever Under Dark ba-37, Gangways over the Fire
-  // ba-60), when certified, must explicitly grant an exception here.
+  // movement ("as stated on his card") — only Under-deeps movement. (Going Ever
+  // Under Dark ba-37 is a restriction, not a movement grant — it never lifts
+  // this lock; it only *removes* starter movement and caps region distance for
+  // whatever company it is bound to.)
   const balrogMovementLocked = companyContainsBalrogAvatar(state, player, company);
   if (balrogMovementLocked) {
     logDetail(`Company ${company.id as string} contains The Balrog — starter/region movement suppressed (Under-deeps only)`);
   }
 
+  // A company-bound movement restriction (Going Ever Under Dark ba-37) forbids
+  // starter movement for the bound company ("The company cannot use starter
+  // movement"). The region cap is enforced separately via mhState.maxRegionDistance.
+  const noStarterRestriction = companyMovementRestrictions(player, company, state)?.noStarterMovement === true;
+  if (noStarterRestriction) {
+    logDetail(`Company ${company.id as string}: a movement-restriction card forbids starter movement`);
+  }
+
   // --- Starter movement ---
-  if (!isUnderDeepsMovement && !balrogMovementLocked && isStarterMovementPossible(movementMap, originDef, destDef)) {
+  if (!isUnderDeepsMovement && !balrogMovementLocked && !noStarterRestriction && isStarterMovementPossible(movementMap, originDef, destDef)) {
     logDetail(`Starter movement available: ${originDef.name} → ${destDef.name}`);
     actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.Starter });
   }
@@ -1549,6 +1559,133 @@ function playCreatureFromDiscardActions(
 }
 
 /**
+ * Generate spawn-replay-creature actions for in-play permanent-events carrying
+ * a `grant-replay-attacked-creature` effect (Monstrosity of Diverse Shape,
+ * ba-21).
+ *
+ * For each such permanent-event in the hazard player's `cardsInPlay`, enumerate
+ * their discard pile for hazard-creatures matching the effect's `filter` (e.g.
+ * Wolf / Animal) whose card name already appears in the current company's
+ * `hazardsEncountered` list ("This card must have already attacked the company
+ * this turn"). A creature is offered only if it can still be keyed against the
+ * target company and the chain is null (creatures initiate a new chain). Unlike
+ * Exhalation of Decay, this replay DOES count against the hazard limit and is
+ * offered only once per company's M/H phase per source (tracked in
+ * `spawnReplayUsedSources`). One action is emitted per (creature, keying-match).
+ */
+function spawnReplayCreatureFromDiscardActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+  targetCompanyId: CompanyId,
+  limitReached: boolean,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+
+  // The replay counts against the hazard limit — do not offer when reached.
+  if (limitReached) return actions;
+
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[activeIdx];
+  const targetCompany = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!targetCompany) return actions;
+
+  const usedSources = mhState.spawnReplayUsedSources ?? [];
+  const encountered = mhState.hazardsEncountered;
+
+  for (const sourceCard of player.cardsInPlay) {
+    const sourceDef = defById(state, sourceCard.definitionId);
+    if (!sourceDef) continue;
+    const effect = getCardEffects(sourceDef).find(
+      (e): e is import('../../types/effects.js').GrantReplayAttackedCreatureEffect =>
+        e.type === 'grant-replay-attacked-creature',
+    );
+    if (!effect) continue;
+
+    const sourceName = (sourceDef as { name?: string })?.name ?? (sourceCard.definitionId as string);
+
+    // Once per company's M/H phase per source.
+    if (usedSources.includes(sourceCard.instanceId)) {
+      logDetail(`${sourceName}: replay-attacked-creature already used this M/H phase`);
+      continue;
+    }
+
+    // Creatures must initiate a new chain — not playable in response.
+    if (state.chain != null) {
+      logDetail(`${sourceName}: replay-attacked-creature not available — chain in progress`);
+      continue;
+    }
+
+    // Cancel-attacks site rule (e.g. Dol Guldur, Moria): when the target
+    // company's effective site forbids creatures, this play is unavailable.
+    const cancelSiteName = cancelAttacksSiteName(state, targetCompany);
+    if (cancelSiteName) {
+      logDetail(`${sourceName}: replay-attacked-creature blocked by site-rule on ${cancelSiteName}`);
+      continue;
+    }
+
+    for (const discardCard of player.discardPile) {
+      const creatureDef = defById(state, discardCard.definitionId);
+      if (!creatureDef || creatureDef.cardType !== 'hazard-creature') continue;
+      if (!matchesCondition(effect.filter, creatureDef as unknown as Record<string, unknown>)) continue;
+
+      const creatureName = (creatureDef as { name?: string })?.name ?? (discardCard.definitionId as string);
+
+      // "This card must have already attacked the company this turn" — the
+      // creature's name must appear in the company's hazardsEncountered list.
+      if (!encountered.includes(creatureName)) {
+        logDetail(`${sourceName}: discard creature "${creatureName}" has not attacked this company this turn`);
+        continue;
+      }
+
+      const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
+      const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
+        || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
+        || siteAllowsCreatureByKeying(state, targetCompany, creatureDef);
+
+      if (matches.length === 0 && !keyingBypassed) {
+        logDetail(`${sourceName}: replay creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
+        continue;
+      }
+
+      if (matches.length === 0 && keyingBypassed) {
+        actions.push({
+          action: {
+            type: 'spawn-replay-creature' as const,
+            player: playerId,
+            sourceInstanceId: sourceCard.instanceId,
+            creatureInstanceId: discardCard.instanceId,
+            targetCompanyId,
+            keyedBy: { method: 'keying-bypass', value: creatureDef.race },
+          },
+          viable: true,
+        });
+        continue;
+      }
+
+      for (const match of matches) {
+        logDetail(`${sourceName}: replay creature "${creatureName}" keyable by ${match.method}: ${match.value}`);
+        actions.push({
+          action: {
+            type: 'spawn-replay-creature' as const,
+            player: playerId,
+            sourceInstanceId: sourceCard.instanceId,
+            creatureInstanceId: discardCard.instanceId,
+            targetCompanyId,
+            keyedBy: match,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Generate actions for the play-hazards step (CoE step 7).
  *
  * The hazard player may play hazard long-events from hand (up to the
@@ -2188,16 +2325,23 @@ function playHazardsActions(
             const ch = resourcePlayer.characters[cId];
             return sum + (ch ? ch.allies.length : 0);
           }, 0);
+          // Spawn-count context (Darkness Made by Malice ba-15): characters only
+          // (allies excluded) vs. every Spawn card in play.
+          const characterCount = targetCompany.characters.length;
+          const spawnInPlayCount = countSpawnCardsInPlay(state);
           const companyCtx = {
             target: {
               siteType: compSiteType,
               siteKeywords: compSiteKeywords,
               alignment: resourcePlayer.alignment,
               memberCount: targetCompany.characters.length + allyCount,
+              characterCount,
+              spawnInPlayCount,
+              moreSpawnThanCompany: spawnInPlayCount > characterCount,
             },
           };
           if (shortPlayTarget.filter && !matchesContext(shortPlayTarget.filter, companyCtx)) {
-            logDetail(`Hazard short-event "${def.name}": company filter not met (siteType=${compSiteType ?? 'none'}, keywords=[${compSiteKeywords.join(',')}])`);
+            logDetail(`Hazard short-event "${def.name}": company filter not met (siteType=${compSiteType ?? 'none'}, keywords=[${compSiteKeywords.join(',')}], spawn=${spawnInPlayCount}, chars=${characterCount})`);
             actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company at this site` });
             continue;
           }
@@ -2502,7 +2646,7 @@ function playHazardsActions(
             continue;
           }
           const destSiteDef = resolveDef(state, targetCompany.destinationSite.instanceId);
-          if (!destSiteDef || !isSiteCard(destSiteDef) || getActiveAutoAttacks(state, destSiteDef).length === 0) {
+          if (!destSiteDef || !isSiteCard(destSiteDef) || getActiveAutoAttacks(state, destSiteDef, targetCompany.destinationSite.instanceId).length === 0) {
             logDetail(`Hazard short-event "${def.name}" requires a destination site with automatic-attacks`);
             actions.push({ action, viable: false, reason: 'Destination site has no automatic attacks' });
             continue;
@@ -2802,7 +2946,7 @@ function playHazardsActions(
             const hasItemTrap = getCardEffects(def).some(e => e.type === 'site-item-trap');
             if (hasItemTrap) {
               const orcTrollAutoAttack = siteDef && isSiteCard(siteDef)
-                && getActiveAutoAttacks(state, siteDef).some(aa => {
+                && getActiveAutoAttacks(state, siteDef, destSiteInstanceId).some(aa => {
                   const race = normalizeCreatureRace(aa.creatureType);
                   return race === 'orc' || race === 'troll';
                 });
@@ -2952,6 +3096,11 @@ function playHazardsActions(
 
     // --- Exhalation of Decay (dm-55): play a creature from the discard pile (no hazard limit) ---
     actions.push(...playCreatureFromDiscardActions(state, playerId, mhState, targetCompanyId));
+
+    // --- Monstrosity of Diverse Shape (ba-21): replay a Wolf/Animal creature
+    //     that already attacked this company this turn from the discard pile
+    //     (counts against the hazard limit, once per company M/H phase) ---
+    actions.push(...spawnReplayCreatureFromDiscardActions(state, playerId, mhState, targetCompanyId, limitReached));
 
     // --- Rule 5.24: Sideboarding with a Nazgûl ---
     actions.push(...sideboardWithNazgulActions(state, playerId, player, limitReached));
@@ -3528,7 +3677,7 @@ function inPlayGrantsCreatureKeying(
   if (!siteDefId) return false;
   const siteDef = defById(state, siteDefId);
   if (!siteDef || !isSiteCard(siteDef)) return false;
-  const effSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType);
+  const effSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, effectiveSiteInstanceId);
   const siteKeywords = new Set<string>(siteDef.keywords ?? []);
 
   const creatureCtx = creatureDef as unknown as Record<string, unknown>;
