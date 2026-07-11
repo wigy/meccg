@@ -4273,6 +4273,7 @@ export type CardEffect =
   | SummonsFromLongSleepEffect
   | SetAsideEffect
   | PlayCreatureFromDiscardEffect
+  | GrantReplayAttackedCreatureEffect
   | LeaderControlEffect
   | StagePointsEffect
   | ControlRestrictionEffect
@@ -5181,6 +5182,40 @@ export interface PlayCreatureFromDiscardEffect extends EffectBase {
    * Exhalation of Decay). Added directly to the creature's combat prowess.
    */
   readonly prowessModifier: number;
+}
+
+/**
+ * Effect carried by an in-play hazard permanent-event (Monstrosity of Diverse
+ * Shape, ba-21) that grants its controller a once-per-turn "replay" of a
+ * creature from their own discard pile against a moving company.
+ *
+ * During the play-hazards window of a company's movement/hazard phase, the
+ * hazard player may bring one hazard-creature matching `filter` out of their
+ * discard pile as an immediate attack, provided that same creature has already
+ * attacked that company earlier this movement/hazard phase (its name appears in
+ * `MovementHazardPhaseState.hazardsEncountered`). Unlike
+ * {@link PlayCreatureFromDiscardEffect}, this play:
+ *  - is granted by an in-play permanent-event (not a card in hand),
+ *  - counts one against the hazard limit, and
+ *  - may be used only once per company's movement/hazard phase
+ *    (tracked via `MovementHazardPhaseState.spawnReplayUsedSources`).
+ *
+ * The creature's race is matched by the card's authoritative `race` string
+ * (e.g. "wolves", "animals"); the source permanent-event's own name in the
+ * printed text ("This card must have already attacked the company this turn")
+ * is realised as the "already attacked this turn" gate — the Balrog set's
+ * intent, confirmed by the French text ("Cette créature doit déjà avoir
+ * attaquée cette compagnie ce tour-ci").
+ */
+export interface GrantReplayAttackedCreatureEffect extends EffectBase {
+  readonly type: 'grant-replay-attacked-creature';
+  /**
+   * Condition matched against each candidate creature's card definition to
+   * decide which discard-pile creatures may be replayed (e.g.
+   * `{ "race": { "$in": ["wolves", "animals"] } }`). Reuses the shared
+   * condition-matcher rather than a card-specific keyword.
+   */
+  readonly filter: Condition;
 }
 
 /**

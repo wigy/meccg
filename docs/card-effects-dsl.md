@@ -6298,6 +6298,60 @@ otherwise back to the hazard player's discard pile).
 
 Used by: *Exhalation of Decay* (dm-55).
 
+### 42a. `grant-replay-attacked-creature`
+
+Carried by an **in-play hazard permanent-event** and grants its controller a
+**once-per-turn "replay"** of a creature from their own discard pile against a
+moving company. Models the second ability of Monstrosity of Diverse Shape
+(ba-21): "once per turn the hazard player may use one against the hazard limit
+to play a Wolf or Animal hazard creature from his discard pile. This card must
+have already attacked the company this turn."
+
+Unlike [`play-creature-from-discard`](#42-play-creature-from-discard) (a hand
+short-event, hazard-limit-exempt), this replay:
+
+- is granted by a card already **in play** (`cardsInPlay`), not from hand,
+- **counts one against the hazard limit**, and
+- may be used only **once per company's M/H phase** per source permanent-event.
+
+The gate "This card must have already attacked the company this turn" is read
+as *the creature being replayed* must have already attacked the target company
+this M/H phase — its name appears in
+`MovementHazardPhaseState.hazardsEncountered` (confirmed by the French text,
+"Cette créature doit déjà avoir attaquée cette compagnie ce tour-ci"). This is
+also what makes the ability temporally reachable: site automatic-attacks resolve
+in the site phase, after the M/H hazard window, so the gate cannot refer to the
+permanent-event's own auto-attack.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `filter` | yes | A {@link Condition} matched against each candidate creature's card definition (e.g. `{ "race": { "$in": ["wolves", "animals"] } }`). Reuses the shared condition-matcher rather than a card-specific keyword. |
+
+```json
+{ "type": "grant-replay-attacked-creature",
+  "filter": { "race": { "$in": ["wolves", "animals"] } } }
+```
+
+Legal actions: during the hazard player's M/H play-hazards window,
+`spawnReplayCreatureFromDiscardActions`
+(`engine/legal-actions/movement-hazard.ts`) walks the hazard player's
+`cardsInPlay` for permanent-events carrying this effect, and for each one (not
+already used this company M/H phase, tracked in `spawnReplayUsedSources`) walks
+their discard pile for `hazard-creature` cards matching `filter` whose name is
+in `hazardsEncountered`, runs the standard creature keying check against the
+active company, and emits one `spawn-replay-creature` action per (creature,
+keying-match) pair. The chain must be null and the hazard limit not reached
+(this play counts against it).
+
+Reducer (`handleSpawnReplayCreature` in `engine/mh-hazard-play.ts`): validates
+the source, the once-per-turn/limit/gate conditions, removes the chosen creature
+from the discard pile, records the source in `spawnReplayUsedSources`,
+increments `hazardsPlayedThisCompany`, and initiates the creature chain. After
+the attack resolves, the creature is disposed by the normal `finalizeCombat`
+rules.
+
+Used by: *Monstrosity of Diverse Shape* (ba-21).
+
 ### 43. `region-keying-boost`
 
 A turn-scoped environment effect that softens creature **keying** by letting one
