@@ -176,7 +176,15 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.name": "The Balrog" } },
+      { "type": "play-condition", "requires": "site-not-under-deeps" },
+      { "type": "stat-modifier", "stat": "prowess", "value": -2 },
+      { "type": "stat-modifier", "stat": "prowess", "value": -2, "when": { "inPlay": "Gates of Morning" } },
+      { "type": "stat-modifier", "stat": "body", "value": -1 },
+      { "type": "stat-modifier", "stat": "body", "value": -1, "when": { "inPlay": "Gates of Morning" } },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 }
+    ],
     "text": "Environment. Playable on The Balrog at or moving to a non-Under-deeps site. -2/-1 to his prowess/body until the end of the turn. This modification is -4/-2 if Gates of Morning is in play. Cannot be duplicated on a given turn."
   },
   {

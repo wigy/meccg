@@ -761,6 +761,67 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
 }
 
 /**
+ * Apply the `stat-modifier` effects of a character-targeting hazard short-event
+ * as turn-scoped `character-stat-modifier` active constraints on the targeted
+ * character (`entry.payload.targetCharacterId`).
+ *
+ * The card is played on a specific character (its `play-target: character`
+ * filter having already gated the target at play time) and grants an
+ * until-end-of-turn stat penalty/bonus that survives the card's discard. Each
+ * `stat-modifier` effect whose optional `when` gate holds — evaluated against
+ * the in-play card names, so a clause like `{ inPlay: "Gates of Morning" }`
+ * strengthens the modifier — contributes one constraint. The synthesised
+ * constraint carries no `when`, so its value is locked at resolution time and
+ * flows through the normal effective-stats pipeline (see
+ * {@link collectCharacterStatModifierEffects}).
+ *
+ * Used by Glance of Arien (ba-19): -2/-1 to The Balrog's prowess/body until the
+ * end of the turn, -4/-2 while Gates of Morning is in play.
+ */
+function applyShortEventCharacterStatModifiers(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const targetCharId = entry.payload.type === 'short-event' ? entry.payload.targetCharacterId : undefined;
+  if (!targetCharId) return state;
+  const def = defById(state, card.definitionId);
+  if (!def) return state;
+  const effects = getCardEffects(def);
+  // Only character-targeting short events drive this path.
+  if (!effects.some(e => e.type === 'play-target' && (e as PlayTargetEffect).target === 'character')) {
+    return state;
+  }
+  const statMods = effects.filter(
+    (e): e is import('../types/effects.js').StatModifierEffect =>
+      e.type === 'stat-modifier'
+      && (e.stat === 'prowess' || e.stat === 'body' || e.stat === 'direct-influence'),
+  );
+  if (statMods.length === 0) return state;
+
+  const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  const ctx = { inPlay: buildInPlayNames(state) };
+  let newState = state;
+  for (const eff of statMods) {
+    if (eff.when && !matchesCondition(eff.when, ctx)) {
+      logDetail(`"${cardName}": stat-modifier ${eff.stat} skipped — when-condition not met`);
+      continue;
+    }
+    if (typeof eff.value !== 'number') {
+      logDetail(`"${cardName}": stat-modifier ${eff.stat} has non-numeric value — skipped`);
+      continue;
+    }
+    logDetail(`"${cardName}" resolves — adding character-stat-modifier ${eff.stat} ${formatSignedNumber(eff.value)} on ${targetCharId as string} (scope turn)`);
+    newState = addConstraint(newState, {
+      source: card.instanceId,
+      sourceDefinitionId: card.definitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'character', characterId: targetCharId },
+      kind: { type: 'character-stat-modifier', stat: eff.stat as 'prowess' | 'body' | 'direct-influence', value: eff.value, characterId: targetCharId },
+    });
+  }
+  return newState;
+}
+
+/**
  * Build the evaluation context for a `company-arrives-at-site` `when`
  * clause. Exposes the active company's destination site type, destination
  * region type, and whether Doors of Night is in play — enough for a
@@ -2206,6 +2267,14 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // already moved to discard at play time.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyShortEventSelfEntersPlayConstraints(current, entry);
+  }
+
+  // Character-targeting short events carrying `stat-modifier` effects (e.g.
+  // Glance of Arien ba-19) apply them as turn-scoped character-stat-modifier
+  // constraints on the target character. The card was already discarded at
+  // play time; the constraint persists until end of turn.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyShortEventCharacterStatModifiers(current, entry);
   }
 
   // Short events with fetch-to-deck effects (e.g. An Unexpected Outpost):

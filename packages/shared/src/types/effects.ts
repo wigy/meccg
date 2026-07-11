@@ -3109,7 +3109,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'site-not-under-deeps';
   /**
    * `requires: 'site-protected'` takes no extra fields. On a faction it gates
    * the influence attempt on the company's current site being **protected by
@@ -3118,6 +3118,13 @@ export interface PlayConditionEffect extends EffectBase {
    * id and owned by the player attempting the play. Used by Half-orcs (wh-87)
    * and Greater Half-orcs (wh-86): "Playable at one of your protected
    * Wizardhavens [{H}]".
+   */
+  /**
+   * `requires: 'site-not-under-deeps'` takes no extra fields. On a
+   * character-targeting hazard short-event it gates play on the target
+   * company's effective site (its destination if moving, else its current
+   * site) NOT carrying the `under-deeps` keyword — "at or moving to a
+   * non-Under-deeps site". Used by Glance of Arien (ba-19).
    */
   /**
    * For `requires: 'region-through-or-leave'`: the named regions one of which

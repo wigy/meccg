@@ -1974,6 +1974,20 @@ function playHazardsActions(
               actions.push({ action, viable: false, reason: `${def.name} requires region movement through or leaving a named region` });
               continue;
             }
+          } else if (playCondition && playCondition.requires === 'site-not-under-deeps') {
+            // Glance of Arien (ba-19): "at or moving to a non-Under-deeps site".
+            // The relevant site is the company's destination if it is moving,
+            // otherwise its current site. Reject when that site carries the
+            // `under-deeps` keyword.
+            const effSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+            const effSiteDef = effSiteInst ? defById(state, effSiteInst.definitionId) : undefined;
+            const isUnderDeeps = !!effSiteDef && isSiteCard(effSiteDef)
+              && (effSiteDef.keywords?.includes('under-deeps') ?? false);
+            if (isUnderDeeps) {
+              logDetail(`Hazard short-event "${def.name}": target site is an Under-deeps site — not playable`);
+              actions.push({ action, viable: false, reason: `${def.name} may not be played at an Under-deeps site` });
+              continue;
+            }
           }
 
           // Creature-race-choice: generate one action per eligible race.
