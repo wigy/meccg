@@ -240,6 +240,23 @@ This fires only for corruption checks whose `source` card (the one that
 enqueued the resolution) carries the `"spell"` keyword — e.g. the
 check a Wizard makes after playing *Wizard's Laughter*.
 
+A **player-scoped, non-consumed** influence `check-modifier` may be added as an
+active constraint via an `on-event: self-enters-play` → `add-constraint` apply
+carrying `"target": "player"` (in addition to `constraint: "check-modifier"`,
+`check: "influence"`, `value`, and `scope`). Unlike the one-shot
+character-targeted influence constraint (Muster), a player-targeted one applies
+to **every** influence attempt by any character of that player for the
+constraint's scope and is never consumed — read by both the faction
+influence-attempt display (`legal-actions/site.ts`) and the roll resolver
+(`reducer-site.ts`). Used by Terror Heralds Doom (ba-78): "+2 to all influence
+attempts this turn by any of your characters."
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "check-modifier",
+             "check": "influence", "value": 2, "scope": "turn", "target": "player" } }
+```
+
 ### 2a. `body-check-modifier`
 
 Modifies the 2d6 **body-check** roll made against the bearer during combat
@@ -3579,7 +3596,12 @@ check) and `reducer-events.ts` (discard execution).
   is evaluated against the controller's OWN in-play names (so an opponent's
   copy of the named card does not satisfy "if **you** have … in play") —
   used by Half-orcs (wh-87) / Greater Half-orcs (wh-86) ("if you have A
-  Strident Spawn in play").
+  Strident Spawn in play"). On a **resource short-event** the gate is likewise
+  evaluated against the playing player's own in-play cards, *including
+  character-attached permanent events* (`isCardNameInPlayForPlayer`,
+  `legal-actions/organization.ts`) — used by Terror Heralds Doom (ba-78),
+  "Playable during the organization phase if Flame of Udûn is in play" (Flame of
+  Udûn is a permanent-event held in The Balrog's items).
 
 ```json
 { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }
@@ -3954,6 +3976,17 @@ for reference:
 | `reshuffle-self-from-hand` | `{ select: 'self', from: 'hand', to: 'deck', shuffleAfter: true }` | Sudden Call |
 | `fetch-to-deck` | `{ select: 'target', from: ['sideboard','discard'], to: 'deck', shuffleAfter: true, filter, count }` | Smoke Rings, Longbottom Leaf |
 | `bounce-hazard-events` | `{ select: 'filter-all', from: 'attached-to-target-company', to: 'hand', toOwner: 'opponent', filter, corruptionCheck }` | Wizard Uncloaked |
+| `sideboard-self-to-deck` | `{ select: 'self', from: ['sideboard'], to: 'deck', shuffleAfter: true }` | Terror Heralds Doom (ba-78) |
+
+A `select: 'self'` move with `from: ['sideboard']`, `to: 'deck'` models the
+Balrog sideboard family's "You may bring this card from your sideboard into
+your play deck and reshuffle during your organization phase." `locateSelf`
+(reducer-move.ts) scans the sideboard for the source card. The organization
+phase offers it as a dedicated `card-sideboard-to-deck` action —
+`cardSideboardToDeckActions` (legal-actions/organization-sideboard.ts) emits one
+per sideboard card carrying such a move; `handleCardSideboardToDeck`
+(reducer-organization.ts) applies it. This is card-granted and taps nothing —
+distinct from the CoE 2.II.6 avatar-tap sideboard access.
 
 **Shape**
 
@@ -6762,9 +6795,11 @@ while the source card is present on any character in the moving company,
 | Field | Required | Description |
 |-------|----------|-------------|
 | `value` | yes | Bonus added to the roll. |
+| `scope` | no | `"minion-companies"` makes the effect a game-wide environment that applies to every Ringwraith-minion company (collected from either player's `cardsInPlay`). Omitted = carried by an item/ally/character and applies only to that company. |
 
 ```json
 { "type": "under-deeps-roll-modifier", "value": 2 }
+{ "type": "under-deeps-roll-modifier", "value": 3, "scope": "minion-companies" }
 ```
 
 Behaviour (`mh-steps.ts`, at the `getUnderDeepsRequiredRoll` call site): modeled
@@ -6779,6 +6814,37 @@ into `char.allies`). Used by Iron Shield of Old (as-127): "+2 to all rolls
 required for bearer's company to move to adjacent Under-deeps sites" (an item),
 and by Cave Troll (ba-35): "+1 to rolls required for its controller's company to
 move to adjacent Under-deeps sites" (an ally).
+
+With `scope: "minion-companies"` the modifier is instead a global environment:
+collected from either player's `cardsInPlay` and applied only when the moving
+player's alignment is Ringwraith. Multiple in-play copies stack. Used by The
+Under-roads (as-106): "The roll required for minions to move between adjacent
+Under-deeps sites is decreased by 3" (`value: 3`).
+
+### 52a-1. `prohibit-card-play`
+
+While the carrying card is in play, the named cards may not be played, and any
+copy already in play is discarded the moment this card enters play. The generic
+"discards and prohibits the subsequent play of X" primitive — a hard play-lock
+keyed by card name, distinct from `cancel-card-effects` (which only suppresses
+an in-play card's *constraints* while leaving it in play and re-playable).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `cardNames` | yes | Names of the cards discarded on entry and barred from play. |
+
+```json
+{ "type": "prohibit-card-play", "cardNames": ["The Way is Shut"] }
+```
+
+Behaviour: on enter-play the resolving long-event discards every matching card
+from either player's `cardsInPlay` to its owner's discard pile
+(`resolveLongEvent` → `applyProhibitCardPlayOnResolve`, `chain-reducer.ts`). The
+ongoing play-lock is enforced in the hazard legal-action layer
+(`playHazardsActions` → `isCardPlayProhibited`, `legal-actions/movement-hazard.ts`),
+which refuses to offer any prohibited card while the source remains in play.
+Used by The Under-roads (as-106): "Discards and prohibits the subsequent play of
+The Way is Shut."
 
 ### 52b. `extra-under-deeps-mh-phase`
 
@@ -7373,3 +7439,44 @@ the play-condition, which gates *entry* to play; this gates *staying* in play.
 
 Used by Prophet of Doom (wh-106): "Discard if you have fewer than 5 factions in
 play."
+
+### 63. `item-play-corruption-check` (Greed)
+
+A hazard **short-event** played on a company's site (`play-target: site`) that,
+until the end of the turn, forces the characters at that site to make a
+corruption check whenever an item is played there. On resolution the short-event
+installs a turn-scoped `item-play-corruption-check` {@link ActiveConstraint}
+bound to the target site (threaded via the chain payload's
+`targetSiteDefinitionId`) and targeting the resource (item-playing) player; the
+card itself goes to discard as a normal short event.
+
+During the site phase, when an item is played at the bound site, the item-play
+handler `fireItemPlayCorruptionChecks` (`reducer-site.ts`) enqueues one
+corruption check per character in the company **except** the character playing
+the item and any character matching `exemptFilter`. Each check is modified by
+subtracting the item's printed `corruptionPoints` (so a cp-2 item ⇒ `modifier
+-2`). Per CRF 22, the trigger fires only on item *play* (including a special
+ring item) — never on item *transfer*, since transfers do not route through the
+item-play handler.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `exemptFilter` | no | DSL condition on the `target.*` character context (race/skills/name). Matching characters make no check. Absent ⇒ every character (other than the item-player) checks. |
+
+```json
+{ "type": "item-play-corruption-check",
+  "exemptFilter": { "target.race": { "$in": ["hobbit", "wizard", "ringwraith"] } } }
+```
+
+The companion effects on the card are `play-target: site` (the site the event is
+played on) and `duplication-limit` scope `site` — "Cannot be duplicated on a
+given site" is enforced by the hazard short-event dup-limit check in
+`legal-actions/movement-hazard.ts`, which counts the resolved copy's active
+`item-play-corruption-check` constraint bound to the same site. The constraint
+kind is `item-play-corruption-check` in `types/pending.ts`, swept at turn-end via
+its `scope: "turn"`.
+
+Used by: *Greed* (le-113 / tw-42) — "each non-Hobbit, non-Wizard, non-Ringwraith
+character at the site must make a corruption check each time an item is played at
+the site … modified by subtracting the corruption points the item would normally
+give the character."

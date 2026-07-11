@@ -58,6 +58,23 @@ function countUnresolvedChainHazards(state: GameState): number {
 }
 
 /**
+ * True if a card named {@link name} is prohibited from being played by any
+ * card currently in play carrying a `prohibit-card-play` effect that lists it.
+ * Implements "prohibits the subsequent play of X" (The Under-roads, as-106).
+ */
+function isCardPlayProhibited(state: GameState, name: string): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      for (const eff of getCardEffects(def)) {
+        if (eff.type === 'prohibit-card-play' && eff.cardNames.includes(name)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Compute legal actions for the movement/hazard phase.
  *
  * The first step ('select-company') requires the resource player to choose
@@ -1671,6 +1688,15 @@ function playHazardsActions(
         targetCompanyId: targetCompany.id,
       };
 
+      // prohibit-card-play (The Under-roads, as-106 prohibits The Way is Shut):
+      // a card named by any in-play `prohibit-card-play` effect may not be
+      // played while that source remains in play.
+      if (isCardPlayProhibited(state, def.name)) {
+        logDetail(`Hazard "${def.name}" is prohibited from play by a card in play`);
+        actions.push({ action, viable: false, reason: `${def.name} may not be played (prohibited by a card in play)` });
+        continue;
+      }
+
       // Hazard limit reached (cards with no-hazard-limit bypass this)
       const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
       const raceExempt = isCreature && isCreatureRaceExemptFromLimit(state, targetCompany.id, def.race);
@@ -1862,6 +1888,33 @@ function playHazardsActions(
           let blocked = false;
           for (const effect of getCardEffects(def)) {
             if (effect.type !== 'duplication-limit') continue;
+            // Greed (le-113 / tw-42): "Cannot be duplicated on a given site."
+            // Count resolved copies by their turn-scoped item-play-corruption-check
+            // constraint bound to the same target site, plus same-site chain copies.
+            if (effect.scope === 'site') {
+              const siteInstId = targetCompany.destinationSite?.instanceId
+                ?? targetCompany.currentSite?.instanceId ?? null;
+              const siteDefId = siteInstId ? resolveInstanceId(state, siteInstId) : null;
+              if (!siteDefId) continue;
+              const constraintCopies = state.activeConstraints.filter(
+                c => c.kind.type === 'item-play-corruption-check'
+                  && c.sourceDefinitionId === def.id
+                  && c.kind.siteDefinitionId === siteDefId,
+              ).length;
+              const chainCopies = state.chain?.entries.filter(e => {
+                if (e.payload.type !== 'short-event') return false;
+                if (e.payload.targetSiteDefinitionId !== siteDefId) return false;
+                const cDef = e.card ? defById(state, e.card.definitionId) : undefined;
+                return cDef?.name === def.name;
+              }).length ?? 0;
+              if (constraintCopies + chainCopies >= effect.max) {
+                logDetail(`Hazard short-event "${def.name}" cannot be duplicated on this site (${constraintCopies} active, ${chainCopies} on chain)`);
+                actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on a given site` });
+                blocked = true;
+                break;
+              }
+              continue;
+            }
             if (effect.scope !== 'game' && effect.scope !== 'turn') continue;
             const copiesOnChain = state.chain?.entries.filter(e => {
               const cDef = e.card ? defById(state, e.card.definitionId) : undefined;

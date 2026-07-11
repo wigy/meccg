@@ -1591,6 +1591,49 @@ export function isCardNameInPlayOrCharacters(state: GameState, name: string): bo
 }
 
 /**
+ * The `move` effect by which a card relocates *itself* from the sideboard into
+ * the play deck — the Balrog sideboard family's "You may bring this card from
+ * your sideboard into your play deck and reshuffle during your organization
+ * phase" (Terror Heralds Doom ba-78 et al.). Returns undefined when the card
+ * declares no such effect. Shared by the organization-phase legal-action
+ * generator and its reducer.
+ */
+export function selfSideboardToDeckMove(
+  def: CardDefinition | undefined,
+): import('../types/effects.js').MoveEffect | undefined {
+  if (!def) return undefined;
+  return getCardEffects(def).find((e): e is import('../types/effects.js').MoveEffect => {
+    if (e.type !== 'move' || e.select !== 'self' || e.to !== 'deck') return false;
+    const from = Array.isArray(e.from) ? e.from : [e.from];
+    return from.includes('sideboard');
+  });
+}
+
+/**
+ * True if a named card is in play for the given player, checking every in-play
+ * zone the player controls: `cardsInPlay` (permanent/long events, factions,
+ * stage cards), the player's characters, and cards attached to those characters
+ * (items and hazards). Attachment-aware because some "in play" cards live only
+ * as character-attached permanent events — e.g. Flame of Udûn (ba-58), a Demon
+ * fána played on The Balrog and held in his `items`. Backs the resource
+ * short-event `card-in-play` play-condition (Terror Heralds Doom ba-78:
+ * "Playable ... if Flame of Udûn is in play").
+ */
+export function isCardNameInPlayForPlayer(
+  state: GameState,
+  player: PlayerState,
+  name: string,
+): boolean {
+  if (player.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name)) return true;
+  for (const ch of Object.values(player.characters)) {
+    if (defById(state, ch.definitionId)?.name === name) return true;
+    if (ch.items.some(i => defById(state, i.definitionId)?.name === name)) return true;
+    if (ch.hazards.some(h => defById(state, h.definitionId)?.name === name)) return true;
+  }
+  return false;
+}
+
+/**
  * Parse a comma-separated homesite string into individual site name tokens.
  * e.g. "Goblin-gate, Mount Gundabad" → ["Goblin-gate", "Mount Gundabad"].
  * An empty or whitespace-only string yields an empty array, so callers can pass

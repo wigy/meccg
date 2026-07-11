@@ -689,6 +689,13 @@ export type ChainEntryPayload =
       /** For Stay Her Appetite (le-140): the ally being targeted. */
       readonly targetAllyId?: CardInstanceId;
       /**
+       * For site-targeting short-events (e.g. Greed le-113): the site
+       * definition ID the event is bound to. On resolution the event
+       * installs its turn-scoped `item-play-corruption-check` constraint
+       * bound to this site so item plays there trigger the checks.
+       */
+      readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
+      /**
        * For hazard short-events with `play-option` effects (e.g. Weariness of
        * the Heart le-149), the id of the option the hazard player chose at
        * play time. The chain resolver dispatches that option's `apply`.

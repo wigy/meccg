@@ -1463,6 +1463,36 @@ function applyShortEventOnEntersPlay(
         continue;
       }
 
+      // Player-scoped check-modifier (e.g. Terror Heralds Doom ba-78: "+2 to all
+      // influence attempts this turn by any of your characters"). Unlike the
+      // one-shot character-targeted check-modifier (Muster), a `target: 'player'`
+      // modifier applies to *every* influence check the player's characters make
+      // for the constraint's scope and is never consumed. Read by the faction
+      // influence resolution (reducer-site.ts / legal-actions/site.ts).
+      if (constraintKind === 'check-modifier' && onEvent.apply.target === 'player') {
+        const check = onEvent.apply.check;
+        const value = onEvent.apply.value;
+        if (!check || typeof value !== 'number') {
+          logDetail(`add-constraint(check-modifier, player): missing check or value — fizzle`);
+          continue;
+        }
+        const scope = parseConstraintScope(scopeName, null);
+        if (!scope) {
+          logDetail(`add-constraint(check-modifier, player): unknown scope "${scopeName}" — fizzle`);
+          continue;
+        }
+        const playerId = state.players[playerIndex].id;
+        logDetail(`"${def.name}" played — adding player-scoped check-modifier ${check} ${value > 0 ? '+' : ''}${value} for ${playerId as string} (scope ${scopeName})`);
+        state = addConstraint(state, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope,
+          target: { kind: 'player', playerId },
+          kind: { type: 'check-modifier', check, value },
+        });
+        continue;
+      }
+
       // Company-targeting constraints: resolve the target company from targetCompanyId
       // (company-targeted events, e.g. Great-road) or from the scout/character instance
       // (tap-cost events, e.g. Stealth, or filter-character events, e.g. Hundreds of Butterflies).

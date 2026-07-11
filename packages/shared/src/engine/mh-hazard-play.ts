@@ -936,6 +936,9 @@ export function handlePlayHazardCard(
       ...(action.type === 'play-hazard' && action.optionId
         ? { optionId: action.optionId }
         : {}),
+      ...(action.type === 'play-hazard' && action.targetSiteDefinitionId
+        ? { targetSiteDefinitionId: action.targetSiteDefinitionId }
+        : {}),
     };
     newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload);
 

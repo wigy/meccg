@@ -353,6 +353,8 @@ export function describeAction(
       return 'Tap avatar: fetch up to 5 cards from sideboard to discard';
     case 'fetch-from-sideboard':
       return `Fetch ${instName(action.sideboardCardInstanceId)} from sideboard`;
+    case 'card-sideboard-to-deck':
+      return `Bring ${instName(action.cardInstanceId)} from sideboard to play deck`;
     case 'start-hazard-sideboard-to-deck':
       return 'Fetch 1 hazard from sideboard to play deck';
     case 'start-hazard-sideboard-to-discard':

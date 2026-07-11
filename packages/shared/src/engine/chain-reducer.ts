@@ -34,7 +34,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companySubphaseScope, countSpawnCardsInPlay, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -795,6 +795,46 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
     newState = applyAddConstraintFromOnEvent(newState, entry, onEvent, cardName);
   }
   return newState;
+}
+
+/**
+ * Greed (le-113 / tw-42): install the turn-scoped `item-play-corruption-check`
+ * constraint bound to the target site. The constraint targets the resource
+ * (active) player — the one who plays items at the site during the site phase —
+ * and is swept at turn-end. The site-phase item-play handler
+ * (`fireItemPlayCorruptionChecks`) consults it to fire the checks.
+ */
+function applyItemPlayCorruptionCheckConstraint(
+  state: GameState,
+  entry: ChainEntry,
+  siteDefinitionId: CardDefinitionId,
+): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  if (!def) return state;
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').ItemPlayCorruptionCheckEffect =>
+      e.type === 'item-play-corruption-check',
+  );
+  if (!effect) return state;
+  // The player whose characters make the checks is the active/resource player
+  // (the item-player during the upcoming site phase), i.e. the hazard's opponent.
+  const targetPlayerId = state.activePlayer ?? entry.declaredBy;
+  const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  const siteName = (defById(state, siteDefinitionId) as { name?: string } | undefined)?.name ?? (siteDefinitionId as string);
+  logDetail(`${cardName}: installing item-play-corruption-check at ${siteName} (until end of turn) for player ${targetPlayerId as string}`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'turn' },
+    target: { kind: 'player', playerId: targetPlayerId },
+    kind: {
+      type: 'item-play-corruption-check',
+      siteDefinitionId,
+      ...(effect.exemptFilter ? { exemptFilter: effect.exemptFilter } : {}),
+    },
+  });
 }
 
 /**
@@ -1768,9 +1808,45 @@ function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
     ? (logDetail(`Long event enters-play move failed (${moved.error}) — card not placed`), state)
     : moved.state;
 
+  // prohibit-card-play (The Under-roads, as-106): on entering play, discard
+  // every named card already in play (either player) to its owner's discard
+  // pile. The ongoing "may not be played" lock is enforced separately in the
+  // hazard legal-action layer.
+  const afterProhibit = applyProhibitCardPlayOnResolve(afterPlay, def);
+
   // Apply any tap-sites-in-play clause now that the environment is in play
   // (e.g. Foul Fumes / Long Winter "if Doors of Night is in play, ... tapped").
-  return applyTapSitesInPlayOnResolve(afterPlay, def);
+  return applyTapSitesInPlayOnResolve(afterProhibit, def);
+}
+
+/**
+ * Apply a resolving card's {@link ProhibitCardPlayEffect} clauses: discard
+ * every named card already in play (from either player's `cardsInPlay`) to its
+ * owner's discard pile. One-time effect applied at resolution; the ongoing
+ * play-lock is enforced in `playHazardsActions`.
+ */
+function applyProhibitCardPlayOnResolve(
+  state: GameState,
+  def: import('../index.js').CardDefinition | undefined,
+): GameState {
+  const prohibitEffects = getCardEffects(def).filter(
+    (e): e is import('../types/effects.js').ProhibitCardPlayEffect => e.type === 'prohibit-card-play',
+  );
+  if (prohibitEffects.length === 0) return state;
+  const prohibited = new Set<string>();
+  for (const eff of prohibitEffects) for (const name of eff.cardNames) prohibited.add(name);
+
+  return discardCardsInPlayWhere(
+    state,
+    card => {
+      const cDef = defById(state, card.definitionId);
+      return !!cDef?.name && prohibited.has(cDef.name);
+    },
+    card => {
+      const cDef = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`prohibit-card-play (${def?.name ?? '?'}): discarding "${cDef?.name ?? card.definitionId}" from play`);
+    },
+  ).state;
 }
 
 /**
@@ -2343,6 +2419,20 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // already moved to discard at play time.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyShortEventSelfEntersPlayConstraints(current, entry);
+  }
+
+  // Greed (le-113 / tw-42): a hazard short-event played on a site installs a
+  // turn-scoped `item-play-corruption-check` constraint bound to that site, so
+  // every item played at the site for the rest of the turn triggers corruption
+  // checks on the (non-exempt) characters there. The target site rode on the
+  // chain payload; the card goes to discard as a normal short event.
+  if (
+    entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && entry.payload.targetSiteDefinitionId
+  ) {
+    current = applyItemPlayCorruptionCheckConstraint(current, entry, entry.payload.targetSiteDefinitionId);
   }
 
   // Short events with fetch-to-deck effects (e.g. An Unexpected Outpost):
