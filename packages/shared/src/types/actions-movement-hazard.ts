@@ -376,9 +376,13 @@ export interface CancelAttackAction {
    * default when absent) cancels the attack outright; `"reduce-prowess"`
    * instead lowers the attack's prowess by the effect's `prowessPenalty`. Set
    * only for cards that declare a `prowessPenalty` (e.g. The Tormented Earth,
-   * as-102).
+   * as-102). `"free-later-cancel"` is the deferred free cancellation granted by
+   * a `free-attack-cancel` constraint (Darkness Wielded ba-55): no card is
+   * played from hand — `cardInstanceId` names the granting card (now in discard)
+   * only for logging; the constraint is consumed and the attack cancelled
+   * immediately.
    */
-  readonly mode?: 'cancel' | 'reduce-prowess';
+  readonly mode?: 'cancel' | 'reduce-prowess' | 'free-later-cancel';
 }
 
 /**

@@ -28,6 +28,8 @@ import type { CardEffect } from '../types/effects.js';
 import type { MoveContext } from './reducer-move.js';
 import { applyMove } from './reducer-move.js';
 import { resolveCancelAttackEntry, resolveChainStrikeModifier } from './combat-cancel.js';
+import { addConstraint } from './pending.js';
+import { resolveInstanceId } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 
 /**
@@ -81,7 +83,24 @@ export function applyEffect(
     // Combat cancel fired from chain resolution (e.g. Concealment,
     // Vanishment, Dark Quarrels, Many Turns and Doublings).
     logDetail(`applyEffect: cancel-attack dispatched for ${ctx.sourceCardId as string}`);
-    return { state: resolveCancelAttackEntry(state) };
+    // Capture the defending player before the cancel clears combat — needed to
+    // target the deferred free-cancel grant (Darkness Wielded ba-55).
+    const defendingPlayerId = state.combat?.defendingPlayerId;
+    let next = resolveCancelAttackEntry(state);
+    if (effect.alsoCancelLaterAttack && defendingPlayerId) {
+      const sourceDefinitionId = resolveInstanceId(next, ctx.sourceCardId);
+      if (sourceDefinitionId) {
+        next = addConstraint(next, {
+          source: ctx.sourceCardId,
+          sourceDefinitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'player', playerId: defendingPlayerId },
+          kind: { type: 'free-attack-cancel', restrictToBalrogCompany: true },
+        });
+        logDetail(`applyEffect: cancel-attack granted a deferred free cancellation this turn to ${defendingPlayerId as string} (Darkness Wielded)`);
+      }
+    }
+    return { state: next };
   }
   if (effect.type === 'strike-modifier') {
     const mode = effect.dodge ? 'dodge' : effect.reroll ? 'reroll' : 'modify';

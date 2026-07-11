@@ -21,14 +21,14 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter } from '../../types/cards.js';
 import { CardStatus, SiteType, Alignment } from '../../types/common.js';
-import { isBalrogAvatarDef, stayUntappedPenalty } from '../../state-utils.js';
+import { isBalrogAvatarDef, stayUntappedPenalty, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, buildInPlayNames } from '../recompute-derived.js';
 import { resolveDef } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect } from '../reducer-utils.js';
+import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
@@ -1784,7 +1784,14 @@ function cancelAttackActions(
     // The defending company's current site type (e.g. "ruins-and-lairs"). Lets a
     // card gate on "an automatic-attack at a Ruins & Lairs" (Wild Hounds wh-40).
     ctx['site'] = { type: siteType };
-    ctx['defender'] = { covert: isCovertCompany(company, player, state) };
+    // `defender.companyContainsBalrog` gates "an attack against The Balrog's
+    // company"; `defender.inPlay` is attachment-aware (covers a permanent event
+    // on The Balrog such as Great Shadow) — both back Darkness Wielded (ba-55).
+    ctx['defender'] = {
+      covert: isCovertCompany(company, player, state),
+      companyContainsBalrog: companyContainsBalrogAvatar(state, player, company),
+      inPlay: inPlayNamesForPlayerDeep(state, player),
+    };
     return ctx;
   };
 
@@ -2148,6 +2155,29 @@ function cancelAttackActions(
     }
   }
 
+  // Deferred free cancellation (Darkness Wielded ba-55): a `free-attack-cancel`
+  // constraint granted earlier this turn lets the defending player cancel one
+  // later attack against The Balrog's company at no cost. Offered once per
+  // available constraint while the defending company qualifies.
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'free-attack-cancel') continue;
+    if (constraint.target.kind !== 'player' || constraint.target.playerId !== playerId) continue;
+    if (constraint.kind.restrictToBalrogCompany && !companyContainsBalrogAvatar(state, player, company)) {
+      logDetail(`Free-later-cancel (${constraint.sourceDefinitionId as string}): defending company has no Balrog — not offered`);
+      continue;
+    }
+    logDetail(`Free-later-cancel available: ${constraint.sourceDefinitionId as string} grants a free cancellation of this attack`);
+    actions.push({
+      action: {
+        type: 'cancel-attack',
+        player: playerId,
+        cardInstanceId: constraint.source,
+        mode: 'free-later-cancel',
+      },
+      viable: true,
+    });
+  }
+
   return actions;
 }
 
@@ -2453,7 +2483,15 @@ function modifyAttackActions(
       const defendingPlayer = playerById(state, combat.defendingPlayerId);
       const defendingCompany = defendingPlayer ? companyById(defendingPlayer.companies, combat.companyId) : undefined;
       const defenderCovert = defendingPlayer && defendingCompany ? isCovertCompany(defendingCompany, defendingPlayer, state) : false;
-      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx, defender: { covert: defenderCovert } };
+      // `defender.companyContainsBalrog` gates "playable on an attack against
+      // The Balrog's company"; `defender.inPlay` is attachment-aware so a gate
+      // on a character-attached permanent event (e.g. Great Shadow on The
+      // Balrog) resolves — the plain global `inPlay` list misses it. Both back
+      // Darkness Wielded (ba-55).
+      const defenderContainsBalrog = defendingPlayer && defendingCompany
+        ? companyContainsBalrogAvatar(state, defendingPlayer, defendingCompany) : false;
+      const defenderInPlay = defendingPlayer ? inPlayNamesForPlayerDeep(state, defendingPlayer) : [];
+      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx, defender: { covert: defenderCovert, companyContainsBalrog: defenderContainsBalrog, inPlay: defenderInPlay } };
       if (!matchesCondition(effect.when, ctx)) {
         logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: when condition not met`);
         continue;

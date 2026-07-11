@@ -30,7 +30,7 @@ import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseSc
 import { applyCost } from './cost-evaluator.js';
 import { resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired } from './pending.js';
+import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveStrikeCore, nextStrikePhase } from './combat-strike.js';
 import { discardCardTriggeredCard, recordHazardEncountered } from './combat-finalize.js';
@@ -253,6 +253,21 @@ export function handleCancelAttackByInPlayItem(
 
 export function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
+
+  // Deferred free cancellation granted by a `free-attack-cancel` constraint
+  // (Darkness Wielded ba-55, mode "cancel this attack and a latter attack …").
+  // No card is played from hand: consume one matching constraint and cancel the
+  // attack immediately (in-play-ability style, no chain entry).
+  if (action.mode === 'free-later-cancel') {
+    const constraint = state.activeConstraints.find(
+      c => c.kind.type === 'free-attack-cancel'
+        && c.target.kind === 'player' && c.target.playerId === action.player,
+    );
+    if (!constraint) return { state, error: 'No free-attack-cancel grant available' };
+    logDetail(`Free-later-cancel: consuming ${constraint.sourceDefinitionId as string} grant to cancel this attack`);
+    const consumed = removeConstraint(state, constraint.id);
+    return { state: resolveCancelAttackEntry(consumed) };
+  }
 
   const defPlayerIndex = getPlayerIndex(state, action.player);
   const defPlayer = state.players[defPlayerIndex];

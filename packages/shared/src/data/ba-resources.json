@@ -603,11 +603,44 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "defender",
+        "prowessModifier": -2,
+        "bodyModifier": -1,
+        "setStrikesTo": 1,
+        "when": {
+          "$and": [
+            { "defender.companyContainsBalrog": true },
+            { "defender.inPlay": { "$includes": "Great Shadow" } }
+          ]
+        }
+      },
+      {
+        "type": "cancel-attack",
+        "alsoCancelLaterAttack": true,
+        "when": {
+          "$and": [
+            { "defender.companyContainsBalrog": true },
+            { "defender.inPlay": { "$includes": "Great Shadow" } }
+          ]
+        }
+      },
+      {
+        "type": "move",
+        "select": "self",
+        "from": ["sideboard"],
+        "to": "deck",
+        "shuffleAfter": true
+      }
+    ],
     "text": "Balrog specific. Playable on an attack against The Balrog’s company if Great Shadow is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. The attack receives -2 prowess, -1 body, and is reduced to one strike. Alternatively, cancel this attack and a latter attack of your choice against his company this turn.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",

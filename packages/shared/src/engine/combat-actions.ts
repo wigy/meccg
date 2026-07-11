@@ -1488,8 +1488,14 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     const strikesModifier = effect.strikesModifier ?? 0;
     const newStrikeProwess = combat.strikeProwess + prowessModifier;
     const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
-    // Strike count is clamped to a minimum of 1 (same rule as the in-play path).
-    const newStrikesTotal = strikesModifier !== 0 ? Math.max(1, combat.strikesTotal + strikesModifier) : combat.strikesTotal;
+    // Strike count. `setStrikesTo` reduces the attack to a fixed number of
+    // strikes ("reduced to one strike", Darkness Wielded ba-55) — never
+    // increasing the count and clamped to a minimum of 1. Otherwise
+    // `strikesModifier` applies a delta (also clamped to a minimum of 1, same
+    // rule as the in-play path).
+    const newStrikesTotal = effect.setStrikesTo !== undefined
+      ? Math.max(1, Math.min(combat.strikesTotal, effect.setStrikesTo))
+      : strikesModifier !== 0 ? Math.max(1, combat.strikesTotal + strikesModifier) : combat.strikesTotal;
     // The applied strike delta (may differ from strikesModifier if clamped);
     // stored so a cancel-redirect reverses exactly what was applied.
     const appliedStrikesDelta = newStrikesTotal - combat.strikesTotal;
