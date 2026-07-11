@@ -22,7 +22,7 @@ import type { CardInstance } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
-import type { CompanyId, CardDefinitionId } from '../types/common.js';
+import type { CompanyId, CardDefinitionId, CardInstanceId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
 import { buildMovementMap, getReachableSites } from '../movement-map.js';
@@ -1536,6 +1536,12 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
         region: destDef?.region,
         siteType: destDef?.siteType,
       },
+      // The region types the company traversed this move. Lets a
+      // `bearer-company-moves` self-discard fire on "moves through a
+      // Free-domain/Dark-domain" path clauses — Memories of Old Torture
+      // (ba-67), whose ally is discarded via a `sitePath.regionTypes`
+      // `$includes` gate.
+      sitePath: { regionTypes: [...mhState.resolvedSitePath] },
     };
     // True when a `bearer-company-moves` self-discard effect should fire given
     // its optional `when` gate against the destination site.
@@ -1543,6 +1549,18 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       getOnEventEffects(def, 'bearer-company-moves').some(
         e => isSelfDiscardMove(e.apply) && (!e.when || matchesCondition(e.when, moveCtx)),
       );
+    // A converted-creature ally (Memories of Old Torture ba-67 / Ready to His
+    // Will le-220) is the creature card itself, whose hazard-creature
+    // definition carries no discard-on-move rule. That rule lives on the
+    // `convert-creature-to-ally` event card "placed with the creature"
+    // (in cards-in-play, `attachedTo` the ally). When such an event's
+    // `bearer-company-moves` self-discard fires, discard the ally; the orphan
+    // sweep (`discardOrphanedConvertedAllyEvents`) then discards the event too.
+    const attachedEventDiscardsAllyOnMove = (allyInstanceId: CardInstanceId): boolean =>
+      newPlayers[activeIndex].cardsInPlay.some(cp => {
+        if (cp.attachedTo !== allyInstanceId) return false;
+        return shouldDiscardOnMove(defById(state, cp.definitionId));
+      });
     let discardedAny = false;
     for (const charId of movedCompany.characters) {
       const charData = newPlayers[activeIndex].characters[charId];
@@ -1561,7 +1579,7 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       }
       for (const ally of charData.allies) {
         const allyDef = defById(state, ally.definitionId);
-        if (shouldDiscardOnMove(allyDef)) {
+        if (shouldDiscardOnMove(allyDef) || attachedEventDiscardsAllyOnMove(ally.instanceId)) {
           logDetail(`bearer-company-moves: discarding ally "${allyDef?.name ?? ally.definitionId}" from ${charId as string} (moved to ${destDef?.name ?? '?'})`);
           toDiscard.push(toCardInstance(ally));
         } else {

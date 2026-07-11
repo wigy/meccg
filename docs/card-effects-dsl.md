@@ -2006,8 +2006,11 @@ Eligibility (checked in `convertCreatureToAllyActions`,
 - the creature's race (lowercased) is one of `races`,
 - the creature's printed strike count is ≤ `maxStrikes` ("one strike for
   each of its attacks" → `maxStrikes: 1`), and
-- the defending company has at least one untapped character (when
-  `controllerTaps` is true) to take control.
+- there is at least one eligible controlling character. When
+  `controllerTaps` is true (le-220) only **untapped** characters qualify
+  (they must be able to tap to take control); when it is false (ba-67,
+  "the character need not tap") **any** character in the defending company
+  qualifies, tapped or wounded.
 
 One `convert-creature-to-ally` action is offered per (card, eligible
 controlling character) pair. On reduce (`handleConvertCreatureToAlly`,
@@ -2043,7 +2046,19 @@ discarded by the `discardOrphanedConvertedAllyEvents` postReduce sweep
 ```
 
 Used by Ready to His Will (le-220). Memories of Old Torture (ba-67) uses
-the same effect with `controllerTaps: false` and `body: 7`.
+the same effect with `controllerTaps: false` and `body: 7`, and adds a
+discard-on-move rule: a companion `on-event: bearer-company-moves`
+self-discard (`when: { $or: [ { "sitePath.regionTypes": { "$includes":
+"free" } }, { "sitePath.regionTypes": { "$includes": "dark" } } ] }`) is
+evaluated against the ally's controlling company. Because the rule lives
+on the event card (not on the creature-ally's own hazard definition), the
+movement-discard sweep (`mh-hazard-play.ts` step 8a-2) also scans each
+moving-company ally for an attached `convert-creature-to-ally` event whose
+`bearer-company-moves` self-discard fires; when it does, the ally is
+discarded and the orphaned event card follows via
+`discardOrphanedConvertedAllyEvents`. The `bearer-company-moves` `when`
+context exposes `sitePath.regionTypes` (the region types traversed this
+move) alongside `movementType` and `destination`.
 
 ### 10. `strike-modifier`
 
