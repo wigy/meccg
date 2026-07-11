@@ -798,6 +798,46 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
 }
 
 /**
+ * Greed (le-113 / tw-42): install the turn-scoped `item-play-corruption-check`
+ * constraint bound to the target site. The constraint targets the resource
+ * (active) player — the one who plays items at the site during the site phase —
+ * and is swept at turn-end. The site-phase item-play handler
+ * (`fireItemPlayCorruptionChecks`) consults it to fire the checks.
+ */
+function applyItemPlayCorruptionCheckConstraint(
+  state: GameState,
+  entry: ChainEntry,
+  siteDefinitionId: CardDefinitionId,
+): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  if (!def) return state;
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').ItemPlayCorruptionCheckEffect =>
+      e.type === 'item-play-corruption-check',
+  );
+  if (!effect) return state;
+  // The player whose characters make the checks is the active/resource player
+  // (the item-player during the upcoming site phase), i.e. the hazard's opponent.
+  const targetPlayerId = state.activePlayer ?? entry.declaredBy;
+  const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  const siteName = (defById(state, siteDefinitionId) as { name?: string } | undefined)?.name ?? (siteDefinitionId as string);
+  logDetail(`${cardName}: installing item-play-corruption-check at ${siteName} (until end of turn) for player ${targetPlayerId as string}`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'turn' },
+    target: { kind: 'player', playerId: targetPlayerId },
+    kind: {
+      type: 'item-play-corruption-check',
+      siteDefinitionId,
+      ...(effect.exemptFilter ? { exemptFilter: effect.exemptFilter } : {}),
+    },
+  });
+}
+
+/**
  * Build the evaluation context for a `company-arrives-at-site` `when`
  * clause. Exposes the active company's destination site type, destination
  * region type, and whether Doors of Night is in play — enough for a
@@ -2343,6 +2383,20 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // already moved to discard at play time.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyShortEventSelfEntersPlayConstraints(current, entry);
+  }
+
+  // Greed (le-113 / tw-42): a hazard short-event played on a site installs a
+  // turn-scoped `item-play-corruption-check` constraint bound to that site, so
+  // every item played at the site for the rest of the turn triggers corruption
+  // checks on the (non-exempt) characters there. The target site rode on the
+  // chain payload; the card goes to discard as a normal short event.
+  if (
+    entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && entry.payload.targetSiteDefinitionId
+  ) {
+    current = applyItemPlayCorruptionCheckConstraint(current, entry, entry.payload.targetSiteDefinitionId);
   }
 
   // Short events with fetch-to-deck effects (e.g. An Unexpected Outpost):
