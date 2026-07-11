@@ -2163,6 +2163,20 @@ export function playResourceShortEventActions(
     // not-playable with a reason if their play-target constraints aren't met
     // so the UI can explain why.
     if (playWindow?.step === 'end-of-org') {
+      // play-condition requires: "card-in-play" — a named card must be in play
+      // for the playing player (any in-play zone, including character-attached
+      // permanent events). Enforced here for end-of-org cards because this
+      // branch `continue`s before the generic card-in-play check further down.
+      // Used by Cloaked by Darkness (ba-53): "Playable on a company if Great
+      // Shadow is in play."
+      const endOfOrgCardInPlay = findPlayConditionEffect(def, 'card-in-play');
+      if (endOfOrgCardInPlay?.cardName
+          && !isCardNameInPlayForPlayer(state, player, endOfOrgCardInPlay.cardName)) {
+        logDetail(`${def.name}: end-of-org play-condition card-in-play requires ${endOfOrgCardInPlay.cardName} in play`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires ${endOfOrgCardInPlay.cardName} in play`));
+        continue;
+      }
+
       const eligibility = endOfOrgEligibility(state, player, def);
       if (!eligibility.eligible) {
         logDetail(`${def.name}: end-of-org card not eligible — ${eligibility.reason}`);
