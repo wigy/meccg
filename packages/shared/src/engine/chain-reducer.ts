@@ -34,7 +34,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companySubphaseScope, countSpawnCardsInPlay, defById, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -1808,9 +1808,45 @@ function resolveLongEvent(state: GameState, entry: ChainEntry): GameState {
     ? (logDetail(`Long event enters-play move failed (${moved.error}) — card not placed`), state)
     : moved.state;
 
+  // prohibit-card-play (The Under-roads, as-106): on entering play, discard
+  // every named card already in play (either player) to its owner's discard
+  // pile. The ongoing "may not be played" lock is enforced separately in the
+  // hazard legal-action layer.
+  const afterProhibit = applyProhibitCardPlayOnResolve(afterPlay, def);
+
   // Apply any tap-sites-in-play clause now that the environment is in play
   // (e.g. Foul Fumes / Long Winter "if Doors of Night is in play, ... tapped").
-  return applyTapSitesInPlayOnResolve(afterPlay, def);
+  return applyTapSitesInPlayOnResolve(afterProhibit, def);
+}
+
+/**
+ * Apply a resolving card's {@link ProhibitCardPlayEffect} clauses: discard
+ * every named card already in play (from either player's `cardsInPlay`) to its
+ * owner's discard pile. One-time effect applied at resolution; the ongoing
+ * play-lock is enforced in `playHazardsActions`.
+ */
+function applyProhibitCardPlayOnResolve(
+  state: GameState,
+  def: import('../index.js').CardDefinition | undefined,
+): GameState {
+  const prohibitEffects = getCardEffects(def).filter(
+    (e): e is import('../types/effects.js').ProhibitCardPlayEffect => e.type === 'prohibit-card-play',
+  );
+  if (prohibitEffects.length === 0) return state;
+  const prohibited = new Set<string>();
+  for (const eff of prohibitEffects) for (const name of eff.cardNames) prohibited.add(name);
+
+  return discardCardsInPlayWhere(
+    state,
+    card => {
+      const cDef = defById(state, card.definitionId);
+      return !!cDef?.name && prohibited.has(cDef.name);
+    },
+    card => {
+      const cDef = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`prohibit-card-play (${def?.name ?? '?'}): discarding "${cDef?.name ?? card.definitionId}" from play`);
+    },
+  ).state;
 }
 
 /**
