@@ -2188,16 +2188,23 @@ function playHazardsActions(
             const ch = resourcePlayer.characters[cId];
             return sum + (ch ? ch.allies.length : 0);
           }, 0);
+          // Spawn-count context (Darkness Made by Malice ba-15): characters only
+          // (allies excluded) vs. every Spawn card in play.
+          const characterCount = targetCompany.characters.length;
+          const spawnInPlayCount = countSpawnCardsInPlay(state);
           const companyCtx = {
             target: {
               siteType: compSiteType,
               siteKeywords: compSiteKeywords,
               alignment: resourcePlayer.alignment,
               memberCount: targetCompany.characters.length + allyCount,
+              characterCount,
+              spawnInPlayCount,
+              moreSpawnThanCompany: spawnInPlayCount > characterCount,
             },
           };
           if (shortPlayTarget.filter && !matchesContext(shortPlayTarget.filter, companyCtx)) {
-            logDetail(`Hazard short-event "${def.name}": company filter not met (siteType=${compSiteType ?? 'none'}, keywords=[${compSiteKeywords.join(',')}])`);
+            logDetail(`Hazard short-event "${def.name}": company filter not met (siteType=${compSiteType ?? 'none'}, keywords=[${compSiteKeywords.join(',')}], spawn=${spawnInPlayCount}, chars=${characterCount})`);
             actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company at this site` });
             continue;
           }
@@ -2361,45 +2368,6 @@ function playHazardsActions(
           if (!hasAllyTarget) {
             logDetail(`Hazard short-event "${def.name}" not playable — no allies in company`);
             actions.push({ action, viable: false, reason: 'No allies in company' });
-          }
-          continue;
-        }
-
-        // Company-targeting short events (e.g. Darkness Made by Malice ba-15):
-        // played on the active M/H company (at or moving to a site). The
-        // play-target filter gates on the target company's site type / keywords
-        // and a Spawn-count comparison. Use the destination site if the company
-        // is moving ("moving to"), otherwise its current site ("at").
-        if (shortPlayTarget?.target === 'company') {
-          const compSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
-          let compSiteType: string | null = null;
-          let compSiteKeywords: readonly string[] = [];
-          if (compSiteInst) {
-            const compSiteDefId = resolveInstanceId(state, compSiteInst.instanceId);
-            const compSiteDef = compSiteDefId ? defById(state, compSiteDefId) : undefined;
-            if (compSiteDef && isSiteCard(compSiteDef)) {
-              compSiteType = compSiteDef.siteType;
-              compSiteKeywords = compSiteDef.keywords ?? [];
-            }
-          }
-          const characterCount = targetCompany.characters.length;
-          const spawnInPlayCount = countSpawnCardsInPlay(state);
-          const companyCtx = {
-            target: {
-              siteType: compSiteType,
-              siteKeywords: compSiteKeywords,
-              alignment: resourcePlayer.alignment,
-              characterCount,
-              spawnInPlayCount,
-              moreSpawnThanCompany: spawnInPlayCount > characterCount,
-            },
-          };
-          if (shortPlayTarget.filter && !matchesContext(shortPlayTarget.filter, companyCtx)) {
-            logDetail(`Hazard short-event "${def.name}": company filter not met (siteType=${compSiteType ?? 'none'}, spawn=${spawnInPlayCount}, chars=${characterCount})`);
-            actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company` });
-          } else {
-            logDetail(`Hazard short-event "${def.name}" playable on company (siteType=${compSiteType ?? 'none'}, spawn=${spawnInPlayCount} > chars=${characterCount})`);
-            actions.push({ action, viable: true });
           }
           continue;
         }

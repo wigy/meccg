@@ -1448,42 +1448,6 @@ export function countCompanyBoundCopies(state: GameState, name: string, companyI
 }
 
 /**
- * Count all cards carrying the `spawn` keyword that are currently **in play**,
- * across both players. A Spawn card is in play when it is:
- * - a card in any player's `cardsInPlay` (Spawn permanent-events like Balrog of
- *   Moria tw-12, Monstrosity of Diverse Shape ba-21, and Spawn allies played
- *   bare are not — allies attach to characters, handled below);
- * - a character in a company (The Balrog ba-3 is a Spawn character);
- * - an ally attached to a character (Evil Things Lingering ba-45, Nasty Slimy
- *   Thing ba-47, The Balrog ally as-71, Last Child of Ungoliant le-153).
- *
- * Spawn cards sitting in a discard / elimination / out-of-play pile are **not**
- * counted ("Eliminated Spawn do not count"). Backs Darkness Made by Malice
- * (ba-15): "if there are more Spawn cards in play than characters in the
- * company."
- */
-export function countSpawnCardsInPlay(state: GameState): number {
-  const hasSpawn = (defId: CardDefinitionId | string | undefined): boolean => {
-    if (!defId) return false;
-    const def = defById(state, defId as CardDefinitionId);
-    return (def as { keywords?: readonly string[] } | undefined)?.keywords?.includes('spawn') ?? false;
-  };
-  let count = 0;
-  for (const p of state.players) {
-    for (const cip of p.cardsInPlay) {
-      if (hasSpawn(cip.definitionId)) count++;
-    }
-    for (const ch of Object.values(p.characters)) {
-      if (hasSpawn(ch.definitionId)) count++;
-      for (const ally of ch.allies) {
-        if (hasSpawn(ally.definitionId)) count++;
-      }
-    }
-  }
-  return count;
-}
-
-/**
  * Count copies of the permanent event named `name` currently bound to the
  * site identified by `siteDefId`. A copy counts when it is borne as an item by
  * a character whose company occupies that site, or when it is a site-attached
