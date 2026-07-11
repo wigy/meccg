@@ -222,11 +222,27 @@ export interface CheckModifierEffect extends EffectBase {
  * Example: Helm of Fear (as-126) — "All body checks against the bearer are
  * modified by -1." Collected from items attached to the body-check target in
  * `reducer-combat.ts` and applied to the effective roll.
+ *
+ * A `scope: 'all-attacks'` modifier is instead a **global** effect carried by
+ * an in-play permanent-event: it applies to every body check in combat, gated
+ * by `when` against a context exposing `attack.creatureRace` (the attacking
+ * creature's normalized race) and `target.race` (the body-checked character's
+ * race). Used by Spawn of Ungoliant (ba-24) — "+1 to all body checks for
+ * Elves, Dwarves, Hobbits, Dúnedain, and Men resulting from Spider attacks."
  */
 export interface BodyCheckModifierEffect extends EffectBase {
   readonly type: 'body-check-modifier';
   /** The modifier added to the body-check roll (negative protects the bearer). */
   readonly value: number;
+  /**
+   * Where the modifier is sourced from and what it applies to:
+   * - absent / `'bearer'` (default): a static effect on an item attached to the
+   *   body-check target; applies only to that bearer (Helm of Fear as-126).
+   * - `'all-attacks'`: a global effect on an in-play permanent-event; applies to
+   *   every combat body check, gated by `when` against `attack.creatureRace` /
+   *   `target.race` (Spawn of Ungoliant ba-24).
+   */
+  readonly scope?: 'bearer' | 'all-attacks';
 }
 
 /**

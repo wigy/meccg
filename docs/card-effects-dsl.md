@@ -260,6 +260,31 @@ is attacking or defending). An optional `when` is evaluated against
 `{ bearer: { race } }`. Used by *Helm of Fear* (as-126): "All body checks
 against the bearer are modified by -1."
 
+An optional `scope: "all-attacks"` makes the modifier **global** instead of
+item-bound: it is carried by an in-play permanent-event (either player's
+`cardsInPlay`) and applies to **every** combat body check, gated by `when`
+against a context exposing `attack.creatureRace` (the attacking creature's
+normalized race, e.g. `"spider"`) and `target.race` (the body-checked
+character's race). Collected by `globalBodyCheckRollModifier` in
+`combat-actions.ts`.
+
+```json
+{
+  "type": "body-check-modifier",
+  "value": 1,
+  "scope": "all-attacks",
+  "when": {
+    "$and": [
+      { "attack.creatureRace": "spider" },
+      { "target.race": { "$in": ["elf", "dwarf", "hobbit", "dunadan", "man"] } }
+    ]
+  }
+}
+```
+
+Used by *Spawn of Ungoliant* (ba-24): "+1 to all body checks for Elves,
+Dwarves, Hobbits, Dúnedain, and Men resulting from Spider attacks."
+
 ### 2b. `attribute-modifier` active constraint
 
 Generic conditional override of an entity attribute. Produced by an

@@ -54,10 +54,23 @@
           "strikes": 3,
           "prowess": 15,
           "body": 8
+        },
+        "onDefeat": "remove-from-play"
+      },
+      {
+        "type": "body-check-modifier",
+        "value": 1,
+        "scope": "all-attacks",
+        "when": {
+          "$and": [
+            { "attack.creatureRace": "spider" },
+            { "target.race": { "$in": ["elf", "dwarf", "hobbit", "dunadan", "man"] } }
+          ]
         }
       }
     ],
-    "text": "Unique. Spawn. The Pûkel-deeps and The Gem-deeps each have an additional automatic-attack: Spawn — 3 strikes with 15/8 prowess/body."
+    "text": "Unique. Spawn. The Pûkel-deeps and The Gem-deeps each have an additional automatic-attack: Spawn — 3 strikes with 15/8 prowess/body. In addition, +1 to all body checks for Elves, Dwarves, Hobbits, Dúnedain, and Men resulting from Spider attacks.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",
