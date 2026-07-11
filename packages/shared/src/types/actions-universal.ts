@@ -203,6 +203,27 @@ export interface FetchFromSideboardAction {
   readonly sideboardCardInstanceId: CardInstanceId;
 }
 
+/**
+ * Bring a specific card from the sideboard into the play deck during the
+ * organization phase, driven by an ability on the card itself.
+ *
+ * Distinct from the CoE 2.II.6 avatar-tap sideboard access
+ * ({@link StartSideboardToDeckAction} / {@link FetchFromSideboardAction}):
+ * this is a *card-granted* self-relocation carried by a `move`
+ * (`select: 'self'`, `from: ['sideboard']`, `to: 'deck'`) effect. It taps
+ * nothing, has no deck-size requirement, and is limited to the one card that
+ * declares it. Used by Terror Heralds Doom (ba-78) and the rest of the Balrog
+ * sideboard family: "You may bring this card from your sideboard into your
+ * play deck and reshuffle during your organization phase."
+ */
+export interface CardSideboardToDeckAction {
+  readonly type: 'card-sideboard-to-deck';
+  /** The player relocating their sideboard card. */
+  readonly player: PlayerId;
+  /** The sideboard card moving itself into the play deck. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
 // ---- Untap hazard sideboard access ----
 
 /**
