@@ -526,13 +526,63 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/BreachtheHold.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "name": {
+            "$in": [
+              "The Drowning-deeps",
+              "The Rusted-deeps"
+            ]
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "The Balrog"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          {
+            "creatureType": "Spawn",
+            "strikes": 1,
+            "prowess": 15
+          },
+          {
+            "creatureType": "Dwarves",
+            "strikes": 4,
+            "prowess": 9
+          },
+          {
+            "creatureType": "Dwarves",
+            "strikes": 2,
+            "prowess": 12
+          }
+        ],
+        "afterAttack": "move-to-mp-pile"
+      },
+      {
+        "type": "surface-site-roll-zero"
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on The Drowning-deeps or The Rusted-deeps if The Balrog is there. The Balrog’s company faces 3 attacks (Spawn — 1 strike with 15 prowess, Dwarves — 4 strikes with 9 prowess, 2 strikes with 12 prowess). Following the attacks, tap The Balrog or discard this card. The roll required to move to the surface site is reduced to zero. This site is never discarded or returned to its location deck. Cannot be duplicated on a given site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",

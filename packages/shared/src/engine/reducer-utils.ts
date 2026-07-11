@@ -2382,6 +2382,21 @@ export function discardOrphanedControlledFactions(state: GameState): GameState {
 }
 
 /**
+ * True when a site-bound permanent event's card text keeps its bound site
+ * permanent — "This site is never discarded or returned to its location deck."
+ * Such a card is exempt from the site-attached orphan sweep (it persists while
+ * its site is unoccupied) and its bound origin site is always returned to the
+ * owner's location deck rather than discarded when a company leaves it. Shared
+ * by Caverns Unchoked (ba-51, `surface-region-adjacency`) and Breach the Hold
+ * (ba-50, `surface-site-roll-zero`).
+ */
+export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefined): boolean {
+  return getCardEffects(def).some(
+    e => e.type === 'surface-region-adjacency' || e.type === 'surface-site-roll-zero',
+  );
+}
+
+/**
  * Discards site-bound permanent events whose site has left play. A card with
  * `attachedToSite` set models a permanent event that transforms a specific
  * site (Hold Rebuilt and Repaired, as-88 — "Discard this card when the site
@@ -2446,11 +2461,11 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
     card => card.attachedToSite !== undefined
       && !occupied.has(card.attachedToSite as string)
       && !activeHosts.has(card.instanceId as string)
-      // Caverns Unchoked (ba-51): "This site is never discarded or returned to
-      // its location deck." The card is permanent and keeps its bound
-      // Under-deeps site in play even while unoccupied — exempt it from the
-      // orphan sweep.
-      && !getCardEffects(defById(state, card.definitionId)).some(e => e.type === 'surface-region-adjacency'),
+      // Caverns Unchoked (ba-51) / Breach the Hold (ba-50): "This site is never
+      // discarded or returned to its location deck." The card is permanent and
+      // keeps its bound Under-deeps site in play even while unoccupied — exempt
+      // it from the orphan sweep.
+      && !cardKeepsBoundSitePermanent(defById(state, card.definitionId)),
     card => {
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`site-attached event: discarding "${def?.name ?? card.definitionId}" — bound site ${card.attachedToSite as string} left play`);

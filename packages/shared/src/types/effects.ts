@@ -3684,6 +3684,38 @@ export interface SurfaceRegionAdjacencyEffect extends EffectBase {
 }
 
 /**
+ * Reduces the Under-deeps movement roll required for the owner's company to
+ * ascend from the bound Under-deeps site to its **surface site** to zero, and
+ * keeps the bound site permanent. Carried by a `trigger-attack-on-play`
+ * permanent event played on the Under-deeps site (via `play-target: site`),
+ * kept in play once its self-inflicted attacks are survived.
+ *
+ * Two effects ride on this while the card is in `cardsInPlay` bound to an
+ * Under-deeps site U (`attachedToSite`):
+ *
+ * 1. **Surface-site roll zero** — when one of the owner's companies at U moves
+ *    to U's surface site (the non-Under-deeps site listed in U's
+ *    `adjacentSites`), the required Under-deeps movement roll is 0 instead of
+ *    the printed value. Consulted by
+ *    {@link import('../engine/legal-actions/organization-companies.js').breachTheHoldSurfaceRoll}
+ *    from {@link import('../engine/mh-steps.js').getUnderDeepsRequiredRoll} via the
+ *    moving player (`forPlayer`), so only the owner's own companies benefit.
+ * 2. **Permanence** — "This site is never discarded or returned to its location
+ *    deck." The card is exempt from the site-attached orphan sweep so it
+ *    persists while U is unoccupied, and when a company leaves U the site is
+ *    always returned to the owner's location deck (never discarded), keeping it
+ *    re-accessible. Shared with {@link SurfaceRegionAdjacencyEffect} via
+ *    {@link import('../engine/reducer-utils.js').cardKeepsBoundSitePermanent}.
+ *
+ * Used by Breach the Hold (ba-50): "The roll required to move to the surface
+ * site is reduced to zero. This site is never discarded or returned to its
+ * location deck."
+ */
+export interface SurfaceSiteRollZeroEffect extends EffectBase {
+  readonly type: 'surface-site-roll-zero';
+}
+
+/**
  * Augments a Dragon's lair with an additional automatic-attack while this
  * "At-Home" permanent-event is in play and the same Dragon's Ahunt
  * long-event is *not* in play.
@@ -4221,6 +4253,7 @@ export type CardEffect =
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
   | SurfaceRegionAdjacencyEffect
+  | SurfaceSiteRollZeroEffect
   | FactionInfluenceRestrictionEffect;
 
 /**
