@@ -774,6 +774,24 @@ export interface CancelReturnToOriginAction {
 }
 
 /**
+ * Play a Balrog resource short-event (Great Fissure ba-61) from hand during a
+ * chain to negate an unresolved chain entry that would cancel an attack by The
+ * Balrog's company against an opponent's company. The counter-cancel counterpart
+ * to {@link CancelReturnToOriginAction}: sourced from a discarded hand card
+ * rather than a tapped ally.
+ */
+export interface CounterCancelAttackAction {
+  /** Action discriminant. */
+  readonly type: 'counter-cancel-attack';
+  /** The Balrog player playing the counter-cancel card. */
+  readonly player: PlayerId;
+  /** The hand card being played and discarded (e.g. Great Fissure). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The chain entry's card instance to negate (the opponent's cancel-attack). */
+  readonly targetInstanceId: CardInstanceId;
+}
+
+/**
  * Tap an in-play ally to discard a hazard permanent-event attached to the
  * ally's (moving) company or to a character in it. Backs the discard mode of
  * Last Child of Ungoliant (le-153): "tap this ally to ... discard one hazard

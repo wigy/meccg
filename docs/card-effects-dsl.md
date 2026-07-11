@@ -1835,6 +1835,12 @@ combat context that includes:
   fána on The Balrog). Gate with `{ "$includes": "<name>" }` (Darkness
   Wielded ba-55: "if Great Shadow is in play"). The same two fields are also
   exposed on the from-hand `modify-attack` `when` context.
+- `attack.atUnderDeeps` — `true` when the defending company is **at**, or
+  **moving to or from**, an Under-deeps site (its current site — the origin
+  while moving — or its destination site carries the `under-deeps` keyword).
+  Used by *Great Fissure* (ba-61): `"when": { "attack.atUnderDeeps": true }`
+  cancels an attack against a company at / moving to-or-from an Under-deeps
+  site.
 
 **Deferred free cancel (`alsoCancelLaterAttack`).** When a `cancel-attack`
 effect carries `"alsoCancelLaterAttack": true`, cancelling this attack also
@@ -5037,6 +5043,33 @@ Used by *Goldberry* (tw-245).
 { "type": "cancel-chain-return-to-origin", "cost": { "tap": "self" } }
 ```
 
+### 37a. `cancel-chain-attack-cancel`
+
+Marker on a Balrog resource short-event. While a chain is active during a
+**company-vs-company attack made by The Balrog's company** against an opponent
+(the combat is a CvCC whose `attackingPlayerId` is the Balrog player and whose
+attacking company contains The Balrog avatar), the card may be played from hand
+to **target and negate** an unresolved chain entry — declared by the opponent —
+that would cancel that attack (i.e. carries a `cancel-attack` effect). It is the
+counter-cancel counterpart of `cancel-chain-return-to-origin` (Goldberry): a
+chain-declaring response, but sourced from a discarded hand card rather than a
+tapped in-play ally.
+
+Only the CvCC **attacker** (the priority player during the chain) is offered the
+action; one `counter-cancel-attack` action is emitted per (hand card, target
+entry) pair. On dispatch the card is moved hand → discard, the target entry is
+marked `negated: true` (so its `cancel-attack` never fires and the attack
+survives), and priority flips to the opponent so they may respond.
+
+Implementation: `legal-actions/chain.ts` `counterCancelAttackChainActions()`
+emits the legal actions; `chain-reducer.ts` `handleCounterCancelAttack()` applies
+them. Used by *Great Fissure* (ba-61), whose other mode is a plain
+`cancel-attack` gated on `attack.atUnderDeeps`.
+
+```json
+{ "type": "cancel-chain-attack-cancel" }
+```
+
 ### 38. `fetch-wizard-on-store`
 
 Trigger: when a permanent event carrying this effect is stored at a Haven
@@ -7134,6 +7167,44 @@ with prowess greater than 4, it must return to its site of origin." Its
 `requiresMovingCompany: true` and `targetCompany: { "company.alignment": "hero" }`
 so the short-event mode is only offered against a *moving hero* company (whereas
 its creature mode targets minion companies).
+
+### 56b-ii. `company-site-phase-do-nothing`
+
+Forbids the active movement/hazard company from doing anything during its
+**upcoming site phase this turn** — a `site-phase-do-nothing` constraint is added
+to the target company (the same constraint `company-return-to-origin` uses to
+block a returned company's site phase), but the company keeps its destination
+site and its movement is unaffected (only the site phase is blocked). Carried by
+a hazard short-event and applied on chain resolution
+(`applyCompanySitePhaseDoNothing`, `chain-reducer.ts`).
+
+```json
+{ "type": "company-site-phase-do-nothing" }
+```
+
+Playability is expressed with a companion **`play-target: "company"` filter**.
+The short-event company-target path (`legal-actions/movement-hazard.ts`) exposes,
+for the active company (using its destination site if moving, else its current
+site), the context:
+
+- `target.siteType` — the site's type (`ruins-and-lairs`, `shadow-hold`, …);
+- `target.siteKeywords` — the site's keywords (e.g. `under-deeps`);
+- `target.characterCount` — number of characters in the company (allies excluded);
+- `target.spawnInPlayCount` — Spawn cards **in play** across both players
+  (`countSpawnCardsInPlay`: cards carrying the `spawn` keyword in any
+  `cardsInPlay`, plus Spawn characters in companies and Spawn allies attached to
+  characters — cards in a discard / elimination pile are **not** counted);
+- `target.moreSpawnThanCompany` — the precomputed boolean
+  `spawnInPlayCount > characterCount` (the condition-matcher's `$gt` compares a
+  field to a literal, not two fields, so the comparison is precomputed here).
+
+Used by **Darkness Made by Malice (ba-15)**: "Playable on a company at or moving
+to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn cards in
+play than characters in the company. Eliminated Spawn do not count. The company
+must do nothing during its site phase this turn." — a `play-target: "company"`
+whose filter is `$and[ $or[ target.siteType == ruins-and-lairs,
+target.siteKeywords $includes under-deeps ], target.moreSpawnThanCompany ]`, plus
+the `company-site-phase-do-nothing` effect.
 
 ### 56c. `creature-alt-event` permanent-event mode + `tap-character`
 

@@ -3915,6 +3915,24 @@ export interface CancelChainReturnToOriginEffect extends EffectBase {
 }
 
 /**
+ * Marker on a Balrog resource short-event (Great Fissure ba-61): while a chain
+ * is active during a company-vs-company attack made *by* The Balrog's company
+ * against an opponent, the card may be played from hand to target and negate an
+ * unresolved chain entry declared by the opponent that would cancel that attack
+ * (a `cancel-attack` effect). It is the counter-cancel counterpart to
+ * {@link CancelChainReturnToOriginEffect} (Goldberry): a chain-declaring
+ * response, not a combat pre-assignment cancel, but sourced from a discarded
+ * hand card rather than a tapped in-play ally.
+ *
+ * Great Fissure's other mode ("cancel an attack against a company at, or moving
+ * to or from, an Under-deeps site") is a plain {@link CancelAttackEffect} gated
+ * on `attack.atUnderDeeps`.
+ */
+export interface CancelChainAttackCancelEffect extends EffectBase {
+  readonly type: 'cancel-chain-attack-cancel';
+}
+
+/**
  * While the carrying card is in play, any active constraint sourced from a
  * card whose name is listed in {@link cardNames} is suppressed — its effect
  * is treated as absent for as long as this card remains in play. This is the
@@ -4162,6 +4180,7 @@ export type CardEffect =
   | ForceReturnToOriginEffect
   | TapSitesInPlayEffect
   | CancelChainReturnToOriginEffect
+  | CancelChainAttackCancelEffect
   | CancelCardEffectsEffect
   | TapDiscardAttachedHazardEffect
   | FetchWizardOnStoreEffect
@@ -4214,6 +4233,7 @@ export type CardEffect =
   | AllyBodyCheckBoostEffect
   | CreatureAltEventEffect
   | CompanyReturnToOriginEffect
+  | CompanySitePhaseDoNothingEffect
   | TapCharacterEffect
   | MpInPileEffect
   | DisplaceStoredItemEffect
@@ -4282,6 +4302,30 @@ export interface CompanyReturnToOriginEffect extends EffectBase {
   readonly type: 'company-return-to-origin';
   /** When this condition matches the target company, the return is skipped. */
   readonly unless?: Condition;
+}
+
+/**
+ * Forbids the active movement/hazard company from doing anything during its
+ * upcoming site phase this turn — a `site-phase-do-nothing` constraint is added
+ * to the target company (the same mechanism `company-return-to-origin` uses),
+ * but the company keeps its destination site and its movement is unaffected
+ * (only the site phase is blocked). Carried by a hazard short-event and applied
+ * on chain resolution.
+ *
+ * Playability is expressed with a companion `play-target: "company"` filter (the
+ * short-event company-target path in `legal-actions/movement-hazard.ts` exposes
+ * `target.siteType`, `target.siteKeywords`, `target.characterCount`,
+ * `target.spawnInPlayCount`, and the precomputed `target.moreSpawnThanCompany`
+ * boolean so the filter can gate on the site type and the Spawn-count
+ * comparison).
+ *
+ * Used by **Darkness Made by Malice (ba-15)**: "Playable on a company at or
+ * moving to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn
+ * cards in play than characters in the company. Eliminated Spawn do not count.
+ * The company must do nothing during its site phase this turn."
+ */
+export interface CompanySitePhaseDoNothingEffect extends EffectBase {
+  readonly type: 'company-site-phase-do-nothing';
 }
 
 /**
