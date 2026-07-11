@@ -341,8 +341,12 @@
     "keywords": [
       "balrog-specific"
     ],
+    "discardBodyCheck": [
+      7
+    ],
     "effects": [],
-    "text": "Balrog specific. Discard on a body check result of 7."
+    "text": "Balrog specific. Discard on a body check result of 7.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-character",
