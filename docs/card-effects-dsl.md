@@ -183,7 +183,17 @@ character is modified by -4" (Foolish Words, td-25).
   "when": { "bearer.race": "dunadan" } }
 { "type": "check-modifier",
   "check": ["influence", "riddling", "offering"], "value": -4 }
+{ "type": "check-modifier", "check": "corruption", "value": 1,
+  "target": "company" }
 ```
+
+An optional `"target": "company"` broadens the modifier from the bearer alone
+to **every character in the bearer's company**. It is collected once per company
+(from items / attached permanent-events on any company member) and folded into
+each member's check by `resolveCheckModifier`, mirroring the company-scoped
+`stat-modifier`. Used by I'll Be At Your Heels (le-195): "+1 to all corruption
+checks by characters in his company." (Without `target`, the default scope is
+the bearer only.)
 
 The `influence` check type is used on faction cards for standard modifications.
 The resolver context includes `bearer` (influencing character), `faction`
@@ -1772,6 +1782,24 @@ bearer's status is irrelevant (it need not be untapped and is not tapped).
 The item itself must be untapped. Used by *Helm of Fear* (as-126) — tap the
 item to cancel an attack against the Ringwraith's company.
 
+When the effect is declared on a **company-bound permanent-event** in
+`cardsInPlay` (`CardInPlay.companyId` set — see `play-target` `target: "company"`)
+with `cost: { "discard": "self" }`, it is sourced only for the bound company and
+only in the pre-strike cancel window. Two extra fields specialize it for *Going
+Ever Under Dark* (ba-37):
+
+- `"requiresCvCC": true` — the cancel is offered only against a company-vs-company
+  attack (`combat.isCvCC`) — "an attack against them by an opponent's company".
+- `"roll": { "threshold": 7, "comparison": "gt", "scoutBonus": true }` — the
+  cancel is **not** automatic. Paying the cost discards the card and enqueues a
+  2d6 `dice-check` (roller = the defending player) whose modified total must
+  satisfy `total comparison threshold` to cancel; `"scoutBonus": true` adds the
+  number of Scout-skilled characters in the defending company to the roll. On
+  success the check's `onPass: { type: "cancel-current-attack" }` verb cancels the
+  combat; on failure combat continues. Backs "Discard this card from play and
+  make a roll to attempt to cancel an attack … If the roll plus the number of
+  scouts in the company is greater than 7, the attack is canceled."
+
 **Dual-mode cancel / reduce-prowess.** A `prowessPenalty: N` field turns the
 card into a two-option play: the legal-action emitter offers both the outright
 cancellation and a "reduce the attack's prowess by N" variant (carried on the
@@ -1825,6 +1853,12 @@ combat context that includes:
   automatic-attack at a Ruins & Lairs".
 - `defender.covert` — `true` when the defending company is covert
   (contains no Orc/Troll, Balrog avatar, or `company-overt` source).
+- `attack.atUnderDeeps` — `true` when the defending company is **at**, or
+  **moving to or from**, an Under-deeps site (its current site — the origin
+  while moving — or its destination site carries the `under-deeps` keyword).
+  Used by *Great Fissure* (ba-61): `"when": { "attack.atUnderDeeps": true }`
+  cancels an attack against a company at / moving to-or-from an Under-deeps
+  site.
 
 The effect may be declared on in-play sources too: an ally attached
 to a company character (e.g. The Warg-king), the character card
@@ -2006,8 +2040,11 @@ Eligibility (checked in `convertCreatureToAllyActions`,
 - the creature's race (lowercased) is one of `races`,
 - the creature's printed strike count is ≤ `maxStrikes` ("one strike for
   each of its attacks" → `maxStrikes: 1`), and
-- the defending company has at least one untapped character (when
-  `controllerTaps` is true) to take control.
+- there is at least one eligible controlling character. When
+  `controllerTaps` is true (le-220) only **untapped** characters qualify
+  (they must be able to tap to take control); when it is false (ba-67,
+  "the character need not tap") **any** character in the defending company
+  qualifies, tapped or wounded.
 
 One `convert-creature-to-ally` action is offered per (card, eligible
 controlling character) pair. On reduce (`handleConvertCreatureToAlly`,
@@ -2043,7 +2080,19 @@ discarded by the `discardOrphanedConvertedAllyEvents` postReduce sweep
 ```
 
 Used by Ready to His Will (le-220). Memories of Old Torture (ba-67) uses
-the same effect with `controllerTaps: false` and `body: 7`.
+the same effect with `controllerTaps: false` and `body: 7`, and adds a
+discard-on-move rule: a companion `on-event: bearer-company-moves`
+self-discard (`when: { $or: [ { "sitePath.regionTypes": { "$includes":
+"free" } }, { "sitePath.regionTypes": { "$includes": "dark" } } ] }`) is
+evaluated against the ally's controlling company. Because the rule lives
+on the event card (not on the creature-ally's own hazard definition), the
+movement-discard sweep (`mh-hazard-play.ts` step 8a-2) also scans each
+moving-company ally for an attached `convert-creature-to-ally` event whose
+`bearer-company-moves` self-discard fires; when it does, the ally is
+discarded and the orphaned event card follows via
+`discardOrphanedConvertedAllyEvents`. The `bearer-company-moves` `when`
+context exposes `sitePath.regionTypes` (the region types traversed this
+move) alongside `movementType` and `destination`.
 
 ### 10. `strike-modifier`
 
@@ -5048,6 +5097,33 @@ Used by *Goldberry* (tw-245).
 { "type": "cancel-chain-return-to-origin", "cost": { "tap": "self" } }
 ```
 
+### 37a. `cancel-chain-attack-cancel`
+
+Marker on a Balrog resource short-event. While a chain is active during a
+**company-vs-company attack made by The Balrog's company** against an opponent
+(the combat is a CvCC whose `attackingPlayerId` is the Balrog player and whose
+attacking company contains The Balrog avatar), the card may be played from hand
+to **target and negate** an unresolved chain entry — declared by the opponent —
+that would cancel that attack (i.e. carries a `cancel-attack` effect). It is the
+counter-cancel counterpart of `cancel-chain-return-to-origin` (Goldberry): a
+chain-declaring response, but sourced from a discarded hand card rather than a
+tapped in-play ally.
+
+Only the CvCC **attacker** (the priority player during the chain) is offered the
+action; one `counter-cancel-attack` action is emitted per (hand card, target
+entry) pair. On dispatch the card is moved hand → discard, the target entry is
+marked `negated: true` (so its `cancel-attack` never fires and the attack
+survives), and priority flips to the opponent so they may respond.
+
+Implementation: `legal-actions/chain.ts` `counterCancelAttackChainActions()`
+emits the legal actions; `chain-reducer.ts` `handleCounterCancelAttack()` applies
+them. Used by *Great Fissure* (ba-61), whose other mode is a plain
+`cancel-attack` gated on `attack.atUnderDeeps`.
+
+```json
+{ "type": "cancel-chain-attack-cancel" }
+```
+
 ### 38. `fetch-wizard-on-store`
 
 Trigger: when a permanent event carrying this effect is stored at a Haven
@@ -5254,6 +5330,72 @@ Used by *Witch-king of Angmar* (tw-113), *Khamûl the Easterling* (tw-47), and
   "attack": { "creatureType": "Nazgûl", "strikes": 1, "prowess": 17, "body": 12 },
   "discardAfterUse": true
 }
+```
+
+### `site-instance-transform`
+
+Carried by a **kept** resource permanent-event bound to a site
+(`attachedToSite`). It splits a site's effective type and automatic-attacks
+between the **one instance the card is attached to** ("the associated site" —
+the controller's own current site) and **every other in-play copy of the same
+site definition** ("all other versions").
+
+Unlike the generic `site-type-override` `attribute-modifier` (Hold Rebuilt and
+Repaired, as-88), this effect **bypasses the MEAS §6(d) Under-deeps
+type-immutability short-circuit** — it exists precisely to retype an Under-deeps
+site — and it discriminates by *instance* rather than applying uniformly to every
+copy. Both `getEffectiveSiteType()` (`engine/effective.ts`) and
+`getActiveAutoAttacks()` (`engine/manifestations.ts`) take an optional site
+**instance** id; `resolveSiteInstanceTransform()` (`engine/effective.ts`) decides
+`associated` vs `other` by whether that instance is the current site of one of
+the carrying card's controller's companies. The transformation is dormant while
+the card is still `pendingTriggerAttack` (i.e. before its keep is confirmed). The
+bound site is permanent: it is exempt from the site-attached orphan sweep and is
+always returned to the owner's location deck rather than discarded (shared with
+`surface-region-adjacency`).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `associated.siteType` | yes | Effective `SiteType` of the associated instance. |
+| `associated.removeAllAutoAttacks` | no | When `true`, the associated instance loses all automatic-attacks. |
+| `others.siteType` | yes | Effective `SiteType` of every other version. |
+| `others.addAutoAttack` | no | `{ creatureType, strikes, prowess }` added to every other version. |
+
+Used by *Roots of the Earth* (ba-74): the associated Under-deeps Ruins & Lairs
+becomes a Darkhaven [{H}] that loses all automatic-attacks, while every other
+version becomes a Shadow-hold [{S}] that gains an Orcs 5-strike/9-prowess
+automatic-attack.
+
+```json
+{
+  "type": "site-instance-transform",
+  "associated": { "siteType": "haven", "removeAllAutoAttacks": true },
+  "others": {
+    "siteType": "shadow-hold",
+    "addAutoAttack": { "creatureType": "Orcs", "strikes": 5, "prowess": 9 }
+  }
+}
+```
+
+### `conditional-mp`
+
+Adds a fixed bonus to the carrying in-play card's own marshalling-point value
+when a named card is in play (either player's `cardsInPlay`) attached to the
+**same site** (matched by shared `attachedToSite`). Folded into the `cardsInPlay`
+marshalling-point tally in `engine/recompute-derived.ts` on top of the card's
+printed `marshallingPoints`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `bonus` | yes | Points added when the condition holds. |
+| `requiresCardOnSameSite` | yes | Card name that, in play on the same site, grants the bonus. |
+
+Used by *Roots of the Earth* (ba-74): printed 1 MP, +2 when *Breach the Hold* is
+on the same site ("If Breach the Hold is on the same site, this card gives 3
+marshalling points").
+
+```json
+{ "type": "conditional-mp", "bonus": 2, "requiresCardOnSameSite": "Breach the Hold" }
 ```
 
 ### `grant-creature-keying`
@@ -6290,6 +6432,60 @@ otherwise back to the hazard player's discard pile).
 
 Used by: *Exhalation of Decay* (dm-55).
 
+### 42a. `grant-replay-attacked-creature`
+
+Carried by an **in-play hazard permanent-event** and grants its controller a
+**once-per-turn "replay"** of a creature from their own discard pile against a
+moving company. Models the second ability of Monstrosity of Diverse Shape
+(ba-21): "once per turn the hazard player may use one against the hazard limit
+to play a Wolf or Animal hazard creature from his discard pile. This card must
+have already attacked the company this turn."
+
+Unlike [`play-creature-from-discard`](#42-play-creature-from-discard) (a hand
+short-event, hazard-limit-exempt), this replay:
+
+- is granted by a card already **in play** (`cardsInPlay`), not from hand,
+- **counts one against the hazard limit**, and
+- may be used only **once per company's M/H phase** per source permanent-event.
+
+The gate "This card must have already attacked the company this turn" is read
+as *the creature being replayed* must have already attacked the target company
+this M/H phase — its name appears in
+`MovementHazardPhaseState.hazardsEncountered` (confirmed by the French text,
+"Cette créature doit déjà avoir attaquée cette compagnie ce tour-ci"). This is
+also what makes the ability temporally reachable: site automatic-attacks resolve
+in the site phase, after the M/H hazard window, so the gate cannot refer to the
+permanent-event's own auto-attack.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `filter` | yes | A {@link Condition} matched against each candidate creature's card definition (e.g. `{ "race": { "$in": ["wolves", "animals"] } }`). Reuses the shared condition-matcher rather than a card-specific keyword. |
+
+```json
+{ "type": "grant-replay-attacked-creature",
+  "filter": { "race": { "$in": ["wolves", "animals"] } } }
+```
+
+Legal actions: during the hazard player's M/H play-hazards window,
+`spawnReplayCreatureFromDiscardActions`
+(`engine/legal-actions/movement-hazard.ts`) walks the hazard player's
+`cardsInPlay` for permanent-events carrying this effect, and for each one (not
+already used this company M/H phase, tracked in `spawnReplayUsedSources`) walks
+their discard pile for `hazard-creature` cards matching `filter` whose name is
+in `hazardsEncountered`, runs the standard creature keying check against the
+active company, and emits one `spawn-replay-creature` action per (creature,
+keying-match) pair. The chain must be null and the hazard limit not reached
+(this play counts against it).
+
+Reducer (`handleSpawnReplayCreature` in `engine/mh-hazard-play.ts`): validates
+the source, the once-per-turn/limit/gate conditions, removes the chosen creature
+from the discard pile, records the source in `spawnReplayUsedSources`,
+increments `hazardsPlayedThisCompany`, and initiates the creature chain. After
+the attack resolves, the creature is disposed by the normal `finalizeCombat`
+rules.
+
+Used by: *Monstrosity of Diverse Shape* (ba-21).
+
 ### 43. `region-keying-boost`
 
 A turn-scoped environment effect that softens creature **keying** by letting one
@@ -6792,6 +6988,55 @@ floor. Consumed both at movement-plan time (`organization-companies.ts`
 using region movement is reduced by one (by two if Doors of Night is in play) to
 a minimum of two."
 
+### 52b. `company-movement-restriction`
+
+Carried by a permanent-event **bound to a company** (`play-target`
+`target: "company"`, so `CardInPlay.companyId` is set). Constrains how the bound
+company may move and how many hazards it faces while region-moving. Multiple
+restriction cards on one company stack: `noStarterMovement` OR-s, the region cap
+takes the strictest declared maximum, and hazard modifiers sum.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `noStarterMovement` | no | When `true`, the bound company may not use starter movement. |
+| `regionMovementMax` | no | Hard cap on the number of regions the company may span in region movement ("limited in all cases to N regions maximum"). |
+| `hazardLimitModifier` | no | Added to the company's hazard limit **only when it moves via region movement** (negative reduces it). |
+| `hazardLimitFloor` | no | Floor the hazard limit is never reduced below by `hazardLimitModifier`. |
+
+```json
+{ "type": "company-movement-restriction", "noStarterMovement": true, "regionMovementMax": 3, "hazardLimitModifier": -1, "hazardLimitFloor": 2 }
+```
+
+Behaviour (`effects/company-restrictions.ts` `companyMovementRestrictions`): the
+aggregate is read at four sites — organization plan-movement
+(`organization-companies.ts`, drops starter destinations and caps region
+distance), M/H select-company (`mh-steps.ts`, caps `phaseState.maxRegionDistance`),
+M/H declare-path (`legal-actions/movement-hazard.ts`, suppresses the starter
+path), and the hazard-limit snapshot (`mh-steps.ts` `snapshotHazardLimit`, applies
+the floored hazard modifier). The hazard modifier is gated on a region-moving
+company (`movementType === region`), per CRF 22: "The hazard limit reduction only
+works if the company is moving." Used by Going Ever Under Dark (ba-37).
+
+### 52c. `voluntary-discard`
+
+Lets the controller voluntarily discard the carrying in-play permanent-event
+during their own organization phase ("Discard during your organization phase if
+you choose"). One `voluntary-discard-in-play` action is offered per matching
+card in the organization aggregator (`legal-actions/organization.ts`
+`voluntaryDiscardInPlayActions`); the reducer
+(`reducer-organization.ts` `handleVoluntaryDiscardInPlay`) moves the card to the
+discard pile, severing any company binding and lifting its restrictions.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `phase` | yes | The phase during which the discard may be chosen (currently `"organization"`). |
+
+```json
+{ "type": "voluntary-discard", "phase": "organization" }
+```
+
+Used by Going Ever Under Dark (ba-37).
+
 ### 52a. `under-deeps-roll-modifier`
 
 Bonus to the 2d6 roll required for a company to move between adjacent
@@ -7145,6 +7390,44 @@ with prowess greater than 4, it must return to its site of origin." Its
 `requiresMovingCompany: true` and `targetCompany: { "company.alignment": "hero" }`
 so the short-event mode is only offered against a *moving hero* company (whereas
 its creature mode targets minion companies).
+
+### 56b-ii. `company-site-phase-do-nothing`
+
+Forbids the active movement/hazard company from doing anything during its
+**upcoming site phase this turn** — a `site-phase-do-nothing` constraint is added
+to the target company (the same constraint `company-return-to-origin` uses to
+block a returned company's site phase), but the company keeps its destination
+site and its movement is unaffected (only the site phase is blocked). Carried by
+a hazard short-event and applied on chain resolution
+(`applyCompanySitePhaseDoNothing`, `chain-reducer.ts`).
+
+```json
+{ "type": "company-site-phase-do-nothing" }
+```
+
+Playability is expressed with a companion **`play-target: "company"` filter**.
+The short-event company-target path (`legal-actions/movement-hazard.ts`) exposes,
+for the active company (using its destination site if moving, else its current
+site), the context:
+
+- `target.siteType` — the site's type (`ruins-and-lairs`, `shadow-hold`, …);
+- `target.siteKeywords` — the site's keywords (e.g. `under-deeps`);
+- `target.characterCount` — number of characters in the company (allies excluded);
+- `target.spawnInPlayCount` — Spawn cards **in play** across both players
+  (`countSpawnCardsInPlay`: cards carrying the `spawn` keyword in any
+  `cardsInPlay`, plus Spawn characters in companies and Spawn allies attached to
+  characters — cards in a discard / elimination pile are **not** counted);
+- `target.moreSpawnThanCompany` — the precomputed boolean
+  `spawnInPlayCount > characterCount` (the condition-matcher's `$gt` compares a
+  field to a literal, not two fields, so the comparison is precomputed here).
+
+Used by **Darkness Made by Malice (ba-15)**: "Playable on a company at or moving
+to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn cards in
+play than characters in the company. Eliminated Spawn do not count. The company
+must do nothing during its site phase this turn." — a `play-target: "company"`
+whose filter is `$and[ $or[ target.siteType == ruins-and-lairs,
+target.siteKeywords $includes under-deeps ], target.moreSpawnThanCompany ]`, plus
+the `company-site-phase-do-nothing` effect.
 
 ### 56c. `creature-alt-event` permanent-event mode + `tap-character`
 

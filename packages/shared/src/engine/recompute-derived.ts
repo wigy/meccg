@@ -110,6 +110,28 @@ function fwClampMp(baseMp: number, def: CardDefinition, playerAlignment: Alignme
  * an in-play `fw-ally-mp-full` exemption (Join the Hunt wh-93 / Oromë's Warders
  * wh-94). It takes precedence over both the §4 clamp and any `fwCharAllyCaps`.
  */
+/**
+ * Roots of the Earth (ba-74): true when a card named `requiredCardName` is in
+ * play (either player's `cardsInPlay`) attached to the **same site** as `card`
+ * — i.e. both carry the same `attachedToSite` definition id. Drives the
+ * `conditional-mp` bonus.
+ */
+function conditionalMpApplies(
+  state: GameState,
+  card: { readonly attachedToSite?: CardDefinitionId },
+  requiredCardName: string,
+): boolean {
+  if (card.attachedToSite === undefined) return false;
+  for (const player of state.players) {
+    for (const other of player.cardsInPlay) {
+      if (other.attachedToSite !== card.attachedToSite) continue;
+      const def = defById(state, other.definitionId);
+      if (def?.name === requiredCardName) return true;
+    }
+  }
+  return false;
+}
+
 function addMP(
   totals: MarshallingPointTotals,
   def: CardDefinition,
@@ -1077,6 +1099,16 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       if (override !== 0) mp = { ...mp, [cat]: mp[cat] + override };
     } else {
       mp = addMP(mp, def, player.alignment);
+    }
+    // Roots of the Earth (ba-74): a `conditional-mp` effect adds a bonus to the
+    // carrying card's own printed MP when a named card is in play attached to
+    // the same site ("If Breach the Hold is on the same site, this card gives 3
+    // marshalling points").
+    for (const eff of getCardEffects(def)) {
+      if (eff.type !== 'conditional-mp') continue;
+      if (!conditionalMpApplies(state, card, eff.requiresCardOnSameSite)) continue;
+      const cat = hasMarshallingPoints(def) ? def.marshallingCategory : ('misc' as MarshallingCategory);
+      mp = { ...mp, [cat]: mp[cat] + eff.bonus };
     }
   }
 

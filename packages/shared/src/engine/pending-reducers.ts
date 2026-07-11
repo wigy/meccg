@@ -954,6 +954,11 @@ function applyDiceCheckBranch(
       },
     };
   }
+  if (branch.type === 'cancel-current-attack') {
+    // Roll-to-cancel (Going Ever Under Dark ba-37): the check passed, so cancel
+    // the combat currently in progress. Fizzles harmlessly if combat is gone.
+    return { state: resolveCancelAttackEntry(state) };
+  }
   logDetail(`dice-check: branch verb "${branch.type}" not handled in resolution context — no-op`);
   return { state };
 }

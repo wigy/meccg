@@ -198,7 +198,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           // like Hidden Haven's region gate or Guarded Haven's "your
           // Wizardhaven [{H}]" match dynamically converted sites.
           const regionType = siteRegionTypeOf(state, siteDef);
-          const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType);
+          const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, company.currentSite.instanceId);
           const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType };
           if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
             logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
