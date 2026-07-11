@@ -258,9 +258,19 @@ idle_backoff() {
 #     A fresh commit or a new comment changes the signature and re-triggers a
 #     pass. This does not narrow the trigger (any conflict / any comment still
 #     fires) — it only suppresses redundant re-runs on identical state.
+#   - An unchanged signature does NOT mean the PR is healthy: a fix attempt that
+#     crashed, hit a usage limit, or aborted cleanly leaves the PR byte-identical
+#     too. Skipping on identical state alone therefore blacklisted a still-broken
+#     PR for the worker's entire life — it stayed conflicted forever and was
+#     never retried. So an unchanged signature is retried up to
+#     MAX_PR_FIX_ATTEMPTS times (transient claude failures are the common case)
+#     before the PR is finally left alone, and giving up is logged loudly rather
+#     than silently.
 #   - Failing to fix one PR never aborts the worker: we log, clean the tree,
 #     and move on to the next PR / to mail handling.
 declare -A PR_STATE_SIG
+declare -A PR_FIX_ATTEMPTS
+MAX_PR_FIX_ATTEMPTS=3
 
 # Build the single-PR maintenance prompt handed to the headless claude.
 #   $1=PR number  $2=PR url  $3=has_conflict(0/1)  $4=comment count  $5=failed-CI count
@@ -326,6 +336,12 @@ run_pr_fix() {
   kill -TERM "$pid" 2>/dev/null || true
   sleep 1
   kill -KILL "$pid" 2>/dev/null || true
+
+  # Keep the agent's stream so a failed sweep can be diagnosed. Discarding this
+  # (the old `rm -f "$tmp"`) meant a PR fix that crashed, hit a usage limit, or
+  # gave up left no trace at all — the only symptom was the PR silently staying
+  # broken. Mirrors handle-mail's ai-raw.log.
+  cat "$tmp" >> "$LOG_DIR/ai-pr-raw.log"
   rm -f "$tmp"
   [ "$done" -eq 1 ]
 }
@@ -515,25 +531,48 @@ handle_open_prs() {
       continue
     fi
 
-    # Skip if this exact state was already processed in this run.
+    # This exact state was already processed in this run. That means the last
+    # attempt changed nothing — it may have genuinely given up, but it may just
+    # as well have crashed or hit a usage limit. Retry a bounded number of times
+    # instead of blacklisting a still-broken PR for the life of the worker.
     local sig="${head_oid}:${mergeable}:${total_comments}:${review_decision}:${failed_ci}"
+    local attempts=0
     if [ "${PR_STATE_SIG[$n]:-}" = "$sig" ]; then
-      continue
+      attempts="${PR_FIX_ATTEMPTS[$n]:-0}"
+      if [ "$attempts" -ge "$MAX_PR_FIX_ATTEMPTS" ]; then
+        continue
+      fi
     fi
+    PR_FIX_ATTEMPTS[$n]=$(( attempts + 1 ))
 
-    echo "=== PR #$n needs attention (conflict=$has_conflict, comments=$total_comments, failed-ci=$failed_ci) at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+    echo "=== PR #$n needs attention (conflict=$has_conflict, comments=$total_comments, failed-ci=$failed_ci, attempt ${PR_FIX_ATTEMPTS[$n]}/$MAX_PR_FIX_ATTEMPTS) at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
     if run_pr_fix "$(pr_fix_prompt "$n" "$url" "$has_conflict" "$total_comments" "$failed_ci")"; then
       echo "=== PR #$n sweep done at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
     else
       echo "=== WARNING: PR #$n sweep did not reach a terminal result at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
     fi
 
-    # Record the state we acted on (re-reading the head, which may have moved
-    # if claude pushed) so an otherwise-unchanged PR is not re-processed on the
-    # next tick.
-    local new_head
-    new_head=$(gh pr view "$n" --json headRefOid -q .headRefOid 2>/dev/null || echo "$head_oid")
-    PR_STATE_SIG[$n]="${new_head}:${mergeable}:${total_comments}:${review_decision}:${failed_ci}"
+    # Record the state we acted on, re-reading BOTH the head (which moves if
+    # claude pushed) and the mergeable state (which flips to MERGEABLE when a
+    # conflict was actually resolved). Recording the stale pre-fix `mergeable`
+    # here would keep the signature looking "unchanged" even on a successful
+    # resolve, wasting a retry on an already-fixed PR.
+    local new_head new_mergeable new_detail
+    if new_detail=$(gh pr view "$n" --json headRefOid,mergeable 2>/dev/null); then
+      new_head=$(jq -r '.headRefOid // ""' <<<"$new_detail" 2>/dev/null || echo "$head_oid")
+      new_mergeable=$(jq -r '.mergeable // "UNKNOWN"' <<<"$new_detail" 2>/dev/null || echo "$mergeable")
+    else
+      new_head="$head_oid"
+      new_mergeable="$mergeable"
+    fi
+    PR_STATE_SIG[$n]="${new_head}:${new_mergeable}:${total_comments}:${review_decision}:${failed_ci}"
+
+    # Nothing moved and we are out of retries: surface it instead of silently
+    # dropping the PR — an unattended worker that quietly abandons a conflicted
+    # PR is indistinguishable from one that is doing nothing at all.
+    if [ "$new_head" = "$head_oid" ] && [ "${PR_FIX_ATTEMPTS[$n]}" -ge "$MAX_PR_FIX_ATTEMPTS" ]; then
+      echo "=== GIVING UP on PR #$n after ${PR_FIX_ATTEMPTS[$n]} attempts (still conflict=$has_conflict, comments=$total_comments, failed-ci=$failed_ci); needs a human. See $LOG_DIR/ai-pr-raw.log ===" | tee -a "$LOG_FILE"
+    fi
 
     # Backstop: claude must leave the tree clean, but if a run died mid-merge
     # we clean up here so the loop's top-of-iteration dirty-tree guard does not
