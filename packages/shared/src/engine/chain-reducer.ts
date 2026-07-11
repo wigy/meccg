@@ -787,7 +787,7 @@ function applyShortEventCharacterStatModifiers(state: GameState, entry: ChainEnt
   if (!def) return state;
   const effects = getCardEffects(def);
   // Only character-targeting short events drive this path.
-  if (!effects.some(e => e.type === 'play-target' && (e as PlayTargetEffect).target === 'character')) {
+  if (!effects.some(e => e.type === 'play-target' && e.target === 'character')) {
     return state;
   }
   const statMods = effects.filter(

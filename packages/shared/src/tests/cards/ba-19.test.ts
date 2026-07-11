@@ -249,14 +249,16 @@ describe('Glance of Arien (ba-19)', () => {
     const balrogId = findCharInstanceId(state, RESOURCE_PLAYER, THE_BALROG);
 
     // Play the first copy and resolve it — leaves the turn-scoped constraints.
+    // Both copies in hand are viable before either is played (the
+    // once-per-turn restriction only kicks in after the first resolves).
     const firstOffers = targetingChar(viableActions(state, PLAYER_2, 'play-hazard'), balrogId);
-    expect(firstOffers).toHaveLength(1);
+    expect(firstOffers).toHaveLength(2);
     const after = resolveChain(dispatch(state, firstOffers[0].action));
 
     // The second copy is no longer viable this turn.
     const secondOffers = computeLegalActions(after, PLAYER_2)
       .filter(ea => ea.viable && ea.action.type === 'play-hazard'
-        && (ea.action as PlayHazardAction).targetCharacterId === balrogId);
+        && ea.action.targetCharacterId === balrogId);
     expect(secondOffers).toHaveLength(0);
   });
 });
