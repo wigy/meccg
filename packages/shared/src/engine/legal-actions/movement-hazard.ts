@@ -1974,6 +1974,19 @@ function playHazardsActions(
               actions.push({ action, viable: false, reason: `${def.name} requires region movement through or leaving a named region` });
               continue;
             }
+          } else if (playCondition && playCondition.requires === 'company-site' && playCondition.condition) {
+            // Glance of Arien (ba-19): gate on the active company's relevant
+            // site — its destination when moving, else its current site.
+            const relevantSite = targetCompany.destinationSite ?? targetCompany.currentSite;
+            const siteDef = relevantSite ? defById(state, relevantSite.definitionId) : undefined;
+            const siteCtx = siteDef && isSiteCard(siteDef)
+              ? { site: { name: siteDef.name, siteType: siteDef.siteType, region: siteDef.region, keywords: siteDef.keywords ?? [] } }
+              : { site: {} };
+            if (!matchesCondition(playCondition.condition, siteCtx as unknown as Record<string, unknown>)) {
+              logDetail(`Hazard short-event "${def.name}": company-site condition not met (site ${siteDef && isSiteCard(siteDef) ? siteDef.name : 'none'})`);
+              actions.push({ action, viable: false, reason: `${def.name}: company's site does not satisfy play condition` });
+              continue;
+            }
           }
 
           // Creature-race-choice: generate one action per eligible race.

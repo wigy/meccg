@@ -3636,6 +3636,20 @@ check) and `reducer-events.ts` (discard execution).
                   "Grey Mountain Narrows", "Imlad Morgul"] }
 ```
 
+- `company-site` — for hazard short-events played during the M/H play-hazards
+  step: a generic DSL `condition` is evaluated against the active company's
+  **relevant site** — its `destinationSite` when moving, otherwise its
+  `currentSite` — exposing `{ site: { name, siteType, region, keywords } }`.
+  Lets a hazard gate on where the targeted company is (or is moving to) without
+  a per-card keyword. Implemented in the play-hazards block of
+  `legal-actions/movement-hazard.ts`. Used by *Glance of Arien* (ba-19):
+  "Playable on The Balrog at or moving to a non-Under-deeps site."
+
+```json
+{ "type": "play-condition", "requires": "company-site",
+  "condition": { "$not": { "site.keywords": { "$includes": "under-deeps" } } } }
+```
+
 - `site-protected` — for site-attached permanent-events (`play-target` target
   `site`): the site the card is being played on (the active company's current
   site) must already be **protected** for the playing player, i.e. carry an
@@ -4233,6 +4247,20 @@ A Corruption-keyword short-event also marks the target in
 `corruptionCardsPlayedPerChar`, so CoE rule 7.2.1 (one corruption card per
 character per turn) blocks a second copy — this is how le-149's "this use
 cannot be duplicated on a given character" is enforced.
+
+A character-targeting hazard short-event that carries **no** `play-option` (a
+fixed, non-choice modifier) applies its `character-stat-modifier` constraints
+via `on-event: self-enters-play` → `add-constraint` instead. On chain
+resolution `applyShortEventSelfEntersPlayConstraints` (`chain-reducer.ts`)
+targets the short-event's chosen character (`targetCharacterId`) and evaluates
+each effect's optional `when` clause against `{ inPlay: [...card names...] }`,
+so a doubled modifier can be gated on a companion card being out. Used by
+*Glance of Arien* (ba-19): two base effects (prowess `-2`, body `-1`) plus two
+more gated `when: { "inPlay": "Gates of Morning" }` (a further prowess `-2` /
+body `-1`, for `-4`/`-2` total while Gates of Morning is in play). The
+turn-scoped constraints stack in the effective-stats resolver, and the
+`duplication-limit` `scope: "turn"` (counting active constraints left by a
+resolved copy) enforces "Cannot be duplicated on a given turn".
 
 ### Weariness of the Heart
 
