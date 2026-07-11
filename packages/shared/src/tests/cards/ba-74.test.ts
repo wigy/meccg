@@ -283,9 +283,11 @@ describe('Roots of the Earth (ba-74)', () => {
     expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
   });
 
-  test('the kept card gives 3 misc MP when Breach the Hold is on the same site', () => {
+  test('Breach the Hold on the same site raises Roots to 3 misc MP (5 total with Breach’s own 2)', () => {
     const { state } = buildKept({ withBreach: true });
-    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(3);
+    // Roots contributes 3 misc MP (1 base + 2 conditional) and Breach the Hold
+    // contributes its own 2 misc MP → 5 misc MP for the player in total.
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(5);
   });
 
   // ── permanence: the bound site is never swept ──
