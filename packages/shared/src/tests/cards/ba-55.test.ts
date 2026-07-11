@@ -60,7 +60,7 @@ import {
   viableActions, dispatch, resolveChain,
   makeCancelWindowCombat, addP1CardsInPlay,
   findHandCardId, expectInDiscardPile,
-  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   MORIA, LORIEN, MINAS_TIRITH, RIVENDELL,
 } from '../test-helpers.js';
 import { Alignment, CardStatus } from '../../index.js';
