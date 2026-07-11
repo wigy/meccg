@@ -15,7 +15,7 @@ import { CardStatus, SiteType } from '../types/common.js';
 import type { CardInstanceId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { ownerOf } from '../types/state.js';
-import { getEffectiveSiteType } from './effective.js';
+import { getEffectiveSiteType, resolveSiteInstanceTransform } from './effective.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, defById, getCardEffects, isHavenForPlayer, isSelfDiscardMove, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -191,13 +191,19 @@ function performUntap(state: GameState): GameState {
       );
     }
     // Roots of the Earth (ba-74): the controller's associated Under-deeps
-    // instance is transformed into a Darkhaven. `getEffectiveSiteType` reads
-    // the instance-scoped `site-instance-transform` (bypassing the Under-deeps
-    // immutability guard), so this player's own company heals/untaps there.
+    // instance is transformed into a Darkhaven. Only an actual instance-scoped
+    // `site-instance-transform` may promote a non-haven site to a healing haven
+    // here — a plain METW Haven / MELE Darkhaven must still be gated by the
+    // MEWH check above (a Fallen-wizard does not heal at a METW Haven), so we
+    // require the transform to be present before honouring the effective type.
     if (!isHaven) {
-      isHaven = getEffectiveSiteType(
-        state, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId,
-      ) === SiteType.Haven;
+      const transform = resolveSiteInstanceTransform(
+        state, company.currentSite.definitionId, company.currentSite.instanceId,
+      );
+      isHaven = transform !== undefined
+        && getEffectiveSiteType(
+          state, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId,
+        ) === SiteType.Haven;
     }
     if (isHaven) {
       for (const charId of company.characters) {
