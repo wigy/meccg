@@ -25,7 +25,9 @@ import type {
   CardEffect,
   FactionCard,
   Alignment,
+  Company,
   CompanyId,
+  CardDefinitionId,
   PlayerId,
   RingwraithModeEffect,
   FallenWizardCharacterAllyMpEffect,
@@ -440,6 +442,30 @@ export function buildFactionPlayableRegions(state: GameState, def: FactionCard):
  * `bearer.companionDefinitionIds` (definition IDs of companions, for
  * conditions that match by ID rather than name).
  */
+/**
+ * Returns true when a company is at, moving to, or moving from an Under-deeps
+ * site. A company's `currentSite` stays the origin for the whole M/H phase
+ * (it is only replaced by the destination at step 8, when movement finalizes
+ * and the company is no longer "moving"), so checking `currentSite` covers both
+ * "at" and "moving from", while `destinationSite` covers "moving to". Used to
+ * spare characters near the Under-deeps from environments like The Sun Shone
+ * Fiercely (ba-25).
+ */
+function companyAtOrMovingUnderDeeps(
+  state: GameState,
+  company: Company | undefined,
+): boolean {
+  if (!company) return false;
+  const isUnderDeepsDef = (defId: CardDefinitionId | undefined): boolean => {
+    if (!defId) return false;
+    const def = state.cardPool[defId];
+    return !!(def && 'keywords' in def
+      && (def as { keywords?: readonly string[] }).keywords?.includes('under-deeps'));
+  };
+  return isUnderDeepsDef(company.currentSite?.definitionId)
+    || isUnderDeepsDef(company.destinationSite?.definitionId);
+}
+
 function buildEffectiveStatsContext(
   charDef: CharacterCard,
   inPlayNames: readonly string[],
@@ -447,11 +473,12 @@ function buildEffectiveStatsContext(
   companionDefinitionIds: readonly string[] = [],
   ringwraithMode?: RingwraithModeEffect['mode'],
   isFollower = false,
+  atOrMovingUnderDeeps = false,
 ): ResolverContext {
   const charInfo = buildBearerContext(charDef);
   return {
     reason: 'effective-stats',
-    bearer: { ...charInfo, companionDefinitionIds, ringwraithMode, isFollower },
+    bearer: { ...charInfo, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps },
     target: charInfo,
     inPlay: inPlayNames,
     company: { characterNames: companionNames },
@@ -507,9 +534,10 @@ function computeEffectiveStats(
   ringwraithMode?: RingwraithModeEffect['mode'],
   controllingPlayerId?: PlayerId,
   bearerPlayerAlignment?: Alignment,
+  atOrMovingUnderDeeps = false,
 ): EffectiveStats {
   const isFollower = char.controlledBy !== 'general';
-  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, isFollower);
+  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps);
   let charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
   // `own-characters`-scoped effects (e.g. A Strident Spawn wh-61) apply only to
@@ -887,7 +915,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       })
       .filter((id): id is string => id !== null);
     const ringwraithMode = resolveCompanyRingwraithMode(state, player, charCompany?.id);
-    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, player.id, player.alignment);
+    // The Sun Shone Fiercely (ba-25) and similar environments spare characters
+    // at, moving to, or moving from an Under-deeps site. Flag the character's
+    // company spatial relationship to any Under-deeps site so `all-characters`
+    // effects can gate on `bearer.atOrMovingUnderDeeps`.
+    const atOrMovingUnderDeeps = companyAtOrMovingUnderDeeps(state, charCompany);
+    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, player.id, player.alignment, atOrMovingUnderDeeps);
     if (statsEqual(char.effectiveStats, newStats)) {
       newCharacters[key] = char;
     } else {

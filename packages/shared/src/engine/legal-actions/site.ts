@@ -28,6 +28,7 @@ import { availableDI, grantedActionActivations, inPlayFactionGrantActions, playR
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
+import { isUnderDeepsSurfaceSite } from './organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -928,7 +929,11 @@ function playResourcesActions(
           const effectiveSiteType = siteDefId && isSiteCard(siteDef)
             ? getEffectiveSiteType(state, siteDefId, siteDef.siteType)
             : undefined;
-          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType };
+          // Expose whether this site is the surface entrance of an Under-deeps
+          // site so a filter can exclude it (Tempest of Fire ba-77: "the site
+          // cannot be an Under-deeps site or surface site thereof").
+          const isUnderDeepsSurface = isUnderDeepsSurfaceSite(state, siteDef);
+          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType, isUnderDeepsSurface };
           if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
             logDetail(`Permanent event ${eventDef.name}: site filter excludes ${siteName}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: site ${siteName} does not match play-target filter`));

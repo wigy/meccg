@@ -522,6 +522,13 @@ export interface CancelByTapAction {
   readonly player: PlayerId;
   /** The character being tapped to cancel one attack. */
   readonly characterId: CardInstanceId;
+  /**
+   * In the "cancel a strike against a wounded character" variant (Carrion
+   * Feeders ba-11, `cancelStrikeAgainstWounded`), the wounded character whose
+   * pre-assigned strike is removed. Absent for the single-target Assassin
+   * variant, which pops the last assignment.
+   */
+  readonly strikeCharacterId?: CardInstanceId;
 }
 
 /**
