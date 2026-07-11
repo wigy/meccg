@@ -429,6 +429,13 @@ export interface PendingResolution {
          * company's current site.
          */
         readonly discardFactionsAtSite?: boolean;
+        /**
+         * When true, after bearer selection (move-to-mp-pile keep) return
+         * every unique faction in play — belonging to either player — that is
+         * playable at the company's current site to its owner's hand
+         * (Tempest of Fire ba-77).
+         */
+        readonly returnFactionsAtSite?: boolean;
       }
     | {
         /**

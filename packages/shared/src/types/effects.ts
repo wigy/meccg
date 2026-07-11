@@ -2202,6 +2202,23 @@ export interface TriggerAttackOnPlayEffect extends EffectBase {
    * current site.
    */
   readonly discardFactionsAtSite?: boolean;
+  /**
+   * When true, after bearer selection (the `move-to-mp-pile` keep branch)
+   * return every **unique** faction card in play — belonging to *either*
+   * player — that is playable at the company's current site to its owner's
+   * hand (Tempest of Fire ba-77). Distinct from `discardFactionsAtSite`,
+   * which discards only the active player's factions.
+   */
+  readonly returnFactionsAtSite?: boolean;
+  /**
+   * When present, the creature type of every triggered attack is resolved
+   * at play time from the active company's current site type instead of the
+   * fixed `creatureType` on each attack entry. Keyed by site type (e.g.
+   * `{ "border-hold": "Men", "shadow-hold": "Orcs" }`) — Tempest of Fire
+   * ba-77's "Men at a Border-hold, Orcs at a Shadow-hold". A site type absent
+   * from the map falls back to the attack entry's printed `creatureType`.
+   */
+  readonly creatureTypeBySiteType?: Readonly<Record<string, string>>;
 }
 
 /**

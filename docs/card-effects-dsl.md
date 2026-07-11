@@ -4743,6 +4743,20 @@ Fields:
   `cardsInPlay` (Burning Rick le-173, Descent through Fire ba-56).
 - `discardFactionsAtSite: boolean` — after bearer selection, discard any of the
   active player's in-play factions playable at the company's current site.
+- `returnFactionsAtSite: boolean` — after the `move-to-mp-pile` keep, return
+  every **unique** faction in play — belonging to *either* player — that is
+  playable at the company's current site to its **owner's** hand (Tempest of
+  Fire ba-77). Distinct from `discardFactionsAtSite`: it scans both players'
+  `cardsInPlay`, is limited to unique factions, and returns to hand (via the
+  instance-id owner prefix) rather than discarding. No return happens on a
+  discard (decline) of the card.
+- `creatureTypeBySiteType: Record<siteType, creatureType>` — resolve every
+  triggered attack's creature type from the played site's type instead of the
+  fixed per-attack `creatureType`, at play time (Tempest of Fire ba-77: "Men at
+  a Border-hold, Orcs at a Shadow-hold" → `{ "border-hold": "Men",
+  "shadow-hold": "Orcs" }`). A site type absent from the map falls back to the
+  attack entry's printed `creatureType`. Applied to the first attack and every
+  `remainingAttacks` entry so the whole sequence shares the resolved race.
 
 **Restricting the keep target.** After the attacks, the bearer offered by the
 `select-card-bearer` resolution honours the card's `play-target: character`
@@ -4791,6 +4805,28 @@ Used by *Descent through Fire* (ba-56, multi-attack + move-to-mp-pile + buffs):
     { "creatureType": "Trolls", "strikes": 3, "prowess": 12 }
   ],
   "afterAttack": "move-to-mp-pile"
+}
+```
+
+Used by *Tempest of Fire* (ba-77, dynamic race by site type + faction return).
+Playable at an untapped Border-hold/Shadow-hold that is neither an Under-deeps
+site nor the surface site of one — the `play-target: site` filter gates on
+`siteType`, `$not keywords $includes under-deeps`, and `isUnderDeepsSurface:
+false` (a boolean the site-phase play path adds to the match context via
+`isUnderDeepsSurfaceSite`, true for a site named at roll 0 in some Under-deeps
+site's `adjacentSites`):
+
+```json
+{
+  "type": "trigger-attack-on-play",
+  "attacks": [
+    { "creatureType": "Men", "strikes": 5, "prowess": 8 },
+    { "creatureType": "Men", "strikes": 4, "prowess": 9 },
+    { "creatureType": "Men", "strikes": 3, "prowess": 10 }
+  ],
+  "creatureTypeBySiteType": { "border-hold": "Men", "shadow-hold": "Orcs" },
+  "afterAttack": "move-to-mp-pile",
+  "returnFactionsAtSite": true
 }
 ```
 

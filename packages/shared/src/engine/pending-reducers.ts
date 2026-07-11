@@ -1939,7 +1939,7 @@ export function applySelectCardBearerResolution(
 ): ReducerResult | null {
   if (top.kind.type !== 'select-card-bearer') return null;
 
-  const { cardInstanceId, companyId, mode: bearerMode, discardFactionsAtSite: shouldDiscardFactions } = top.kind;
+  const { cardInstanceId, companyId, mode: bearerMode, discardFactionsAtSite: shouldDiscardFactions, returnFactionsAtSite: shouldReturnFactions } = top.kind;
 
   if (action.type === 'pass') {
     // Player declines bearer assignment — discard the card
@@ -2065,6 +2065,52 @@ export function applySelectCardBearerResolution(
             cardsInPlay: p.cardsInPlay.filter(c => !discardIds.has(c.instanceId as string)),
             discardPile: [...p.discardPile, ...factionsToDiscard.map(toCardInstance)],
           }));
+        }
+      }
+    }
+
+    // Return each unique faction (of either player) playable at the company's
+    // current site to its owner's hand (Tempest of Fire ba-77). Unlike
+    // `discardFactionsAtSite`, this scans both players' cardsInPlay, is limited
+    // to unique factions, and returns to hand rather than discarding.
+    if (shouldReturnFactions) {
+      const company = s.players[defIdx].companies.find(co => co.id === companyId);
+      const currentSiteDef = company?.currentSite
+        ? defById(s, company.currentSite.definitionId)
+        : undefined;
+      const siteName = currentSiteDef?.name;
+      const siteType = currentSiteDef && 'siteType' in currentSiteDef ? (currentSiteDef as { siteType: string }).siteType : undefined;
+
+      if (siteName || siteType) {
+        // Collect every unique faction in play (either player's cardsInPlay)
+        // that is playable at the site, then remove each from where it sits and
+        // hand it back to its true owner (instance-id prefix — normally the
+        // holder, but an influenced-away faction returns to its deck owner).
+        for (let pi = 0; pi < 2; pi++) {
+          const factionsToReturn: import('../types/state-cards.js').CardInPlay[] = [];
+          for (const card of s.players[pi].cardsInPlay) {
+            const fDef = defById(s, card.definitionId);
+            if (!fDef || !isFactionCard(fDef)) continue;
+            if (fDef.unique !== true) continue;
+            const playableAt = fDef.playableAt as readonly ({ site?: string; siteType?: string; region?: string })[];
+            const matches = playableAt.some(entry =>
+              (siteName && 'site' in entry && entry.site === siteName) ||
+              (siteType && 'siteType' in entry && entry.siteType === siteType),
+            );
+            if (matches) factionsToReturn.push(card);
+          }
+          if (factionsToReturn.length === 0) continue;
+          const returnIds = new Set(factionsToReturn.map(c => c.instanceId as string));
+          s = updatePlayer(s, pi, p => ({
+            ...p,
+            cardsInPlay: p.cardsInPlay.filter(c => !returnIds.has(c.instanceId as string)),
+          }));
+          for (const card of factionsToReturn) {
+            const ownerIdx = getPlayerIndex(s, ownerOf(card.instanceId));
+            const fName = defById(s, card.definitionId)?.name ?? (card.definitionId as string);
+            logDetail(`select-card-bearer: returning unique faction "${fName}" to owner ${s.players[ownerIdx].id as string}'s hand — playable at ${siteName ?? siteType ?? '?'}`);
+            s = updatePlayer(s, ownerIdx, p => ({ ...p, hand: [...p.hand, toCardInstance(card)] }));
+          }
         }
       }
     }

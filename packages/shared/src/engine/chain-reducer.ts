@@ -1551,10 +1551,28 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
 
         // Multi-attack form: use attacks[0] for first combat, pass rest as remainingAttacks.
         // Single-attack form: use the top-level fields (backward-compatible).
-        const firstAttack = triggerEffect.attacks?.length
+        let firstAttack: import('../types/effects.js').TriggerAttackEntry = triggerEffect.attacks?.length
           ? triggerEffect.attacks[0]
           : { creatureType: triggerEffect.creatureType!, strikes: triggerEffect.strikes!, prowess: triggerEffect.prowess! };
-        const remaining = triggerEffect.attacks?.length ? triggerEffect.attacks.slice(1) : [];
+        let remaining: readonly import('../types/effects.js').TriggerAttackEntry[] =
+          triggerEffect.attacks?.length ? triggerEffect.attacks.slice(1) : [];
+
+        // Dynamic creature race: resolve every attack's creatureType from the
+        // played site type when the effect declares `creatureTypeBySiteType`
+        // (Tempest of Fire ba-77: Men at a Border-hold, Orcs at a Shadow-hold).
+        if (triggerEffect.creatureTypeBySiteType) {
+          const activeCompany = defPlayer.companies.find(co => co.id === companyId);
+          const siteDef = activeCompany?.currentSite
+            ? defById(newState, activeCompany.currentSite.definitionId)
+            : undefined;
+          const siteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : undefined;
+          const mappedRace = siteType ? triggerEffect.creatureTypeBySiteType[siteType] : undefined;
+          if (mappedRace) {
+            logDetail(`"${def?.name ?? '?'}" creatureTypeBySiteType: site type ${siteType ?? '?'} → ${mappedRace} attacks`);
+            firstAttack = { ...firstAttack, creatureType: mappedRace };
+            remaining = remaining.map(a => ({ ...a, creatureType: mappedRace }));
+          }
+        }
 
         const creatureRace = normalizeCreatureRace(firstAttack.creatureType);
         const effectiveProwess = resolveAttackProwess(
