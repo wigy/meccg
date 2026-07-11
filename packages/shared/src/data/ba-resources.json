@@ -1090,13 +1090,55 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/RootsoftheEarth.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "keywords": { "$includes": "under-deeps" } },
+            { "siteType": "ruins-and-lairs" }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "The Balrog" }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          { "creatureType": "Drake", "strikes": 2, "prowess": 13 }
+        ],
+        "afterAttack": "move-to-mp-pile"
+      },
+      {
+        "type": "site-instance-transform",
+        "associated": { "siteType": "haven", "removeAllAutoAttacks": true },
+        "others": {
+          "siteType": "shadow-hold",
+          "addAutoAttack": { "creatureType": "Orcs", "strikes": 5, "prowess": 9 }
+        }
+      },
+      {
+        "type": "conditional-mp",
+        "bonus": 2,
+        "requiresCardOnSameSite": "Breach the Hold"
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on an Under-deeps site normally a Ruins & Lairs [{R}] if The Balrog is there. The Balrog’s company faces an attack (Drake — 2 strikes with 13 prowess). Following the attack, tap The Balrog or discard this card. The associated site is a Darkhaven [{H}] and loses all automatic-attacks. All other versions of the site become a Shadow-hold [{S}] and gain an additional automatic-attack: Orcs — 5 strikes with 9 prowess. If Breach the Hold is on the same site, this card gives 3 marshalling points. This site is never discarded or returned to its location deck. Cannot be duplicated on a given site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",

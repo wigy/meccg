@@ -619,7 +619,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     const { siteInstanceId, attackIndex } = combat.attackSource;
     const siteDef = resolveDef(state, siteInstanceId);
     if (siteDef && isSiteCard(siteDef)) {
-      const autoAttacks = getActiveAutoAttacks(state, siteDef);
+      const autoAttacks = getActiveAutoAttacks(state, siteDef, siteInstanceId);
       const aa = autoAttacks[attackIndex];
       const sourceInstId = aa?.sourceInstanceId;
       if (sourceInstId) {
@@ -657,7 +657,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     const { siteInstanceId: dauSiteInstId, attackIndex: dauAttackIdx } = combat.attackSource;
     const dauSiteDef = resolveDef(state, dauSiteInstId);
     if (dauSiteDef && isSiteCard(dauSiteDef)) {
-      const dauAttacks = getActiveAutoAttacks(state, dauSiteDef);
+      const dauAttacks = getActiveAutoAttacks(state, dauSiteDef, dauSiteInstId);
       const dauAa = dauAttacks[dauAttackIdx];
       const dauSourceInstId = dauAa?.sourceInstanceId;
       if (dauSourceInstId) {

@@ -2646,7 +2646,7 @@ function playHazardsActions(
             continue;
           }
           const destSiteDef = resolveDef(state, targetCompany.destinationSite.instanceId);
-          if (!destSiteDef || !isSiteCard(destSiteDef) || getActiveAutoAttacks(state, destSiteDef).length === 0) {
+          if (!destSiteDef || !isSiteCard(destSiteDef) || getActiveAutoAttacks(state, destSiteDef, targetCompany.destinationSite.instanceId).length === 0) {
             logDetail(`Hazard short-event "${def.name}" requires a destination site with automatic-attacks`);
             actions.push({ action, viable: false, reason: 'Destination site has no automatic attacks' });
             continue;
@@ -2946,7 +2946,7 @@ function playHazardsActions(
             const hasItemTrap = getCardEffects(def).some(e => e.type === 'site-item-trap');
             if (hasItemTrap) {
               const orcTrollAutoAttack = siteDef && isSiteCard(siteDef)
-                && getActiveAutoAttacks(state, siteDef).some(aa => {
+                && getActiveAutoAttacks(state, siteDef, destSiteInstanceId).some(aa => {
                   const race = normalizeCreatureRace(aa.creatureType);
                   return race === 'orc' || race === 'troll';
                 });
@@ -3677,7 +3677,7 @@ function inPlayGrantsCreatureKeying(
   if (!siteDefId) return false;
   const siteDef = defById(state, siteDefId);
   if (!siteDef || !isSiteCard(siteDef)) return false;
-  const effSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType);
+  const effSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, effectiveSiteInstanceId);
   const siteKeywords = new Set<string>(siteDef.keywords ?? []);
 
   const creatureCtx = creatureDef as unknown as Record<string, unknown>;

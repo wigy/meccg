@@ -5264,6 +5264,72 @@ Used by *Witch-king of Angmar* (tw-113), *Khamûl the Easterling* (tw-47), and
 }
 ```
 
+### `site-instance-transform`
+
+Carried by a **kept** resource permanent-event bound to a site
+(`attachedToSite`). It splits a site's effective type and automatic-attacks
+between the **one instance the card is attached to** ("the associated site" —
+the controller's own current site) and **every other in-play copy of the same
+site definition** ("all other versions").
+
+Unlike the generic `site-type-override` `attribute-modifier` (Hold Rebuilt and
+Repaired, as-88), this effect **bypasses the MEAS §6(d) Under-deeps
+type-immutability short-circuit** — it exists precisely to retype an Under-deeps
+site — and it discriminates by *instance* rather than applying uniformly to every
+copy. Both `getEffectiveSiteType()` (`engine/effective.ts`) and
+`getActiveAutoAttacks()` (`engine/manifestations.ts`) take an optional site
+**instance** id; `resolveSiteInstanceTransform()` (`engine/effective.ts`) decides
+`associated` vs `other` by whether that instance is the current site of one of
+the carrying card's controller's companies. The transformation is dormant while
+the card is still `pendingTriggerAttack` (i.e. before its keep is confirmed). The
+bound site is permanent: it is exempt from the site-attached orphan sweep and is
+always returned to the owner's location deck rather than discarded (shared with
+`surface-region-adjacency`).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `associated.siteType` | yes | Effective `SiteType` of the associated instance. |
+| `associated.removeAllAutoAttacks` | no | When `true`, the associated instance loses all automatic-attacks. |
+| `others.siteType` | yes | Effective `SiteType` of every other version. |
+| `others.addAutoAttack` | no | `{ creatureType, strikes, prowess }` added to every other version. |
+
+Used by *Roots of the Earth* (ba-74): the associated Under-deeps Ruins & Lairs
+becomes a Darkhaven [{H}] that loses all automatic-attacks, while every other
+version becomes a Shadow-hold [{S}] that gains an Orcs 5-strike/9-prowess
+automatic-attack.
+
+```json
+{
+  "type": "site-instance-transform",
+  "associated": { "siteType": "haven", "removeAllAutoAttacks": true },
+  "others": {
+    "siteType": "shadow-hold",
+    "addAutoAttack": { "creatureType": "Orcs", "strikes": 5, "prowess": 9 }
+  }
+}
+```
+
+### `conditional-mp`
+
+Adds a fixed bonus to the carrying in-play card's own marshalling-point value
+when a named card is in play (either player's `cardsInPlay`) attached to the
+**same site** (matched by shared `attachedToSite`). Folded into the `cardsInPlay`
+marshalling-point tally in `engine/recompute-derived.ts` on top of the card's
+printed `marshallingPoints`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `bonus` | yes | Points added when the condition holds. |
+| `requiresCardOnSameSite` | yes | Card name that, in play on the same site, grants the bonus. |
+
+Used by *Roots of the Earth* (ba-74): printed 1 MP, +2 when *Breach the Hold* is
+on the same site ("If Breach the Hold is on the same site, this card gives 3
+marshalling points").
+
+```json
+{ "type": "conditional-mp", "bonus": 2, "requiresCardOnSameSite": "Breach the Hold" }
+```
+
 ### `grant-creature-keying`
 
 Carried by an in-play permanent-event. While the card is in play (checked
