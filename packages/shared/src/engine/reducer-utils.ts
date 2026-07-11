@@ -2473,11 +2473,13 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
     card => card.attachedToSite !== undefined
       && !occupied.has(card.attachedToSite as string)
       && !activeHosts.has(card.instanceId as string)
-      // Caverns Unchoked (ba-51): "This site is never discarded or returned to
-      // its location deck." The card is permanent and keeps its bound
-      // Under-deeps site in play even while unoccupied — exempt it from the
-      // orphan sweep.
-      && !getCardEffects(defById(state, card.definitionId)).some(e => e.type === 'surface-region-adjacency'),
+      // Caverns Unchoked (ba-51) / Roots of the Earth (ba-74): "This site is
+      // never discarded or returned to its location deck." The card is
+      // permanent and keeps its bound Under-deeps site in play even while
+      // unoccupied — exempt it from the orphan sweep.
+      && !getCardEffects(defById(state, card.definitionId)).some(
+        e => e.type === 'surface-region-adjacency' || e.type === 'site-instance-transform',
+      ),
     card => {
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`site-attached event: discarding "${def?.name ?? card.definitionId}" — bound site ${card.attachedToSite as string} left play`);

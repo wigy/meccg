@@ -23,7 +23,8 @@ import type { CardInstanceId } from '../types/common.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex, companyContainsBalrogAvatar } from '../state-utils.js';
 import { isCharacterCard, isSiteCard } from '../types/cards.js';
-import { RegionType, Race, Skill, Alignment } from '../types/common.js';
+import { RegionType, Race, Skill, Alignment, MovementType } from '../types/common.js';
+import { Phase } from '../types/state-phases.js';
 import { collectCharacterEffects, collectPlayerInPlayEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
 import type { ResolverContext, CollectedEffect } from './effects/index.js';
@@ -34,6 +35,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, playerById, playerConvertsDetainmentToNormal, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
 import { resolveAdjacency, cavernsUnchokedAdjacencyRoll } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
+import { companyMovementRestrictions } from './effects/company-restrictions.js';
 import { isDetainmentAttack } from './detainment.js';
 import { advanceAfterCompanyMH } from './mh-hazard-play.js';
 
@@ -87,7 +89,14 @@ export function handleSelectCompany(
   // Compute effective max region distance from base + card effects (e.g. Cram's extra-region-movement),
   // then apply any game-wide environment reduction (e.g. No Way Forward, dm-75).
   const baseMaxRegionDistance = BASE_MAX_REGION_DISTANCE + (company.extraRegionDistance ?? 0);
-  const maxRegionDistance = applyRegionMovementReduction(state, baseMaxRegionDistance);
+  let maxRegionDistance = applyRegionMovementReduction(state, baseMaxRegionDistance);
+  // Company-bound movement restriction (Going Ever Under Dark ba-37): hard cap
+  // on region distance ("limited in all cases to N regions maximum").
+  const selectRestriction = companyMovementRestrictions(player, company, state);
+  if (selectRestriction?.regionMovementMax != null && selectRestriction.regionMovementMax < maxRegionDistance) {
+    logDetail(`Movement/Hazard: company ${action.companyId} region distance capped at ${selectRestriction.regionMovementMax} by a movement-restriction card (was ${maxRegionDistance})`);
+    maxRegionDistance = selectRestriction.regionMovementMax;
+  }
   logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}), moving=${isMoving}, maxRegions=${maxRegionDistance} (base ${BASE_MAX_REGION_DISTANCE} + extra ${company.extraRegionDistance ?? 0}${maxRegionDistance < baseMaxRegionDistance ? `, reduced from ${baseMaxRegionDistance} by environment` : ''}) → advancing to reveal-new-site`);
   return {
     state: {
@@ -529,6 +538,23 @@ export function snapshotHazardLimit(
           }
         }
       }
+    }
+  }
+
+  // Company-bound movement restriction (Going Ever Under Dark ba-37): "if they
+  // move with region movement … their hazard limit is reduced by one (to a
+  // minimum of two)". CRF 22: the reduction only applies to a region-moving
+  // company. Applied last so its floor governs the final value.
+  const movementType = state.phaseState.phase === Phase.MovementHazard
+    ? state.phaseState.movementType
+    : null;
+  if (company.destinationSite && movementType === MovementType.Region) {
+    const owner = state.players[activeIndex];
+    const hazardRestriction = companyMovementRestrictions(owner, company, state);
+    if (hazardRestriction && hazardRestriction.hazardLimitModifier !== 0) {
+      const prev = limit;
+      limit = Math.max(hazardRestriction.hazardLimitFloor, limit + hazardRestriction.hazardLimitModifier);
+      logDetail(`Hazard limit modified by ${hazardRestriction.hazardLimitModifier} (movement-restriction, floor ${hazardRestriction.hazardLimitFloor}): ${prev} → ${limit}`);
     }
   }
 

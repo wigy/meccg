@@ -22,7 +22,7 @@ import type { CardInstance } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
-import type { CompanyId, CardDefinitionId } from '../types/common.js';
+import type { CompanyId, CardDefinitionId, CardInstanceId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
 import { buildMovementMap, getReachableSites } from '../movement-map.js';
@@ -154,6 +154,10 @@ export function handlePlayHazards(
 
   // --- Play a creature from the discard pile (Exhalation of Decay, dm-55) ---
   if (action.type === 'play-creature-from-discard') return handlePlayCreatureFromDiscard(state, action, mhState);
+
+  // --- Replay a Wolf/Animal creature that already attacked (Monstrosity of
+  //     Diverse Shape, ba-21) ---
+  if (action.type === 'spawn-replay-creature') return handleSpawnReplayCreature(state, action, mhState);
 
   // For all resource-player actions below: after the action resolves,
   // reset hazardPlayerPassed so the hazard player may resume (rule 5.27).
@@ -1440,13 +1444,16 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       } else {
         const originDef = defById(state, originSite.definitionId);
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
-        // Caverns Unchoked (ba-51): a bound Under-deeps site "is never discarded
-        // or returned to its location deck". There is no unoccupied-in-play site
-        // zone, so the closest faithful model is to always return it to the
-        // owner's location deck (never discard it) so it stays re-accessible.
+        // Caverns Unchoked (ba-51) / Roots of the Earth (ba-74): a bound
+        // Under-deeps site "is never discarded or returned to its location
+        // deck". There is no unoccupied-in-play site zone, so the closest
+        // faithful model is to always return it to the owner's location deck
+        // (never discard it) so it stays re-accessible.
         const cavernsBound = resourcePlayer.cardsInPlay.some(
           c => c.attachedToSite === originSite.definitionId
-            && getCardEffects(defById(state, c.definitionId)).some(e => e.type === 'surface-region-adjacency'),
+            && getCardEffects(defById(state, c.definitionId)).some(
+              e => e.type === 'surface-region-adjacency' || e.type === 'site-instance-transform',
+            ),
         );
         const alwaysReturnToDeck = cavernsBound || (originDef && isSiteCard(originDef)
           && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'always-return-to-deck'));
@@ -1536,6 +1543,12 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
         region: destDef?.region,
         siteType: destDef?.siteType,
       },
+      // The region types the company traversed this move. Lets a
+      // `bearer-company-moves` self-discard fire on "moves through a
+      // Free-domain/Dark-domain" path clauses — Memories of Old Torture
+      // (ba-67), whose ally is discarded via a `sitePath.regionTypes`
+      // `$includes` gate.
+      sitePath: { regionTypes: [...mhState.resolvedSitePath] },
     };
     // True when a `bearer-company-moves` self-discard effect should fire given
     // its optional `when` gate against the destination site.
@@ -1543,6 +1556,18 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       getOnEventEffects(def, 'bearer-company-moves').some(
         e => isSelfDiscardMove(e.apply) && (!e.when || matchesCondition(e.when, moveCtx)),
       );
+    // A converted-creature ally (Memories of Old Torture ba-67 / Ready to His
+    // Will le-220) is the creature card itself, whose hazard-creature
+    // definition carries no discard-on-move rule. That rule lives on the
+    // `convert-creature-to-ally` event card "placed with the creature"
+    // (in cards-in-play, `attachedTo` the ally). When such an event's
+    // `bearer-company-moves` self-discard fires, discard the ally; the orphan
+    // sweep (`discardOrphanedConvertedAllyEvents`) then discards the event too.
+    const attachedEventDiscardsAllyOnMove = (allyInstanceId: CardInstanceId): boolean =>
+      newPlayers[activeIndex].cardsInPlay.some(cp => {
+        if (cp.attachedTo !== allyInstanceId) return false;
+        return shouldDiscardOnMove(defById(state, cp.definitionId));
+      });
     let discardedAny = false;
     for (const charId of movedCompany.characters) {
       const charData = newPlayers[activeIndex].characters[charId];
@@ -1561,7 +1586,7 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       }
       for (const ally of charData.allies) {
         const allyDef = defById(state, ally.definitionId);
-        if (shouldDiscardOnMove(allyDef)) {
+        if (shouldDiscardOnMove(allyDef) || attachedEventDiscardsAllyOnMove(ally.instanceId)) {
           logDetail(`bearer-company-moves: discarding ally "${allyDef?.name ?? ally.definitionId}" from ${charId as string} (moved to ${destDef?.name ?? '?'})`);
           toDiscard.push(toCardInstance(ally));
         } else {
@@ -2008,6 +2033,7 @@ export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhase
         onGuardPlacedThisCompany: false,
         returnedToOrigin: false,
         hazardsEncountered: [],
+        spawnReplayUsedSources: [],
         ahuntAttacksResolved: 0,
         ahuntGroupOutcomes: [],
       },
@@ -2095,6 +2121,7 @@ export function handleGangwaysOffer(
         onGuardPlacedThisCompany: false,
         returnedToOrigin: false,
         hazardsEncountered: [],
+        spawnReplayUsedSources: [],
         ahuntAttacksResolved: 0,
         ahuntGroupOutcomes: [],
       },
@@ -2726,6 +2753,106 @@ export function handlePlayCreatureFromDiscard(
     prowessBonus: effect.prowessModifier,
   };
   newState = initiateChain(newState, action.player, creatureCard, payload);
+
+  return { state: newState };
+}
+
+/**
+ * Handle spawn-replay-creature: the hazard player replays a hazard creature
+ * from their own discard pile as an immediate attack, granted by an in-play
+ * permanent-event carrying a `grant-replay-attacked-creature` effect
+ * (Monstrosity of Diverse Shape, ba-21).
+ *
+ * The creature must match the effect's `filter` (Wolf / Animal) and must have
+ * already attacked the target company this M/H phase (its name is in
+ * `hazardsEncountered`). This play COUNTS against the hazard limit and may be
+ * used only once per company's M/H phase per source permanent-event. The
+ * creature enters a new chain and, after combat, is disposed by the normal
+ * combat-finalization rules.
+ */
+export function handleSpawnReplayCreature(
+  state: GameState,
+  action: import('../types/actions-movement-hazard.js').SpawnReplayCreatureAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const hazardIdx = getPlayerIndex(state, action.player);
+  const hazardPlayerState = state.players[hazardIdx];
+
+  // Validate the source permanent-event is in play and carries the effect.
+  const sourceCard = hazardPlayerState.cardsInPlay.find(c => c.instanceId === action.sourceInstanceId);
+  if (!sourceCard) {
+    return { state, error: `spawn-replay-creature: source ${action.sourceInstanceId as string} not in play` };
+  }
+  const sourceDef = defById(state, sourceCard.definitionId);
+  const effect = sourceDef
+    ? getCardEffects(sourceDef).find(
+        (e): e is import('../index.js').GrantReplayAttackedCreatureEffect =>
+          e.type === 'grant-replay-attacked-creature',
+      )
+    : undefined;
+  if (!effect) {
+    return { state, error: `spawn-replay-creature: ${sourceCard.definitionId as string} has no grant-replay-attacked-creature effect` };
+  }
+
+  // Once per company's M/H phase per source.
+  const usedSources = mhState.spawnReplayUsedSources ?? [];
+  if (usedSources.includes(action.sourceInstanceId)) {
+    return { state, error: `spawn-replay-creature: ${sourceCard.definitionId as string} already used this M/H phase` };
+  }
+
+  // Validate the target creature is in the discard pile and matches the filter.
+  const creatureCard = findById(hazardPlayerState.discardPile, action.creatureInstanceId);
+  if (!creatureCard) {
+    return { state, error: `spawn-replay-creature: creature ${action.creatureInstanceId as string} not found in discard pile` };
+  }
+  const creatureDef = defById(state, creatureCard.definitionId);
+  if (!creatureDef || creatureDef.cardType !== 'hazard-creature') {
+    return { state, error: `spawn-replay-creature: ${creatureCard.definitionId as string} is not a hazard-creature` };
+  }
+  if (!matchesCondition(effect.filter, creatureDef as unknown as Record<string, unknown>)) {
+    return { state, error: `spawn-replay-creature: ${creatureCard.definitionId as string} does not match the effect filter` };
+  }
+
+  // "This card must have already attacked the company this turn."
+  const creatureName = (creatureDef as { name?: string }).name ?? (creatureCard.definitionId as string);
+  if (!mhState.hazardsEncountered.includes(creatureName)) {
+    return { state, error: `spawn-replay-creature: "${creatureName}" has not attacked this company this turn` };
+  }
+
+  // Creatures must initiate a new chain.
+  if (state.chain !== null) {
+    return { state, error: `spawn-replay-creature: creatures must initiate a new chain` };
+  }
+
+  // This replay counts one against the hazard limit.
+  const limit = currentHazardLimit(state, mhState, action.targetCompanyId);
+  if (mhState.hazardsPlayedThisCompany >= limit) {
+    return { state, error: `spawn-replay-creature: hazard limit reached (${limit})` };
+  }
+  const newHazardCount = mhState.hazardsPlayedThisCompany + 1;
+
+  logDetail(
+    `Monstrosity of Diverse Shape: replaying "${creatureName}" from discard pile against company ${action.targetCompanyId as string} (${newHazardCount}/${limit} hazards)`,
+  );
+
+  // Remove the creature from the discard pile; mark the source used; count the
+  // hazard; resume the resource player's window (rule 5.27).
+  let newState = updatePlayer(state, hazardIdx, p => ({
+    ...p,
+    discardPile: removeById(p.discardPile, creatureCard.instanceId),
+  }));
+  newState = {
+    ...newState,
+    phaseState: {
+      ...mhState,
+      hazardsPlayedThisCompany: newHazardCount,
+      spawnReplayUsedSources: [...usedSources, action.sourceInstanceId],
+      resourcePlayerPassed: false,
+    },
+  };
+
+  // Initiate the creature combat. No prowess modifier.
+  newState = initiateChain(newState, action.player, creatureCard, { type: 'creature' });
 
   return { state: newState };
 }

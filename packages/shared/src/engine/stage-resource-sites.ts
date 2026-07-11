@@ -57,7 +57,7 @@ export function siteMatchesStageResourceTarget(
   if (!siteDef || !isSiteCard(siteDef)) return false;
   if (!sitePlayTarget.filter) return true;
   const regionType = siteRegionTypeOf(state, siteDef);
-  const effectiveSiteType = getEffectiveSiteType(state, siteDef.id, siteDef.siteType);
+  const effectiveSiteType = getEffectiveSiteType(state, siteDef.id, siteDef.siteType, siteCard.instanceId);
   const matchTarget = {
     ...(siteDef as unknown as Record<string, unknown>),
     regionType,

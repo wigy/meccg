@@ -23,10 +23,23 @@
           "strikes": 2,
           "prowess": 15,
           "body": 9
+        },
+        "onDefeat": "remove-from-play"
+      },
+      {
+        "type": "grant-replay-attacked-creature",
+        "filter": {
+          "race": {
+            "$in": [
+              "wolves",
+              "animals"
+            ]
+          }
         }
       }
     ],
-    "text": "Unique. Spawn. The Drowning-deeps and Remains of Thangorodrim each have an additional automatic-attack: Spawn — 2 strikes with 15/9."
+    "certified": "2026-07-11",
+    "text": "Unique. Spawn. The Drowning-deeps and Remains of Thangorodrim each have an additional automatic-attack: Spawn — 2 strikes with 15/9. In addition, once per turn the hazard player may use one against the hazard limit to play a Wolf or Animal hazard creature from his discard pile. This card must have already attacked the company this turn."
   },
   {
     "cardType": "hazard-event",

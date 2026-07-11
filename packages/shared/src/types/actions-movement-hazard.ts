@@ -1209,6 +1209,32 @@ export interface PlayCreatureFromDiscardAction {
 }
 
 /**
+ * Replay a hazard creature from the hazard player's own discard pile as an
+ * immediate attack, granted by an in-play permanent-event carrying a
+ * `grant-replay-attacked-creature` effect (Monstrosity of Diverse Shape,
+ * ba-21).
+ *
+ * The creature must have already attacked the target company earlier this
+ * movement/hazard phase. Unlike {@link PlayCreatureFromDiscardAction}, this
+ * play DOES count against the hazard limit and may be used only once per
+ * company's movement/hazard phase per source permanent-event.
+ */
+export interface SpawnReplayCreatureAction {
+  /** Action discriminant. */
+  readonly type: 'spawn-replay-creature';
+  /** The hazard player replaying the creature. */
+  readonly player: PlayerId;
+  /** The in-play permanent-event instance granting the ability. */
+  readonly sourceInstanceId: CardInstanceId;
+  /** The hazard-creature instance in the discard pile being brought into play. */
+  readonly creatureInstanceId: CardInstanceId;
+  /** The company the creature is targeting. */
+  readonly targetCompanyId: CompanyId;
+  /** Keying match (same as a play-hazard creature). */
+  readonly keyedBy?: CreatureKeyingMatch;
+}
+
+/**
  * Roll 2d6 to resolve a Stay Her Appetite (le-140) condition check.
  * Resolves the queued `stay-her-appetite-roll` pending resolution.
  */

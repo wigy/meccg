@@ -2079,7 +2079,7 @@ function deriveSiteFacedRaces(state: GameState): string[] {
   if (!company?.currentSite) return [];
   const siteDef = defById(state, company.currentSite.definitionId);
   if (!siteDef || !isSiteCard(siteDef)) return [];
-  const autoAttacks = getActiveAutoAttacks(state, siteDef);
+  const autoAttacks = getActiveAutoAttacks(state, siteDef, company.currentSite.instanceId);
   const resolved = Math.min(siteState.automaticAttacksResolved, autoAttacks.length);
   const races = new Set<string>();
   for (let i = 0; i < resolved; i++) {
@@ -3195,7 +3195,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const destSiteDefId = destSiteInst ? resolveInstanceId(current, destSiteInst.instanceId) : null;
       const destSiteDef = destSiteDefId ? defById(current, destSiteDefId) : undefined;
       if (company && destSiteDef && isSiteCard(destSiteDef)) {
-        const autoAttacks = getActiveAutoAttacks(current, destSiteDef);
+        const autoAttacks = getActiveAutoAttacks(current, destSiteDef, destSiteInst?.instanceId);
         if (autoAttacks.length > 0) {
           const hazardPlayerId = hazardPlayer(current, activePlayerId).id;
           const inPlayNames = buildInPlayNames(current);

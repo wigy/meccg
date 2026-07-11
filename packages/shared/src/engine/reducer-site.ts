@@ -333,7 +333,7 @@ function handleSiteEnterOrSkip(
   const siteDef = siteInPlay ? defById(state, siteInPlay.definitionId) : undefined;
   const enterCovert = isCovertCompany(company, player, state);
   const autoAttackCount = siteDef && isSiteCard(siteDef)
-    ? getActiveAutoAttacks(state, siteDef).filter(aa => autoAttackAppliesToCompany(aa, enterCovert)).length
+    ? getActiveAutoAttacks(state, siteDef, siteInPlay?.instanceId).filter(aa => autoAttackAppliesToCompany(aa, enterCovert)).length
     : 0;
 
   const skipAutoAttacks = hasSiteFlag(
@@ -416,7 +416,7 @@ function handleRevealOnGuardAttacks(
       && siteDef && isSiteCard(siteDef)
       && !(siteDef as { lairOf?: unknown }).lairOf
       && isReduceAttacksToOneInPlay(state)
-      && getActiveAutoAttacks(state, siteDef).filter(aa =>
+      && getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId).filter(aa =>
         autoAttackAppliesToCompany(aa, isCovertCompany(company, state.players[activePlayerIndex], state)),
       ).length > 1
     ) {
@@ -508,7 +508,7 @@ function handleForewarnedSelectAttack(
     ? defById(state, company.currentSite.definitionId)
     : undefined;
   const autoAttacks = siteDef && isSiteCard(siteDef)
-    ? getActiveAutoAttacks(state, siteDef)
+    ? getActiveAutoAttacks(state, siteDef, company?.currentSite?.instanceId)
     : [];
   if (action.attackIndex < 0 || action.attackIndex >= autoAttacks.length) {
     return { state, error: `Invalid attackIndex ${action.attackIndex} for forewarned-select-attack` };
@@ -567,7 +567,7 @@ function handleSiteAutomaticAttacks(
   const siteDef = state.cardPool[company.currentSite!.definitionId] as import('../types/cards.js').SiteCard;
 
   const attackIndex = siteState.automaticAttacksResolved;
-  const autoAttacks = getActiveAutoAttacks(state, siteDef);
+  const autoAttacks = getActiveAutoAttacks(state, siteDef, company.currentSite!.instanceId);
 
   // Covert/overt status of the defending company (MELE site guardians). It
   // selects which auto-attacks apply (see autoAttackAppliesToCompany) and is
@@ -582,7 +582,7 @@ function handleSiteAutomaticAttacks(
   // standard detainment keying (§3.II.2.R1/B1); the forced flag overrides
   // detainment unconditionally for every alignment.
   const siteDefIdForAttacks = company.currentSite!.definitionId;
-  const effectiveSiteType = getEffectiveSiteType(state, siteDefIdForAttacks, siteDef.siteType);
+  const effectiveSiteType = getEffectiveSiteType(state, siteDefIdForAttacks, siteDef.siteType, company.currentSite!.instanceId);
   const forcedDetainment = siteAutoAttacksForcedDetainment(state, siteDefIdForAttacks);
   // Alatar wh-1: above 7 stage points, all detainment attacks against this
   // player's companies become normal — overriding even site-forced detainment.
@@ -895,7 +895,7 @@ function buildSiteRepeatedAttackCombat(
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const defendingCovert = isCovertCompany(company, state.players[activePlayerIndex], state);
   const siteDefId = company.currentSite!.definitionId;
-  const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType);
+  const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, company.currentSite!.instanceId);
   const forcedDetainment = siteAutoAttacksForcedDetainment(state, siteDefId);
   const convertsDetainment = playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]);
   const inPlayNames = buildInPlayNames(state);
@@ -975,7 +975,7 @@ function maybeTriggerSiteItemTrap(
   const siteDefId = company.currentSite.definitionId;
   const siteDef = defById(state, siteDefId);
   if (!siteDef || !isSiteCard(siteDef)) return null;
-  const autoAttacks = getActiveAutoAttacks(state, siteDef);
+  const autoAttacks = getActiveAutoAttacks(state, siteDef, company.currentSite.instanceId);
   if (autoAttacks.length === 0) return null;
 
   // Find an opponent's Troll-purse attached to this site's location.
@@ -1032,7 +1032,7 @@ function handleSiteTrollPurseAttacks(
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
   const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef) : [];
+  const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId) : [];
 
   if (!reface || reface.resolved >= autoAttacks.length) {
     logDetail('Troll-purse: all re-faced automatic-attacks resolved → play-resources');

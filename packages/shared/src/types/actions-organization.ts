@@ -490,6 +490,19 @@ export interface DiscardStageResourceAction {
 }
 
 /**
+ * The controller voluntarily discards one of their in-play permanent-events
+ * carrying a `voluntary-discard` effect during their organization phase
+ * ("Discard during your organization phase if you choose" — Going Ever Under
+ * Dark ba-37).
+ */
+export interface VoluntaryDiscardInPlayAction {
+  readonly type: 'voluntary-discard-in-play';
+  readonly player: PlayerId;
+  /** The in-play permanent-event card instance to discard. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Activates the optional once-per-organization-phase fetch granted by an in-play
  * permanent-event carrying an `org-phase-fetch` effect (A Strident Spawn wh-61:
  * "During your organization phase, you may take one Half-orc character from your
