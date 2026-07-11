@@ -416,6 +416,15 @@ export interface CombatState {
    */
   readonly cancelByTapAllowTarget?: boolean;
   /**
+   * When true, the `cancel-by-tap` sub-phase uses the "cancel a strike against
+   * a wounded character" variant (Carrion Feeders ba-11, `combat-tap-to-cancel-
+   * strike`): the defender taps an untapped company character to remove one
+   * pre-assigned strike, choosing which wounded character to protect. The
+   * `cancel-by-tap` action carries `strikeCharacterId` (the wounded character
+   * whose strike is canceled) instead of popping the last assignment.
+   */
+  readonly cancelStrikeAgainstWounded?: boolean;
+  /**
    * Items available for salvage transfer from an eliminated character.
    * Only set during the 'item-salvage' phase (CoE rule 3.I.2).
    */

@@ -417,6 +417,45 @@ function showHazardKeyingMenu(
   showCursorTooltipMenu(event, items);
 }
 
+/** A labelled choice for how to play an agent card from hand. */
+export interface AgentPlayChoice {
+  readonly label: string;
+  readonly action: GameAction;
+}
+
+/**
+ * Enumerate the ways an agent card in hand may be played. An agent may always be
+ * played face-up as an agent (`play-agent-hazard`); CoE 2.IV.vii.4 additionally
+ * lets the hazard player place any hand card — including an agent — face-down
+ * on-guard, so when an on-guard action is available it must be offered too. The
+ * on-guard option was previously dropped, so agents dispatched straight into
+ * play with no way to bluff them on-guard.
+ */
+export function agentPlayChoices(
+  agentHazardAction: GameAction,
+  onGuardAction: GameAction | undefined,
+): readonly AgentPlayChoice[] {
+  const choices: AgentPlayChoice[] = [{ label: 'Play as agent', action: agentHazardAction }];
+  if (onGuardAction) choices.push({ label: 'Place on-guard', action: onGuardAction });
+  return choices;
+}
+
+/**
+ * Show a disambiguation menu for an agent card that may be played face-up as an
+ * agent OR placed face-down on-guard.
+ */
+function showAgentPlayMenu(
+  event: MouseEvent,
+  choices: readonly AgentPlayChoice[],
+  onAction: (action: GameAction) => void,
+): void {
+  const items: TooltipMenuItem[] = choices.map(c => ({
+    label: c.label,
+    onClick: () => onAction(c.action),
+  }));
+  showCursorTooltipMenu(event, items);
+}
+
 // ---- Hand card helpers ----
 
 /** A card in the hand arc with definition and optional instance ID. */
@@ -1041,7 +1080,16 @@ export function renderHand(
     } else if (isAgentHazard) {
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
-        img.addEventListener('click', () => onAction(agentHazardAction));
+        // An agent may be played face-up OR placed face-down on-guard
+        // (CoE 2.IV.vii.4). Offer a menu when both apply; otherwise dispatch.
+        const choices = agentPlayChoices(agentHazardAction, onGuardAction);
+        if (choices.length > 1) {
+          img.addEventListener('click', (e) => {
+            showAgentPlayMenu(e, choices, onAction);
+          });
+        } else {
+          img.addEventListener('click', () => onAction(choices[0].action));
+        }
       }
     } else if (isAlly) {
       // Ally play: single target plays directly, multiple targets use two-step character targeting

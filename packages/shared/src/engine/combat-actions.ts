@@ -326,9 +326,39 @@ function bodyCheckRollModifier(state: GameState, charData: CharacterInPlay): num
     if (!itemDef) continue;
     for (const effect of getCardEffects(itemDef)) {
       if (effect.type !== 'body-check-modifier') continue;
+      if (effect.scope === 'all-attacks') continue; // global modifiers are collected separately
       if (effect.when && !matchesCondition(effect.when, { bearer: { race: bearerRace } })) continue;
       logDetail(`Body-check modifier ${formatSignedNumber(effect.value)} from ${(itemDef as { name?: string }).name ?? (item.definitionId as string)}`);
       total += effect.value;
+    }
+  }
+  return total;
+}
+
+/**
+ * Sums `scope: 'all-attacks'` `body-check-modifier` effects carried by any
+ * in-play permanent-event (either player's `cardsInPlay`). Unlike the
+ * item-attached modifier, these are global to combat and gated by `when`
+ * against a context exposing `attack.creatureRace` (the attacking creature's
+ * normalized race) and `target.race` (the body-checked character's race).
+ * Backs Spawn of Ungoliant (ba-24): "+1 to all body checks for Elves,
+ * Dwarves, Hobbits, Dúnedain, and Men resulting from Spider attacks." Returns
+ * 0 when no such permanent-event is in play or none matches.
+ */
+function globalBodyCheckRollModifier(state: GameState, targetRace: string | undefined, creatureRace: string | undefined): number {
+  let total = 0;
+  const ctx = { attack: { creatureRace }, target: { race: targetRace } };
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'body-check-modifier') continue;
+        if (effect.scope !== 'all-attacks') continue;
+        if (effect.when && !matchesCondition(effect.when, ctx)) continue;
+        logDetail(`Global body-check modifier ${formatSignedNumber(effect.value)} from ${(def as { name?: string }).name ?? (card.definitionId as string)} (attack race ${creatureRace ?? '?'}, target race ${targetRace ?? '?'})`);
+        total += effect.value;
+      }
     }
   }
   return total;
@@ -605,9 +635,15 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // Item-granted body-check modifiers (e.g. Helm of Fear -1) only apply to
     // characters (allies do not bear items).
     const itemBodyMod = charData && !allyMatch ? bodyCheckRollModifier(stateWithRoll, charData) : 0;
-    const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod;
+    // Global body-check modifiers from in-play permanent-events (e.g. Spawn of
+    // Ungoliant ba-24: +1 to certain races' body checks from Spider attacks).
+    const targetRaceForBody = charData && !allyMatch && isCharacterCard(defById(stateWithRoll, charData.definitionId))
+      ? (defById(stateWithRoll, charData.definitionId) as { race?: string }).race
+      : undefined;
+    const globalBodyMod = globalBodyCheckRollModifier(stateWithRoll, targetRaceForBody, combat.creatureRace);
+    const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod + globalBodyMod;
 
-    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''} = ${effectiveRoll} vs body ${body}`);
+    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${globalBodyMod ? `${formatSignedNumber(globalBodyMod)}(global)` : ''} = ${effectiveRoll} vs body ${body}`);
 
     // MELE §8.R1: if the *unmodified* roll is exactly 7 or 8 and the target is a
     // Ringwraith avatar, the Ringwraith returns to hand instead of being eliminated.

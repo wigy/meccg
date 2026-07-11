@@ -6,7 +6,7 @@
  * character placement, deck shuffle, initial draw, and initiative roll.
  */
 
-import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstance, GameAction, TwoDiceSix, SiteSelectionPlayerState } from '../index.js';
+import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstance, CardInstanceId, GameAction, TwoDiceSix, SiteSelectionPlayerState } from '../index.js';
 import type { CardInPlay } from '../types/state-cards.js';
 import { getAlignmentRules } from '../alignment-rules.js';
 import { shuffle } from '../rng.js';
@@ -918,6 +918,7 @@ function finalizeSiteSelection(
     ? setupPhase({
       step: SetupStep.CharacterPlacement,
       placementDone: [!p1NeedsPlacement, !p2NeedsPlacement],
+      placed: [[], []],
     })
     : setupPhase({ step: SetupStep.DeckShuffle, shuffled: [false, false] });
 
@@ -1015,6 +1016,13 @@ function handleCharacterPlacement(
     return { state, error: 'Character not found' };
   }
 
+  // A character may be placed at most once. Re-placing an already-placed
+  // character is what let players (AIs in particular) shuffle characters
+  // between companies without ever finishing, so it is rejected here.
+  if (stepState.placed[playerIndex].includes(action.characterInstanceId)) {
+    return { state, error: 'Character has already been placed' };
+  }
+
   // Validate target company belongs to this player
   const targetIdx = player.companies.findIndex(c => c.id === action.companyId);
   if (targetIdx < 0) {
@@ -1033,8 +1041,15 @@ function handleCharacterPlacement(
     characters: [...newCompanies[targetIdx].characters, action.characterInstanceId],
   };
 
+  // Mark the character as placed so it is no longer offered a move.
+  const newPlaced = [...stepState.placed] as [readonly CardInstanceId[], readonly CardInstanceId[]];
+  newPlaced[playerIndex] = [...newPlaced[playerIndex], action.characterInstanceId];
+
   return {
-    state: updatePlayer(state, playerIndex, p => ({ ...p, companies: newCompanies })),
+    state: {
+      ...updatePlayer(state, playerIndex, p => ({ ...p, companies: newCompanies })),
+      phaseState: setupPhase({ ...stepState, placed: newPlaced }),
+    },
   };
 }
 

@@ -230,6 +230,17 @@ function handleSiteSelectCompany(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Rule 2.1.1: the resource player may play resource short-events during any
+  // phase of their turn, including the select-company step (before any company
+  // has been selected). `siteActions` offers these plays here, so the reducer
+  // must accept them — otherwise the engine rejects an action it advertised as
+  // legal, leaving a client (or AI) with no state update and stuck. The event
+  // resolves without changing the site step, so the player then selects a
+  // company as normal.
+  if (action.type === 'play-short-event') {
+    return handlePlayResourceShortEvent(state, action);
+  }
+
   if (action.type !== 'select-company') {
     return wrongActionType(state, action, 'select-company', 'select-company step');
   }
@@ -290,6 +301,14 @@ function handleSiteEnterOrSkip(
   // constraint matching action.sourceCardId + action.actionId.
   if (action.type === 'activate-granted-action') {
     return handleGrantActionApply(state, action);
+  }
+
+  // Rule 2.1.1: resource short-events remain playable at the enter-or-skip
+  // decision window (`siteActions` offers them here too). Accept them so the
+  // engine never rejects an action it advertised as legal; the event resolves
+  // without changing the step, leaving the enter-or-skip choice pending.
+  if (action.type === 'play-short-event') {
+    return handlePlayResourceShortEvent(state, action);
   }
 
   if (action.type !== 'enter-site' && action.type !== 'pass') {
