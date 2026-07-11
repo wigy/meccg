@@ -1355,6 +1355,51 @@ export function countCopiesInPlay(state: GameState, name: string): number {
 }
 
 /**
+ * True when the card definition `defId` carries the given (lowercased) keyword.
+ * Keyword matching is case-insensitive so `"Spawn"` in card data matches
+ * `"spawn"`.
+ */
+function defHasKeyword(state: GameState, defId: CardDefinitionId, keyword: string): boolean {
+  const def = defById(state, defId);
+  const kws = (def as { keywords?: readonly string[] } | undefined)?.keywords;
+  return kws ? kws.some(k => k.toLowerCase() === keyword) : false;
+}
+
+/**
+ * Count all `spawn`-keyword cards currently in play across both players, backing
+ * "the number of Spawn cards in play" (The Reek ba-23, Darkness Made by Malice
+ * ba-15, Desire All for Thy Belly ba-16). "Eliminated Spawn do not count" is
+ * satisfied automatically: eliminated cards leave the in-play zones for a
+ * discard/out-of-play pile, so they are not scanned here.
+ *
+ * Spawn cards may be in play as characters (The Balrog ba-3), allies (Evil
+ * Things Lingering ba-45), attached hazards, or bare permanent-events in
+ * `cardsInPlay` (Spawn of Ungoliant ba-24 and its kin). All of these zones are
+ * counted.
+ */
+export function countSpawnCardsInPlay(state: GameState): number {
+  let count = 0;
+  for (const p of state.players) {
+    for (const cip of p.cardsInPlay) {
+      if (defHasKeyword(state, cip.definitionId, 'spawn')) count += 1;
+    }
+    for (const ch of Object.values(p.characters)) {
+      if (defHasKeyword(state, ch.definitionId, 'spawn')) count += 1;
+      for (const ally of ch.allies) {
+        if (defHasKeyword(state, ally.definitionId, 'spawn')) count += 1;
+      }
+      for (const hazard of ch.hazards) {
+        if (defHasKeyword(state, hazard.definitionId, 'spawn')) count += 1;
+      }
+      for (const item of ch.items) {
+        if (defHasKeyword(state, item.definitionId, 'spawn')) count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+/**
  * Count cards named `name` that `player` holds: copies in their `cardsInPlay`
  * (non-attached permanent events like Great Patron wh-72) plus copies among
  * their characters' `items`. Backs `duplication-limit` checks with

@@ -2104,6 +2104,64 @@ function playHazardsActions(
           continue;
         }
 
+        // Company-targeting short events (e.g. The Reek ba-23): played on the
+        // active company as a whole (no per-character/ally/site target). The
+        // play-target filter gates on the company's current-or-destination site
+        // type/keywords, alignment, and member count. A play-discard-cost is
+        // cross-multiplied so the player picks which card to sacrifice.
+        if (shortPlayTarget?.target === 'company') {
+          const compSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+          const compSiteDef = compSiteInst ? resolveDef(state, compSiteInst.instanceId) : undefined;
+          const compSiteType = compSiteDef && isSiteCard(compSiteDef) ? compSiteDef.siteType : null;
+          const compSiteKeywords = compSiteDef && isSiteCard(compSiteDef) ? (compSiteDef.keywords ?? []) : [];
+          const allyCount = targetCompany.characters.reduce((sum, cId) => {
+            const ch = resourcePlayer.characters[cId];
+            return sum + (ch ? ch.allies.length : 0);
+          }, 0);
+          const companyCtx = {
+            target: {
+              siteType: compSiteType,
+              siteKeywords: compSiteKeywords,
+              alignment: resourcePlayer.alignment,
+              memberCount: targetCompany.characters.length + allyCount,
+            },
+          };
+          if (shortPlayTarget.filter && !matchesContext(shortPlayTarget.filter, companyCtx)) {
+            logDetail(`Hazard short-event "${def.name}": company filter not met (siteType=${compSiteType ?? 'none'}, keywords=[${compSiteKeywords.join(',')}])`);
+            actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company at this site` });
+            continue;
+          }
+          // play-discard-cost (The Reek ba-23): must discard a matching card from
+          // hand as a cost. Gather candidates; if none match, the card is not
+          // playable at all. One action per matching cost card.
+          const compDiscardCostEffect = getCardEffects(def).find(
+            (e): e is import('../../index.js').PlayDiscardCostEffect => e.type === 'play-discard-cost',
+          );
+          if (compDiscardCostEffect) {
+            const compDiscardCostCards = player.hand.filter(c => {
+              if (c.instanceId === cardInstId) return false;
+              const cDef = defById(state, c.definitionId);
+              return cDef ? matchesCondition(compDiscardCostEffect.filter, cDef as unknown as Record<string, unknown>) : false;
+            });
+            if (compDiscardCostCards.length === 0) {
+              logDetail(`Hazard short-event "${def.name}": no card in hand matches the discard cost`);
+              actions.push({ action, viable: false, reason: `${def.name}: no matching card in hand to discard as cost` });
+              continue;
+            }
+            for (const costCard of compDiscardCostCards) {
+              logDetail(`Hazard short-event "${def.name}" playable on company (discard cost "${defById(state, costCard.definitionId)?.name ?? costCard.definitionId}")`);
+              actions.push({
+                action: { ...action, costDiscardInstanceId: costCard.instanceId },
+                viable: true,
+              });
+            }
+          } else {
+            logDetail(`Hazard short-event "${def.name}" playable on company`);
+            actions.push({ action, viable: true });
+          }
+          continue;
+        }
+
         // Character-targeting short events (e.g. Call of Home): one action per eligible character
         if (shortPlayTarget?.target === 'character') {
           // play-option modes (e.g. Weariness of the Heart le-149): the hazard

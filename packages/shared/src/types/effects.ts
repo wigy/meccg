@@ -3339,6 +3339,35 @@ export interface CompanyStrikeEffect extends EffectBase {
 }
 
 /**
+ * When this hazard short-event resolves on the active movement/hazard company,
+ * tap every untapped character in that company whose effective mind is strictly
+ * below the {@link mindBelow} threshold and that satisfies the optional
+ * {@link filter}. The threshold is a {@link ValueExpr} evaluated with a context
+ * exposing `spawnCardsInPlay` (the number of `spawn`-keyword cards currently in
+ * play, per "the number of Spawn cards in play"). Already-tapped or wounded
+ * characters are left as-is (only untapped characters can be tapped).
+ *
+ * Used by The Reek (ba-23): "Tap all untapped characters in the company with a
+ * mind less than 2 plus the number of Spawn cards in play. … Does not affect
+ * Wizards or Ringwraiths." (`mindBelow: "2 + spawnCardsInPlay"`, `filter`
+ * excluding the wizard and ringwraith races).
+ */
+export interface CompanyTapCharactersEffect extends EffectBase {
+  readonly type: 'company-tap-characters';
+  /**
+   * Mind threshold expression. A character is tapped only if its effective mind
+   * is strictly below this value. Context exposes `spawnCardsInPlay`.
+   */
+  readonly mindBelow: ValueExpr;
+  /**
+   * Optional per-character filter (context `{ target: { race, mind, name,
+   * skills } }`). Only matching characters are tapped — e.g. excluding Wizards
+   * and Ringwraiths.
+   */
+  readonly filter?: Condition;
+}
+
+/**
  * When this resource short-event resolves on a company, roll 2d6 for each
  * hazard permanent-event attached to characters in that company. If the roll
  * exceeds the hazard's `removalNumber` (or 8 if not set), the hazard is
@@ -3906,6 +3935,7 @@ export type CardEffect =
   | CallOfHomeCheckEffect
   | ForceCheckAllCompanyTopEffect
   | CompanyStrikeEffect
+  | CompanyTapCharactersEffect
   | SeizedByTerrorCheckEffect
   | PlayDiscardCostEffect
   | RollRemoveHazardEventsEffect

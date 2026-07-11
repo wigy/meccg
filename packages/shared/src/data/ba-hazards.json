@@ -206,7 +206,37 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheReek.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-07-11",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$or": [
+            { "target.siteType": "ruins-and-lairs" },
+            { "target.siteKeywords": { "$includes": "under-deeps" } }
+          ]
+        }
+      },
+      {
+        "type": "play-discard-cost",
+        "source": "hand",
+        "filter": {
+          "cardType": "hazard-creature",
+          "race": { "$in": ["animal", "animals", "spider", "spiders"] }
+        }
+      },
+      {
+        "type": "company-tap-characters",
+        "mindBelow": "2 + spawnCardsInPlay",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "wizard" } },
+            { "target.race": { "$ne": "ringwraith" } }
+          ]
+        }
+      }
+    ],
     "text": "Playable on a company at or moving to a Ruins & Lairs [{R}] or Under-deeps site if you discard an Animal or Spider creature from your hand. Tap all untapped characters in the company with a mind less than 2 plus the number of Spawn cards in play. Eliminated Spawn do not count. Does not affect Wizards or Ringwraiths."
   },
   {
