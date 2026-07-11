@@ -12,14 +12,10 @@ iterations and skips feature-requests (which require human review).
 At the start of every iteration it also sweeps all open PRs: for any PR
 that conflicts with master, has failing CI checks, or carries review
 comments it runs a headless claude to resolve the conflict, fix the CI
-failure, and/or address the comments on that PR's branch. An idle PR is not
-re-processed every tick: a PR whose state (head commit, mergeable status,
-comment counts, failed-CI count) is unchanged from the last pass is retried
-up to 3 times and then left alone, and giving up is logged loudly. The retry
-matters because a fix attempt that crashed or hit a usage limit leaves the PR
-byte-identical to one that was genuinely unfixable — skipping on identical
-state alone would blacklist a still-broken PR for the worker's whole life.
-The fix agent's output is kept in ~/.meccg/logs/ai-pr-raw.log.
+failure, and/or address the comments on that PR's branch. A PR is skipped
+once its state (head commit, mergeable status, comment counts, failed-CI
+count) is unchanged from the last pass, so an idle PR is not re-processed
+every tick.
 
 On startup it preflight-checks the headless claude OAuth token: it resolves
 the token (env or secrets.json) and validates it with a tiny test prompt. If
