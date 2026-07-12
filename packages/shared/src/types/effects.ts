@@ -3885,6 +3885,35 @@ export interface SurfaceSiteRollZeroEffect extends EffectBase {
 }
 
 /**
+ * Balrog-specific movement grant: while this permanent-event is in play (and the
+ * card named in `suppressedByInPlay` is *not* in play), a company containing The
+ * Balrog avatar may use **region** movement — overriding his printed "may not use
+ * region or starter movement" lock — provided at least one endpoint (origin or
+ * destination) is an Under-deeps **surface site**. The number of regions the
+ * company may span is derived from The Balrog player's marshalling-point total via
+ * the ascending `[maxMp, regions]` bands in `regionAllowanceByMp` (the last band's
+ * `regions` applies to any higher total). This region allowance replaces — and may
+ * not be modified by — any other region-distance effect (environment reductions,
+ * extra-region grants, etc.); only the card named in `modifiableBy` may adjust it.
+ *
+ * Used by Out He Sprang (ba-71): "If Great Shadow is not in play, The Balrog may
+ * move with region movement (overriding his card) to an Under-deeps surface site
+ * or from an Under-deeps surface site. Based on his marshalling point (MP) total,
+ * he may use the following number of regions: 0-8 MPs – 1 region; 9-16 MPs – 2
+ * regions; 17-24 MPs – 3 regions; 25+ MPs – 4 regions. This region allowance may
+ * not be modified by any other effects except A More Evil Hour."
+ */
+export interface BalrogSurfaceRegionMovementEffect extends EffectBase {
+  readonly type: 'balrog-surface-region-movement';
+  /** Name of a card whose presence in play suppresses this grant (e.g. "Great Shadow"). */
+  readonly suppressedByInPlay?: string;
+  /** Ascending `[maxMp, regions]` bands; the final band applies to any higher MP total. */
+  readonly regionAllowanceByMp: readonly (readonly [number, number])[];
+  /** Name of the only card allowed to modify the derived region allowance (e.g. "A More Evil Hour"). */
+  readonly modifiableBy?: string;
+}
+
+/**
  * Augments a Dragon's lair with an additional automatic-attack while this
  * "At-Home" permanent-event is in play and the same Dragon's Ahunt
  * long-event is *not* in play.
@@ -4524,6 +4553,7 @@ export type CardEffect =
   | DiscardSelfWhenEffect
   | SurfaceRegionAdjacencyEffect
   | SurfaceSiteRollZeroEffect
+  | BalrogSurfaceRegionMovementEffect
   | CompanyMovementRestrictionEffect
   | VoluntaryDiscardEffect
   | FactionInfluenceRestrictionEffect;

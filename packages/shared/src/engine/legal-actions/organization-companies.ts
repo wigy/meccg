@@ -14,6 +14,7 @@ import type {
   GameAction,
   SiteCard,
   PlayerState,
+  Company,
   CardEffect,
   CompanyId,
   CardDefinition,
@@ -27,12 +28,12 @@ import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../.
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, generalInfluenceControlLimit, hasSiteFlagForPlayer } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, generalInfluenceControlLimit, hasSiteFlagForPlayer, inPlayNamesForPlayerDeep } from '../reducer-utils.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { viableWithRegress } from '../reverse-actions.js';
-import { isBalrogAvatarDef } from '../../state-utils.js';
+import { isBalrogAvatarDef, companyContainsBalrogAvatar, totalMarshallingPoints } from '../../state-utils.js';
 import { availableDI } from './organization.js';
 import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
 
@@ -246,6 +247,62 @@ export function isUnderDeepsSurfaceSite(state: GameState, siteDef: CardDefinitio
     }
   }
   return false;
+}
+
+/**
+ * Out He Sprang (ba-71): while this permanent-event is in play for the given
+ * player (and Great Shadow is not), a company containing The Balrog avatar may
+ * use region movement — overriding his printed "may not use region or starter
+ * movement" lock — provided at least one endpoint (its current site or its
+ * planned destination) is an Under-deeps **surface site**. The number of
+ * regions the company may span is derived from the player's marshalling-point
+ * total via the card's ascending `[maxMp, regions]` bands (0–8 → 1, 9–16 → 2,
+ * 17–24 → 3, 25+ → 4). This allowance replaces every other region-distance
+ * effect and may not be modified (except by A More Evil Hour, not yet ported).
+ *
+ * Returns the region allowance (≥ 1) when the grant applies to this company, or
+ * `null` when it does not. Both endpoints are read from the company itself
+ * (`currentSite` / `destinationSite`), so the same result holds at the
+ * organization-phase movement plan, the M/H select-company region-cap step, and
+ * the M/H reveal-path (declare-path) step.
+ */
+export function balrogOutHeSprangRegionAllowance(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): number | null {
+  // Only a company containing The Balrog avatar benefits from the override.
+  if (!companyContainsBalrogAvatar(state, player, company)) return null;
+  const inPlay = inPlayNamesForPlayerDeep(state, player);
+  // Scan the player's in-play cards for the grant effect (name-independent).
+  let grant: import('../../types/effects.js').BalrogSurfaceRegionMovementEffect | undefined;
+  for (const c of player.cardsInPlay) {
+    const eff = getCardEffects(defById(state, c.definitionId))
+      .find((e): e is import('../../types/effects.js').BalrogSurfaceRegionMovementEffect => e.type === 'balrog-surface-region-movement');
+    if (eff) { grant = eff; break; }
+  }
+  if (!grant) return null;
+  // Suppressed while the named card (Great Shadow) is in play.
+  if (grant.suppressedByInPlay && inPlay.includes(grant.suppressedByInPlay)) {
+    logDetail(`Out He Sprang: suppressed — ${grant.suppressedByInPlay} is in play`);
+    return null;
+  }
+  // At least one endpoint (origin or destination) must be an Under-deeps surface site.
+  const originDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const destDef = company.destinationSite ? defById(state, company.destinationSite.definitionId) : undefined;
+  const originSurface = isUnderDeepsSurfaceSite(state, originDef);
+  const destSurface = isUnderDeepsSurfaceSite(state, destDef);
+  if (!originSurface && !destSurface) return null;
+  // Region allowance from The Balrog player's MP total, via the ascending bands.
+  const mp = totalMarshallingPoints(player);
+  let allowance = grant.regionAllowanceByMp.length > 0
+    ? grant.regionAllowanceByMp[grant.regionAllowanceByMp.length - 1][1]
+    : 1;
+  for (const [maxMp, regions] of grant.regionAllowanceByMp) {
+    if (mp <= maxMp) { allowance = regions; break; }
+  }
+  logDetail(`Out He Sprang: The Balrog's company may use region movement — MP total ${mp} → ${allowance} region(s) (origin surface=${originSurface}, dest surface=${destSurface})`);
+  return allowance;
 }
 
 /**
