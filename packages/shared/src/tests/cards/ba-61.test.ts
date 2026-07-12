@@ -275,6 +275,31 @@ describe('Great Fissure (ba-61)', () => {
     expect(actions.some(a => a.cardInstanceId === fissureId)).toBe(false);
   });
 
+  test('Great Fissure is NOT offered as a plain play-short-event when neither combat mode applies', () => {
+    // Regression (game mrhx2tb7-9vcj4g seq 128): the Balrog company was at Moria
+    // (not Under-deeps) under a creature attack (not CvCC), between strike
+    // sequences on the Balrog player's own turn (defender is the active player).
+    // Neither of Great Fissure's combat-only modes applied, yet it was offered as
+    // a generic play-short-event via the "between strike sequences" path (rule
+    // 3.iv). Both modes are combat-only, so the card must never appear there.
+    const base = buildUnderDeepsCancelState({ site: MORIA });
+    // Advance the attack to the choose-strike-order window and make the defending
+    // Balrog player the active (resource) player, as in the reported movement-hazard
+    // combat on their own turn.
+    const state = {
+      ...base,
+      activePlayer: PLAYER_1,
+      combat: { ...base.combat!, phase: 'choose-strike-order' as const, assignmentPhase: 'done' as const },
+    };
+    const fissureId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+
+    const playActions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as { cardInstanceId: string });
+
+    expect(playActions.some(a => a.cardInstanceId === fissureId)).toBe(false);
+  });
+
   test('dispatching the Under-deeps cancel and resolving the chain cancels the attack', () => {
     const state = buildUnderDeepsCancelState({ site: DROWNING_DEEPS });
     const fissureId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
