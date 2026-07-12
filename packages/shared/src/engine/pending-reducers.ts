@@ -927,6 +927,33 @@ function applyDiceCheckBranch(
     const targetCharacterId = ctx.targetCharacterId;
     return { state: updatePlayer(state, ctx.rollerIndex, p => updateCharacter(p, targetCharacterId, c => ({ ...c, status: statusEnum }))) };
   }
+  if (branch.type === 'counter-cancel-attack') {
+    // Black Vapour (ba-14) onPass: negate the targeted cancel entry so the
+    // attack survives, and add the effect's prowess bonus to the attack.
+    const chain = state.chain;
+    const combat = state.combat;
+    if (!chain || !combat || !ctx.targetInstanceId) {
+      logDetail('dice-check counter-cancel-attack: no chain/combat/target — no-op');
+      return { state };
+    }
+    const idx = chain.entries.findIndex(
+      e => e.card?.instanceId === ctx.targetInstanceId && !e.resolved && !e.negated,
+    );
+    if (idx === -1) {
+      logDetail(`dice-check counter-cancel-attack: target ${ctx.targetInstanceId as string} not an unresolved chain entry — no-op`);
+      return { state };
+    }
+    const bonus = branch.prowessBonus ?? 0;
+    const newEntries = chain.entries.map((e, i) => (i === idx ? { ...e, negated: true } : e));
+    logDetail(`dice-check counter-cancel-attack: negating cancel entry ${ctx.targetInstanceId as string}; attack prowess ${combat.strikeProwess} → ${combat.strikeProwess + bonus}`);
+    return {
+      state: {
+        ...state,
+        chain: { ...chain, entries: newEntries },
+        combat: { ...combat, strikeProwess: combat.strikeProwess + bonus },
+      },
+    };
+  }
   if (branch.type === 'cancel-current-attack') {
     // Roll-to-cancel (Going Ever Under Dark ba-37): the check passed, so cancel
     // the combat currently in progress. Fizzles harmlessly if combat is gone.

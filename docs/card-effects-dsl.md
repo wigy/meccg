@@ -2342,6 +2342,49 @@ Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
 and `engine/reducer-combat.ts` (`handleModifyAttack`), with cancel
 protection in `engine/combat-cancel.ts` (`resolveCancelAttackEntry`).
 
+### 10f-bis. `counter-cancel-attack-roll`
+
+A hazard short-event the **attacking** (hazard) player plays during a combat
+chain to *counter* an opponent-declared chain entry that would cancel a creature
+attack of a matching race. Unlike a plain cancel, the counter is roll-gated.
+
+Offered by `counterCancelRollChainActions` (`engine/legal-actions/chain.ts`)
+while a chain is active, `state.combat` exists, the acting player is the
+attacker, the attack's `combat.creatureRace` is one of the effect's `race`
+values, and at least one unresolved opponent chain entry carries a
+`cancel-attack` effect. Sources are the attacker's hand **plus** any unrevealed
+on-guard cards on the defending company (the "may be revealed as an on-guard
+card" clause). Emits one `counter-cancel-roll` action per (source, target
+cancel entry) pair.
+
+On play (`handleCounterCancelRoll`, `engine/chain-reducer.ts`) the card is moved
+hand/on-guard → discard and pushed onto the chain as a short-event entry carrying
+`counterCancelTargetInstanceId` (a dedicated payload field — *not*
+`targetInstanceId`, which would trigger the Twilight-style environment-cancel
+path). Sitting above the cancel entry (LIFO), it resolves first: `resolveEntry`
+enqueues a generic `dice-check` (roll 2d6 + the attack's current
+`combat.strikeProwess`, `comparison: "gt"`, `threshold` from the effect). On
+success the `counter-cancel-attack` dice-check onPass verb (`applyDiceCheckBranch`,
+`engine/pending-reducers.ts`) negates the targeted cancel entry (the attack
+survives) and adds `prowessBonus` to `combat.strikeProwess`; on failure the cancel
+resolves and ends the attack. The check's `continuation` marks the counter entry
+resolved and resumes the chain.
+
+```json
+{ "type": "counter-cancel-attack-roll",
+  "race": ["spider", "spiders"],
+  "threshold": 14,
+  "prowessBonus": 1 }
+```
+
+Example: Black Vapour (ba-14) — "Target any effect (declared earlier in the same
+chain of effects) that would cancel a Spider attack. Make a roll and add the
+attack's prowess. If the result is greater than 14, the effect is canceled and
+the attack receives +1 prowess." Its second mode ("+1 prowess to a Spider
+attack") is a plain `modify-attack` (`fromHand`, `player: "attacker"`,
+`when: { "enemy.race": { "$in": ["spider", "spiders"] } }`), which also carries
+the on-guard-reveal behaviour for that mode.
+
 ### 10f. `face-strike-on-tap`
 
 Activated ability on an in-play item (or character-attached permanent event)

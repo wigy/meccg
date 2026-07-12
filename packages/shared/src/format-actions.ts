@@ -455,6 +455,8 @@ export function describeAction(
       return `${instName(action.characterId)} joins attacked company from haven`;
     case 'cancel-return-to-origin':
       return `${instName(action.allyInstanceId)} taps to cancel return-to-origin effect`;
+    case 'counter-cancel-roll':
+      return `Play ${instName(action.cardInstanceId)} to counter-cancel ${instName(action.targetInstanceId)} (roll + attack prowess)`;
     case 'counter-cancel-attack':
       return `Play ${instName(action.cardInstanceId)} to counter-cancel ${instName(action.targetInstanceId)} (the Balrog’s attack survives)`;
     case 'select-forewarned-attack':

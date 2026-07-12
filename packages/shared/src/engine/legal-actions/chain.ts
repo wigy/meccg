@@ -18,7 +18,7 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { getPlayerIndex } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect, GrantActionEffect } from '../../types/effects.js';
+import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect, GrantActionEffect, CounterCancelAttackRollEffect } from '../../types/effects.js';
 import { isSiteCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
@@ -65,6 +65,12 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // Goldberry and similar allies: tap to cancel a force-return-to-origin chain entry
   if (chain.restriction === 'normal' && state.phaseState.phase === Phase.MovementHazard) {
     actions.push(...cancelReturnToOriginChainActions(state, playerId));
+  }
+
+  // Black Vapour (ba-14): the attacking (hazard) player may counter an
+  // opponent's chain entry that would cancel a Spider (or matching-race) attack.
+  if (chain.restriction === 'normal' && state.combat != null) {
+    actions.push(...counterCancelRollChainActions(state, playerId));
   }
 
   // Great Fissure (ba-61): the Balrog attacker may counter-cancel an opponent's
@@ -444,6 +450,76 @@ function resourceEventChainActions(state: GameState, playerId: PlayerId): Evalua
     return siteInfluenceChainResourceEventActions(state, playerId);
   }
   return [];
+}
+
+/**
+ * Black Vapour (ba-14): during a combat chain, the attacking (hazard) player
+ * may counter an opponent-declared chain entry that would cancel a creature
+ * attack of a matching race (Spider). Emits one `counter-cancel-roll` action
+ * per (source card, target cancel entry) pair.
+ *
+ * Sources are the attacker's hand plus any unrevealed on-guard cards on the
+ * defending company (the hazard player owns them) that carry a
+ * `counter-cancel-attack-roll` effect — the "may be revealed as an on-guard
+ * card" clause. Only offered while the attack's race is one the card can
+ * counter and at least one opponent cancel-attack entry is unresolved.
+ */
+function counterCancelRollChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const chain = state.chain;
+  const combat = state.combat;
+  if (!chain || !combat) return [];
+  // Only the attacking player may counter a cancel of their own attack.
+  if (combat.attackingPlayerId !== playerId) return [];
+  const attackRace = combat.creatureRace ?? '';
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  // Unresolved, un-negated opponent-declared entries that carry a cancel-attack
+  // effect (the effect being countered).
+  const cancelEntries: CardInstanceId[] = [];
+  for (const e of chain.entries) {
+    if (e.resolved || e.negated || !e.card) continue;
+    if (e.declaredBy === playerId) continue;
+    const def = defById(state, e.card.definitionId);
+    if (getCardEffects(def).some(eff => eff.type === 'cancel-attack')) {
+      cancelEntries.push(e.card.instanceId);
+    }
+  }
+  if (cancelEntries.length === 0) return [];
+
+  // Candidate source cards: hand + unrevealed on-guard cards on the defender.
+  const candidates: { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] =
+    player.hand.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }));
+  const defender = playerById(state, combat.defendingPlayerId);
+  const defendingCompany = defender ? companyById(defender.companies, combat.companyId) : undefined;
+  if (defendingCompany) {
+    for (const og of defendingCompany.onGuardCards) {
+      if (og.revealed) continue;
+      candidates.push({ instanceId: og.instanceId, definitionId: og.definitionId });
+    }
+  }
+
+  const actions: EvaluatedAction[] = [];
+  for (const c of candidates) {
+    const def = defById(state, c.definitionId);
+    const rollEffect = getCardEffects(def).find(
+      (e): e is CounterCancelAttackRollEffect => e.type === 'counter-cancel-attack-roll',
+    );
+    if (!rollEffect) continue;
+    if (!rollEffect.race.includes(attackRace)) {
+      logDetail(`counter-cancel-roll: ${(def as { name?: string }).name ?? (c.definitionId as string)} cannot counter a "${attackRace}" attack`);
+      continue;
+    }
+    for (const targetInstanceId of cancelEntries) {
+      logDetail(`counter-cancel-roll: ${(def as { name?: string }).name ?? (c.definitionId as string)} may counter cancel entry ${targetInstanceId as string}`);
+      actions.push({
+        action: { type: 'counter-cancel-roll', player: playerId, cardInstanceId: c.instanceId, targetInstanceId },
+        viable: true,
+      });
+    }
+  }
+  return actions;
 }
 
 /**

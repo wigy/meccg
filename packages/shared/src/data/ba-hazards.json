@@ -172,7 +172,22 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/BlackVapour.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-07-11",
+    "effects": [
+      {
+        "type": "counter-cancel-attack-roll",
+        "race": ["spider", "spiders"],
+        "threshold": 14,
+        "prowessBonus": 1
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "prowessModifier": 1,
+        "when": { "enemy.race": { "$in": ["spider", "spiders"] } }
+      }
+    ],
     "text": "Target any effect (declared earlier in the same chain of effects) that would cancel a Spider attack. Make a roll and add the attack’s prowess. If the result is greater than 14, the effect is canceled and the attack receives +1 prowess. Alternatively, +1 prowess to a Spider attack. This card may be revealed as an on-guard card for either effect."
   },
   {

@@ -1348,6 +1348,7 @@ export type TriggeredActionType =
   | 'add-constraint'
   | 'remove-constraint'
   | 'cancel-chain-entry'
+  | 'counter-cancel-attack'
   | 'discard-character'
   | 'eliminate-character'
   | 'enqueue-opponent-elimination-roll'
@@ -1726,6 +1727,19 @@ export interface CancelChainEntryAction extends TriggeredActionBase {
   readonly requiredSkill?: string;
 }
 
+/**
+ * `counter-cancel-attack` — dice-check onPass verb for Black Vapour (ba-14).
+ * Negates the chain entry named by the resolution's `targetInstanceId` (the
+ * opponent's cancel-attack) so the attack survives, and adds {@link prowessBonus}
+ * to the current attack's prowess (`combat.strikeProwess`). Runs only in the
+ * dice-check resolution context ({@link applyDiceCheckBranch}).
+ */
+export interface CounterCancelAttackTriggeredAction extends TriggeredActionBase {
+  readonly type: 'counter-cancel-attack';
+  /** Prowess added to the surviving attack on success. */
+  readonly prowessBonus?: number;
+}
+
 /** `set-company-special-movement` — flag a special-movement mode (Gwaihir flight) on the bearer's company. */
 export interface SetCompanySpecialMovementAction extends TriggeredActionBase {
   readonly type: 'set-company-special-movement';
@@ -1816,6 +1830,7 @@ export type TriggeredAction =
   | EnqueueRingPlayOfferAction
   | SequenceAction
   | CancelChainEntryAction
+  | CounterCancelAttackTriggeredAction
   | SetCompanySpecialMovementAction
   | ShuffleDeckTopAction
   | IncrementCompanyExtraRegionDistanceAction
@@ -3028,6 +3043,35 @@ export interface FlatteryCancelAttackEffect extends EffectBase {
   readonly diplomatBonus: number;
   /** Amount to reduce the company's hazard limit on a successful attempt. */
   readonly hazardLimitReduction: number;
+}
+
+/**
+ * Roll-gated counter-cancel (Black Vapour ba-14): a hazard short-event the
+ * *attacking* (hazard) player plays during a combat chain to negate an
+ * opponent-declared chain entry that would cancel a creature attack of a
+ * matching {@link race}. Unlike a plain cancel, the negation is not automatic:
+ * on resolution the card enqueues a `dice-check` (roll 2d6 + the attack's
+ * current prowess). If the total is greater than {@link threshold} the target
+ * cancel entry is negated (the attack survives) and the attack receives
+ * {@link prowessBonus} extra prowess; otherwise the cancel resolves normally.
+ *
+ * Distinct from a marker-only counter-cancel because of the roll: the card is
+ * pushed onto the chain as a short-event entry and, when it resolves un-negated
+ * (flattery pattern), enqueues the check (`chain-reducer.ts`). The onPass verb
+ * is the `counter-cancel-attack` {@link TriggeredAction}.
+ *
+ * Black Vapour's other mode ("+1 prowess to a Spider attack") is a plain
+ * {@link ModifyAttackEffect} (`fromHand`, `player: "attacker"`), which also
+ * carries the "reveal as an on-guard card" behaviour for that mode.
+ */
+export interface CounterCancelAttackRollEffect extends EffectBase {
+  readonly type: 'counter-cancel-attack-roll';
+  /** Creature races whose cancellation this card may counter (e.g. Spider). */
+  readonly race: ReadonlyArray<string>;
+  /** The modified roll total must exceed this for the counter to succeed. */
+  readonly threshold: number;
+  /** Prowess added to the surviving attack on a successful counter. */
+  readonly prowessBonus: number;
 }
 
 /**
@@ -4280,6 +4324,7 @@ export type CardEffect =
   | CancelAttackEffect
   | ConvertCreatureToAllyEffect
   | FlatteryCancelAttackEffect
+  | CounterCancelAttackRollEffect
   | CancelInfluenceEffect
   | StrikeModifierEffect
   | ModifyAttackEffect
