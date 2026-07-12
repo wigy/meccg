@@ -97,10 +97,16 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
     }
   }
 
-  // Offer starting-company-event placements from the play deck
+  // Offer starting-company-event placements. Cards "played with a starting
+  // company in lieu of a minor item" normally sit in the play deck (Open to the
+  // Summons wh-46, Orders from Lugbúrz as-94). Balrog-specific ones (Gangways
+  // over the Fire ba-60, Orders from the Great Demon ba-70) are resource-events
+  // with the `starting-item` keyword, so any left in the starting-company pool
+  // are sunk to the sideboard during setup — scan there as well so they are
+  // still offered rather than vanishing from the starting company.
   if (assignedCount < MAX_STARTING_ITEMS) {
     const seenEventDefIds = new Set<string>();
-    for (const deckCard of player.playDeck) {
+    for (const deckCard of [...player.playDeck, ...player.sideboard]) {
       const defId = deckCard.definitionId;
       if (seenEventDefIds.has(defId as string)) continue;
       const def = defById(state, defId);

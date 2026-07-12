@@ -538,15 +538,22 @@ function handleItemDraft(
     if (assignedCount >= MAX_STARTING_ITEMS) {
       return { state, error: `Already at starting item limit (${assignedCount}/${MAX_STARTING_ITEMS})` };
     }
-    const deckCard = player.playDeck.find(c => c.definitionId === action.cardDefId);
+    // The placement card normally lives in the play deck, but Balrog-specific
+    // starting resources (ba-60, ba-70) are sunk to the sideboard during setup
+    // (see hasStartingCompanyPlacementInDeck) — accept it from either zone and
+    // remove it from whichever one holds it.
+    const fromSideboard = !player.playDeck.some(c => c.definitionId === action.cardDefId);
+    const sourceZone = fromSideboard ? player.sideboard : player.playDeck;
+    const deckCard = sourceZone.find(c => c.definitionId === action.cardDefId);
     if (!deckCard) {
-      return { state, error: 'Card not found in play deck' };
+      return { state, error: 'Card not found in play deck or sideboard' };
     }
     const targetCompany = player.companies.find(c => c.id === action.companyId);
     if (!targetCompany) {
       return { state, error: 'Company not found' };
     }
-    const newPlayDeck = player.playDeck.filter(c => c.instanceId !== deckCard.instanceId);
+    const newPlayDeck = fromSideboard ? player.playDeck : player.playDeck.filter(c => c.instanceId !== deckCard.instanceId);
+    const newSideboard = fromSideboard ? player.sideboard.filter(c => c.instanceId !== deckCard.instanceId) : player.sideboard;
     const newItemDraft: ItemDraftPlayerState = {
       ...itemDraft,
       startingEventsPlaced: (itemDraft.startingEventsPlaced ?? 0) + 1,
@@ -576,6 +583,7 @@ function handleItemDraft(
       ? updatePlayer(state, playerIndex, p => ({
           ...p,
           playDeck: newPlayDeck,
+          sideboard: newSideboard,
           characters: {
             ...p.characters,
             [targetCharId as string]: {
@@ -590,6 +598,7 @@ function handleItemDraft(
       : updatePlayer(state, playerIndex, p => ({
           ...p,
           playDeck: newPlayDeck,
+          sideboard: newSideboard,
           cardsInPlay: [...p.cardsInPlay, {
             instanceId: deckCard.instanceId,
             definitionId: deckCard.definitionId,
