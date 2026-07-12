@@ -46,7 +46,7 @@ import {
   CAVE_DRAKE,
   makeMHState, mint,
   viableActions, dispatch,
-  charIdAt, companyIdAt, findHandCardId,
+  companyIdAt, findHandCardId,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Alignment, RegionType, SiteType } from '../../index.js';
