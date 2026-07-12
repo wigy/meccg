@@ -1703,6 +1703,7 @@ export function buildPlayOptionContext(
     r => r.kind.type === 'corruption-check' && r.kind.characterId === char.instanceId,
   );
   let inAvatarCompany = false;
+  let isRevealedAvatar = false;
   let hasFactionInHand = false;
   let companySiteType: string | null = null;
   let containsDiplomat = false;
@@ -1710,6 +1711,12 @@ export function buildPlayOptionContext(
   if (player) {
     const avatar = findPlayerAvatar(state, player);
     if (avatar) {
+      // `isRevealedAvatar` gates "your Ringwraith"/"your Wizard" self-targeting
+      // (e.g. Ancient Secrets ba-36 taps the player's own revealed Ringwraith):
+      // true only for the player's own revealed avatar, never a Ringwraith
+      // follower controlled by that avatar (findPlayerAvatar returns the
+      // revealed avatar specifically).
+      if (avatar.instanceId === char.instanceId) isRevealedAvatar = true;
       const co = findCharacterCompany(player.companies, avatar.instanceId);
       if (co && co.characters.includes(char.instanceId)) {
         inAvatarCompany = true;
@@ -1785,6 +1792,7 @@ export function buildPlayOptionContext(
       name: def.name,
       mind: def.mind,
       inAvatarCompany,
+      isRevealedAvatar,
       itemNames,
       allyNames,
     },
@@ -2420,18 +2428,37 @@ export function playResourceShortEventActions(
       continue;
     }
 
+    // A dual-mode "tap your avatar to fetch resources from your sideboard"
+    // mode (Ancient Secrets ba-36 mode 2): a second `move` fetching up to N
+    // resources sideboard → play deck. Only available during the organization
+    // phase (per the card text) and only when at least one sideboard card
+    // matches the fetch filter. Modelled as an alternative to the discard-in-
+    // play mode below, discriminated at the reducer by the presence of a
+    // `discardTargetInstanceId` on the play action (mode 1) vs its absence
+    // (mode 2, which enqueues the fetch sub-flow).
+    const sideboardFetch = findMoveEffectByShape(def, 'target', 'sideboard', 'deck');
+    const sideboardModeAvailable = !!sideboardFetch
+      && currentPhase === 'organization'
+      && player.sideboard.some(c => {
+        const cd = defById(state, c.definitionId);
+        if (!cd) return false;
+        return sideboardFetch.filter ? matchesDefinition(cd, sideboardFetch.filter) : true;
+      });
+
     // Collect eligible discard-in-play targets (e.g. Marvels Told forces
     // discard of a hazard non-environment permanent/long event). If the
     // card has a discard-in-play move effect but no valid targets exist,
-    // it cannot be played. A `when` gate on the effect is also evaluated
-    // (e.g. The Cock Crows requires Gates of Morning in play).
+    // it cannot be played — UNLESS an alternative sideboard-fetch mode is
+    // available (ba-36), in which case the card is still playable (mode 2
+    // only) and simply offers no discard actions. A `when` gate on the effect
+    // is also evaluated (e.g. The Cock Crows requires Gates of Morning in play).
     const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
     const discardWhenMet = !discardInPlay?.when
       || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
     let discardTargetIds: CardInstanceId[] | null = null;
     if (discardWhenMet && discardInPlay && discardInPlay.filter) {
       discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
-      if (discardTargetIds.length === 0) {
+      if (discardTargetIds.length === 0 && !sideboardModeAvailable) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no valid target to discard`));
         continue;
@@ -2525,6 +2552,24 @@ export function playResourceShortEventActions(
         }
       } else {
         for (const targetId of tapTargets) emitPlay(targetId);
+      }
+      // Alternative sideboard-fetch mode (ba-36 mode 2): one action per tap
+      // target, carrying no discard target. The reducer routes it to the fetch
+      // sub-flow precisely because `discardTargetInstanceId` is absent.
+      if (sideboardModeAvailable) {
+        for (const targetId of tapTargets) {
+          logDetail(`Resource short-event playable (sideboard-fetch, target ${String(targetId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              targetScoutInstanceId: targetId,
+              optionId: 'sideboard-fetch',
+            },
+            viable: true,
+          });
+        }
       }
     } else if (playTarget && playTarget.target === 'character' && playTarget.filter) {
       // Filter-only character target (no tap cost): emit one action per eligible

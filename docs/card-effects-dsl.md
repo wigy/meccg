@@ -4150,6 +4150,27 @@ per sideboard card carrying such a move; `handleCardSideboardToDeck`
 (reducer-organization.ts) applies it. This is card-granted and taps nothing —
 distinct from the CoE 2.II.6 avatar-tap sideboard access.
 
+**Dual-mode "tap your Ringwraith" short-event** (Ancient Secrets ba-36). A
+resource short-event may pair a `discard-in-play` move (mode 1) with a
+`select: 'target'`, `from: ['sideboard']`, `to: 'deck'`, `count: N` fetch move
+(mode 2), both keyed to tapping the player's own revealed avatar. The
+`play-target` (`target: character`, `cost: { tap: character }`) filters to the
+avatar via the new `target.isRevealedAvatar` filter field — `true` only for the
+player's own revealed avatar (`findPlayerAvatar`), never a Ringwraith follower
+controlled by that avatar. The emitter (`playResourceShortEventActions`,
+`legal-actions/organization.ts`) offers **both** modes: one
+`(tap × hazard-permanent-event)` discard action per in-play target (carrying
+`discardTargetInstanceId`), and — during the organization phase only, when a
+matching sideboard card exists — a `sideboard-fetch` action (carrying the avatar
+to tap and no discard target). A card whose discard mode has no legal target is
+still playable when the sideboard mode is available (mode 2 only). The reducer
+(`handlePlayResourceShortEvent`, `reducer-events.ts`) discriminates purely by
+`discardTargetInstanceId`: present → resolve the discard inline and skip the
+fetch; absent → enqueue the count-N sideboard fetch sub-flow. Ancient Secrets
+discards **any** hazard permanent-event (environments included, no corruption
+check — contrast Marvels Told), and fetches up to two minion resources
+sideboard → play deck.
+
 **Shape**
 
 ```json
