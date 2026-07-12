@@ -55,7 +55,7 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
-  CardDefinitionId, CardInstanceId, CardInPlay,
+  CardDefinitionId, CardInPlay,
   PlayShortEventAction, FetchFromPileAction, GameState,
 } from '../../index.js';
 import { Phase, CardStatus, Alignment } from '../../index.js';
