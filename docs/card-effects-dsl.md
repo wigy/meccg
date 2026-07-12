@@ -7276,6 +7276,40 @@ become adjacent. Behaviour, while the card is in play bound to Under-deeps site
   those two helpers, both org-phase plan-movement and the M/H declare-path pick
   it up automatically.
 
+### 52d. `surface-site-roll-zero`
+
+Carried by a Balrog **`trigger-attack-on-play` permanent-event** played on an
+Under-deeps site during the **site phase** (paired with a
+`play-target: { target: "site" }` filtered by name and kept via
+`afterAttack: "move-to-mp-pile"`). Used by Breach the Hold (ba-50): "The roll
+required to move to the surface site is reduced to zero. This site is never
+discarded or returned to its location deck."
+
+```json
+{
+  "type": "surface-site-roll-zero"
+}
+```
+
+Behaviour, while the card is in play bound to Under-deeps site `U`
+(`CardInPlay.attachedToSite`):
+
+- **Surface-site roll zero** — when one of the owner's companies at `U` ascends
+  to `U`'s **surface site** (the single non-Under-deeps site listed in `U`'s
+  `adjacentSites`), the required Under-deeps movement roll is `0` instead of the
+  printed value. The reduction is added by `breachTheHoldSurfaceRoll`
+  (`legal-actions/organization-companies.ts`) and consulted by
+  `getUnderDeepsRequiredRoll` via the moving player (`forPlayer`), so only the
+  owner's own companies benefit; a move to a *different* Under-deeps site is
+  unaffected.
+- **Permanence** — identical to `surface-region-adjacency` (§52c): the card is
+  exempt from the site-attached orphan sweep (`discardOrphanedSiteAttachedEvents`)
+  so it persists while `U` is unoccupied, and when a company leaves `U`, `U` is
+  always returned to the owner's location deck rather than discarded
+  (`mh-hazard-play.ts` step 8). Both this effect and `surface-region-adjacency`
+  are recognised by the shared `cardKeepsBoundSitePermanent` predicate
+  (`reducer-utils.ts`).
+
 ### 53. `site-item-trap`
 
 Carried by a hazard **permanent-event** attached to a site (via

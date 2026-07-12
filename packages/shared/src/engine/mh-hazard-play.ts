@@ -42,7 +42,7 @@ import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js'
 import { getEffectiveRegionType } from './effective.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, playerById, playerHasExtraUnderDeepsMH, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, playerById, playerHasExtraUnderDeepsMH, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -1444,16 +1444,15 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       } else {
         const originDef = defById(state, originSite.definitionId);
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
-        // Caverns Unchoked (ba-51) / Roots of the Earth (ba-74): a bound
+        // Caverns Unchoked (ba-51) / Breach the Hold (ba-50) / Roots of the
+        // Earth (ba-74): a bound
         // Under-deeps site "is never discarded or returned to its location
         // deck". There is no unoccupied-in-play site zone, so the closest
         // faithful model is to always return it to the owner's location deck
         // (never discard it) so it stays re-accessible.
         const cavernsBound = resourcePlayer.cardsInPlay.some(
           c => c.attachedToSite === originSite.definitionId
-            && getCardEffects(defById(state, c.definitionId)).some(
-              e => e.type === 'surface-region-adjacency' || e.type === 'site-instance-transform',
-            ),
+            && cardKeepsBoundSitePermanent(defById(state, c.definitionId)),
         );
         const alwaysReturnToDeck = cavernsBound || (originDef && isSiteCard(originDef)
           && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'always-return-to-deck'));

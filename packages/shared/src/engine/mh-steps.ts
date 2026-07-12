@@ -33,7 +33,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, playerById, playerConvertsDetainmentToNormal, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
-import { resolveAdjacency, cavernsUnchokedAdjacencyRoll } from './legal-actions/organization-companies.js';
+import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
 import { companyMovementRestrictions } from './effects/company-restrictions.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -345,6 +345,12 @@ export function handleRevealNewSite(
 export function getUnderDeepsRequiredRoll(state: GameState, origin: import('../index.js').SiteCard, dest: import('../index.js').SiteCard, forPlayer?: import('../index.js').PlayerId): number {
   const originIsUD = origin.keywords?.includes('under-deeps') ?? false;
   if (!originIsUD) return 0;
+
+  // Breach the Hold (ba-50): ascent from the bound Under-deeps site to its
+  // surface site is reduced to 0 for the card owner. Checked before the printed
+  // adjacency so it overrides the surface site's normal (high) roll.
+  const breach = breachTheHoldSurfaceRoll(state, origin, dest, forPlayer);
+  if (breach !== undefined) return breach;
 
   const fromOrigin = resolveAdjacency(state, origin, dest.name);
   if (fromOrigin !== undefined) return fromOrigin;

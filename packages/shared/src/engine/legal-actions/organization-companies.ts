@@ -165,6 +165,48 @@ export function cavernsUnchokedAdjacencyRoll(
 }
 
 /**
+ * Surface-site roll reduction granted by Breach the Hold (ba-50). While the
+ * card is in `forPlayer`'s `cardsInPlay` bound to an Under-deeps site U
+ * (`attachedToSite`) via a `surface-site-roll-zero` effect, the Under-deeps
+ * movement roll required for one of `forPlayer`'s companies to ascend from U to
+ * U's **surface site** — the non-Under-deeps site listed in U's `adjacentSites`
+ * — is reduced to 0.
+ *
+ * Returns 0 when `origin` is the bound Under-deeps site U and `dest` is a
+ * surface (non-Under-deeps) site adjacent to U; otherwise `undefined`.
+ * `forPlayer` is required — only the card owner's companies benefit, so
+ * player-agnostic callers pass `undefined` and see no reduction.
+ */
+export function breachTheHoldSurfaceRoll(
+  state: GameState,
+  origin: SiteCard,
+  dest: SiteCard,
+  forPlayer: PlayerId | undefined,
+): number | undefined {
+  if (!forPlayer) return undefined;
+  const player = playerById(state, forPlayer);
+  if (!player) return undefined;
+  // The surface site is never itself an Under-deeps site.
+  if (dest.keywords?.includes('under-deeps')) return undefined;
+
+  for (const card of player.cardsInPlay) {
+    if (card.attachedToSite === undefined) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    if (!getCardEffects(def).some(e => e.type === 'surface-site-roll-zero')) continue;
+
+    // `origin` must be the bound Under-deeps site, and `dest` must be listed as
+    // adjacent to it (its surface entrance).
+    if (origin.id !== card.attachedToSite) continue;
+    if (resolveAdjacency(state, origin, dest.name) === undefined) continue;
+
+    logDetail(`Breach the Hold: ${origin.name} → ${dest.name} surface ascent roll reduced to 0 for ${forPlayer as string}`);
+    return 0;
+  }
+  return undefined;
+}
+
+/**
  * Check whether two sites are Under-deeps-adjacent in either direction.
  *
  * Returns true when either site's `adjacentSites` lists the other (or
