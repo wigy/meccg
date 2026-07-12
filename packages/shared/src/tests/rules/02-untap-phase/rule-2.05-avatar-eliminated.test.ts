@@ -21,7 +21,7 @@ import {
   buildTestState, resetMint, findCharInstanceId,
   makeShadowMHState, makeBodyCheckCombat,
   dispatch, companyIdAt, viablePlayCharacterActions,
-  phaseStateAs,
+  phaseStateAs, recomputeDerived,
   Phase, RESOURCE_PLAYER,
   expectCharNotInPlay,
 } from '../../test-helpers.js';
@@ -73,6 +73,15 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
     expectCharNotInPlay(nextState, RESOURCE_PLAYER, gandalfId);
     expect(nextState.players[0].outOfPlayPile.some(c => c.instanceId === gandalfId)).toBe(true);
     expect(nextState.players[0].discardPile.some(c => c.instanceId === gandalfId)).toBe(false);
+
+    // Bug report (game mrhzbsur-qsrou6, seq 76): once the avatar is eliminated
+    // the -5 misc penalty (CoE 2.2) must be reflected in the *running* MP total
+    // straight away — the reducer recomputes derived state on every action — so
+    // the live MP display shows it, not only the final score. The company's
+    // other MP sources are unaffected.
+    expect(nextState.players[0].marshallingPoints.misc).toBe(-5);
+    // The player whose avatar is still in play keeps a 0 misc tally.
+    expect(nextState.players[1].marshallingPoints.misc).toBe(0);
   });
 
   test('Eliminated avatar provides -5 miscellaneous marshalling points', () => {
@@ -101,15 +110,18 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
     };
 
     const eliminatedGandalf = [{ instanceId: 'elim-gandalf' as CardInstanceId, definitionId: GANDALF }];
-    const stateWithEliminated = {
+    // recomputeDerived folds the -5 misc penalty into the running total, exactly
+    // as it does after every action in a real game; the end-game scorer then
+    // reads that total rather than re-subtracting 5 (which would double-count).
+    const stateWithEliminated = recomputeDerived({
       ...baseState,
       phaseState: corruptionCheckPhase,
       players: [
         { ...baseState.players[RESOURCE_PLAYER], outOfPlayPile: eliminatedGandalf },
         baseState.players[1],
       ] as unknown as typeof baseState.players,
-    };
-    const stateWithout = { ...baseState, phaseState: corruptionCheckPhase };
+    });
+    const stateWithout = recomputeDerived({ ...baseState, phaseState: corruptionCheckPhase });
 
     const endedWith = dispatch(stateWithEliminated, { type: 'pass', player: PLAYER_1 });
     const endedWithout = dispatch(stateWithout, { type: 'pass', player: PLAYER_1 });
