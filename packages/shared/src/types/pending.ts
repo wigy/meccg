@@ -1358,6 +1358,25 @@ export interface ActiveConstraint {
         readonly type: 'great-hunt-active';
         readonly greatHuntInstanceId: CardInstanceId;
         readonly processedDiscardIds: readonly CardInstanceId[];
+      }
+    | {
+        /**
+         * Darkness Wielded (ba-55): a one-shot *deferred* free attack
+         * cancellation granted to the target player when Darkness Wielded's
+         * cancel mode resolves ("cancel this attack and a latter attack of your
+         * choice against his company this turn"). While present, the
+         * legal-action layer offers a costless `cancel-attack`
+         * (`mode: "free-later-cancel"`) during any later combat this turn whose
+         * defending company contains The Balrog (when
+         * {@link restrictToBalrogCompany}); using it consumes this constraint.
+         * Turn-scoped; targeted at the granted player.
+         */
+        readonly type: 'free-attack-cancel';
+        /**
+         * When true, the free cancel may only be used against an attack on a
+         * company that contains The Balrog avatar ("against his company").
+         */
+        readonly restrictToBalrogCompany: boolean;
       };
 }
 

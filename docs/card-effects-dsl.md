@@ -1878,12 +1878,35 @@ combat context that includes:
   automatic-attack at a Ruins & Lairs".
 - `defender.covert` — `true` when the defending company is covert
   (contains no Orc/Troll, Balrog avatar, or `company-overt` source).
+- `defender.companyContainsBalrog` — `true` when the defending company
+  contains The Balrog avatar. Lets a card gate on "an attack against The
+  Balrog's company" (Darkness Wielded ba-55).
+- `defender.inPlay` — attachment-aware list of the defending player's
+  in-play card names (`cardsInPlay` plus every character, their items and
+  hazards). Unlike the global `inPlay`, this catches a card that lives only
+  as a character-attached permanent event (e.g. Great Shadow ba-62, a Demon
+  fána on The Balrog). Gate with `{ "$includes": "<name>" }` (Darkness
+  Wielded ba-55: "if Great Shadow is in play"). The same two fields are also
+  exposed on the from-hand `modify-attack` `when` context.
 - `attack.atUnderDeeps` — `true` when the defending company is **at**, or
   **moving to or from**, an Under-deeps site (its current site — the origin
   while moving — or its destination site carries the `under-deeps` keyword).
   Used by *Great Fissure* (ba-61): `"when": { "attack.atUnderDeeps": true }`
   cancels an attack against a company at / moving to-or-from an Under-deeps
   site.
+
+**Deferred free cancel (`alsoCancelLaterAttack`).** When a `cancel-attack`
+effect carries `"alsoCancelLaterAttack": true`, cancelling this attack also
+grants the defending player a **turn-scoped `free-attack-cancel` constraint**
+(installed when the cancel resolves on the chain, in `apply-dispatcher.ts`).
+While the grant is active, `cancelAttackActions` offers a costless
+`cancel-attack` with `mode: "free-later-cancel"` during any *later* combat this
+turn whose defending company contains The Balrog (the constraint's
+`restrictToBalrogCompany`); dispatching it consumes one grant and cancels the
+attack immediately (no card played, no chain). Used by Darkness Wielded (ba-55):
+"cancel this attack and a latter attack of your choice against his company this
+turn." — a costless `cancel-attack` (`alsoCancelLaterAttack`) gated on
+`defender.companyContainsBalrog` + `defender.inPlay $includes "Great Shadow"`.
 
 The effect may be declared on in-play sources too: an ally attached
 to a company character (e.g. The Warg-king), the character card
@@ -2335,6 +2358,15 @@ against automatic-attacks and does not count against the hazard limit
 
 The from-hand path also honours `strikesModifier` (added to the attack's
 `strikesTotal`, clamped to a minimum of 1) and `firstCancelRemovesEffect`.
+
+**`setStrikesTo` (reduce to a fixed count).** Instead of a `strikesModifier`
+delta, a from-hand `modify-attack` may *set* the attack's strike count to an
+exact value with `"setStrikesTo": N`. The result never exceeds the attack's
+current strike count (it only reduces) and is clamped to a minimum of 1 —
+i.e. "the attack is reduced to one strike" is `"setStrikesTo": 1`. Used by
+Darkness Wielded (ba-55): a defender-played `modify-attack` giving `-2` strike
+prowess, `-1` body, and `setStrikesTo: 1`, gated on
+`defender.companyContainsBalrog` + `defender.inPlay $includes "Great Shadow"`.
 
 **`firstCancelRemovesEffect` (cancel protection).** When set on an
 attacker-played from-hand `modify-attack`, the buffed attack gains cancel

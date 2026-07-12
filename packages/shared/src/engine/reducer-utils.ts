@@ -1634,6 +1634,33 @@ export function isCardNameInPlayForPlayer(
 }
 
 /**
+ * All card names in play for the given player, attachment-aware: `cardsInPlay`
+ * plus every character, the items and hazards attached to them. The list form
+ * of {@link isCardNameInPlayForPlayer}; used to populate a `defender.inPlay`
+ * combat context so a `when` gate can test `{ $includes: "<name>" }` for a card
+ * that lives only as a character-attached permanent event (e.g. Great Shadow
+ * ba-62, a Demon fána on The Balrog). Backs Darkness Wielded (ba-55):
+ * "Playable on an attack against The Balrog's company if Great Shadow is in play."
+ */
+export function inPlayNamesForPlayerDeep(
+  state: GameState,
+  player: PlayerState,
+): readonly string[] {
+  const names: string[] = [];
+  const push = (id: import('../types/common.js').CardDefinitionId): void => {
+    const n = defById(state, id)?.name;
+    if (n) names.push(n);
+  };
+  for (const c of player.cardsInPlay) push(c.definitionId);
+  for (const ch of Object.values(player.characters)) {
+    push(ch.definitionId);
+    for (const i of ch.items) push(i.definitionId);
+    for (const h of ch.hazards) push(h.definitionId);
+  }
+  return names;
+}
+
+/**
  * Parse a comma-separated homesite string into individual site name tokens.
  * e.g. "Goblin-gate, Mount Gundabad" → ["Goblin-gate", "Mount Gundabad"].
  * An empty or whitespace-only string yields an empty array, so callers can pass

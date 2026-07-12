@@ -2977,6 +2977,18 @@ export interface CancelAttackEffect extends EffectBase {
    */
   readonly handModeRequiresCovert?: true;
   /**
+   * When true, cancelling this attack additionally grants the defending player
+   * a one-shot *deferred* free cancellation of a **later** attack this turn
+   * against a company containing The Balrog ("cancel this attack and a latter
+   * attack of your choice against his company this turn"). On resolution a
+   * turn-scoped `free-attack-cancel` constraint is installed on the defending
+   * player; the legal-action layer then offers a costless `cancel-attack`
+   * (`mode: "free-later-cancel"`) during a later combat whose defending company
+   * contains The Balrog, consuming the constraint. Used by Darkness Wielded
+   * (ba-55).
+   */
+  readonly alsoCancelLaterAttack?: true;
+  /**
    * When true, the cancel is only available against a company-vs-company
    * combat (`combat.isCvCC`) — "an attack against them by an opponent's
    * company". Used by Going Ever Under Dark (ba-37).
@@ -3289,6 +3301,15 @@ export interface ModifyAttackEffect extends EffectBase {
    * The result is clamped to a minimum of 1.
    */
   readonly strikesModifier?: number;
+  /**
+   * When set (from-hand path, whole-attack scope), the attack's total strike
+   * count is *set* to this exact value rather than adjusted by a delta —
+   * "the attack is reduced to one strike" (`setStrikesTo: 1`). The result never
+   * exceeds the attack's current strike count (it only reduces) and is clamped
+   * to a minimum of 1. Used by Darkness Wielded (ba-55). Mutually exclusive with
+   * {@link strikesModifier}.
+   */
+  readonly setStrikesTo?: number;
   /**
    * When true (from-hand attacker plays only), the buffed attack gains
    * "cancel protection": the first attempt to cancel the attack instead
