@@ -117,20 +117,32 @@ export function countDraftedAgents(
 }
 
 /**
- * True if the player's play deck holds any card that "may be played with a
- * starting company in lieu of a minor item" — a `starting-company-placement`
- * effect (Open to the Summons wh-46, Orders from Lugbúrz as-94, Thrall of the
- * Voice wh-82…). Such a card keeps the item-draft step reachable even when the
- * player drafted no minor items, so the placement can still be offered.
+ * True if the player holds any card that "may be played with a starting company
+ * in lieu of a minor item" — a `starting-company-placement` effect (Open to the
+ * Summons wh-46, Orders from Lugbúrz as-94, Thrall of the Voice wh-82…). Such a
+ * card keeps the item-draft step reachable even when the player drafted no minor
+ * items, so the placement can still be offered.
+ *
+ * Both the play deck and the sideboard are scanned: Balrog-specific starting
+ * resources (Gangways over the Fire ba-60, Orders from the Great Demon ba-70)
+ * are resource-events carrying the `starting-item` keyword, so
+ * {@link isStageResourceCard} sinks any that were left in the starting-company
+ * pool to the sideboard during {@link applyDraftResults}. They must still be
+ * offered for placement from there — otherwise they silently vanish from the
+ * starting company.
  */
 export function hasStartingCompanyPlacementInDeck(
   state: GameState,
-  player: { readonly playDeck: readonly { readonly definitionId: CardDefinitionId }[] },
+  player: {
+    readonly playDeck: readonly { readonly definitionId: CardDefinitionId }[];
+    readonly sideboard: readonly { readonly definitionId: CardDefinitionId }[];
+  },
 ): boolean {
-  return player.playDeck.some(card => {
+  const hasPlacement = (card: { readonly definitionId: CardDefinitionId }): boolean => {
     const effects = (defById(state, card.definitionId) as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [];
     return effects.some(e => e.type === 'starting-company-placement');
-  });
+  };
+  return player.playDeck.some(hasPlacement) || player.sideboard.some(hasPlacement);
 }
 
 /**
