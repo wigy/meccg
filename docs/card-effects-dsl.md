@@ -5216,6 +5216,19 @@ playing only hazard creatures keyed to the target company's destination site (by
 site-type or site-name); creatures keyable only via region terrain are dropped
 (`legal-actions/pending.ts` `applyOnlyCreaturesKeyedToSite`).
 
+The `only-creatures-keyed-to-site-at-ruins-lairs` constraint (added by *Down
+Down to Goblin-town* le-181, the minion twin of Secret Passage, via the same
+`on-event: self-enters-play` → `add-constraint` shape) is the **R&L-gated**
+variant: the same drop of region-keyed creatures applies, but **only when** the
+protected company's destination is a Ruins & Lairs [{R}]. When the company moves
+anywhere else the constraint imposes nothing (`applyOnlyCreaturesKeyedToSiteAtRuinsLairs`).
+It is kept distinct from `only-creatures-keyed-to-site` because that (ungated)
+kind blocks region-keyed creatures at any destination (a difference enshrined by
+the dm-98 test). le-181's `play-target` is a `company` filtered by
+`{ "company.moving": true }` ("on a moving company") — the org-phase company
+filter context exposes `company.moving` (the company has a declared destination
+or special movement this org phase) alongside `company.atHaven`.
+
 ### 37. `cancel-chain-return-to-origin`
 
 In-play ally ability: tap this ally during the M/H chain declaring window

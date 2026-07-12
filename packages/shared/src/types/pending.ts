@@ -834,6 +834,20 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Down Down to Goblin-town (le-181): like `only-creatures-keyed-to-site`,
+         * but the restriction applies **only if** the target company moves to a
+         * Ruins & Lairs [{R}] site. While active and the company's destination is
+         * a Ruins & Lairs, the opponent may only play hazard creatures keyed to
+         * that site (by site-type or site-name); region-keyed creatures ("by type
+         * or name") are dropped. When the company moves anywhere else the
+         * constraint imposes nothing. Kept distinct from
+         * `only-creatures-keyed-to-site` because that (ungated) kind blocks
+         * region-keyed creatures at any destination (Secret Passage tw-325).
+         */
+        readonly type: 'only-creatures-keyed-to-site-at-ruins-lairs';
+      }
+    | {
+        /**
          * Hide in Dark Places (le-192): the company may not declare movement
          * (plan a new destination) for the rest of this turn. The card is
          * "playable on a scout whose company is not moving", and locks that

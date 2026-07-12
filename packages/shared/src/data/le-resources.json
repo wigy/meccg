@@ -3031,7 +3031,31 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "company.moving": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "only-creatures-keyed-to-site-at-ruins-lairs",
+          "scope": "turn"
+        },
+        "target": "target-company"
+      }
+    ],
+    "certified": "2026-07-12",
     "text": "Playable during the organization phase on a moving company. If the company moves to a Ruins & Lairs [{R}], no hazard creatures may be played (by type or name) keyed to regions against his company."
   },
   {

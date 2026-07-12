@@ -1535,7 +1535,14 @@ export function endOfOrgEligibility(
         const siteType = siteDef && 'siteType' in siteDef
           ? (siteDef as { siteType: string }).siteType
           : '';
-        const companyFilterCtx = { company: { atHaven: siteType === 'haven' } };
+        const companyFilterCtx = {
+          company: {
+            atHaven: siteType === 'haven',
+            // "on a moving company" (Down Down to Goblin-town le-181): a company
+            // that has planned a destination (or special movement) this org phase.
+            moving: company.destinationSite !== null || !!company.specialMovement,
+          },
+        };
         if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;
       }
       if (playTarget.cost?.tap === 'character') {

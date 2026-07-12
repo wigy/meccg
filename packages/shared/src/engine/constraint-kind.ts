@@ -87,6 +87,8 @@ export function buildConstraintKind(
       return { type: 'no-creature-hazards-on-company' };
     case 'only-creatures-keyed-to-site':
       return { type: 'only-creatures-keyed-to-site' };
+    case 'only-creatures-keyed-to-site-at-ruins-lairs':
+      return { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
     case 'deny-scout-resources':
       return { type: 'deny-scout-resources' };
     case 'auto-attack-prowess-boost': {
