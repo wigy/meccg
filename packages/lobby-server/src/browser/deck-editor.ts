@@ -333,6 +333,83 @@ function isRing(def: CardDefinition): boolean {
 }
 
 /**
+ * Render the deck title: the deck name with an edit icon, or — in edit
+ * mode — a name input with Save/Cancel (Enter saves, Escape cancels).
+ * Saving persists the whole deck; a failed save restores the old name.
+ */
+function renderTitle(editing = false): void {
+  const titleEl = document.getElementById('deck-editor-title');
+  if (!titleEl || !editingDeck) return;
+  const deck = editingDeck;
+  titleEl.textContent = '';
+
+  if (!editing) {
+    const name = document.createElement('span');
+    name.textContent = deck.name;
+    titleEl.appendChild(name);
+    const editBtn = document.createElement('button');
+    editBtn.className = 'deck-editor-title-edit-btn';
+    editBtn.textContent = '\u{270F}\u{FE0F}';
+    editBtn.title = 'Rename this deck';
+    editBtn.addEventListener('click', () => renderTitle(true));
+    titleEl.appendChild(editBtn);
+    return;
+  }
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'deck-editor-title-input';
+  input.value = deck.name;
+  input.maxLength = 60;
+  titleEl.appendChild(input);
+
+  const commit = () => {
+    const name = input.value.trim();
+    if (!name || name === deck.name) {
+      renderTitle();
+      return;
+    }
+    const prev = deck.name;
+    deck.name = name;
+    renderTitle();
+    void saveEditingDeck().then(ok => {
+      if (!ok) {
+        deck.name = prev;
+        renderTitle();
+      }
+    });
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      renderTitle();
+    }
+  });
+
+  const actions = document.createElement('span');
+  actions.className = 'deck-editor-title-actions';
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = 'Save';
+  saveBtn.title = 'Save the new deck name';
+  saveBtn.addEventListener('click', commit);
+  actions.appendChild(saveBtn);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'deck-editor-title-btn--cancel';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => renderTitle());
+  actions.appendChild(cancelBtn);
+  titleEl.appendChild(actions);
+
+  input.focus();
+  input.select();
+}
+
+/**
  * Render the deck notes panel: a collapsible block showing the deck's
  * Markdown notes with an edit mode (textarea + Save/Cancel). Saving
  * persists the whole deck; a failed save restores the previous notes.
@@ -887,8 +964,8 @@ export async function openDeckEditor(deckId: string): Promise<void> {
   }
 
   sessionStorage.setItem(EDITING_DECK_KEY, deckId);
-  document.getElementById('deck-editor-title')!.textContent = deck.name;
   editingDeck = deck;
+  renderTitle();
   if (!deck.sideboard) deck.sideboard = [];
   if (!deck.antiFwSideboard) deck.antiFwSideboard = [];
   const sections: DeckSection[] = [
