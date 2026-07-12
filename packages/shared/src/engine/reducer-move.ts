@@ -543,6 +543,29 @@ function collectFromZone(
       }
       return out;
     }
+    case 'allies-on-target': {
+      // Collect allies borne by the target character. Used by "discard his
+      // allies" on-play effects (e.g. Flame of Udûn ba-58).
+      const targetId = ctx.targetCharacterId;
+      if (!targetId) return out;
+      for (let pi = 0; pi < state.players.length; pi++) {
+        const char = state.players[pi].characters[targetId];
+        if (!char) continue;
+        for (const ally of char.allies) {
+          const inst: CardInstance = toCardInstance(ally);
+          if (!matches(inst)) continue;
+          const allyId = ally.instanceId;
+          out.push({
+            instance: inst,
+            ownerIndex: pi,
+            zone: 'allies-on-target',
+            remove: s => removeFromCharacterAllies(s, pi, targetId, allyId),
+          });
+        }
+        break;
+      }
+      return out;
+    }
     default:
       // Contextual locators (items-on-wounded, attached-to-target-company)
       // are added by the phases that need them. Unsupported zones return no

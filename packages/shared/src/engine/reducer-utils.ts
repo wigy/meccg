@@ -2671,6 +2671,30 @@ export function companyBlocksJoins(state: GameState, companyId: CompanyId): bool
 }
 
 /**
+ * True when any character in the given company bears an item / attached
+ * permanent-event carrying the `no-allies-in-company` play-flag — while such a
+ * card is on a company member, no ally may be played to the company. Allies are
+ * only ever played during the site phase, so this realizes "no allies in his
+ * company outside the organization phase" without a phase gate. Used by Flame of
+ * Udûn (ba-58).
+ */
+export function companyHasNoAllyRestriction(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): boolean {
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char) continue;
+    for (const item of char.items) {
+      const def = defById(state, item.definitionId);
+      if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-allies-in-company')) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Discards every ally and every direct-influence follower character in the
  * given company (Fell Rider le-183: "Discard all allies and Ringwraith
  * followers in the company"). Allies and follower items go to the controlling
