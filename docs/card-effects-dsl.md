@@ -6344,6 +6344,36 @@ these followers into play during separate organization phases."
 
 ---
 
+### 55b. `ringwraith-self-follower`
+
+Marker effect carried by a Ringwraith avatar **card that may join another
+Ringwraith's company on its own initiative**. It is the follower-side
+counterpart of [`ringwraith-follower-slots`](#55a-ringwraith-follower-slots):
+that effect lets a *host* Ringwraith control followers, whereas this effect
+lets *this* card be played as a follower of the player's already-revealed
+Ringwraith **regardless** of whether that host carries a
+`ringwraith-follower-slots` effect. The card grants its own slot, so it does
+not draw from the host's `count` budget.
+
+All other follower rules are identical to the slot-enabled path (evaluated by
+the same `ringwraithFollowerPlayAction` in
+`legal-actions/organization-characters.ts`): the revealed Ringwraith must be at
+a Darkhaven or this card's home site; the card joins that company under the
+avatar's control (`controlledBy` = the avatar's instance); a `null`-mind
+follower consumes no influence; and the play uses the normal
+one-character-per-turn organization-phase flow.
+
+This effect has no fields.
+
+```json
+{ "type": "ringwraith-self-follower" }
+```
+
+Used by: Ûvatha the Ringwraith (le-57) — "He may join another Ringwraith's
+company during your organization phase and requires no influence to control."
+
+---
+
 ### 56. `absorb-wound`
 
 When a strike against the bearer succeeds (would wound), the wound is prevented.

@@ -4554,6 +4554,7 @@ export type CardEffect =
   | CombatTapCompanyBoostEffect
   | RingwraithModeEffect
   | RingwraithFollowerSlotsEffect
+  | RingwraithSelfFollowerEffect
   | AbsorbWoundEffect
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
@@ -5298,6 +5299,27 @@ export interface RingwraithFollowerSlotsEffect extends EffectBase {
   readonly type: 'ringwraith-follower-slots';
   /** Maximum number of Ringwraith followers this avatar may control. */
   readonly count: number;
+}
+
+/**
+ * Marks a Ringwraith avatar card as a *self-granting* Ringwraith follower: it
+ * may be played from hand as a follower of the player's already-revealed
+ * Ringwraith (with no influence to control) **regardless** of whether that
+ * revealed Ringwraith carries a {@link RingwraithFollowerSlotsEffect}. The
+ * card grants its own follower slot, so it does not consume the host
+ * Ringwraith's slot budget (`ringwraith-follower-slots.count`).
+ *
+ * Like a slot-enabled follower, it may only enter play when the revealed
+ * Ringwraith's company is at a Darkhaven or at this card's home site, joins
+ * that company under the avatar's control, consumes none of the avatar's
+ * direct influence (`mind === null`), and comes into play through the normal
+ * one-character-per-turn organization-phase flow.
+ *
+ * Used by *Ûvatha the Ringwraith* (le-57): "He may join another Ringwraith's
+ * company during your organization phase and requires no influence to control."
+ */
+export interface RingwraithSelfFollowerEffect extends EffectBase {
+  readonly type: 'ringwraith-self-follower';
 }
 
 /**
