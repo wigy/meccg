@@ -1961,8 +1961,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Cameth Brin",
-    "effects": [],
-    "text": "Unique. +4 direct influence against the Hillmen faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Hillmen"
+        }
+      }
+    ],
+    "text": "Unique. +4 direct influence against the Hillmen faction.",
+    "certified": "2026-07-12"
   },
   {
     "cardType": "minion-character",
