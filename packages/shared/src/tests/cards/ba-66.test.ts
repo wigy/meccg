@@ -42,7 +42,6 @@ import {
   Phase,
 } from '../test-helpers.js';
 import { MovementType } from '../../types/common.js';
-import { computeLegalActions } from '../../index.js';
 import type { CardDefinitionId, MovementHazardPhaseState } from '../../index.js';
 
 const MAKERS_MAP = 'ba-66' as CardDefinitionId;
