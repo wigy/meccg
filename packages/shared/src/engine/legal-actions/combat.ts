@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -157,6 +157,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   const protectActions = protectFromStrikeAssignmentActions(state, playerId, combat);
   const modifyActions = modifyAttackActions(state, playerId, combat);
   const companyCombatBoosts = companyCombatBoostActions(state, playerId, combat);
+  const joinForceStrikes = joinCombatForceStrikeActions(state, playerId, combat);
   // Tap-ally combat boosts (e.g. Great Lord of Goblin-gate) are available to
   // the ally's owner during the assign-strikes and resolve-strike windows.
   const allyCombatBoosts = tapAllyCombatBoostActions(state, playerId, combat);
@@ -179,12 +180,13 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...protectActions,
           ...modifyActions,
           ...companyCombatBoosts,
+          ...joinForceStrikes,
           ...allyCombatBoosts,
           ...havenJoinAttackActions(state, playerId, combat),
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       // Each-character auto-attacks pre-assign strikes and open here, skipping
       // the `assign-strikes` cancel window. cancelActions is gated to the
@@ -435,15 +437,20 @@ function assignStrikeActions(
       if (restrictToForced && !unassignedForced.includes(charId)) continue;
       const charData = player.characters[charId];
       if (!charData) continue;
-      if (strikeShieldBlockedChars.has(charId as string)) {
+      // A forced-strike target (e.g. The Balrog via Vanguard of Might ba-79)
+      // must face a strike "regardless of any conflicting effects": its status
+      // gate is bypassed so it can be assigned a strike even while tapped or
+      // wounded. Alatar's haven-joiners are untapped, so this never changes them.
+      const isForcedTarget = unassignedForced.includes(charId);
+      if (strikeShieldBlockedChars.has(charId as string) && !isForcedTarget) {
         logDetail(`Character ${charId as string} shielded — must assign strike to ally first`);
         continue;
       }
-      if (protectedChars.has(charId as string)) {
+      if (protectedChars.has(charId as string) && !isForcedTarget) {
         logDetail(`Character ${charId as string} protected from strike assignment (Ruse) — skipping`);
         continue;
       }
-      if (charData.status !== CardStatus.Untapped) {
+      if (charData.status !== CardStatus.Untapped && !isForcedTarget) {
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
         continue;
       }
@@ -2619,6 +2626,84 @@ function companyCombatBoostActions(
     }
 
     logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name}`);
+    actions.push({
+      action: {
+        type: 'play-short-event',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+      },
+      viable: true,
+    });
+  }
+
+  return actions;
+}
+
+/**
+ * Generate `play-short-event` actions for `join-combat-force-strike` events
+ * (Vanguard of Might ba-79). Offered to the defending player in the
+ * pre-assignment window of the `assign-strikes` sub-phase (no strikes assigned
+ * yet), gated on:
+ *   - the defending company being at (currentSite) or moving to
+ *     (destinationSite) a site carrying `requiresSiteKeyword` (e.g. under-deeps),
+ *   - the `notInPlay` card not being in play (Flame of Udûn),
+ *   - the named character (The Balrog) being in play for the defending player.
+ */
+function joinCombatForceStrikeActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (combat.phase !== 'assign-strikes') return [];
+  if (combat.strikeAssignments.length > 0) return [];
+  if (playerId !== combat.defendingPlayerId) return [];
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const company = companyById(player.companies, combat.companyId);
+  if (!company) return [];
+
+  const inPlayNames = buildInPlayNames(state);
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of player.hand) {
+    const cardDef = defById(state, handCard.definitionId);
+    const effect = getCardEffects(cardDef).find(
+      (e): e is JoinCombatForceStrikeEffect => e.type === 'join-combat-force-strike',
+    );
+    if (!effect) continue;
+
+    // Site gate: defending company must be at or moving to a qualifying site.
+    if (effect.requiresSiteKeyword) {
+      const siteHasKeyword = (site: { definitionId: CardDefinitionId } | null): boolean => {
+        if (!site) return false;
+        const siteDef = defById(state, site.definitionId) as { keywords?: readonly string[] } | undefined;
+        return siteDef?.keywords?.includes(effect.requiresSiteKeyword!) ?? false;
+      };
+      if (!siteHasKeyword(company.currentSite) && !siteHasKeyword(company.destinationSite)) {
+        logDetail(`${(cardDef as { name?: string }).name}: company not at/moving to a ${effect.requiresSiteKeyword} site — not offered`);
+        continue;
+      }
+    }
+
+    // Exclusion gate: the named card must not be in play.
+    if (effect.notInPlay && inPlayNames.includes(effect.notInPlay)) {
+      logDetail(`${(cardDef as { name?: string }).name}: ${effect.notInPlay} is in play — not offered`);
+      continue;
+    }
+
+    // The named character must be in play for this player (avatar to summon).
+    const namedInPlay = Object.values(player.characters).some(ch => {
+      const chDef = defById(state, ch.definitionId) as { name?: string } | undefined;
+      return chDef?.name === effect.characterName;
+    });
+    if (!namedInPlay) {
+      logDetail(`${(cardDef as { name?: string }).name}: ${effect.characterName} not in play — not offered`);
+      continue;
+    }
+
+    logDetail(`join-combat-force-strike available: ${(cardDef as { name?: string }).name} (summon ${effect.characterName})`);
     actions.push({
       action: {
         type: 'play-short-event',

@@ -3367,6 +3367,39 @@ export interface FaceStrikeOnTapEffect extends EffectBase {
 }
 
 /**
+ * `join-combat-force-strike` — a resource short-event played by the defending
+ * player during the pre-assignment window of the `assign-strikes` combat
+ * sub-phase (the same window as {@link CompanyCombatBoostEffect}). It brings a
+ * named character (e.g. The Balrog) into the defending company if absent —
+ * "considered movement with no movement/hazard phase", so only the company
+ * membership arrays change — forces that character to face a strike from the
+ * current attack regardless of conflicting effects (via
+ * {@link CombatState.forcedStrikeTargets}, whose status gate is bypassed for a
+ * forced target), and optionally taps the character after the attack if still
+ * untapped (via a {@link PostAttackEffect} with `tapIfUntapped`).
+ *
+ * Used by Vanguard of Might (ba-79): "Playable if a company at or moving to an
+ * Under-deeps site is facing an attack and Flame of Udûn is not in play. If not
+ * in the company, The Balrog immediately joins the company. … The Balrog must
+ * face a strike from the attack, regardless of any conflicting effects.
+ * Following the attack, if untapped, tap The Balrog."
+ */
+export interface JoinCombatForceStrikeEffect extends EffectBase {
+  readonly type: 'join-combat-force-strike';
+  /** Name of the character who joins the defending company and must face a strike. */
+  readonly characterName: string;
+  /** When true, tap the character after the attack if still untapped. */
+  readonly tapAfterAttack?: boolean;
+  /**
+   * Site keyword the defending company must be at (currentSite) or moving to
+   * (destinationSite) for the event to be playable, e.g. `"under-deeps"`.
+   */
+  readonly requiresSiteKeyword?: string;
+  /** Name of a card that must NOT be in play for the event to be playable (e.g. "Flame of Udûn"). */
+  readonly notInPlay?: string;
+}
+
+/**
  * Declares that an item can be stored during the Organization phase when
  * the bearer's company is at a matching site. Storing moves the item from
  * the character to the player's stored-items pile, where it earns
@@ -4434,6 +4467,7 @@ export type CardEffect =
   | StrikeModifierEffect
   | ModifyAttackEffect
   | FaceStrikeOnTapEffect
+  | JoinCombatForceStrikeEffect
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect
   | CombatAttackerChoosesDefendersEffect

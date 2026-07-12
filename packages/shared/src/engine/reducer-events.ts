@@ -827,6 +827,67 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     }
   }
 
+  // Handle join-combat-force-strike (Vanguard of Might ba-79): bring the named
+  // character into the defending company if absent (movement — only the company
+  // membership arrays change), force it to face a strike from the current attack
+  // (combat.forcedStrikeTargets), and schedule a post-attack tap if configured.
+  const joinForceStrike = (def.effects ?? []).find(
+    (e): e is import('../types/effects.js').JoinCombatForceStrikeEffect => e.type === 'join-combat-force-strike',
+  );
+  if (joinForceStrike && newState.combat) {
+    const combat = newState.combat;
+    const defPlayerIndex = newState.players.findIndex(p => p.id === combat.defendingPlayerId);
+    if (defPlayerIndex >= 0) {
+      const defPlayer = newState.players[defPlayerIndex];
+      // Locate the named character among the defending player's characters.
+      const namedEntry = Object.entries(defPlayer.characters).find(([, ch]) => {
+        const chDef = defById(newState, ch.definitionId) as { name?: string } | undefined;
+        return chDef?.name === joinForceStrike.characterName;
+      });
+      if (namedEntry) {
+        const namedId = namedEntry[0] as CardInstanceId;
+        const inTargetCompany = defPlayer.companies.some(
+          c => c.id === combat.companyId && c.characters.includes(namedId),
+        );
+        // Move the character into the attacked company if it is elsewhere.
+        // "Considered movement with no movement/hazard phase" — only membership
+        // arrays change; the CharacterInPlay entry is untouched.
+        if (!inTargetCompany) {
+          const newCompanies = defPlayer.companies.map(c => {
+            if (c.characters.includes(namedId) && c.id !== combat.companyId) {
+              return { ...c, characters: c.characters.filter(id => id !== namedId) };
+            }
+            if (c.id === combat.companyId && !c.characters.includes(namedId)) {
+              return { ...c, characters: [...c.characters, namedId] };
+            }
+            return c;
+          });
+          const nps: [import('../types/state-player.js').PlayerState, import('../types/state-player.js').PlayerState] =
+            [newState.players[0], newState.players[1]];
+          nps[defPlayerIndex] = { ...defPlayer, companies: newCompanies };
+          newState = { ...newState, players: nps };
+          logDetail(`${def.name}: ${joinForceStrike.characterName} joins the attacked company ${combat.companyId as string}`);
+        }
+        // Force the character to face a strike and schedule the post-attack tap.
+        const forced = [...(combat.forcedStrikeTargets ?? []), namedId];
+        const postAttack = joinForceStrike.tapAfterAttack
+          ? [...(combat.postAttackEffects ?? []), { targetCharacterId: namedId, tapIfUntapped: true }]
+          : combat.postAttackEffects;
+        newState = {
+          ...newState,
+          combat: {
+            ...newState.combat!,
+            forcedStrikeTargets: forced,
+            ...(postAttack ? { postAttackEffects: postAttack } : {}),
+          },
+        };
+        logDetail(`${def.name}: ${joinForceStrike.characterName} must face a strike${joinForceStrike.tapAfterAttack ? ' and taps after the attack' : ''}`);
+      } else {
+        logDetail(`${def.name}: ${joinForceStrike.characterName} not found in play — no join/force-strike applied`);
+      }
+    }
+  }
+
   if (interactiveEffects.length > 0) {
     // Card goes to player's cardsInPlay (visible on table) while effects resolve
     logDetail(`${def.name} → cardsInPlay, resolving ${interactiveEffects.length} effect(s)`);

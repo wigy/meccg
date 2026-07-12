@@ -2474,6 +2474,59 @@ branch), `engine/combat-actions.ts` (`handleFaceStrikeOnTap`), and the parry
 body reduction in `engine/combat-strike.ts` (`resolveStrikeCore`), keyed by
 `StrikeAssignment.reduceAttackBodyOnParry`.
 
+### 10g. `join-combat-force-strike`
+
+A **resource short-event** played by the defending player in the pre-assignment
+window of the `assign-strikes` combat sub-phase (the same window as
+`company-combat-boost` — `combat.phase === 'assign-strikes'` with no strikes yet
+assigned). It brings a named character into the defending company if absent,
+forces that character to face a strike from the current attack, and optionally
+taps it after the attack.
+
+```json
+{
+  "type": "join-combat-force-strike",
+  "characterName": "The Balrog",
+  "tapAfterAttack": true,
+  "requiresSiteKeyword": "under-deeps",
+  "notInPlay": "Flame of Udûn"
+}
+```
+
+Fields:
+
+- `characterName` — the character (by name) who joins the defending company and
+  must face a strike (e.g. The Balrog).
+- `tapAfterAttack` — when true, tap the character after the attack if still
+  untapped (a `PostAttackEffect` with `tapIfUntapped`, the same mechanism as the
+  Alatar haven-join "following the attack" tap).
+- `requiresSiteKeyword` — playability gate: the defending company must be at
+  (`currentSite`) or moving to (`destinationSite`) a site carrying this keyword
+  (e.g. `under-deeps`).
+- `notInPlay` — playability gate: the named card must not be in play
+  (`buildInPlayNames`), e.g. Flame of Udûn.
+
+On play, if the named character is not already in the attacked company it is
+moved there — "considered movement with no movement/hazard phase", so only the
+company membership arrays change (the `CharacterInPlay` entry is untouched, and
+it is **not** restored after combat, unlike an Alatar haven-jump). The character
+is added to `CombatState.forcedStrikeTargets`, whose defender-assignment status
+gate is bypassed for a forced target so it must face a strike "regardless of any
+conflicting effects" even while tapped or wounded.
+
+Example: Vanguard of Might (ba-79) — "Playable if a company at or moving to an
+Under-deeps site is facing an attack and Flame of Udûn is not in play. If not in
+the company, The Balrog immediately joins the company. … The Balrog must face a
+strike from the attack, regardless of any conflicting effects. Following the
+attack, if untapped, tap The Balrog." ("Balrog specific" is a deck-construction
+keyword, no play-time gate.)
+
+Implemented in `engine/legal-actions/combat.ts` (`joinCombatForceStrikeActions`
+offering + the forced-target status bypass in `assignStrikeActions`) and
+`engine/reducer-events.ts` (`handlePlayResourceShortEvent` join / force-strike /
+post-attack-tap block). Reuses `CombatState.forcedStrikeTargets` and
+`PostAttackEffect` from the Alatar haven-join primitive.
+
 ### 11. `cancel-strike`
 
 Pay a cost to cancel an incoming strike, with optional exclusions.
