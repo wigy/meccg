@@ -1089,8 +1089,12 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/LeftBehind.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a non-Wizard character whose company is facing an attack of five strikes or more. Following the attack, character splits off into a different company with the same site path as the company in which he was. He faces a separate movement/hazard phase this turn with a hazard limit of one. He may rejoin his original company following all movement/hazard phases."
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.race": { "$ne": "wizard" } } },
+      { "type": "left-behind-split", "minStrikes": 5 }
+    ],
+    "text": "Playable on a non-Wizard character whose company is facing an attack of five strikes or more. Following the attack, character splits off into a different company with the same site path as the company in which he was. He faces a separate movement/hazard phase this turn with a hazard limit of one. He may rejoin his original company following all movement/hazard phases.",
+    "certified": "2026-07-12"
   },
   {
     "cardType": "hazard-event",

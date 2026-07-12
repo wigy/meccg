@@ -8064,3 +8064,52 @@ Used by: *Greed* (le-113 / tw-42) — "each non-Hobbit, non-Wizard, non-Ringwrai
 character at the site must make a corruption check each time an item is played at
 the site … modified by subtracting the corruption points the item would normally
 give the character."
+
+### 64. `left-behind-split` (Left Behind)
+
+A hazard **short-event** the attacking (hazard) player plays *during a combat* on
+a non-Wizard character whose company is facing an attack of `minStrikes` or more
+strikes. "Following the attack" the targeted character **splits off into a
+separate company** that has the same site path as the company he was in; that
+company faces its own (separate) movement/hazard phase this turn with a **hazard
+limit of one**, after which the character **may rejoin** his original company.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `minStrikes` | yes | The attack must deliver at least this many strikes for the card to be playable (five for Left Behind). |
+
+```json
+{ "type": "left-behind-split", "minStrikes": 5 }
+```
+
+Paired with a `play-target` `target: 'character'` (`{ "target.race": { "$ne":
+"wizard" } }`). The full flow:
+
+- **Playability / offer** — `leftBehindActions` (`legal-actions/combat.ts`)
+  offers the attacking player one `play-hazard` per non-Wizard member of the
+  defending company, in the attacker's Step-1 window of the `resolve-strike`
+  sub-phase, only while the attack's strike count (`strikesPerAttack ??
+  strikesTotal`) is ≥ `minStrikes` and the company's hazard limit has room (rule
+  8.12). Only the attacking player sees the offer.
+- **Play** — `handleLeftBehindPlay` (`combat-hazard-play.ts`) discards the card,
+  counts it against the hazard limit, and schedules a {@link PostAttackEffect}
+  with `leftBehindSplit: true` on the targeted character.
+- **Split** — at combat finalization `applyLeftBehindSplit` (`combat-finalize.ts`)
+  peels the character into a new `leftBehind` {@link Company} carrying the same
+  `currentSite` / `destinationSite` / `movementPath` ("same site path"),
+  `siteCardOwned: false`, and `leftBehindOriginCompanyId` set to the original
+  company. If the character was **alone**, his own company is instead flagged
+  `leftBehindExtraPhasePending` for one extra (separate) M/H phase.
+- **Separate M/H phase, limit 1** — the new company is created *unhandled*, so
+  the M/H loop's `select-company` naturally gives it its own phase;
+  `enterSetHazardLimitAndAutoAdvance` (`mh-steps.ts`) forces a `leftBehind`
+  company's hazard-limit snapshot to 1. The lone-character extra phase is granted
+  by `advanceAfterCompanyMH` (re-running the flagged company once).
+- **Rejoin** — at the M/H→Site transition, `enqueueLeftBehindRejoins`
+  (`mh-hazard-play.ts`) enqueues a `left-behind-rejoin` pending resolution for
+  each `leftBehind` company still at the same site as its original company; the
+  player either merges (`left-behind-rejoin`) or declines (`pass`). To keep the
+  "may rejoin" optional, `autoMergeNonHavenCompanies` skips `leftBehind`
+  companies.
+
+Used by: *Left Behind* (td-41).

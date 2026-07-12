@@ -17,7 +17,7 @@ import type { CharacterInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import type { TakePrisonerEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isSiteCard } from '../types/cards.js';
+import { isSiteCard, isCharacterCard } from '../types/cards.js';
 import { CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -81,6 +81,17 @@ export function handleCombatPlayHazard(
   const handCard = findById(hazardPlayer.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'card not in hand' };
   const def = defById(state, handCard.definitionId);
+
+  // Left Behind (td-41): a hazard short-event that, "following the attack",
+  // peels a non-Wizard character off into a separate company. It is not a
+  // permanent-event, so it is handled before the permanent-event gate below.
+  const leftBehindEffect = def
+    ? getCardEffects(def).find((e): e is import('../types/effects.js').LeftBehindSplitEffect => e.type === 'left-behind-split')
+    : undefined;
+  if (leftBehindEffect) {
+    return handleLeftBehindPlay(state, action, combat, handCard, leftBehindEffect);
+  }
+
   if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'permanent') {
     return { state, error: 'only hazard permanent-events may be played during combat' };
   }
@@ -149,6 +160,89 @@ export function handleCombatPlayHazard(
     }
   }
 
+  return { state: newState };
+}
+
+/**
+ * Left Behind (td-41): the attacking (hazard) player plays this short-event on a
+ * non-Wizard character in the defending company while it is facing an attack of
+ * five or more strikes. The card does not modify the current strike; instead it
+ * schedules a {@link PostAttackEffect} with `leftBehindSplit: true` so that, at
+ * combat finalization, the character is peeled off into a separate company (see
+ * `applyPostAttackEffects`). The card itself is discarded; playing it counts
+ * against the company's hazard limit (rule 8.12).
+ *
+ * Playability (attacker's window, resolve-strike phase, five-strike threshold,
+ * non-Wizard target) is enforced by the legal-action emitter `leftBehindActions`
+ * in `legal-actions/combat.ts`; this reducer trusts the action and focuses on
+ * state transitions.
+ */
+function handleLeftBehindPlay(
+  state: GameState,
+  action: Extract<GameAction, { type: 'play-hazard' }>,
+  combat: CombatState,
+  handCard: import('../types/state.js').CardInstance,
+  effect: import('../types/effects.js').LeftBehindSplitEffect,
+): ReducerResult {
+  const attackStrikes = combat.strikesPerAttack ?? combat.strikesTotal;
+  if (attackStrikes < effect.minStrikes) {
+    return { state, error: `Left Behind requires an attack of ${effect.minStrikes}+ strikes (this attack has ${attackStrikes})` };
+  }
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const defenderIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defenderPlayer = state.players[defenderIndex];
+
+  const targetCharId = action.targetCharacterId;
+  if (!targetCharId) return { state, error: 'targetCharacterId required for Left Behind' };
+  const targetChar = defenderPlayer.characters[targetCharId];
+  if (!targetChar) return { state, error: 'Left Behind target not in defending player' };
+  const targetDef = defById(state, targetChar.definitionId);
+  if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Left Behind target is not a character' };
+  if (targetDef.race === 'wizard') return { state, error: 'Left Behind cannot target a Wizard' };
+  // The target must belong to the company under attack.
+  const defendingCompany = defenderPlayer.companies.find(c => c.id === combat.companyId);
+  if (!defendingCompany || !defendingCompany.characters.includes(targetCharId)) {
+    return { state, error: 'Left Behind target is not in the company facing the attack' };
+  }
+
+  // Remove the card from hand and discard it (a short-event resolves and is spent).
+  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    hand: newHand,
+    discardPile: [...p.discardPile, handCard],
+  }));
+
+  // Rule 8.12: hazard actions during a strike sequence in the opponent's M/H
+  // phase count against the company's hazard limit.
+  if (newState.phaseState.phase === Phase.MovementHazard) {
+    const mhState = newState.phaseState;
+    const played = (mhState.hazardsPlayedThisCompany ?? 0) + 1;
+    logDetail(`Left Behind: counts against hazard limit (${played})`);
+    newState = { ...newState, phaseState: { ...mhState, hazardsPlayedThisCompany: played } };
+  }
+
+  // Schedule the post-attack split. Guard against duplicates on the same target.
+  const already = (combat.postAttackEffects ?? []).some(
+    e => e.targetCharacterId === targetCharId && e.leftBehindSplit,
+  );
+  if (already) {
+    logDetail(`Left Behind: ${targetDef.name} already scheduled to split — no-op`);
+    return { state: newState };
+  }
+  logDetail(`Left Behind: scheduling ${targetDef.name} to split off into a separate company following the attack`);
+  newState = {
+    ...newState,
+    combat: {
+      ...combat,
+      postAttackEffects: [
+        ...(combat.postAttackEffects ?? []),
+        { targetCharacterId: targetCharId, leftBehindSplit: true },
+      ],
+    },
+  };
   return { state: newState };
 }
 

@@ -534,6 +534,22 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Left Behind (td-41): following all movement/hazard phases, the
+         * character(s) who were peeled off into a separate `leftBehind`
+         * company may rejoin their original company. Offered only when the
+         * original company still exists and occupies the same site as the
+         * left-behind company. The player may merge the two (`left-behind-rejoin`)
+         * or decline (`pass`, the left-behind company stays separate). Enqueued
+         * at the M/H→Site transition (`finalizeCompanyMH`).
+         */
+        readonly type: 'left-behind-rejoin';
+        /** The separate "left behind" company that may rejoin. */
+        readonly companyId: CompanyId;
+        /** The original company it was peeled off from. */
+        readonly originCompanyId: CompanyId;
+      }
+    | {
+        /**
          * My Precious (dm-29): after My Precious attacks and fails but survives,
          * the defender may tap one character in the target company to play the
          * agent's other manifestation (Gollum) from hand, after which My Precious

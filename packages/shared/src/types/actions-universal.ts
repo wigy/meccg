@@ -368,6 +368,20 @@ export interface RestoreCharacterByEffectAction {
 }
 
 /**
+ * Left Behind (td-41): rejoin a separate "left behind" company back into the
+ * original company it was peeled off from, following all movement/hazard phases.
+ * Resolves a `left-behind-rejoin` pending resolution (the player may instead
+ * `pass` to keep the company separate).
+ */
+export interface LeftBehindRejoinAction {
+  readonly type: 'left-behind-rejoin';
+  /** The player performing the rejoin (the companies' controller). */
+  readonly player: PlayerId;
+  /** The left-behind company being folded back into its original company. */
+  readonly companyId: CompanyId;
+}
+
+/**
  * Choose the next card (top-first) when ordering the set-aside cards a
  * `cycle-hand` effect placed on top of the play deck (Revealed to all Watchers,
  * dm-85). Resolves one step of an `arrange-deck-top` pending resolution: the

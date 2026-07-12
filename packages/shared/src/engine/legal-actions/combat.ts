@@ -218,18 +218,22 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       // passes. Without this gate the defender could resolve immediately,
       // burning the attacker's chance to play cards like Dragon's Curse.
       const hazardPlays = combatHazardPermanentPlays(state, playerId, combat);
+      const leftBehindPlays = leftBehindActions(state, playerId, combat);
       const attackOptions = attackerAttackOptionActions(state, playerId, combat);
       if (!combat.attackerStep1Done) {
         const attackerWindowCount = combatHazardPermanentPlays(
           state,
           combat.attackingPlayerId,
           combat,
-        ).length + attackerAttackOptionActions(state, combat.attackingPlayerId, combat).length;
+        ).length
+          + leftBehindActions(state, combat.attackingPlayerId, combat).length
+          + attackerAttackOptionActions(state, combat.attackingPlayerId, combat).length;
         if (attackerWindowCount > 0) {
           if (playerId === combat.attackingPlayerId) {
             logDetail(`Strike sequence Step 1: attacker has ${attackerWindowCount} action(s) to declare — defender waits`);
             return [
               ...hazardPlays,
+              ...leftBehindPlays,
               ...attackOptions,
               { action: { type: 'pass' as const, player: playerId }, viable: true },
             ];
@@ -245,6 +249,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
         ...cancelActions,
         ...resolveStrikeActions(state, playerId, combat),
         ...hazardPlays,
+        ...leftBehindPlays,
         ...attackOptions,
         ...allyCombatBoosts,
       ];
@@ -3091,6 +3096,84 @@ function combatHazardPermanentPlays(
       },
       viable: true,
     });
+  }
+  return results;
+}
+
+/**
+ * Left Behind (td-41): offer the attacking (hazard) player the option to play
+ * this short-event on a non-Wizard character in the defending company, provided
+ * that company is facing an attack of five (`minStrikes`) or more strikes.
+ *
+ * Offered in the attacker's Step-1 priority window during the `resolve-strike`
+ * phase (the same window as `combatHazardPermanentPlays`), before the current
+ * strike has resolved, and only while the company's hazard limit has room (rule
+ * 8.12). One action per (matching hand card × non-Wizard company member).
+ */
+function leftBehindActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (combat.phase !== 'resolve-strike') return [];
+  if (playerId !== combat.attackingPlayerId) return [];
+
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return [];
+
+  // Rule 8.12: no further hazard plays once the company's hazard limit is met.
+  if (state.phaseState.phase === Phase.MovementHazard && state.phaseState.hazardLimitAtReveal !== undefined) {
+    const mhState = state.phaseState;
+    const limit = currentHazardLimit(state, mhState, combat.companyId);
+    if ((mhState.hazardsPlayedThisCompany ?? 0) >= limit) return [];
+  }
+
+  const attacker = playerById(state, playerId);
+  if (!attacker) return [];
+  const defender = playerById(state, combat.defendingPlayerId);
+  if (!defender) return [];
+  const defendingCompany = companyById(defender.companies, combat.companyId);
+  if (!defendingCompany) return [];
+
+  const attackStrikes = combat.strikesPerAttack ?? combat.strikesTotal;
+
+  const results: EvaluatedAction[] = [];
+  for (const handCard of attacker.hand) {
+    const def = defById(state, handCard.definitionId);
+    if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') continue;
+    const effect = getCardEffects(def).find(
+      (e): e is import('../../types/effects.js').LeftBehindSplitEffect => e.type === 'left-behind-split',
+    );
+    if (!effect) continue;
+    if (attackStrikes < effect.minStrikes) {
+      logDetail(`Left Behind "${def.name}": attack has ${attackStrikes} strikes (< ${effect.minStrikes}) — not playable`);
+      continue;
+    }
+    const playTarget = getCardEffects(def).find(
+      (e): e is PlayTargetEffect => e.type === 'play-target',
+    );
+    for (const charId of defendingCompany.characters) {
+      const charInPlay = defender.characters[charId];
+      if (!charInPlay) continue;
+      const charDef = defById(state, charInPlay.definitionId);
+      if (!charDef || !isCharacterCard(charDef)) continue;
+      if (charDef.race === 'wizard') continue;
+      if (playTarget?.target === 'character' && playTarget.filter) {
+        const ctx = { target: { race: charDef.race, skills: charDef.skills, name: charDef.name, mind: charDef.mind } };
+        if (!matchesCondition(playTarget.filter, ctx)) continue;
+      }
+      logDetail(`Left Behind "${def.name}" playable on ${charDef.name} (attack of ${attackStrikes} strikes)`);
+      results.push({
+        action: {
+          type: 'play-hazard',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetCompanyId: combat.companyId,
+          targetCharacterId: charId,
+        },
+        viable: true,
+      });
+    }
   }
   return results;
 }

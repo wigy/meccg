@@ -585,6 +585,8 @@ export function describeAction(
       return `${playerName(action.player)} applies ${instName(action.cardInstanceId)} to the attack (+prowess / detainment)`;
     case 'voluntary-discard-in-play':
       return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} from play`;
+    case 'left-behind-rejoin':
+      return `${playerName(action.player)} rejoins the left-behind company ${action.companyId} with its original company (Left Behind)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

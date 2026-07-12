@@ -2026,6 +2026,11 @@ export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number
   for (let i = 0; i < player.companies.length; i++) {
     const c = player.companies[i];
     if (!c.currentSite) continue;
+    // Left Behind (td-41): a "left behind" company only rejoins its original
+    // company by explicit choice ("may rejoin"), so it is exempt from the
+    // automatic same-site merge (rule 2.IV.6). The optional rejoin is offered
+    // as a `left-behind-rejoin` resolution at the M/H→Site transition.
+    if (c.leftBehind) continue;
     const key = c.currentSite.instanceId as string;
     const existing = groups.get(key);
     if (existing) {

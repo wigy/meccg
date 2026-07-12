@@ -56,7 +56,15 @@ export function enterSetHazardLimitAndAutoAdvance(
 ): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activeIndex].companies[mhState.activeCompanyIndex];
-  const { limit, preRevealConstraintIds } = snapshotHazardLimit(state, company);
+  const snapshot = snapshotHazardLimit(state, company);
+  // Left Behind (td-41): a company created (or flagged) by Left Behind faces its
+  // separate movement/hazard phase with a hazard limit of exactly one.
+  const forcedLeftBehind = company.leftBehind === true;
+  const limit = forcedLeftBehind ? 1 : snapshot.limit;
+  const preRevealConstraintIds = forcedLeftBehind ? [] : snapshot.preRevealConstraintIds;
+  if (forcedLeftBehind) {
+    logDetail(`Movement/Hazard: Left Behind company ${company.id as string} — hazard limit forced to 1`);
+  }
   logDetail(`Movement/Hazard: hazard limit snapshot ${limit} → auto-advancing through set-hazard-limit and order-effects`);
   const orderEffectsMhState: MovementHazardPhaseState = {
     ...mhState,

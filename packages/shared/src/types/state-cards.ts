@@ -378,6 +378,29 @@ export interface Company {
    * movement distance for this company. Defaults to 0 when undefined.
    */
   readonly extraRegionDistance?: number | undefined;
+  /**
+   * Set on a company created by Left Behind (td-41): a character was peeled off
+   * "following the attack" into this separate company that has the same site
+   * path as the company he was in. While set, this company's hazard-limit
+   * snapshot is forced to 1 for its own (separate) movement/hazard phase, and
+   * after all movement/hazard phases the character may rejoin his original
+   * company (identified by {@link leftBehindOriginCompanyId}). Cleared once the
+   * rejoin is resolved (or declined).
+   */
+  readonly leftBehind?: boolean | undefined;
+  /**
+   * For a {@link leftBehind} company, the id of the company the character was
+   * peeled off from — the "original company" he may rejoin after all M/H phases.
+   */
+  readonly leftBehindOriginCompanyId?: CompanyId | undefined;
+  /**
+   * Set when Left Behind (td-41) targeted a character who was **alone** in his
+   * company: there is no other company to peel him into, so his own company is
+   * flagged to run one more (separate) movement/hazard phase this turn with a
+   * hazard limit of one. Consumed by `advanceAfterCompanyMH`, which re-runs the
+   * company's M/H sub-phase once and clears the flag.
+   */
+  readonly leftBehindExtraPhasePending?: boolean | undefined;
 }
 
 

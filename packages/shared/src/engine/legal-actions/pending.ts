@@ -1973,6 +1973,41 @@ export function havenRestoreCharacterActions(
 }
 
 /**
+ * Legal actions while a `left-behind-rejoin` resolution is pending (Left Behind,
+ * td-41): the controlling player may fold the separate "left behind" company
+ * back into its original company (`left-behind-rejoin`) or keep it separate
+ * (`pass`).
+ */
+export function leftBehindRejoinActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'left-behind-rejoin') return [];
+  const { companyId, originCompanyId } = top.kind;
+
+  const ownerPlayer = state.players.find(p => p.id === actor);
+  if (!ownerPlayer) return [];
+  const company = companyById(ownerPlayer.companies, companyId);
+  const origin = companyById(ownerPlayer.companies, originCompanyId);
+  const actions: EvaluatedAction[] = [];
+  // Only offer the merge if both companies still exist at the same site.
+  if (company && origin && company.currentSite && origin.currentSite
+    && company.currentSite.instanceId === origin.currentSite.instanceId) {
+    logDetail(`left-behind-rejoin: offering to rejoin ${companyId as string} into ${originCompanyId as string}`);
+    actions.push({
+      action: { type: 'left-behind-rejoin' as const, player: actor, companyId },
+      viable: true,
+    });
+  }
+
+  // "may rejoin" — pass is always available (keeps the company separate).
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+
+  return actions;
+}
+
+/**
  * Legal actions while an `arrange-deck-top` resolution is pending (Revealed to
  * all Watchers, dm-85): the player orders the set-aside cards sitting on top of
  * their play deck, picking the next-highest card each step. One
