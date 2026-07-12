@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.47.0 — 2026-07-12
+
+Balrog Deck #1
+
+### Game Engine
+
+- Complete the card pool for challenge deck #1 "The Shadow-deeps" — every card in the deck is now certified, making the Balrog's Great Shadow form fully playable
+- New Balrog and Under-deeps primitives: `balrog-surface-region-movement` (Out He Sprang ba-71), `join-combat-force-strike` (Vanguard of Might ba-79), `surface-site-roll-zero` (Breach the Hold ba-50), `site-instance-transform` for the Darkhaven/Shadow-hold split (Roots of the Earth ba-74), `surface-region-adjacency` (Caverns Unchoked ba-51), repeated Under-deeps M/H phases (Gangways over the Fire ba-60), and Balrog self-attack events with lingering buffs (Descent through Fire ba-56)
+- New combat primitives: bearer-combat body-check modifiers for parrying defenders and CvCC attackers (Flame of Udûn ba-58), one-strike-per-wounded with tap-to-cancel-strike (Carrion Feeders ba-11), attacker-attack-option with Spawn auto-attack (Ungoliant's Progeny ba-27), dynamic-race trigger attacks (Tempest of Fire ba-77), counter-cancel of Under-deeps attacks (Great Fissure ba-61), and the weapons-ineffective rule (Dwarven Light-stone dm-168)
+- New resource/hazard primitives: `reveal-deck-choose-penalty` (Desire All for Thy Belly ba-16), `reveal-remove-from-discard` (Aware of their Ways dm-46), `convert-creature-to-ally` (Memories of Old Torture ba-67), `reveal-and-attack` with ongoing discard triggers (The Great Hunt wh-91), `company-tap-characters` on a Spawn-count threshold (The Reek ba-23), dual-mode from-hand modify/cancel combat short-events (Darkness Wielded ba-55), sideboard self-relocation with player-scoped influence modifiers (Terror Heralds Doom ba-78), company-scoped corruption-check modifiers (I'll Be At Your Heels le-195), and end-of-org hazard-limit modifiers (Cloaked by Darkness ba-53)
+- Add Fallen-Wizard support for Alatar (wh-1) and Pallando (wh-7): full-kill MP, detainment-as-normal attacks, Wizardhaven joining, FW faction-MP override, and the associated squire/item family (wh-90, wh-92, wh-93, wh-95, wh-104, wh-105)
+- Add agent recruitment via Open to the Summons (wh-46) and coastal keying-bypass for the Drowning-deeps (ba-89) and Remains of Thangorodrim (ba-95)
+- Enforce the starting-company pool restriction (rule 1.7) in `validateDeck`
+
+### Card Data
+
+- 100 newly certified cards (699 → 799 of 1683), including the full Balrog Under-deeps site set (ba-84 through ba-101), Ungoliant/Spawn creature line, Trolls, and the White Hand hunt cycle
+- Fix illegal sample-deck pools: relocate excess and start-company-forbidden characters
+- Add the seven missing challenge decks (#1, #2, K–N, T, U); the deck catalog now covers all 24
+
+### AI Player
+
+- Fix the AI getting stuck by accepting resource short-events during site select-company and enter-or-skip
+- Offer on-guard placement for agent cards held in hand
+- Make character placement monotonic to stop endless company shuffling
+
+### Infrastructure
+
+- Fix `run-ai` silently abandoning broken PRs forever; bound PR-fix retries
+
 ## 0.46.0 — 2026-07-07
 
 More Cards

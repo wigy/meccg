@@ -6,19 +6,19 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 654 | 644 | 10 | 98.5% |
+| 752 | 743 | 9 | 98.8% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 50 | 50 | 100.0% |
-| BA | 17 | 15 | 88.2% |
-| DM | 59 | 59 | 100.0% |
-| LE | 191 | 188 | 98.4% |
-| TD | 55 | 55 | 100.0% |
-| TW | 253 | 248 | 98.0% |
-| WH | 29 | 29 | 100.0% |
+| AS | 52 | 52 | 100.0% |
+| BA | 66 | 65 | 98.5% |
+| DM | 69 | 69 | 100.0% |
+| LE | 202 | 199 | 98.5% |
+| TD | 58 | 58 | 100.0% |
+| TW | 258 | 253 | 98.1% |
+| WH | 47 | 47 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -51,13 +51,15 @@
 | as-94 | Orders from Lugbúrz | — | 13 | ☑ |
 | as-101 | Tokens to Show | — | 8 | ☑ |
 | as-102 | The Tormented Earth | — | 9 | ☑ |
+| as-106 | The Under-roads | — | 7 | ☑ |
 | as-108 | Well-preserved | — | 13 | ☑ |
 | as-111 | Asdriags | — | 9 | ☑ |
 | as-114 | Corsairs of Rhûn | — | 8 | ☑ |
+| as-120 | Nûriags | — | 8 | ☑ |
 | as-122 | Ancient Black Axe | — | 14 | ☑ |
 | as-123 | Dwarven Ring of Thélor’s Tribe | — | 14 | ☑ |
 | as-124 | Dwarven Ring of Thrár’s Tribe | — | 12 | ☑ |
-| as-126 | Helm of Fear | — | 16 | ☑ |
+| as-126 | Helm of Fear | — | 15 | ☑ |
 | as-127 | Iron Shield of Old | — | 10 | ☑ |
 | as-130 | Records Unread | — | 10 | ☑ |
 | as-131 | Secret Book | — | 11 | ☑ |
@@ -75,29 +77,83 @@
 | as-151 | Irerock | — | 9 | ☑ |
 | as-169 | Weathertop | — | 6 | ☑ |
 | ba-1 | Strider | — | 16 | ☑ |
-| ba-2 | Azog | — | 0 | ☐ |
+| ba-2 | Azog | — | 6 | ☑ |
 | ba-3 | The Balrog | — | 8 | ☑ |
-| ba-4 | Bolg | — | 0 | ☐ |
+| ba-4 | Bolg | — | 2 | ☐ |
 | ba-5 | Bûthrakaur | — | 8 | ☑ |
 | ba-6 | Crook-legged Orc | — | 3 | ☑ |
-| ba-10 | Beorning Skin-changers | — | 9 | ☑ |
+| ba-7 | Hill-troll | — | 3 | ☑ |
+| ba-8 | Mountain-maggot | — | 3 | ☑ |
+| ba-10 | Beorning Skin-changers | — | 8 | ☑ |
+| ba-11 | Carrion Feeders | — | 8 | ☑ |
+| ba-13 | Shelob’s Brood | — | 7 | ☑ |
+| ba-14 | Black Vapour | — | 10 | ☑ |
+| ba-15 | Darkness Made by Malice | — | 12 | ☑ |
+| ba-16 | Desire All for Thy Belly | — | 8 | ☑ |
+| ba-19 | Glance of Arien | — | 8 | ☑ |
+| ba-21 | Monstrosity of Diverse Shape | — | 13 | ☑ |
+| ba-23 | The Reek | — | 8 | ☑ |
+| ba-24 | Spawn of Ungoliant | — | 10 | ☑ |
+| ba-25 | The Sun Shone Fiercely | — | 8 | ☑ |
 | ba-26 | Unabated in Malice | — | 10 | ☑ |
+| ba-27 | Ungoliant's Progeny | — | 11 | ☑ |
+| ba-28 | Ungoliant's Foul Issue | — | 9 | ☑ |
 | ba-30 | Longbottom Leaf | — | 8 | ☑ |
 | ba-33 | To Fealty Sworn | — | 11 | ☑ |
+| ba-35 | Cave Troll | — | 9 | ☑ |
+| ba-36 | Ancient Secrets | — | 13 | ☑ |
+| ba-37 | Going Ever Under Dark | — | 14 | ☑ |
+| ba-45 | Evil Things Lingering | — | 7 | ☑ |
+| ba-46 | Great Troll | — | 12 | ☑ |
+| ba-49 | Angband Revisited | — | 5 | ☑ |
+| ba-50 | Breach the Hold | — | 14 | ☑ |
+| ba-51 | Caverns Unchoked | — | 12 | ☑ |
 | ba-52 | Challenge the Power | — | 6 | ☑ |
+| ba-53 | Cloaked by Darkness | — | 9 | ☑ |
+| ba-55 | Darkness Wielded | — | 10 | ☑ |
+| ba-56 | Descent through Fire | — | 15 | ☑ |
+| ba-58 | Flame of Udûn | — | 13 | ☑ |
+| ba-59 | Foe Dismayed | — | 10 | ☑ |
+| ba-60 | Gangways over the Fire | — | 3 | ☑ |
+| ba-61 | Great Fissure | — | 11 | ☑ |
 | ba-62 | Great Shadow | — | 22 | ☑ |
+| ba-66 | Maker’s Map | — | 9 | ☑ |
+| ba-67 | Memories of Old Torture | — | 6 | ☑ |
 | ba-70 | Orders from the Great Demon | — | 8 | ☑ |
+| ba-71 | Out He Sprang | — | 8 | ☑ |
+| ba-74 | Roots of the Earth | — | 16 | ☑ |
+| ba-77 | Tempest of Fire | — | 22 | ☑ |
+| ba-78 | Terror Heralds Doom | — | 8 | ☑ |
+| ba-79 | Vanguard of Might | — | 12 | ☑ |
+| ba-84 | Barad-dûr | — | 13 | ☑ |
+| ba-85 | Carn Dûm | — | 9 | ☑ |
+| ba-86 | Cirith Gorgor | — | 10 | ☑ |
+| ba-87 | Cirith Ungol | — | 9 | ☑ |
+| ba-88 | Dol Guldur | — | 11 | ☑ |
+| ba-89 | The Drowning-deeps | — | 12 | ☑ |
+| ba-91 | The Iron-deeps | — | 16 | ☑ |
+| ba-92 | Minas Morgul | — | 8 | ☑ |
 | ba-93 | Moria | — | 13 | ☑ |
+| ba-95 | Remains of Thangorodrim | — | 12 | ☑ |
+| ba-97 | The Sulfur-deeps | — | 15 | ☑ |
+| ba-98 | The Under-courts | — | 12 | ☑ |
+| ba-99 | The Under-galleries | — | 15 | ☑ |
 | ba-100 | The Under-gates | — | 12 | ☑ |
+| ba-101 | The Under-grottos | — | 10 | ☑ |
 | ba-102 | The Under-leas | — | 15 | ☑ |
 | ba-103 | The Under-vaults | — | 13 | ☑ |
 | dm-2 | Baduila | — | 8 | ☑ |
 | dm-3 | Bill Ferny | — | 4 | ☑ |
+| dm-4 | Dâsakûn | — | 4 | ☑ |
 | dm-6 | Drór | — | 4 | ☑ |
+| dm-10 | Firiel | — | 3 | ☑ |
 | dm-11 | Fori the Beardless | — | 5 | ☑ |
 | dm-15 | The Grimburgoth | — | 5 | ☑ |
+| dm-17 | Ivic | — | 4 | ☑ |
+| dm-23 | Râisha | — | 4 | ☑ |
+| dm-26 | Woffung | — | 3 | ☑ |
 | dm-27 | Wormtongue | — | 4 | ☑ |
-| dm-28 | Lobelia Sackville-Baggins | — | 6 | ☑ |
+| dm-28 | Lobelia Sackville-Baggins | — | 5 | ☑ |
 | dm-29 | My Precious | — | 5 | ☑ |
 | dm-30 | The Gem-deeps | — | 15 | ☑ |
 | dm-31 | Haudh-in-Gwanûr | — | 8 | ☑ |
@@ -114,9 +170,11 @@
 | dm-42 | Urlurtsu Nurn | — | 7 | ☑ |
 | dm-43 | An Article Missing | — | 15 | ☑ |
 | dm-45 | An Unexpected Outpost | — | 13 | ☑ |
+| dm-46 | Aware of their Ways | — | 7 | ☑ |
 | dm-50 | Cunning Foes | — | 8 | ☑ |
 | dm-55 | Exhalation of Decay | — | 7 | ☑ |
 | dm-56 | Eyes of the Shadow | — | 10 | ☑ |
+| dm-57 | Faces of the Dead | — | 8 | ☑ |
 | dm-58 | Flies and Spiders | — | 5 | ☑ |
 | dm-62 | Great Need or Purpose | — | 5 | ☑ |
 | dm-68 | Inner Cunning | — | 14 | ☑ |
@@ -136,6 +194,7 @@
 | dm-109 | Nameless Thing | — | 12 | ☑ |
 | dm-111 | Stirring Bones | — | 6 | ☑ |
 | dm-113 | Wisp of Pale Sheen | — | 4 | ☑ |
+| dm-119 | Barrow-blade | — | 8 | ☑ |
 | dm-121 | Crown of Flowers | — | 6 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 7 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
@@ -148,15 +207,17 @@
 | dm-163 | When You Know More | — | 10 | ☑ |
 | dm-164 | The Windlord Found Me | — | 19 | ☑ |
 | dm-165 | Withdrawn to Mordor | — | 9 | ☑ |
+| dm-168 | Dwarven Light-stone | — | 12 | ☑ |
+| dm-178 | Mistress Lobelia | — | 13 | ☑ |
 | dm-179 | Noble Hound | — | 7 | ☑ |
 | dm-181 | Baugúr | — | 11 | ☑ |
 | le-1 | Asternak | — | 2 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
-| le-8 | Dorelas | — | 3 | ☑ |
+| le-8 | Dorelas | — | 2 | ☑ |
 | le-10 | Eradan | — | 3 | ☑ |
 | le-11 | Gorbag | — | 4 | ☑ |
-| le-12 | Grishnákh | — | 4 | ☑ |
+| le-12 | Grishnákh | — | 3 | ☑ |
 | le-14 | Hador | — | 3 | ☑ |
 | le-16 | Horseman in the Night | — | 4 | ☑ |
 | le-17 | Jerrek | — | 4 | ☑ |
@@ -174,6 +235,7 @@
 | le-34 | Orc Tracker | — | 5 | ☑ |
 | le-35 | Orc Veteran | — | 3 | ☑ |
 | le-36 | Ostisen | — | 3 | ☑ |
+| le-37 | Pon Opar | — | 3 | ☑ |
 | le-38 | Radbug | — | 3 | ☑ |
 | le-39 | Shagrat | — | 5 | ☑ |
 | le-44 | Troll Lout | — | 3 | ☑ |
@@ -198,6 +260,7 @@
 | le-77 | Hobgoblins | — | 4 | ☑ |
 | le-78 | Horse-lords | — | 6 | ☑ |
 | le-82 | Lawless Men | — | 6 | ☑ |
+| le-83 | Lesser Spiders | — | 9 | ☑ |
 | le-84 | Marsh-drake | — | 8 | ☑ |
 | le-89 | Sellswords Between Charters | — | 4 | ☑ |
 | le-90 | Slayer | — | 7 | ☑ |
@@ -211,6 +274,7 @@
 | le-105 | Call of Home | — | 9 | ☑ |
 | le-107 | Covetous Thoughts | — | 11 | ☑ |
 | le-112 | Foolish Words | — | 8 | ☑ |
+| le-113 | Greed | — | 11 | ☑ |
 | le-115 | Incite Defenders | — | 11 | ☑ |
 | le-117 | Long Winter | — | 8 | ☑ |
 | le-122 | Lure of Expedience | — | 11 | ☑ |
@@ -221,20 +285,22 @@
 | le-132 | Rebel-talk | — | 12 | ☑ |
 | le-135 | The Roving Eye | — | 9 | ☑ |
 | le-136 | Searching Eye | — | 9 | ☑ |
+| le-137 | Shut Yer Mouth | — | 11 | ☑ |
+| le-138 | So You’ve Come Back  | — | 9 | ☑ |
 | le-140 | Stay Her Appetite | — | 5 | ☑ |
 | le-141 | Stench of Mordor | — | 10 | ☑ |
 | le-142 | Thrice Outnumbered | — | 11 | ☑ |
 | le-143 | Tidings of Bold Spies | — | 7 | ☑ |
 | le-146 | Veils Flung Away | — | 13 | ☑ |
 | le-149 | Weariness of the Heart | — | 4 | ☑ |
-| le-153 | Last Child of Ungoliant | — | 10 | ◐ |
+| le-153 | Last Child of Ungoliant | — | 11 | ◐ |
 | le-154 | Stinker | — | 16 | ☑ |
 | le-156 | War-warg | — | 9 | ☑ |
 | le-157 | War-wolf | — | 8 | ☑ |
 | le-158 | The Warg-king | — | 11 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
 | le-165 | Awaiting the Call | — | 10 | ☑ |
-| le-167 | Bade to Rule | — | 11 | ◐ |
+| le-167 | Bade to Rule | — | 13 | ◐ |
 | le-172 | Bold Thrust | — | 7 | ☑ |
 | le-173 | Burning Rick, Cot, and Tree | — | 13 | ☑ |
 | le-174 | By the Ringwraith’s Word | — | 17 | ☑ |
@@ -246,6 +312,7 @@
 | le-184 | Focus Palantír | — | 10 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
+| le-195 | I’ll Be At Your Heels | — | 14 | ☑ |
 | le-196 | I’ll Report You | — | 15 | ☑ |
 | le-212 | Not Slay Needlessly | — | 10 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
@@ -269,6 +336,7 @@
 | le-264 | Easterlings | — | 8 | ☑ |
 | le-265 | Goblins of Goblin-gate | — | 7 | ☑ |
 | le-266 | Grey Mountain Goblins | — | 9 | ☑ |
+| le-268 | Hill Trolls | — | 7 | ☑ |
 | le-270 | Ice-orcs | — | 8 | ☑ |
 | le-272 | Misty Mountain Wargs | — | 15 | ☑ |
 | le-273 | Nûrniags | — | 9 | ☑ |
@@ -303,7 +371,9 @@
 | le-350 | Bag End | — | 12 | ☑ |
 | le-351 | Bandit Lair | — | 12 | ☑ |
 | le-352 | Barad-dûr | — | 11 | ☑ |
+| le-353 | Barrow-downs | — | 10 | ☑ |
 | le-354 | Beorn’s House | — | 7 | ☑ |
+| le-357 | Buhr Widu | — | 7 | ☑ |
 | le-359 | Carn Dûm | — | 18 | ☑ |
 | le-360 | Caves of Ûlund | — | 6 | ☑ |
 | le-361 | Cirith Gorgor | — | 5 | ☑ |
@@ -316,6 +386,7 @@
 | le-372 | Edoras | — | 10 | ☑ |
 | le-373 | Ettenmoors | — | 10 | ☑ |
 | le-376 | Glittering Caves | — | 11 | ☑ |
+| le-377 | Gobel Mírlond | — | 13 | ☑ |
 | le-378 | Goblin-gate | — | 9 | ☑ |
 | le-379 | Gondmaeglom | — | 11 | ☑ |
 | le-384 | Isengard | — | 14 | ☑ |
@@ -332,6 +403,7 @@
 | le-400 | Ruined Signal Tower | — | 11 | ☑ |
 | le-401 | Sarn Goriwing | — | 6 | ☑ |
 | le-402 | Shelob’s Lair | — | 15 | ☑ |
+| le-403 | Shrel-Kain | — | 13 | ☑ |
 | le-404 | Southron Oasis | — | 7 | ☑ |
 | le-408 | Thranduil’s Halls | — | 9 | ☑ |
 | le-411 | Variag Camp | — | 5 | ☑ |
@@ -340,11 +412,12 @@
 | le-415 | The Worthy Hills | — | 19 | ☑ |
 | le-417 | Zarak Dûm | — | 5 | ☑ |
 | le-418 | The Arkenstone | — | 16 | ☑ |
-| le-pending-effects-parity | ? | — | 0 | ☐ |
+| le-pending-effects-parity | — | — | 1 | ☐ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 16 | ☑ |
 | td-8 | Cave Worm | — | 3 | ☑ |
 | td-9 | Cruel Caradhras | — | 10 | ☑ |
+| td-10 | Daelomin Ahunt | — | 9 | ☑ |
 | td-11 | Daelomin at Home | — | 11 | ☑ |
 | td-16 | Dragon’s Curse | — | 17 | ☑ |
 | td-18 | Dragon-sickness | — | 6 | ☑ |
@@ -360,6 +433,7 @@
 | td-60 | Scatha | — | 8 | ☑ |
 | td-61 | Scatha Ahunt | — | 16 | ☑ |
 | td-64 | Scorba Ahunt | — | 13 | ☑ |
+| td-67 | Searching Eye | — | 9 | ☑ |
 | td-70 | Smaug Ahunt | — | 17 | ☑ |
 | td-77 | True Cold-drake | — | 3 | ☑ |
 | td-85 | Withered Lands | — | 9 | ☑ |
@@ -368,6 +442,7 @@
 | td-92 | Galdor | — | 6 | ☑ |
 | td-93 | Ioreth | — | 4 | ☑ |
 | td-94 | Thráin II | — | 4 | ☑ |
+| td-95 | A Short Rest | — | 6 | ☑ |
 | td-96 | Adamant Helmet | — | 10 | ☑ |
 | td-98 | And Forth He Hastened | — | 7 | ☑ |
 | td-101 | Bounty of the Hoard | — | 12 | ☑ |
@@ -399,39 +474,41 @@
 | tw-1 | Abductor | — | 7 | ☑ |
 | tw-2 | Adûnaphel | — | 10 | ☑ |
 | tw-5 | Ambusher | — | 3 | ☑ |
-| tw-008 | ? | — | 10 | ☑ |
+| tw-008 | — | — | 10 | ☑ |
 | tw-12 | Balrog of Moria | — | 8 | ☑ |
 | tw-015 | Barrow-wight | — | 6 | ☑ |
 | tw-016 | “Bert” (Bûrat) | — | 7 | ☑ |
 | tw-17 | Brigands | — | 7 | ☑ |
 | tw-18 | Call of Home | — | 8 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
-| tw-021 | ? | — | 11 | ☑ |
+| tw-021 | — | — | 11 | ☑ |
 | tw-23 | Corpse-candle | — | 10 | ☑ |
-| tw-024 | ? | — | 2 | ☑ |
+| tw-024 | — | — | 2 | ☑ |
 | tw-27 | Despair of the Heart | — | 8 | ☑ |
-| tw-028 | ? | — | 6 | ☑ |
+| tw-028 | — | — | 6 | ☑ |
 | tw-29 | Dragon’s Desolation | — | 15 | ☑ |
-| tw-032 | ? | — | 6 | ☑ |
+| tw-032 | — | — | 6 | ☑ |
 | tw-36 | Foul Fumes | — | 9 | ☑ |
 | tw-37 | Ghosts | — | 6 | ☑ |
 | tw-40 | Giant Spiders | — | 8 | ☑ |
+| tw-43 | Half-trolls of Far Harad | — | 4 | ☑ |
 | tw-47 | Khamûl the Easterling | — | 11 | ☑ |
-| tw-050 | ? | — | 7 | ☑ |
-| tw-053 | ? | — | 6 | ☑ |
-| tw-060 | ? | — | 7 | ☑ |
+| tw-050 | — | — | 7 | ☑ |
+| tw-053 | — | — | 6 | ☑ |
+| tw-060 | — | — | 7 | ☑ |
 | tw-60 | Lure of the Senses | — | 1 | ☑ |
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-65 | Mouth of Sauron | — | 6 | ☑ |
-| tw-067 | ? | — | 6 | ☑ |
+| tw-067 | — | — | 6 | ☑ |
 | tw-70 | Old Man Willow | — | 9 | ☑ |
+| tw-71 | Olog-hai (Trolls) | — | 8 | ☑ |
 | tw-072 | Orc-guard | — | 3 | ☑ |
 | tw-073 | Orc-lieutenant | — | 4 | ☑ |
 | tw-074 | Orc-patrol | — | 3 | ☑ |
 | tw-076 | Orc-warband | — | 3 | ☑ |
 | tw-078 | Orc-watch | — | 3 | ☑ |
 | tw-82 | Pûkel-men | — | 6 | ☑ |
-| tw-084 | ? | — | 10 | ☑ |
+| tw-084 | — | — | 10 | ☑ |
 | tw-89 | Slayer | — | 7 | ☑ |
 | tw-90 | Smaug | — | 7 | ☑ |
 | tw-91 | Snowstorm | — | 5 | ☑ |
@@ -451,7 +528,7 @@
 | tw-120 | Aragorn II | — | 3 | ☑ |
 | tw-122 | Arwen | — | 3 | ☑ |
 | tw-123 | Balin | — | 5 | ☑ |
-| tw-124 | Bard Bowman | — | 0 | ☐ |
+| tw-124 | Bard Bowman | — | 1 | ☐ |
 | tw-126 | Beorn | — | 4 | ☑ |
 | tw-127 | Beregond | — | 3 | ☑ |
 | tw-128 | Beretar | — | 4 | ☑ |
@@ -461,10 +538,12 @@
 | tw-134 | Boromir II | — | 4 | ☑ |
 | tw-136 | Celeborn | — | 4 | ☑ |
 | tw-137 | Círdan | — | 9 | ☑ |
+| tw-139 | Damrod | — | 2 | ☑ |
 | tw-141 | Dori | — | 4 | ☑ |
 | tw-143 | Elladan | — | 2 | ☑ |
 | tw-144 | Elrohir | — | 3 | ☑ |
 | tw-145 | Elrond | — | 4 | ☑ |
+| tw-146 | Éomer | — | 3 | ☑ |
 | tw-147 | Éowyn | — | 7 | ☑ |
 | tw-148 | Erkenbrand | — | 3 | ☑ |
 | tw-149 | Faramir | — | 2 | ☑ |
@@ -529,7 +608,7 @@
 | tw-259 | Horn of Anor | — | 4 | ☑ |
 | tw-261 | Iron Hill Dwarves | — | 3 | ☑ |
 | tw-263 | Knights of Dol Amroth | — | 2 | ☑ |
-| tw-266 | Lesser Ring | — | 3 | ◐ |
+| tw-266 | Lesser Ring | — | 4 | ◐ |
 | tw-269 | Lucky Search | — | 13 | ☑ |
 | tw-270 | Lucky Strike | — | 8 | ☑ |
 | tw-274 | Magic Ring of Stealth | — | 7 | ☑ |
@@ -557,14 +636,14 @@
 | tw-329 | Southrons | — | 6 | ☑ |
 | tw-330 | Star-glass | — | 14 | ☑ |
 | tw-332 | Stealth | — | 11 | ☑ |
-| tw-333 | Sting | — | 0 | ☐ |
+| tw-333 | Sting | — | 2 | ☐ |
 | tw-335 | Sun | — | 6 | ☑ |
 | tw-336 | Sword of Gondolin | — | 6 | ☑ |
 | tw-337 | Tempering Friendship | — | 8 | ☑ |
 | tw-342 | The Cock Crows | — | 9 | ☑ |
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
 | tw-346 | The Old Thrush | — | 8 | ☑ |
-| tw-347 | The One Ring | — | 0 | ☐ |
+| tw-347 | The One Ring | — | 5 | ☐ |
 | tw-348 | The White Tree | — | 11 | ☑ |
 | tw-349 | Thorough Search | — | 16 | ☑ |
 | tw-350 | Tom Bombadil | — | 7 | ☑ |
@@ -622,7 +701,7 @@
 | tw-414 | Mount Doom | — | 7 | ☑ |
 | tw-415 | Mount Gram | — | 6 | ☑ |
 | tw-416 | Mount Gundabad | — | 8 | ☑ |
-| tw-417 | Old Forest | — | 5 | ◐ |
+| tw-417 | Old Forest | — | 7 | ◐ |
 | tw-418 | Ost-in-Edhil | — | 8 | ☑ |
 | tw-419 | Pelargir | — | 5 | ☑ |
 | tw-420 | Rhosgobel | — | 4 | ☑ |
@@ -649,21 +728,30 @@
 | tw-494 | Black Arrow | — | 8 | ☑ |
 | tw-495 | Fatty Bolger | — | 9 | ☑ |
 | tw-498 | Swordmaster | — | 16 | ☑ |
+| tw-499 | Dwarven Axe | — | 7 | ☑ |
+| wh-1 | Alatar | — | 10 | ☑ |
 | wh-5 | Ill-favoured Fellow | — | 6 | ☑ |
 | wh-6 | Lugdush | — | 2 | ☑ |
+| wh-7 | Pallando | — | 6 | ☑ |
 | wh-9 | Saruman | — | 10 | ☑ |
 | wh-10 | Sly Southerner | — | 6 | ☑ |
 | wh-29 | Rolled down to the Sea | — | 5 | ☑ |
 | wh-33 | Noble Steed | — | 10 | ☑ |
 | wh-34 | Promptings of Wisdom | — | 7 | ☑ |
+| wh-37 | A Panoply of Wings | — | 11 | ☑ |
+| wh-38 | Beasts of the Wood | — | 16 | ☑ |
+| wh-40 | Wild Hounds | — | 15 | ☑ |
 | wh-43 | Crept Along Cleverly | — | 5 | ☑ |
+| wh-46 | Open to the Summons | — | 11 | ☑ |
 | wh-47 | Piercing All Shadows | — | 7 | ☑ |
 | wh-51 | Blasting Fire | — | 9 | ☑ |
 | wh-54 | Vile Fumes | — | 12 | ☑ |
+| wh-55 | Deep Mines | — | 14 | ☑ |
 | wh-56 | Isengard | — | 3 | ☑ |
 | wh-58 | The White Towers | — | 3 | ☑ |
 | wh-60 | A New Ringlord | — | 4 | ☑ |
 | wh-61 | A Strident Spawn | — | 10 | ☑ |
+| wh-65 | Delver’s Harvest | — | 4 | ☑ |
 | wh-66 | Double-dealing | — | 10 | ☑ |
 | wh-68 | The Fortress of Isen | — | 17 | ☑ |
 | wh-69 | Fortress of the Towers | — | 14 | ☑ |
@@ -671,9 +759,19 @@
 | wh-72 | Great Patron | — | 9 | ☑ |
 | wh-74 | Guarded Haven | — | 12 | ☑ |
 | wh-75 | Hidden Haven | — | 26 | ☑ |
+| wh-76 | Legacy of Smiths | — | 9 | ☑ |
 | wh-82 | Thrall of the Voice | — | 14 | ☑ |
 | wh-84 | Wizard’s Myrmidon | — | 7 | ☑ |
 | wh-87 | Half-orcs | — | 10 | ☑ |
+| wh-90 | Bow of Alatar | — | 11 | ☑ |
+| wh-91 | The Great Hunt | — | 12 | ☑ |
+| wh-92 | Huntsman’s Garb | — | 9 | ☑ |
+| wh-93 | Join the Hunt | — | 14 | ☑ |
+| wh-95 | Squire of the Hunt | — | 9 | ☑ |
+| wh-104 | Pallando’s Apprentice | — | 11 | ☑ |
+| wh-105 | Pallando’s Hood | — | 9 | ☑ |
+| wh-106 | Prophet of Doom | — | 15 | ☑ |
+| wh-108 | Truths of Doom | — | 8 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
 | wh-119 | Man of Skill | — | 7 | ☑ |
 | wh-120 | Saruman’s Machinery | — | 20 | ☑ |
