@@ -1608,6 +1608,9 @@ function applyShortEventOnEntersPlay(
         case 'only-creatures-keyed-to-site':
           kind = { type: 'only-creatures-keyed-to-site' };
           break;
+        case 'only-creatures-keyed-to-site-at-ruins-lairs':
+          kind = { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
+          break;
         case 'company-cannot-move':
           kind = { type: 'company-cannot-move' };
           break;

@@ -30,7 +30,7 @@ import type {
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard } from '../../types/cards.js';
-import { CardStatus, Skill, cardStatusToName } from '../../types/common.js';
+import { CardStatus, Skill, SiteType, cardStatusToName } from '../../types/common.js';
 import type { CardDefinitionId } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
@@ -1000,6 +1000,8 @@ function applyOneConstraint(
       return applyNoCreatureHazardsOnCompany(state, playerId, base, constraint);
     case 'only-creatures-keyed-to-site':
       return applyOnlyCreaturesKeyedToSite(state, playerId, base, constraint);
+    case 'only-creatures-keyed-to-site-at-ruins-lairs':
+      return applyOnlyCreaturesKeyedToSiteAtRuinsLairs(state, playerId, base, constraint);
     case 'company-cannot-move':
       // Enforced directly by the org-phase `plan-movement` emitter
       // (`planMovementActions`) and reducer (`handlePlanMovement`) — no broad
@@ -1339,6 +1341,51 @@ function applyOnlyCreaturesKeyedToSite(
       return true;
     }
     logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site): dropping non-site-keyed creature "${def.name}" against company ${protectedCompany as string}`);
+    return false;
+  });
+}
+
+/**
+ * Down Down to Goblin-town (le-181): like `applyOnlyCreaturesKeyedToSite`, but
+ * the restriction is gated on the target company moving to a Ruins & Lairs
+ * [{R}]. When the company's destination is a Ruins & Lairs, drop every
+ * hazard-creature play against it that is not keyed to that site (region-keyed
+ * creatures, "by type or name"); site-keyed creatures survive. When the company
+ * moves anywhere else the card is inert and every hazard is allowed. The
+ * destination type is read from the M/H phase state (the same source the
+ * creature-keying matchers use), which reflects the active moving company — the
+ * only company for which `play-hazard` actions are generated.
+ */
+function applyOnlyCreaturesKeyedToSiteAtRuinsLairs(
+  state: GameState,
+  _playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.target.kind !== 'company') return base;
+  const protectedCompany = constraint.target.companyId;
+
+  // R&L gate: the restriction only bites if the company moves to a Ruins &
+  // Lairs. Otherwise the card imposes nothing.
+  const ps = state.phaseState;
+  if (ps.phase !== Phase.MovementHazard || ps.destinationSiteType !== SiteType.RuinsAndLairs) {
+    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-at-ruins-lairs): destination is not a Ruins & Lairs — no restriction`);
+    return base;
+  }
+
+  return base.filter(ea => {
+    if (ea.action.type !== 'play-hazard') return true;
+    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
+    if (targetCompanyId !== protectedCompany) return true;
+    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
+    if (!cardInstId) return true;
+    const def = resolveDef(state, cardInstId);
+    if (!def || def.cardType !== 'hazard-creature') return true;
+    if (isCreatureKeyedToDestinationSite(state, def)) {
+      logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-at-ruins-lairs): "${def.name}" is site-keyed — allowed`);
+      return true;
+    }
+    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-at-ruins-lairs): dropping region-keyed creature "${def.name}" against company ${protectedCompany as string}`);
     return false;
   });
 }
