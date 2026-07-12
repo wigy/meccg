@@ -419,6 +419,26 @@ export function defById(state: GameState, definitionId: CardDefinitionId): CardD
 }
 
 /**
+ * True if the given player's avatar (wizard, ringwraith, fallen-wizard, or
+ * Balrog) has been eliminated during the game.
+ *
+ * Per CoE rule 2.2 an eliminated avatar is placed in its player's
+ * removed-from-play pile (`outOfPlayPile`) and applies a standing -5
+ * miscellaneous marshalling-point penalty to that player — a penalty that is in
+ * effect for the running MP total throughout the game (reflected in the MP
+ * display), not merely at final scoring. Avatars are the only characters with
+ * `mind === null` (see {@link isAvatarCharacter}), so scanning the pile for such
+ * a character is the canonical check. Shared by {@link recomputeDerived} (which
+ * folds the -5 into the running misc tally) and the Free Council end-game scorer
+ * so both agree on when the penalty applies.
+ */
+export function hasEliminatedAvatar(state: GameState, playerIndex: number): boolean {
+  const player = state.players[playerIndex];
+  if (!player) return false;
+  return player.outOfPlayPile.some(card => isAvatarCharacter(defById(state, card.definitionId)));
+}
+
+/**
  * True if a character counts as only half a character for company-size
  * purposes (CoE rule 3.24): every Hobbit and every Orc scout.
  *

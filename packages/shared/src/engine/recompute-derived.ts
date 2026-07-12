@@ -46,7 +46,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -1246,6 +1246,19 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // player rather than on a card in play, so fold it into the misc tally here.
   if (player.bonusMiscMarshallingPoints) {
     mp = { ...mp, misc: mp.misc + player.bonusMiscMarshallingPoints };
+  }
+
+  // CoE rule 2.2: an eliminated avatar provides -5 miscellaneous marshalling
+  // points to its player. This penalty is in effect throughout the game (CoE
+  // 10.3.vi — "despite having already been in effect for the purposes of
+  // determining whether the game could be called"), so it is folded into the
+  // running misc tally here rather than being applied only at final scoring.
+  // Keeping it in the derived total means it is reflected in the live MP display
+  // and read consistently by the end-game scorer. It is safe against the
+  // tournament doubling step (CoE 10.3.iii), which ignores misc and never
+  // doubles a negative source.
+  if (hasEliminatedAvatar(state, getPlayerIndex(state, player.id))) {
+    mp = { ...mp, misc: mp.misc - 5 };
   }
 
   // MEAS §6e: callable totals = full tally minus Under-deeps company-held MPs.
