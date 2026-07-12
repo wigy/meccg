@@ -3743,6 +3743,31 @@ export interface SeizedByTerrorCheckEffect extends EffectBase {
 }
 
 /**
+ * Left Behind (td-41): a hazard **short-event** played by the attacking (hazard)
+ * player during a combat in which the defending company is facing an attack of
+ * `minStrikes` or more strikes, targeting a non-Wizard character in that company
+ * (via a companion `play-target` `target: 'character'` filter). Following the
+ * attack, the targeted character **splits off into a separate company** that has
+ * the same site path as the company he was in; that company faces its own
+ * (separate) movement/hazard phase this turn with a **hazard limit of one**, and
+ * the character may **rejoin** his original company after all movement/hazard
+ * phases have finished.
+ *
+ * On play the reducer (`handleCombatPlayHazard`) schedules a
+ * {@link PostAttackEffect} with `leftBehindSplit: true`; the split itself runs at
+ * combat finalization (`applyPostAttackEffects`), which peels the character into
+ * a new `leftBehind` {@link Company} carrying the same movement (currentSite /
+ * destinationSite / movementPath) as the original. The `leftBehind` flag forces
+ * that company's hazard-limit snapshot to 1, and the M/H→Site transition enqueues
+ * a `left-behind-rejoin` resolution offering the merge back.
+ */
+export interface LeftBehindSplitEffect extends EffectBase {
+  readonly type: 'left-behind-split';
+  /** The attack must deliver at least this many strikes for the card to be playable. */
+  readonly minStrikes: number;
+}
+
+/**
  * A play cost requiring the playing player to discard a card matching `filter`
  * from the named `source` pile as part of playing this card. The discarded card
  * is the player's choice — the legal-action layer offers one action per matching
@@ -4501,6 +4526,7 @@ export type CardEffect =
   | CompanyStrikeEffect
   | CompanyTapCharactersEffect
   | SeizedByTerrorCheckEffect
+  | LeftBehindSplitEffect
   | PlayDiscardCostEffect
   | RollRemoveHazardEventsEffect
   | AgentTapInfluenceEffect

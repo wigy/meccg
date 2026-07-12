@@ -2544,6 +2544,79 @@ export function applyHavenRestoreCharacterResolution(
 }
 
 /**
+ * Resolve a `left-behind-rejoin` pending resolution (Left Behind, td-41).
+ *
+ * The controlling player either passes (the separate "left behind" company
+ * stays separate, its flags cleared) or folds it back into its original company
+ * via a `left-behind-rejoin` action — the characters, on-guard cards and hazards
+ * of the left-behind company are merged into the original and the now-empty
+ * left-behind company is removed.
+ */
+export function applyLeftBehindRejoinResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'left-behind-rejoin') return null;
+  const { companyId, originCompanyId } = top.kind;
+
+  const playerIdx = state.players.findIndex(p => p.id === top.actor);
+  if (playerIdx < 0) return { state, error: 'Left Behind rejoin: actor not found' };
+
+  const clearFlags = (st: GameState): GameState => updatePlayer(st, playerIdx, p => ({
+    ...p,
+    companies: p.companies.map(c => c.id === companyId
+      ? { ...c, leftBehind: undefined, leftBehindOriginCompanyId: undefined, leftBehindExtraPhasePending: undefined }
+      : c),
+  }));
+
+  // pass: keep the company separate, but clear its left-behind flags.
+  if (action.type === 'pass') {
+    logDetail(`left-behind-rejoin: pass — company ${companyId as string} stays separate`);
+    return { state: dequeueResolution(clearFlags(state), top.id) };
+  }
+
+  if (action.type !== 'left-behind-rejoin') {
+    return { state, error: `Pending left-behind-rejoin requires left-behind-rejoin or pass, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for left-behind-rejoin' };
+  }
+  if (action.companyId !== companyId) {
+    return { state, error: 'left-behind-rejoin: company mismatch' };
+  }
+
+  const player = state.players[playerIdx];
+  const b = player.companies.find(c => c.id === companyId);
+  const origin = player.companies.find(c => c.id === originCompanyId);
+  if (!b || !origin) {
+    // One of the companies vanished — nothing to merge; clear flags and dequeue.
+    return { state: dequeueResolution(clearFlags(state), top.id) };
+  }
+  if (!b.currentSite || !origin.currentSite || b.currentSite.instanceId !== origin.currentSite.instanceId) {
+    return { state, error: 'left-behind-rejoin: companies are not at the same site' };
+  }
+
+  logDetail(`left-behind-rejoin: folding ${companyId as string} back into ${originCompanyId as string}`);
+  const merged = updatePlayer(state, playerIdx, p => {
+    const companies = p.companies
+      .map(c => c.id === originCompanyId
+        ? {
+            ...c,
+            characters: [...c.characters, ...b.characters],
+            onGuardCards: [...c.onGuardCards, ...b.onGuardCards],
+            hazards: [...c.hazards, ...b.hazards],
+            siteCardOwned: c.siteCardOwned || b.siteCardOwned,
+          }
+        : c)
+      .filter(c => c.id !== companyId);
+    return { ...p, companies };
+  });
+
+  return { state: dequeueResolution(merged, top.id) };
+}
+
+/**
  * Resolve an `arrange-deck-top` pending resolution (Revealed to all Watchers,
  * dm-85).
  *

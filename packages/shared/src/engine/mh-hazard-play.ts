@@ -1904,9 +1904,106 @@ export function gangwaysExtraDestinations(
  * the choice of another Under-deeps movement/hazard phase (`gangways-offer`)
  * rather than finalizing. Otherwise the company is finalized normally.
  */
+/**
+ * Reset all per-company movement/hazard fields and return to the select-company
+ * step, so the next unhandled company begins its M/H sub-phase from a clean
+ * slate. `handledCompanyIds` and `activeCompanyIndex` are taken from the supplied
+ * `mhState` unchanged (callers pre-set `handledCompanyIds` when finalizing a
+ * completed company). Shared by `finalizeCompanyMH` and the Left Behind
+ * lone-character extra-phase path in `advanceAfterCompanyMH`.
+ */
+function resetCompanyMHFields(mhState: MovementHazardPhaseState): MovementHazardPhaseState {
+  return {
+    ...mhState,
+    step: 'select-company' as const,
+    movementType: null,
+    declaredRegionPath: [],
+    maxRegionDistance: BASE_MAX_REGION_DISTANCE,
+    hazardsPlayedThisCompany: 0,
+    hazardLimitAtReveal: 0,
+    preRevealHazardLimitConstraintIds: [],
+    resolvedSitePath: [],
+    resolvedSitePathNames: [],
+    destinationSiteType: null,
+    destinationSiteName: null,
+    resourceDrawMax: 0,
+    hazardDrawMax: 0,
+    resourceDrawCount: 0,
+    hazardDrawCount: 0,
+    resourcePlayerPassed: false,
+    hazardPlayerPassed: false,
+    siteRevealed: false,
+    onGuardPlacedThisCompany: false,
+    returnedToOrigin: false,
+    hazardsEncountered: [],
+    spawnReplayUsedSources: [],
+    ahuntAttacksResolved: 0,
+    ahuntGroupOutcomes: [],
+  };
+}
+
+/**
+ * Left Behind (td-41): enqueue a `left-behind-rejoin` resolution for each
+ * `leftBehind` company of the active player whose original company still exists
+ * and occupies the same site. Called at the M/H→Site transition, so the offers
+ * short-circuit the Site phase and are resolved first. A company whose original
+ * company is gone (eliminated / at a different site) simply keeps its own
+ * separate existence and its `leftBehind` flag is cleared here.
+ */
+function enqueueLeftBehindRejoins(state: GameState, activeIndex: number): GameState {
+  const player = state.players[activeIndex];
+  const leftBehindCompanies = player.companies.filter(c => c.leftBehind && c.leftBehindOriginCompanyId);
+  if (leftBehindCompanies.length === 0) return state;
+
+  let s = state;
+  const clearFlags = new Set<string>();
+  for (const b of leftBehindCompanies) {
+    const origin = player.companies.find(c => c.id === b.leftBehindOriginCompanyId);
+    const sameSite = origin && origin.id !== b.id
+      && origin.currentSite && b.currentSite
+      && origin.currentSite.instanceId === b.currentSite.instanceId;
+    if (!origin || !sameSite) {
+      logDetail(`Left Behind: company ${b.id as string} cannot rejoin (original company absent or at a different site) — staying separate`);
+      clearFlags.add(b.id as string);
+      continue;
+    }
+    logDetail(`Left Behind: offering ${b.id as string} the option to rejoin ${origin.id as string}`);
+    s = enqueueResolution(s, {
+      source: null,
+      actor: player.id,
+      scope: { kind: 'phase', phase: Phase.Site },
+      kind: { type: 'left-behind-rejoin', companyId: b.id, originCompanyId: origin.id },
+    });
+  }
+
+  if (clearFlags.size > 0) {
+    s = updatePlayer(s, activeIndex, p => ({
+      ...p,
+      companies: p.companies.map(c => clearFlags.has(c.id as string)
+        ? { ...c, leftBehind: undefined, leftBehindOriginCompanyId: undefined, leftBehindExtraPhasePending: undefined }
+        : c),
+    }));
+  }
+  return s;
+}
+
 export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
+
+  // Left Behind (td-41), lone-character case: the flagged company runs one more
+  // (separate) movement/hazard phase this turn with a hazard limit of one. Clear
+  // the pending flag and return it to select-company without marking it handled,
+  // so the loop re-runs it once. Its `leftBehind` flag forces the limit-1 snapshot.
+  if (currentCompany.leftBehindExtraPhasePending) {
+    logDetail(`Left Behind: lone company ${currentCompany.id as string} takes its separate M/H phase (limit 1)`);
+    const clearedState = updatePlayer(state, activeIndex, p => ({
+      ...p,
+      companies: p.companies.map((c, idx) =>
+        idx !== mhState.activeCompanyIndex ? c : { ...c, leftBehindExtraPhasePending: false }),
+    }));
+    return { state: { ...clearedState, phaseState: resetCompanyMHFields(mhState) } };
+  }
 
   if (playerHasExtraUnderDeepsMH(state, activeIndex)) {
     const cid = currentCompany.id as string;
@@ -2000,42 +2097,19 @@ export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhase
       };
     }
 
+    // Left Behind (td-41): "He may rejoin his original company following all
+    // movement/hazard phases." Offer the optional rejoin for each left-behind
+    // company still at the same site as its original company.
+    const withRejoin = enqueueLeftBehindRejoins(cleanedState, activeIndex);
     logDetail(`Movement/Hazard: all companies handled → advancing to Site phase`);
-    return { state: cleanedState };
+    return { state: withRejoin };
   }
 
   logDetail(`Movement/Hazard: company ${currentCompany.id} done → returning to select-company (${remainingCount} remaining)`);
   return {
     state: {
       ...state,
-      phaseState: {
-        ...mhState,
-        step: 'select-company' as const,
-        handledCompanyIds: updatedHandled,
-        movementType: null,
-        declaredRegionPath: [],
-        maxRegionDistance: BASE_MAX_REGION_DISTANCE,
-        hazardsPlayedThisCompany: 0,
-        hazardLimitAtReveal: 0,
-        preRevealHazardLimitConstraintIds: [],
-        resolvedSitePath: [],
-        resolvedSitePathNames: [],
-        destinationSiteType: null,
-        destinationSiteName: null,
-        resourceDrawMax: 0,
-        hazardDrawMax: 0,
-        resourceDrawCount: 0,
-        hazardDrawCount: 0,
-        resourcePlayerPassed: false,
-        hazardPlayerPassed: false,
-        siteRevealed: false,
-        onGuardPlacedThisCompany: false,
-        returnedToOrigin: false,
-        hazardsEncountered: [],
-        spawnReplayUsedSources: [],
-        ahuntAttacksResolved: 0,
-        ahuntGroupOutcomes: [],
-      },
+      phaseState: resetCompanyMHFields({ ...mhState, handledCompanyIds: updatedHandled }),
     },
   };
 }

@@ -661,6 +661,14 @@ export interface PostAttackEffect {
   readonly tapIfUntapped?: boolean;
   /** When present, enqueue a corruption check on the character (optional modifier). */
   readonly corruptionCheck?: { readonly modifier?: number };
+  /**
+   * Left Behind (td-41): when true, at combat finalization the character is
+   * peeled off into a separate `leftBehind` company with the same site path as
+   * the company he was in (see `applyPostAttackEffects`). That company then
+   * faces its own movement/hazard phase with a hazard limit of one, after which
+   * the character may rejoin his original company.
+   */
+  readonly leftBehindSplit?: boolean;
 }
 
 /** Records where a haven-jumped character came from so they can be restored. */
