@@ -512,9 +512,16 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       )
     : undefined;
 
+  // A dual-mode card whose alternative is a discard-in-play (Ancient Secrets
+  // ba-36): mode 1 chooses a `discardTargetInstanceId` and must NOT also run
+  // the sideboard fetch. When a discard target is present, skip all fetch
+  // effects so only the discard resolves. Mode 2 (no discard target) enqueues
+  // the fetch as normal.
+  const choseDiscardMode = action.type === 'play-short-event' && !!action.discardTargetInstanceId;
   const interactiveEffects: PendingEffect[] = (def.effects ?? [])
     .flatMap(effect => {
       if (effect.type !== 'move') return [];
+      if (choseDiscardMode) return [];
       const payload = moveToFetchToDeckPayload(effect);
       if (!payload) return [];
       if (effect.when) {
@@ -571,9 +578,13 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // general cards-in-play list (Eye of Sauron long-events, free-standing
   // permanent-events) or attached to one of their characters as a hazard
   // (Foolish Words, Lure of the Senses, etc.).
+  // Resolve discard-in-play only when a discard target was actually chosen.
+  // Dual-mode cards (ba-36) may carry a discard-in-play move but be played in
+  // their alternative (sideboard-fetch) mode, in which case no discard target
+  // is set and this block must be skipped.
   const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
-  if (discardInPlay) {
-    const targetId = action.discardTargetInstanceId!;
+  if (discardInPlay && action.discardTargetInstanceId) {
+    const targetId = action.discardTargetInstanceId;
     let foundOwnerIndex = -1;
     let foundCardsInPlayIdx = -1;
     let foundCharId: string | null = null;

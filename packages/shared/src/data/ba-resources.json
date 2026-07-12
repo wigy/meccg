@@ -227,8 +227,46 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Tap your Ringwraith to discard one hazard permanent-event. Alternatively, during your organization phase, tap your Ringwraith to take up to two resources from your sideboard to your play deck and reshuffle."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.isRevealedAvatar": true },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "in-play",
+        "to": "discard",
+        "filter": {
+          "$and": [
+            { "cardType": "hazard-event" },
+            { "eventType": "permanent" }
+          ]
+        }
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": ["sideboard"],
+        "to": "deck",
+        "shuffleAfter": true,
+        "count": 2,
+        "filter": {
+          "cardType": {
+            "$in": [
+              "minion-resource-item",
+              "minion-resource-ally",
+              "minion-resource-faction",
+              "minion-resource-event"
+            ]
+          }
+        }
+      }
+    ],
+    "text": "Tap your Ringwraith to discard one hazard permanent-event. Alternatively, during your organization phase, tap your Ringwraith to take up to two resources from your sideboard to your play deck and reshuffle.",
+    "certified": "2026-07-12"
   },
   {
     "cardType": "minion-resource-event",
