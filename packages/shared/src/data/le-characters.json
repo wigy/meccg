@@ -1329,7 +1329,7 @@
     "id": "le-57",
     "name": "Ûvatha the Ringwraith",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/UvathatheRingwraith.jpg",
-    "text": "Unique. Manifestation of Ûvatha the Horseman. Can use spirit-magic. -3 direct influence in Heralded Lord mode. -1 prowess in Fell Rider mode. He may join another Ringwraith's company during your organization phase and requires no influence to control. As your Ringwraith, if at a Darkhaven, he may tap to untap one character in any one of your companies.",
+    "text": "Unique. Manifestation of Ûvatha the Horseman. Can use spirit-magic. -3 direct influence in Heralded Lord mode. -1 prowess in Fell Rider mode. He may join another Ringwraith's company during your organization phase and requires no influence to control. As your Ringwraith, if at a Darkhaven [{DH}], he may tap during your organization phase to move one resource event card from your discard pile to your play deck and reshuffle.",
     "alignment": "ringwraith",
     "unique": true,
     "race": "ringwraith",
@@ -1362,8 +1362,36 @@
         "when": {
           "bearer.ringwraithMode": "fell-rider"
         }
+      },
+      {
+        "type": "ringwraith-self-follower"
+      },
+      {
+        "type": "grant-action",
+        "action": "recall-to-deck",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "$and": [
+            { "bearer.isRevealedAvatar": true },
+            { "bearer.atHaven": true }
+          ]
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": [
+            "discard-pile"
+          ],
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "filter": {
+            "cardType": "minion-resource-event"
+          }
+        }
       }
-    ]
+    ],
+    "certified": "2026-07-12"
   },
   {
     "cardType": "minion-character",
