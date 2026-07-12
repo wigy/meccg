@@ -97,8 +97,44 @@
           "wilderness",
           "border"
         ]
+      },
+      {
+        "regionNames": [
+          "The Shire"
+        ]
       }
-    ]
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -2,
+        "when": {
+          "defender.alignment": "hero"
+        }
+      }
+    ],
+    "certified": "2026-07-12"
   },
   {
     "cardType": "hazard-creature",
