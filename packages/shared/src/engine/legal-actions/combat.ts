@@ -254,6 +254,8 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
         ...allyCombatBoosts,
       ];
     }
+    case 'trophy-offer':
+      return trophyOfferActions(state, playerId, combat);
     case 'body-check':
       return [...bodyCheckActions(state, playerId, combat), ...tapAllyBodyCheckBoostActions(state, playerId, combat)];
     case 'shield-discard-roll':
@@ -265,6 +267,55 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
     default:
       return [];
   }
+}
+
+/**
+ * Legal actions during the `trophy-offer` combat phase (MELE §8.37 / CoE
+ * 3.IV.1). After a non-detainment creature defeat, the *defending* player may
+ * assign the defeated creature (now in their kill pile) as a trophy to any
+ * eligible Orc/Troll character that faced one of its strikes, or pass to
+ * decline all trophies ("may take" — the offer is optional).
+ *
+ * Only the defending player acts here; the attacking player has no actions
+ * during the trophy offer. Without this handler the combat sub-state machine
+ * would produce no legal actions in `trophy-offer` and the game would stall
+ * with "no valid actions".
+ */
+function trophyOfferActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+
+  // The defeated creature instance — mirrors the derivation in finalizeCombat
+  // so the take-trophy handler can locate it in the defender's kill pile.
+  const creatureInstanceId =
+    combat.attackSource.type === 'creature' ? combat.attackSource.instanceId
+      : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
+        : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
+          : null;
+
+  const eligible = combat.trophyEligibleCharacters ?? [];
+  if (!creatureInstanceId || eligible.length === 0) {
+    // No creature or no eligible character: defender may only decline so the
+    // combat can finalize.
+    logDetail('Trophy offer: nothing to assign — defender may only pass');
+    return [{ action: { type: 'pass' as const, player: playerId }, viable: true }];
+  }
+
+  const actions: EvaluatedAction[] = [];
+  for (const characterId of eligible) {
+    logDetail(`Trophy offer: ${characterId as string} may take ${creatureInstanceId as string} as a trophy (MELE §8.37)`);
+    actions.push({
+      action: { type: 'take-trophy' as const, player: playerId, characterId, creatureInstanceId },
+      viable: true,
+    });
+  }
+  // Defender may decline all trophies (CoE 3.IV.1 — "may take").
+  logDetail('Trophy offer: defender may also pass to decline all trophies');
+  actions.push({ action: { type: 'pass' as const, player: playerId }, viable: true });
+  return actions;
 }
 
 /**

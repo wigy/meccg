@@ -28,7 +28,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase, CardDefinitionId, Alignment, CardStatus, Race, resolveInstanceId } from '../../../index.js';
 import {
   buildTestState, PLAYER_1, PLAYER_2, resetMint,
-  dispatch, viableActions, findCharInstanceId, companyIdAt, makeShadowMHState, recomputeDerived, RESOURCE_PLAYER,
+  dispatch, viableActions, viableFor, findCharInstanceId, companyIdAt, makeShadowMHState, recomputeDerived, RESOURCE_PLAYER,
   assertEveryInstanceReachable,
 } from '../../test-helpers.js';
 import type { CombatState } from '../../../index.js';
@@ -158,6 +158,43 @@ describe('Rule 8.37 — Trophies', () => {
     // only in `character.trophies`, so resolveInstanceId must still find it.
     expect(resolveInstanceId(afterTrophy, creatureInstanceId)).toBe(ORC_GUARD);
     assertEveryInstanceReachable(afterTrophy);
+  });
+
+  test('trophy-offer phase computes legal actions (take-trophy per eligible char + pass) so the game does not stall', () => {
+    // Regression for game mrhx2tb7-9vcj4g, seq 137: a defeated Orc-guard left
+    // combat in the `trophy-offer` phase but the legal-action computer had no
+    // case for that phase, so BOTH players got zero actions and the game hung
+    // with "No valid actions".
+    const { state, orcId, creatureInstanceId } = makeTrophyOfferState({
+      orcDefId: ORC_CAPTAIN,
+      creatureDefId: ORC_GUARD,
+    });
+
+    const [bodyCheckAction] = viableActions(state, PLAYER_2, 'body-check-roll');
+    const afterBodyCheck = dispatch(state, bodyCheckAction.action);
+    expect(afterBodyCheck.combat?.phase).toBe('trophy-offer');
+
+    // Defending player (PLAYER_1) is offered a take-trophy for the eligible
+    // Orc/Troll character plus a pass to decline.
+    const takeTrophy = viableActions(afterBodyCheck, PLAYER_1, 'take-trophy');
+    expect(takeTrophy).toHaveLength(1);
+    expect(takeTrophy[0].action).toMatchObject({
+      type: 'take-trophy',
+      player: PLAYER_1,
+      characterId: orcId,
+      creatureInstanceId,
+    });
+    expect(viableActions(afterBodyCheck, PLAYER_1, 'pass')).toHaveLength(1);
+
+    // The attacking player has no actions during the trophy offer, but the
+    // defender always does — so the game can never stall here.
+    expect(viableFor(afterBodyCheck, PLAYER_2)).toHaveLength(0);
+    expect(viableFor(afterBodyCheck, PLAYER_1).length).toBeGreaterThan(0);
+
+    // The offered take-trophy action actually resolves.
+    const afterTrophy = dispatch(afterBodyCheck, takeTrophy[0].action);
+    expect(afterTrophy.combat).toBeNull();
+    expect(afterTrophy.players[0].characters[orcId]?.trophies?.some(t => t.instanceId === creatureInstanceId)).toBe(true);
   });
 
   test('3.IV.2 — Detainment-creature trophy on Orc/Troll scores 0 kill-MP at Free Council; §3.IV.3 printed-MP attribute bonuses still apply', () => {
