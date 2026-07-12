@@ -1287,11 +1287,19 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "balrog-surface-region-movement",
+        "suppressedByInPlay": "Great Shadow",
+        "regionAllowanceByMp": [[8, 1], [16, 2], [24, 3], [25, 4]],
+        "modifiableBy": "A More Evil Hour"
+      }
+    ],
     "text": "Balrog specific. If Great Shadow is not in play, The Balrog may move with region movement (overriding his card) to an Under-deeps surface site or from an Under-deeps surface site. Based on his marshalling point (MP) total, he may use the following number of regions: 0-8 MPs – 1 region; 9-16 MPs – 2 regions; 17-24 MPs – 3 regions; 25+ MPs – 4 regions. This region allowance may not be modified by any other effects except A More Evil Hour.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-12"
   },
   {
     "cardType": "minion-resource-event",

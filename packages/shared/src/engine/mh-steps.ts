@@ -33,7 +33,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, playerById, playerConvertsDetainmentToNormal, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
-import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll } from './legal-actions/organization-companies.js';
+import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
 import { companyMovementRestrictions } from './effects/company-restrictions.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -96,6 +96,17 @@ export function handleSelectCompany(
   if (selectRestriction?.regionMovementMax != null && selectRestriction.regionMovementMax < maxRegionDistance) {
     logDetail(`Movement/Hazard: company ${action.companyId} region distance capped at ${selectRestriction.regionMovementMax} by a movement-restriction card (was ${maxRegionDistance})`);
     maxRegionDistance = selectRestriction.regionMovementMax;
+  }
+  // Out He Sprang (ba-71): when this card grants The Balrog's company region
+  // movement to/from an Under-deeps surface site, the region allowance is a
+  // fixed MP-derived value that overrides every other region-distance effect
+  // ("may not be modified by any other effects except A More Evil Hour").
+  if (isMoving) {
+    const outHeSprangAllowance = balrogOutHeSprangRegionAllowance(state, player, company);
+    if (outHeSprangAllowance !== null) {
+      logDetail(`Movement/Hazard: company ${action.companyId} region distance fixed at ${outHeSprangAllowance} by Out He Sprang (was ${maxRegionDistance})`);
+      maxRegionDistance = outHeSprangAllowance;
+    }
   }
   logDetail(`Movement/Hazard: selected company ${action.companyId} (index ${companyIndex}), moving=${isMoving}, maxRegions=${maxRegionDistance} (base ${BASE_MAX_REGION_DISTANCE} + extra ${company.extraRegionDistance ?? 0}${maxRegionDistance < baseMaxRegionDistance ? `, reduced from ${baseMaxRegionDistance} by environment` : ''}) → advancing to reveal-new-site`);
   return {

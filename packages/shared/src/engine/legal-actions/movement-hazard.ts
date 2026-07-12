@@ -19,7 +19,7 @@ import { RegionType, Race, Skill, CardStatus, Alignment, MovementType, SiteType 
 import { Phase } from '../../types/state-phases.js';
 import { defenderAlignmentLabel } from '../detainment.js';
 import { getEffectiveSiteType } from '../effective.js';
-import { isUnderDeepsAdjacent, isDeepMinesSite, isDeepMinesDescentLegal, isDeepMinesAscentLegal } from './organization-companies.js';
+import { isUnderDeepsAdjacent, isDeepMinesSite, isDeepMinesDescentLegal, isDeepMinesAscentLegal, balrogOutHeSprangRegionAllowance } from './organization-companies.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
@@ -290,8 +290,18 @@ function revealNewSiteActions(
   // this lock; it only *removes* starter movement and caps region distance for
   // whatever company it is bound to.)
   const balrogMovementLocked = companyContainsBalrogAvatar(state, player, company);
-  if (balrogMovementLocked) {
+  // Out He Sprang (ba-71): lifts the region-movement half of the Balrog lock for
+  // movement to/from an Under-deeps surface site (Great Shadow must not be in
+  // play). The returned allowance is a fixed region cap not modifiable by any
+  // other effect. Starter movement stays blocked; this grant is region-only.
+  const outHeSprangAllowance = balrogMovementLocked
+    ? balrogOutHeSprangRegionAllowance(state, player, company)
+    : null;
+  const balrogRegionAllowed = outHeSprangAllowance !== null;
+  if (balrogMovementLocked && !balrogRegionAllowed) {
     logDetail(`Company ${company.id as string} contains The Balrog — starter/region movement suppressed (Under-deeps only)`);
+  } else if (balrogRegionAllowed) {
+    logDetail(`Company ${company.id as string} contains The Balrog — region movement granted by Out He Sprang (up to ${outHeSprangAllowance} region(s)); starter movement still suppressed`);
   }
 
   // A company-bound movement restriction (Going Ever Under Dark ba-37) forbids
@@ -311,10 +321,14 @@ function revealNewSiteActions(
   // --- Region movement ---
   const originRegion = movementMap.siteRegion.get(originDef.name);
   const destRegion = movementMap.siteRegion.get(destDef.name);
-  if (!isUnderDeepsMovement && !balrogMovementLocked && originRegion && destRegion) {
+  if (!isUnderDeepsMovement && (!balrogMovementLocked || balrogRegionAllowed) && originRegion && destRegion) {
     // Build region name → definition ID map for converting path names to IDs
     const regionNameToId = buildRegionNameMap(state);
-    const paths = findRegionPaths(movementMap, originRegion, destRegion, mhState.maxRegionDistance);
+    // Out He Sprang fixes the Balrog's region distance at its MP-derived
+    // allowance, overriding mhState.maxRegionDistance ("may not be modified by
+    // any other effects").
+    const regionCap = outHeSprangAllowance ?? mhState.maxRegionDistance;
+    const paths = findRegionPaths(movementMap, originRegion, destRegion, regionCap);
     // Sort paths: shortest first, then fewest distinct regions as tiebreaker
     paths.sort((a, b) => {
       const lenDiff = a.length - b.length;

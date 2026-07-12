@@ -7331,6 +7331,43 @@ Behaviour, while the card is in play bound to Under-deeps site `U`
   are recognised by the shared `cardKeepsBoundSitePermanent` predicate
   (`reducer-utils.ts`).
 
+### 52e. `balrog-surface-region-movement`
+
+Carried by a bare Balrog **permanent-event** in the player's `cardsInPlay`. While
+in play (and the card named in `suppressedByInPlay` is **not** in play), a company
+containing The Balrog avatar may use **region** movement — overriding his printed
+"may not use region or starter movement" lock — provided at least one endpoint
+(its current site or its planned destination) is an Under-deeps **surface site**
+(the roll-0 non-Under-deeps site listed in some Under-deeps site's
+`adjacentSites`). Starter movement stays blocked; this is a region-only grant.
+
+```json
+{
+  "type": "balrog-surface-region-movement",
+  "suppressedByInPlay": "Great Shadow",
+  "regionAllowanceByMp": [[8, 1], [16, 2], [24, 3], [25, 4]],
+  "modifiableBy": "A More Evil Hour"
+}
+```
+
+- `regionAllowanceByMp` — ascending `[maxMp, regions]` bands; the region span the
+  company may move is chosen by the first band whose `maxMp` is ≥ The Balrog
+  player's marshalling-point total (`totalMarshallingPoints`, the sum of all six
+  MP categories). The final band applies to any higher total. For Out He Sprang:
+  0–8 MPs → 1 region, 9–16 → 2, 17–24 → 3, 25+ → 4.
+- This allowance **replaces** every other region-distance effect — environment
+  reductions (No Way Forward), extra-region grants, etc. cannot modify it ("may
+  not be modified by any other effects except A More Evil Hour"); `modifiableBy`
+  records the only card permitted to adjust it (not yet ported).
+
+The grant is computed by `balrogOutHeSprangRegionAllowance`
+(`legal-actions/organization-companies.ts`) and consumed at the two
+Movement/Hazard movement-legality gates: `handleSelectCompany` (`mh-steps.ts`)
+fixes `MovementHazardPhaseState.maxRegionDistance` at the MP-derived allowance,
+and `revealNewSiteActions` (`legal-actions/movement-hazard.ts`) lifts the region
+half of the Balrog lock and caps region paths at that same allowance. Used by
+Out He Sprang (ba-71).
+
 ### 53. `site-item-trap`
 
 Carried by a hazard **permanent-event** attached to a site (via
