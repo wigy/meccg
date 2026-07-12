@@ -1555,7 +1555,8 @@
     "corruptionModifier": 0,
     "homesite": "Bree",
     "effects": [],
-    "text": "Unique."
+    "text": "Unique.",
+    "certified": "2026-07-12"
   },
   {
     "cardType": "minion-character",
