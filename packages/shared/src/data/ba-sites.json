@@ -69,7 +69,11 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gap of Isen",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -87,7 +91,7 @@
     },
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (8), The Under-gates (6)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2): (1st) Undead — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (8), The Under-gates (6)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2): (1st) Undead — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Any Undead creature or Pûkel-creature may be keyed to this site.",
     "unique": true,
     "effects": [
       {
@@ -98,8 +102,19 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "pûkel-creature"
       }
-    ]
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "balrog-site",
