@@ -139,12 +139,24 @@
           "reason": "faction-influence-check",
           "faction.race": "orc"
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.keywords": {
+            "$includes": "balrog-specific"
+          }
+        }
       }
     ],
     "text": "Unique. Balrog specific. Leader. Discard on a body check result of 9. +3 direct influence against Orcs and Orc factions. +2 direct influence against Balrog specific characters.",
     "discardBodyCheck": [
       9
-    ]
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "hero-character",
