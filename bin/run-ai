@@ -9,6 +9,12 @@ Long-running worker loop that polls for unhandled ai requests and
 dispatches them to bin/handle-mail one at a time. Pulls master between
 iterations and skips feature-requests (which require human review).
 
+Requests are served by topic priority rather than arrival order: bug reports
+first, then feature planning/implementation requests, then anything else
+(card requests, review fixes), and certification requests last — so a large
+certification backlog never delays a bug fix. Within one priority tier the
+oldest request goes first.
+
 At the start of every iteration it also sweeps all open PRs: for any PR
 that conflicts with master, has failing CI checks, or carries review
 comments it runs a headless claude to resolve the conflict, fix the CI
@@ -171,9 +177,19 @@ on_interrupt() {
 trap 'on_interrupt INT' INT
 trap 'on_interrupt TERM' TERM
 
-# Fetch unhandled requests from the lobby system API and print the first
-# non-feature-request message ID. Feature-requests need human review
-# (approve/decline) and cannot be auto-handled.
+# Fetch unhandled requests from the lobby system API and print the ID of the
+# highest-priority handleable message. Feature-requests need human review
+# (approve/decline) and cannot be auto-handled, so they are excluded.
+#
+# The queue is served by topic priority, not arrival order:
+#   1. bug-report                    — broken behaviour blocks everyone; fix first
+#   2. feature-planning-request /
+#      feature-implementation-request — requested work
+#   3. everything else (card-request, review-fix-request, ...) — small and rare;
+#      kept above certification so a long certification backlog cannot starve them
+#   4. certification-request          — the bulk backlog; drained last
+# Within a tier the lobby's own order (oldest first) is preserved, because
+# jq's sort_by is stable.
 #
 # Returns non-zero if the lobby could not be reached (curl failure). The caller
 # MUST distinguish this from an empty result: under `set -eo pipefail` a bare
@@ -185,7 +201,16 @@ next_request_id() {
   local resp
   resp=$(curl -sf -X GET "$BASE_URL/api/system/ai-requests" \
     -H "Authorization: Bearer $(master_key)" 2>/dev/null) || return 1
-  jq -r '[.requests[] | select(.topic != "feature-request")][0].id // empty' <<<"$resp" 2>/dev/null
+  jq -r '
+    def priority:
+      if   . == "bug-report" then 0
+      elif . == "feature-planning-request" or . == "feature-implementation-request" then 1
+      elif . == "certification-request" then 3
+      else 2 end;
+    [.requests[] | select(.topic != "feature-request")]
+      | sort_by(.topic | priority)
+      | .[0].id // empty
+  ' <<<"$resp" 2>/dev/null
 }
 
 # Resolve the long-lived headless-claude OAuth token the same way handle-mail
