@@ -27,7 +27,7 @@ import type {
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard } from '../../types/cards.js';
-import { requirePhaseState } from '../../state-utils.js';
+import { requirePhaseState, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { CardStatus, cardStatusToName } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect } from '../../types/effects.js';
@@ -223,6 +223,40 @@ export function voluntaryDiscardInPlayActions(state: GameState, playerId: Player
 }
 
 /**
+ * A More Evil Hour (ba-48) discard-to-grant-movement activations. While the
+ * card is in play **and tapped** ("If tapped, you may discard this card during
+ * your organization phase"), the controller may discard it to target one of
+ * their companies "allowed to move with region movement" — i.e. any company not
+ * locked to Under-deeps-only movement by containing the Balrog avatar. One
+ * `discard-for-evil-hour-movement` action is offered per (tapped source card ×
+ * eligible non-empty company).
+ */
+export function evilHourGrantMovementActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const card of player.cardsInPlay) {
+    if (card.status !== CardStatus.Tapped) continue;
+    const def = defById(state, card.definitionId);
+    const eff = getCardEffects(def).find(e => e.type === 'evil-hour-grant-movement');
+    if (!eff) continue;
+    for (const company of player.companies) {
+      if (company.characters.length === 0) continue;
+      if (companyContainsBalrogAvatar(state, player, company)) {
+        logDetail(`A More Evil Hour: company ${company.id as string} contains the Balrog avatar — cannot use region movement, not a valid target`);
+        continue;
+      }
+      logDetail(`A More Evil Hour: ${cardName(state, card.definitionId)} may be discarded to grant company ${company.id as string} the region-movement bonus`);
+      actions.push({
+        action: { type: 'discard-for-evil-hour-movement', player: playerId, cardInstanceId: card.instanceId, companyId: company.id },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * Org-phase-fetch activations (A Strident Spawn wh-61: "During your
  * organization phase, you may take one Half-orc character from your discard
  * pile to your hand"). For each in-play permanent-event the player controls that
@@ -341,6 +375,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Org-phase fetch granted by an in-play permanent-event (A Strident Spawn wh-61)
   actions.push(...orgPhaseFetchActivations(state, playerId));
+
+  // A More Evil Hour (ba-48): discard the tapped card to grant a company the
+  // conditional region-movement bonus
+  actions.push(...evilHourGrantMovementActions(state, playerId));
 
   // Play short-event cards as resource (e.g. Twilight cancels an environment)
   const shortEventActions = playShortEventActions(state, playerId);

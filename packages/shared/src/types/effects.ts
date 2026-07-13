@@ -4456,10 +4456,45 @@ export interface MoveEffect extends EffectBase {
 }
 
 /**
+ * Marks an in-play permanent-event that taps itself when the controller's
+ * opponent plays a card that normally gives that opponent `mpThreshold` or more
+ * marshalling points (A More Evil Hour, ba-48: "Tap this card when an opponent
+ * plays a card normally giving him three or more marshalling points"). The
+ * "normally giving" value is the card's printed {@link CardBase.marshallingPoints}.
+ *
+ * The tap is a passive reaction: after every reducer step, the engine diffs the
+ * opponent's in-play scoring zones and, when a fresh card with printed MP ≥
+ * `mpThreshold` entered play, taps each untapped copy of the carrying card.
+ * Pair with `play-flag: no-auto-untap` so the card "does not untap".
+ */
+export interface EvilHourTapTriggerEffect extends EffectBase {
+  readonly type: 'evil-hour-tap-trigger';
+  /** Minimum printed marshalling points of the opponent's played card. */
+  readonly mpThreshold: number;
+}
+
+/**
+ * Grants an in-play permanent-event a once-only organization-phase ability
+ * (usable only while the card is tapped) to **discard itself** and mark one of
+ * the controller's companies (one allowed to use region movement) with a
+ * persistent conditional region-movement bonus (A More Evil Hour, ba-48). The
+ * marked company may move up to `extraRegions` additional regions whenever it
+ * moves to — or away from — a site where an opponent's company is present
+ * ({@link Company.evilHourMovementBonus}).
+ */
+export interface EvilHourGrantMovementEffect extends EffectBase {
+  readonly type: 'evil-hour-grant-movement';
+  /** Additional region distance granted (ba-48: 2). */
+  readonly extraRegions: number;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
 export type CardEffect =
+  | EvilHourTapTriggerEffect
+  | EvilHourGrantMovementEffect
   | StatModifierEffect
   | CheckModifierEffect
   | BodyCheckModifierEffect

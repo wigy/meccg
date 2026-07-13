@@ -29,6 +29,7 @@ import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
 import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, generalInfluenceControlLimit, hasSiteFlagForPlayer, inPlayNamesForPlayerDeep } from '../reducer-utils.js';
+import { siteHasOpponentCompany } from '../evil-hour.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
@@ -628,7 +629,27 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     const regularCandidates = currentIsUD
       ? []
       : candidateSites.filter(s => !(s.keywords?.includes('under-deeps') ?? false) && !isDeepMinesSite(s));
-    let reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions);
+    // A More Evil Hour (ba-48): the targeted company may move up to two
+    // additional regions when moving to — or away from — a site holding an
+    // opponent's company. When its *origin* holds one, the +2 applies to the
+    // whole leaving move (any destination); otherwise the +2 applies only to
+    // destinations that themselves hold an opponent's company.
+    const evilHour = company.evilHourMovementBonus === true;
+    const originHasOpp = evilHour && siteHasOpponentCompany(state, playerId, currentSiteDef.name);
+    const planMax = originHasOpp ? effectiveMaxRegions + 2 : effectiveMaxRegions;
+    let reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, planMax);
+    if (evilHour && !originHasOpp) {
+      const extended = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions + 2);
+      const seenExt = new Set(reachable.map(r => `${r.site.name}:${r.movementType}`));
+      for (const r of extended) {
+        if (r.movementType !== 'region') continue;
+        if (seenExt.has(`${r.site.name}:${r.movementType}`)) continue;
+        if (siteHasOpponentCompany(state, playerId, r.site.name)) {
+          logDetail(`Company ${company.id as string}: A More Evil Hour extends region reach to opponent-occupied ${r.site.name}`);
+          reachable.push(r);
+        }
+      }
+    }
 
     // MEWH §7: a Fallen-wizard's companies must use region movement — they may
     // not use starter (printed-path) movement between adjacent sites/havens.

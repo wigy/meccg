@@ -5591,6 +5591,56 @@ marshalling points").
 { "type": "conditional-mp", "bonus": 2, "requiresCardOnSameSite": "Breach the Hold" }
 ```
 
+### `evil-hour-tap-trigger`
+
+Marks an in-play permanent-event that **taps itself** when the controller's
+opponent plays a card whose printed `marshallingPoints` meet `mpThreshold` ("Tap
+this card when an opponent plays a card normally giving him three or more
+marshalling points"). The tap is a passive reaction applied after every reducer
+step by `applyEvilHourTaps` (`engine/evil-hour.ts`, wired into `postReduce` with
+the pre-action state): it diffs the opponent's in-play scoring zones (bare
+cards-in-play, characters, and their items/allies) and, when a fresh card with
+printed MP ≥ `mpThreshold` entered play, taps each untapped copy of the carrying
+card. Idempotent — an already-tapped copy is untouched. Pair with `play-flag:
+no-auto-untap` so the card "does not untap".
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `mpThreshold` | yes | Minimum printed marshalling points of the opponent's played card. |
+
+```json
+{ "type": "evil-hour-tap-trigger", "mpThreshold": 3 }
+```
+
+### `evil-hour-grant-movement`
+
+Grants an in-play permanent-event a once-only **organization-phase** ability,
+usable only while the card is **tapped**, to discard itself and mark one of the
+controller's companies with a persistent conditional region-movement bonus ("If
+tapped, you may discard this card during your organization phase to target a
+company allowed to move with region movement"). Eligible targets are the
+controller's non-empty companies that may use region movement — i.e. any company
+not locked to Under-deeps-only movement by containing the Balrog avatar. The
+legal action (`evilHourGrantMovementActions`, `legal-actions/organization.ts`)
+offers one `discard-for-evil-hour-movement` per (tapped source × eligible
+company); the reducer (`reducer-organization.ts`) discards the card and sets
+`Company.evilHourMovementBonus`.
+
+While set, the marked company may move up to `extraRegions` additional regions
+when it moves **to** — or away **from** — a site currently holding an opponent's
+company (`evilHourRegionBonus`, applied both at the organization-phase
+plan-movement pass and the Movement/Hazard declare-path). This is the symmetric
+practical reading of "if moving to a site where an opponent's company is present
+— and also, thereafter, when leaving this site".
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `extraRegions` | yes | Additional region distance granted (ba-48: 2). |
+
+```json
+{ "type": "evil-hour-grant-movement", "extraRegions": 2 }
+```
+
 ### `grant-creature-keying`
 
 Carried by an in-play permanent-event. While the card is in play (checked
