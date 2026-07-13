@@ -205,7 +205,14 @@ run_skill() {
   local raw_tmp
   raw_tmp=$(mktemp)
 
-  claude --dangerously-skip-permissions --verbose --output-format stream-json -p "$1" > "$raw_tmp" 2>&1 &
+  # The prompt goes in on stdin, NOT as `-p "$1"`. Linux caps a single argv
+  # string at MAX_ARG_STRLEN (32 pages = 128KB) — a limit separate from, and far
+  # below, the ~2MB total ARG_MAX, and not raisable via ulimit. handle-certify-card.md
+  # grew past 128KB, so execve rejected it with E2BIG and every certification died
+  # instantly with "Argument list too long" (exit 126) before claude ever started.
+  # A pipe has no such limit, and `claude -p` with no argument reads the prompt
+  # from stdin.
+  printf '%s' "$1" | claude --dangerously-skip-permissions --verbose --output-format stream-json -p > "$raw_tmp" 2>&1 &
   local claude_pid=$!
 
   local hard_deadline=$(( $(date +%s) + 3600 ))
