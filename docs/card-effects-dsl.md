@@ -65,6 +65,21 @@ Modifies a character stat. Supports optional `max` (cap), `id` (for override tar
 
 Stats: `prowess`, `body`, `direct-influence`, `corruption-points`, `strikes`, `general-influence`, `mind`.
 
+During strike resolution the combat context also exposes `combat.strikeMode` —
+the way the character is facing the current strike (`"tap"`, `"untap"`,
+`"dodge"`, `"reroll"`). It lets a prowess modifier apply only "when tapping to
+face a strike": the bonus is threaded through `computeCombatProwess` for the
+creature-facing path (and reflected in the tap/untap need shown by the
+legal-action computer). Because `combat.strikeMode` is absent outside strike
+resolution, such a modifier never leaks into a character's non-combat effective
+stats. Example — Stabbing Tongue of Fire (ba-81): "+1 prowess when tapping to
+face a strike":
+
+```json
+{ "type": "stat-modifier", "stat": "prowess", "value": 1,
+  "when": { "combat.strikeMode": "tap" } }
+```
+
 The `mind` stat modifies a character's effective mind — the influence cost
 of controlling that character. It is resolved in `recompute-derived.ts` and
 consumed as the character's general-influence cost (`generalInfluenceUsed`).
