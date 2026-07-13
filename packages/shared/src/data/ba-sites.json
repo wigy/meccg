@@ -724,11 +724,72 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "information",
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 4,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Undead",
+        "strikes": 2,
+        "prowess": 10
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "unique": true,
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Adjacent Sites: no surface site, one Under-deeps Ruins & Lairs [{R}] chosen by you when playing this card (8)Playable: Information, Items (minor, major, greater, gold ring)Automatic-attacks (3): (1st) Undead — 4 strikes with 7 prowess (2nd) Undead — 3 strikes with 8 prowess (3rd) Undead — 2 strikes with 10 prowess Each character wounded must make a corruption check modified by -2.Special: Any Undead and Spider creatures may be keyed to this site. This site is never discarded or returned to its location deck."
+    "text": "Adjacent Sites: no surface site, one Under-deeps Ruins & Lairs [{R}] chosen by you when playing this card (8)Playable: Information, Items (minor, major, greater, gold ring)Automatic-attacks (3): (1st) Undead — 4 strikes with 7 prowess (2nd) Undead — 3 strikes with 8 prowess (3rd) Undead — 2 strikes with 10 prowess Each character wounded must make a corruption check modified by -2.Special: Any Undead and Spider creatures may be keyed to this site. This site is never discarded or returned to its location deck.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-under-deeps-adjacency",
+        "siteTypes": [
+          "ruins-and-lairs"
+        ],
+        "roll": 8
+      },
+      {
+        "type": "site-rule",
+        "rule": "always-return-to-deck"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "spiders"
+      },
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -2
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "balrog-site",

@@ -3486,6 +3486,24 @@ Rules:
   { "type": "site-rule", "rule": "always-return-to-deck" }
   ```
 
+- `dynamic-under-deeps-adjacency` — an Under-deeps site whose adjacency is
+  *chosen when it is played* rather than fixed on the card ("one Under-deeps
+  <type> chosen by you when playing this card (N)"). The engine has no
+  unoccupied-in-play site zone in which to record the once-chosen connection,
+  so the site is treated as Under-deeps-adjacent — at `roll` — to any **other**
+  Under-deeps site whose (printed) type is one of `siteTypes`. The connected
+  site must carry the `under-deeps` keyword, so no *surface* site is ever
+  adjacent ("no surface site"). Symmetric and player-agnostic; consumed by
+  `isUnderDeepsAdjacent` (plan-movement / declare-path reachability) and
+  `getUnderDeepsRequiredRoll` (the required roll). Used by *Ancient Deep-hold*
+  (ba-83): "no surface site, one Under-deeps Ruins & Lairs [{R}] chosen by you
+  when playing this card (8)."
+
+  ```json
+  { "type": "site-rule", "rule": "dynamic-under-deeps-adjacency",
+    "siteTypes": ["ruins-and-lairs"], "roll": 8 }
+  ```
+
 - `hazard-limit-modifier` — adjusts the hazard limit for any company
   moving to this site. Applied during the `set-hazard-limit` step before
   the snapshot is taken. `value` is the integer adjustment (positive to

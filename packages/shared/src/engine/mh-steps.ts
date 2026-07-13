@@ -33,7 +33,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, playerById, playerConvertsDetainmentToNormal, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
-import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance } from './legal-actions/organization-companies.js';
+import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance, dynamicUnderDeepsAdjacencyRoll } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
 import { companyMovementRestrictions } from './effects/company-restrictions.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -379,6 +379,12 @@ export function getUnderDeepsRequiredRoll(state: GameState, origin: import('../i
 
   const caverns = cavernsUnchokedAdjacencyRoll(state, origin, dest, forPlayer);
   if (caverns !== undefined) return caverns;
+
+  // Ancient Deep-hold (ba-83): "one Under-deeps Ruins & Lairs chosen when playing
+  // this card (8)" — a dynamic adjacency to any Under-deeps site of the required
+  // type. Applies whether ba-83 is the origin or the destination.
+  const dynamic = dynamicUnderDeepsAdjacencyRoll(state, origin, dest);
+  if (dynamic !== undefined) return dynamic;
 
   return 0;
 }
