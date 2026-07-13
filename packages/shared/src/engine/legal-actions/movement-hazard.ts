@@ -14,6 +14,7 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { buildMovementMap, findRegionPaths, getReachableSites } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, requirePhaseState } from '../../state-utils.js';
+import { evilHourRegionBonus } from '../evil-hour.js';
 import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isItemCard } from '../../types/cards.js';
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType, SiteType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
@@ -327,7 +328,13 @@ function revealNewSiteActions(
     // Out He Sprang fixes the Balrog's region distance at its MP-derived
     // allowance, overriding mhState.maxRegionDistance ("may not be modified by
     // any other effects").
-    const regionCap = outHeSprangAllowance ?? mhState.maxRegionDistance;
+    let regionCap = outHeSprangAllowance ?? mhState.maxRegionDistance;
+    // A More Evil Hour (ba-48): +2 region distance when moving to — or away
+    // from — a site where an opponent's company is present. Never applies when
+    // Out He Sprang has fixed the allowance.
+    if (outHeSprangAllowance === null) {
+      regionCap += evilHourRegionBonus(state, player, company, originDef, destDef);
+    }
     const paths = findRegionPaths(movementMap, originRegion, destRegion, regionCap);
     // Sort paths: shortest first, then fewest distinct regions as tiebreaker
     paths.sort((a, b) => {

@@ -516,3 +516,18 @@ export interface ActivateOrgFetchAction {
   /** The in-play permanent-event card instance granting the fetch. */
   readonly cardInstanceId: CardInstanceId;
 }
+
+/**
+ * Discards an in-play permanent-event carrying an `evil-hour-grant-movement`
+ * effect during the organization phase (while the card is tapped) to grant the
+ * targeted company a persistent conditional region-movement bonus (A More Evil
+ * Hour, ba-48). See {@link Company.evilHourMovementBonus}.
+ */
+export interface DiscardForEvilHourMovementAction {
+  readonly type: 'discard-for-evil-hour-movement';
+  readonly player: PlayerId;
+  /** The tapped in-play permanent-event card instance to discard. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The controller's company that gains the movement bonus. */
+  readonly companyId: CompanyId;
+}

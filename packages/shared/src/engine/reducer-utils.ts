@@ -774,6 +774,82 @@ export function collectFactionInfluenceRestriction(
 }
 
 /**
+ * If `def` is a permanent resource event carrying a `reshuffle-from-discard`
+ * effect flagged as its **alternative short-event mode** (Great Army of the
+ * North ba-38), returns that effect; otherwise `undefined`. Such a card is a
+ * "Permanent-event/Short-event" card: it may be played either as a
+ * permanent-event (its ongoing effects) or as a resource short-event that
+ * resolves the reshuffle and discards the card.
+ */
+export function altShortEventReshuffleEffect(
+  def: CardDefinition | null | undefined,
+): import('../types/effects.js').ReshuffleFromDiscardEffect | undefined {
+  const rdef = def ?? undefined;
+  if (!isResourceEventCard(rdef) || rdef.eventType !== 'permanent') return undefined;
+  return getCardEffects(rdef).find(
+    (e): e is import('../types/effects.js').ReshuffleFromDiscardEffect =>
+      e.type === 'reshuffle-from-discard' && e.altShortEventMode === true,
+  );
+}
+
+/**
+ * True when the playing player has at least one card in their discard pile that
+ * matches a `reshuffle-from-discard` effect's `filter` — i.e. the reshuffle
+ * short-event mode would actually recycle something (Great Army of the North
+ * ba-38: an Orc/Troll faction in the discard).
+ */
+export function playerHasReshuffleMatch(
+  state: GameState,
+  player: PlayerState,
+  effect: import('../types/effects.js').ReshuffleFromDiscardEffect,
+): boolean {
+  return player.discardPile.some(c => {
+    const def = defById(state, c.definitionId);
+    return !!def && matchesDefinition(def, effect.filter);
+  });
+}
+
+/**
+ * Collects the **player-scoped, ongoing** faction-influence `check-modifier`
+ * effects (`target: "player-in-play"`) carried by bare permanent resource
+ * events in the influencing player's `cardsInPlay` — cards not attached to any
+ * character/item/site/agent/company. Each effect's `when` is pre-filtered
+ * against the faction-influence resolver context here (mirroring how a faction
+ * card's own effects are pre-filtered), so the returned entries can be folded
+ * straight into the `resolveCheckModifier` pass at both the display and the
+ * roll site. Used by Great Army of the North (ba-38): "+1 to your influence
+ * attempts against Orc and Troll factions."
+ */
+export function collectPlayerInPlayInfluenceEffects(
+  state: GameState,
+  playerId: PlayerId,
+  ctx: import('./effects/resolver.js').ResolverContext,
+): import('./effects/resolver.js').CollectedEffect[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const collected: import('./effects/resolver.js').CollectedEffect[] = [];
+  for (const cip of player.cardsInPlay) {
+    // Only bare permanent-events in the player's own play area contribute — a
+    // card attached to a character/item/site/agent, or bound to a company, is
+    // collected through its own attachment path (or is a faction whose
+    // "Standard Modifications" are scoped to influencing that faction).
+    if (cip.attachedTo !== undefined || cip.attachedToItem !== undefined
+      || cip.attachedToSite !== undefined || cip.attachedToAgentId !== undefined
+      || cip.companyId !== undefined || cip.setAsideHost !== undefined
+      || cip.pendingTriggerAttack) continue;
+    const def = defById(state, cip.definitionId);
+    if (!isResourceEventCard(def) || def.eventType !== 'permanent') continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'check-modifier') continue;
+      if (effect.target !== 'player-in-play') continue;
+      if (effect.when && !matchesContext(effect.when, ctx)) continue;
+      collected.push({ effect, sourceDef: def, sourceInstance: cip.instanceId });
+    }
+  }
+  return collected;
+}
+
+/**
  * Total stage points a single card definition contributes (MEWH §1): the sum of
  * its `stage-points` effect values (usually one, may be zero). Used both by the
  * derived per-player total and by the discard-stage-resource legality check.

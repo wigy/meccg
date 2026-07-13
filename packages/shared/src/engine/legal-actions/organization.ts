@@ -27,7 +27,7 @@ import type {
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard } from '../../types/cards.js';
-import { requirePhaseState } from '../../state-utils.js';
+import { requirePhaseState, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { CardStatus, cardStatusToName } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect } from '../../types/effects.js';
@@ -37,7 +37,7 @@ import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -223,6 +223,40 @@ export function voluntaryDiscardInPlayActions(state: GameState, playerId: Player
 }
 
 /**
+ * A More Evil Hour (ba-48) discard-to-grant-movement activations. While the
+ * card is in play **and tapped** ("If tapped, you may discard this card during
+ * your organization phase"), the controller may discard it to target one of
+ * their companies "allowed to move with region movement" — i.e. any company not
+ * locked to Under-deeps-only movement by containing the Balrog avatar. One
+ * `discard-for-evil-hour-movement` action is offered per (tapped source card ×
+ * eligible non-empty company).
+ */
+export function evilHourGrantMovementActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const card of player.cardsInPlay) {
+    if (card.status !== CardStatus.Tapped) continue;
+    const def = defById(state, card.definitionId);
+    const eff = getCardEffects(def).find(e => e.type === 'evil-hour-grant-movement');
+    if (!eff) continue;
+    for (const company of player.companies) {
+      if (company.characters.length === 0) continue;
+      if (companyContainsBalrogAvatar(state, player, company)) {
+        logDetail(`A More Evil Hour: company ${company.id as string} contains the Balrog avatar — cannot use region movement, not a valid target`);
+        continue;
+      }
+      logDetail(`A More Evil Hour: ${cardName(state, card.definitionId)} may be discarded to grant company ${company.id as string} the region-movement bonus`);
+      actions.push({
+        action: { type: 'discard-for-evil-hour-movement', player: playerId, cardInstanceId: card.instanceId, companyId: company.id },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * Org-phase-fetch activations (A Strident Spawn wh-61: "During your
  * organization phase, you may take one Half-orc character from your discard
  * pile to your hand"). For each in-play permanent-event the player controls that
@@ -341,6 +375,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Org-phase fetch granted by an in-play permanent-event (A Strident Spawn wh-61)
   actions.push(...orgPhaseFetchActivations(state, playerId));
+
+  // A More Evil Hour (ba-48): discard the tapped card to grant a company the
+  // conditional region-movement bonus
+  actions.push(...evilHourGrantMovementActions(state, playerId));
 
   // Play short-event cards as resource (e.g. Twilight cancels an environment)
   const shortEventActions = playShortEventActions(state, playerId);
@@ -2124,8 +2162,26 @@ export function playResourceShortEventActions(
 
   for (const handCard of player.hand) {
     const def = defById(state, handCard.definitionId);
-    if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
+    if (!isResourceEventCard(def)) continue;
     if (alreadyEvaluated.has(handCard.instanceId as string)) continue;
+    // "Permanent-event/Short-event" card (Great Army of the North ba-38): admit
+    // its alternative short-event reshuffle mode during the organization phase
+    // (its permanent-event mode is offered separately by playPermanentEventActions).
+    const altReshuffle = altShortEventReshuffleEffect(def);
+    if (def.eventType !== 'short' && !altReshuffle) continue;
+    if (def.eventType !== 'short' && altReshuffle) {
+      if (!playerHasReshuffleMatch(state, player, altReshuffle)) {
+        logDetail(`${def.name}: short-event mode has no matching card in discard — not playable`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: nothing to shuffle from your discard pile`));
+        continue;
+      }
+      logDetail(`${def.name}: playable as alternative short-event (reshuffle from discard)`);
+      actions.push({
+        action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+        viable: true,
+      });
+      continue;
+    }
     const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string; siteTypes?: readonly string[] } | undefined;
     // Cards with a play-window restricting them to a different phase
     // are skipped — they'll be marked not-playable by the caller's

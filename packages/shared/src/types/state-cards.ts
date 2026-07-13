@@ -379,6 +379,16 @@ export interface Company {
    */
   readonly extraRegionDistance?: number | undefined;
   /**
+   * Set when A More Evil Hour (ba-48) was discarded during the organization
+   * phase to target this company. While set, the company may move up to two
+   * additional regions (region movement) whenever it moves **to** — or away
+   * **from** — a site where an opponent's company is present. Unlike
+   * {@link extraRegionDistance}, this is a persistent grant that is *not* reset
+   * at turn boundaries (the effect is an ongoing ability of the company, per the
+   * card's "thereafter, when leaving this site"). Defaults to false when absent.
+   */
+  readonly evilHourMovementBonus?: boolean | undefined;
+  /**
    * Set on a company created by Left Behind (td-41): a character was peeled off
    * "following the attack" into this separate company that has the same site
    * path as the company he was in. While set, this company's hazard-limit
