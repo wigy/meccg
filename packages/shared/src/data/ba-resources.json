@@ -1314,7 +1314,52 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.keywords": {
+            "$includes": "leader"
+          }
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "company.characterNames": {
+            "$includes": "The Balrog"
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "protect-from-body-check"
+      },
+      {
+        "type": "on-event",
+        "event": "company-composition-changed",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "company.hasHigherMindThanBearer": true
+        }
+      }
+    ],
     "text": "Balrog specific. Playable during the organization phase on a leader in The Balrog’s company. The leader receives +2 direct influence and cannot be discarded by a body check. Discard whenever there is a character in his company with a higher mind. Cannot be duplicated on a given character.",
     "keywords": [
       "balrog-specific"
