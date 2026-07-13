@@ -298,8 +298,37 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "As a permanent-event, +1 to your influence attempts against Orc and Troll factions. If you have at least 4 unique Orc and/or Troll factions —none playable at a Darkhold [{D}]—you receive this card’s marshalling points. Cannot be duplicated as a permanent-event. Alternatively, as a short-event, you may choose any Orc and Troll factions from your discard pile and shuffle them into your play deck."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "target": "player-in-play",
+        "when": { "reason": "faction-influence-check", "faction.race": { "$in": ["orc", "troll"] } }
+      },
+      {
+        "type": "conditional-mp",
+        "bonus": 2,
+        "requiresFactionCount": {
+          "min": 4,
+          "races": ["orc", "troll"],
+          "unique": true,
+          "excludePlayableAtSiteType": "dark-hold"
+        }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 },
+      {
+        "type": "reshuffle-from-discard",
+        "scope": "self",
+        "altShortEventMode": true,
+        "filter": {
+          "cardType": "minion-resource-faction",
+          "race": { "$in": ["orc", "troll"] }
+        }
+      }
+    ],
+    "text": "As a permanent-event, +1 to your influence attempts against Orc and Troll factions. If you have at least 4 unique Orc and/or Troll factions —none playable at a Darkhold [{D}]—you receive this card’s marshalling points. Cannot be duplicated as a permanent-event. Alternatively, as a short-event, you may choose any Orc and Troll factions from your discard pile and shuffle them into your play deck.",
+    "certified": "2026-07-13"
   },
   {
     "cardType": "minion-resource-event",
@@ -498,14 +527,65 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "a non-Darkhaven Under-deeps site"
+        "any": true,
+        "when": {
+          "$and": [
+            {
+              "site.keywords": {
+                "$includes": "under-deeps"
+              }
+            },
+            {
+              "site.siteType": {
+                "$ne": "haven"
+              }
+            }
+          ]
+        }
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-overt"
+      },
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "drake"
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "movementType": {
+            "$in": [
+              "region",
+              "starter"
+            ]
+          }
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
     "text": "Unique. Balrog specific. Spawn. Playable at a non-Darkhaven Under-deeps site. Its controlling character's company is overt. Tap to cancel a Drake attack against his company. Discard this ally if its company moves using region or starter movement.",
     "keywords": [
-      "balrog-specific"
-    ]
+      "balrog-specific",
+      "spawn"
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "minion-resource-event",
@@ -1268,11 +1348,57 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.keywords": {
+            "$includes": "leader"
+          }
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "company.characterNames": {
+            "$includes": "The Balrog"
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "protect-from-body-check"
+      },
+      {
+        "type": "on-event",
+        "event": "company-composition-changed",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "company.hasHigherMindThanBearer": true
+        }
+      }
+    ],
     "text": "Balrog specific. Playable during the organization phase on a leader in The Balrog’s company. The leader receives +2 direct influence and cannot be discarded by a body check. Discard whenever there is a character in his company with a higher mind. Cannot be duplicated on a given character.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "minion-resource-event",

@@ -132,6 +132,57 @@ function conditionalMpApplies(
   return false;
 }
 
+/**
+ * True when a faction card is playable at any site of `siteType` — either a
+ * `playableAt` entry naming that site type directly, or one naming a specific
+ * site whose definition carries that type. Used by the Great Army of the North
+ * (ba-38) conditional-MP gate to exclude Orc/Troll factions "playable at a
+ * Darkhold [{D}]".
+ */
+function factionPlayableAtSiteType(
+  state: GameState,
+  factionDef: FactionCard,
+  siteType: string,
+): boolean {
+  for (const entry of factionDef.playableAt) {
+    if ('siteType' in entry && entry.siteType === siteType) return true;
+    if ('site' in entry) {
+      const siteName = entry.site;
+      for (const cardDef of Object.values(state.cardPool)) {
+        if (isSiteCard(cardDef) && cardDef.name === siteName && cardDef.siteType === siteType) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Counts the factions a player has in play (their own `cardsInPlay`) that
+ * satisfy a `conditional-mp` `requiresFactionCount` gate: a race in `races`,
+ * unique when required, and — when `excludePlayableAtSiteType` is set — not
+ * playable at a site of that type. Drives Great Army of the North (ba-38): "at
+ * least 4 unique Orc and/or Troll factions —none playable at a Darkhold [{D}]".
+ */
+function conditionalMpFactionCount(
+  state: GameState,
+  player: PlayerState,
+  gate: NonNullable<import('../types/effects.js').ConditionalMpEffect['requiresFactionCount']>,
+): number {
+  let count = 0;
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def || !isFactionCard(def)) continue;
+    if (!gate.races.includes(def.race)) continue;
+    if (gate.unique && !def.unique) continue;
+    if (gate.excludePlayableAtSiteType
+      && factionPlayableAtSiteType(state, def, gate.excludePlayableAtSiteType)) continue;
+    count += 1;
+  }
+  return count;
+}
+
 function addMP(
   totals: MarshallingPointTotals,
   def: CardDefinition,
@@ -1100,13 +1151,18 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     } else {
       mp = addMP(mp, def, player.alignment);
     }
-    // Roots of the Earth (ba-74): a `conditional-mp` effect adds a bonus to the
-    // carrying card's own printed MP when a named card is in play attached to
-    // the same site ("If Breach the Hold is on the same site, this card gives 3
-    // marshalling points").
+    // `conditional-mp` adds a bonus to the carrying card's own printed MP when
+    // its gate holds. Roots of the Earth (ba-74): a named card is in play on the
+    // same site. Great Army of the North (ba-38): the player has ≥N qualifying
+    // factions in play ("at least 4 unique Orc and/or Troll factions —none
+    // playable at a Darkhold").
     for (const eff of getCardEffects(def)) {
       if (eff.type !== 'conditional-mp') continue;
-      if (!conditionalMpApplies(state, card, eff.requiresCardOnSameSite)) continue;
+      const satisfied = eff.requiresFactionCount
+        ? conditionalMpFactionCount(state, player, eff.requiresFactionCount) >= eff.requiresFactionCount.min
+        : eff.requiresCardOnSameSite !== undefined
+          && conditionalMpApplies(state, card, eff.requiresCardOnSameSite);
+      if (!satisfied) continue;
       const cat = hasMarshallingPoints(def) ? def.marshallingCategory : ('misc' as MarshallingCategory);
       mp = { ...mp, [cat]: mp[cat] + eff.bonus };
     }

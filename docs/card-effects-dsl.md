@@ -267,6 +267,24 @@ attempts this turn by any of your characters."
              "check": "influence", "value": 2, "scope": "turn", "target": "player" } }
 ```
 
+A **player-scoped, ongoing** influence `check-modifier` is instead expressed as
+a bare `check-modifier` effect carrying `"target": "player-in-play"`, borne by a
+bare permanent-event in the influencing player's `cardsInPlay` (not attached to
+any character/item/site/agent/company). It is collected directly from that
+player's in-play permanent resource events at every faction-influence check
+(`collectPlayerInPlayInfluenceEffects`, `reducer-utils.ts`, called from both the
+`legal-actions/site.ts` display and the `reducer-site.ts` roll resolver), gated
+by its own `when` against the faction-influence resolver context (`faction.race`
+etc.). Unlike the ba-78 constraint form, the bonus lasts exactly as long as the
+card stays in play rather than for a fixed scope. Used by Great Army of the
+North (ba-38): "As a permanent-event, +1 to your influence attempts against Orc
+and Troll factions."
+
+```json
+{ "type": "check-modifier", "check": "influence", "value": 1, "target": "player-in-play",
+  "when": { "reason": "faction-influence-check", "faction.race": { "$in": ["orc", "troll"] } } }
+```
+
 ### 2a. `body-check-modifier`
 
 Modifies the 2d6 **body-check** roll made against the bearer during combat
@@ -800,6 +818,22 @@ Resolved directly in `handlePlayResourceShortEvent` (`reducer-events.ts`).
 
 Used by Horns, Horns, Horns (dm-140): "Each player removes all factions
 from his discard pile and shuffles them into his play deck."
+
+An optional `altShortEventMode: true` flags the reshuffle as the **alternative
+short-event mode of an otherwise `eventType: "permanent"` resource card** — a
+"Permanent-event/Short-event" card. Such a card is offered *both* as a
+permanent-event (its ongoing effects enter play via
+`playPermanentEventActions`) *and*, via this effect, as a resource short-event
+in the organization phase (`playResourceShortEventActions`) and every phase a
+resource short-event may be played (`heroResourceShortEventActions`). The
+short-event mode is viable only when the reshuffle would actually recycle a
+card (a matching card sits in the playing player's discard —
+`playerHasReshuffleMatch`); playing it resolves the reshuffle and discards the
+card. The `altShortEventReshuffleEffect` helper (`reducer-utils.ts`) recognises
+the pairing. Used by Great Army of the North (ba-38): "Alternatively, as a
+short-event, you may choose any Orc and Troll factions from your discard pile
+and shuffle them into your play deck." (`scope: "self"`, filter minion
+Orc/Troll factions).
 
 ### 6e. `force-opponent-discard`
 
@@ -5573,22 +5607,36 @@ automatic-attack.
 ### `conditional-mp`
 
 Adds a fixed bonus to the carrying in-play card's own marshalling-point value
-when a named card is in play (either player's `cardsInPlay`) attached to the
-**same site** (matched by shared `attachedToSite`). Folded into the `cardsInPlay`
-marshalling-point tally in `engine/recompute-derived.ts` on top of the card's
-printed `marshallingPoints`.
+when its gate holds. Folded into the `cardsInPlay` marshalling-point tally in
+`engine/recompute-derived.ts` on top of the card's printed `marshallingPoints`.
+Exactly one of the two gate fields is set.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `bonus` | yes | Points added when the condition holds. |
-| `requiresCardOnSameSite` | yes | Card name that, in play on the same site, grants the bonus. |
+| `bonus` | yes | Points added when the gate holds. |
+| `requiresCardOnSameSite` | one-of | Card name that, in play on the same site, grants the bonus. |
+| `requiresFactionCount` | one-of | Faction-count gate: `{ min, races, unique?, excludePlayableAtSiteType? }`. |
 
-Used by *Roots of the Earth* (ba-74): printed 1 MP, +2 when *Breach the Hold* is
-on the same site ("If Breach the Hold is on the same site, this card gives 3
-marshalling points").
+`requiresCardOnSameSite` (Roots of the Earth ba-74): printed 1 MP, +2 when
+*Breach the Hold* is on the same site.
 
 ```json
 { "type": "conditional-mp", "bonus": 2, "requiresCardOnSameSite": "Breach the Hold" }
+```
+
+`requiresFactionCount` grants the bonus while the carrying card's controller has
+at least `min` factions of one of `races` in their own `cardsInPlay`, counting
+only `unique` factions when set and excluding any faction playable at a site of
+`excludePlayableAtSiteType` (a named site's type is resolved from the card
+pool). Used by Great Army of the North (ba-38): "If you have at least 4 unique
+Orc and/or Troll factions —none playable at a Darkhold [{D}]—you receive this
+card's marshalling points" (printed `marshallingPoints: 0`, so the card scores
+only via this bonus).
+
+```json
+{ "type": "conditional-mp", "bonus": 2,
+  "requiresFactionCount": { "min": 4, "races": ["orc", "troll"],
+                            "unique": true, "excludePlayableAtSiteType": "dark-hold" } }
 ```
 
 ### `evil-hour-tap-trigger`
@@ -5639,7 +5687,6 @@ practical reading of "if moving to a site where an opponent's company is present
 
 ```json
 { "type": "evil-hour-grant-movement", "extraRegions": 2 }
-```
 
 ### `grant-creature-keying`
 
