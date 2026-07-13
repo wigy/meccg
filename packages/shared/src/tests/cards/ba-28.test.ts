@@ -15,6 +15,11 @@
  * ba-21/ba-24 latent bug, CoE rule 964 — a kill-MP hazard-event that creates
  * an attack goes to the defender's marshalling-point pile when defeated).
  *
+ * Since ba-83 was certified (2026-07-13) it carries three printed Undead
+ * automatic-attacks (4×7, 3×8, 2×10), so the Foul Issue Spawn is appended as
+ * the *fourth* attack (index 3). The auto-attack tests below jump to that
+ * index via `automaticAttacksResolved: 3` (mirroring ba-24's `atSecondAttack`).
+ *
  * Effects:
  *   1. `permanent-event-auto-attack` targeting Ancient Deep-hold (ba-83):
  *      Spawn — 2 strikes / 17 prowess / 7 body, `onDefeat: "remove-from-play"`.
@@ -28,7 +33,7 @@
  * |---|----------------------------------------------------|-------------|--------------------------------------------------|
  * | 1 | `permanent-event-auto-attack` augmentation         | IMPLEMENTED | collectPermanentEventAttacks in manifestations.ts |
  * | 2 | onDefeat: remove-from-play → defender kill pile     | IMPLEMENTED | combat-finalize.ts (shared with tw-12/ba-21/24)  |
- * | 3 | No extra attack at ba-83 without the event in play | IMPLEMENTED | getActiveAutoAttacks returns only the augment    |
+ * | 3 | No 4th attack at ba-83 without the event in play   | IMPLEMENTED | getActiveAutoAttacks appends only when in play   |
  * | 4 | `grant-creature-keying` — non-unique Spider bypass  | IMPLEMENTED | inPlayGrantsCreatureKeying (new, movement-hazard) |
  * | 5 | Grant excludes unique Spiders / non-Spiders         | IMPLEMENTED | creatureFilter `$and` race+unique                |
  * | 6 | Grant requires the `under-deeps` keyword            | IMPLEMENTED | siteFilter.siteKeywords ["under-deeps"]          |
@@ -73,6 +78,17 @@ const foulIssueInPlay: CardInPlay = {
 };
 
 /**
+ * Ancient Deep-hold (ba-83) has three printed Undead automatic-attacks
+ * (indices 0–2); the Foul Issue Spawn augment is appended at index 3. Jump the
+ * site-phase step straight to that fourth attack so the tests exercise the
+ * augment without driving through the three intrinsic attacks first.
+ */
+const atSpawnAttack = (state: GameState): GameState => ({
+  ...state,
+  phaseState: { ...state.phaseState, automaticAttacksResolved: 3 },
+} as GameState);
+
+/**
  * Balrog company (defended by PLAYER_1) at `site` in the Movement/Hazard phase;
  * the Wizard hazard player (PLAYER_2) holds `hazardHand` and — when
  * `withFoulIssue` — has Ungoliant's Foul Issue in play.
@@ -115,7 +131,8 @@ describe("Ungoliant's Foul Issue (ba-28)", () => {
     const base = setupAutoAttackStep(
       addP2CardsInPlay(buildSitePhaseState({ site: ANCIENT_DEEP_HOLD, characters: [ARAGORN, BOROMIR] }), [foulIssueInPlay]),
     );
-    const next = dispatch(base, { type: 'pass', player: PLAYER_1 });
+    // Skip the three printed Undead attacks (indices 0–2) → the appended Spawn (index 3).
+    const next = dispatch(atSpawnAttack(base), { type: 'pass', player: PLAYER_1 });
     expect(next.combat).not.toBeNull();
     expect(next.combat!.strikesTotal).toBe(2);
     expect(next.combat!.strikeProwess).toBe(17);
@@ -124,8 +141,9 @@ describe("Ungoliant's Foul Issue (ba-28)", () => {
 
   test('without Ungoliant\'s Foul Issue in play, Ancient Deep-hold has no such attack', () => {
     const base = setupAutoAttackStep(buildSitePhaseState({ site: ANCIENT_DEEP_HOLD, characters: [ARAGORN, BOROMIR] }));
-    const next = dispatch(base, { type: 'pass', player: PLAYER_1 });
-    // ba-83 has no printed automatic-attacks, so nothing fires without the event.
+    // ba-83's three printed Undead attacks (indices 0–2) are already resolved; without
+    // the event there is no fourth attack, so nothing fires.
+    const next = dispatch(atSpawnAttack(base), { type: 'pass', player: PLAYER_1 });
     expect(next.combat).toBeNull();
   });
 
@@ -133,7 +151,7 @@ describe("Ungoliant's Foul Issue (ba-28)", () => {
     const base = setupAutoAttackStep(
       addP2CardsInPlay(buildSitePhaseState({ site: ANCIENT_DEEP_HOLD, characters: [ARAGORN, BOROMIR] }), [foulIssueInPlay]),
     );
-    let s = dispatch(base, { type: 'pass', player: PLAYER_1 });
+    let s = dispatch(atSpawnAttack(base), { type: 'pass', player: PLAYER_1 });
     expect(s.combat).not.toBeNull();
     expect(s.combat!.strikesTotal).toBe(2);
 
