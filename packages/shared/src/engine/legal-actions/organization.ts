@@ -37,7 +37,7 @@ import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -2124,8 +2124,26 @@ export function playResourceShortEventActions(
 
   for (const handCard of player.hand) {
     const def = defById(state, handCard.definitionId);
-    if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
+    if (!isResourceEventCard(def)) continue;
     if (alreadyEvaluated.has(handCard.instanceId as string)) continue;
+    // "Permanent-event/Short-event" card (Great Army of the North ba-38): admit
+    // its alternative short-event reshuffle mode during the organization phase
+    // (its permanent-event mode is offered separately by playPermanentEventActions).
+    const altReshuffle = altShortEventReshuffleEffect(def);
+    if (def.eventType !== 'short' && !altReshuffle) continue;
+    if (def.eventType !== 'short' && altReshuffle) {
+      if (!playerHasReshuffleMatch(state, player, altReshuffle)) {
+        logDetail(`${def.name}: short-event mode has no matching card in discard — not playable`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: nothing to shuffle from your discard pile`));
+        continue;
+      }
+      logDetail(`${def.name}: playable as alternative short-event (reshuffle from discard)`);
+      actions.push({
+        action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+        viable: true,
+      });
+      continue;
+    }
     const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string; siteTypes?: readonly string[] } | undefined;
     // Cards with a play-window restricting them to a different phase
     // are skipped — they'll be marked not-playable by the caller's
