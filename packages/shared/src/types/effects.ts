@@ -3401,6 +3401,34 @@ export interface FaceStrikeOnTapEffect extends EffectBase {
 }
 
 /**
+ * `combat-cancel-weapon` — an in-play item ability, usable only during a
+ * company-vs-company combat (CvCC) in which the item's bearer's company is a
+ * participant. The controller pays the {@link cost} (tapping the item) and
+ * chooses one weapon (a `weapon`-keyword item) borne by a character in the
+ * *opponent's* company; that weapon's effects are cancelled for the rest of the
+ * combat via {@link CombatState.suppressedWeaponInstanceIds}. The weapon is NOT
+ * discarded — only its effects are nulled, and only until the combat ends.
+ *
+ * Because a weapon's contribution is always evaluated live from the item on the
+ * character (never a separate chain entry), a weapon that was just declared onto
+ * a character during the current combat's chain of effects is suppressed
+ * identically to one already in play — backing the "(even declared in the same
+ * chain of effects)" clause with no extra chain plumbing.
+ *
+ * Used by Whip of Many Thongs (ba-82): "If The Balrog is in company vs. company
+ * combat, tap this item to cancel all effects of one weapon of your choice (even
+ * declared in the same chain of effects) in an opponent's company until the end
+ * of the combat. This does not discard the weapon." The item is borne by The
+ * Balrog (a Balrog-specific item, exempt from the usual "items on the Balrog
+ * have no effect" ban).
+ */
+export interface CombatCancelWeaponEffect extends EffectBase {
+  readonly type: 'combat-cancel-weapon';
+  /** The cost to activate — tapping the item itself (`{ tap: "self" }`). */
+  readonly cost?: ActionCost;
+}
+
+/**
  * `join-combat-force-strike` — a resource short-event played by the defending
  * player during the pre-assignment window of the `assign-strikes` combat
  * sub-phase (the same window as {@link CompanyCombatBoostEffect}). It brings a
@@ -4583,6 +4611,7 @@ export type CardEffect =
   | StrikeModifierEffect
   | ModifyAttackEffect
   | FaceStrikeOnTapEffect
+  | CombatCancelWeaponEffect
   | JoinCombatForceStrikeEffect
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect

@@ -14,7 +14,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleCombatPlayHazard } from './combat-hazard-play.js';
 import { nextStrikePhase, handleResolveStrike } from './combat-strike.js';
-import { handleCancelAttack, handleCancelByTap } from './combat-cancel.js';
+import { handleCancelAttack, handleCancelByTap, handleCancelWeaponEffects } from './combat-cancel.js';
 import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
 
 /**
@@ -45,6 +45,7 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   'body-check-roll': handleBodyCheckRoll,
   'shield-discard-roll': handleShieldDiscardRoll,
   'cancel-attack': handleCancelAttack,
+  'cancel-weapon-effects': handleCancelWeaponEffects,
   'convert-creature-to-ally': handleConvertCreatureToAlly,
   'cancel-by-tap': handleCancelByTap,
   'play-strike-event': handlePlayStrikeEvent,

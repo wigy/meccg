@@ -186,8 +186,8 @@ export function resolveStrikeCore(
     prowess = allyEffectiveProwess(state, allyMatch.ally);
   } else if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
     // Thread the resolution mode so "when tapping to face a strike" prowess
-    // modifiers (Stabbing Tongue of Fire ba-81) apply only in `tap` mode and
-    // not when the character stays untapped.
+    // modifiers (Stabbing Tongue of Fire ba-81, Whip of Many Thongs ba-82)
+    // apply only in `tap` mode and not when the character stays untapped.
     prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace, mode);
   } else {
     prowess = charData.effectiveStats.prowess;

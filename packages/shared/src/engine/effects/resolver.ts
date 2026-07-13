@@ -419,6 +419,19 @@ export function collectCharacterEffects(
   const charConstraints = collectCharacterStatModifierEffects(state, char);
   results.push(...charConstraints);
 
+  // Whip of Many Thongs (ba-82): a weapon whose effects have been cancelled for
+  // the current company-vs-company combat contributes nothing "until the end of
+  // the combat". Drop every effect sourced from a suppressed weapon instance so
+  // its bearer's derived prowess/body (and the CvCC values that read them, plus
+  // the creature-combat `computeCombatProwess`/`resolveEnemyBody` paths) reflect
+  // the cancellation. The suppression list lives on `state.combat` and so clears
+  // automatically when combat finalizes.
+  const suppressed = state.combat?.suppressedWeaponInstanceIds;
+  if (suppressed && suppressed.length > 0) {
+    const suppressedSet = new Set(suppressed.map(i => i as string));
+    return results.filter(r => !suppressedSet.has(r.sourceInstance as string));
+  }
+
   return results;
 }
 

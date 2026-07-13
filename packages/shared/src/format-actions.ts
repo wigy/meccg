@@ -589,6 +589,8 @@ export function describeAction(
       return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} to grant company ${action.companyId} the region-movement bonus (A More Evil Hour)`;
     case 'left-behind-rejoin':
       return `${playerName(action.player)} rejoins the left-behind company ${action.companyId} with its original company (Left Behind)`;
+    case 'cancel-weapon-effects':
+      return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} to cancel all effects of weapon ${instName(action.weaponInstanceId)} until end of combat (Whip of Many Thongs)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

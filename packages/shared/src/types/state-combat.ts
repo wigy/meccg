@@ -579,6 +579,18 @@ export interface CombatState {
    */
   readonly protectedFromStrikeAssignment?: readonly CardInstanceId[];
   /**
+   * Weapon item instance IDs whose effects have been cancelled for this
+   * company-vs-company combat by a `combat-cancel-weapon` ability (Whip of Many
+   * Thongs ba-82: "tap this item to cancel all effects of one weapon of your
+   * choice in an opponent's company until the end of the combat"). While a
+   * weapon's instance sits in this list, `collectCharacterEffects` drops every
+   * effect it sources and `computeEffectiveStats` skips its structural
+   * prowess/body — so the weapon contributes nothing to its bearer's combat
+   * stats. The weapon itself is NOT discarded; the suppression clears when the
+   * combat finalizes (this field lives on the discarded combat state).
+   */
+  readonly suppressedWeaponInstanceIds?: readonly CardInstanceId[];
+  /**
    * When true, this attack uses the "each character faces one strike" rule
    * (CoE §3.I.1): every character in the defending company is automatically
    * assigned exactly one strike, with no player choice. After the cancel

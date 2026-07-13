@@ -713,11 +713,17 @@ function computeEffectiveStats(
   // structural fallback; ditto for unrelated DSL effects on the item
   // itself, e.g. `item-play-site`.)
   const activeItems = pickActiveItemsForCharacter(state, char);
+  // Whip of Many Thongs (ba-82): weapons whose effects were cancelled for the
+  // current combat contribute no structural prowess/body either (the DSL-effect
+  // path is filtered in `collectCharacterEffects`; this covers weapons that
+  // declare their bonus via the legacy `prowessModifier`/`bodyModifier` fields).
+  const suppressedWeapons = state.combat?.suppressedWeaponInstanceIds;
   for (const item of char.items) {
     const itemDef = resolveDef(state, item.instanceId);
     if (isItemCard(itemDef)) {
       const itemEffects = itemDef.effects ?? [];
       const itemHasStatMod = itemEffects.some(e => e.type === 'stat-modifier');
+      const weaponSuppressed = !!suppressedWeapons?.includes(item.instanceId);
       // MEWH §9: structural prowess/body bonuses from a hero item are ignored on
       // an Orc/Troll bearer (its corruption points still apply below).
       const heroItemOnOrcTroll = bearerIsOrcOrTroll && itemDef.cardType === 'hero-resource-item';
@@ -726,7 +732,7 @@ function computeEffectiveStats(
       const itemUnusableByAlignment = (bearerBlocksMinionItems && itemDef.cardType === 'minion-resource-item')
         || (bearerBlocksHeroItems && itemDef.cardType === 'hero-resource-item')
         || bearerIsRingwraithAvatar;
-      if (!itemHasStatMod && !heroItemOnOrcTroll && !bearerIsBalrogAvatar && !itemUnusableByAlignment && activeItems.has(item.instanceId as string)) {
+      if (!itemHasStatMod && !heroItemOnOrcTroll && !bearerIsBalrogAvatar && !itemUnusableByAlignment && !weaponSuppressed && activeItems.has(item.instanceId as string)) {
         prowess += itemDef.prowessModifier;
         body += itemDef.bodyModifier;
       }
@@ -1447,9 +1453,10 @@ export function recomputeDerived(state: GameState): GameState {
  * @param strikeMode - How the character is facing the strike (`'tap'`, `'untap'`,
  *   `'dodge'`, `'reroll'`). Exposed to conditions as `combat.strikeMode` so a
  *   modifier can gate on "when tapping to face a strike", e.g. Stabbing Tongue
- *   of Fire (ba-81): `+1 prowess` `when: { "combat.strikeMode": "tap" }`. When
- *   omitted, `combat.strikeMode` is absent and such a modifier does not apply
- *   (so it never leaks into non-facing prowess like effective-stats).
+ *   of Fire (ba-81) / Whip of Many Thongs (ba-82): `+1 prowess`
+ *   `when: { "combat.strikeMode": "tap" }`. When omitted, `combat.strikeMode` is
+ *   absent and such a modifier does not apply (so it never leaks into
+ *   non-facing prowess like effective-stats).
  * @returns The character's prowess value including combat-conditional effects.
  */
 export function computeCombatProwess(

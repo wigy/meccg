@@ -486,6 +486,27 @@ export interface FaceStrikeOnTapAction {
 }
 
 /**
+ * Tap an in-play `combat-cancel-weapon` item (Whip of Many Thongs ba-82) during
+ * a company-vs-company combat to cancel all effects of one chosen weapon in the
+ * opponent's company until the end of the combat. Legal while the combat is
+ * CvCC, the item is untapped and borne by The Balrog in a participating
+ * company, and the target is an un-suppressed `weapon`-keyword item on a
+ * character in the opposing company. Taps the item and adds the target weapon
+ * to {@link CombatState.suppressedWeaponInstanceIds}; the weapon is not
+ * discarded.
+ */
+export interface CancelWeaponEffectsAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-weapon-effects';
+  /** The player tapping the item (the controller of The Balrog). */
+  readonly player: PlayerId;
+  /** The in-play `combat-cancel-weapon` item being tapped (the Whip). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The opponent-company weapon item whose effects are cancelled. */
+  readonly weaponInstanceId: CardInstanceId;
+}
+
+/**
  * Tap an in-play ally during combat to grant an attack-scoped stat boost to
  * matching characters in the ally's own company (e.g. Great Lord of
  * Goblin-gate as-75: "Tap to give +2 prowess to all Orcs in its company").
