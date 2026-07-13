@@ -33,6 +33,11 @@ rate limit, or server overload) mid-request, it resets that message to 'new'
 the idle schedule and retries the same message later, once the limit resets,
 instead of marching down the queue marking every request failed.
 
+Ctrl+C (SIGINT) and SIGTERM are caught: any request that was in flight is reset
+from 'processing' back to 'new' before exiting (code 130), so an interrupted
+request is picked up again by the next run instead of being stranded as
+'processing' forever.
+
 Arguments:
   <n>             Optional maximum number of requests to handle, then exit.
 
@@ -82,6 +87,89 @@ master_key() {
   echo "[run-ai] ERROR: no master key (set MECCG_MASTER_KEY or provide $SECRETS)" >&2
   return 1
 }
+
+# PUT a status on an ai-inbox message.  $1=msg-id  $2=status
+set_message_status() {
+  curl -sf -X PUT "$BASE_URL/api/system/mail/ai/$1" \
+    -H "Authorization: Bearer $(master_key)" \
+    -H 'Content-Type: application/json' \
+    -d "{\"status\":\"$2\"}" >/dev/null 2>&1 \
+    || echo "[run-ai] WARNING: failed to set message $1 -> $2" | tee -a "$LOG_FILE"
+}
+
+# Print the current status of an ai-inbox message.  $1=msg-id
+# Non-zero (and empty output) if the lobby could not be reached.
+message_status() {
+  local resp
+  resp=$(curl -sf -X GET "$BASE_URL/api/system/ai-requests?all=true" \
+    -H "Authorization: Bearer $(master_key)" 2>/dev/null) || return 1
+  jq -r --arg id "$1" '[.requests[] | select(.id == $id)][0].status // empty' <<<"$resp" 2>/dev/null
+}
+
+# ---------------------------------------------------------------------------
+# Interrupt handling
+# ---------------------------------------------------------------------------
+# handle-mail marks a message 'processing' the moment it starts. If the operator
+# hits Ctrl+C (or something SIGTERMs us) mid-request, handle-mail dies with the
+# message still 'processing' — a state nothing ever clears, so that request is
+# stranded forever: never retried, never failed, invisible to the next run-ai.
+# Catch the signal, reset the in-flight message back to 'new' (it was not
+# handled, so it must not be burned), and exit 130. CURRENT_MSG_ID is set only
+# for the window in which a message is actually in flight.
+CURRENT_MSG_ID=""
+HANDLE_PID=""
+
+# TERM a process and everything below it, children first. Terminating only the
+# direct child is not enough: the work runs in a grandchild (handle-mail spawns
+# the headless claude), which would otherwise keep running — and keep writing to
+# the repo — after we exit.
+kill_tree() {
+  local pid="$1" child
+  for child in $(pgrep -P "$pid" 2>/dev/null); do
+    kill_tree "$child"
+  done
+  kill -TERM "$pid" 2>/dev/null || true
+}
+
+on_interrupt() {
+  local sig="$1"
+  # Restore default handling: a second Ctrl+C during cleanup kills us outright
+  # rather than re-entering this handler.
+  trap - INT TERM
+
+  echo | tee -a "$LOG_FILE"
+  echo "=== Interrupted (SIG$sig) at $(date -Iseconds). Cleaning up. ===" | tee -a "$LOG_FILE"
+
+  # Stop everything we spawned (handle-mail + its headless claude). A terminal
+  # Ctrl+C already signalled the whole foreground process group, but an explicit
+  # SIGTERM to run-ai alone did not — so do it ourselves either way.
+  if [ -n "$HANDLE_PID" ]; then
+    kill_tree "$HANDLE_PID"
+  fi
+  pkill -TERM -P $$ 2>/dev/null || true
+
+  if [ -n "$CURRENT_MSG_ID" ]; then
+    # Only rewind a message that is genuinely still in flight. If the signal
+    # landed in the window where handle-mail had already recorded its outcome
+    # (success / failed / processed-awaiting-PR, or its own reset to 'new'),
+    # resetting on top of that would re-run finished work — so leave it alone.
+    # An unreadable status (lobby down) is treated as still-processing: a reset
+    # attempt that fails is harmless, a stranded 'processing' message is not.
+    local st
+    st=$(message_status "$CURRENT_MSG_ID" 2>/dev/null || true)
+    if [ -n "$st" ] && [ "$st" != "processing" ]; then
+      echo "=== Interrupted request $CURRENT_MSG_ID already resolved (status=$st); leaving it as-is ===" | tee -a "$LOG_FILE"
+    else
+      echo "=== Resetting interrupted request $CURRENT_MSG_ID to 'new' (not burned) ===" | tee -a "$LOG_FILE"
+      set_message_status "$CURRENT_MSG_ID" new
+    fi
+    CURRENT_MSG_ID=""
+  fi
+
+  exit 130
+}
+trap 'on_interrupt INT' INT
+trap 'on_interrupt TERM' TERM
 
 # Fetch unhandled requests from the lobby system API and print the first
 # non-feature-request message ID. Feature-requests need human review
@@ -375,15 +463,6 @@ ai_display_name() {
   if [ -f "$AI_INFO" ]; then jq -r '.displayName // "ai"' "$AI_INFO" 2>/dev/null || echo ai; else echo ai; fi
 }
 
-# PUT a terminal status on an ai-inbox message.  $1=msg-id  $2=status
-finalize_set_status() {
-  curl -sf -X PUT "$BASE_URL/api/system/mail/ai/$1" \
-    -H "Authorization: Bearer $(master_key)" \
-    -H 'Content-Type: application/json' \
-    -d "{\"status\":\"$2\"}" >/dev/null 2>&1 \
-    || echo "[run-ai] WARNING: failed to set message $1 -> $2" | tee -a "$LOG_FILE"
-}
-
 # POST a mail payload (built from a pendingReplyJson object).  $1=json-payload
 finalize_send_mail() {
   curl -sf -X POST "$BASE_URL/api/system/mail" \
@@ -423,7 +502,7 @@ finalize_processed_messages() {
 
     if [ -z "$pr_url" ]; then
       echo "=== Finalize: $id has no PR link -> failed ===" | tee -a "$LOG_FILE"
-      finalize_set_status "$id" failed
+      set_message_status "$id" failed
       continue
     fi
 
@@ -445,7 +524,7 @@ finalize_processed_messages() {
             subject: $p.subject, body: $p.body, keywords: ($p.keywords // {}),
             replyTo: ($p.replyTo // null), sentBy: "ai"}')"
       fi
-      finalize_set_status "$id" success
+      set_message_status "$id" success
     elif [ "$state" = "CLOSED" ]; then
       echo "=== Finalize: $id PR closed unmerged -> failed (notifying) ===" | tee -a "$LOG_FILE"
       if [ -n "$pending" ]; then
@@ -455,7 +534,7 @@ finalize_processed_messages() {
             body: ("The pull request for this request was closed without being merged, so the change was not applied. If you still need it, please re-submit the request.\n\n---\n\n" + $p.body),
             keywords: ($p.keywords // {}), replyTo: ($p.replyTo // null), sentBy: "ai"}')"
       fi
-      finalize_set_status "$id" failed
+      set_message_status "$id" failed
     fi
     # OPEN (or a merge not yet reflected) — leave 'processed' for a later tick.
   done < <(jq -c '.[]' <<<"$processed")
@@ -650,9 +729,20 @@ while true; do
   idle_index=0
   iterations=$((iterations + 1))
   echo "=== Handling $MSG_ID at $(date -Iseconds) (iteration $iterations) ===" | tee -a "$LOG_FILE"
-  # Capture handle-mail's OWN exit code through the tee pipeline (PIPESTATUS[0];
-  # tee always succeeds, so under pipefail the pipeline status is handle-mail's).
-  # Wrapping in `if` also shields the pipeline from `set -e`.
+  # In flight from here: an interrupt now must reset this message to 'new'
+  # (handle-mail marks it 'processing' as its first act).
+  CURRENT_MSG_ID="$MSG_ID"
+
+  # Run handle-mail as a BACKGROUND child and `wait` on it, rather than as a
+  # foreground `handle-mail | tee` pipeline. Two reasons:
+  #   - Signals: bash defers a trap until the current FOREGROUND command returns,
+  #     so with a foreground pipeline a SIGTERM aimed at run-ai alone would not
+  #     run on_interrupt until handle-mail finished on its own — i.e. not for
+  #     hours. `wait` is interruptible, so the trap fires immediately.
+  #   - Exit code: `wait` yields handle-mail's OWN status directly, with no
+  #     PIPESTATUS/pipefail juggling around tee. Logging still goes through tee
+  #     via process substitution.
+  # `|| handle_rc=$?` also shields the non-zero case from `set -e`.
   #
   # Exit 5 is the API-capacity/usage-limit signal: handle-mail detected a
   # session/usage limit, rate limit, or overload in the final stream-json result,
@@ -661,11 +751,12 @@ while true; do
   # Back off (escalating) and retry the SAME message later; the limit resets in
   # time. Any OTHER non-zero code is a real failure and halts as before.
   handle_rc=0
-  if "$SCRIPT_DIR/handle-mail" "$MSG_ID" 2>&1 | tee -a "$LOG_FILE"; then
-    handle_rc=0
-  else
-    handle_rc=${PIPESTATUS[0]}
-  fi
+  "$SCRIPT_DIR/handle-mail" "$MSG_ID" > >(tee -a "$LOG_FILE") 2>&1 &
+  HANDLE_PID=$!
+  wait "$HANDLE_PID" || handle_rc=$?
+  HANDLE_PID=""
+  # handle-mail returned on its own; it owns the message's final status now.
+  CURRENT_MSG_ID=""
   if [ "$handle_rc" -eq 5 ]; then
     # Don't let a capacity-blocked retry consume the --max-iterations budget.
     iterations=$((iterations - 1))
