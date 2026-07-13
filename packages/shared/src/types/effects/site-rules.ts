@@ -41,7 +41,8 @@ export type SiteRuleEffect =
   | AllowItemsWhenTappedSiteRule
   | CancelFirstAttackIfInPlaySiteRule
   | StolenKnowledgeSiteRule
-  | DeepMinesMovementSiteRule;
+  | DeepMinesMovementSiteRule
+  | DynamicUnderDeepsAdjacencySiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -318,6 +319,40 @@ export interface DynamicAutoAttackSiteRule extends EffectBase {
 export interface AlwaysReturnToDeckSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'always-return-to-deck';
+}
+
+/**
+ * Declares that this Under-deeps site's adjacency is *chosen when it is played*
+ * rather than fixed on the card: it is Under-deeps-adjacent — at the given
+ * `roll` — to any **other** Under-deeps site whose effective type is one of
+ * `siteTypes`. This models a site whose printed adjacency reads "one Under-deeps
+ * <site type> chosen by you when playing this card (N)". Since the engine has no
+ * unoccupied-in-play site zone in which to record the once-chosen connection,
+ * the faithful generalization is to treat the site as reachable from — and back
+ * to — any Under-deeps site of the required type at the required roll. The
+ * connected site must carry the `under-deeps` keyword, so no *surface* site is
+ * ever adjacent ("no surface site").
+ *
+ * The rule is symmetric (works whether this site is the movement origin or
+ * destination) and player-agnostic, mirroring the printed `adjacentSites`
+ * adjacency it stands in for. Consulted by {@link isUnderDeepsAdjacent} and
+ * {@link getUnderDeepsRequiredRoll}.
+ *
+ * Example — Ancient Deep-hold (ba-83): "no surface site, one Under-deeps
+ * Ruins & Lairs [{R}] chosen by you when playing this card (8)".
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "dynamic-under-deeps-adjacency",
+ *   "siteTypes": ["ruins-and-lairs"], "roll": 8 }
+ * ```
+ */
+export interface DynamicUnderDeepsAdjacencySiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'dynamic-under-deeps-adjacency';
+  /** Effective site types the connected Under-deeps site must be. */
+  readonly siteTypes: readonly SiteType[];
+  /** Required 2d6 roll to move between this site and the connected one. */
+  readonly roll: number;
 }
 
 /**

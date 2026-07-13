@@ -209,17 +209,54 @@ export function breachTheHoldSurfaceRoll(
 }
 
 /**
+ * Dynamic Under-deeps adjacency granted by a `dynamic-under-deeps-adjacency`
+ * site-rule (Ancient Deep-hold ba-83). A site carrying the rule ("one Under-deeps
+ * <type> chosen by you when playing this card (N)") is Under-deeps-adjacent, at
+ * the rule's `roll`, to any **other** Under-deeps site whose effective type is
+ * one of the rule's `siteTypes`. Symmetric and player-agnostic, standing in for
+ * the printed `adjacentSites` entry the card leaves to be chosen at play time.
+ *
+ * Returns the required roll when one of `siteA`/`siteB` carries the rule and the
+ * other is a qualifying Under-deeps site; otherwise `undefined`.
+ */
+export function dynamicUnderDeepsAdjacencyRoll(
+  state: GameState,
+  siteA: SiteCard,
+  siteB: SiteCard,
+): number | undefined {
+  const check = (self: SiteCard, other: SiteCard): number | undefined => {
+    const eff = getCardEffects(self).find(
+      (e): e is import('../../types/effects/site-rules.js').DynamicUnderDeepsAdjacencySiteRule =>
+        e.type === 'site-rule' && e.rule === 'dynamic-under-deeps-adjacency',
+    );
+    if (!eff) return undefined;
+    if (other.id === self.id) return undefined;
+    // The connected site must itself be an Under-deeps site ("no surface site").
+    if (!other.keywords?.includes('under-deeps')) return undefined;
+    // …and of one of the required (printed) types (e.g. Ruins & Lairs). Adjacency
+    // operates on site definitions, and Under-deeps sites are type-immutable
+    // (MEAS §6(d)), so the printed type is the effective type here.
+    if (eff.siteTypes.length > 0 && !eff.siteTypes.includes(other.siteType)) return undefined;
+    logDetail(`Dynamic Under-deeps adjacency: ${self.name} ↔ ${other.name} (roll ${eff.roll})`);
+    return eff.roll;
+  };
+  return check(siteA, siteB) ?? check(siteB, siteA);
+}
+
+/**
  * Check whether two sites are Under-deeps-adjacent in either direction.
  *
  * Returns true when either site's `adjacentSites` lists the other (or
- * matches via a wildcard region key), or when Caverns Unchoked (ba-51) bridges
- * them for `forPlayer`. At least one of the two sites must carry the
- * `under-deeps` keyword for the result to be meaningful.
+ * matches via a wildcard region key), when Caverns Unchoked (ba-51) bridges
+ * them for `forPlayer`, or when a `dynamic-under-deeps-adjacency` site-rule
+ * (Ancient Deep-hold ba-83) connects them. At least one of the two sites must
+ * carry the `under-deeps` keyword for the result to be meaningful.
  */
 export function isUnderDeepsAdjacent(state: GameState, origin: SiteCard, dest: SiteCard, forPlayer?: PlayerId): boolean {
   if (resolveAdjacency(state, origin, dest.name) !== undefined) return true;
   if (resolveAdjacency(state, dest, origin.name) !== undefined) return true;
   if (cavernsUnchokedAdjacencyRoll(state, origin, dest, forPlayer) !== undefined) return true;
+  if (dynamicUnderDeepsAdjacencyRoll(state, origin, dest) !== undefined) return true;
   return false;
 }
 
