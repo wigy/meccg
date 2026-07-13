@@ -8,7 +8,7 @@ below before deciding whether the engine can already play it.
 This catalog lives here, and NOT in the skill prompt, on purpose. It grows by
 one entry per certified card; when it lived inline in
 `.claude/commands/handle-certify-card.md` it pushed that prompt past the 128KB
-`MAX_ARG_STRLEN` limit on a single `execve` argument and every certification
+`MAX_ARG_STRLEN` limit on a single `execve` argument, and every certification
 began failing instantly with "Argument list too long". Keep new precedent here.
 
 See also `docs/card-effects-dsl.md` for the DSL reference itself.
