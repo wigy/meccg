@@ -54,7 +54,34 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Balrog specific. Playable at any tapped or untapped non-Darkhaven Under-deeps site. May only be borne by The Balrog. This item affects The Balrog. +1 prowess when tapping to face a strike.If The Balrog is in company vs. company combat, tap this item to cancel all effects of one weapon of your choice (even declared in the same chain of effects) in an opponent’s company until the end of the combat. This does not discard the weapon."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "allowTapped": true,
+        "filter": {
+          "$and": [
+            { "site.keywords": { "$includes": "under-deeps" } },
+            { "site.siteType": { "$ne": "haven" } }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "The Balrog" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": { "combat.strikeMode": "tap" }
+      },
+      {
+        "type": "combat-cancel-weapon",
+        "cost": { "tap": "self" }
+      }
+    ],
+    "text": "Unique. Balrog specific. Playable at any tapped or untapped non-Darkhaven Under-deeps site. May only be borne by The Balrog. This item affects The Balrog. +1 prowess when tapping to face a strike.If The Balrog is in company vs. company combat, tap this item to cancel all effects of one weapon of your choice (even declared in the same chain of effects) in an opponent’s company until the end of the combat. This does not discard the weapon.",
+    "certified": "2026-07-13"
   }
 ]

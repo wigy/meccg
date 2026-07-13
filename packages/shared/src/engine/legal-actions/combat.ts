@@ -12,7 +12,7 @@
  * 4. body-check: attacking player rolls body check
  */
 
-import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId, CompanyId } from '../../index.js';
 import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
@@ -152,6 +152,9 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   // either side per the card's `player` declaration (e.g. hazard-side Dragon's
   // Desolation Mode A).
   const cancelActions = cancelAttackActions(state, playerId, combat);
+  // Whip of Many Thongs (ba-82): CvCC-only tap-to-cancel-a-weapon, available to
+  // the Balrog's controller throughout the combat's action windows.
+  const cancelWeaponActs = cancelWeaponActions(state, playerId, combat);
   const convertActions = convertCreatureToAllyActions(state, playerId, combat);
   const halveActions = halveStrikesActions(state, playerId, combat);
   const protectActions = protectFromStrikeAssignmentActions(state, playerId, combat);
@@ -175,6 +178,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
         if (playerId !== combat.defendingPlayerId) return [];
         return [
           ...cancelActions,
+          ...cancelWeaponActs,
           ...convertActions,
           ...halveActions,
           ...protectActions,
@@ -186,7 +190,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...cancelWeaponActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       // Each-character auto-attacks pre-assign strikes and open here, skipping
       // the `assign-strikes` cancel window. cancelActions is gated to the
@@ -197,7 +201,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       // CvCC resolve-strike: two-step sub-phase — attacker declares -3 first,
       // then defender resolves. No hazard window (rule 8.42: no hazards in CvCC).
       if (combat.isCvCC) {
-        return [...cvccResolveStrikeActions(state, playerId, combat), ...allyCombatBoosts];
+        return [...cvccResolveStrikeActions(state, playerId, combat), ...cancelWeaponActs, ...allyCombatBoosts];
       }
 
       // Rule 3.iv.6.1: for agent attacks the attacker must roll first before
@@ -983,15 +987,21 @@ function resolveStrikeActions(
   const charName = charDef?.name ?? (currentStrike.characterId as string);
   // Recompute prowess with combat context when creature race is known,
   // so combat-conditional weapon effects (e.g. Glamdring vs Orcs) apply.
-  let baseProwess: number;
+  // The tap and untap options are computed with their own `strikeMode` so a
+  // "when tapping to face a strike" modifier (Stabbing Tongue of Fire ba-81,
+  // Whip of Many Thongs ba-82) is reflected in the tap need but not the
+  // stay-untapped need.
+  let baseProwessTap: number;
+  let baseProwessUntap: number;
   if (allyMatch) {
     // Allies use prowess from their instance override (e.g. a creature
     // converted by Ready to His Will) or their card definition.
-    baseProwess = allyEffectiveProwess(state, allyMatch.ally);
+    baseProwessTap = baseProwessUntap = allyEffectiveProwess(state, allyMatch.ally);
   } else if (combat.creatureRace && charDef && isCharacterCard(charDef) && charData) {
-    baseProwess = computeCombatProwess(state, charData, charDef, combat.creatureRace);
+    baseProwessTap = computeCombatProwess(state, charData, charDef, combat.creatureRace, 'tap');
+    baseProwessUntap = computeCombatProwess(state, charData, charDef, combat.creatureRace, 'untap');
   } else {
-    baseProwess = charData?.effectiveStats?.prowess ?? 0;
+    baseProwessTap = baseProwessUntap = charData?.effectiveStats?.prowess ?? 0;
   }
   // For agent attacks, use the agent's rolled total (2d6 + modified prowess) as
   // the effective prowess the character must beat (rule 3.iv.6.1).
@@ -1009,8 +1019,8 @@ function resolveStrikeActions(
   // taps supporters.
   const supportBonus = currentStrike.supportCount ?? 0;
   const strikeBonus = currentStrike.strikeProwessBonus ?? 0;
-  const tapProwess = baseProwess - statusPenalty - excessPenalty + supportBonus + strikeBonus;
-  const untapProwess = baseProwess - stayUntappedPenalty(charDef) - statusPenalty - excessPenalty + supportBonus + strikeBonus;
+  const tapProwess = baseProwessTap - statusPenalty - excessPenalty + supportBonus + strikeBonus;
+  const untapProwess = baseProwessUntap - stayUntappedPenalty(charDef) - statusPenalty - excessPenalty + supportBonus + strikeBonus;
 
   const tapNeed = Math.max(2, strikeProwess - tapProwess + 1);
   const tapExplanation = combat.attackSource.type === 'agent'
@@ -2384,6 +2394,108 @@ function halveStrikesActions(
     });
   }
 
+  return actions;
+}
+
+/**
+ * Whip of Many Thongs (ba-82) — `cancel-weapon-effects` actions.
+ *
+ * During a company-vs-company combat, the controller of an in-play
+ * `combat-cancel-weapon` item (borne by The Balrog and untapped) may tap it to
+ * cancel all effects of one weapon in the *opposing* company until the end of
+ * the combat. One action is offered per un-suppressed `weapon`-keyword item on a
+ * character in the opponent's company. Only the item's controller (whichever
+ * side The Balrog is on) is offered the action; a non-CvCC combat offers none.
+ *
+ * The Balrog-specific Whip is an exception to the general MEBA rule that items
+ * borne by the Balrog avatar have no effect, so this scan deliberately looks at
+ * items on the Balrog (unlike {@link modifyAttackActions}, which skips them).
+ */
+function cancelWeaponActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (!combat.isCvCC) return [];
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  // Identify the acting player's participating company and the opponent's.
+  let myCompanyId: CompanyId | undefined;
+  let oppPlayerId: PlayerId | undefined;
+  let oppCompanyId: CompanyId | undefined;
+  if (playerId === combat.defendingPlayerId) {
+    myCompanyId = combat.companyId;
+    oppPlayerId = combat.attackingPlayerId;
+    oppCompanyId = combat.attackSource.type === 'company-attack' ? combat.attackSource.attackingCompanyId : undefined;
+  } else if (playerId === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
+    myCompanyId = combat.attackSource.attackingCompanyId;
+    oppPlayerId = combat.defendingPlayerId;
+    oppCompanyId = combat.companyId;
+  } else {
+    return [];
+  }
+  if (!myCompanyId || oppPlayerId === undefined || !oppCompanyId) return [];
+
+  const myCompany = companyById(player.companies, myCompanyId);
+  if (!myCompany) return [];
+
+  // Find the in-play `combat-cancel-weapon` item borne by The Balrog, untapped.
+  let whipInstanceId: CardInstanceId | undefined;
+  for (const charId of myCompany.characters) {
+    const charData = player.characters[charId];
+    if (!charData) continue;
+    const charDef = defById(state, charData.definitionId);
+    if (!charDef || !isBalrogAvatarDef(charDef)) continue; // may only be borne by The Balrog
+    for (const item of charData.items) {
+      const itemDef = defById(state, item.definitionId);
+      const eff = getCardEffects(itemDef).find(e => e.type === 'combat-cancel-weapon');
+      if (!eff) continue;
+      const itemName = itemDef?.name ?? (item.definitionId as string);
+      if (item.status !== CardStatus.Untapped) {
+        logDetail(`Cancel-weapon ${itemName}: item tapped, cannot activate`);
+        continue;
+      }
+      whipInstanceId = item.instanceId;
+      break;
+    }
+    if (whipInstanceId) break;
+  }
+  if (!whipInstanceId) return [];
+
+  const oppPlayer = playerById(state, oppPlayerId);
+  if (!oppPlayer) return [];
+  const oppCompany = companyById(oppPlayer.companies, oppCompanyId);
+  if (!oppCompany) return [];
+
+  const alreadySuppressed = new Set(
+    (combat.suppressedWeaponInstanceIds ?? []).map(i => i as string),
+  );
+
+  const actions: EvaluatedAction[] = [];
+  for (const charId of oppCompany.characters) {
+    const charData = oppPlayer.characters[charId];
+    if (!charData) continue;
+    for (const item of charData.items) {
+      if (alreadySuppressed.has(item.instanceId as string)) continue;
+      const itemDef = defById(state, item.definitionId);
+      const keywords = itemDef && 'keywords' in itemDef
+        ? (itemDef as { keywords?: readonly string[] }).keywords ?? []
+        : [];
+      if (!keywords.includes('weapon')) continue;
+      logDetail(`Cancel-weapon available: tap Whip to cancel ${itemDef?.name ?? item.definitionId as string} on ${charId as string}`);
+      actions.push({
+        action: {
+          type: 'cancel-weapon-effects',
+          player: playerId,
+          cardInstanceId: whipInstanceId,
+          weaponInstanceId: item.instanceId,
+        },
+        viable: true,
+      });
+    }
+  }
   return actions;
 }
 

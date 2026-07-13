@@ -16,7 +16,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, CombatState, GameAction } from '../index.js';
+import type { GameState, CombatState, GameAction, CompanyId } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import type { StrikeModifierEffect, TriggerAttackOnPlayEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -287,6 +287,102 @@ export function handleCancelAttackByInPlayItem(
   }
 
   return { state: tappedState };
+}
+
+/**
+ * Handle the `cancel-weapon-effects` action — Whip of Many Thongs (ba-82).
+ *
+ * During a company-vs-company combat the controller of an in-play
+ * `combat-cancel-weapon` item (the Whip, borne by The Balrog) taps it to cancel
+ * all effects of one weapon in the opposing company until the end of the combat.
+ * The chosen weapon's instance is added to
+ * {@link CombatState.suppressedWeaponInstanceIds}; the weapon is NOT discarded.
+ * Suppression is read by `collectCharacterEffects` / `computeEffectiveStats` and
+ * clears automatically when combat finalizes.
+ */
+export function handleCancelWeaponEffects(
+  state: GameState,
+  action: GameAction,
+  combat: CombatState,
+): ReducerResult {
+  if (action.type !== 'cancel-weapon-effects') return wrongActionType(state, action, 'cancel-weapon-effects');
+  if (!combat.isCvCC) return { state, error: 'Cancel-weapon requires a company-vs-company combat' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  if (!player) return { state, error: 'Cancel-weapon: acting player not found' };
+
+  // Locate the acting player's participating company and the opponent's.
+  let myCompanyId: CompanyId | undefined;
+  let oppPlayerId: typeof combat.attackingPlayerId | undefined;
+  let oppCompanyId: CompanyId | undefined;
+  if (action.player === combat.defendingPlayerId) {
+    myCompanyId = combat.companyId;
+    oppPlayerId = combat.attackingPlayerId;
+    oppCompanyId = combat.attackSource.type === 'company-attack' ? combat.attackSource.attackingCompanyId : undefined;
+  } else if (action.player === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
+    myCompanyId = combat.attackSource.attackingCompanyId;
+    oppPlayerId = combat.defendingPlayerId;
+    oppCompanyId = combat.companyId;
+  }
+  if (!myCompanyId || oppPlayerId === undefined || !oppCompanyId) {
+    return { state, error: 'Cancel-weapon: acting player is not a combatant' };
+  }
+
+  const myCompany = companyById(player.companies, myCompanyId);
+  if (!myCompany) return { state, error: 'Cancel-weapon: participating company not found' };
+
+  // Validate the Whip: an untapped in-play combat-cancel-weapon item, borne by
+  // a character in the participating company (The Balrog per the card).
+  const found = findItemInCompany(player, myCompany.characters, action.cardInstanceId);
+  if (!found) return { state, error: 'Cancel-weapon source item not found in company' };
+  const { item: whip, hostCharId } = found;
+  const whipDef = defById(state, whip.definitionId);
+  const eff = getCardEffects(whipDef).find(e => e.type === 'combat-cancel-weapon');
+  if (!eff) return { state, error: 'Item has no combat-cancel-weapon effect' };
+  if (whip.status !== CardStatus.Untapped) return { state, error: 'Whip must be untapped to cancel a weapon' };
+
+  // Validate the target: a `weapon`-keyword item on a character in the opponent's
+  // company, not already suppressed this combat.
+  const alreadySuppressed = combat.suppressedWeaponInstanceIds ?? [];
+  if (alreadySuppressed.includes(action.weaponInstanceId)) {
+    return { state, error: 'That weapon is already suppressed this combat' };
+  }
+  const oppPlayerIndex = getPlayerIndex(state, oppPlayerId);
+  const oppPlayer = state.players[oppPlayerIndex];
+  const oppCompany = oppPlayer ? companyById(oppPlayer.companies, oppCompanyId) : undefined;
+  if (!oppPlayer || !oppCompany) return { state, error: 'Cancel-weapon: opposing company not found' };
+  const targetFound = findItemInCompany(oppPlayer, oppCompany.characters, action.weaponInstanceId);
+  if (!targetFound) return { state, error: 'Cancel-weapon target not found in opposing company' };
+  const targetDef = defById(state, targetFound.item.definitionId);
+  const targetKeywords = targetDef && 'keywords' in targetDef
+    ? (targetDef as { keywords?: readonly string[] }).keywords ?? []
+    : [];
+  if (!targetKeywords.includes('weapon')) {
+    return { state, error: 'Cancel-weapon target is not a weapon' };
+  }
+
+  // Tap the Whip (the weapon itself is untouched — "does not discard the weapon").
+  const tappedState = updatePlayer(state, playerIndex, p =>
+    updateCharacter(p, hostCharId, c => ({
+      ...c,
+      items: c.items.map(i =>
+        i.instanceId === whip.instanceId ? { ...i, status: CardStatus.Tapped } : i,
+      ),
+    })),
+  );
+
+  logDetail(
+    `Whip of Many Thongs: tap to cancel all effects of ${targetDef?.name ?? action.weaponInstanceId as string} `
+    + `(${action.weaponInstanceId as string}) until end of combat`,
+  );
+
+  return {
+    state: {
+      ...tappedState,
+      combat: { ...combat, suppressedWeaponInstanceIds: [...alreadySuppressed, action.weaponInstanceId] },
+    },
+  };
 }
 
 export function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
