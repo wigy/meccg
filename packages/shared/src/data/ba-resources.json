@@ -498,14 +498,65 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "a non-Darkhaven Under-deeps site"
+        "any": true,
+        "when": {
+          "$and": [
+            {
+              "site.keywords": {
+                "$includes": "under-deeps"
+              }
+            },
+            {
+              "site.siteType": {
+                "$ne": "haven"
+              }
+            }
+          ]
+        }
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-overt"
+      },
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "drake"
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "movementType": {
+            "$in": [
+              "region",
+              "starter"
+            ]
+          }
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
     "text": "Unique. Balrog specific. Spawn. Playable at a non-Darkhaven Under-deeps site. Its controlling character's company is overt. Tap to cancel a Drake attack against his company. Discard this ally if its company moves using region or starter movement.",
     "keywords": [
-      "balrog-specific"
-    ]
+      "balrog-specific",
+      "spawn"
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "minion-resource-event",
