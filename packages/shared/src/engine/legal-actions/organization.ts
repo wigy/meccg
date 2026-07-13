@@ -100,6 +100,24 @@ function matchesPhaseFilter(
 }
 
 /**
+ * Whether a `oncePerTurn` grant-action has already been used this turn — i.e.
+ * an active `granted-action-used` constraint matches this source instance and
+ * action id. The reducer adds the (turn-scoped) constraint on first use; it is
+ * cleared at turn-end. Used by Strangling Coils (ba-76).
+ */
+function grantActionUsedThisTurn(
+  state: GameState,
+  sourceInstanceId: CardInstanceId,
+  actionId: string,
+): boolean {
+  return state.activeConstraints.some(c =>
+    c.kind.type === 'granted-action-used'
+    && c.kind.sourceInstanceId === sourceInstanceId
+    && c.kind.actionId === actionId,
+  );
+}
+
+/**
  * Computes the available (unused) direct influence for a character in play,
  * optionally factoring in conditional DI bonuses against a specific target.
  *
@@ -581,6 +599,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       const grantActions = extractGrantActions(state, hazard.definitionId);
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+        if (effect.oncePerTurn && grantActionUsedThisTurn(state, hazard.instanceId, effect.action)) continue;
         const hazardDef = defById(state, hazard.definitionId);
         // Rule 10.08: only cards that carry the 'corruption' game keyword
         // (or have cardType 'hazard-corruption') qualify for the no-tap −3
@@ -714,6 +733,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         for (const effect of charEffects) {
           if (effect.type !== 'grant-action') continue;
           if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+          if (effect.oncePerTurn && grantActionUsedThisTurn(state, char.instanceId, effect.action)) continue;
 
           // Check cost: if tap is "self", the character must be untapped
           if (!canPayCost(effect.cost, char)) {
@@ -849,6 +869,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       const grantActions = extractGrantActions(state, ally.definitionId);
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+        if (effect.oncePerTurn && grantActionUsedThisTurn(state, ally.instanceId, effect.action)) continue;
         // A `tap: self` cost (e.g. Mistress Lobelia dm-178) requires the ally
         // itself to be untapped; `discard: self` and cost-free abilities are
         // always payable (canPayCost returns true when there is no tap cost).
@@ -893,6 +914,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       const grantActions = extractGrantActions(state, item.definitionId);
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+        if (effect.oncePerTurn && grantActionUsedThisTurn(state, item.instanceId, effect.action)) continue;
         if (!canPayCost(effect.cost, char, item)) {
           const def = defById(state, item.definitionId);
           logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: cost not payable (item or bearer tapped)`);
@@ -1290,7 +1312,12 @@ export function buildGrantActionContext(
     isTapped: siteIsTapped,
     hasDragonAutoAttack,
   } : null;
-  return { bearer, company: companyCtx, player: playerCtx, site: siteCtx };
+  // Current phase, exposed so a grant-action `when` clause can restrict an
+  // ability to a specific phase (e.g. Strangling Coils ba-76's company untap
+  // is legal only during the movement/hazard phase). Combine with
+  // `anyPhase: true` so the M/H scanner offers the ability at all.
+  const phase = state.phaseState.phase;
+  return { bearer, company: companyCtx, player: playerCtx, site: siteCtx, phase };
 }
 
 /**

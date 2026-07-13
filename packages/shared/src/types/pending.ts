@@ -1186,6 +1186,22 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Once-per-turn lock for a grant-action flagged
+         * {@link GrantActionEffect.oncePerTurn}. Added (turn-scoped) by the
+         * grant-action reducer the first time the ability resolves and read
+         * by the legal-action scanner to suppress further activations for the
+         * rest of the turn. Keyed by the source card instance and action id
+         * so distinct once-per-turn abilities (or copies) never collide.
+         * Used by Strangling Coils (ba-76).
+         */
+        readonly type: 'granted-action-used';
+        /** Source card instance whose ability was used. */
+        readonly sourceInstanceId: CardInstanceId;
+        /** The grant-action's `action` identifier. */
+        readonly actionId: string;
+      }
+    | {
+        /**
          * Orc-draughts / Miruvor style: flat stat bonus to every
          * character in the target company for the constraint's scope.
          * The effect resolver synthesises an equivalent
