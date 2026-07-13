@@ -1697,7 +1697,15 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
-    "effects": [],
+    "certified": "2026-07-13",
+    "discardBodyCheck": [8],
+    "effects": [
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1, "when": { "reason": "influence-check", "target.race": "troll" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1, "when": { "reason": "influence-check", "target.race": "orc" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1, "when": { "reason": "faction-influence-check", "faction.race": "troll" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1, "when": { "reason": "faction-influence-check", "faction.race": "orc" } },
+      { "type": "check-modifier", "check": "corruption", "value": -1 }
+    ],
     "text": "Discard on a body check result of 8. +1 direct influence against Trolls, Orcs, Troll factions, and Orc factions. -1 to all corruption checks."
   },
   {
