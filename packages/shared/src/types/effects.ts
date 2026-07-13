@@ -1230,6 +1230,17 @@ export interface GrantActionEffect extends EffectBase {
    */
   readonly endOfTurnOnly?: boolean;
   /**
+   * When true, the ability may be activated at most **once per turn** by
+   * this source card. On the first activation the reducer records a
+   * turn-scoped `granted-action-used` constraint keyed by the source
+   * instance and `action`; the legal-action scanner then suppresses the
+   * ability for the rest of the turn (the constraint is cleared at
+   * turn-end). Independent of the phase-window flags. Used by *Strangling
+   * Coils* (ba-76): "Once during his movement/hazard phase, you may untap
+   * all tapped characters in The Balrog's company."
+   */
+  readonly oncePerTurn?: boolean;
+  /**
    * When true, the ability is activatable **only** while a corruption
    * check by a character in the bearer's company is awaiting its roll —
    * i.e. during a unified `corruption-check` pending resolution or the
@@ -3134,7 +3145,9 @@ export interface CounterCancelAttackRollEffect extends EffectBase {
  * When `target` is `"target-character"`, applies to the character targeted
  * by a {@link PlayTargetEffect} on the same card (e.g. Escape: the targeted
  * unwounded character is set to `inverted` / wounded as the cost of
- * cancelling the attack). When `target` is absent, applies to the bearer.
+ * cancelling the attack). When `target` is `"company"`, applies to every
+ * character in the bearer's company (e.g. Strangling Coils ba-76 untaps the
+ * whole company). When `target` is absent, applies to the bearer.
  *
  * Used instead of the removed `wound-target-character` type.
  */

@@ -1069,6 +1069,11 @@ function applyOneConstraint(
       // (see legal-actions/site.ts / organization.ts) — no broad
       // legal-action filtering needed here.
       return base;
+    case 'granted-action-used':
+      // Once-per-turn grant-action lock, consulted directly by the
+      // grant-action scanner (grantedActionActivations) — no broad
+      // legal-action filtering needed here. Used by Strangling Coils (ba-76).
+      return base;
     case 'company-stat-modifier':
       // Consumed directly by the effects resolver via
       // `collectCharacterEffects` — no legal-action filtering needed.

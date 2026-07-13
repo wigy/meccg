@@ -1078,6 +1078,38 @@ extend the emission window:
 
 Multiple flags may coexist on the same effect.
 
+**Gating a grant-action to one phase via `when`.** `anyPhase: true` makes an
+ability *available* in every non-organization phase, but sometimes a card is
+restricted to a single one (e.g. "Once during his movement/hazard phase …").
+The grant-action `when` context exposes the current `phase`
+(`buildGrantActionContext`), so combine `anyPhase: true` (so the M/H scanner
+offers it at all) with `when: { "phase": "movement-hazard" }` (so it is
+suppressed everywhere else, including the organization phase's default scan).
+
+**`oncePerTurn: true` — a per-turn usage lock.** When set, the ability may be
+activated at most once per turn by that source card. On the first activation
+the grant-action reducer records a turn-scoped `granted-action-used` constraint
+keyed by the source instance and `action`; the scanner
+(`grantedActionActivations`) then suppresses the ability for the rest of the
+turn (the constraint clears at turn-end). Independent of the phase-window
+flags. Used by *Strangling Coils* (ba-76).
+
+```json
+{ "type": "grant-action", "action": "untap-balrog-company",
+  "anyPhase": true, "oncePerTurn": true, "cost": {},
+  "when": { "phase": "movement-hazard" },
+  "apply": { "type": "sequence", "apps": [
+    { "type": "set-character-status", "target": "company", "status": "untapped" },
+    { "type": "set-character-status", "target": "bearer", "status": "tapped" } ] } }
+```
+
+The `set-character-status` apply now accepts `target: "company"`, setting the
+status on every character in the bearer's company (untapping is idempotent for
+already-untapped members). Sequenced with a `target: "bearer"` tap, this
+realizes ba-76's "untap all tapped characters in The Balrog's company; if then
+untapped, tap The Balrog" (the empty `cost` lets it fire even when the Balrog is
+already tapped).
+
 **`endOfTurnOnly: true` — restrictive, not additive.** Unlike the flags
 above (which *extend* an ability's natural-phase availability), this flag
 *removes* the ability from the generic per-phase scanner's organization-phase

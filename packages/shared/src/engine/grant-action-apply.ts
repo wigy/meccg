@@ -207,6 +207,31 @@ function runGrantApply(
     return { error: `set-character-status target-instance: target ${targetCardId as string} not found` };
   }
 
+  // company: set the given status on every character in the bearer's company
+  // (Strangling Coils ba-76: "untap all tapped characters in The Balrog's
+  // company"). Untapping is idempotent for already-untapped members.
+  if (apply.type === 'set-character-status' && apply.target === 'company') {
+    if (apply.status === undefined) {
+      return { error: `set-character-status apply missing status on ${ctx.sourceName}` };
+    }
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const company = findCharacterCompany(bearerPlayer.companies, ctx.action.characterId);
+    if (!company) {
+      return { error: `${ctx.charName} is not in any company` };
+    }
+    const statusEnum = cardStatusFromName(apply.status);
+    logDetail(`Grant-action ${ctx.action.actionId}: setting all ${company.characters.length} character(s) in company ${company.id as string} → status ${apply.status}`);
+    const updatedChars = { ...bearerPlayer.characters };
+    for (const memberId of company.characters) {
+      const member = updatedChars[memberId];
+      if (!member) continue;
+      updatedChars[memberId] = { ...member, status: statusEnum };
+    }
+    newPlayers[ctx.playerIndex] = { ...bearerPlayer, characters: updatedChars };
+    const updatedChar = updatedChars[ctx.action.characterId] ?? char;
+    return { updatedChar, effects: [], stateOps: [] };
+  }
+
   if (apply.type === 'increment-company-extra-region-distance') {
     const amount = apply.amount ?? 1;
     const bearerPlayer = newPlayers[ctx.playerIndex];
@@ -1155,6 +1180,23 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   });
   for (const op of result.stateOps) {
     finalState = op(finalState);
+  }
+
+  // Once-per-turn abilities record a turn-scoped lock so the scanner
+  // suppresses further activations of this source+action for the rest of
+  // the turn (Strangling Coils ba-76's company untap).
+  if (staticEffect?.oncePerTurn) {
+    finalState = addConstraint(finalState, {
+      source: action.sourceCardId,
+      sourceDefinitionId: action.sourceCardDefinitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'player', playerId: action.player },
+      kind: {
+        type: 'granted-action-used',
+        sourceInstanceId: action.sourceCardId,
+        actionId: action.actionId,
+      },
+    });
   }
 
   return {
