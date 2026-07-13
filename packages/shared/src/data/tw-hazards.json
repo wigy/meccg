@@ -24,7 +24,9 @@
           "from": "in-play",
           "to": "discard",
           "filter": {
-            "cardType": "hero-resource-event",
+            "cardType": {
+              "$in": ["hero-resource-event", "minion-resource-event"]
+            },
             "keywords": {
               "$includes": "environment"
             }
