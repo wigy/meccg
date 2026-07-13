@@ -122,6 +122,7 @@ function siteMatchesEntry(
   entry: PlayableAtEntry,
   effectiveSiteType: SiteType = siteDef.siteType,
   regionType?: RegionType,
+  isUnderDeepsSurface = false,
 ): boolean {
   if ('region' in entry) {
     // Region entries match any non-haven site in the named region.
@@ -155,6 +156,15 @@ function siteMatchesEntry(
       // (Cave Troll ba-35) via `when: { "site.keywords": { "$includes": "under-deeps" } }`.
       keywords: siteDef.keywords ?? [],
       autoAttack: { race: autoAttackRaces },
+      // The dragon whose lair this Ruins & Lairs site is (a card id) — absent
+      // for ordinary sites. Lets a faction/ally exclude Dragon's lairs via
+      // `{ "site.lairOf": { "$exists": false } }` (A Few Recruits ba-80:
+      // "non-Dragon's lair").
+      lairOf: (siteDef as { lairOf?: unknown }).lairOf,
+      // True when this site is the roll-0 surface entrance of an Under-deeps
+      // site. Together with the `under-deeps` keyword this lets a faction/ally
+      // gate on "not an Under-deeps site or surface site thereof" (ba-80).
+      isUnderDeepsSurface,
     },
   };
   return matchesCondition(entry.when, ctx);
@@ -1479,7 +1489,7 @@ function playResourcesActions(
       // `nothingPlayableAsWritten` (Hidden Haven) does NOT gate allies: an ally's
       // playability is written on the ally card naming the site, not on the site
       // card's printed resource list — so it survives the conversion.
-      const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType));
+      const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType, siteRegionTypeOf(state, siteDefForAlly), isUnderDeepsSurfaceSite(state, siteDefForAlly)));
       const matchesPlayTarget = siteDefForAlly !== undefined && sitePlayTarget !== undefined
         && (!sitePlayTarget.filter || matchesDefinition(siteDefForAlly, sitePlayTarget.filter));
       if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget)) {
@@ -1591,7 +1601,8 @@ function playResourcesActions(
         ? getEffectiveSiteType(state, siteDefId, siteDefForFaction.siteType, siteInstanceId ?? undefined)
         : siteDefForFaction?.siteType;
       const factionRegionType = siteRegionTypeOf(state, siteDefForFaction);
-      if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType, factionRegionType))) {
+      const factionSiteIsUnderDeepsSurface = isUnderDeepsSurfaceSite(state, siteDefForFaction);
+      if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType, factionRegionType, factionSiteIsUnderDeepsSurface))) {
         const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'any' in e ? 'any-qualifying-site' : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: not playable at ${siteName}`));
@@ -1660,6 +1671,10 @@ function playResourcesActions(
               race: charDef.race, skills: [...charDef.skills, ...getItemGrantedSkills(state, ch)],
               baseProwess: charDef.prowess, baseBody: charDef.body,
               baseDirectInfluence: charDef.directInfluence, name: charDef.name,
+              // Character subgrouping keywords (e.g. "leader"), so a faction's
+              // printed modification can target the influencing character by
+              // keyword — A Few Recruits (ba-80): "leader (+2)".
+              keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
             },
             faction: {
               name: factionDef.name,
@@ -2224,7 +2239,7 @@ function opponentInfluenceActions(
     // Normally re-influence requires the active company to be at a site where
     // the faction is playable. Prophet of Doom's override influencer may reach
     // any of the opponent's in-play factions regardless of the current site.
-    const playableHere = factionDef.playableAt.some(entry => siteMatchesEntry(siteDef, entry, undefined, siteRegionTypeOf(state, siteDef)));
+    const playableHere = factionDef.playableAt.some(entry => siteMatchesEntry(siteDef, entry, undefined, siteRegionTypeOf(state, siteDef), isUnderDeepsSurfaceSite(state, siteDef)));
     const factionInfluencers = playableHere
       ? untappedCharacters
       : overrideInfluencer ? [overrideInfluencer] : [];

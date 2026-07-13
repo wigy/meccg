@@ -1712,11 +1712,24 @@
     "race": "orc",
     "playableAt": [
       {
-        "site": "a"
+        "any": true,
+        "when": {
+          "$and": [
+            { "site.siteType": { "$in": ["dark-hold", "shadow-hold", "ruins-and-lairs"] } },
+            { "$not": { "site.keywords": { "$includes": "under-deeps" } } },
+            { "site.isUnderDeepsSurface": { "$ne": true } },
+            { "site.lairOf": { "$exists": false } }
+          ]
+        }
       }
     ],
-    "effects": [],
+    "effects": [
+      { "type": "play-flag", "flag": "playable-at-tapped-site" },
+      { "type": "check-modifier", "check": "influence", "value": 3, "when": { "bearer.name": "The Balrog" } },
+      { "type": "check-modifier", "check": "influence", "value": 2, "when": { "bearer.keywords": { "$includes": "leader" } } }
+    ],
     "text": "Balrog specific. Playable at a tapped or untapped non-Dragon’s lair: Dark-hold [{D}], Shadow-hold [{S}], or Ruins & Lairs [{R}] —the site cannot be an Under-deeps site or surface site thereof— if the influence check is greater than 8. Modifications: The Balrog (+3), leader (+2).",
+    "certified": "2026-07-13",
     "keywords": [
       "balrog-specific"
     ]
