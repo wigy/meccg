@@ -41,14 +41,19 @@ import { sweepDiscardSelfWhen } from './discard-self-when.js';
  * §12), then re-derive aggregates so MP/influence totals reflect any cards
  * moved, then record any newly-revealed card identities from public locations.
  */
-function postReduce(state: GameState): GameState {
-  return accrueRevealedInstances(recomputeDerived(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepSetAside(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(state))))))))))));
+function postReduce(state: GameState, prevState?: GameState): GameState {
+  // A More Evil Hour (ba-48): tap the card when the opponent just played a
+  // card giving them 3+ marshalling points. Runs first, on the raw post-action
+  // state, so the later sweeps/recompute see the tapped status.
+  const tapped = prevState ? applyEvilHourTaps(prevState, state) : state;
+  return accrueRevealedInstances(recomputeDerived(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepSetAside(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(tapped))))))))))));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedAgentAttachedEvents, discardOrphanedConvertedAllyEvents, discardOrphanedItemAttachedEvents } from './reducer-utils.js';
 import { topResolutionFor } from './pending.js';
+import { applyEvilHourTaps } from './evil-hour.js';
 import { applyResolution } from './pending-handlers.js';
 import { handleSetup } from './reducer-setup.js';
 import { handleUntap } from './reducer-untap.js';
@@ -91,7 +96,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     logDetail(`Chain active — dispatching '${action.type}' to chain reducer`);
     const chainResult = handleChainAction(state, action);
     if (!chainResult.error) {
-      const recomputed = postReduce(chainResult.state);
+      const recomputed = postReduce(chainResult.state, state);
       return {
         state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
         effects: chainResult.effects,
@@ -129,7 +134,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
           }
         }
       }
-      const recomputed = postReduce(finalState);
+      const recomputed = postReduce(finalState, state);
       return {
         state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
         effects: finalEffects,
@@ -147,7 +152,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     const resolutionResult = applyResolution(state, action, topResolution);
     if (resolutionResult !== null) {
       if (!resolutionResult.error) {
-        const recomputed = postReduce(resolutionResult.state);
+        const recomputed = postReduce(resolutionResult.state, state);
         return {
           state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
           effects: resolutionResult.effects,
@@ -165,7 +170,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     if (newState === null) {
       return { state, error: `Card ${action.cardInstanceId as string} not found in ${action.player as string}'s hand` };
     }
-    const recomputed = postReduce(newState);
+    const recomputed = postReduce(newState, state);
     return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
   }
 
@@ -179,7 +184,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       effectResult = resolvePendingEffect(state);
     }
     if (!effectResult.error) {
-      const recomputed = postReduce(effectResult.state);
+      const recomputed = postReduce(effectResult.state, state);
       return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 }, effects: effectResult.effects };
     }
     return effectResult;
@@ -238,7 +243,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   // and increment the state sequence number for log tracking.
   // Clear reverseActions whenever the phase changes.
   if (!result.error) {
-    const recomputed = postReduce(result.state);
+    const recomputed = postReduce(result.state, state);
     const phaseChanged = recomputed.phaseState.phase !== state.phaseState.phase;
     result = {
       state: {

@@ -298,8 +298,37 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "As a permanent-event, +1 to your influence attempts against Orc and Troll factions. If you have at least 4 unique Orc and/or Troll factions —none playable at a Darkhold [{D}]—you receive this card’s marshalling points. Cannot be duplicated as a permanent-event. Alternatively, as a short-event, you may choose any Orc and Troll factions from your discard pile and shuffle them into your play deck."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "target": "player-in-play",
+        "when": { "reason": "faction-influence-check", "faction.race": { "$in": ["orc", "troll"] } }
+      },
+      {
+        "type": "conditional-mp",
+        "bonus": 2,
+        "requiresFactionCount": {
+          "min": 4,
+          "races": ["orc", "troll"],
+          "unique": true,
+          "excludePlayableAtSiteType": "dark-hold"
+        }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 },
+      {
+        "type": "reshuffle-from-discard",
+        "scope": "self",
+        "altShortEventMode": true,
+        "filter": {
+          "cardType": "minion-resource-faction",
+          "race": { "$in": ["orc", "troll"] }
+        }
+      }
+    ],
+    "text": "As a permanent-event, +1 to your influence attempts against Orc and Troll factions. If you have at least 4 unique Orc and/or Troll factions —none playable at a Darkhold [{D}]—you receive this card’s marshalling points. Cannot be duplicated as a permanent-event. Alternatively, as a short-event, you may choose any Orc and Troll factions from your discard pile and shuffle them into your play deck.",
+    "certified": "2026-07-13"
   },
   {
     "cardType": "minion-resource-event",
@@ -568,7 +597,11 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-flag", "flag": "no-auto-untap" },
+      { "type": "evil-hour-tap-trigger", "mpThreshold": 3 },
+      { "type": "evil-hour-grant-movement", "extraRegions": 2 }
+    ],
     "text": "Balrog specific. Tap this card when an opponent plays a card normally giving him three or more marshalling points. This card does not untap. If tapped, you may discard this card during your organization phase to target a company allowed to move with region movement. The company may move up to two additional regions if moving to a site where an opponent’s company is present—and also, thereafter, when leaving this site.",
     "keywords": [
       "balrog-specific"

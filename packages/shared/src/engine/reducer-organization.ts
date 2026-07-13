@@ -65,6 +65,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'discard-stage-resource': handleDiscardStageResource,
   'voluntary-discard-in-play': handleVoluntaryDiscardInPlay,
   'activate-org-fetch': handleActivateOrgFetch,
+  'discard-for-evil-hour-movement': handleDiscardForEvilHourMovement,
 };
 
 export function handleOrganization(state: GameState, action: GameAction): ReducerResult {
@@ -178,6 +179,36 @@ function handleVoluntaryDiscardInPlay(state: GameState, action: GameAction): Red
     ...p,
     cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
     discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+  return { state: recomputeDerived(next) };
+}
+
+/**
+ * Discards an in-play (tapped) A More Evil Hour (ba-48) during the organization
+ * phase and marks the targeted company with {@link Company.evilHourMovementBonus},
+ * granting it a persistent conditional +2 region-movement bonus.
+ */
+function handleDiscardForEvilHourMovement(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'discard-for-evil-hour-movement') return wrongActionType(state, action, 'discard-for-evil-hour-movement');
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: 'A More Evil Hour not found in play' };
+  if (card.status !== CardStatus.Tapped) return { state, error: 'A More Evil Hour must be tapped to grant movement' };
+  const def = defById(state, card.definitionId);
+  const eff = def ? getCardEffects(def).find(e => e.type === 'evil-hour-grant-movement') : undefined;
+  if (!eff || eff.type !== 'evil-hour-grant-movement') {
+    return { state, error: 'Card does not grant the A More Evil Hour movement bonus' };
+  }
+  const company = player.companies.find(c => c.id === action.companyId);
+  if (!company) return { state, error: 'Target company not found' };
+
+  logDetail(`Organization: ${player.name} discards ${def?.name ?? '?'} to grant company ${action.companyId as string} the region-movement bonus`);
+  const next = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...p.discardPile, toCardInstance(card)],
+    companies: p.companies.map(c => c.id === action.companyId ? { ...c, evilHourMovementBonus: true } : c),
   }));
   return { state: recomputeDerived(next) };
 }

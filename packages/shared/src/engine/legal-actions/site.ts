@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1675,6 +1675,9 @@ function playResourcesActions(
           };
           const charEffects = collectCharacterEffects(state, ch, resolverCtx);
           charEffects.push(...collectCompanyAllyEffects(state, ch, resolverCtx));
+          // Player-scoped ongoing influence bonuses from bare in-play
+          // permanent-events (Great Army of the North ba-38).
+          charEffects.push(...collectPlayerInPlayInfluenceEffects(state, playerId, resolverCtx));
           if (factionDef.effects) {
             for (const effect of factionDef.effects) {
               if (effect.when && !matchesContext(effect.when, resolverCtx)) continue;

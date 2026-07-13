@@ -216,8 +216,18 @@ export interface CheckModifierEffect extends EffectBase {
    * permanent-events on any company member) and folded into each member's
    * check via {@link resolveCheckModifier}. Used by I'll Be At Your Heels
    * (le-195): "+1 to all corruption checks by characters in his company."
+   *
+   * `'player-in-play'` is a **player-scoped, ongoing** modifier carried by a
+   * bare permanent-event in the influencing player's `cardsInPlay` (not
+   * attached to any character/item/site). It is collected directly from that
+   * player's in-play permanent resource events at each faction-influence check
+   * and applies to **every** such check by any of the player's characters, for
+   * as long as the card stays in play (gated by the effect's `when` against the
+   * faction-influence resolver context). Used by Great Army of the North
+   * (ba-38): "As a permanent-event, +1 to your influence attempts against Orc
+   * and Troll factions."
    */
-  readonly target?: 'company';
+  readonly target?: 'company' | 'player-in-play';
 }
 
 /**
@@ -879,6 +889,17 @@ export interface ReshuffleFromDiscardEffect extends EffectBase {
    * every player; `'self'` affects only the playing player.
    */
   readonly scope?: 'self' | 'all-players';
+  /**
+   * When true, this reshuffle is the **alternative short-event mode** of an
+   * otherwise `eventType: "permanent"` resource card (a "Permanent-event/
+   * Short-event" card). The card is offered both as a permanent-event (its
+   * ongoing effects) and — via this effect — as a resource short-event that
+   * resolves the reshuffle and discards the card. Used by Great Army of the
+   * North (ba-38): "Alternatively, as a short-event, you may choose any Orc
+   * and Troll factions from your discard pile and shuffle them into your play
+   * deck."
+   */
+  readonly altShortEventMode?: boolean;
 }
 
 /**
@@ -4126,8 +4147,30 @@ export interface ConditionalMpEffect extends EffectBase {
   /**
    * The bonus applies while a card with this exact name is in play (either
    * player's `cardsInPlay`) attached to the same site as the carrying card.
+   * Used by Roots of the Earth (ba-74). Exactly one of `requiresCardOnSameSite`
+   * / `requiresFactionCount` is set.
    */
-  readonly requiresCardOnSameSite: string;
+  readonly requiresCardOnSameSite?: string;
+  /**
+   * The bonus applies while the carrying card's controller has at least `min`
+   * factions of one of `races` in play (their own `cardsInPlay`) that satisfy
+   * the optional filters. Used by Great Army of the North (ba-38): "If you have
+   * at least 4 unique Orc and/or Troll factions —none playable at a Darkhold
+   * [{D}]—you receive this card's marshalling points."
+   */
+  readonly requiresFactionCount?: {
+    /** Minimum number of qualifying in-play factions required. */
+    readonly min: number;
+    /** Faction races that qualify (e.g. `["orc","troll"]`). */
+    readonly races: readonly string[];
+    /** When true, only unique factions count. */
+    readonly unique?: boolean;
+    /**
+     * When set, a faction playable at a site of this type (e.g. `"dark-hold"`)
+     * is excluded from the count ("none playable at a Darkhold").
+     */
+    readonly excludePlayableAtSiteType?: string;
+  };
 }
 
 /**
@@ -4456,10 +4499,45 @@ export interface MoveEffect extends EffectBase {
 }
 
 /**
+ * Marks an in-play permanent-event that taps itself when the controller's
+ * opponent plays a card that normally gives that opponent `mpThreshold` or more
+ * marshalling points (A More Evil Hour, ba-48: "Tap this card when an opponent
+ * plays a card normally giving him three or more marshalling points"). The
+ * "normally giving" value is the card's printed {@link CardBase.marshallingPoints}.
+ *
+ * The tap is a passive reaction: after every reducer step, the engine diffs the
+ * opponent's in-play scoring zones and, when a fresh card with printed MP ≥
+ * `mpThreshold` entered play, taps each untapped copy of the carrying card.
+ * Pair with `play-flag: no-auto-untap` so the card "does not untap".
+ */
+export interface EvilHourTapTriggerEffect extends EffectBase {
+  readonly type: 'evil-hour-tap-trigger';
+  /** Minimum printed marshalling points of the opponent's played card. */
+  readonly mpThreshold: number;
+}
+
+/**
+ * Grants an in-play permanent-event a once-only organization-phase ability
+ * (usable only while the card is tapped) to **discard itself** and mark one of
+ * the controller's companies (one allowed to use region movement) with a
+ * persistent conditional region-movement bonus (A More Evil Hour, ba-48). The
+ * marked company may move up to `extraRegions` additional regions whenever it
+ * moves to — or away from — a site where an opponent's company is present
+ * ({@link Company.evilHourMovementBonus}).
+ */
+export interface EvilHourGrantMovementEffect extends EffectBase {
+  readonly type: 'evil-hour-grant-movement';
+  /** Additional region distance granted (ba-48: 2). */
+  readonly extraRegions: number;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
 export type CardEffect =
+  | EvilHourTapTriggerEffect
+  | EvilHourGrantMovementEffect
   | StatModifierEffect
   | CheckModifierEffect
   | BodyCheckModifierEffect
