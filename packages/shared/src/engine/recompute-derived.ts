@@ -1444,6 +1444,12 @@ export function recomputeDerived(state: GameState): GameState {
  * @param char - The character in play whose prowess to compute.
  * @param charDef - The character's card definition.
  * @param creatureRace - The lowercase race of the attacking creature (e.g. "orc").
+ * @param strikeMode - How the character is facing the strike (`'tap'`, `'untap'`,
+ *   `'dodge'`, `'reroll'`). Exposed to conditions as `combat.strikeMode` so a
+ *   modifier can gate on "when tapping to face a strike", e.g. Stabbing Tongue
+ *   of Fire (ba-81): `+1 prowess` `when: { "combat.strikeMode": "tap" }`. When
+ *   omitted, `combat.strikeMode` is absent and such a modifier does not apply
+ *   (so it never leaks into non-facing prowess like effective-stats).
  * @returns The character's prowess value including combat-conditional effects.
  */
 export function computeCombatProwess(
@@ -1451,6 +1457,7 @@ export function computeCombatProwess(
   char: CharacterInPlay,
   charDef: CharacterCard,
   creatureRace: string,
+  strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
 ): number {
   const inPlayNames = buildInPlayNames(state);
   const charInfo = buildBearerContext(charDef);
@@ -1460,6 +1467,7 @@ export function computeCombatProwess(
     target: charInfo,
     inPlay: inPlayNames,
     enemy: { race: creatureRace, name: '', prowess: 0, body: null },
+    combat: { strikeMode },
   };
 
   const charEffects = collectCharacterEffects(state, char, context);

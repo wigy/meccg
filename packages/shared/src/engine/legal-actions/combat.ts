@@ -983,15 +983,20 @@ function resolveStrikeActions(
   const charName = charDef?.name ?? (currentStrike.characterId as string);
   // Recompute prowess with combat context when creature race is known,
   // so combat-conditional weapon effects (e.g. Glamdring vs Orcs) apply.
-  let baseProwess: number;
+  // The tap and untap options are computed with their own `strikeMode` so a
+  // "when tapping to face a strike" modifier (Stabbing Tongue of Fire ba-81)
+  // is reflected in the tap need but not the stay-untapped need.
+  let baseProwessTap: number;
+  let baseProwessUntap: number;
   if (allyMatch) {
     // Allies use prowess from their instance override (e.g. a creature
     // converted by Ready to His Will) or their card definition.
-    baseProwess = allyEffectiveProwess(state, allyMatch.ally);
+    baseProwessTap = baseProwessUntap = allyEffectiveProwess(state, allyMatch.ally);
   } else if (combat.creatureRace && charDef && isCharacterCard(charDef) && charData) {
-    baseProwess = computeCombatProwess(state, charData, charDef, combat.creatureRace);
+    baseProwessTap = computeCombatProwess(state, charData, charDef, combat.creatureRace, 'tap');
+    baseProwessUntap = computeCombatProwess(state, charData, charDef, combat.creatureRace, 'untap');
   } else {
-    baseProwess = charData?.effectiveStats?.prowess ?? 0;
+    baseProwessTap = baseProwessUntap = charData?.effectiveStats?.prowess ?? 0;
   }
   // For agent attacks, use the agent's rolled total (2d6 + modified prowess) as
   // the effective prowess the character must beat (rule 3.iv.6.1).
@@ -1009,8 +1014,8 @@ function resolveStrikeActions(
   // taps supporters.
   const supportBonus = currentStrike.supportCount ?? 0;
   const strikeBonus = currentStrike.strikeProwessBonus ?? 0;
-  const tapProwess = baseProwess - statusPenalty - excessPenalty + supportBonus + strikeBonus;
-  const untapProwess = baseProwess - stayUntappedPenalty(charDef) - statusPenalty - excessPenalty + supportBonus + strikeBonus;
+  const tapProwess = baseProwessTap - statusPenalty - excessPenalty + supportBonus + strikeBonus;
+  const untapProwess = baseProwessUntap - stayUntappedPenalty(charDef) - statusPenalty - excessPenalty + supportBonus + strikeBonus;
 
   const tapNeed = Math.max(2, strikeProwess - tapProwess + 1);
   const tapExplanation = combat.attackSource.type === 'agent'
