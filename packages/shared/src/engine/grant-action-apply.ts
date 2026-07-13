@@ -244,6 +244,35 @@ function runGrantApply(
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
+  if (apply.type === 'untap-company-tap-bearer') {
+    // Strangling Coils (ba-76): "you may untap all tapped characters in The
+    // Balrog's company. If then untapped, tap The Balrog." Untap only *tapped*
+    // characters (wounded/inverted are left as-is), then re-tap the bearer if
+    // the untap left it untapped (a wounded bearer is not re-tapped).
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const bearerId = ctx.action.characterId;
+    const company = findCharacterCompany(bearerPlayer.companies, bearerId);
+    if (!company) {
+      return { error: `${ctx.charName} is not in any company` };
+    }
+    const chars = { ...bearerPlayer.characters };
+    for (const memberId of company.characters) {
+      const member = chars[memberId];
+      if (member && member.status === CardStatus.Tapped) {
+        const memberDef = defById(state, member.definitionId);
+        logDetail(`Grant-action ${ctx.action.actionId}: untapping ${memberDef?.name ?? memberId as string}`);
+        chars[memberId] = { ...member, status: CardStatus.Untapped };
+      }
+    }
+    const bearerNow = chars[bearerId];
+    if (bearerNow && bearerNow.status === CardStatus.Untapped) {
+      logDetail(`Grant-action ${ctx.action.actionId}: re-tapping bearer ${ctx.charName}`);
+      chars[bearerId] = { ...bearerNow, status: CardStatus.Tapped };
+    }
+    newPlayers[ctx.playerIndex] = { ...bearerPlayer, characters: chars };
+    return { updatedChar: chars[bearerId] ?? char, effects: [], stateOps: [] };
+  }
+
   if (apply.type === 'add-constraint') {
     const constraintKind = apply.constraint;
     if (!constraintKind) {
@@ -1155,6 +1184,20 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   });
   for (const op of result.stateOps) {
     finalState = op(finalState);
+  }
+
+  // `oncePerTurn` abilities record a turn-scoped `granted-action-used`
+  // constraint so the scanner withholds the ability for the rest of the turn
+  // (Strangling Coils ba-76's once-per-turn untap).
+  if (staticEffect?.oncePerTurn === true) {
+    logDetail(`Grant-action ${action.actionId}: marking used this turn (source ${sourceName})`);
+    finalState = addConstraint(finalState, {
+      source: action.sourceCardId,
+      sourceDefinitionId: action.sourceCardDefinitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'player', playerId: action.player },
+      kind: { type: 'granted-action-used', sourceInstanceId: action.sourceCardId, actionId: action.actionId },
+    });
   }
 
   return {

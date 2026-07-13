@@ -81,7 +81,8 @@ export type GrantActionPhaseFilter =
   | 'anyPhase'
   | 'opposingSitePhase'
   | 'freeCouncil'
-  | 'activeSitePhase';
+  | 'activeSitePhase'
+  | 'mhPhase';
 
 /**
  * Whether `effect` passes the given {@link GrantActionPhaseFilter}.
@@ -96,7 +97,44 @@ function matchesPhaseFilter(
   if (filter === 'opposingSitePhase') return effect.opposingSitePhase === true;
   if (filter === 'freeCouncil') return effect.freeCouncil === true;
   if (filter === 'activeSitePhase') return effect.activeSitePhase === true;
+  if (filter === 'mhPhase') return effect.mhPhaseOnly === true;
   return false;
+}
+
+/**
+ * Whether a grant-action effect should be *emitted* for the current scan.
+ *
+ * With an explicit {@link GrantActionPhaseFilter} the effect must carry the
+ * corresponding flag ({@link matchesPhaseFilter}). Without a filter — the
+ * organization-phase default scan — every grant-action is emitted **except**
+ * those that opt into a restrictive window: `mhPhaseOnly` abilities (offered
+ * only by the dedicated `'mhPhase'` pass in the M/H phase) must not leak into
+ * the organization phase, mirroring how {@link extractGrantActions} already
+ * withholds `endOfTurnOnly` abilities.
+ */
+function passesPhaseGate(
+  effect: import('../../types/effects.js').GrantActionEffect,
+  filter?: GrantActionPhaseFilter,
+): boolean {
+  if (filter) return matchesPhaseFilter(effect, filter);
+  return effect.mhPhaseOnly !== true;
+}
+
+/**
+ * Whether a `oncePerTurn` grant-action has already been used this turn.
+ * Consults the turn-scoped `granted-action-used` active constraint keyed by
+ * the source card instance and the action id.
+ */
+function grantActionUsedThisTurn(
+  state: GameState,
+  sourceInstanceId: CardInstanceId,
+  actionId: string,
+): boolean {
+  return state.activeConstraints.some(c =>
+    c.kind.type === 'granted-action-used'
+    && c.kind.sourceInstanceId === sourceInstanceId
+    && c.kind.actionId === actionId,
+  );
 }
 
 /**
@@ -580,7 +618,8 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
     for (const hazard of char.hazards) {
       const grantActions = extractGrantActions(state, hazard.definitionId);
       for (const effect of grantActions) {
-        if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+        if (!passesPhaseGate(effect, phaseFilter)) continue;
+        if (effect.oncePerTurn && grantActionUsedThisTurn(state, hazard.instanceId, effect.action)) continue;
         const hazardDef = defById(state, hazard.definitionId);
         // Rule 10.08: only cards that carry the 'corruption' game keyword
         // (or have cardType 'hazard-corruption') qualify for the no-tap −3
@@ -713,7 +752,8 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       if (charEffects) {
         for (const effect of charEffects) {
           if (effect.type !== 'grant-action') continue;
-          if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+          if (!passesPhaseGate(effect, phaseFilter)) continue;
+          if (effect.oncePerTurn && grantActionUsedThisTurn(state, char.instanceId, effect.action)) continue;
 
           // Check cost: if tap is "self", the character must be untapped
           if (!canPayCost(effect.cost, char)) {
@@ -848,7 +888,8 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
     for (const ally of char.allies) {
       const grantActions = extractGrantActions(state, ally.definitionId);
       for (const effect of grantActions) {
-        if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+        if (!passesPhaseGate(effect, phaseFilter)) continue;
+        if (effect.oncePerTurn && grantActionUsedThisTurn(state, ally.instanceId, effect.action)) continue;
         // A `tap: self` cost (e.g. Mistress Lobelia dm-178) requires the ally
         // itself to be untapped; `discard: self` and cost-free abilities are
         // always payable (canPayCost returns true when there is no tap cost).
@@ -892,7 +933,8 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
     for (const item of char.items) {
       const grantActions = extractGrantActions(state, item.definitionId);
       for (const effect of grantActions) {
-        if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+        if (!passesPhaseGate(effect, phaseFilter)) continue;
+        if (effect.oncePerTurn && grantActionUsedThisTurn(state, item.instanceId, effect.action)) continue;
         if (!canPayCost(effect.cost, char, item)) {
           const def = defById(state, item.definitionId);
           logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: cost not payable (item or bearer tapped)`);

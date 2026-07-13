@@ -1407,6 +1407,22 @@ export interface ActiveConstraint {
          * company that contains The Balrog avatar ("against his company").
          */
         readonly restrictToBalrogCompany: boolean;
+      }
+    | {
+        /**
+         * Marks a specific grant-action — identified by its source card
+         * instance and action id — as already activated this turn. Placed by
+         * the grant-action reducer when an ability declared `oncePerTurn: true`
+         * resolves (e.g. *Strangling Coils* ba-76's once-per-turn untap of The
+         * Balrog's company); the generic grant-action scanner skips the ability
+         * while this constraint is live. Turn-scoped, so it clears at the next
+         * untap phase.
+         */
+        readonly type: 'granted-action-used';
+        /** The source card instance whose ability was used. */
+        readonly sourceInstanceId: CardInstanceId;
+        /** The `action` identifier of the used grant-action. */
+        readonly actionId: string;
       };
 }
 

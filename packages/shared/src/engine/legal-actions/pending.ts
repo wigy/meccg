@@ -1136,6 +1136,11 @@ function applyOneConstraint(
       // directly by `cancelAttackActions` (combat.ts) and consumed by
       // `handleCancelAttack` — no broad legal-action filtering needed here.
       return base;
+    case 'granted-action-used':
+      // Strangling Coils (ba-76): a once-per-turn marker consulted directly by
+      // the grant-action scanner (`grantedActionActivations`) to withhold the
+      // used ability — no broad legal-action filtering needed here.
+      return base;
   }
 }
 

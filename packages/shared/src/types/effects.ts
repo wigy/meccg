@@ -1230,6 +1230,26 @@ export interface GrantActionEffect extends EffectBase {
    */
   readonly endOfTurnOnly?: boolean;
   /**
+   * When true, the ability is activatable **only** during the controller's
+   * Movement/Hazard phase — like {@link endOfTurnOnly} this *restricts* rather
+   * than *extends*: the generic per-phase scanner excludes it from the
+   * organization-phase default scan (`grantedActionActivations` with no phase
+   * filter) and it is emitted only by the dedicated M/H `'mhPhase'` filter pass
+   * (`legal-actions/movement-hazard.ts`). Used by *Strangling Coils* (ba-76):
+   * "Once during his movement/hazard phase, you may untap all tapped characters
+   * in The Balrog's company."
+   */
+  readonly mhPhaseOnly?: boolean;
+  /**
+   * When true, the ability may be activated at most **once per turn**. On a
+   * successful activation the reducer (`grant-action-apply.ts`) records a
+   * turn-scoped `granted-action-used` active constraint keyed by the source
+   * card instance and action id; the generic grant-action scanner skips the
+   * ability while that constraint is live. Used by *Strangling Coils* (ba-76)'s
+   * once-per-turn untap ability.
+   */
+  readonly oncePerTurn?: boolean;
+  /**
    * When true, the ability is activatable **only** while a corruption
    * check by a character in the bearer's company is awaiting its roll —
    * i.e. during a unified `corruption-check` pending resolution or the
@@ -1404,6 +1424,7 @@ export type TriggeredActionType =
   | 'roll-then-apply'
   | 'transform-site'
   | 'untap-site'
+  | 'untap-company-tap-bearer'
   | 'cancel-current-attack'
   | 'win-condition-roll'
   | 'win-game';
@@ -1822,6 +1843,19 @@ export interface UntapSiteAction extends TriggeredActionBase {
 }
 
 /**
+ * `untap-company-tap-bearer` — untap every tapped character in the bearer's
+ * company (Tapped → Untapped; wounded/inverted characters are unaffected),
+ * then, **if the bearer is now untapped**, tap the bearer. Faithfully models
+ * *Strangling Coils* (ba-76): "you may untap all tapped characters in The
+ * Balrog's company. If then untapped, tap The Balrog." A wounded bearer is not
+ * re-tapped (the "if then untapped" guard is false). Type-only marker — the
+ * apply carries no fields; the bearer is the character carrying the source card.
+ */
+export interface UntapCompanyTapBearerAction extends TriggeredActionBase {
+  readonly type: 'untap-company-tap-bearer';
+}
+
+/**
  * `cancel-current-attack` — cancel the combat currently in `state.combat`
  * (delegates to the shared `resolveCancelAttackEntry`). Used as the `onPass`
  * verb of a `dice-check` enqueued by a roll-to-cancel ability (Going Ever
@@ -1874,6 +1908,7 @@ export type TriggeredAction =
   | ModifyCurrentStrikeProwessAction
   | TransformSiteAction
   | UntapSiteAction
+  | UntapCompanyTapBearerAction
   | CancelCurrentAttackAction;
 
 /**

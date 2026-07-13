@@ -3156,6 +3156,9 @@ function playHazardsActions(
       actions.push(...tapDiscardAttachedHazardActions(state, playerId, company));
     }
     actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+    // Movement/Hazard-phase-only grant-actions (Strangling Coils ba-76's
+    // once-per-turn untap of The Balrog's company).
+    actions.push(...grantedActionActivations(state, playerId, 'mhPhase'));
   }
 
   // Hazard player may tap an in-play dual-mode creature-permanent-event
