@@ -414,7 +414,59 @@
       "leader",
       "balrog-specific"
     ],
-    "effects": [],
-    "text": "Unique. Balrog specific. Leader. Manifestation of Umagaur the Pale. Discard on a body check result of 9. +2 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters."
+    "discardBodyCheck": [
+      9
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.keywords": {
+            "$includes": "balrog-specific"
+          }
+        }
+      }
+    ],
+    "text": "Unique. Balrog specific. Leader. Manifestation of Umagaur the Pale. Discard on a body check result of 9. +2 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters.",
+    "certified": "2026-07-13"
   }
 ]
