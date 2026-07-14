@@ -2768,6 +2768,42 @@ Shield — Warrior only). The item must be untapped when activated.
   "when": { "bearer.skills": { "$includes": "warrior" } } }
 ```
 
+### 11a. `flee-from-strike`
+
+A from-hand combat **permanent-event** the defender plays to make a named
+character "flee" a strike he would likely lose. Offered (to the defending
+player) during the `resolve-strike` sub-phase when the current strike is
+assigned to a character whose name equals `characterName` and the strike's
+prowess is **strictly higher** than that character's effective prowess. The
+struck target must be a real character (not an ally) — only characters untap,
+which the delayed skip needs. Gate "Cannot be duplicated" with a
+`duplication-limit` (scope `game`, checked by name via `countCopiesInPlay`).
+
+On play (`flee-from-strike` action → `handleFleeFromStrike` in
+`combat-actions.ts`):
+
+- the current strike is canceled (marked `'canceled'`, combat advances via
+  `nextStrikePhase`);
+- the named character taps if untapped;
+- the card leaves hand and enters the controller's `cardsInPlay` (attached to
+  the character), carrying a one-shot **`skip-next-untap`** active constraint
+  (`scope: until-cleared`).
+
+The next time that character would untap during the untap phase,
+`performUntap` (`reducer-untap.ts`) holds him tapped, removes the constraint,
+and discards the in-play card to its owner's discard pile — a single-use lock.
+
+```json
+{ "type": "flee-from-strike", "characterName": "The Balrog" }
+```
+
+Used by Fled into Darkness (ba-18): "Playable before the strike sequence on
+The Balrog facing a strike with a prowess higher than his. The strike is
+canceled and The Balrog taps, if untapped. The next time The Balrog would
+otherwise untap, make him tapped instead and discard this card. Cannot be
+duplicated." — `flee-from-strike` `{ characterName: "The Balrog" }` +
+`duplication-limit` scope `game` max 1.
+
 ### 12. Combat-rule effects
 
 Each combat-mechanics override is a distinct effect type. The chain

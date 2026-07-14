@@ -673,6 +673,21 @@ export interface CancelStrikeAction {
 }
 
 /**
+ * Play a `flee-from-strike` permanent-event (e.g. Fled into Darkness ba-18)
+ * from hand during the resolve-strike sub-phase. The current strike against
+ * the named character (The Balrog) is canceled, the character taps if untapped,
+ * and the card enters play with a one-shot skip-next-untap constraint.
+ */
+export interface FleeFromStrikeAction {
+  /** Action discriminant. */
+  readonly type: 'flee-from-strike';
+  /** The defending player playing the card. */
+  readonly player: PlayerId;
+  /** The `flee-from-strike` card being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Play a `protect-from-strike-assignment` short event (e.g. Ruse mode B)
  * from hand during the assign-strikes phase. The targeted character cannot
  * be assigned any strike from the current attack.

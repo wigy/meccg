@@ -25,7 +25,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
@@ -239,6 +239,80 @@ export function handleCancelStrike(state: GameState, action: GameAction, combat:
   const newAssignments = [...combat.strikeAssignments];
   newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
 
+  const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
+  const next = nextStrikePhase(combatWithAssignments);
+  if (!next) {
+    return finalizeCombat({ ...nextState, combat: combatWithAssignments });
+  }
+  return {
+    state: { ...nextState, combat: { ...combatWithAssignments, ...next } },
+  };
+}
+
+/**
+ * Fled into Darkness (ba-18): the defending player plays a `flee-from-strike`
+ * permanent-event from hand during resolve-strike to make the named character
+ * (The Balrog) flee the current strike. The strike is canceled, the character
+ * taps if untapped, the card enters play attached to the character, and a
+ * one-shot `skip-next-untap` constraint is installed so the character stays
+ * tapped through his next untap phase (at which point this card is discarded).
+ */
+export function handleFleeFromStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'flee-from-strike') return wrongActionType(state, action, 'flee-from-strike');
+
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const handCard = findById(defPlayer.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Flee-from-strike card not found in hand' };
+  const cardDef = defById(state, handCard.definitionId);
+  const effect = getCardEffects(cardDef).find(
+    (e): e is FleeFromStrikeEffect => e.type === 'flee-from-strike',
+  );
+  if (!effect) return { state, error: 'Card has no flee-from-strike effect' };
+
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return { state, error: 'No current unresolved strike' };
+  const targetCharId = currentStrike.characterId;
+  const targetChar = defPlayer.characters[targetCharId];
+  if (!targetChar) return { state, error: 'Struck character not found for flee-from-strike' };
+
+  const cardLabel = cardName(state, handCard.definitionId);
+  logDetail(`${cardLabel}: ${effect.characterName} flees the strike — strike canceled, character taps (if untapped), skip-next-untap installed`);
+
+  // Remove the card from hand, place it into play attached to the character, and
+  // tap the character if untapped.
+  let nextState = updatePlayer(state, defPlayerIndex, p => {
+    const withoutCard = removeById(p.hand, handCard.instanceId);
+    const withInPlay = {
+      ...p,
+      hand: withoutCard,
+      cardsInPlay: [
+        ...p.cardsInPlay,
+        {
+          instanceId: handCard.instanceId,
+          definitionId: handCard.definitionId,
+          status: CardStatus.Untapped,
+          attachedTo: targetCharId,
+        },
+      ],
+    };
+    const char = withInPlay.characters[targetCharId];
+    if (!char || char.status !== CardStatus.Untapped) return withInPlay;
+    return updateCharacter(withInPlay, targetCharId, c => ({ ...c, status: CardStatus.Tapped }));
+  });
+
+  // Install the one-shot skip-next-untap constraint on the character.
+  nextState = addConstraint(nextState, {
+    source: handCard.instanceId,
+    sourceDefinitionId: handCard.definitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'character', characterId: targetCharId },
+    kind: { type: 'skip-next-untap', cardInstanceId: handCard.instanceId },
+  });
+
+  // Cancel the current strike and advance combat.
+  const newAssignments = [...combat.strikeAssignments];
+  newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
   const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
   const next = nextStrikePhase(combatWithAssignments);
   if (!next) {

@@ -258,8 +258,19 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/FledintoDarkness.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable before the strike sequence on The Balrog facing a strike with a prowess higher than his. The strike is canceled and The Balrog taps, if untapped. The next time The Balrog would otherwise untap, make him tapped instead and discard this card. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "flee-from-strike",
+        "characterName": "The Balrog"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Playable before the strike sequence on The Balrog facing a strike with a prowess higher than his. The strike is canceled and The Balrog taps, if untapped. The next time The Balrog would otherwise untap, make him tapped instead and discard this card. Cannot be duplicated.",
+    "certified": "2026-07-14"
   },
   {
     "cardType": "hazard-event",

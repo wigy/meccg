@@ -1290,6 +1290,20 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Fled into Darkness (ba-18): a **one-shot** untap skip on a character.
+         * The next time the character would untap during the untap phase he
+         * stays tapped instead; the constraint is then removed and the source
+         * card (a `flee-from-strike` permanent-event in the owner's cardsInPlay)
+         * is discarded. Scoped to `until-cleared` so it persists across turns
+         * until that single untap fires. `cardInstanceId` is the in-play card to
+         * discard when the skip is consumed.
+         */
+        readonly type: 'skip-next-untap';
+        /** The `flee-from-strike` card instance to discard when the skip fires. */
+        readonly cardInstanceId: import('./common.js').CardInstanceId;
+      }
+    | {
+        /**
          * Marker placed when a `modify-attack` (fromHand) card with
          * `duplication-limit scope "attack"` is played. Stored with
          * `scope: { kind: 'attack' }` so it is swept when combat
