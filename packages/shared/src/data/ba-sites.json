@@ -216,7 +216,11 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Rohan",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Pûkel-creature",
@@ -234,7 +238,7 @@
     },
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Adjacent Sites: Dunharrow (0), The Gem-deeps (8), The Sulfur-deeps (9)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2): (1st) Pûkel-creature — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "text": "Adjacent Sites: Dunharrow (0), The Gem-deeps (8), The Sulfur-deeps (9)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2): (1st) Pûkel-creature — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Any Undead creature or Pûkel-creature may be keyed to this site.",
     "unique": true,
     "effects": [
       {
@@ -245,8 +249,19 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "pûkel-creature"
       }
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "balrog-site",
