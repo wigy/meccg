@@ -1595,13 +1595,18 @@ function applyShortEventOnEntersPlay(
           logDetail(`add-constraint(character-stat-modifier): missing stat or value — fizzle`);
           continue;
         }
-        logDetail(`"${def.name}" played — adding character-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} on ${characterId as string} (scope ${scopeName})`);
+        // Optional "while <card> is in play" gate (Heart of Dark Fire ba-63):
+        // the bonus is re-checked by the resolver and lapses if the named card
+        // leaves play mid-turn.
+        const requiresCardInPlay = onEvent.apply.requiresCardInPlay;
+        const gateSuffix = requiresCardInPlay ? ` while ${requiresCardInPlay} in play` : '';
+        logDetail(`"${def.name}" played — adding character-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} on ${characterId as string} (scope ${scopeName})${gateSuffix}`);
         state = addConstraint(state, {
           source: handCard.instanceId,
           sourceDefinitionId: handCard.definitionId,
           scope: { kind: 'turn' },
           target: { kind: 'character', characterId },
-          kind: { type: 'character-stat-modifier', stat, value, characterId },
+          kind: { type: 'character-stat-modifier', stat, value, characterId, ...(requiresCardInPlay ? { requiresCardInPlay } : {}) },
         });
         continue;
       }

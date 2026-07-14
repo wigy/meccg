@@ -763,18 +763,32 @@ as for item bonuses.
 - `stat` — the stat to boost: `"prowess"`, `"body"`, or `"direct-influence"`.
 - `value` — integer bonus (positive to increase).
 - `characterId` — the instance ID of the target character.
+- `requiresCardInPlay` *(optional)* — name of a card that must remain in play
+  (for the character's owner) for the bonus to apply. Re-checked by the resolver
+  on every stat computation via the attachment-aware `isCardNameInPlayForPlayer`,
+  so the bonus lapses the instant the named card leaves play. Omit for an
+  unconditional bonus (Vilya style).
 
 Emitted via `on-event: self-enters-play` → `add-constraint` with
 `constraint: "character-stat-modifier"` when the card is played on its
 target character. The target is read from `action.targetCharacterId`.
 Swept at turn-end by the existing `scope: { kind: 'turn' }` sweep.
 
-Used by: *Vilya* (+4 prowess / +2 body / +6 direct-influence on Elrond).
+Used by: *Vilya* (+4 prowess / +2 body / +6 direct-influence on Elrond);
+*Heart of Dark Fire* (ba-63) — +5 direct influence on The Balrog this turn,
+gated `requiresCardInPlay: "Strangling Coils"`.
 
 ```json
 { "type": "on-event", "event": "self-enters-play",
   "apply": { "type": "add-constraint", "constraint": "character-stat-modifier",
              "stat": "prowess", "value": 4, "scope": "turn" } }
+```
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "character-stat-modifier",
+             "stat": "direct-influence", "value": 5, "scope": "turn",
+             "requiresCardInPlay": "Strangling Coils" } }
 ```
 
 ### 6b. `draw-modifier`
