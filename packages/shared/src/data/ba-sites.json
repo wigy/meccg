@@ -724,7 +724,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Grey Mountain Narrows",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -742,8 +745,9 @@
     },
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Adjacent Sites: The Wind Throne (0), The Under-leas (5), The Rusted-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Orcs — 3 strikes with 7 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "text": "Adjacent Sites: The Wind Throne (0), The Under-leas (5), The Rusted-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Orcs — 3 strikes with 7 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Any Drake creature (except Sea Serpent) may be keyed to this site.",
     "unique": true,
+    "certified": "2026-07-14",
     "effects": [
       {
         "type": "site-rule",
@@ -752,6 +756,14 @@
           "siteTypes": [
             "shadow-hold"
           ]
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "drake",
+        "except": {
+          "name": "Sea Serpent"
         }
       }
     ]
