@@ -1606,8 +1606,28 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Carn Dûm",
-    "effects": [],
-    "text": "Unique. +1 prowess against Orcs and Elves."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "elf"
+        }
+      }
+    ],
+    "text": "Unique. +1 prowess against Orcs and Elves.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-character",
