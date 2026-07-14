@@ -170,6 +170,18 @@ Optional `target` scopes:
   You've Come Back* (le-138): "the mind of each **other** non-follower,
   non-Ringwraith, non-Wizard character in his company increases by one" —
   `{ "stat": "mind", "value": 1, "target": "company-others", "when": { "$and": [ { "bearer.race": { "$ne": "wizard" } }, { "bearer.race": { "$ne": "ringwraith" } }, { "bearer.isFollower": { "$ne": true } } ] } }`.
+- `"company"` — applies to **every** character in the bearer's company,
+  **including the bearer** (contrast `company-others`). Collected once per
+  company member by `collectCompanyItemEffects`, which scans both the `.items`
+  **and** the attached `.hazards` of every company member, so the modifier may
+  ride an item (The One Ring's +1 corruption) or an attached hazard perm-event.
+  Each effect's `when` is evaluated against the **modified** character's context
+  (`bearer.race`, …). Used by *Diminish and Depart* (ba-17): "All Elves and
+  Hobbits in the target's company have +1 mind, and a Wizard in the company has
+  -1 direct influence" —
+  `{ "stat": "mind", "value": 1, "target": "company", "when": { "bearer.race": { "$in": ["elf", "hobbit"] } } }`
+  and
+  `{ "stat": "direct-influence", "value": -1, "target": "company", "when": { "bearer.race": "wizard" } }`.
 - *(no target)* on a hazard-creature card — self-modifier applied to the
   creature's own prowess at combat initiation. The context includes
   `company.facedRaces`, derived from `phaseState.hazardsEncountered` by
