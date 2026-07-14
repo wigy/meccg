@@ -2603,8 +2603,60 @@ export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefin
     e => e.type === 'surface-region-adjacency'
       || e.type === 'surface-site-roll-zero'
       || e.type === 'site-instance-transform'
-      || e.type === 'eddy-lock',
+      || e.type === 'eddy-lock'
+      || e.type === 'site-lock',
   );
+}
+
+/**
+ * Whether the given site *definition* never untaps for `forPlayer` — i.e. that
+ * player's `cardsInPlay` holds a bound (`attachedToSite === siteDefId`),
+ * non-`pendingTriggerAttack` card carrying an `eddy-lock` (ba-57) or `site-lock`
+ * (ba-72) effect. Used at re-placement (mh-hazard-play step 8) so the owner's
+ * company arrives at a version of the locked site **tapped** ("never untaps for
+ * you"). The engine never untaps a stationary site, so re-placement is the only
+ * refresh point.
+ */
+export function siteNeverUntapsForOwner(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+  forPlayer: PlayerId,
+): boolean {
+  if (!siteDefId) return false;
+  const owner = state.players.find(p => p.id === forPlayer);
+  if (!owner) return false;
+  return owner.cardsInPlay.some(c => {
+    if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) return false;
+    return getCardEffects(defById(state, c.definitionId)).some(
+      e => e.type === 'eddy-lock' || e.type === 'site-lock',
+    );
+  });
+}
+
+/**
+ * Sum of the `factionInfluenceModifier` of every in-play `site-lock` card (of
+ * either player) bound to the given site *definition* and not still
+ * `pendingTriggerAttack`. People Diminished (ba-72): "-5 to each attempt against
+ * any faction at any version of this site." Applied to the faction-influence
+ * need computed in the site-phase legal-action path.
+ */
+export function siteFactionInfluenceModifier(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+): number {
+  if (!siteDefId) return 0;
+  let total = 0;
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
+      for (const e of getCardEffects(defById(state, c.definitionId))) {
+        if (e.type === 'site-lock' && typeof e.factionInfluenceModifier === 'number') {
+          total += e.factionInfluenceModifier;
+        }
+      }
+    }
+  }
+  return total;
 }
 
 /**

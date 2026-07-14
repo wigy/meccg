@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1845,6 +1845,14 @@ function playResourcesActions(
               if (constraint.kind.siteDefinitionId !== currentSiteDefId) continue;
               infModifier += constraint.kind.value;
               infParts.push(`site influence bonus ${formatSignedNumber(constraint.kind.value)}`);
+            }
+            // People Diminished (ba-72): a bound `site-lock` card applies its
+            // `factionInfluenceModifier` (-5) to every faction-influence attempt
+            // at any version of this site, for either player.
+            const siteLockMod = siteFactionInfluenceModifier(state, currentSiteDefId);
+            if (siteLockMod !== 0) {
+              infModifier += siteLockMod;
+              infParts.push(`site lock ${formatSignedNumber(siteLockMod)}`);
             }
           }
         }
