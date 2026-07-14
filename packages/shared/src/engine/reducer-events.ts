@@ -20,7 +20,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, defById, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, defById, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
@@ -28,7 +28,7 @@ import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.
 import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { isCharacterCard } from '../types/cards.js';
+import { isCharacterCard, isItemCard } from '../types/cards.js';
 import type { CardDefinition } from '../types/cards.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
@@ -886,6 +886,76 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         logDetail(`${def.name}: ${joinForceStrike.characterName} not found in play — no join/force-strike applied`);
       }
     }
+  }
+
+  // Scourge of Fire (ba-75): a Balrog CvCC resource short-event. If The Balrog
+  // is untapped and in the current company-vs-company combat on the player's
+  // side, the player chooses and discards one item borne by the *opposing*
+  // company (a discard-one-company-item pending resolution on that company). The
+  // legal-action emitter (combatDiscardOpponentItemActions) already gated on the
+  // Balrog being untapped in the acting company and the opponent bearing an
+  // item, so here we resolve against the current CvCC state directly.
+  const discardOppItemEffect = (def.effects ?? []).find(
+    (e): e is import('../types/effects.js').CombatDiscardOpponentItemEffect =>
+      e.type === 'combat-discard-opponent-item',
+  );
+  if (discardOppItemEffect && newState.combat?.isCvCC) {
+    const combat = newState.combat;
+    // Identify the opposing company relative to the acting player.
+    let oppCompanyId: import('../types/common.js').CompanyId | undefined;
+    if (action.player === combat.defendingPlayerId) {
+      oppCompanyId = combat.attackSource.type === 'company-attack'
+        ? combat.attackSource.attackingCompanyId
+        : undefined;
+    } else if (action.player === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
+      oppCompanyId = combat.companyId;
+    }
+
+    // Discard the spent short-event to the player's discard pile first.
+    let working = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    }));
+
+    // Record the turn-scoped duplication marker ("cannot be duplicated on a
+    // given turn"): each play leaves a turn-scoped constraint from this
+    // definition, which the legal-action scanner counts to block a second copy.
+    if (findDuplicationLimitEffect(def, 'turn')) {
+      working = addConstraint(working, {
+        source: handCard.instanceId,
+        sourceDefinitionId: handCard.definitionId,
+        scope: { kind: 'turn' },
+        target: { kind: 'player', playerId: action.player },
+        kind: { type: 'attack-card-played' },
+      });
+      logDetail(`${def.name}: added turn-scoped duplication marker (cannot be duplicated on a given turn)`);
+    }
+
+    // Enqueue the item-discard choice on the opposing company (actor = the
+    // ba-75 player). Skips silently if the opposing company can't be resolved
+    // or bears no items (the emitter should have prevented the latter).
+    if (oppCompanyId) {
+      const oppPlayer = working.players.find(p => p.companies.some(co => co.id === oppCompanyId));
+      const oppCompany = oppPlayer ? companyById(oppPlayer.companies, oppCompanyId) : undefined;
+      const hasItem = (oppCompany?.characters ?? []).some(charId => {
+        const ch = oppPlayer!.characters[charId];
+        return !!ch && ch.items.some(it => isItemCard(defById(working, it.definitionId)));
+      });
+      if (hasItem) {
+        logDetail(`${def.name}: opponent must discard one item from company ${oppCompanyId as string}`);
+        working = enqueueResolution(working, {
+          source: handCard.instanceId,
+          actor: action.player,
+          scope: companySubphaseScope(working.phaseState.phase, oppCompanyId),
+          kind: { type: 'discard-one-company-item', companyId: oppCompanyId },
+        });
+      } else {
+        logDetail(`${def.name}: opposing company bears no items — nothing to discard`);
+      }
+    } else {
+      logDetail(`${def.name}: no opposing CvCC company resolved — nothing to discard`);
+    }
+    return { state: working };
   }
 
   if (interactiveEffects.length > 0) {

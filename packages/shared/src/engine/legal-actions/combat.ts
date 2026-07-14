@@ -13,13 +13,13 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId, CompanyId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
-import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter } from '../../types/cards.js';
+import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter, isItemCard } from '../../types/cards.js';
 import { CardStatus, SiteType, Alignment } from '../../types/common.js';
 import { isBalrogAvatarDef, stayUntappedPenalty, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
@@ -28,7 +28,7 @@ import { resolveDef } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep } from '../reducer-utils.js';
+import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
@@ -155,6 +155,10 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   // Whip of Many Thongs (ba-82): CvCC-only tap-to-cancel-a-weapon, available to
   // the Balrog's controller throughout the combat's action windows.
   const cancelWeaponActs = cancelWeaponActions(state, playerId, combat);
+  // Scourge of Fire (ba-75): CvCC resource short-event that discards an item
+  // from the opposing company, available to the Balrog's controller throughout
+  // the combat's action windows (same windows as the Whip's cancel-weapon).
+  const discardOppItemActs = combatDiscardOpponentItemActions(state, playerId, combat);
   const convertActions = convertCreatureToAllyActions(state, playerId, combat);
   const halveActions = halveStrikesActions(state, playerId, combat);
   const protectActions = protectFromStrikeAssignmentActions(state, playerId, combat);
@@ -179,6 +183,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
         return [
           ...cancelActions,
           ...cancelWeaponActs,
+          ...discardOppItemActs,
           ...convertActions,
           ...halveActions,
           ...protectActions,
@@ -190,7 +195,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           { action: { type: 'pass' as const, player: playerId }, viable: true },
         ];
       }
-      return [...cancelActions, ...cancelWeaponActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       // Each-character auto-attacks pre-assign strikes and open here, skipping
       // the `assign-strikes` cancel window. cancelActions is gated to the
@@ -201,7 +206,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       // CvCC resolve-strike: two-step sub-phase — attacker declares -3 first,
       // then defender resolves. No hazard window (rule 8.42: no hazards in CvCC).
       if (combat.isCvCC) {
-        return [...cvccResolveStrikeActions(state, playerId, combat), ...cancelWeaponActs, ...allyCombatBoosts];
+        return [...cvccResolveStrikeActions(state, playerId, combat), ...cancelWeaponActs, ...discardOppItemActs, ...allyCombatBoosts];
       }
 
       // Rule 3.iv.6.1: for agent attacks the attacker must roll first before
@@ -2495,6 +2500,124 @@ function cancelWeaponActions(
         viable: true,
       });
     }
+  }
+  return actions;
+}
+
+/**
+ * Scourge of Fire (ba-75) — `combat-discard-opponent-item` short-event plays.
+ *
+ * During a company-vs-company combat in which The Balrog is untapped and a
+ * participant on the acting player's side, the acting player may play a hand
+ * card carrying a `combat-discard-opponent-item` effect to choose and discard
+ * one item borne by the *opposing* company. One `play-short-event` action is
+ * offered per eligible hand card, gated on:
+ *   - the combat being CvCC, with the acting player owning one of the two
+ *     companies and The Balrog untapped in that company;
+ *   - the opposing company bearing at least one genuine item (nothing to
+ *     discard otherwise);
+ *   - the card's `card-in-play` play-condition (Flame of Udûn in play);
+ *   - the turn-scoped `duplication-limit` ("cannot be duplicated on a given
+ *     turn").
+ *
+ * Like {@link cancelWeaponActions}, the action is offered to whichever side The
+ * Balrog is on; a non-CvCC combat offers none.
+ */
+function combatDiscardOpponentItemActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (!combat.isCvCC) return [];
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  // Only proceed if the acting player has a hand card that carries the effect.
+  const candidates = player.hand.filter(hc =>
+    getCardEffects(defById(state, hc.definitionId)).some(
+      (e): e is CombatDiscardOpponentItemEffect => e.type === 'combat-discard-opponent-item',
+    ),
+  );
+  if (candidates.length === 0) return [];
+
+  // Identify the acting player's participating company and the opponent's.
+  let myCompanyId: CompanyId | undefined;
+  let oppPlayerId: PlayerId | undefined;
+  let oppCompanyId: CompanyId | undefined;
+  if (playerId === combat.defendingPlayerId) {
+    myCompanyId = combat.companyId;
+    oppPlayerId = combat.attackingPlayerId;
+    oppCompanyId = combat.attackSource.type === 'company-attack' ? combat.attackSource.attackingCompanyId : undefined;
+  } else if (playerId === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
+    myCompanyId = combat.attackSource.attackingCompanyId;
+    oppPlayerId = combat.defendingPlayerId;
+    oppCompanyId = combat.companyId;
+  } else {
+    return [];
+  }
+  if (!myCompanyId || oppPlayerId === undefined || !oppCompanyId) return [];
+
+  const myCompany = companyById(player.companies, myCompanyId);
+  if (!myCompany) return [];
+
+  // The Balrog must be untapped and in the acting player's participating company.
+  const balrogUntapped = myCompany.characters.some(charId => {
+    const charData = player.characters[charId];
+    if (!charData) return false;
+    const charDef = defById(state, charData.definitionId);
+    return !!charDef && isBalrogAvatarDef(charDef) && charData.status === CardStatus.Untapped;
+  });
+  if (!balrogUntapped) {
+    logDetail('combat-discard-opponent-item: The Balrog is not untapped in the acting company — not offered');
+    return [];
+  }
+
+  // The opposing company must bear at least one genuine item to discard.
+  const oppPlayer = playerById(state, oppPlayerId);
+  if (!oppPlayer) return [];
+  const oppCompany = companyById(oppPlayer.companies, oppCompanyId);
+  if (!oppCompany) return [];
+  const oppHasItem = oppCompany.characters.some(charId => {
+    const ch = oppPlayer.characters[charId];
+    return !!ch && ch.items.some(it => isItemCard(defById(state, it.definitionId)));
+  });
+  if (!oppHasItem) {
+    logDetail('combat-discard-opponent-item: opposing company bears no items — not offered');
+    return [];
+  }
+
+  const actions: EvaluatedAction[] = [];
+  for (const handCard of candidates) {
+    const def = defById(state, handCard.definitionId);
+    if (!def) continue;
+
+    // Play-condition: the named card (Flame of Udûn) must be in play.
+    const playCond = findPlayConditionEffect(def, 'card-in-play');
+    if (playCond?.cardName && !isCardNameInPlayForPlayer(state, player, playCond.cardName)) {
+      logDetail(`${def.name}: ${playCond.cardName} is not in play — not offered`);
+      continue;
+    }
+
+    // Turn-scoped duplication limit ("cannot be duplicated on a given turn").
+    const turnDupLimit = findDuplicationLimitEffect(def, 'turn');
+    if (turnDupLimit) {
+      const prior = countConstraintsFromDefinition(state, def.id);
+      if (prior >= turnDupLimit.max) {
+        logDetail(`${def.name}: duplication limit reached (${prior}/${turnDupLimit.max}) — not playable this turn`);
+        continue;
+      }
+    }
+
+    logDetail(`combat-discard-opponent-item available: ${def.name} may discard an item from the opposing company`);
+    actions.push({
+      action: {
+        type: 'play-short-event',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+      },
+      viable: true,
+    });
   }
   return actions;
 }

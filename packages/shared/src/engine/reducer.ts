@@ -116,7 +116,15 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   // (e.g. Searching Eye canceling Concealment). Route these through the phase
   // handler, which distinguishes resource vs hazard events correctly.
   const isChainShortEvent = state.chain != null && action.type === 'play-short-event';
-  if (state.combat != null && !isChainShortEvent && (COMBAT_ACTION_TYPES.has(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer')))) {
+  // A pending resolution queued for the acting player takes precedence over
+  // combat routing: while a resolution is on the stack (e.g. Scourge of Fire's
+  // discard-one-company-item during a CvCC), the legal actions are its
+  // resolution actions only. Some resolution actions share a type with a combat
+  // handler (e.g. `discard-item-from-company`, used both by An Article Missing's
+  // combat sub-phase and the discard-one-company-item resolution), so without
+  // this guard such an action would be misrouted to the combat handler.
+  const combatPendingTop = topResolutionFor(state, action.player);
+  if (state.combat != null && combatPendingTop === null && !isChainShortEvent && (COMBAT_ACTION_TYPES.has(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer')))) {
     logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
     const combatResult = handleCombatAction(state, action);
     if (!combatResult.error) {
