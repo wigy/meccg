@@ -681,7 +681,7 @@
     "name": "Súrion",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Surion.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "sage",
@@ -697,8 +697,62 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
-    "text": "Unique. Agent. +2 direct influence against Dúnedain and factions that can be played in Anfalas, Anórien, Belfalas, Lamedon, and Lebennin."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "$or": [
+            {
+              "reason": "influence-check",
+              "target.race": "dunadan"
+            },
+            {
+              "$and": [
+                {
+                  "reason": "faction-influence-check"
+                },
+                {
+                  "$or": [
+                    {
+                      "faction.race": "dunadan"
+                    },
+                    {
+                      "faction.playableRegions": {
+                        "$includes": "Anfalas"
+                      }
+                    },
+                    {
+                      "faction.playableRegions": {
+                        "$includes": "Anórien"
+                      }
+                    },
+                    {
+                      "faction.playableRegions": {
+                        "$includes": "Belfalas"
+                      }
+                    },
+                    {
+                      "faction.playableRegions": {
+                        "$includes": "Lamedon"
+                      }
+                    },
+                    {
+                      "faction.playableRegions": {
+                        "$includes": "Lebennin"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. Agent. +2 direct influence against Dúnedain and factions that can be played in Anfalas, Anórien, Belfalas, Lamedon, and Lebennin.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-character",
