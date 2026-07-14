@@ -8548,3 +8548,61 @@ Balrog attacker is covered by `isMinion`). The card's remaining text reuses
 shipped primitives: `duplication-limit` (scope `game`, max 1) for "Cannot be
 duplicated", and `on-event: play-deck-exhausted` → `move` self to `discard` for
 "Discard when any play deck is exhausted".
+
+### 66. `site-storm-devastation`
+
+A Balrog CvCC resource short-event (Crowned with Storm, ba-54) that devastates
+**everyone at the site** — both companies participating in the
+company-vs-company combat. When it resolves (during the combat, via the same
+CvCC action windows as `combat-discard-opponent-item`), it applies, in this
+fixed order:
+
+1. **Discard all no-body allies** at the site — any ally whose effective body is
+   `0`/absent (Great Bats as-74, Regiment of Black Crows as-76, Goldberry
+   tw-245, Nenseldë td-142). Each goes to its owner's discard pile.
+2. **Tap** every untapped ally and every untapped character *with a mind stat*.
+   Avatars (Balrog/Wizard/Ringwraith — printed mind `null`) are left untapped;
+   all other untapped characters and all remaining untapped allies are tapped.
+3. **Roll** for each character whose mind is `< characterMindBelow` and each ally
+   normally worth `< allyMpBelow` marshalling points (the ally card's printed
+   MP). The Balrog's controller rolls 2d6 per target; on `roll - 1 > body` the
+   target is **wounded**, or **eliminated** if already wounded. Each roll is a
+   separate explicit action.
+
+```json
+{ "type": "site-storm-devastation", "characterMindBelow": 8, "allyMpBelow": 3 }
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `characterMindBelow` | yes | Characters with a mind stat strictly below this are rolled against. |
+| `allyMpBelow` | yes | Allies whose printed MP is strictly below this are rolled against. |
+
+The tap (step 2) is applied at play time before the rolls are enqueued; because
+tapping only ever affects untapped cards and the roll outcome does not depend on
+status, the observable end-state is identical to applying it after the rolls
+(and an already-wounded target is never re-tapped).
+
+**Roll mechanic.** Each roll is enqueued as a generic `dice-check`
+(`comparison: 'gt'`, `threshold = body`, a constant `-1` modifier, so the pass
+condition is `roll - 1 > body`) with `requireTargetPresent: true` and a
+`wound-or-eliminate` onPass verb. `wound-or-eliminate` is roller-agnostic — it
+locates the target's actual owner (the roller controls only one of the two
+companies) and acts on a character (`targetCharacterId`) or ally
+(`targetInstanceId`): not-yet-wounded → status `inverted` (a wound);
+already-wounded (`inverted`) → eliminated (a character to its owner's out-of-play
+pile, an ally to its owner's discard pile). If a target has already left play
+when its roll comes up (e.g. an ally discarded when its host was eliminated by an
+earlier roll), the roll is skipped.
+
+**Playability** is gated by the `site-storm-devastation` legal-action emitter
+(`legal-actions/combat.ts`): the combat must be CvCC, the Balrog's controller
+must own one of the two companies with The Balrog in it, that company's current
+site must **not** carry the `under-deeps` keyword, and the opposing company must
+contain a Wizard (a character of race `wizard`). Offered to whichever side The
+Balrog is on.
+
+Implemented in `reducer-events.ts` (`handlePlayResourceShortEvent` — discard /
+tap / enqueue rolls), `pending-reducers.ts` (`applyDiceCheckBranch` —
+`wound-or-eliminate`), and `legal-actions/combat.ts` (`siteStormAtSiteActions`,
+wired into the CvCC combat action windows). Used by *Crowned with Storm* (ba-54).

@@ -959,6 +959,65 @@ function applyDiceCheckBranch(
     // the combat currently in progress. Fizzles harmlessly if combat is gone.
     return { state: resolveCancelAttackEntry(state) };
   }
+  if (branch.type === 'wound-or-eliminate') {
+    // Crowned with Storm (ba-54): "wounded or, if already wounded, eliminated".
+    // Owner-agnostic — the target may belong to either company in the CvCC, so
+    // locate the actual owner rather than assuming the roller.
+    if (ctx.targetCharacterId) {
+      const targetId = ctx.targetCharacterId;
+      const ownerIndex = state.players.findIndex(p => !!p.characters[targetId]);
+      if (ownerIndex === -1) {
+        logDetail(`wound-or-eliminate: character ${targetId as string} no longer in play — no-op`);
+        return { state };
+      }
+      const charInPlay = state.players[ownerIndex].characters[targetId];
+      if (charInPlay.status === CardStatus.Inverted) {
+        logDetail(`wound-or-eliminate: character ${targetId as string} already wounded → eliminated`);
+        return { state: eliminateCharacter(state, ownerIndex, targetId, charInPlay) };
+      }
+      logDetail(`wound-or-eliminate: character ${targetId as string} wounded`);
+      return {
+        state: updatePlayer(state, ownerIndex, p =>
+          updateCharacter(p, targetId, c => ({ ...c, status: CardStatus.Inverted }))),
+      };
+    }
+    if (ctx.targetInstanceId) {
+      const allyId = ctx.targetInstanceId;
+      for (let pi = 0; pi < state.players.length; pi++) {
+        const p = state.players[pi];
+        for (const key of Object.keys(p.characters)) {
+          const charId = key as import('../index.js').CardInstanceId;
+          const host = p.characters[charId];
+          const ally = host.allies.find(a => a.instanceId === allyId);
+          if (!ally) continue;
+          if (ally.status === CardStatus.Inverted) {
+            logDetail(`wound-or-eliminate: ally ${allyId as string} already wounded → eliminated (discarded)`);
+            return {
+              state: updatePlayer(state, pi, pp => {
+                const withAllyRemoved = updateCharacter(pp, charId, c => ({
+                  ...c,
+                  allies: c.allies.filter(a => a.instanceId !== allyId),
+                }));
+                return { ...withAllyRemoved, discardPile: [...withAllyRemoved.discardPile, toCardInstance(ally)] };
+              }),
+            };
+          }
+          logDetail(`wound-or-eliminate: ally ${allyId as string} wounded`);
+          return {
+            state: updatePlayer(state, pi, pp =>
+              updateCharacter(pp, charId, c => ({
+                ...c,
+                allies: c.allies.map(a => (a.instanceId === allyId ? { ...a, status: CardStatus.Inverted } : a)),
+              }))),
+          };
+        }
+      }
+      logDetail(`wound-or-eliminate: ally ${allyId as string} no longer in play — no-op`);
+      return { state };
+    }
+    logDetail('wound-or-eliminate: no target character/instance in context — no-op');
+    return { state };
+  }
   logDetail(`dice-check: branch verb "${branch.type}" not handled in resolution context — no-op`);
   return { state };
 }

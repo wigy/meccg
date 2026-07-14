@@ -28,7 +28,8 @@ import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.
 import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { isCharacterCard, isItemCard } from '../types/cards.js';
+import { isCharacterCard, isItemCard, isAllyCard } from '../types/cards.js';
+import { allyEffectiveBody } from './ally-stats.js';
 import type { CardDefinition } from '../types/cards.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
@@ -955,6 +956,157 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     } else {
       logDetail(`${def.name}: no opposing CvCC company resolved — nothing to discard`);
     }
+    return { state: working };
+  }
+
+  // Crowned with Storm (ba-54): a Balrog CvCC resource short-event that
+  // devastates *everyone at the site* — both companies participating in the
+  // company-vs-company combat. On resolution, in order: (1) discard all no-body
+  // allies at the site; (2) tap every untapped ally and every untapped
+  // character with a mind stat; (3) enqueue one wound-or-eliminate roll per
+  // character with a mind stat < characterMindBelow and per ally normally worth
+  // < allyMpBelow MP. The emitter (siteStormAtSiteActions) already gated on the
+  // combat being CvCC, the Balrog's company being present and not at an
+  // Under-deeps site, and the opposing company containing a Wizard.
+  const stormEffect = (def.effects ?? []).find(
+    (e): e is import('../types/effects.js').SiteStormDevastationEffect =>
+      e.type === 'site-storm-devastation',
+  );
+  if (stormEffect && newState.combat?.isCvCC) {
+    const combat = newState.combat;
+    // Resolve the two participating companies (owner index + company id).
+    let myCompanyId: import('../types/common.js').CompanyId | undefined;
+    let oppPlayerId: import('../index.js').PlayerId | undefined;
+    let oppCompanyId: import('../types/common.js').CompanyId | undefined;
+    if (action.player === combat.defendingPlayerId) {
+      myCompanyId = combat.companyId;
+      oppPlayerId = combat.attackingPlayerId;
+      oppCompanyId = combat.attackSource.type === 'company-attack' ? combat.attackSource.attackingCompanyId : undefined;
+    } else if (action.player === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
+      myCompanyId = combat.attackSource.attackingCompanyId;
+      oppPlayerId = combat.defendingPlayerId;
+      oppCompanyId = combat.companyId;
+    }
+
+    // Discard the spent short-event to the Balrog player's discard pile first.
+    let working = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    }));
+
+    // The set of companies "at the site" = the two CvCC participants.
+    const participants: Array<{ ownerIndex: number; companyId: import('../types/common.js').CompanyId }> = [];
+    if (myCompanyId) participants.push({ ownerIndex: playerIndex, companyId: myCompanyId });
+    if (oppPlayerId !== undefined && oppCompanyId) {
+      const oi = getPlayerIndex(working, oppPlayerId);
+      if (oi >= 0) participants.push({ ownerIndex: oi, companyId: oppCompanyId });
+    }
+
+    // (1) Discard all no-body allies (effective body 0/absent) at the site.
+    for (const { ownerIndex, companyId } of participants) {
+      const company = companyById(working.players[ownerIndex].companies, companyId);
+      if (!company) continue;
+      for (const charId of company.characters) {
+        const host = working.players[ownerIndex].characters[charId];
+        if (!host) continue;
+        const noBodyAllies = host.allies.filter(a => {
+          const b = allyEffectiveBody(working, a);
+          return b === undefined || b === 0;
+        });
+        if (noBodyAllies.length === 0) continue;
+        for (const a of noBodyAllies) {
+          logDetail(`${def.name}: discarding no-body ally ${a.instanceId as string} at the site`);
+        }
+        working = updatePlayer(working, ownerIndex, p => {
+          const withRemoved = updateCharacter(p, charId, c => ({
+            ...c,
+            allies: c.allies.filter(a => !noBodyAllies.some(n => n.instanceId === a.instanceId)),
+          }));
+          return { ...withRemoved, discardPile: [...withRemoved.discardPile, ...noBodyAllies.map(a => toCardInstance(a))] };
+        });
+      }
+    }
+
+    // (2) Tap every untapped ally and every untapped character with a mind stat.
+    for (const { ownerIndex, companyId } of participants) {
+      const company = companyById(working.players[ownerIndex].companies, companyId);
+      if (!company) continue;
+      for (const charId of company.characters) {
+        const host = working.players[ownerIndex].characters[charId];
+        if (!host) continue;
+        const charDef = defById(working, host.definitionId);
+        const hasMind = !!charDef && isCharacterCard(charDef) && charDef.mind !== null;
+        const tapChar = hasMind && host.status === CardStatus.Untapped;
+        const anyUntappedAlly = host.allies.some(a => a.status === CardStatus.Untapped);
+        if (!tapChar && !anyUntappedAlly) continue;
+        working = updatePlayer(working, ownerIndex, p =>
+          updateCharacter(p, charId, c => ({
+            ...c,
+            status: tapChar && c.status === CardStatus.Untapped ? CardStatus.Tapped : c.status,
+            allies: c.allies.map(a => (a.status === CardStatus.Untapped ? { ...a, status: CardStatus.Tapped } : a)),
+          })));
+        if (tapChar) logDetail(`${def.name}: tapping character ${charId as string} (has a mind stat)`);
+      }
+    }
+
+    // (3) Enqueue one wound-or-eliminate roll per qualifying character/ally.
+    // The Balrog's controller rolls 2d6 per target; on roll - 1 > body (i.e.
+    // roll > body + 1) the target is wounded, or eliminated if already wounded.
+    const scope = companySubphaseScope(working.phaseState.phase, myCompanyId ?? (participants[0]?.companyId));
+    for (const { ownerIndex, companyId } of participants) {
+      const company = companyById(working.players[ownerIndex].companies, companyId);
+      if (!company) continue;
+      for (const charId of company.characters) {
+        const host = working.players[ownerIndex].characters[charId];
+        if (!host) continue;
+        const charDef = defById(working, host.definitionId);
+        if (charDef && isCharacterCard(charDef) && charDef.mind !== null && charDef.mind < stormEffect.characterMindBelow) {
+          const body = charDef.body ?? 0;
+          logDetail(`${def.name}: enqueueing storm roll for character ${charDef.name} (mind ${charDef.mind} < ${stormEffect.characterMindBelow}, body ${body})`);
+          working = enqueueResolution(working, {
+            source: handCard.instanceId,
+            actor: action.player,
+            scope,
+            kind: {
+              type: 'dice-check',
+              label: `${def.name}: ${charDef.name} (roll - 1 > body ${body} → wound/eliminate)`,
+              modifiers: [{ kind: 'constant', value: -1 }],
+              threshold: body,
+              comparison: 'gt',
+              onPass: { type: 'wound-or-eliminate' },
+              continuation: { kind: 'dequeue-only' },
+              requireTargetPresent: true,
+              targetCharacterId: charId,
+            },
+          });
+        }
+        for (const ally of host.allies) {
+          const allyDef = defById(working, ally.definitionId);
+          const allyMp = isAllyCard(allyDef) ? allyDef.marshallingPoints : 0;
+          if (allyMp < stormEffect.allyMpBelow) {
+            const body = allyEffectiveBody(working, ally) ?? 0;
+            logDetail(`${def.name}: enqueueing storm roll for ally ${ally.instanceId as string} (MP ${allyMp} < ${stormEffect.allyMpBelow}, body ${body})`);
+            working = enqueueResolution(working, {
+              source: handCard.instanceId,
+              actor: action.player,
+              scope,
+              kind: {
+                type: 'dice-check',
+                label: `${def.name}: ally (roll - 1 > body ${body} → wound/eliminate)`,
+                modifiers: [{ kind: 'constant', value: -1 }],
+                threshold: body,
+                comparison: 'gt',
+                onPass: { type: 'wound-or-eliminate' },
+                continuation: { kind: 'dequeue-only' },
+                requireTargetPresent: true,
+                targetInstanceId: ally.instanceId,
+              },
+            });
+          }
+        }
+      }
+    }
+
     return { state: working };
   }
 
