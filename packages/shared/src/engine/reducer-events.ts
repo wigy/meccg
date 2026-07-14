@@ -1636,6 +1636,33 @@ function applyShortEventOnEntersPlay(
         continue;
       }
 
+      // Player-scoped site-path-reduction (Roam the Waste ba-73: "Each of your
+      // companies this turn is considered to have one fewer Wilderness and one
+      // fewer Shadow-land in its site path"). Turn-scoped, player-targeted; read
+      // when each moving company's resolved site path is built.
+      if (constraintKind === 'site-path-reduction' && onEvent.apply.target === 'player') {
+        const reductions = onEvent.apply.regionReductions;
+        if (!reductions || Object.keys(reductions).length === 0) {
+          logDetail(`add-constraint(site-path-reduction): missing regionReductions — fizzle`);
+          continue;
+        }
+        const scope = parseConstraintScope(scopeName, null);
+        if (!scope) {
+          logDetail(`add-constraint(site-path-reduction): unknown scope "${scopeName}" — fizzle`);
+          continue;
+        }
+        const playerId = state.players[playerIndex].id;
+        logDetail(`"${def.name}" played — adding player-scoped site-path-reduction ${JSON.stringify(reductions)} for ${playerId as string} (scope ${scopeName})`);
+        state = addConstraint(state, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope,
+          target: { kind: 'player', playerId },
+          kind: { type: 'site-path-reduction', reductions: reductions as Partial<Record<import('../types/common.js').RegionType, number>> },
+        });
+        continue;
+      }
+
       // Company-targeting constraints: resolve the target company from targetCompanyId
       // (company-targeted events, e.g. Great-road) or from the scout/character instance
       // (tap-cost events, e.g. Stealth, or filter-character events, e.g. Hundreds of Butterflies).
