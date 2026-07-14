@@ -4938,6 +4938,7 @@ export type CardEffect =
   | StartingCompanyPlacementEffect
   | SummonsFromLongSleepEffect
   | SetAsideEffect
+  | PressGangCaptureEffect
   | PlayCreatureFromDiscardEffect
   | GrantReplayAttackedCreatureEffect
   | LeaderControlEffect
@@ -5833,6 +5834,22 @@ export interface SummonsFromLongSleepEffect extends EffectBase {
  * this effect only declares the off-to-the-side disposition. Per-card wiring of
  * which cards a given host sets aside is card-certification work.
  */
+/**
+ * Press-gang (ba-22). Marks a hazard permanent-event as a "press-gang" capture
+ * host: while it is in play, whenever a character owned by the card controller's
+ * **opponent** would be *discarded* from play (not eliminated), it is instead
+ * held "off to the side" with this card — stripped of all possessions, kept in
+ * its owner's `characters` map, and worth **negative** character marshalling
+ * points to its owner (like a prisoner, CoE 8.35). The card holds at most one
+ * character; a new capture returns the prior one to its owner's hand, and when
+ * this card leaves play the held character returns to its owner's hand.
+ *
+ * See {@link module:engine/press-gang} for the interception + scoring wiring.
+ */
+export interface PressGangCaptureEffect extends EffectBase {
+  readonly type: 'press-gang-capture';
+}
+
 export interface SetAsideEffect extends EffectBase {
   readonly type: 'set-aside';
   /**

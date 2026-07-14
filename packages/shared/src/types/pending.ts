@@ -1390,6 +1390,20 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Press-gang (ba-22): marks a character held "off to the side" with a
+         * Press-gang hazard permanent-event. Like a prisoner (CoE 8.35) it costs
+         * 0 general influence, is worth **negative** character marshalling points
+         * to its owner, and never untaps or heals. Unlike a prisoner there is no
+         * rescue site or HazardHost record — the hold ends only when the
+         * Press-gang card leaves play (the character returns to its owner's hand)
+         * or a new capture replaces it. Scoped `until-cleared`; removed explicitly.
+         */
+        readonly type: 'character-pressed';
+        /** Instance ID of the Press-gang card holding this character. */
+        readonly hostInstanceId: CardInstanceId;
+      }
+    | {
+        /**
          * Tidings of Bold Spies (le-143): queued M/H-phase combat attacks that
          * duplicate the destination site's automatic-attacks. One attack per entry
          * in `attacks`; `attackIndex` is the index of the NEXT attack to initiate.

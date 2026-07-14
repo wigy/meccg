@@ -18,6 +18,7 @@ import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
+import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -1392,6 +1393,14 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
 
   const company = findCharacterCompany(player.companies, charInstId);
   if (!company) return { state, error: 'Character is not in a company' };
+
+  // Press-gang (ba-22): a character the active player voluntarily discards
+  // (rule 3.22) is instead captured off to the side by an opponent's Press-gang.
+  const pressHost = findCapturingPressGang(state, playerIndex);
+  if (pressHost) {
+    logDetail(`Discard character (rule 3.22): ${charDef.name} redirected to opponent's Press-gang ${pressHost as string}`);
+    return { state: capturePressGang(state, playerIndex, charInstId, pressHost) };
+  }
 
   logDetail(`Discard character (rule 3.22): ${charDef.name} at ${company.currentSite?.definitionId as string ?? '?'} — discarding with ${char.items.length} item(s), ${char.allies.length} ally/allies, ${char.hazards.length} hazard(s); ${char.followers.length} follower(s) revert to GI`);
 

@@ -39,6 +39,7 @@ import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.j
 import { initiateOrPushChain } from './chain-reducer.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
 import { finalizeCombat, applyRule8_22AfterTrophyDecision, recordHazardEncountered } from './combat-finalize.js';
+import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { pruneLeaderFollowers, nextStrikePhase, eliminateCombatantFromStrike } from './combat-strike.js';
 import { resolveChainStrikeModifier } from './combat-cancel.js';
 
@@ -451,9 +452,23 @@ function discardCharacterAfterBodyCheck(
     }
     return a;
   });
+  const combatWithDiscard = { ...combat, strikeAssignments: assignments };
+
+  // Press-gang (ba-22): a character discarded by a body check is instead held
+  // off to the side by the attacking (opponent's) Press-gang. The combat state
+  // advances exactly as for a discard; only the character's disposition changes.
+  const pressHost = findCapturingPressGang(stateWithRoll, defPlayerIndex);
+  if (pressHost) {
+    const captured = capturePressGang(stateWithRoll, defPlayerIndex, strike.characterId, pressHost);
+    const next = nextStrikePhase(combatWithDiscard);
+    if (next) {
+      return { state: { ...captured, combat: { ...combatWithDiscard, ...next } }, effects };
+    }
+    return finalizeCombat({ ...captured, combat: combatWithDiscard }, effects);
+  }
+
   const newPlayers = clonePlayers(stateWithRoll);
   const newPlayerData = { ...defPlayer };
-  const combatWithDiscard = { ...combat, strikeAssignments: assignments };
   if (company) {
     newPlayerData.companies = newPlayerData.companies.map(c =>
       c.id === combat.companyId
