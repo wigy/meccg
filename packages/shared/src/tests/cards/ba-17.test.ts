@@ -33,7 +33,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, reduce, runActions,
+  buildTestState, resetMint, Phase, reduce,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI, FRODO, GANDALF,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
