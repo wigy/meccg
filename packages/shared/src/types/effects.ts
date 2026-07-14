@@ -3462,6 +3462,28 @@ export interface JoinCombatForceStrikeEffect extends EffectBase {
 }
 
 /**
+ * `combat-discard-opponent-item` — a Balrog resource short-event played during
+ * a **company-vs-company combat** in which The Balrog is untapped and a
+ * participant. On play, the card-player chooses one item borne by any character
+ * in the *opposing* company and discards it (to the opponent's discard pile),
+ * modeled via a {@link discard-one-company-item} pending resolution on that
+ * company. The Balrog-untapped + in-CvCC gate and the opponent's company are
+ * resolved in the legal-action emitter (`combatDiscardOpponentItemActions` in
+ * `engine/legal-actions/combat.ts`) and the reducer branch
+ * (`handlePlayResourceShortEvent` in `engine/reducer-events.ts`).
+ *
+ * Used by Scourge of Fire (ba-75): "Choose and discard one item an opponent's
+ * company bears if The Balrog is untapped and in company vs. company combat with
+ * that company. Cannot be duplicated on a given turn." The play-restriction
+ * (Balrog-specific, playable only if Flame of Udûn is in play) is carried by the
+ * `balrog-specific` keyword and a `card-in-play` play-condition; the
+ * once-per-turn limit by a `duplication-limit` effect with `scope: "turn"`.
+ */
+export interface CombatDiscardOpponentItemEffect extends EffectBase {
+  readonly type: 'combat-discard-opponent-item';
+}
+
+/**
  * Declares that an item can be stored during the Organization phase when
  * the bearer's company is at a matching site. Storing moves the item from
  * the character to the player's stored-items pile, where it earns
@@ -4613,6 +4635,7 @@ export type CardEffect =
   | FaceStrikeOnTapEffect
   | CombatCancelWeaponEffect
   | JoinCombatForceStrikeEffect
+  | CombatDiscardOpponentItemEffect
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect
   | CombatAttackerChoosesDefendersEffect

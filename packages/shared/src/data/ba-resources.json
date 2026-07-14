@@ -1553,11 +1553,18 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "combat" },
+      { "type": "play-condition", "requires": "card-in-play", "cardName": "Flame of Udûn" },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 },
+      { "type": "combat-discard-opponent-item" },
+      { "type": "move", "select": "self", "from": ["sideboard"], "to": "deck", "shuffleAfter": true }
+    ],
     "text": "Balrog specific. Playable if Flame of Udûn is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. Choose and discard one item an opponent’s company bears if The Balrog is untapped and in company vs. company combat with that company. Cannot be duplicated on a given turn.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",

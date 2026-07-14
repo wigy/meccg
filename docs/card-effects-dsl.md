@@ -2645,6 +2645,60 @@ offering + the forced-target status bypass in `assignStrikeActions`) and
 post-attack-tap block). Reuses `CombatState.forcedStrikeTargets` and
 `PostAttackEffect` from the Alatar haven-join primitive.
 
+### 10g-bis. `combat-discard-opponent-item`
+
+A **Balrog resource short-event** played during a company-vs-company combat in
+which The Balrog is untapped and a participant on the acting player's side. On
+play the card-player chooses one item borne by any character in the *opposing*
+company and discards it (to the opponent's discard pile).
+
+```json
+{ "type": "combat-discard-opponent-item" }
+```
+
+The effect carries no fields — the opposing company and the Balrog-untapped gate
+are resolved from the live combat state. It is paired on the card with:
+
+- the `balrog-specific` keyword (deck-construction restriction, no play-time
+  gate);
+- `{ "type": "play-window", "phase": "combat" }` so the generic resource
+  short-event emitters (organization / M-H / long-event) never offer it outside
+  combat;
+- `{ "type": "play-condition", "requires": "card-in-play", "cardName": "Flame of
+  Udûn" }` — playable only while Flame of Udûn is in play
+  (`isCardNameInPlayForPlayer`, attachment-aware);
+- `{ "type": "duplication-limit", "scope": "turn", "max": 1 }` — "cannot be
+  duplicated on a given turn";
+- optionally a `select: "self"` sideboard→deck `move` (the shared Balrog
+  sideboard-access clause, see Terror Heralds Doom ba-78).
+
+The legal-action emitter `combatDiscardOpponentItemActions`
+(`engine/legal-actions/combat.ts`, wired into the CvCC windows of
+`combatActions` alongside the Whip's `cancel-weapon` actions) offers one
+`play-short-event` per eligible hand card when: the combat is CvCC and the acting
+player owns one of the two companies with The Balrog untapped in it; the opposing
+company bears at least one genuine item; Flame of Udûn is in play; and the
+turn-scoped duplication limit is not yet reached
+(`countConstraintsFromDefinition`). It is offered to whichever side The Balrog is
+on (attacker or defender), mirroring `cancelWeaponActions`.
+
+On play, `handlePlayResourceShortEvent` (`engine/reducer-events.ts`) discards the
+spent event to the player's discard pile, records a turn-scoped
+`attack-card-played` marker constraint (swept at `turn-end`, so a second copy is
+blocked all turn), and enqueues a `discard-one-company-item` pending resolution
+on the opposing company with the card-player as `actor` (the same resolution
+Brigands uses on a wound). The card-player then picks one item via a
+`discard-item-from-company` action; the item is removed from its bearer and moved
+to the **opponent's** discard pile. Because a pending resolution takes priority
+over combat routing, the top-level reducer skips the combat handler while the
+resolution is queued for the acting player (otherwise `discard-item-from-company`
+— shared with An Article Missing's combat sub-phase — would be misrouted).
+
+Example: Scourge of Fire (ba-75) — "Playable if Flame of Udûn is in play. …
+Choose and discard one item an opponent's company bears if The Balrog is untapped
+and in company vs. company combat with that company. Cannot be duplicated on a
+given turn."
+
 ### 11. `cancel-strike`
 
 Pay a cost to cancel an incoming strike, with optional exclusions.
