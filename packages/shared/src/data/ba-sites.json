@@ -323,7 +323,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Iron Hills",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Drake",
@@ -340,7 +343,7 @@
     },
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Adjacent Sites: Iron Hill Dwarf-hold (13), The Wind-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Drake — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "text": "Adjacent Sites: Iron Hill Dwarf-hold (13), The Wind-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Drake — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Any Dragon creature (except Eärcaraxë) may be keyed to this site.",
     "unique": true,
     "effects": [
       {
@@ -351,8 +354,17 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "dragon",
+        "except": {
+          "name": "Eärcaraxë"
+        }
       }
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "balrog-site",
