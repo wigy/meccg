@@ -1583,6 +1583,14 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * turn (e.g. `{ "wilderness": 1, "shadow": 1 }`).
    */
   readonly regionReductions?: Record<string, number>;
+  /**
+   * For a `character-stat-modifier` constraint that is only active *while* a
+   * named card remains in play (Heart of Dark Fire ba-63: "The Balrog receives
+   * +5 direct influence this turn **while Strangling Coils is in play**"). The
+   * effect resolver re-checks this each time it synthesises the stat modifier,
+   * so the bonus lapses immediately if the named card leaves play mid-turn.
+   */
+  readonly requiresCardInPlay?: string;
 }
 
 /**
