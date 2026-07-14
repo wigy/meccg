@@ -38,6 +38,7 @@ import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheck
 import { hasPlayFlag } from '../effects/index.js';
 import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
+import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import {
@@ -276,6 +277,15 @@ export function applyCorruptionCheckResolution(
   }
 
   if (outcome === 'discard') {
+    // Press-gang (ba-22): redirect the would-be discard to the opponent's
+    // Press-gang, if one is in play.
+    const stateAfterRoll: GameState = { ...postRollState, players: playersAfterRoll };
+    const pressHost = findCapturingPressGang(stateAfterRoll, playerIndex);
+    if (pressHost) {
+      const captured = capturePressGang(stateAfterRoll, playerIndex, characterId, pressHost);
+      return { state: dequeueResolution(captured, top.id), effects: [rollEffect] };
+    }
+
     // Roll == CP or CP - 1 on a hero character: it + possessions discarded (not followers)
     logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
 
@@ -1360,6 +1370,14 @@ function discardCharacter(
   charInPlay: import('../index.js').CharacterInPlay,
   characterDestination: 'discard' | 'out-of-play' = 'discard',
 ): GameState {
+  // Press-gang (ba-22): a character that would otherwise be *discarded* from
+  // play is instead held off to the side by an opponent's Press-gang. Only the
+  // discard path is intercepted — an elimination (out-of-play) is untouched.
+  if (characterDestination === 'discard') {
+    const host = findCapturingPressGang(state, playerIndex);
+    if (host) return capturePressGang(state, playerIndex, characterId, host);
+  }
+
   const newPlayers = clonePlayers(state);
   const player = newPlayers[playerIndex];
   const opponentIndex = playerIndex === 0 ? 1 : 0;

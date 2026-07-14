@@ -974,11 +974,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       continue;
     }
 
-    // Prisoners cost 0 GI and are worth negative MPs (CoE rule 8.35).
+    // Prisoners (CoE 8.35) and Press-ganged characters (ba-22) are held "off to
+    // the side": they cost 0 GI and are worth negative character MPs.
     const isPrisoner = state.activeConstraints.some(
       c => c.target.kind === 'character'
         && c.target.characterId === char.instanceId
-        && c.kind.type === 'character-is-prisoner',
+        && (c.kind.type === 'character-is-prisoner' || c.kind.type === 'character-pressed'),
     );
 
     // Compute effective stats with both companion name and ID context so that

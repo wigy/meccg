@@ -7357,6 +7357,48 @@ Behaviour (engine mechanics in `engine/set-aside.ts`):
 Per-card wiring of *which* cards a given host sets aside is card-certification
 work; the mechanics above are alignment-agnostic.
 
+### 49a. `press-gang-capture` — hold a would-be-discarded character off to the side
+
+Carried by a hazard permanent-event (Press-gang, ba-22). While the card is in
+play, whenever a character owned by the card controller's **opponent** would
+otherwise be *discarded* from play, it is intercepted: instead of reaching its
+owner's discard pile it is held "off to the side" with this card.
+
+```json
+{ "type": "press-gang-capture" }
+```
+
+Behaviour (engine mechanics in `engine/press-gang.ts`):
+
+- **Which removals.** Only removals to the **discard** pile are caught — a
+  character *eliminated* to the out-of-play pile (combat death, corruption
+  hard-fail) is untouched (the card says "discarded", not "eliminated").
+  `findCapturingPressGang(state, ownerIndex)` locates an in-play
+  `press-gang-capture` card belonging to the character owner's opponent, and
+  `capturePressGang` is invoked in place of the discard at every "discard from
+  play" seam: `discardCharacter` (dice-check discards), the corruption-check
+  `discard` outcome, the voluntary organization-phase discard (rule 3.22), the
+  combat body-check discard band, and the Abductor "discard wounded character"
+  effect.
+- **Capture.** The character is stripped of all possessions — items and allies go
+  to its owner's discard pile, attached hazards to their owners' discards — while
+  its **followers revert to general influence** rather than being discarded (CRF:
+  "Followers controlled by the character placed off to the side are not
+  discarded"). The bare character card stays in its owner's `characters` map in
+  no company, marked with a `character-pressed` active constraint pointing back at
+  the Press-gang card.
+- **Scoring / lock.** A `character-pressed` character is scored like a prisoner
+  (CoE 8.35): it costs 0 general influence, is worth **negative** character
+  marshalling points to its owner (`recompute-derived.ts`), and never untaps or
+  heals (`reducer-untap.ts`).
+- **One at a time.** The card holds at most one character; capturing a second
+  returns the prior one to its owner's hand.
+- **Host removal.** `sweepPressGang` (a `postReduce` sweep, mirroring
+  `sweepSetAside`) returns the held character to its owner's hand when the
+  Press-gang card leaves play — "off to the side" is never a silent drop.
+
+"Cannot be duplicated" is the standard `duplication-limit` scope `game` max 1.
+
 ### 50. `recruitment-vehicle`
 
 Marks a permanent resource-event as a "recruitment vehicle" — Thrall of the

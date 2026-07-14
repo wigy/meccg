@@ -29,6 +29,7 @@ import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import type { TriggerAttackOnPlayEffect } from '../types/effects.js';
 import { shuffle } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
+import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { isSiteCard, isCharacterCard, isHalfOrc } from '../types/cards.js';
 import { CardStatus, Alignment, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -1279,6 +1280,14 @@ function discardWoundedCharacters(
 
     if (when && !matchesCondition(when, perCharContext)) {
       logDetail(`${sourceName}: discard-character excluded for ${charId as string} (race ${String(charRace)})`);
+      continue;
+    }
+
+    // Press-gang (ba-22): a wounded character discarded by an effect is instead
+    // held off to the side by the opponent's Press-gang.
+    const pressHost = findCapturingPressGang(stateOut, defIdx);
+    if (pressHost) {
+      stateOut = capturePressGang(stateOut, defIdx, charId, pressHost);
       continue;
     }
 
