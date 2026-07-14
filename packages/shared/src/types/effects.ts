@@ -3940,6 +3940,40 @@ export interface FactionInfluenceRestrictionEffect extends EffectBase {
 }
 
 /**
+ * Prone to Violence (ba-42): a minion permanent-event that grants an *extra*
+ * Company-vs-Company-combat attack permission beyond the default alignment
+ * matrix ({@link import('../engine/reducer-utils.js').canAttackAlignment}, CoE
+ * rule 8.41). While any in-play permanent-event (either player's `cardsInPlay`)
+ * carries this effect, a CvCC attack that the matrix would otherwise forbid is
+ * allowed when the effect's `when` condition matches the attack.
+ *
+ * The condition is evaluated against a context describing both companies:
+ * `{ attacker: { alignment, isMinion, hasRingwraith }, defender: { alignment,
+ * isMinion, hasRingwraith } }`, where `alignment` is the owning player's engine
+ * alignment (`"ringwraith"` / `"balrog"` / …), `isMinion` is true for
+ * Ringwraith and Balrog players, and `hasRingwraith` is true when any character
+ * in that company has the Ringwraith race. Prone to Violence uses
+ * `{ attacker.isMinion, defender.isMinion, attacker.hasRingwraith: false,
+ * defender.hasRingwraith: false }` — "any minion company without a Ringwraith
+ * may attack another minion company without a Ringwraith" (the attacking
+ * company may contain The Balrog, which the `isMinion` allowance covers).
+ *
+ * Collected by {@link import('../engine/reducer-utils.js').cvccAttackPermitted}
+ * at both the legal-action declaration path
+ * ({@link import('../engine/legal-actions/site.js')}) and the reducer
+ * validation path ({@link import('../engine/reducer-site.js')}).
+ */
+export interface CvccAttackPermissionEffect extends EffectBase {
+  readonly type: 'cvcc-attack-permission';
+  /**
+   * Condition matched against the CvCC attack context to permit an attack the
+   * default alignment matrix forbids. Omitting it permits every CvCC attack
+   * while the card is in play (no current card needs the unconditional form).
+   */
+  readonly when?: Condition;
+}
+
+/**
  * Caverns Unchoked (ba-51): a Balrog permanent-event played on an Under-deeps
  * site during the organization phase (via a companion `play-target: site`
  * filtered to the `under-deeps` keyword). While in play the card is bound to
@@ -4737,6 +4771,7 @@ export type CardEffect =
   | BalrogSurfaceRegionMovementEffect
   | CompanyMovementRestrictionEffect
   | VoluntaryDiscardEffect
+  | CvccAttackPermissionEffect
   | FactionInfluenceRestrictionEffect;
 
 /**

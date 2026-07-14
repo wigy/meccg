@@ -379,8 +379,31 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Any minion company without a Ringwraith may attack another minion company without a Ringwraith. The attacking company may contain The Balrog. Discard when any play deck is exhausted. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "cvcc-attack-permission",
+        "when": {
+          "$and": [
+            { "attacker.isMinion": true },
+            { "defender.isMinion": true },
+            { "attacker.hasRingwraith": false },
+            { "defender.hasRingwraith": false }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      }
+    ],
+    "text": "Any minion company without a Ringwraith may attack another minion company without a Ringwraith. The attacking company may contain The Balrog. Discard when any play deck is exhausted. Cannot be duplicated.",
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",

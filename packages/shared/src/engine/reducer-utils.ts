@@ -1084,6 +1084,72 @@ export function canAttackAlignment(
   }
 }
 
+/** True for the two minion player alignments (Ringwraith/Sauron and Balrog). */
+function isMinionAlignment(alignment: Alignment): boolean {
+  return alignment === 'ringwraith' || alignment === 'balrog';
+}
+
+/**
+ * True when any character in `company` has the Ringwraith race — i.e. the
+ * company "contains a Ringwraith" (a Ringwraith avatar or a Ringwraith follower
+ * played under another's control, both of which carry `race: ringwraith`).
+ */
+export function companyHasRingwraith(state: GameState, owner: PlayerState, company: Company): boolean {
+  for (const charInstId of company.characters) {
+    const defId = owner.characters[charInstId]?.definitionId ?? resolveInstanceId(state, charInstId);
+    if (!defId) continue;
+    const charDef = defById(state, defId);
+    if (charDef && isCharacterCard(charDef) && charDef.race === Race.Ringwraith) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether an in-play permanent-event grants an *extra* CvCC attack permission
+ * (beyond {@link canAttackAlignment}) for this specific attacker→defender pair.
+ *
+ * Scans every in-play permanent-event on both players' `cardsInPlay` for a
+ * `cvcc-attack-permission` effect and, for each, matches its optional `when`
+ * against a context describing both companies:
+ * `{ attacker: { alignment, isMinion, hasRingwraith }, defender: { … } }`.
+ * Returns true as soon as one permission matches. Backs Prone to Violence
+ * (ba-42): "Any minion company without a Ringwraith may attack another minion
+ * company without a Ringwraith."
+ */
+export function cvccAttackPermitted(
+  state: GameState,
+  attacker: PlayerState,
+  attackerCompany: Company,
+  defender: PlayerState,
+  defenderCompany: Company,
+): boolean {
+  const ctx = {
+    attacker: {
+      alignment: attacker.alignment,
+      isMinion: isMinionAlignment(attacker.alignment),
+      hasRingwraith: companyHasRingwraith(state, attacker, attackerCompany),
+    },
+    defender: {
+      alignment: defender.alignment,
+      isMinion: isMinionAlignment(defender.alignment),
+      hasRingwraith: companyHasRingwraith(state, defender, defenderCompany),
+    },
+  };
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'cvcc-attack-permission') continue;
+        if (effect.when && !matchesCondition(effect.when, ctx)) continue;
+        logDetail(`CvCC attack permitted by ${(def as { name?: string }).name ?? (card.definitionId as string)}: ${attacker.alignment} ${attackerCompany.id} → ${defender.alignment} ${defenderCompany.id}`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /**
  * The result of a corruption check on a character, before any cards are moved.
  *
