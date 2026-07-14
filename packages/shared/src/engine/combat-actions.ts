@@ -40,6 +40,7 @@ import { initiateOrPushChain } from './chain-reducer.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
 import { finalizeCombat, applyRule8_22AfterTrophyDecision, recordHazardEncountered } from './combat-finalize.js';
 import { pruneLeaderFollowers, nextStrikePhase, eliminateCombatantFromStrike } from './combat-strike.js';
+import { tryPressGangCharacter } from './press-gang.js';
 import { resolveChainStrikeModifier } from './combat-cancel.js';
 
 /**
@@ -451,9 +452,21 @@ function discardCharacterAfterBodyCheck(
     }
     return a;
   });
+  const combatWithDiscard = { ...combat, strikeAssignments: assignments };
+
+  // Press-gang (ba-22): if the defending player's opponent controls a
+  // Press-gang, the discarded character is captured off to the side instead.
+  const pressGanged = tryPressGangCharacter(stateWithRoll, defPlayerIndex, strike.characterId, charData);
+  if (pressGanged) {
+    const nextPg = nextStrikePhase(combatWithDiscard);
+    if (nextPg) {
+      return { state: { ...pressGanged, combat: { ...combatWithDiscard, ...nextPg } }, effects };
+    }
+    return finalizeCombat({ ...pressGanged, combat: combatWithDiscard }, effects);
+  }
+
   const newPlayers = clonePlayers(stateWithRoll);
   const newPlayerData = { ...defPlayer };
-  const combatWithDiscard = { ...combat, strikeAssignments: assignments };
   if (company) {
     newPlayerData.companies = newPlayerData.companies.map(c =>
       c.id === combat.companyId

@@ -4873,6 +4873,7 @@ export type CardEffect =
   | ExtraLeaderSlotEffect
   | StartingCompanyPlacementEffect
   | SummonsFromLongSleepEffect
+  | PressGangEffect
   | SetAsideEffect
   | PlayCreatureFromDiscardEffect
   | GrantReplayAttackedCreatureEffect
@@ -5748,6 +5749,35 @@ export interface StartingCompanyPlacementEffect extends EffectBase {
  */
 export interface SummonsFromLongSleepEffect extends EffectBase {
   readonly type: 'summons-from-long-sleep';
+}
+
+/**
+ * Press-gang (ba-22). A hazard permanent-event that installs a *replacement
+ * effect* on character removal (MEAS "off to the side" mechanics). While a card
+ * carrying this effect is in play, whenever a character controlled by the
+ * effect-controller's **opponent** would otherwise be discarded from play (by
+ * any mechanism — combat body-check elimination, corruption failure, or an
+ * effect-driven discard/eliminate), that character is instead:
+ *
+ * - stripped of all cards on him — items and allies to their owner's discard
+ *   pile, attached hazards to their owners' discard piles (his **followers** are
+ *   *not* discarded, per CRF 22: they revert to general influence like any
+ *   character losing its controller);
+ * - placed "off to the side" with this card (registered as a set-aside child of
+ *   the Press-gang host via the MEAS §1 machinery, so no instance is dropped);
+ * - and any character *already* held off to the side with this card is returned
+ *   to its owner's hand (a Press-gang holds at most one captured character).
+ *
+ * A character held off to the side with this card gives his player **negative**
+ * character marshalling points (his printed character MP, subtracted from the
+ * owner's tally in `recompute-derived.ts`). "Cannot be duplicated" is modelled
+ * by a companion `duplication-limit` scope `game`.
+ *
+ * The effect is a pure marker — all behaviour is engine-side (`engine/press-gang.ts`
+ * for the replacement/capture, `recompute-derived.ts` for the negative MP).
+ */
+export interface PressGangEffect extends EffectBase {
+  readonly type: 'press-gang';
 }
 
 /**

@@ -300,7 +300,10 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Pressgang.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      { "type": "press-gang" },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
     "text": "When a character would otherwise be discarded from play, discard all cards on him, place him “off to the side” with this card, and return any character already with this card to its owner’s hand. A character with this card gives his player negative character marshalling points. Cannot be duplicated."
   },
   {

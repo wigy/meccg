@@ -20,6 +20,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, diceRollEffect, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
+import { tryPressGangCharacter } from './press-gang.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { removeConstraint } from './pending.js';
 
@@ -276,7 +277,15 @@ function resolveCorruptionCheck(
     };
   }
 
-  // Failed — character is discarded or eliminated
+  // Failed — character is discarded or eliminated.
+  // Press-gang (ba-22): if the character's opponent controls a Press-gang, the
+  // failing character is captured off to the side instead of leaving play.
+  const pgBase: GameState = { ...state, players: newPlayers, rng, cheatRollTotal, phaseState: newFcBase };
+  const pgState = tryPressGangCharacter(pgBase, playerIndex, pending.characterId, char);
+  if (pgState) {
+    return { state: cleanupEmptyCompanies(pgState), effects: [rollEffect] };
+  }
+
   const newCharacters = { ...player.characters };
   delete newCharacters[pending.characterId];
 

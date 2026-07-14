@@ -35,6 +35,7 @@ import { defenderAlignmentLabel } from './detainment.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
 import { finalizeCombat } from './combat-finalize.js';
+import { tryPressGangCharacter } from './press-gang.js';
 
 /**
  * When a follower character leaves play, removes their ID from their leader's
@@ -582,6 +583,20 @@ export function eliminateCombatantFromStrike(
       return { state: { ...state, players: newPlayers2, combat: { ...combatWithElim, ...next2a } }, effects };
     }
     return finalizeCombat({ ...state, players: newPlayers2, combat: combatWithElim }, effects);
+  }
+
+  // Press-gang (ba-22): if the defending player's opponent controls a
+  // Press-gang, the defeated character is captured off to the side instead of
+  // being eliminated. Combat still resolves as if the combatant left play
+  // (remaining strikes against it were already marked resolved above); we just
+  // swap the removal disposition and continue to the next strike / finalize.
+  const pressGanged = tryPressGangCharacter(state, defPlayerIndex, strike.characterId, charData);
+  if (pressGanged) {
+    const nextPg = nextStrikePhase(combatWithElim);
+    if (nextPg) {
+      return { state: { ...pressGanged, combat: { ...combatWithElim, ...nextPg } }, effects };
+    }
+    return finalizeCombat({ ...pressGanged, combat: combatWithElim }, effects);
   }
 
   // Character eliminated — remove from company and add to eliminated pile

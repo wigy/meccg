@@ -26,6 +26,7 @@ import type { CardInPlay } from '../types/state-cards.js';
 import type { ChainEntry } from '../types/state-combat.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
+import { tryPressGangCharacter } from './press-gang.js';
 import { shuffle } from '../rng.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -258,7 +259,19 @@ export function applyCorruptionCheckResolution(
     };
   }
 
-  // Failed — discard or eliminate the character
+  // Failed — discard or eliminate the character.
+  // Press-gang (ba-22): if the character's opponent controls a Press-gang, the
+  // failing character is captured off to the side instead of leaving play
+  // (whether the corruption outcome was "discard" or "eliminate").
+  const pgBase: GameState = { ...postRollState, players: playersAfterRoll };
+  const pgState = tryPressGangCharacter(pgBase, playerIndex, characterId, char);
+  if (pgState) {
+    return {
+      state: dequeueResolution(cleanupEmptyCompanies(pgState), top.id),
+      effects: [rollEffect],
+    };
+  }
+
   const newCharacters = { ...player.characters };
 
   // For transfer checks, remove the transferred item from its new bearer
@@ -1301,6 +1314,11 @@ function discardCharacter(
   charInPlay: import('../index.js').CharacterInPlay,
   characterDestination: 'discard' | 'out-of-play' = 'discard',
 ): GameState {
+  // Press-gang (ba-22): if the character's opponent controls a Press-gang, the
+  // character is captured off to the side instead of leaving play.
+  const pressGanged = tryPressGangCharacter(state, playerIndex, characterId, charInPlay);
+  if (pressGanged) return pressGanged;
+
   const newPlayers = clonePlayers(state);
   const player = newPlayers[playerIndex];
   const opponentIndex = playerIndex === 0 ? 1 : 0;

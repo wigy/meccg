@@ -1176,13 +1176,26 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
 
   // MEAS §1: cards placed "off to the side" award their marshalling points to
   // their owner (derivable from the instance id), independent of which player's
-  // cardsInPlay they are kept in.
+  // cardsInPlay they are kept in. A character held off to the side with a
+  // Press-gang (ba-22) is the exception: it gives its owner *negative* character
+  // marshalling points (its printed character MP, subtracted).
   for (const other of state.players) {
     for (const card of other.cardsInPlay) {
       if (card.setAsideHost === undefined) continue;
       if (ownerOf(card.instanceId) !== player.id) continue;
       const def = resolveDef(state, card.instanceId);
-      if (def) mp = addMP(mp, def, player.alignment);
+      if (!def) continue;
+      const hostCard = other.cardsInPlay.find(c => c.instanceId === card.setAsideHost);
+      const hostDef = hostCard ? resolveDef(state, hostCard.instanceId) : undefined;
+      const hostIsPressGang = !!(hostDef && 'effects' in hostDef
+        && (hostDef as { effects?: readonly CardEffect[] }).effects?.some(e => e.type === 'press-gang'));
+      if (hostIsPressGang && isCharacterCard(def)) {
+        const cat = (def.marshallingCategory ?? 'character') as MarshallingCategory;
+        const charMp = def.marshallingPoints ?? 0;
+        mp = { ...mp, [cat]: mp[cat] - charMp };
+      } else {
+        mp = addMP(mp, def, player.alignment);
+      }
     }
   }
 
