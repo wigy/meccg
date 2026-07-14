@@ -2314,6 +2314,17 @@ export interface TriggerAttackOnPlayEffect extends EffectBase {
    * from the map falls back to the attack entry's printed `creatureType`.
    */
   readonly creatureTypeBySiteType?: Readonly<Record<string, string>>;
+  /**
+   * When true, after bearer selection (the `move-to-mp-pile` keep branch)
+   * discard every **unique** faction card in play — belonging to *either*
+   * player — that is playable at the company's current site (Invade Their
+   * Domain ba-64, Lord and Usurper ba-65: "discard all unique factions
+   * playable at the site"). Distinct from `discardFactionsAtSite` (which
+   * discards *all* of the active player's factions regardless of uniqueness)
+   * and `returnFactionsAtSite` (which returns unique factions to hand rather
+   * than discarding).
+   */
+  readonly discardUniqueFactionsAtSite?: boolean;
 }
 
 /**
@@ -3537,7 +3548,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'company-site';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps';
   /**
    * `requires: 'site-protected'` takes no extra fields. On a faction it gates
    * the influence attempt on the company's current site being **protected by
@@ -3546,6 +3557,23 @@ export interface PlayConditionEffect extends EffectBase {
    * id and owned by the player attempting the play. Used by Half-orcs (wh-87)
    * and Greater Half-orcs (wh-86): "Playable at one of your protected
    * Wizardhavens [{H}]".
+   *
+   * For `requires: 'card-attached-to-site'`: the permanent-event is only
+   * playable at the active company's current site when a card named
+   * {@link cardName} is in play attached to that same site (`attachedToSite`,
+   * either player's `cardsInPlay`). Lord and Usurper (ba-65): "Playable …
+   * on Invade Their Domain" — Invade Their Domain must already be attached to
+   * the Dwarf-hold the company occupies.
+   *
+   * For `requires: 'card-on-adjacent-under-deeps'`: the permanent-event is only
+   * playable at the active company's current site when a card named
+   * {@link cardName} is in play attached to an **Under-deeps site adjacent to
+   * that site** (an in-play card whose `attachedToSite` names an Under-deeps
+   * site whose `adjacentSites` map includes the current site's name). Invade
+   * Their Domain (ba-64): "… if … Breach the Hold is on its adjacent Under-deeps
+   * site" — Breach the Hold sits on The Drowning-deeps (adjacent to the Blue
+   * Mountain Dwarf-hold) or The Rusted-deeps (adjacent to the Iron Hill
+   * Dwarf-hold).
    */
   /**
    * For `requires: 'region-through-or-leave'`: the named regions one of which
@@ -4271,6 +4299,12 @@ export interface SiteInstanceTransformEffect extends EffectBase {
     readonly siteType: SiteType;
     /** When true, the associated instance loses all automatic-attacks. */
     readonly removeAllAutoAttacks?: boolean;
+    /**
+     * When set, the associated instance loses every automatic-attack of this
+     * creature race (matched against the attack's `creatureType`). Lord and
+     * Usurper (ba-65): "lose all Dwarf automatic-attacks".
+     */
+    readonly removeAutoAttacksByRace?: string;
   };
   /** How every other in-play copy of the same site definition is transformed. */
   readonly others: {
@@ -4278,7 +4312,20 @@ export interface SiteInstanceTransformEffect extends EffectBase {
     readonly siteType: SiteType;
     /** When set, every other version gains this automatic-attack. */
     readonly addAutoAttack?: TriggerAttackEntry;
+    /**
+     * When set, every other version loses every automatic-attack of this
+     * creature race before {@link addAutoAttack} is applied. Lord and Usurper
+     * (ba-65): the other versions lose their Dwarf auto-attacks and gain an
+     * Orcs auto-attack.
+     */
+    readonly removeAutoAttacksByRace?: string;
   };
+  /**
+   * When true, no faction may be played at any version of the transformed site
+   * (associated or other). Lord and Usurper (ba-65): "may have no factions
+   * played there".
+   */
+  readonly noFactions?: boolean;
 }
 
 /**

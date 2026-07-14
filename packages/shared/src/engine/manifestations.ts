@@ -304,16 +304,26 @@ export function getActiveAutoAttacks(
 
   // Roots of the Earth (ba-74): a `site-instance-transform` strips all
   // automatic-attacks from the associated Darkhaven instance and adds an Orcs
-  // 5/9 auto-attack to every other version. Requires the queried site instance
-  // to distinguish the two.
+  // 5/9 auto-attack to every other version. Lord and Usurper (ba-65): both the
+  // associated and the other versions lose their Dwarf auto-attacks
+  // (`removeAutoAttacksByRace`), and the other versions additionally gain an
+  // Orcs 4/7 attack. Requires the queried site instance to distinguish the two.
   const transform = resolveSiteInstanceTransform(state, siteDef.id, siteInstanceId);
   if (transform) {
-    if (transform.role === 'associated') {
-      if (transform.effect.associated.removeAllAutoAttacks) {
-        logDetail(`site-instance-transform: ${siteDef.name} is the associated Darkhaven — all automatic-attacks removed`);
-        return [];
-      }
-    } else if (transform.effect.others.addAutoAttack) {
+    const roleCfg = transform.role === 'associated'
+      ? transform.effect.associated
+      : transform.effect.others;
+    if (transform.role === 'associated' && transform.effect.associated.removeAllAutoAttacks) {
+      logDetail(`site-instance-transform: ${siteDef.name} is the associated ${transform.effect.associated.siteType} — all automatic-attacks removed`);
+      return [];
+    }
+    if (roleCfg.removeAutoAttacksByRace) {
+      const race = roleCfg.removeAutoAttacksByRace;
+      const before = combined.length;
+      combined = combined.filter(a => a.creatureType !== race);
+      logDetail(`site-instance-transform: ${transform.role} version of ${siteDef.name} loses ${before - combined.length} ${race} automatic-attack(s)`);
+    }
+    if (transform.role === 'other' && transform.effect.others.addAutoAttack) {
       const add = transform.effect.others.addAutoAttack;
       logDetail(`site-instance-transform: other version of ${siteDef.name} gains ${add.creatureType} auto-attack (${add.strikes} strikes, ${add.prowess} prowess)`);
       combined = [...combined, { creatureType: add.creatureType, strikes: add.strikes, prowess: add.prowess }];
