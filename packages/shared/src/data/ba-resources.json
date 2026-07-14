@@ -806,11 +806,15 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "combat" },
+      { "type": "site-storm-devastation", "characterMindBelow": 8, "allyMpBelow": 3 }
+    ],
     "text": "Balrog specific. Playable if The Balrog’s company is not at an Under-deeps site and is in company vs. company combat against a company with a Wizard. Discard all allies with no body at the site. Make a roll: for each character at the site with a mind less than 8 and for each ally normally worth less than 3 marshalling points. If the result minus 1 is greater than the character’s/ally’s body, he is wounded or, if already wounded, eliminated. Tap all untapped allies and characters with a mind stat.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",

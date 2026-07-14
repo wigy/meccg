@@ -1629,6 +1629,29 @@ export interface EliminateCharacterAction extends TriggeredActionBase {
 }
 
 /**
+ * `wound-or-eliminate` — the dice-check onPass verb for "he is wounded or, if
+ * already wounded, eliminated" (Crowned with Storm ba-54). Acts on the
+ * resolution-context target, which may be **either** a character
+ * (`targetCharacterId`) or an ally (`targetInstanceId`), and always locates the
+ * target's actual owner (the roller may control the *other* company), so it is
+ * roller-agnostic:
+ *
+ * - target not yet wounded (untapped/tapped) → set its status to `inverted`
+ *   (a wound);
+ * - target already wounded (`inverted`) → eliminate it: a character is removed
+ *   to its owner's out-of-play pile (its possessions handled like any
+ *   elimination); an ally is removed from its host and sent to its owner's
+ *   discard pile.
+ *
+ * Self-contained: it encodes the "already wounded → eliminate" branch itself
+ * rather than relying on `when`-guarded sibling verbs, so it needs no
+ * roller-owned-target assumption.
+ */
+export interface WoundOrEliminateAction extends TriggeredActionBase {
+  readonly type: 'wound-or-eliminate';
+}
+
+/**
  * `enqueue-opponent-elimination-roll` — an `organization-phase-start` on-event
  * apply (carried by an attached ally) that enqueues a generic `dice-check`
  * resolution for the *opponent* (the bearer's controller's opponent): the
@@ -1868,6 +1891,7 @@ export type TriggeredAction =
   | MoveEffect
   | DiscardCharacterAction
   | EliminateCharacterAction
+  | WoundOrEliminateAction
   | EnqueueOpponentEliminationRollAction
   | DiscardTargetCharacterAction
   | ForceDiscardOneCompanyItemAction
@@ -3490,6 +3514,45 @@ export interface CombatDiscardOpponentItemEffect extends EffectBase {
 }
 
 /**
+ * Crowned with Storm (ba-54): a Balrog CvCC resource short-event that unleashes
+ * a devastating storm on **everyone at the site** — both the Balrog's company
+ * and the opposing (Wizard's) company participating in the company-vs-company
+ * combat. When it resolves, in this fixed order:
+ *
+ * 1. **Discard all no-body allies** at the site (an ally whose effective body
+ *    is `0`/absent — e.g. Great Bats, Regiment of Black Crows). They are removed
+ *    to their owners' discard piles before any roll.
+ * 2. **Tap** every untapped ally and every untapped character *with a mind stat*
+ *    at the site (avatars — Balrog/Wizard/Ringwraith — have a `null` printed
+ *    mind and are left untapped). Applied before the rolls; because tapping only
+ *    ever affects untapped cards and the roll outcome (wound/eliminate) does not
+ *    depend on status, the observable end-state is identical to applying the tap
+ *    after the rolls.
+ * 3. **Roll** for each character whose mind is `< characterMindBelow` and each
+ *    ally normally worth `< allyMpBelow` marshalling points (the printed MP of
+ *    the ally card): the Balrog's controller rolls 2d6 per target. If
+ *    `roll - 1 > body`, the target is wounded, or — if already wounded
+ *    (inverted) — eliminated. Enqueued as one generic `dice-check` per target
+ *    with `comparison: 'gt'`, `threshold = body + 1`, and a `wound-or-eliminate`
+ *    onPass verb (see {@link WoundOrEliminateAction}), so each roll surfaces as
+ *    its own explicit roll action. No-body allies discarded in step 1 never
+ *    reach this step.
+ *
+ * Playability is gated by the legal-action emitter (`siteStormAtSiteActions` in
+ * `legal-actions/combat.ts`): the combat must be CvCC, the Balrog's controller
+ * must own one of the two companies with The Balrog in it, that company's site
+ * must **not** carry the `under-deeps` keyword, and the opposing company must
+ * contain a Wizard (a character of race `wizard`).
+ */
+export interface SiteStormDevastationEffect extends EffectBase {
+  readonly type: 'site-storm-devastation';
+  /** Characters with a mind stat strictly below this value are rolled against. */
+  readonly characterMindBelow: number;
+  /** Allies whose printed MP value is strictly below this value are rolled against. */
+  readonly allyMpBelow: number;
+}
+
+/**
  * Declares that an item can be stored during the Organization phase when
  * the bearer's company is at a matching site. Storing moves the item from
  * the character to the player's stored-items pile, where it earns
@@ -4676,6 +4739,7 @@ export type CardEffect =
   | CombatCancelWeaponEffect
   | JoinCombatForceStrikeEffect
   | CombatDiscardOpponentItemEffect
+  | SiteStormDevastationEffect
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect
   | CombatAttackerChoosesDefendersEffect
