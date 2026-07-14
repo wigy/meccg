@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -806,6 +806,18 @@ function playResourcesActions(
 
   logDetail(`Untapped characters in company: ${untappedCharacters.length}`);
 
+  // Eddy in Fate's Tide (ba-57): while any version of this site definition is
+  // bound by an in-play `eddy-lock`, a company must tap `taxTapCharacters`
+  // characters this site phase before it may play an ally or item here. Track
+  // how many have been paid; gate ally/item plays and offer `pay-site-tax`
+  // actions until the tax is met.
+  const eddyLock = siteEddyLock(state, siteDefId);
+  const eddyTaxTapped = siteState.eddyTaxTapped ?? 0;
+  const eddyTaxUnpaid = eddyLock !== undefined && eddyTaxTapped < eddyLock.taxTapCharacters;
+  if (eddyLock) {
+    logDetail(`Site ${siteName}: Eddy in Fate's Tide tax ${eddyTaxTapped}/${eddyLock.taxTapCharacters} paid this site phase`);
+  }
+
   // Evaluate each hand card
   const evaluatedInstances = new Set<string>();
 
@@ -1245,6 +1257,15 @@ function playResourcesActions(
       const itemDef = def as HeroItemCard;
       evaluatedInstances.add(cardInstanceId as string);
 
+      // Eddy in Fate's Tide (ba-57): no ally or item may be played at any
+      // version of the bound site until this company has tapped its two tax
+      // characters this site phase.
+      if (eddyTaxUnpaid) {
+        logDetail(`Item ${itemDef.name}: Eddy in Fate's Tide — must tap ${eddyLock.taxTapCharacters} characters first (${eddyTaxTapped}/${eddyLock.taxTapCharacters})`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: must tap two characters first (Eddy in Fate's Tide)`));
+        continue;
+      }
+
       // MEAS §6(f): at an Under-deeps site the "one extra minor item" allowance
       // (rule 2.V.5) is widened — the extra character may play any item the site
       // itself allows (minor, major, or gold ring), not only a minor item.
@@ -1466,6 +1487,13 @@ function playResourcesActions(
     if (isAllyCard(def)) {
       const allyDef = def;
       evaluatedInstances.add(cardInstanceId as string);
+
+      // Eddy in Fate's Tide (ba-57): tax gate — see the item branch above.
+      if (eddyTaxUnpaid) {
+        logDetail(`Ally ${allyDef.name}: Eddy in Fate's Tide — must tap ${eddyLock.taxTapCharacters} characters first (${eddyTaxTapped}/${eddyLock.taxTapCharacters})`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: must tap two characters first (Eddy in Fate's Tide)`));
+        continue;
+      }
 
       // A play-target effect with target "site" defines where the ally can be played via a filter
       // (e.g. Noble Hound: "any tapped or untapped Border-hold"). When requireTapped is false,
@@ -1849,6 +1877,20 @@ function playResourcesActions(
   // Site-phase grant-actions declared on the current site (e.g. The Worthy Hills as-142:
   // tap sage + scout to untap the site).
   actions.push(...sitePhaseGrantActions(state, playerId, company));
+
+  // Eddy in Fate's Tide (ba-57): while the tax is unpaid, offer to tap one
+  // untapped character (one action per candidate) to pay toward the two-character
+  // tax that gates ally/item play at any version of the bound site.
+  if (eddyTaxUnpaid) {
+    for (const ch of untappedCharacters) {
+      const charName = defById(state, ch.definitionId)?.name ?? ch.instanceId;
+      logDetail(`Eddy in Fate's Tide: offering to tap ${charName} toward the site tax`);
+      actions.push({
+        action: { type: 'pay-site-tax', player: playerId, characterId: ch.instanceId },
+        viable: true,
+      });
+    }
+  }
 
   // Opponent influence attempts (rule 10.10)
   const oppInfluence = opponentInfluenceActions(state, playerId, siteState, company, player, untappedCharacters);

@@ -365,3 +365,21 @@ export interface DeclareCompanyAttackAction {
   /** The target company (the opponent's company at the same site). */
   readonly targetCompanyId: CompanyId;
 }
+
+/**
+ * Tap one character to pay the Eddy in Fate's Tide (ba-57) site tax during the
+ * play-resources step. Eddy's text: "Before a company can play any ally or item
+ * at any version of this site, it must tap two characters during the site
+ * phase." Each `pay-site-tax` taps one untapped character in the active company
+ * and increments {@link SitePhaseState.eddyTaxTapped}; item and ally plays at the
+ * bound site are gated until the count reaches the bound card's
+ * `taxTapCharacters`.
+ */
+export interface PaySiteTaxAction {
+  /** Action discriminant. */
+  readonly type: 'pay-site-tax';
+  /** The active player paying the tax. */
+  readonly player: PlayerId;
+  /** The untapped character in the active company to tap. */
+  readonly characterId: CardInstanceId;
+}

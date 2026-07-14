@@ -135,6 +135,7 @@ export type {
   FactionInfluenceRollAction,
   PlayMinorItemAction,
   DeclareCompanyAttackAction,
+  PaySiteTaxAction,
 } from './actions-site.js';
 
 // ---- Universal / cross-phase actions ----
@@ -177,7 +178,7 @@ import type { UntapAction, PlayCharacterAction, SplitCompanyAction, MoveToCompan
 import type { PlayShortEventAction, FetchFromPileAction, ReshuffleCardFromHandAction } from './actions-short-event.js';
 import type { PlayLongEventAction } from './actions-long-event.js';
 import type { SelectCompanyAction, DeclarePathAction, OrderEffectsAction, PlayHazardAction, SideboardWithNazgulAction, TapAltPermanentEventAction, PlayAgentManifestationAction, AssignStrikeAction, AllocateCvccExcessAction, ResolveStrikeAction, AgentStrikeRollAction, SupportStrikeAction, ChooseStrikeOrderAction, BodyCheckRollAction, CancelAttackAction, ConvertCreatureToAllyAction, CancelByTapAction, CancelStrikeAction, ProtectFromStrikeAssignmentAction, HalveStrikesAction, TapAllyCombatBoostAction, TapAllyBodyCheckBoostAction, ModifyAttackAction, ApplyAttackerAttackOptionAction, TapItemForStrikeAction, FaceStrikeOnTapAction, CancelWeaponEffectsAction, SalvageItemAction, ShieldDiscardRollAction, DiscardItemFromCompanyAction, PlayStrikeEventAction, ResolveDiceCheckAction, SeizedByTerrorRollAction, HavenJoinAttackAction, CancelReturnToOriginAction, PlayCounterCancelRollAction, CounterCancelAttackAction, TapAllyDiscardHazardAction, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction, UnderDeepsRollAction, GangwaysExtraMoveAction, FlateryAttemptRollAction, TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction, TakeTrophyAction, ReserveCreatureAction, PlayReservedCreatureAction, PlayCreatureFromDiscardAction, SpawnReplayCreatureAction, StayHerAppetiteRollAction, ForceDiscardCardAction, TransferReturnedItemAction } from './actions-movement-hazard.js';
-import type { EnterSiteAction, PlaceOnGuardAction, RevealOnGuardAction, CancelAutoAttackAction, PlaySiteAutoAttackAction, RescuePrisonerAction, DeclareAgentAttackAction, PlayHeroResourceAction, InfluenceAttemptAction, OpponentInfluenceAttemptAction, OpponentInfluenceDefendAction, CancelInfluenceAction, FactionInfluenceRollAction, PlayMinorItemAction, SelectForewarnedAttackAction, DeclareCompanyAttackAction } from './actions-site.js';
+import type { EnterSiteAction, PlaceOnGuardAction, RevealOnGuardAction, CancelAutoAttackAction, PlaySiteAutoAttackAction, RescuePrisonerAction, DeclareAgentAttackAction, PlayHeroResourceAction, InfluenceAttemptAction, OpponentInfluenceAttemptAction, OpponentInfluenceDefendAction, CancelInfluenceAction, FactionInfluenceRollAction, PlayMinorItemAction, SelectForewarnedAttackAction, DeclareCompanyAttackAction, PaySiteTaxAction } from './actions-site.js';
 import type { SupportCorruptionCheckAction, CorruptionCheckAction, DrawCardsAction, DiscardCardAction, PassAction, CallFreeCouncilAction, DeckExhaustAction, ExchangeSideboardAction, StartSideboardToDeckAction, StartSideboardToDiscardAction, FetchFromSideboardAction, CardSideboardToDeckAction, StartHazardSideboardToDeckAction, StartHazardSideboardToDiscardAction, FetchHazardFromSideboardAction, NotPlayableAction, PassChainPriorityAction, OrderPassivesAction, FinishedAction, HavenReturnAction, PayHazardEventMaintenanceAction, TapCharacterByEffectAction, RestoreCharacterByEffectAction, LeftBehindRejoinAction, ArrangeDeckTopCardAction, ChooseRevealedCardAction, RemoveRevealedCardAction, DesireChooseShownCardAction, DesireChoosePenaltyAction, ChooseGreatHuntSourceAction, GreatHuntAttackWithCreatureAction } from './actions-universal.js';
 
 // ---- Discriminated union ----
@@ -300,6 +301,7 @@ export type GameAction =
   | PlayMinorItemAction
   | SelectForewarnedAttackAction
   | DeclareCompanyAttackAction
+  | PaySiteTaxAction
   | SupportCorruptionCheckAction
   | CorruptionCheckAction
   | DrawCardsAction

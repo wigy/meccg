@@ -4067,6 +4067,53 @@ export interface SurfaceSiteRollZeroEffect extends EffectBase {
 }
 
 /**
+ * Balrog-specific site-locking permanent-event. Played during the site phase on
+ * the untapped site of the company containing The Balrog (the site must be
+ * neither an Under-deeps site nor the surface site of one — gated by the
+ * companion `play-target: site` filter and `untapped-site-required` /
+ * `tap-site-on-play` play-flags, plus a `company-context` play-condition
+ * requiring The Balrog in the company). On play the Balrog is tapped (handled in
+ * `chain-reducer.ts` when this effect is present) and the site is tapped.
+ *
+ * While in play, bound to a site instance (`attachedToSite` = the site
+ * definition id), it has three ongoing effects:
+ *
+ * 1. **Permanence** — the card is exempt from the site-attached orphan sweep
+ *    ({@link import('../engine/reducer-utils.js').discardOrphanedSiteAttachedEvents})
+ *    and the bound site is always returned to its owner's location deck rather
+ *    than discarded (the `cavernsBound` branch in `mh-hazard-play.ts` step 8),
+ *    the same treatment as {@link SurfaceRegionAdjacencyEffect} — "This site is
+ *    never discarded."
+ * 2. **Never untaps for the owner** — when the owner's company moves to a
+ *    version of the bound site definition, the site is placed **tapped** rather
+ *    than untapped (`mh-hazard-play.ts` step 8), realising "never untaps for
+ *    you" (the engine never untaps a stationary site, so the only refresh point
+ *    is re-placement on movement).
+ * 3. **Two-character tax** — any company (either player) at any version of the
+ *    bound site definition must tap `taxTapCharacters` of its characters during
+ *    its site phase before it may play an ally or item there. The count paid so
+ *    far this site phase is tracked on `SitePhaseState.eddyTaxTapped`; a
+ *    `pay-site-tax` action taps one character and increments it, and the item /
+ *    ally play paths are gated until it reaches `taxTapCharacters`.
+ *
+ * Used by Eddy in Fate's Tide (ba-57): "Playable during the site phase on an
+ * untapped site if The Balrog is there; the site cannot be an Under-deeps site
+ * or surface site thereof. Tap The Balrog and the site. This site is never
+ * discarded and never untaps for you. Before a company can play any ally or item
+ * at any version of this site, it must tap two characters during the site
+ * phase."
+ */
+export interface EddyLockEffect extends EffectBase {
+  readonly type: 'eddy-lock';
+  /**
+   * Number of characters a company must tap during its site phase before it may
+   * play an ally or item at any version of the bound site (2 for Eddy in Fate's
+   * Tide).
+   */
+  readonly taxTapCharacters: number;
+}
+
+/**
  * Balrog-specific movement grant: while this permanent-event is in play (and the
  * card named in `suppressedByInPlay` is *not* in play), a company containing The
  * Balrog avatar may use **region** movement — overriding his printed "may not use
@@ -4797,6 +4844,7 @@ export type CardEffect =
   | DiscardSelfWhenEffect
   | SurfaceRegionAdjacencyEffect
   | SurfaceSiteRollZeroEffect
+  | EddyLockEffect
   | BalrogSurfaceRegionMovementEffect
   | CompanyMovementRestrictionEffect
   | VoluntaryDiscardEffect

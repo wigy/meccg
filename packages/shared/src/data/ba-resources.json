@@ -917,13 +917,33 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/EddyinFatesTide.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-flag", "flag": "untapped-site-required" },
+      { "type": "play-flag", "flag": "tap-site-on-play" },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "$not": { "keywords": { "$includes": "under-deeps" } } },
+            { "isUnderDeepsSurface": { "$ne": true } }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": { "company.characterNames": { "$includes": "The Balrog" } }
+      },
+      { "type": "eddy-lock", "taxTapCharacters": 2 }
+    ],
     "text": "Balrog specific. Playable during the site phase on an untapped site if The Balrog is there; the site cannot be an Under-deeps site or surface site thereof. Tap The Balrog and the site. This site is never discarded and never untaps for you. Before a company can play any ally or item at any version of this site, it must tap two characters during the site phase.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
