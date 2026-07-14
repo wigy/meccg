@@ -23,7 +23,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { hasSiteFlag, makeCombatState, canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
+import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -3191,7 +3191,8 @@ function hasCvCCAttackTargets(
     if (!sameSite) continue;
     const attackerCovert = isCovertCompany(attackingCompany, attackingPlayer, state);
     const defenderCovert = isCovertCompany(opponentCompany, opponent, state);
-    if (!canAttackAlignment(attackingPlayer.alignment, opponent.alignment, attackerCovert, defenderCovert)) continue;
+    if (!canAttackAlignment(attackingPlayer.alignment, opponent.alignment, attackerCovert, defenderCovert)
+      && !cvccAttackPermitted(state, attackingPlayer, attackingCompany, opponent, opponentCompany)) continue;
     return true;
   }
   return false;
@@ -3258,7 +3259,8 @@ function handleDeclareCompanyAttack(
 
   const attackerCovert = isCovertCompany(company, player, state);
   const defenderCovert = isCovertCompany(targetCompany, hazardPlayerState, state);
-  if (!canAttackAlignment(player.alignment, hazardPlayerState.alignment, attackerCovert, defenderCovert)) {
+  if (!canAttackAlignment(player.alignment, hazardPlayerState.alignment, attackerCovert, defenderCovert)
+    && !cvccAttackPermitted(state, player, company, hazardPlayerState, targetCompany)) {
     return { state, error: 'Alignment restrictions prevent this CvCC attack' };
   }
 

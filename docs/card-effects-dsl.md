@@ -8389,3 +8389,48 @@ Paired with a `play-target` `target: 'character'` (`{ "target.race": { "$ne":
   companies.
 
 Used by: *Left Behind* (td-41).
+
+### 65. `cvcc-attack-permission` (Prone to Violence)
+
+An in-play permanent-event that grants an **extra** Company-vs-Company-combat
+(CvCC) attack permission *beyond* the default alignment matrix
+(`canAttackAlignment`, CoE rule 8.41). While any in-play permanent-event on
+either player's `cardsInPlay` carries this effect, a CvCC attack the matrix would
+otherwise forbid is allowed when the effect's optional `when` condition matches
+the attacker→defender pair.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | yes | `"cvcc-attack-permission"` |
+| `when` | no | Condition matched against the CvCC attack context. Omitting it permits every CvCC attack while the card is in play. |
+
+The `when` context describes both companies:
+
+```jsonc
+{
+  "attacker": { "alignment": "ringwraith", "isMinion": true, "hasRingwraith": false },
+  "defender": { "alignment": "ringwraith", "isMinion": true, "hasRingwraith": false }
+}
+```
+
+- `alignment` — the owning player's engine alignment (`"wizard"` / `"ringwraith"`
+  / `"fallen-wizard"` / `"balrog"`).
+- `isMinion` — `true` for the two minion player alignments (Ringwraith and
+  Balrog).
+- `hasRingwraith` — `true` when any character in that company has the Ringwraith
+  race (a Ringwraith avatar or a Ringwraith follower).
+
+Collected by `cvccAttackPermitted` (`reducer-utils.ts`) and consulted at all
+three CvCC-declaration gates: the legal-action generator
+(`declareCompanyAttackActions`), the reducer's declare-step transition
+(`hasCvCCAttackTargets`), and the declare-attack validator
+(`handleDeclareCompanyAttack`).
+
+Used by **Prone to Violence** (ba-42): "Any minion company without a Ringwraith
+may attack another minion company without a Ringwraith. The attacking company
+may contain The Balrog." — expressed as a single `cvcc-attack-permission` whose
+`when` requires both companies to be `isMinion` with `hasRingwraith: false` (the
+Balrog attacker is covered by `isMinion`). The card's remaining text reuses
+shipped primitives: `duplication-limit` (scope `game`, max 1) for "Cannot be
+duplicated", and `on-event: play-deck-exhausted` → `move` self to `discard` for
+"Discard when any play deck is exhausted".
