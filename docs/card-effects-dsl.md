@@ -312,6 +312,41 @@ and Troll factions."
   "when": { "reason": "faction-influence-check", "faction.race": { "$in": ["orc", "troll"] } } }
 ```
 
+A one-shot influence booster may instead be scoped to an **opponent-influence
+attempt** (influencing an opponent's in-play card — CoE rule 8, "Mine or No
+One's" ba-68) rather than a faction-influence roll. This uses the ordinary
+`play-target` + `play-option` → `add-constraint check-modifier check:"influence"`
+form (the Muster shape), but the `apply` carries an extra `constraintWhen`
+condition. That condition is stored on the resulting one-shot constraint and
+evaluated at the influence step against an `opponent-influence-check` resolver
+context that exposes `bearer` (the influencer) and `target` (`{ kind, race,
+name }`, where `kind` is `"character" | "ally" | "faction" | "item"`). The
+modifier is applied — and consumed — only when the condition matches. Two rules
+keep the two influence flavours from stealing each other's boosters:
+
+- The **opponent-influence** declaration consumes a one-shot influence
+  constraint only when it carries a matching `constraintWhen`. A constraint with
+  no `when` is left alone (it belongs to the faction path).
+- The **faction-influence** roll consumes a one-shot influence constraint when
+  it has no `when`, or when its `when` matches the faction context. A
+  `constraintWhen` gated on `reason: "opponent-influence-check"` never matches
+  there, so it is not swallowed by an ordinary faction check.
+
+Used by Mine or No One's (ba-68): "+10 to an influence attempt by The Balrog
+against an opponent's item, ally, Troll faction, or Orc faction. Cannot be
+duplicated on a given attempt." (`duplication-limit` scope `"active-check"`
+enforces the last sentence.)
+
+```json
+{ "type": "play-option", "id": "influence-boost",
+  "apply": { "type": "add-constraint", "constraint": "check-modifier", "check": "influence",
+             "scope": "until-cleared", "value": 10,
+             "constraintWhen": { "reason": "opponent-influence-check",
+               "$or": [ { "target.kind": "item" }, { "target.kind": "ally" },
+                        { "$and": [ { "target.kind": "faction" },
+                                    { "target.race": { "$in": ["orc", "troll"] } } ] } ] } } }
+```
+
 ### 2z. `site-path-reduction` active constraint
 
 A **player-scoped, turn-scoped** constraint that makes each of the player's

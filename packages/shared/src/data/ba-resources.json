@@ -1468,11 +1468,49 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "The Balrog"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "influence-boost",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "value": 10,
+          "constraintWhen": {
+            "reason": "opponent-influence-check",
+            "$or": [
+              { "target.kind": "item" },
+              { "target.kind": "ally" },
+              {
+                "$and": [
+                  { "target.kind": "faction" },
+                  { "target.race": { "$in": ["orc", "troll"] } }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "active-check",
+        "max": 1
+      }
+    ],
     "text": "Balrog specific. +10 to an influence attempt by The Balrog against an opponent’s: item, ally, Troll faction, or Orc faction. Cannot be duplicated on a given attempt.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-event",

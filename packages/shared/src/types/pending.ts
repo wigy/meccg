@@ -111,8 +111,8 @@ export interface OpponentInfluenceAttempt {
   readonly influencerId: CardInstanceId;
   /** The opponent's targeted card instance ID. */
   readonly targetInstanceId: CardInstanceId;
-  /** Whether the target is a character, ally, or faction. */
-  readonly targetKind: 'character' | 'ally' | 'faction';
+  /** Whether the target is a character, ally, faction, or item. */
+  readonly targetKind: 'character' | 'ally' | 'faction' | 'item';
   /** The target's player ID. */
   readonly targetPlayer: PlayerId;
   /** The attacker's 2d6 roll result. */
@@ -139,6 +139,13 @@ export interface OpponentInfluenceAttempt {
    * same-site attempt.
    */
   readonly regionPenalty?: number;
+  /**
+   * Sum of one-shot influence `check-modifier` constraint values that matched
+   * this opponent-influence attempt (e.g. Mine or No One's ba-68: +10 against
+   * an item/ally/Orc-or-Troll faction), added to the attacker's side of the
+   * final comparison. 0 (or absent) when no booster was in effect.
+   */
+  readonly boostModifier?: number;
   /**
    * The card instance revealed from hand for a comparison value of 0.
    * Null if no card was revealed.
@@ -905,6 +912,18 @@ export interface ActiveConstraint {
          * by {@link value}). Used by Ancient Black Axe (as-122).
          */
         readonly autoPass?: boolean;
+        /**
+         * Optional condition evaluated against the resolving check's resolver
+         * context. When present, the modifier is only applied (and consumed) if
+         * the condition matches — this lets a booster target one specific
+         * flavour of influence attempt. Mine or No One's (ba-68) uses
+         * `{ reason: "opponent-influence-check", ... }` so its +10 fires on an
+         * opponent-influence attempt against an item/ally/Orc-or-Troll faction
+         * and is *not* swallowed by an ordinary faction-influence roll. A
+         * check-modifier constraint with no `when` is consumed by the
+         * faction-influence roll only (legacy default).
+         */
+        readonly when?: import('./effects.js').Condition;
       }
     | {
         /**
