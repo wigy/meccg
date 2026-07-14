@@ -1971,7 +1971,7 @@ export function applySelectCardBearerResolution(
 ): ReducerResult | null {
   if (top.kind.type !== 'select-card-bearer') return null;
 
-  const { cardInstanceId, companyId, mode: bearerMode, discardFactionsAtSite: shouldDiscardFactions, returnFactionsAtSite: shouldReturnFactions } = top.kind;
+  const { cardInstanceId, companyId, mode: bearerMode, discardFactionsAtSite: shouldDiscardFactions, returnFactionsAtSite: shouldReturnFactions, discardUniqueFactionsAtSite: shouldDiscardUniqueFactions } = top.kind;
 
   if (action.type === 'pass') {
     // Player declines bearer assignment — discard the card
@@ -2097,6 +2097,51 @@ export function applySelectCardBearerResolution(
             cardsInPlay: p.cardsInPlay.filter(c => !discardIds.has(c.instanceId as string)),
             discardPile: [...p.discardPile, ...factionsToDiscard.map(toCardInstance)],
           }));
+        }
+      }
+    }
+
+    // Discard every unique faction (of either player) playable at the
+    // company's current site (Invade Their Domain ba-64: "discard all unique
+    // factions playable at the site"). Unlike `discardFactionsAtSite` (active
+    // player, all factions), this scans both players' cardsInPlay and is
+    // limited to unique factions.
+    if (shouldDiscardUniqueFactions) {
+      const company = s.players[defIdx].companies.find(co => co.id === companyId);
+      const currentSiteDef = company?.currentSite
+        ? defById(s, company.currentSite.definitionId)
+        : undefined;
+      const siteName = currentSiteDef?.name;
+      const siteType = currentSiteDef && 'siteType' in currentSiteDef ? (currentSiteDef as { siteType: string }).siteType : undefined;
+
+      if (siteName || siteType) {
+        for (let pi = 0; pi < 2; pi++) {
+          const factionsToDiscard: import('../types/state-cards.js').CardInPlay[] = [];
+          for (const card of s.players[pi].cardsInPlay) {
+            const fDef = defById(s, card.definitionId);
+            if (!fDef || !isFactionCard(fDef)) continue;
+            if (fDef.unique !== true) continue;
+            const playableAt = fDef.playableAt as readonly ({ site?: string; siteType?: string; region?: string })[];
+            const matches = playableAt.some(entry =>
+              (siteName && 'site' in entry && entry.site === siteName) ||
+              (siteType && 'siteType' in entry && entry.siteType === siteType),
+            );
+            if (matches) factionsToDiscard.push(card);
+          }
+          if (factionsToDiscard.length === 0) continue;
+          const discardIds = new Set(factionsToDiscard.map(c => c.instanceId as string));
+          // Each faction returns to its true owner's discard pile (instance-id
+          // prefix), matching how an influenced-away faction is tracked.
+          s = updatePlayer(s, pi, p => ({
+            ...p,
+            cardsInPlay: p.cardsInPlay.filter(c => !discardIds.has(c.instanceId as string)),
+          }));
+          for (const card of factionsToDiscard) {
+            const ownerIdx = getPlayerIndex(s, ownerOf(card.instanceId));
+            const fName = defById(s, card.definitionId)?.name ?? (card.definitionId as string);
+            logDetail(`select-card-bearer: discarding unique faction "${fName}" playable at ${siteName ?? siteType ?? '?'}`);
+            s = updatePlayer(s, ownerIdx, p => ({ ...p, discardPile: [...p.discardPile, toCardInstance(card)] }));
+          }
         }
       }
     }

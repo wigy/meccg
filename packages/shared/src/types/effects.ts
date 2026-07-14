@@ -2314,6 +2314,16 @@ export interface TriggerAttackOnPlayEffect extends EffectBase {
    * from the map falls back to the attack entry's printed `creatureType`.
    */
   readonly creatureTypeBySiteType?: Readonly<Record<string, string>>;
+  /**
+   * When true, after bearer selection (the `move-to-mp-pile` keep branch)
+   * discard every **unique** faction card in play — belonging to *either*
+   * player — that is playable at the company's current site (Invade Their
+   * Domain ba-64: "discard all unique factions playable at the site").
+   * Distinct from `discardFactionsAtSite` (which discards *all* of the active
+   * player's factions regardless of uniqueness) and `returnFactionsAtSite`
+   * (which returns unique factions to hand rather than discarding).
+   */
+  readonly discardUniqueFactionsAtSite?: boolean;
 }
 
 /**
@@ -3537,7 +3547,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'company-site';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-on-adjacent-under-deeps';
   /**
    * `requires: 'site-protected'` takes no extra fields. On a faction it gates
    * the influence attempt on the company's current site being **protected by
@@ -3546,6 +3556,16 @@ export interface PlayConditionEffect extends EffectBase {
    * id and owned by the player attempting the play. Used by Half-orcs (wh-87)
    * and Greater Half-orcs (wh-86): "Playable at one of your protected
    * Wizardhavens [{H}]".
+   *
+   * For `requires: 'card-on-adjacent-under-deeps'`: the permanent-event is only
+   * playable at the active company's current site when a card named
+   * {@link cardName} is in play attached to an **Under-deeps site adjacent to
+   * that site** (an in-play card whose `attachedToSite` names an Under-deeps
+   * site whose `adjacentSites` map includes the current site's name). Invade
+   * Their Domain (ba-64): "… if … Breach the Hold is on its adjacent Under-deeps
+   * site" — Breach the Hold sits on The Drowning-deeps (adjacent to the Blue
+   * Mountain Dwarf-hold) or The Rusted-deeps (adjacent to the Iron Hill
+   * Dwarf-hold).
    */
   /**
    * For `requires: 'region-through-or-leave'`: the named regions one of which

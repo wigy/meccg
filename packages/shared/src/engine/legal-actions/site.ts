@@ -1003,6 +1003,33 @@ function playResourcesActions(
           }
         }
 
+        // play-condition: card-on-adjacent-under-deeps — the permanent event is
+        // only playable when a named card is in play attached to an Under-deeps
+        // site adjacent to the active company's current site. Invade Their
+        // Domain (ba-64): "… if … Breach the Hold is on its adjacent Under-deeps
+        // site" (The Drowning-deeps for the Blue Mountain Dwarf-hold, The
+        // Rusted-deeps for the Iron Hill Dwarf-hold).
+        const cardOnAdjUnderDeepsCond = findPlayConditionEffect(eventDef, 'card-on-adjacent-under-deeps');
+        if (cardOnAdjUnderDeepsCond?.cardName) {
+          const requiredName = cardOnAdjUnderDeepsCond.cardName;
+          const present = state.players.some(pl =>
+            pl.cardsInPlay.some(c => {
+              if (c.pendingTriggerAttack) return false;
+              if (defById(state, c.definitionId)?.name !== requiredName) return false;
+              if (!c.attachedToSite) return false;
+              const udDef = state.cardPool[c.attachedToSite] as
+                { keywords?: readonly string[]; adjacentSites?: Readonly<Record<string, number>> } | undefined;
+              if (!udDef || !(udDef.keywords ?? []).includes('under-deeps')) return false;
+              return siteName !== undefined && udDef.adjacentSites?.[siteName] !== undefined;
+            }),
+          );
+          if (!present) {
+            logDetail(`Permanent event ${eventDef.name}: requires "${requiredName}" on the Under-deeps site adjacent to ${siteName} — not satisfied`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: requires ${requiredName} on the adjacent Under-deeps site`));
+            continue;
+          }
+        }
+
         // Check play-target character filter.
         // When the card also has trigger-attack-on-play, bearer selection happens
         // post-attack (via a select-card-bearer pending resolution), so no

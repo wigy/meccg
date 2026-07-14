@@ -4035,6 +4035,19 @@ check) and `reducer-events.ts` (discard execution).
 { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }
 ```
 
+- `card-on-adjacent-under-deeps` — a site-phase permanent-event is only playable
+  when a card named `cardName` is in play attached to an **Under-deeps site
+  adjacent to the current site** (an in-play card whose `attachedToSite` names an
+  `under-deeps` site whose `adjacentSites` map includes the current site's
+  name — looked up in `state.cardPool`). Used by Invade Their Domain (ba-64):
+  "… if … Breach the Hold is on its adjacent Under-deeps site" (The Drowning-deeps
+  for the Blue Mountain Dwarf-hold, The Rusted-deeps for the Iron Hill
+  Dwarf-hold).
+
+```json
+{ "type": "play-condition", "requires": "card-on-adjacent-under-deeps", "cardName": "Breach the Hold" }
+```
+
 - `site-protected` — (takes no extra fields) on a **faction** the influence
   attempt is only offered when the company's current site is **protected by
   the controller**: an active `site-protected` constraint (added by a stage
@@ -5232,6 +5245,13 @@ Fields:
   `cardsInPlay`, is limited to unique factions, and returns to hand (via the
   instance-id owner prefix) rather than discarding. No return happens on a
   discard (decline) of the card.
+- `discardUniqueFactionsAtSite: boolean` — after the `move-to-mp-pile` keep,
+  discard every **unique** faction in play — belonging to *either* player —
+  that is playable at the company's current site to its **owner's** discard
+  pile (Invade Their Domain ba-64: "discard all unique factions playable at the
+  site"). Distinct from `discardFactionsAtSite` (active player, all factions)
+  and `returnFactionsAtSite` (returns unique to hand). No discard happens on a
+  decline of the card.
 - `creatureTypeBySiteType: Record<siteType, creatureType>` — resolve every
   triggered attack's creature type from the played site's type instead of the
   fixed per-attack `creatureType`, at play time (Tempest of Fire ba-77: "Men at
