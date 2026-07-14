@@ -248,7 +248,45 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DiminishandDepart.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": { "$in": ["elf", "hobbit", "wizard"] } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": 1,
+        "target": "company",
+        "when": { "bearer.race": { "$in": ["elf", "hobbit"] } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -1,
+        "target": "company",
+        "when": { "bearer.race": "wizard" }
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-at-haven",
+        "cost": { "tap": "bearer" },
+        "when": { "bearer.atHaven": true },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
+    "certified": "2026-07-14",
     "text": "Playable on an Elf, Hobbit, or Wizard. All Elves and Hobbits in the target’s company have +1 mind, and a Wizard in the company has -1 direct influence. Tap target character at a Haven [{H}] during the organization phase to discard this card. Cannot be duplicated in a given company."
   },
   {
