@@ -1009,6 +1009,11 @@ function applyOneConstraint(
       return base;
     case 'check-modifier':
       return base;
+    case 'site-path-reduction':
+      // Roam the Waste (ba-73): consulted directly when a moving company's
+      // resolved site path is built (`applySitePathReduction` in mh-steps.ts) —
+      // no broad legal-action filtering needed here.
+      return base;
     case 'deny-scout-resources':
       return applyDenyScoutResources(state, playerId, base, constraint);
     case 'attribute-modifier':

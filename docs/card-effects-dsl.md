@@ -300,6 +300,29 @@ and Troll factions."
   "when": { "reason": "faction-influence-check", "faction.race": { "$in": ["orc", "troll"] } } }
 ```
 
+### 2z. `site-path-reduction` active constraint
+
+A **player-scoped, turn-scoped** constraint that makes each of the player's
+companies "considered to have one fewer <region type> in its site path" for the
+rest of the turn. Added via `on-event: self-enters-play` → `add-constraint`
+carrying `constraint: "site-path-reduction"`, `target: "player"`, `scope`, and
+`regionReductions` (a region-type → count map). When a moving company's site
+path is resolved (`handleRevealNewSite`, mh-steps.ts), `applySitePathReduction`
+removes up to that many tokens of each region type from `resolvedSitePath` (and
+the parallel name entry for region movement), so the reduced path flows to
+creature keying, ahunt matching, force-return-to-origin, and end-of-company-MH
+corruption region counts alike. Reductions from multiple copies stack (summed
+per type); a type never drops below zero tokens. Used by Roam the Waste (ba-73):
+"Each of your companies this turn is considered to have one fewer Wilderness
+[{w}] and one fewer Shadow-land [{s}] in its site path."
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "site-path-reduction",
+             "scope": "turn", "target": "player",
+             "regionReductions": { "wilderness": 1, "shadow": 1 } } }
+```
+
 ### 2a. `body-check-modifier`
 
 Modifies the 2d6 **body-check** roll made against the bearer during combat

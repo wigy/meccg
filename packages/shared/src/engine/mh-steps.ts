@@ -341,16 +341,71 @@ export function handleRevealNewSite(
     };
   }
 
-  logDetail(`Movement/Hazard: path declared (${action.movementType}, ${resolvedSitePath.length} region types: ${resolvedSitePath.join(', ')}) → auto-advancing through set-hazard-limit`);
+  // Roam the Waste (ba-73): a turn-scoped, player-targeted site-path-reduction
+  // constraint makes each of the player's companies "considered to have one
+  // fewer Wilderness / Shadow-land in its site path". Applied here, after the
+  // path is resolved, so the reduced path flows to every downstream consumer
+  // (creature keying, ahunt matching, force-return-to-origin, corruption counts).
+  const reduced = applySitePathReduction(state, player.id, resolvedSitePath, resolvedSitePathNames);
+
+  logDetail(`Movement/Hazard: path declared (${action.movementType}, ${reduced.path.length} region types: ${reduced.path.join(', ')}) → auto-advancing through set-hazard-limit`);
   return enterSetHazardLimitAndAutoAdvance(state, {
     ...mhState,
     movementType: action.movementType,
     declaredRegionPath: action.regionPath ?? [],
-    resolvedSitePath,
-    resolvedSitePathNames,
+    resolvedSitePath: reduced.path,
+    resolvedSitePathNames: reduced.names,
     destinationSiteType: destDef.siteType,
     destinationSiteName: destDef.name,
   });
+}
+
+/**
+ * Apply any active `site-path-reduction` constraints (Roam the Waste ba-73)
+ * owned by `playerId` to a freshly-resolved site path, removing up to the
+ * constrained number of region-type tokens.
+ *
+ * Reductions from multiple constraints (e.g. two copies played the same turn)
+ * are summed per region type. Tokens are dropped from the end of the path. When
+ * the type and name arrays are index-parallel (region movement, where each
+ * declared region contributes one type + one name together), the matching name
+ * entry is removed too so the arrays stay parallel; for starter movement (types
+ * from the site's sitePath, names just origin/destination) only the type array
+ * is reduced. A region type never drops below zero tokens.
+ */
+export function applySitePathReduction(
+  state: GameState,
+  playerId: import('../types/common.js').PlayerId,
+  path: readonly RegionType[],
+  names: readonly string[],
+): { path: RegionType[]; names: string[] } {
+  const merged = new Map<RegionType, number>();
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'site-path-reduction') continue;
+    if (constraint.target.kind !== 'player' || constraint.target.playerId !== playerId) continue;
+    for (const [rt, count] of Object.entries(constraint.kind.reductions)) {
+      merged.set(rt as RegionType, (merged.get(rt as RegionType) ?? 0) + (count ?? 0));
+    }
+  }
+  if (merged.size === 0) return { path: [...path], names: [...names] };
+
+  const parallel = path.length === names.length;
+  const newPath = [...path];
+  const newNames = [...names];
+  for (const [rt, count] of merged) {
+    let toRemove = count;
+    for (let i = newPath.length - 1; i >= 0 && toRemove > 0; i--) {
+      if (newPath[i] === rt) {
+        newPath.splice(i, 1);
+        if (parallel) newNames.splice(i, 1);
+        toRemove--;
+      }
+    }
+    if (count > 0) {
+      logDetail(`site-path-reduction: removed up to ${count} "${rt}" token(s) from ${playerId as string}'s company site path`);
+    }
+  }
+  return { path: newPath, names: newNames };
 }
 
 /**

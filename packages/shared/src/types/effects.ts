@@ -1577,6 +1577,12 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly regionName?: string;
   /** Payload describing the action granted by a `granted-action` constraint. */
   readonly grantedAction?: GrantedActionConstraintPayload;
+  /**
+   * For a `site-path-reduction` constraint (Roam the Waste ba-73): region type →
+   * count of tokens removed from each of the player's companies' site paths this
+   * turn (e.g. `{ "wilderness": 1, "shadow": 1 }`).
+   */
+  readonly regionReductions?: Record<string, number>;
 }
 
 /**

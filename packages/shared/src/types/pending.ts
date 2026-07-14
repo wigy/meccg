@@ -1083,6 +1083,21 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Roam the Waste (ba-73): each of the constrained player's companies is
+         * "considered to have one fewer Wilderness / Shadow-land … in its site
+         * path" for the rest of the turn. Player-targeted and turn-scoped; read
+         * when a moving company's `resolvedSitePath` is built
+         * (`handleRevealNewSite`), removing up to {@link reductions}[type] tokens
+         * of each region type from the path (and the parallel name entry), so it
+         * flows to creature keying, ahunt matching, force-return-to-origin, and
+         * end-of-company-MH corruption region counts alike.
+         */
+        readonly type: 'site-path-reduction';
+        /** Region type → number of tokens to remove from each company's site path. */
+        readonly reductions: Partial<Record<import('./common.js').RegionType, number>>;
+      }
+    | {
+        /**
          * Promptings of Wisdom / Piercing All Shadows: cancels hazard
          * effects that force the company to return to its site of origin
          * or that tap the company's current or new site. Placed when the

@@ -1479,11 +1479,45 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Strangling Coils"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-path-reduction",
+          "scope": "turn",
+          "target": "player",
+          "regionReductions": {
+            "wilderness": 1,
+            "shadow": 1
+          }
+        }
+      },
+      {
+        "type": "move",
+        "select": "self",
+        "from": [
+          "sideboard"
+        ],
+        "to": "deck",
+        "shuffleAfter": true
+      }
+    ],
     "text": "Balrog specific. Playable during the organization phase if Strangling Coils is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. Each of your companies this turn is considered to have one fewer Wilderness [{w}] and one fewer Shadow-land [{s}] in its site path.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
