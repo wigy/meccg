@@ -37,7 +37,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
-  viableActions, viableFor, dispatch,
+  viableActions, dispatch,
   getCharacter, findCharInstanceId, companyIdAt, addCardInPlay, recomputeDerived,
   enqueueCorruptionCheck,
   CardStatus,
