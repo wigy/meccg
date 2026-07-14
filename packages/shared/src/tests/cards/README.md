@@ -6,17 +6,17 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 752 | 743 | 9 | 98.8% |
+| 789 | 781 | 8 | 99.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 52 | 52 | 100.0% |
-| BA | 66 | 65 | 98.5% |
+| AS | 54 | 54 | 100.0% |
+| BA | 92 | 92 | 100.0% |
 | DM | 69 | 69 | 100.0% |
-| LE | 202 | 199 | 98.5% |
-| TD | 58 | 58 | 100.0% |
+| LE | 210 | 207 | 98.6% |
+| TD | 59 | 59 | 100.0% |
 | TW | 258 | 253 | 98.1% |
 | WH | 47 | 47 | 100.0% |
 
@@ -29,6 +29,7 @@
 | as-4 | Perchen | — | 3 | ☑ |
 | as-5 | Tûma | — | 12 | ☑ |
 | as-6 | Wûluag | — | 12 | ☑ |
+| as-8 | Durin’s Folk | — | 6 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
 | as-24 | Alone and Unadvised | — | 14 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
@@ -59,7 +60,7 @@
 | as-122 | Ancient Black Axe | — | 14 | ☑ |
 | as-123 | Dwarven Ring of Thélor’s Tribe | — | 14 | ☑ |
 | as-124 | Dwarven Ring of Thrár’s Tribe | — | 12 | ☑ |
-| as-126 | Helm of Fear | — | 15 | ☑ |
+| as-126 | Helm of Fear | — | 16 | ☑ |
 | as-127 | Iron Shield of Old | — | 10 | ☑ |
 | as-130 | Records Unread | — | 10 | ☑ |
 | as-131 | Secret Book | — | 11 | ☑ |
@@ -76,22 +77,28 @@
 | as-148 | Gold Hill | — | 9 | ☑ |
 | as-151 | Irerock | — | 9 | ☑ |
 | as-169 | Weathertop | — | 6 | ☑ |
+| as-170 | Wellinghall | — | 10 | ☑ |
 | ba-1 | Strider | — | 16 | ☑ |
 | ba-2 | Azog | — | 6 | ☑ |
 | ba-3 | The Balrog | — | 8 | ☑ |
-| ba-4 | Bolg | — | 2 | ☐ |
+| ba-4 | Bolg | — | 8 | ☑ |
 | ba-5 | Bûthrakaur | — | 8 | ☑ |
 | ba-6 | Crook-legged Orc | — | 3 | ☑ |
 | ba-7 | Hill-troll | — | 3 | ☑ |
 | ba-8 | Mountain-maggot | — | 3 | ☑ |
-| ba-10 | Beorning Skin-changers | — | 8 | ☑ |
+| ba-9 | Umagaur | — | 8 | ☑ |
+| ba-10 | Beorning Skin-changers | — | 9 | ☑ |
 | ba-11 | Carrion Feeders | — | 8 | ☑ |
+| ba-12 | Olog Warlords | — | 5 | ☑ |
 | ba-13 | Shelob’s Brood | — | 7 | ☑ |
 | ba-14 | Black Vapour | — | 10 | ☑ |
 | ba-15 | Darkness Made by Malice | — | 12 | ☑ |
 | ba-16 | Desire All for Thy Belly | — | 8 | ☑ |
+| ba-17 | Diminish and Depart | — | 9 | ☑ |
+| ba-18 | Fled into Darkness | — | 9 | ☑ |
 | ba-19 | Glance of Arien | — | 8 | ☑ |
 | ba-21 | Monstrosity of Diverse Shape | — | 13 | ☑ |
+| ba-22 | Press-gang | — | 8 | ☑ |
 | ba-23 | The Reek | — | 8 | ☑ |
 | ba-24 | Spawn of Ungoliant | — | 10 | ☑ |
 | ba-25 | The Sun Shone Fiercely | — | 8 | ☑ |
@@ -103,38 +110,58 @@
 | ba-35 | Cave Troll | — | 9 | ☑ |
 | ba-36 | Ancient Secrets | — | 13 | ☑ |
 | ba-37 | Going Ever Under Dark | — | 14 | ☑ |
+| ba-38 | Great Army of the North | — | 10 | ☑ |
+| ba-42 | Prone to Violence | — | 8 | ☑ |
 | ba-45 | Evil Things Lingering | — | 7 | ☑ |
 | ba-46 | Great Troll | — | 12 | ☑ |
+| ba-47 | Nasty Slimy Thing | — | 10 | ☑ |
+| ba-48 | A More Evil Hour | — | 13 | ☑ |
 | ba-49 | Angband Revisited | — | 5 | ☑ |
 | ba-50 | Breach the Hold | — | 14 | ☑ |
 | ba-51 | Caverns Unchoked | — | 12 | ☑ |
 | ba-52 | Challenge the Power | — | 6 | ☑ |
 | ba-53 | Cloaked by Darkness | — | 9 | ☑ |
+| ba-54 | Crowned with Storm | — | 13 | ☑ |
 | ba-55 | Darkness Wielded | — | 10 | ☑ |
 | ba-56 | Descent through Fire | — | 15 | ☑ |
+| ba-57 | Eddy in Fate’s Tide | — | 11 | ☑ |
 | ba-58 | Flame of Udûn | — | 13 | ☑ |
 | ba-59 | Foe Dismayed | — | 10 | ☑ |
 | ba-60 | Gangways over the Fire | — | 3 | ☑ |
-| ba-61 | Great Fissure | — | 11 | ☑ |
+| ba-61 | Great Fissure | — | 12 | ☑ |
 | ba-62 | Great Shadow | — | 22 | ☑ |
+| ba-63 | Heart of Dark Fire | — | 10 | ☑ |
+| ba-64 | Invade Their Domain | — | 15 | ☑ |
+| ba-65 | Lord and Usurper | — | 12 | ☑ |
 | ba-66 | Maker’s Map | — | 9 | ☑ |
 | ba-67 | Memories of Old Torture | — | 6 | ☑ |
-| ba-70 | Orders from the Great Demon | — | 8 | ☑ |
+| ba-69 | Obey Him or Die | — | 12 | ☑ |
+| ba-70 | Orders from the Great Demon | — | 9 | ☑ |
 | ba-71 | Out He Sprang | — | 8 | ☑ |
+| ba-73 | Roam the Waste | — | 10 | ☑ |
 | ba-74 | Roots of the Earth | — | 16 | ☑ |
+| ba-75 | Scourge of Fire | — | 10 | ☑ |
+| ba-76 | Strangling Coils | — | 16 | ☑ |
 | ba-77 | Tempest of Fire | — | 22 | ☑ |
 | ba-78 | Terror Heralds Doom | — | 8 | ☑ |
 | ba-79 | Vanguard of Might | — | 12 | ☑ |
+| ba-80 | A Few Recruits | — | 10 | ☑ |
+| ba-81 | Stabbing Tongue of Fire | — | 13 | ☑ |
+| ba-82 | Whip of Many Thongs | — | 17 | ☑ |
+| ba-83 | Ancient Deep-hold | — | 17 | ☑ |
 | ba-84 | Barad-dûr | — | 13 | ☑ |
 | ba-85 | Carn Dûm | — | 9 | ☑ |
 | ba-86 | Cirith Gorgor | — | 10 | ☑ |
 | ba-87 | Cirith Ungol | — | 9 | ☑ |
 | ba-88 | Dol Guldur | — | 11 | ☑ |
 | ba-89 | The Drowning-deeps | — | 12 | ☑ |
+| ba-90 | The Gem-deeps | — | 16 | ☑ |
 | ba-91 | The Iron-deeps | — | 16 | ☑ |
 | ba-92 | Minas Morgul | — | 8 | ☑ |
 | ba-93 | Moria | — | 13 | ☑ |
+| ba-94 | The Pûkel-deeps | — | 19 | ☑ |
 | ba-95 | Remains of Thangorodrim | — | 12 | ☑ |
+| ba-96 | The Rusted-deeps | — | 13 | ☑ |
 | ba-97 | The Sulfur-deeps | — | 15 | ☑ |
 | ba-98 | The Under-courts | — | 12 | ☑ |
 | ba-99 | The Under-galleries | — | 15 | ☑ |
@@ -142,6 +169,7 @@
 | ba-101 | The Under-grottos | — | 10 | ☑ |
 | ba-102 | The Under-leas | — | 15 | ☑ |
 | ba-103 | The Under-vaults | — | 13 | ☑ |
+| ba-104 | The Wind-deeps | — | 15 | ☑ |
 | dm-2 | Baduila | — | 8 | ☑ |
 | dm-3 | Bill Ferny | — | 4 | ☑ |
 | dm-4 | Dâsakûn | — | 4 | ☑ |
@@ -153,7 +181,7 @@
 | dm-23 | Râisha | — | 4 | ☑ |
 | dm-26 | Woffung | — | 3 | ☑ |
 | dm-27 | Wormtongue | — | 4 | ☑ |
-| dm-28 | Lobelia Sackville-Baggins | — | 5 | ☑ |
+| dm-28 | Lobelia Sackville-Baggins | — | 6 | ☑ |
 | dm-29 | My Precious | — | 5 | ☑ |
 | dm-30 | The Gem-deeps | — | 15 | ☑ |
 | dm-31 | Haudh-in-Gwanûr | — | 8 | ☑ |
@@ -214,10 +242,11 @@
 | le-1 | Asternak | — | 2 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
-| le-8 | Dorelas | — | 2 | ☑ |
+| le-8 | Dorelas | — | 3 | ☑ |
+| le-9 | Dunlending Spy | — | 3 | ☑ |
 | le-10 | Eradan | — | 3 | ☑ |
 | le-11 | Gorbag | — | 4 | ☑ |
-| le-12 | Grishnákh | — | 3 | ☑ |
+| le-12 | Grishnákh | — | 4 | ☑ |
 | le-14 | Hador | — | 3 | ☑ |
 | le-16 | Horseman in the Night | — | 4 | ☑ |
 | le-17 | Jerrek | — | 4 | ☑ |
@@ -230,6 +259,7 @@
 | le-25 | Muzgash | — | 2 | ☑ |
 | le-27 | Nevido Smôd | — | 2 | ☑ |
 | le-28 | Odoacer | — | 3 | ☑ |
+| le-29 | Old Troll | — | 8 | ☑ |
 | le-30 | Orc Brawler | — | 5 | ☑ |
 | le-31 | Orc Captain | — | 4 | ☑ |
 | le-34 | Orc Tracker | — | 5 | ☑ |
@@ -241,11 +271,13 @@
 | le-44 | Troll Lout | — | 3 | ☑ |
 | le-45 | Troll-chief | — | 10 | ☑ |
 | le-46 | Tros Hesnef | — | 3 | ☑ |
+| le-47 | Uchel | — | 3 | ☑ |
 | le-48 | Ufthak | — | 2 | ☑ |
 | le-50 | Adûnaphel the Ringwraith | — | 9 | ☑ |
 | le-52 | Dwar the Ringwraith | — | 10 | ☑ |
 | le-53 | Hoarmûrath the Ringwraith | — | 7 | ☑ |
 | le-54 | Indûr the Ringwraith | — | 9 | ☑ |
+| le-57 | Ûvatha the Ringwraith | — | 14 | ☑ |
 | le-58 | The Witch-king | — | 12 | ☑ |
 | le-59 | Ambusher | — | 10 | ☑ |
 | le-61 | Barrow-wight | — | 6 | ☑ |
@@ -273,6 +305,7 @@
 | le-100 | Wild Trolls | — | 5 | ☑ |
 | le-105 | Call of Home | — | 9 | ☑ |
 | le-107 | Covetous Thoughts | — | 11 | ☑ |
+| le-110 | Doors of Night | — | 7 | ☑ |
 | le-112 | Foolish Words | — | 8 | ☑ |
 | le-113 | Greed | — | 11 | ☑ |
 | le-115 | Incite Defenders | — | 11 | ☑ |
@@ -308,6 +341,7 @@
 | le-178 | Crooked Promptings | — | 9 | ☑ |
 | le-179 | Deeper Shadow | — | 13 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
+| le-181 | Down Down to Goblin-town | — | 7 | ☑ |
 | le-183 | Fell Rider | — | 12 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
@@ -340,6 +374,7 @@
 | le-270 | Ice-orcs | — | 8 | ☑ |
 | le-272 | Misty Mountain Wargs | — | 15 | ☑ |
 | le-273 | Nûrniags | — | 9 | ☑ |
+| le-274 | Orcs of Angmar | — | 9 | ☑ |
 | le-275 | Orcs of Gorgoroth | — | 7 | ☑ |
 | le-276 | Orcs of Gundabad | — | 9 | ☑ |
 | le-277 | Orcs of Mirkwood | — | 9 | ☑ |
@@ -389,6 +424,7 @@
 | le-377 | Gobel Mírlond | — | 13 | ☑ |
 | le-378 | Goblin-gate | — | 9 | ☑ |
 | le-379 | Gondmaeglom | — | 11 | ☑ |
+| le-383 | Iron Hill Dwarf-hold | — | 9 | ☑ |
 | le-384 | Isengard | — | 14 | ☑ |
 | le-387 | The Lonely Mountain | — | 8 | ☑ |
 | le-390 | Minas Morgul | — | 14 | ☑ |
@@ -427,6 +463,7 @@
 | td-27 | From the Pits of Angband | — | 15 | ☑ |
 | td-34 | Incite Denizens | — | 10 | ☑ |
 | td-37 | Itangast Ahunt | — | 13 | ☑ |
+| td-41 | Left Behind | — | 10 | ☑ |
 | td-42 | Lesser Spiders | — | 9 | ☑ |
 | td-57 | Rain-drake | — | 10 | ☑ |
 | td-59 | Sand-drake | — | 3 | ☑ |
@@ -449,7 +486,7 @@
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
 | td-105 | Cram | — | 14 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
-| td-116 | Flatter a Foe | — | 17 | ☑ |
+| td-116 | Flatter a Foe | — | 18 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
 | td-130 | Magical Harp | — | 12 | ☑ |
 | td-132 | Many Turns and Doublings | — | 12 | ☑ |
@@ -485,7 +522,7 @@
 | tw-23 | Corpse-candle | — | 10 | ☑ |
 | tw-024 | — | — | 2 | ☑ |
 | tw-27 | Despair of the Heart | — | 8 | ☑ |
-| tw-028 | — | — | 6 | ☑ |
+| tw-028 | — | — | 7 | ☑ |
 | tw-29 | Dragon’s Desolation | — | 15 | ☑ |
 | tw-032 | — | — | 6 | ☑ |
 | tw-36 | Foul Fumes | — | 9 | ☑ |
@@ -776,3 +813,6 @@
 | wh-119 | Man of Skill | — | 7 | ☑ |
 | wh-120 | Saruman’s Machinery | — | 20 | ☑ |
 | wh-122 | The White Hand | — | 10 | ☑ |
+
+---
+*Legend: ☐ = todo, ☑ = implemented, ◐ = partial*

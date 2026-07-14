@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.48.0 — 2026-07-15
+
+Balrog Deck #2
+
+### Game Engine
+
+- Complete the card pool for challenge deck #2 "Balrog's Host" — 119 of its 121 cards are now certified, making the Balrog's second challenge deck playable end to end
+- New capture mechanic: `press-gang-capture` (Press-gang ba-22) holds a captured character outside any company in a new `character-pressed` state, with `engine/press-gang.ts` providing `findCapturingPressGang` and `sweepPressGang`
+- New Balrog site and Under-deeps primitives: `eddy-lock` site-locking permanent-event with a pay-site-tax action (Eddy in Fate's Tide ba-57), `site-storm-devastation` CvCC devastation (Crowned with Storm ba-54), `site-path-reduction` active constraint (Roam the Waste ba-73), dynamic Under-deeps adjacency rolls (Ancient Deep-hold ba-83), and the remaining Under-deeps sites ba-90, ba-94, ba-96, ba-104
+- New combat primitives: `combat-cancel-weapon` (Whip of Many Thongs ba-82), `combat-discard-opponent-item` (Scourge of Fire ba-75), `flee-from-strike` with a one-shot `skip-next-untap` (Fled into Darkness ba-18), a strike-mode prowess gate (Stabbing Tongue of Fire ba-81), Demon fána company-untap (Strangling Coils ba-76), and a roller-agnostic `wound-or-eliminate` dice-check verb
+- New `cvcc-attack-permission` effect: an in-play permanent can grant company-vs-company attacks (Invade Their Domain ba-64, Lord and Usurper ba-65)
+- Direct-influence and corruption support: attach-to-leader DI with body checks (Obey Him or Die ba-69), `discardBodyCheck` and DI effects for Umagaur (ba-9) and Old Troll (le-29), Bolg's +2 DI against Balrog-specific characters (ba-4), Uchel's +4 DI against the Hillmen (le-47), and faction influence-check modifiers (Orcs of Angmar le-274)
+- New card behaviours from the wider pool: environment discard of all resource environments (Doors of Night le-110), self-granting Ringwraith followers with recall-to-deck (Ûvatha le-57), R\&L-gated creature-keying restrictions (Down Down to Goblin-town le-181), detainment with a prowess penalty vs. hero (Durin's Folk as-8), and a limit-1 M/H combat window split out as its own phase (Left Behind td-41)
+- Fixes: Balrog starting resources no longer vanish from the starting company; Great Fissure (ba-61) is no longer offered as a plain short-event outside its combat modes; Flatter a Foe is no longer playable outside combat; the combat trophy-offer phase no longer stalls the game when no valid actions exist; the eliminated-avatar −5 MP penalty is now reflected in the running total
+
+### Card Data
+
+- 38 newly certified cards (799 → 837 of 1683), concentrated on the Balrog's Host pool plus supporting Lidless Eye, Against the Shadow, and Dark Minions cards
+- Complete missing data on Wellinghall (as-170) and the Iron Hill Dwarf-hold (le-383)
+
+### Web Client
+
+- Add a rename control to the deck editor title
+
+### Infrastructure
+
+- `run-ai` now serves the request queue by topic priority and resets an interrupted request back to `new` on Ctrl+C/SIGTERM
+- Pass the skill prompt to headless Claude on stdin rather than argv
+- Move the certify engine-support catalog out of the skill prompt into its own document
+
 ## 0.47.0 — 2026-07-12
 
 Balrog Deck #1
