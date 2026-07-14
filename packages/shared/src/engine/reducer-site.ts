@@ -1713,6 +1713,32 @@ function handleSitePlayResources(
     return handlePlayPermanentEvent(state, action);
   }
 
+  // Eddy in Fate's Tide (ba-57): tap one character toward the two-character tax
+  // that gates ally/item play at any version of the bound site this site phase.
+  if (action.type === 'pay-site-tax') {
+    const char = player.characters[action.characterId];
+    if (!char || char.status === CardStatus.Tapped) {
+      return { state, error: 'pay-site-tax: character is not an untapped member' };
+    }
+    if (!company.characters.includes(action.characterId)) {
+      return { state, error: 'pay-site-tax: character is not in the active company' };
+    }
+    const tappedSoFar = (siteState.eddyTaxTapped ?? 0) + 1;
+    const charName = defById(state, char.definitionId)?.name ?? action.characterId;
+    logDetail(`Site: paying Eddy in Fate's Tide tax — tapping ${charName} (${tappedSoFar} tapped this site phase)`);
+    const taxPlayerIndex = getPlayerIndex(state, action.player);
+    const afterTap = updatePlayer(state, taxPlayerIndex, p => ({
+      ...p,
+      characters: { ...p.characters, [action.characterId]: { ...char, status: CardStatus.Tapped } },
+    }));
+    return {
+      state: {
+        ...afterTap,
+        phaseState: { ...siteState, eddyTaxTapped: tappedSoFar },
+      },
+    };
+  }
+
   // Resource short-events (e.g. Marvels Told) — per CoE 2.1.1 they are
   // playable during any phase of the active player's turn. Delegate to
   // the shared resource short-event handler.

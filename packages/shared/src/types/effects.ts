@@ -1583,6 +1583,14 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * turn (e.g. `{ "wilderness": 1, "shadow": 1 }`).
    */
   readonly regionReductions?: Record<string, number>;
+  /**
+   * For a `character-stat-modifier` constraint that is only active *while* a
+   * named card remains in play (Heart of Dark Fire ba-63: "The Balrog receives
+   * +5 direct influence this turn **while Strangling Coils is in play**"). The
+   * effect resolver re-checks this each time it synthesises the stat modifier,
+   * so the bonus lapses immediately if the named card leaves play mid-turn.
+   */
+  readonly requiresCardInPlay?: string;
 }
 
 /**
@@ -2318,10 +2326,11 @@ export interface TriggerAttackOnPlayEffect extends EffectBase {
    * When true, after bearer selection (the `move-to-mp-pile` keep branch)
    * discard every **unique** faction card in play — belonging to *either*
    * player — that is playable at the company's current site (Invade Their
-   * Domain ba-64: "discard all unique factions playable at the site").
-   * Distinct from `discardFactionsAtSite` (which discards *all* of the active
-   * player's factions regardless of uniqueness) and `returnFactionsAtSite`
-   * (which returns unique factions to hand rather than discarding).
+   * Domain ba-64, Lord and Usurper ba-65: "discard all unique factions
+   * playable at the site"). Distinct from `discardFactionsAtSite` (which
+   * discards *all* of the active player's factions regardless of uniqueness)
+   * and `returnFactionsAtSite` (which returns unique factions to hand rather
+   * than discarding).
    */
   readonly discardUniqueFactionsAtSite?: boolean;
 }
@@ -3547,7 +3556,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-on-adjacent-under-deeps';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps';
   /**
    * `requires: 'site-protected'` takes no extra fields. On a faction it gates
    * the influence attempt on the company's current site being **protected by
@@ -3556,6 +3565,13 @@ export interface PlayConditionEffect extends EffectBase {
    * id and owned by the player attempting the play. Used by Half-orcs (wh-87)
    * and Greater Half-orcs (wh-86): "Playable at one of your protected
    * Wizardhavens [{H}]".
+   *
+   * For `requires: 'card-attached-to-site'`: the permanent-event is only
+   * playable at the active company's current site when a card named
+   * {@link cardName} is in play attached to that same site (`attachedToSite`,
+   * either player's `cardsInPlay`). Lord and Usurper (ba-65): "Playable …
+   * on Invade Their Domain" — Invade Their Domain must already be attached to
+   * the Dwarf-hold the company occupies.
    *
    * For `requires: 'card-on-adjacent-under-deeps'`: the permanent-event is only
    * playable at the active company's current site when a card named
@@ -4087,6 +4103,53 @@ export interface SurfaceSiteRollZeroEffect extends EffectBase {
 }
 
 /**
+ * Balrog-specific site-locking permanent-event. Played during the site phase on
+ * the untapped site of the company containing The Balrog (the site must be
+ * neither an Under-deeps site nor the surface site of one — gated by the
+ * companion `play-target: site` filter and `untapped-site-required` /
+ * `tap-site-on-play` play-flags, plus a `company-context` play-condition
+ * requiring The Balrog in the company). On play the Balrog is tapped (handled in
+ * `chain-reducer.ts` when this effect is present) and the site is tapped.
+ *
+ * While in play, bound to a site instance (`attachedToSite` = the site
+ * definition id), it has three ongoing effects:
+ *
+ * 1. **Permanence** — the card is exempt from the site-attached orphan sweep
+ *    ({@link import('../engine/reducer-utils.js').discardOrphanedSiteAttachedEvents})
+ *    and the bound site is always returned to its owner's location deck rather
+ *    than discarded (the `cavernsBound` branch in `mh-hazard-play.ts` step 8),
+ *    the same treatment as {@link SurfaceRegionAdjacencyEffect} — "This site is
+ *    never discarded."
+ * 2. **Never untaps for the owner** — when the owner's company moves to a
+ *    version of the bound site definition, the site is placed **tapped** rather
+ *    than untapped (`mh-hazard-play.ts` step 8), realising "never untaps for
+ *    you" (the engine never untaps a stationary site, so the only refresh point
+ *    is re-placement on movement).
+ * 3. **Two-character tax** — any company (either player) at any version of the
+ *    bound site definition must tap `taxTapCharacters` of its characters during
+ *    its site phase before it may play an ally or item there. The count paid so
+ *    far this site phase is tracked on `SitePhaseState.eddyTaxTapped`; a
+ *    `pay-site-tax` action taps one character and increments it, and the item /
+ *    ally play paths are gated until it reaches `taxTapCharacters`.
+ *
+ * Used by Eddy in Fate's Tide (ba-57): "Playable during the site phase on an
+ * untapped site if The Balrog is there; the site cannot be an Under-deeps site
+ * or surface site thereof. Tap The Balrog and the site. This site is never
+ * discarded and never untaps for you. Before a company can play any ally or item
+ * at any version of this site, it must tap two characters during the site
+ * phase."
+ */
+export interface EddyLockEffect extends EffectBase {
+  readonly type: 'eddy-lock';
+  /**
+   * Number of characters a company must tap during its site phase before it may
+   * play an ally or item at any version of the bound site (2 for Eddy in Fate's
+   * Tide).
+   */
+  readonly taxTapCharacters: number;
+}
+
+/**
  * Balrog-specific movement grant: while this permanent-event is in play (and the
  * card named in `suppressedByInPlay` is *not* in play), a company containing The
  * Balrog avatar may use **region** movement — overriding his printed "may not use
@@ -4244,6 +4307,12 @@ export interface SiteInstanceTransformEffect extends EffectBase {
     readonly siteType: SiteType;
     /** When true, the associated instance loses all automatic-attacks. */
     readonly removeAllAutoAttacks?: boolean;
+    /**
+     * When set, the associated instance loses every automatic-attack of this
+     * creature race (matched against the attack's `creatureType`). Lord and
+     * Usurper (ba-65): "lose all Dwarf automatic-attacks".
+     */
+    readonly removeAutoAttacksByRace?: string;
   };
   /** How every other in-play copy of the same site definition is transformed. */
   readonly others: {
@@ -4251,7 +4320,20 @@ export interface SiteInstanceTransformEffect extends EffectBase {
     readonly siteType: SiteType;
     /** When set, every other version gains this automatic-attack. */
     readonly addAutoAttack?: TriggerAttackEntry;
+    /**
+     * When set, every other version loses every automatic-attack of this
+     * creature race before {@link addAutoAttack} is applied. Lord and Usurper
+     * (ba-65): the other versions lose their Dwarf auto-attacks and gain an
+     * Orcs auto-attack.
+     */
+    readonly removeAutoAttacksByRace?: string;
   };
+  /**
+   * When true, no faction may be played at any version of the transformed site
+   * (associated or other). Lord and Usurper (ba-65): "may have no factions
+   * played there".
+   */
+  readonly noFactions?: boolean;
 }
 
 /**
@@ -4817,6 +4899,7 @@ export type CardEffect =
   | DiscardSelfWhenEffect
   | SurfaceRegionAdjacencyEffect
   | SurfaceSiteRollZeroEffect
+  | EddyLockEffect
   | BalrogSurfaceRegionMovementEffect
   | CompanyMovementRestrictionEffect
   | VoluntaryDiscardEffect

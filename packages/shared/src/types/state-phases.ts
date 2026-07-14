@@ -787,6 +787,16 @@ export interface SitePhaseState {
    */
   readonly uniqueHeroFactionPlayedAtFreeHold?: boolean;
   /**
+   * Number of characters the active company has tapped this site phase to pay
+   * the Eddy in Fate's Tide (ba-57) tax — "Before a company can play any ally or
+   * item at any version of this site, it must tap two characters during the site
+   * phase." Incremented by each `pay-site-tax` action; the item / ally play
+   * paths are gated until it reaches the bound card's `taxTapCharacters`. Absent
+   * (treated as 0) until the first tax character is tapped; reset to absent when
+   * a new company's site phase begins (a fresh {@link SitePhaseState} is built).
+   */
+  readonly eddyTaxTapped?: number;
+  /**
    * Agent instance ID declared as attacking in step 3, or null if no
    * agent attack was declared.
    */

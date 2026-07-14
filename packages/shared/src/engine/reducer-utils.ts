@@ -2594,15 +2594,48 @@ export function discardOrphanedControlledFactions(state: GameState): GameState {
  * its site is unoccupied) and its bound origin site is always returned to the
  * owner's location deck rather than discarded when a company leaves it. Shared
  * by Caverns Unchoked (ba-51, `surface-region-adjacency`), Breach the Hold
- * (ba-50, `surface-site-roll-zero`), and Roots of the Earth (ba-74,
- * `site-instance-transform`).
+ * (ba-50, `surface-site-roll-zero`), Roots of the Earth (ba-74,
+ * `site-instance-transform`), and Eddy in Fate's Tide (ba-57, `eddy-lock`,
+ * "This site is never discarded").
  */
 export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefined): boolean {
   return getCardEffects(def).some(
     e => e.type === 'surface-region-adjacency'
       || e.type === 'surface-site-roll-zero'
-      || e.type === 'site-instance-transform',
+      || e.type === 'site-instance-transform'
+      || e.type === 'eddy-lock',
   );
+}
+
+/**
+ * The `eddy-lock` effect of an Eddy in Fate's Tide (ba-57) permanent-event that
+ * is in play and bound to the given site *definition* — i.e. some player's
+ * `cardsInPlay` holds a card whose `attachedToSite` equals `siteDefId` and which
+ * carries an `eddy-lock` effect (and is not still `pendingTriggerAttack`).
+ * Returns the effect (for its `taxTapCharacters`) or `undefined`.
+ *
+ * Scans **both** players so the tax applies to any company at any version of the
+ * bound site definition, regardless of which player owns the Eddy. When
+ * `forPlayer` is given, only that player's copies are considered — used for the
+ * owner-only "never untaps for you" placement check.
+ */
+export function siteEddyLock(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+  forPlayer?: PlayerId,
+): import('../types/effects.js').EddyLockEffect | undefined {
+  if (!siteDefId) return undefined;
+  for (const p of state.players) {
+    if (forPlayer !== undefined && p.id !== forPlayer) continue;
+    for (const c of p.cardsInPlay) {
+      if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
+      const eff = getCardEffects(defById(state, c.definitionId)).find(
+        (e): e is import('../types/effects.js').EddyLockEffect => e.type === 'eddy-lock',
+      );
+      if (eff) return eff;
+    }
+  }
+  return undefined;
 }
 
 /**

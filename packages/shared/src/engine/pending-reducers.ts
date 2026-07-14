@@ -2102,10 +2102,10 @@ export function applySelectCardBearerResolution(
     }
 
     // Discard every unique faction (of either player) playable at the
-    // company's current site (Invade Their Domain ba-64: "discard all unique
-    // factions playable at the site"). Unlike `discardFactionsAtSite` (active
-    // player, all factions), this scans both players' cardsInPlay and is
-    // limited to unique factions.
+    // company's current site (Invade Their Domain ba-64, Lord and Usurper
+    // ba-65: "discard all unique factions playable at the site"). Unlike
+    // `discardFactionsAtSite` (active player, all factions), this scans both
+    // players' cardsInPlay and is limited to unique factions.
     if (shouldDiscardUniqueFactions) {
       const company = s.players[defIdx].companies.find(co => co.id === companyId);
       const currentSiteDef = company?.currentSite

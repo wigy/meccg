@@ -37,7 +37,7 @@ import { isCharacterCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { evaluateExpr } from './expression-eval.js';
 import { pickActiveItemsForCharacter } from '../item-slots.js';
-import { getCardEffects, findPlayerAndCompany } from '../reducer-utils.js';
+import { getCardEffects, findPlayerAndCompany, isCardNameInPlayForPlayer } from '../reducer-utils.js';
 
 /**
  * Context object passed to conditions and expressions when resolving effects.
@@ -683,6 +683,13 @@ function collectCharacterStatModifierEffects(
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'character-stat-modifier') continue;
     if (constraint.kind.characterId !== char.instanceId) continue;
+    // "while <card> is in play" gate (Heart of Dark Fire ba-63): the bonus only
+    // applies while the named card remains in play for the character's owner.
+    const requiresCardInPlay = constraint.kind.requiresCardInPlay;
+    if (requiresCardInPlay) {
+      const owner = findPlayerAndCompany(state, char.instanceId)?.player;
+      if (!owner || !isCardNameInPlayForPlayer(state, owner, requiresCardInPlay)) continue;
+    }
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];
     if (!sourceDef) continue;
     const synthesized: StatModifierEffect = {

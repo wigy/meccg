@@ -1644,6 +1644,33 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   }
 
+  // eddy-lock (Eddy in Fate's Tide ba-57): "Tap The Balrog and the site." The
+  // site is tapped by the tap-site-on-play flag above; here we tap The Balrog in
+  // the active company (its presence is guaranteed by the company-context
+  // play-condition). The card attaches to the site (targetSiteDefinitionId), so
+  // there is no targetCharId — the Balrog is a play cost, not the attachment.
+  if (getCardEffects(def).some(e => e.type === 'eddy-lock')) {
+    const ps = newState.phaseState as { activeCompanyIndex?: number };
+    const activeCompanyIndex = ps.activeCompanyIndex ?? 0;
+    const company = newState.players[playerIndex].companies[activeCompanyIndex];
+    const balrogId = company?.characters.find(cid => {
+      const ch = newState.players[playerIndex].characters[cid];
+      return ch && defById(newState, ch.definitionId)?.name === 'The Balrog';
+    });
+    if (balrogId) {
+      const balrog = newState.players[playerIndex].characters[balrogId];
+      if (balrog && balrog.status !== CardStatus.Tapped) {
+        logDetail(`"${def?.name ?? '?'}" eddy-lock: tapping The Balrog ${balrogId as string}`);
+        newState = updatePlayer(newState, playerIndex, p => updateCharacter(p, balrogId, () => ({
+          ...balrog,
+          status: CardStatus.Tapped,
+        })));
+      }
+    } else {
+      logDetail(`"${def?.name ?? '?'}" eddy-lock: no The Balrog in active company to tap`);
+    }
+  }
+
   // tap-character-on-play: tap the targeted character when the card enters play.
   if (targetCharId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'tap-character-on-play')) {
     for (let pi = 0; pi < 2; pi++) {

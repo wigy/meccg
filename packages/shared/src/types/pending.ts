@@ -439,9 +439,10 @@ export interface PendingResolution {
         /**
          * When true, after bearer selection (move-to-mp-pile keep) discard
          * every unique faction in play — belonging to either player — that is
-         * playable at the company's current site (Invade Their Domain ba-64).
-         * Distinct from `discardFactionsAtSite` (active player, all factions)
-         * and `returnFactionsAtSite` (returns to hand rather than discarding).
+         * playable at the company's current site (Invade Their Domain ba-64,
+         * Lord and Usurper ba-65). Distinct from `discardFactionsAtSite`
+         * (active player, all factions) and `returnFactionsAtSite` (returns to
+         * hand rather than discarding).
          */
         readonly discardUniqueFactionsAtSite?: boolean;
       }
@@ -1253,6 +1254,14 @@ export interface ActiveConstraint {
         readonly value: number;
         /** The character instance to which the bonus applies. */
         readonly characterId: CardInstanceId;
+        /**
+         * Optional name of a card that must remain in play for the bonus to
+         * apply (Heart of Dark Fire ba-63: "+5 direct influence this turn while
+         * Strangling Coils is in play"). Re-checked by the effect resolver on
+         * every stat computation, so the bonus lapses the moment the named card
+         * leaves play. When absent, the bonus is unconditional (Vilya style).
+         */
+        readonly requiresCardInPlay?: string;
       }
     | {
         /**

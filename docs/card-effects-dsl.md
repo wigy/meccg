@@ -763,18 +763,32 @@ as for item bonuses.
 - `stat` — the stat to boost: `"prowess"`, `"body"`, or `"direct-influence"`.
 - `value` — integer bonus (positive to increase).
 - `characterId` — the instance ID of the target character.
+- `requiresCardInPlay` *(optional)* — name of a card that must remain in play
+  (for the character's owner) for the bonus to apply. Re-checked by the resolver
+  on every stat computation via the attachment-aware `isCardNameInPlayForPlayer`,
+  so the bonus lapses the instant the named card leaves play. Omit for an
+  unconditional bonus (Vilya style).
 
 Emitted via `on-event: self-enters-play` → `add-constraint` with
 `constraint: "character-stat-modifier"` when the card is played on its
 target character. The target is read from `action.targetCharacterId`.
 Swept at turn-end by the existing `scope: { kind: 'turn' }` sweep.
 
-Used by: *Vilya* (+4 prowess / +2 body / +6 direct-influence on Elrond).
+Used by: *Vilya* (+4 prowess / +2 body / +6 direct-influence on Elrond);
+*Heart of Dark Fire* (ba-63) — +5 direct influence on The Balrog this turn,
+gated `requiresCardInPlay: "Strangling Coils"`.
 
 ```json
 { "type": "on-event", "event": "self-enters-play",
   "apply": { "type": "add-constraint", "constraint": "character-stat-modifier",
              "stat": "prowess", "value": 4, "scope": "turn" } }
+```
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "character-stat-modifier",
+             "stat": "direct-influence", "value": 5, "scope": "turn",
+             "requiresCardInPlay": "Strangling Coils" } }
 ```
 
 ### 6b. `draw-modifier`
@@ -4035,6 +4049,18 @@ check) and `reducer-events.ts` (discard execution).
 { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }
 ```
 
+- `card-attached-to-site` — a site-phase permanent-event is only playable when a
+  card named `cardName` is in play **attached to the active company's current
+  site** (a kept, `!pendingTriggerAttack` card whose `attachedToSite` matches
+  the current site, in either player's `cardsInPlay`). Checked in the
+  permanent-event block of `legal-actions/site.ts`. Used by Lord and Usurper
+  (ba-65): "Playable … on Invade Their Domain" (which must already sit on the
+  Dwarf-hold).
+
+```json
+{ "type": "play-condition", "requires": "card-attached-to-site", "cardName": "Invade Their Domain" }
+```
+
 - `card-on-adjacent-under-deeps` — a site-phase permanent-event is only playable
   when a card named `cardName` is in play attached to an **Under-deeps site
   adjacent to the current site** (an in-play card whose `attachedToSite` names an
@@ -5248,10 +5274,10 @@ Fields:
 - `discardUniqueFactionsAtSite: boolean` — after the `move-to-mp-pile` keep,
   discard every **unique** faction in play — belonging to *either* player —
   that is playable at the company's current site to its **owner's** discard
-  pile (Invade Their Domain ba-64: "discard all unique factions playable at the
-  site"). Distinct from `discardFactionsAtSite` (active player, all factions)
-  and `returnFactionsAtSite` (returns unique to hand). No discard happens on a
-  decline of the card.
+  pile (Invade Their Domain ba-64, Lord and Usurper ba-65: "discard all unique
+  factions playable at the site"). Distinct from `discardFactionsAtSite`
+  (active player, all factions) and `returnFactionsAtSite` (returns unique to
+  hand). No discard happens on a decline of the card.
 - `creatureTypeBySiteType: Record<siteType, creatureType>` — resolve every
   triggered attack's creature type from the played site's type instead of the
   fixed per-attack `creatureType`, at play time (Tempest of Fire ba-77: "Men at
@@ -5784,8 +5810,11 @@ always returned to the owner's location deck rather than discarded (shared with
 |-------|----------|-------------|
 | `associated.siteType` | yes | Effective `SiteType` of the associated instance. |
 | `associated.removeAllAutoAttacks` | no | When `true`, the associated instance loses all automatic-attacks. |
+| `associated.removeAutoAttacksByRace` | no | When set, the associated instance loses every automatic-attack of this creature race (matched on `creatureType`). |
 | `others.siteType` | yes | Effective `SiteType` of every other version. |
 | `others.addAutoAttack` | no | `{ creatureType, strikes, prowess }` added to every other version. |
+| `others.removeAutoAttacksByRace` | no | When set, every other version loses every automatic-attack of this creature race *before* `addAutoAttack` is applied. |
+| `noFactions` | no | When `true`, no faction may be played at any version of the transformed site (checked in the `legal-actions/site.ts` faction branch). |
 
 Used by *Roots of the Earth* (ba-74): the associated Under-deeps Ruins & Lairs
 becomes a Darkhaven [{H}] that loses all automatic-attacks, while every other
@@ -5800,6 +5829,23 @@ automatic-attack.
     "siteType": "shadow-hold",
     "addAutoAttack": { "creatureType": "Orcs", "strikes": 5, "prowess": 9 }
   }
+}
+```
+
+Used by *Lord and Usurper* (ba-65): both the associated and the other versions
+become a Shadow-hold that loses its Dwarf automatic-attacks and admits no
+factions, and the other versions additionally gain an Orcs 4/7 attack:
+
+```json
+{
+  "type": "site-instance-transform",
+  "associated": { "siteType": "shadow-hold", "removeAutoAttacksByRace": "Dwarves" },
+  "others": {
+    "siteType": "shadow-hold",
+    "removeAutoAttacksByRace": "Dwarves",
+    "addAutoAttack": { "creatureType": "Orcs", "strikes": 4, "prowess": 7 }
+  },
+  "noFactions": true
 }
 ```
 
@@ -7722,6 +7768,54 @@ Behaviour, while the card is in play bound to Under-deeps site `U`
   (`mh-hazard-play.ts` step 8). Both this effect and `surface-region-adjacency`
   are recognised by the shared `cardKeepsBoundSitePermanent` predicate
   (`reducer-utils.ts`).
+
+### 52d-ii. `eddy-lock`
+
+Carried by a Balrog **site-phase permanent-event** (no trigger-attack) played on
+the untapped site of the company holding The Balrog. The card attaches to the
+site (`play-target: { target: "site" }`) and is gated by
+`play-flag: untapped-site-required`, `play-flag: tap-site-on-play` (taps the site
+on play), a `play-target` site filter excluding Under-deeps sites and their
+surface sites (`$not keywords $includes under-deeps` + `isUnderDeepsSurface $ne
+true`), and a `play-condition: company-context` requiring The Balrog in the
+company (`company.characterNames $includes "The Balrog"`). On resolution the
+`eddy-lock` handler in `chain-reducer.ts` taps The Balrog in the active company
+(a play cost — the card still attaches to the site, not to the character).
+
+```json
+{
+  "type": "eddy-lock",
+  "taxTapCharacters": 2
+}
+```
+
+Behaviour, while the card is in play bound to site `S`
+(`CardInPlay.attachedToSite` = `S`'s definition id):
+
+- **Permanence** — "This site is never discarded." Like `surface-region-adjacency`
+  (§52c), the card is exempt from the site-attached orphan sweep
+  (`discardOrphanedSiteAttachedEvents`) and `S` is always returned to the owner's
+  location deck rather than discarded when a company leaves it. Recognised by the
+  shared `cardKeepsBoundSitePermanent` predicate (`reducer-utils.ts`).
+- **Never untaps for the owner** — "never untaps for you." When the Eddy owner's
+  company moves to a version of the bound site definition, the destination is
+  placed **tapped** rather than untapped (`mh-hazard-play.ts` step 8, gated by
+  `siteEddyLock(state, destDef, movingPlayer)`). The engine never untaps a
+  stationary site, so re-placement on movement is the only refresh point.
+- **Two-character tax** — "Before a company can play any ally or item at any
+  version of this site, it must tap two characters during the site phase." Any
+  company (either player) at any version of the bound site definition must tap
+  `taxTapCharacters` of its characters this site phase before it may play an ally
+  or item there. `siteEddyLock` (`reducer-utils.ts`) scans both players'
+  `cardsInPlay` for an `eddy-lock` card whose `attachedToSite` matches the active
+  company's current site definition; `SitePhaseState.eddyTaxTapped` tracks how
+  many tax characters have been tapped (reset per company); the item and ally
+  play paths (`legal-actions/site.ts`) are barred while the count is below
+  `taxTapCharacters`; and a `pay-site-tax` action (one per untapped company
+  member) taps a character and increments the count (`reducer-site.ts`).
+
+Used by Eddy in Fate's Tide (ba-57). "Balrog specific" is a deck-construction
+keyword with no play-time gate.
 
 ### 52e. `balrog-surface-region-movement`
 
