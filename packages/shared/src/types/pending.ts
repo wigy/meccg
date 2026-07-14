@@ -436,6 +436,15 @@ export interface PendingResolution {
          * (Tempest of Fire ba-77).
          */
         readonly returnFactionsAtSite?: boolean;
+        /**
+         * When true, after bearer selection (move-to-mp-pile keep) discard
+         * every unique faction in play — belonging to either player — that is
+         * playable at the company's current site (Invade Their Domain ba-64,
+         * Lord and Usurper ba-65). Distinct from `discardFactionsAtSite`
+         * (active player, all factions) and `returnFactionsAtSite` (returns to
+         * hand rather than discarding).
+         */
+        readonly discardUniqueFactionsAtSite?: boolean;
       }
     | {
         /**

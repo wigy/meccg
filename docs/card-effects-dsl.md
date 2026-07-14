@@ -4035,6 +4035,31 @@ check) and `reducer-events.ts` (discard execution).
 { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }
 ```
 
+- `card-attached-to-site` — a site-phase permanent-event is only playable when a
+  card named `cardName` is in play **attached to the active company's current
+  site** (a kept, `!pendingTriggerAttack` card whose `attachedToSite` matches
+  the current site, in either player's `cardsInPlay`). Checked in the
+  permanent-event block of `legal-actions/site.ts`. Used by Lord and Usurper
+  (ba-65): "Playable … on Invade Their Domain" (which must already sit on the
+  Dwarf-hold).
+
+```json
+{ "type": "play-condition", "requires": "card-attached-to-site", "cardName": "Invade Their Domain" }
+```
+
+- `card-on-adjacent-under-deeps` — a site-phase permanent-event is only playable
+  when a card named `cardName` is in play attached to an **Under-deeps site
+  adjacent to the current site** (an in-play card whose `attachedToSite` names an
+  `under-deeps` site whose `adjacentSites` map includes the current site's
+  name — looked up in `state.cardPool`). Used by Invade Their Domain (ba-64):
+  "… if … Breach the Hold is on its adjacent Under-deeps site" (The Drowning-deeps
+  for the Blue Mountain Dwarf-hold, The Rusted-deeps for the Iron Hill
+  Dwarf-hold).
+
+```json
+{ "type": "play-condition", "requires": "card-on-adjacent-under-deeps", "cardName": "Breach the Hold" }
+```
+
 - `site-protected` — (takes no extra fields) on a **faction** the influence
   attempt is only offered when the company's current site is **protected by
   the controller**: an active `site-protected` constraint (added by a stage
@@ -5232,6 +5257,13 @@ Fields:
   `cardsInPlay`, is limited to unique factions, and returns to hand (via the
   instance-id owner prefix) rather than discarding. No return happens on a
   discard (decline) of the card.
+- `discardUniqueFactionsAtSite: boolean` — after the `move-to-mp-pile` keep,
+  discard every **unique** faction in play — belonging to *either* player —
+  that is playable at the company's current site to its **owner's** discard
+  pile (Invade Their Domain ba-64, Lord and Usurper ba-65: "discard all unique
+  factions playable at the site"). Distinct from `discardFactionsAtSite`
+  (active player, all factions) and `returnFactionsAtSite` (returns unique to
+  hand). No discard happens on a decline of the card.
 - `creatureTypeBySiteType: Record<siteType, creatureType>` — resolve every
   triggered attack's creature type from the played site's type instead of the
   fixed per-attack `creatureType`, at play time (Tempest of Fire ba-77: "Men at
@@ -5764,8 +5796,11 @@ always returned to the owner's location deck rather than discarded (shared with
 |-------|----------|-------------|
 | `associated.siteType` | yes | Effective `SiteType` of the associated instance. |
 | `associated.removeAllAutoAttacks` | no | When `true`, the associated instance loses all automatic-attacks. |
+| `associated.removeAutoAttacksByRace` | no | When set, the associated instance loses every automatic-attack of this creature race (matched on `creatureType`). |
 | `others.siteType` | yes | Effective `SiteType` of every other version. |
 | `others.addAutoAttack` | no | `{ creatureType, strikes, prowess }` added to every other version. |
+| `others.removeAutoAttacksByRace` | no | When set, every other version loses every automatic-attack of this creature race *before* `addAutoAttack` is applied. |
+| `noFactions` | no | When `true`, no faction may be played at any version of the transformed site (checked in the `legal-actions/site.ts` faction branch). |
 
 Used by *Roots of the Earth* (ba-74): the associated Under-deeps Ruins & Lairs
 becomes a Darkhaven [{H}] that loses all automatic-attacks, while every other
@@ -5780,6 +5815,23 @@ automatic-attack.
     "siteType": "shadow-hold",
     "addAutoAttack": { "creatureType": "Orcs", "strikes": 5, "prowess": 9 }
   }
+}
+```
+
+Used by *Lord and Usurper* (ba-65): both the associated and the other versions
+become a Shadow-hold that loses its Dwarf automatic-attacks and admits no
+factions, and the other versions additionally gain an Orcs 4/7 attack:
+
+```json
+{
+  "type": "site-instance-transform",
+  "associated": { "siteType": "shadow-hold", "removeAutoAttacksByRace": "Dwarves" },
+  "others": {
+    "siteType": "shadow-hold",
+    "removeAutoAttacksByRace": "Dwarves",
+    "addAutoAttack": { "creatureType": "Orcs", "strikes": 4, "prowess": 7 }
+  },
+  "noFactions": true
 }
 ```
 

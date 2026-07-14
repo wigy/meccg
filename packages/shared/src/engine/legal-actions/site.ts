@@ -10,7 +10,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, RegionType, CardDefinition, CardDefinitionId } from '../../index.js';
-import { getEffectiveSiteType, siteAttacksCanceled } from '../effective.js';
+import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform } from '../effective.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
@@ -1003,6 +1003,53 @@ function playResourcesActions(
           }
         }
 
+        // play-condition: card-attached-to-site — the permanent event is only
+        // playable when a named card is in play attached to the active
+        // company's current site. Lord and Usurper (ba-65): "Playable … on
+        // Invade Their Domain" (which must already sit on the Dwarf-hold).
+        const cardAtSiteCond = findPlayConditionEffect(eventDef, 'card-attached-to-site');
+        if (cardAtSiteCond?.cardName) {
+          const requiredName = cardAtSiteCond.cardName;
+          const present = state.players.some(pl =>
+            pl.cardsInPlay.some(c =>
+              !c.pendingTriggerAttack
+              && c.attachedToSite === siteDefId
+              && defById(state, c.definitionId)?.name === requiredName),
+          );
+          if (!present) {
+            logDetail(`Permanent event ${eventDef.name}: requires "${requiredName}" attached to ${siteName} — not in play there`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: requires ${requiredName} on ${siteName}`));
+            continue;
+          }
+        }
+
+        // play-condition: card-on-adjacent-under-deeps — the permanent event is
+        // only playable when a named card is in play attached to an Under-deeps
+        // site adjacent to the active company's current site. Invade Their
+        // Domain (ba-64): "… if … Breach the Hold is on its adjacent Under-deeps
+        // site" (The Drowning-deeps for the Blue Mountain Dwarf-hold, The
+        // Rusted-deeps for the Iron Hill Dwarf-hold).
+        const cardOnAdjUnderDeepsCond = findPlayConditionEffect(eventDef, 'card-on-adjacent-under-deeps');
+        if (cardOnAdjUnderDeepsCond?.cardName) {
+          const requiredName = cardOnAdjUnderDeepsCond.cardName;
+          const present = state.players.some(pl =>
+            pl.cardsInPlay.some(c => {
+              if (c.pendingTriggerAttack) return false;
+              if (defById(state, c.definitionId)?.name !== requiredName) return false;
+              if (!c.attachedToSite) return false;
+              const udDef = state.cardPool[c.attachedToSite] as
+                { keywords?: readonly string[]; adjacentSites?: Readonly<Record<string, number>> } | undefined;
+              if (!udDef || !(udDef.keywords ?? []).includes('under-deeps')) return false;
+              return siteName !== undefined && udDef.adjacentSites?.[siteName] !== undefined;
+            }),
+          );
+          if (!present) {
+            logDetail(`Permanent event ${eventDef.name}: requires "${requiredName}" on the Under-deeps site adjacent to ${siteName} — not satisfied`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: requires ${requiredName} on the adjacent Under-deeps site`));
+            continue;
+          }
+        }
+
         // Check play-target character filter.
         // When the card also has trigger-attack-on-play, bearer selection happens
         // post-attack (via a select-card-bearer pending resolution), so no
@@ -1606,6 +1653,17 @@ function playResourcesActions(
         const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'any' in e ? 'any-qualifying-site' : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: not playable at ${siteName}`));
+        continue;
+      }
+
+      // site-instance-transform with `noFactions` (Lord and Usurper ba-65): no
+      // faction may be played at any version of the transformed site.
+      const factionSiteTransform = siteDefId
+        ? resolveSiteInstanceTransform(state, siteDefId, siteInstanceId ?? undefined)
+        : undefined;
+      if (factionSiteTransform?.effect.noFactions) {
+        logDetail(`Faction ${factionDef.name}: ${siteName} forbids faction plays (site-instance-transform noFactions)`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: no factions may be played at ${siteName}`));
         continue;
       }
 

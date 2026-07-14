@@ -1230,11 +1230,49 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "name": {
+            "$in": ["Blue Mountain Dwarf-hold", "Iron Hill Dwarf-hold"]
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "The Balrog"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-on-adjacent-under-deeps",
+        "cardName": "Breach the Hold"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          { "creatureType": "Dwarves", "strikes": 5, "prowess": 9 },
+          { "creatureType": "Dwarves", "strikes": 4, "prowess": 10 },
+          { "creatureType": "Dwarves", "strikes": 3, "prowess": 12 }
+        ],
+        "afterAttack": "move-to-mp-pile",
+        "discardUniqueFactionsAtSite": true
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on the Blue Mountain or Iron Hill Dwarf-hold if The Balrog is there and Breach the Hold is on its adjacent Under-deeps site. The Balrog’s company faces 3 attacks (Dwarves — 5 strikes with 9 prowess, 4 strikes with 10 prowess, 3 strikes with 12 prowess). Following the attacks, tap The Balrog or discard this card. If this card is not discarded, discard all unique factions playable at the site. Discard this card when the site is discarded or returned to its location deck. Cannot be duplicated on a given site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
@@ -1246,11 +1284,54 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "name": {
+            "$in": ["Blue Mountain Dwarf-hold", "Iron Hill Dwarf-hold"]
+          }
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-attached-to-site",
+        "cardName": "Invade Their Domain"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          { "creatureType": "Dwarves", "strikes": 4, "prowess": 9 },
+          { "creatureType": "Dwarves", "strikes": 3, "prowess": 10 }
+        ],
+        "afterAttack": "move-to-mp-pile",
+        "discardUniqueFactionsAtSite": true
+      },
+      {
+        "type": "site-instance-transform",
+        "associated": {
+          "siteType": "shadow-hold",
+          "removeAutoAttacksByRace": "Dwarves"
+        },
+        "others": {
+          "siteType": "shadow-hold",
+          "removeAutoAttacksByRace": "Dwarves",
+          "addAutoAttack": { "creatureType": "Orcs", "strikes": 4, "prowess": 7 }
+        },
+        "noFactions": true
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on Invade Their Domain. The company faces 2 attacks (Dwarves — 4 strikes with 9 prowess, 3 strikes with 10 prowess). Following the attacks, tap a character or discard this card. If this card is not discarded, discard all unique factions playable at the site. All versions of the associated site become a Shadow-hold [{S}], may have no factions played there, and lose all Dwarf automatic-attacks. Other versions gain an automatic-attack: Orcs – 4 strikes with 7 prowess. Cannot be duplicated on a given card.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
