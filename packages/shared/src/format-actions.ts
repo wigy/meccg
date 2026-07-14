@@ -437,6 +437,8 @@ export function describeAction(
       return `Strike event: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
     case 'cancel-strike':
       return `${instName(action.cancellerInstanceId)} taps to cancel strike against ${instName(action.targetCharacterId)}`;
+    case 'flee-from-strike':
+      return `Play ${instName(action.cardInstanceId)} to flee the strike (cancel it, tap the character)`;
     case 'support-corruption-check':
       return `Tap ${instName(action.supportingCharacterId)} for CC support (+1)`;
     case 'resolve-dice-check':

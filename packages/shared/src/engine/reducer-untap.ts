@@ -217,6 +217,11 @@ function performUntap(state: GameState): GameState {
   // Prisoners are fully locked — they cannot untap or heal (rule 8.35).
   const cannotUntapIds = new Set<string>();
   const prisonerIds = new Set<string>();
+  // Fled into Darkness (ba-18): one-shot untap skips. Each maps a character to
+  // the constraint id + the in-play card instance to discard when the skip
+  // fires. Treated like `cannot-untap` for the tap logic below, then consumed
+  // (constraint removed, card discarded) after the untap sweep.
+  const skipNextUntap = new Map<string, { constraintId: string; cardInstanceId: string }>();
   for (const c of state.activeConstraints) {
     if (c.target.kind !== 'character') continue;
     if (c.kind.type === 'bearer-cannot-untap') {
@@ -225,6 +230,13 @@ function performUntap(state: GameState): GameState {
     if (c.kind.type === 'character-is-prisoner') {
       prisonerIds.add(c.target.characterId as string);
       cannotUntapIds.add(c.target.characterId as string);
+    }
+    if (c.kind.type === 'skip-next-untap') {
+      cannotUntapIds.add(c.target.characterId as string);
+      skipNextUntap.set(c.target.characterId as string, {
+        constraintId: c.id as string,
+        cardInstanceId: c.kind.cardInstanceId as string,
+      });
     }
   }
 
@@ -329,6 +341,34 @@ function performUntap(state: GameState): GameState {
       discardPile: [...p.discardPile, ...discardedCards],
       siteDeck: [...p.siteDeck, ...discardedSites],
     }));
+  }
+
+  // Consume Fled into Darkness (ba-18) one-shot untap skips: the character was
+  // just held tapped (via cannotUntapIds); now remove the constraint and discard
+  // the in-play `flee-from-strike` card to its owner's (the active player's)
+  // discard pile.
+  if (skipNextUntap.size > 0) {
+    const consumedConstraintIds = new Set<string>();
+    const discardCardIds = new Set<string>();
+    for (const [charId, { constraintId, cardInstanceId }] of skipNextUntap) {
+      logDetail(`Untap: consuming skip-next-untap on ${charId} — character stays tapped, discarding ${cardInstanceId}`);
+      consumedConstraintIds.add(constraintId);
+      discardCardIds.add(cardInstanceId);
+    }
+    const cardsToDiscard = stateAfterUntap.players[playerIndex].cardsInPlay.filter(
+      c => discardCardIds.has(c.instanceId as string),
+    );
+    stateAfterUntap = updatePlayer(stateAfterUntap, playerIndex, p => ({
+      ...p,
+      cardsInPlay: p.cardsInPlay.filter(c => !discardCardIds.has(c.instanceId as string)),
+      discardPile: [...p.discardPile, ...cardsToDiscard.map(c => toCardInstance(c))],
+    }));
+    stateAfterUntap = {
+      ...stateAfterUntap,
+      activeConstraints: stateAfterUntap.activeConstraints.filter(
+        c => !consumedConstraintIds.has(c.id as string),
+      ),
+    };
   }
 
   return stateAfterUntap;
