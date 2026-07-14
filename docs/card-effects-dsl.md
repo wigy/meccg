@@ -1410,6 +1410,45 @@ Actions:
     ] } }
   ```
 
+- `modify-company-corruption-checks` — a **company-wide, turn-scoped**
+  corruption-check modifier chosen during the organization phase. Declared on a
+  character with a `targets: { "scope": "player-companies" }` descriptor so the
+  scanner emits one activation per company the controller owns (each carrying
+  the chosen company on `targetCompanyId`, "any one of your companies"). The
+  `apply` is an `add-constraint` of a `check-modifier` (`check: "corruption"`,
+  `target: "action-target-company"`, `scope: "turn"`). Unlike the one-shot
+  `modify-corruption-check`, this constraint is **not consumed** — both
+  corruption-check resolvers collect a company-scoped corruption `check-modifier`
+  for every check by a **minion character** (`cardType === "minion-character"`)
+  whose company matches the constraint's `companyId`, and it persists for the
+  whole turn (`corruptionCheckActions` in `legal-actions/pending.ts` for the
+  unified pending window; `resolveCorruptionCheck` in `reducer-free-council.ts`
+  for the end-of-turn window). Gate the ability's availability with a `when`
+  clause on the grant-action context (`bearer.isRevealedAvatar` for "as your
+  Ringwraith", `bearer.atDarkhaven` for "if at a Darkhaven"). Used by *Ren the
+  Ringwraith* (le-56): "As your Ringwraith, if at a Darkhaven, he may tap during
+  your organization phase to modify all corruption checks made this turn by
+  minions in any one of your companies by +2."
+
+  ```json
+  { "type": "grant-action", "action": "modify-company-corruption-checks",
+    "cost": { "tap": "bearer" },
+    "when": { "bearer.isRevealedAvatar": true, "bearer.atDarkhaven": true },
+    "targets": { "scope": "player-companies" },
+    "apply": { "type": "add-constraint", "constraint": "check-modifier",
+      "check": "corruption", "value": 2, "scope": "turn",
+      "target": "action-target-company" } }
+  ```
+
+  The grant-action context field `bearer.atDarkhaven` is `true` only when the
+  bearer's company is at a **minion-aligned Haven** — a `haven` site whose
+  `alignment` is `ringwraith` or `balrog` (Minas Morgul / Dol Guldur / Carn Dûm
+  / Geann a-Lisch; Moria / The Under-gates). It is deliberately stricter than
+  `bearer.atHaven` (any `haven` site): a Ringwraith standing on a METW hero
+  Haven (Rivendell etc.) reached via a mode card is at a Haven but **not** at a
+  Darkhaven. Implemented in `buildGrantActionContext`
+  (`legal-actions/organization.ts`).
+
 Action-less activations may also be declared directly on a character
 card via `"apply"` on the grant-action effect, reusing the shared
 TriggeredAction apply dispatch. The character's `"cost": { "tap": "self" }`
