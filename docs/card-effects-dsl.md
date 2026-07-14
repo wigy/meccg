@@ -7703,6 +7703,54 @@ Behaviour, while the card is in play bound to Under-deeps site `U`
   are recognised by the shared `cardKeepsBoundSitePermanent` predicate
   (`reducer-utils.ts`).
 
+### 52d-ii. `eddy-lock`
+
+Carried by a Balrog **site-phase permanent-event** (no trigger-attack) played on
+the untapped site of the company holding The Balrog. The card attaches to the
+site (`play-target: { target: "site" }`) and is gated by
+`play-flag: untapped-site-required`, `play-flag: tap-site-on-play` (taps the site
+on play), a `play-target` site filter excluding Under-deeps sites and their
+surface sites (`$not keywords $includes under-deeps` + `isUnderDeepsSurface $ne
+true`), and a `play-condition: company-context` requiring The Balrog in the
+company (`company.characterNames $includes "The Balrog"`). On resolution the
+`eddy-lock` handler in `chain-reducer.ts` taps The Balrog in the active company
+(a play cost — the card still attaches to the site, not to the character).
+
+```json
+{
+  "type": "eddy-lock",
+  "taxTapCharacters": 2
+}
+```
+
+Behaviour, while the card is in play bound to site `S`
+(`CardInPlay.attachedToSite` = `S`'s definition id):
+
+- **Permanence** — "This site is never discarded." Like `surface-region-adjacency`
+  (§52c), the card is exempt from the site-attached orphan sweep
+  (`discardOrphanedSiteAttachedEvents`) and `S` is always returned to the owner's
+  location deck rather than discarded when a company leaves it. Recognised by the
+  shared `cardKeepsBoundSitePermanent` predicate (`reducer-utils.ts`).
+- **Never untaps for the owner** — "never untaps for you." When the Eddy owner's
+  company moves to a version of the bound site definition, the destination is
+  placed **tapped** rather than untapped (`mh-hazard-play.ts` step 8, gated by
+  `siteEddyLock(state, destDef, movingPlayer)`). The engine never untaps a
+  stationary site, so re-placement on movement is the only refresh point.
+- **Two-character tax** — "Before a company can play any ally or item at any
+  version of this site, it must tap two characters during the site phase." Any
+  company (either player) at any version of the bound site definition must tap
+  `taxTapCharacters` of its characters this site phase before it may play an ally
+  or item there. `siteEddyLock` (`reducer-utils.ts`) scans both players'
+  `cardsInPlay` for an `eddy-lock` card whose `attachedToSite` matches the active
+  company's current site definition; `SitePhaseState.eddyTaxTapped` tracks how
+  many tax characters have been tapped (reset per company); the item and ally
+  play paths (`legal-actions/site.ts`) are barred while the count is below
+  `taxTapCharacters`; and a `pay-site-tax` action (one per untapped company
+  member) taps a character and increments the count (`reducer-site.ts`).
+
+Used by Eddy in Fate's Tide (ba-57). "Balrog specific" is a deck-construction
+keyword with no play-time gate.
+
 ### 52e. `balrog-surface-region-movement`
 
 Carried by a bare Balrog **permanent-event** in the player's `cardsInPlay`. While

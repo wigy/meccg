@@ -42,7 +42,7 @@ import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js'
 import { getEffectiveRegionType } from './effective.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, playerById, playerHasExtraUnderDeepsMH, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, playerById, playerHasExtraUnderDeepsMH, removeById, siteEddyLock, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -1414,10 +1414,18 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
         && c.currentSite?.instanceId === company.destinationSite!.instanceId,
     );
 
+    // Eddy in Fate's Tide (ba-57): "This site … never untaps for you." The
+    // engine never untaps a stationary site, so the only refresh point is
+    // re-placement on movement — when the Eddy owner re-enters a version of the
+    // bound site definition, place it tapped instead of untapped.
+    const arrivesTapped = siteEddyLock(state, company.destinationSite.definitionId, resourcePlayer.id) !== undefined;
+    if (arrivesTapped) {
+      logDetail(`Step 8: destination ${company.destinationSite.definitionId as string} carries this player's eddy-lock — arriving tapped (never untaps for you)`);
+    }
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
       ...company,
-      currentSite: { instanceId: company.destinationSite.instanceId, definitionId: company.destinationSite.definitionId, status: CardStatus.Untapped },
+      currentSite: { instanceId: company.destinationSite.instanceId, definitionId: company.destinationSite.definitionId, status: arrivesTapped ? CardStatus.Tapped : CardStatus.Untapped },
       destinationSite: null,
       moved: true,
       siteOfOrigin: null,
