@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId, CompanyId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect } from '../../types/effects.js';
 import type { AllyInPlay } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -28,7 +28,7 @@ import { resolveDef } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
-import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer } from '../reducer-utils.js';
+import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
@@ -262,6 +262,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
         // window so it stays empty for ordinary resolve-strike sequences.
         ...cancelActions,
         ...resolveStrikeActions(state, playerId, combat),
+        ...fleeFromStrikeActions(state, playerId, combat),
         ...hazardPlays,
         ...leftBehindPlays,
         ...attackOptions,
@@ -953,6 +954,66 @@ function selfCancelStrikeActions(
         viable: true,
       });
     }
+  }
+  return actions;
+}
+
+/**
+ * Fled into Darkness (ba-18): during resolve-strike the defending player may
+ * play a `flee-from-strike` permanent-event from hand to cancel the current
+ * strike against the named character (The Balrog), provided the strike's prowess
+ * is strictly higher than that character's effective prowess and no copy of the
+ * card is already in play ("Cannot be duplicated"). The struck target must be a
+ * real character (not an ally) — only characters untap, which the delayed
+ * skip-next-untap needs.
+ */
+function fleeFromStrikeActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (combat.phase !== 'resolve-strike') return [];
+  if (playerId !== combat.defendingPlayerId) return [];
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return [];
+
+  const defPlayer = playerById(state, playerId);
+  if (!defPlayer) return [];
+  const struck = defPlayer.characters[currentStrike.characterId];
+  if (!struck) return [];
+  const struckDef = defById(state, struck.definitionId);
+  if (!struckDef || !isCharacterCard(struckDef)) return [];
+  const struckName = struckDef.name;
+
+  // The prowess the character is actually facing (agents use their rolled total
+  // once known; every other attack uses the base strike prowess).
+  const strikeProwess = combat.attackSource.type === 'agent' && combat.agentRollTotal !== undefined
+    ? combat.agentRollTotal
+    : combat.strikeProwess;
+  const charProwess = struck.effectiveStats.prowess;
+
+  const actions: EvaluatedAction[] = [];
+  for (const card of defPlayer.hand) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const effect = getCardEffects(def).find(
+      (e): e is FleeFromStrikeEffect => e.type === 'flee-from-strike',
+    );
+    if (!effect) continue;
+    if (effect.characterName !== struckName) continue;
+    if (strikeProwess <= charProwess) {
+      logDetail(`Flee-from-strike ${def.name}: strike prowess ${strikeProwess} not higher than ${struckName}'s prowess ${charProwess}`);
+      continue;
+    }
+    if (countCopiesInPlay(state, def.name ?? '') > 0) {
+      logDetail(`Flee-from-strike ${def.name}: a copy is already in play — cannot be duplicated`);
+      continue;
+    }
+    logDetail(`Flee-from-strike available: ${def.name} can cancel strike (prowess ${strikeProwess}) against ${struckName}`);
+    actions.push({
+      action: { type: 'flee-from-strike', player: playerId, cardInstanceId: card.instanceId },
+      viable: true,
+    });
   }
   return actions;
 }

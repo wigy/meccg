@@ -248,7 +248,45 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DiminishandDepart.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": { "$in": ["elf", "hobbit", "wizard"] } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": 1,
+        "target": "company",
+        "when": { "bearer.race": { "$in": ["elf", "hobbit"] } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -1,
+        "target": "company",
+        "when": { "bearer.race": "wizard" }
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-at-haven",
+        "cost": { "tap": "bearer" },
+        "when": { "bearer.atHaven": true },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
+    "certified": "2026-07-14",
     "text": "Playable on an Elf, Hobbit, or Wizard. All Elves and Hobbits in the target’s company have +1 mind, and a Wizard in the company has -1 direct influence. Tap target character at a Haven [{H}] during the organization phase to discard this card. Cannot be duplicated in a given company."
   },
   {
@@ -258,8 +296,19 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/FledintoDarkness.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable before the strike sequence on The Balrog facing a strike with a prowess higher than his. The strike is canceled and The Balrog taps, if untapped. The next time The Balrog would otherwise untap, make him tapped instead and discard this card. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "flee-from-strike",
+        "characterName": "The Balrog"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Playable before the strike sequence on The Balrog facing a strike with a prowess higher than his. The strike is canceled and The Balrog taps, if untapped. The next time The Balrog would otherwise untap, make him tapped instead and discard this card. Cannot be duplicated.",
+    "certified": "2026-07-14"
   },
   {
     "cardType": "hazard-event",
@@ -300,7 +349,11 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Pressgang.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      { "type": "press-gang-capture" },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "certified": "2026-07-14",
     "text": "When a character would otherwise be discarded from play, discard all cards on him, place him “off to the side” with this card, and return any character already with this card to its owner’s hand. A character with this card gives his player negative character marshalling points. Cannot be duplicated."
   },
   {

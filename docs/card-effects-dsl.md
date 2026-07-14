@@ -170,6 +170,18 @@ Optional `target` scopes:
   You've Come Back* (le-138): "the mind of each **other** non-follower,
   non-Ringwraith, non-Wizard character in his company increases by one" —
   `{ "stat": "mind", "value": 1, "target": "company-others", "when": { "$and": [ { "bearer.race": { "$ne": "wizard" } }, { "bearer.race": { "$ne": "ringwraith" } }, { "bearer.isFollower": { "$ne": true } } ] } }`.
+- `"company"` — applies to **every** character in the bearer's company,
+  **including the bearer** (contrast `company-others`). Collected once per
+  company member by `collectCompanyItemEffects`, which scans both the `.items`
+  **and** the attached `.hazards` of every company member, so the modifier may
+  ride an item (The One Ring's +1 corruption) or an attached hazard perm-event.
+  Each effect's `when` is evaluated against the **modified** character's context
+  (`bearer.race`, …). Used by *Diminish and Depart* (ba-17): "All Elves and
+  Hobbits in the target's company have +1 mind, and a Wizard in the company has
+  -1 direct influence" —
+  `{ "stat": "mind", "value": 1, "target": "company", "when": { "bearer.race": { "$in": ["elf", "hobbit"] } } }`
+  and
+  `{ "stat": "direct-influence", "value": -1, "target": "company", "when": { "bearer.race": "wizard" } }`.
 - *(no target)* on a hazard-creature card — self-modifier applied to the
   creature's own prowess at combat initiation. The context includes
   `company.facedRaces`, derived from `phaseState.hazardsEncountered` by
@@ -2767,6 +2779,42 @@ Shield — Warrior only). The item must be untapped when activated.
   "cost": { "tap": "self" },
   "when": { "bearer.skills": { "$includes": "warrior" } } }
 ```
+
+### 11a. `flee-from-strike`
+
+A from-hand combat **permanent-event** the defender plays to make a named
+character "flee" a strike he would likely lose. Offered (to the defending
+player) during the `resolve-strike` sub-phase when the current strike is
+assigned to a character whose name equals `characterName` and the strike's
+prowess is **strictly higher** than that character's effective prowess. The
+struck target must be a real character (not an ally) — only characters untap,
+which the delayed skip needs. Gate "Cannot be duplicated" with a
+`duplication-limit` (scope `game`, checked by name via `countCopiesInPlay`).
+
+On play (`flee-from-strike` action → `handleFleeFromStrike` in
+`combat-actions.ts`):
+
+- the current strike is canceled (marked `'canceled'`, combat advances via
+  `nextStrikePhase`);
+- the named character taps if untapped;
+- the card leaves hand and enters the controller's `cardsInPlay` (attached to
+  the character), carrying a one-shot **`skip-next-untap`** active constraint
+  (`scope: until-cleared`).
+
+The next time that character would untap during the untap phase,
+`performUntap` (`reducer-untap.ts`) holds him tapped, removes the constraint,
+and discards the in-play card to its owner's discard pile — a single-use lock.
+
+```json
+{ "type": "flee-from-strike", "characterName": "The Balrog" }
+```
+
+Used by Fled into Darkness (ba-18): "Playable before the strike sequence on
+The Balrog facing a strike with a prowess higher than his. The strike is
+canceled and The Balrog taps, if untapped. The next time The Balrog would
+otherwise untap, make him tapped instead and discard this card. Cannot be
+duplicated." — `flee-from-strike` `{ characterName: "The Balrog" }` +
+`duplication-limit` scope `game` max 1.
 
 ### 12. Combat-rule effects
 
@@ -7356,6 +7404,48 @@ Behaviour (engine mechanics in `engine/set-aside.ts`):
 
 Per-card wiring of *which* cards a given host sets aside is card-certification
 work; the mechanics above are alignment-agnostic.
+
+### 49a. `press-gang-capture` — hold a would-be-discarded character off to the side
+
+Carried by a hazard permanent-event (Press-gang, ba-22). While the card is in
+play, whenever a character owned by the card controller's **opponent** would
+otherwise be *discarded* from play, it is intercepted: instead of reaching its
+owner's discard pile it is held "off to the side" with this card.
+
+```json
+{ "type": "press-gang-capture" }
+```
+
+Behaviour (engine mechanics in `engine/press-gang.ts`):
+
+- **Which removals.** Only removals to the **discard** pile are caught — a
+  character *eliminated* to the out-of-play pile (combat death, corruption
+  hard-fail) is untouched (the card says "discarded", not "eliminated").
+  `findCapturingPressGang(state, ownerIndex)` locates an in-play
+  `press-gang-capture` card belonging to the character owner's opponent, and
+  `capturePressGang` is invoked in place of the discard at every "discard from
+  play" seam: `discardCharacter` (dice-check discards), the corruption-check
+  `discard` outcome, the voluntary organization-phase discard (rule 3.22), the
+  combat body-check discard band, and the Abductor "discard wounded character"
+  effect.
+- **Capture.** The character is stripped of all possessions — items and allies go
+  to its owner's discard pile, attached hazards to their owners' discards — while
+  its **followers revert to general influence** rather than being discarded (CRF:
+  "Followers controlled by the character placed off to the side are not
+  discarded"). The bare character card stays in its owner's `characters` map in
+  no company, marked with a `character-pressed` active constraint pointing back at
+  the Press-gang card.
+- **Scoring / lock.** A `character-pressed` character is scored like a prisoner
+  (CoE 8.35): it costs 0 general influence, is worth **negative** character
+  marshalling points to its owner (`recompute-derived.ts`), and never untaps or
+  heals (`reducer-untap.ts`).
+- **One at a time.** The card holds at most one character; capturing a second
+  returns the prior one to its owner's hand.
+- **Host removal.** `sweepPressGang` (a `postReduce` sweep, mirroring
+  `sweepSetAside`) returns the held character to its owner's hand when the
+  Press-gang card leaves play — "off to the side" is never a silent drop.
+
+"Cannot be duplicated" is the standard `duplication-limit` scope `game` max 1.
 
 ### 50. `recruitment-vehicle`
 

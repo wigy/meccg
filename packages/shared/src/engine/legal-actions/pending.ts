@@ -1098,6 +1098,11 @@ function applyOneConstraint(
       // Enforced directly by `reducer-untap.ts` `performUntap` —
       // no legal-action filtering needed here.
       return base;
+    case 'skip-next-untap':
+      // Fled into Darkness (ba-18): consumed directly by `reducer-untap.ts`
+      // `performUntap` (character stays tapped once, then the card is
+      // discarded) — no broad legal-action filtering needed here.
+      return base;
     case 'attack-card-played':
       // Pure marker for the duplication-limit mechanism; consulted directly
       // by `modifyAttackFromHandActions` — no broad legal-action filtering.
@@ -1123,6 +1128,11 @@ function applyOneConstraint(
       // Enforced by `reducer-untap.ts` (blocks untap/heal), `recompute-derived.ts`
       // (negative MP, 0 GI), and checked by any action computer that requires
       // the acting character to be free — no broad legal-action filtering here.
+      return base;
+    case 'character-pressed':
+      // Press-gang (ba-22): the held character is off to the side in no company,
+      // so it never surfaces in company-driven action menus. Its negative MP / 0
+      // GI / no-untap are enforced in `recompute-derived.ts` / `reducer-untap.ts`.
       return base;
     case 'tidings-attacks-queue':
       // Consumed directly by `finalizeCombat` in `reducer-combat.ts` to

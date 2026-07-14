@@ -666,26 +666,35 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           continue;
         }
 
+        // Evaluate the grant-action's `when` gate (if any) against the
+        // bearer / company / site context. A failed gate suppresses the
+        // standard tap-and-roll variant, but the corruption no-tap variant
+        // below is offered regardless (removal is always available at -3).
+        // Used by Diminish and Depart (ba-17): the removal is offered only
+        // while the target character is at a Haven (`bearer.atHaven`).
+        let whenSatisfied = true;
+        if (effect.when) {
+          const charDefForCtx = defById(state, char.definitionId);
+          const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
+          const company = findCharacterCompany(player.companies, charId);
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+          whenSatisfied = matchesCondition(effect.when, ctx);
+          if (!whenSatisfied) {
+            logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'}`);
+          }
+        }
+
         // Check cost: if tap is "bearer", character must be untapped
         if (!canPayCost(effect.cost, char)) {
           const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: ${charDef?.name ?? '?'} is tapped, cannot activate`);
           // Fall through to consider the no-tap variant below — the
           // character being tapped doesn't block it.
-        } else if (effect.when) {
-          const charDefForCtx = defById(state, char.definitionId);
-          const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
-          const company = findCharacterCompany(player.companies, charId);
-          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
-          if (!matchesCondition(effect.when, ctx)) {
-            logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'}`);
-            // Skip the standard variant below; do still consider no-tap.
-          }
         }
 
         // Standard tap-and-roll variant — emitted only if the bearer
-        // is untapped (cost.tap=bearer satisfied).
-        if (canPayCost(effect.cost, char)) {
+        // is untapped (cost.tap=bearer satisfied) and the when gate holds.
+        if (canPayCost(effect.cost, char) && whenSatisfied) {
           const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${hazardDef?.name ?? '?'})`);
           actions.push({

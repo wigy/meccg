@@ -1290,6 +1290,20 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Fled into Darkness (ba-18): a **one-shot** untap skip on a character.
+         * The next time the character would untap during the untap phase he
+         * stays tapped instead; the constraint is then removed and the source
+         * card (a `flee-from-strike` permanent-event in the owner's cardsInPlay)
+         * is discarded. Scoped to `until-cleared` so it persists across turns
+         * until that single untap fires. `cardInstanceId` is the in-play card to
+         * discard when the skip is consumed.
+         */
+        readonly type: 'skip-next-untap';
+        /** The `flee-from-strike` card instance to discard when the skip fires. */
+        readonly cardInstanceId: import('./common.js').CardInstanceId;
+      }
+    | {
+        /**
          * Marker placed when a `modify-attack` (fromHand) card with
          * `duplication-limit scope "attack"` is played. Stored with
          * `scope: { kind: 'attack' }` so it is swept when combat
@@ -1386,6 +1400,20 @@ export interface ActiveConstraint {
          */
         readonly type: 'character-is-prisoner';
         /** Instance ID of the hazard host's card — locates the HazardHost record. */
+        readonly hostInstanceId: CardInstanceId;
+      }
+    | {
+        /**
+         * Press-gang (ba-22): marks a character held "off to the side" with a
+         * Press-gang hazard permanent-event. Like a prisoner (CoE 8.35) it costs
+         * 0 general influence, is worth **negative** character marshalling points
+         * to its owner, and never untaps or heals. Unlike a prisoner there is no
+         * rescue site or HazardHost record — the hold ends only when the
+         * Press-gang card leaves play (the character returns to its owner's hand)
+         * or a new capture replaces it. Scoped `until-cleared`; removed explicitly.
+         */
+        readonly type: 'character-pressed';
+        /** Instance ID of the Press-gang card holding this character. */
         readonly hostInstanceId: CardInstanceId;
       }
     | {

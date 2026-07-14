@@ -372,10 +372,22 @@ export function collectCharacterEffects(
     }
   }
 
-  // Hazard card effects
+  // Hazard card effects. Company-scoped stat/check modifiers on an attached
+  // hazard (Diminish and Depart ba-17: "All Elves and Hobbits in the target's
+  // company have +1 mind, and a Wizard in the company has -1 direct influence")
+  // are skipped here and re-collected for every company member — including the
+  // bearer — by collectCompanyItemEffects below, exactly as item company-target
+  // modifiers are handled above (avoids double-counting on the bearer).
   for (const hazard of char.hazards) {
     const hDef = resolveDef(state, hazard.instanceId);
-    if (hDef) collectFromDef(hDef, hazard.instanceId, context, results);
+    if (!hDef) continue;
+    const hazardResults: CollectedEffect[] = [];
+    collectFromDef(hDef, hazard.instanceId, context, hazardResults);
+    for (const r of hazardResults) {
+      if (r.effect.type === 'stat-modifier' && r.effect.target === 'company') continue;
+      if (r.effect.type === 'check-modifier' && r.effect.target === 'company') continue;
+      results.push(r);
+    }
   }
 
   // `company-others` stat-modifiers never apply to their own bearer ("each
@@ -566,13 +578,15 @@ function collectCompanyOthersEffects(
 
 /**
  * Collects company-scoped effects (`stat-modifier` and `check-modifier` with
- * `target: "company"`) from items on every character in the same company as
- * `char`.
+ * `target: "company"`) from the items **and attached hazards** of every
+ * character in the same company as `char`.
  *
- * This ensures that a company-scoped item bonus (e.g. The One Ring's +1
- * corruption, or I'll Be At Your Heels' +1 to company corruption checks)
- * applies uniformly to all company members regardless of who bears the item /
- * attached permanent-event.
+ * This ensures that a company-scoped bonus/penalty applies uniformly to all
+ * company members regardless of who bears the source card: a company-scoped
+ * item bonus (e.g. The One Ring's +1 corruption, or I'll Be At Your Heels' +1
+ * to company corruption checks), or a company-scoped hazard penalty (Diminish
+ * and Depart ba-17: +1 mind to Elves/Hobbits, -1 direct influence to a Wizard).
+ * Each effect's `when` is evaluated against the modified character's context.
  */
 function collectCompanyItemEffects(
   state: GameState,
@@ -588,6 +602,7 @@ function collectCompanyItemEffects(
     const companyChar = player.characters[companyCharId];
     if (!companyChar) continue;
     const active = pickActiveItemsForCharacter(state, companyChar);
+    // Company-scoped item modifiers (The One Ring, I'll Be At Your Heels).
     for (const item of companyChar.items) {
       if (!active.has(item.instanceId as string)) continue;
       const itemDef = resolveDef(state, item.instanceId);
@@ -598,6 +613,20 @@ function collectCompanyItemEffects(
         if (!isCompanyStat && !isCompanyCheck) continue;
         if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
         results.push({ effect, sourceDef: itemDef, sourceInstance: item.instanceId });
+      }
+    }
+    // Company-scoped modifiers on an attached hazard (Diminish and Depart
+    // ba-17): the hazard raises the mind of every Elf/Hobbit and lowers a
+    // Wizard's direct influence throughout the target's whole company.
+    for (const hazard of companyChar.hazards) {
+      const hazardDef = resolveDef(state, hazard.instanceId);
+      if (!hazardDef) continue;
+      for (const effect of getCardEffects(hazardDef)) {
+        const isCompanyStat = effect.type === 'stat-modifier' && effect.target === 'company';
+        const isCompanyCheck = effect.type === 'check-modifier' && effect.target === 'company';
+        if (!isCompanyStat && !isCompanyCheck) continue;
+        if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
+        results.push({ effect, sourceDef: hazardDef, sourceInstance: hazard.instanceId });
       }
     }
   }

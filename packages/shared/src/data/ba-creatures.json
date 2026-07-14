@@ -112,8 +112,17 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Trolls. Three strikes (playable only against hero companies)."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "target-company",
+        "condition": {
+          "company.alignment": "hero"
+        }
+      }
+    ],
+    "text": "Trolls. Three strikes (playable only against hero companies).",
+    "certified": "2026-07-14"
   },
   {
     "cardType": "hazard-creature",
