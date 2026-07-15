@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 813 | 805 | 8 | 99.0% |
+| 817 | 809 | 8 | 99.0% |
 
 ## Category Breakdown
 
@@ -15,8 +15,8 @@
 | AS | 55 | 55 | 100.0% |
 | BA | 94 | 94 | 100.0% |
 | DM | 70 | 70 | 100.0% |
-| LE | 228 | 225 | 98.7% |
-| TD | 59 | 59 | 100.0% |
+| LE | 231 | 228 | 98.7% |
+| TD | 60 | 60 | 100.0% |
 | TW | 260 | 255 | 98.1% |
 | WH | 47 | 47 | 100.0% |
 
@@ -345,6 +345,7 @@
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
 | le-165 | Awaiting the Call | — | 10 | ☑ |
 | le-167 | Bade to Rule | — | 13 | ◐ |
+| le-170 | Black Rider | — | 8 | ☑ |
 | le-172 | Bold Thrust | — | 7 | ☑ |
 | le-173 | Burning Rick, Cot, and Tree | — | 13 | ☑ |
 | le-174 | By the Ringwraith’s Word | — | 17 | ☑ |
@@ -378,6 +379,7 @@
 | le-247 | Under His Blow | — | 5 | ☑ |
 | le-250 | Voices of Malice | — | 20 | ☑ |
 | le-253 | Weigh All Things to a Nicety | — | 10 | ☑ |
+| le-258 | Words of Menace and Deceit | — | 7 | ☑ |
 | le-260 | Balchoth | — | 8 | ☑ |
 | le-262 | Black Trolls | — | 7 | ☑ |
 | le-264 | Easterlings | — | 8 | ☑ |
@@ -395,6 +397,7 @@
 | le-279 | Orcs of the Ash Mountains | — | 6 | ☑ |
 | le-281 | Orcs of the Red Eye | — | 7 | ☑ |
 | le-282 | Orcs of Udûn | — | 14 | ☑ |
+| le-285 | Smaug Roused | — | 18 | ☑ |
 | le-286 | Snaga-hai | — | 7 | ☑ |
 | le-287 | Southrons | — | 9 | ☑ |
 | le-288 | Stone Trolls | — | 7 | ☑ |
@@ -479,6 +482,7 @@
 | td-11 | Daelomin at Home | — | 11 | ☑ |
 | td-16 | Dragon’s Curse | — | 17 | ☑ |
 | td-18 | Dragon-sickness | — | 6 | ☑ |
+| td-19 | Dunlending Raiders | — | 2 | ☑ |
 | td-20 | Eärcaraxë | — | 9 | ☑ |
 | td-21 | Eärcaraxë Ahunt | — | 11 | ☑ |
 | td-25 | Foolish Words | — | 8 | ☑ |

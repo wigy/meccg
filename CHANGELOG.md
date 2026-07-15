@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.50.0 — 2026-07-15
+
+Challenge Deck L
+
+### Game Engine
+
+- Completed the card pool for challenge deck (L) "Wolves!" — all 110 cards are now certified, making the deck playable end to end
+- Certified Black Rider (le-170), a Ringwraith-mode card introducing a new `alsoDiscardCompanyFollowers` purge primitive
+- Certified Words of Menace and Deceit (le-258), a spirit-magic short event granting +5 direct influence for the rest of the turn and −4 corruption (unless a Ringwraith); extended the duplication-limit character scope to cover non-attaching short events
+- Certified Smaug Roused (le-285), adding Dragons "Roused" faction primitives: influence modification (discard an item for +N), cancel-manifestation-attacks, and faction `manifestId` uniqueness
+- Certified Dunlending Raiders (td-19), a region-keyed vanilla creature with R&L-in-regions folded into `regionNames`
+
 ## 0.49.0 — 2026-07-15
 
 Challenge Deck K
