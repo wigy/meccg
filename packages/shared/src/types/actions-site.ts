@@ -201,6 +201,19 @@ export interface InfluenceAttemptAction {
    * the player may choose. See {@link LeaderControlEffect}.
    */
   readonly placeUnderLeaderControl?: boolean;
+  /**
+   * For Dragons "Roused" factions (`influence-modification` effect): an optional
+   * paid modification. When present, the influencing character discards the
+   * named carried item on declare and the influence roll gains `value`. The
+   * legal-action generator emits one such variant per eligible carried item;
+   * `need` is already reduced by `value`. See {@link InfluenceModificationEffect}.
+   */
+  readonly discardForBonus?: {
+    /** The carried item the influencing character discards as the cost. */
+    readonly itemInstanceId: CardInstanceId;
+    /** The influence-check modifier gained by paying this discard. */
+    readonly value: number;
+  };
 }
 
 /**

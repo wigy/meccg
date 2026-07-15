@@ -2420,6 +2420,19 @@ export function buildAhuntOrderEffectsState(opts: {
   pathNames: readonly string[];
   pathTypes: readonly RegionType[];
   extraCardsInPlay?: readonly CardDefinitionId[];
+  /**
+   * Which player holds the ahunt source card (and `extraCardsInPlay`). Defaults
+   * to the hazard player (P2). Set to the moving player (P1) to model a Dragons
+   * "Roused" faction's own region attack — its `cancel-manifestation-attacks`
+   * suppresses it for the controller's own moving company (Smaug Roused le-285).
+   */
+  ahuntOwnerIndex?: 0 | 1;
+  /**
+   * Extra in-play cards for the moving player (P1), regardless of ahunt owner.
+   * Used to place a "Roused" faction in the mover's play area while an
+   * opponent's same-chain Ahunt sits in P2, to test the cross cancellation.
+   */
+  movingPlayerCardsInPlay?: readonly CardDefinitionId[];
 }): GameState {
   const base = buildTestState({
     phase: Phase.MovementHazard,
@@ -2430,7 +2443,7 @@ export function buildAhuntOrderEffectsState(opts: {
     ],
   });
 
-  const newCards: CardInPlay[] = [
+  const ownerCards: CardInPlay[] = [
     { instanceId: mint(), definitionId: opts.ahuntDefId, status: CardStatus.Untapped },
     ...(opts.extraCardsInPlay ?? []).map(defId => ({
       instanceId: mint(),
@@ -2438,8 +2451,15 @@ export function buildAhuntOrderEffectsState(opts: {
       status: CardStatus.Untapped,
     })),
   ];
+  const movingCards: CardInPlay[] = (opts.movingPlayerCardsInPlay ?? []).map(defId => ({
+    instanceId: mint(),
+    definitionId: defId,
+    status: CardStatus.Untapped,
+  }));
 
-  const withCards = addP2CardsInPlay(base, newCards);
+  const ownerIndex = opts.ahuntOwnerIndex ?? 1;
+  let withCards = ownerIndex === 0 ? addP1CardsInPlay(base, ownerCards) : addP2CardsInPlay(base, ownerCards);
+  if (movingCards.length > 0) withCards = addP1CardsInPlay(withCards, movingCards);
 
   return {
     ...withCards,

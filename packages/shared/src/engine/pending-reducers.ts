@@ -739,6 +739,7 @@ export function applyFactionInfluenceRollResolution(
       type: 'influence-attempt' as const,
       influencingCharacterId: top.kind.influencingCharacterId,
       placeUnderLeaderControl: top.kind.placeUnderLeaderControl,
+      bonusModifier: top.kind.bonusModifier,
     },
   };
 

@@ -4203,6 +4203,53 @@ export interface AhuntAttackEffect extends EffectBase {
 }
 
 /**
+ * Optional cost-bearing modification the influencer may apply when attempting to
+ * bring **this faction** into play. Each option lets the influencing character
+ * discard one of its carried items of a given subtype in exchange for a positive
+ * modifier to the influence check. The influencer picks at most one option (or
+ * none); the discard is paid whether or not the check then succeeds.
+ *
+ * Used by the Dragons "Roused" factions — Smaug Roused (le-285): "Modifications:
+ * influencer discards a major item (+3) or a greater item (+6)." Modelled as a
+ * player-chosen variant of the faction influence-attempt: the legal-action
+ * generator emits one extra `influence-attempt` per eligible carried item, with
+ * `need` already reduced by the option's `value` and a `discardForBonus` payload
+ * naming the item; the declare handler discards that item and threads the bonus
+ * onto the influence roll.
+ */
+export interface InfluenceModificationEffect extends EffectBase {
+  readonly type: 'influence-modification';
+  /** The available paid modifications; the influencer applies at most one. */
+  readonly options: readonly {
+    /** The item subtype the influencer must discard to gain this modifier. */
+    readonly discardItemSubtype: 'minor' | 'major' | 'greater' | 'gold-ring' | 'special';
+    /** The positive modifier added to the influence check when this option is taken. */
+    readonly value: number;
+  }[];
+}
+
+/**
+ * Passive, in-play cancellation of every attack sourced from a **manifestation
+ * of the named entity** against the controller's own companies. Borne by a
+ * "Roused" Dragon faction — Smaug Roused (le-285): "All attacks by
+ * manifestations of Smaug against any of your companies are canceled."
+ *
+ * `manifestId` identifies the manifestation chain (by convention the basic
+ * form's id, e.g. `tw-90` for Smaug). While the controller of this card is the
+ * moving/defending player, any Ahunt region-attack whose source card belongs to
+ * that chain is skipped in `collectMatchingAhuntAttacks` — this covers the
+ * faction's own region attack against its controller and any same-chain Ahunt an
+ * opponent has in play. Under manifestation uniqueness (g.man.1) no other
+ * form of the entity can be simultaneously in play to generate a site/creature
+ * attack, so the Ahunt path is the reachable attack vector.
+ */
+export interface CancelManifestationAttacksEffect extends EffectBase {
+  readonly type: 'cancel-manifestation-attacks';
+  /** The manifestation-chain id whose attacks are canceled against your companies. */
+  readonly manifestId: string;
+}
+
+/**
  * Environment effect carried by an in-play hazard permanent-event that penalises
  * (and optionally blocks card-boosts for) a character's faction-influence checks
  * made at a site located in one of the listed regions.
@@ -5103,6 +5150,8 @@ export type CardEffect =
   | AgentDiscardReturnToOriginEffect
   | AgentMoveRestrictionEffect
   | AhuntAttackEffect
+  | InfluenceModificationEffect
+  | CancelManifestationAttacksEffect
   | DragonAtHomeEffect
   | CallCouncilEffect
   | WardBearerEffect

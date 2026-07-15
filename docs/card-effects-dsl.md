@@ -4654,6 +4654,53 @@ the shared `collectFactionInfluenceRestriction` helper (`reducer-utils.ts`).
 
 Used by Mordor in Arms (dm-72).
 
+### 25b. `influence-modification`
+
+An optional, cost-bearing modification the influencer may apply when attempting
+to bring **this faction** into play. Each `options` entry lets the influencing
+character discard one of its carried items of a given subtype in exchange for a
+positive modifier to the influence check. The influencer applies at most one
+option; the discard is paid whether or not the check then succeeds.
+
+```json
+{ "type": "influence-modification",
+  "options": [
+    { "discardItemSubtype": "major", "value": 3 },
+    { "discardItemSubtype": "greater", "value": 6 }
+  ] }
+```
+
+The faction-influence legal-action generator (`legal-actions/site.ts`) emits one
+extra `influence-attempt` per eligible carried item — its `need` is already
+lowered by the option's `value`, and it carries a `discardForBonus`
+`{ itemInstanceId, value }` payload. On declare (`reducer-site.ts`
+`handleInfluenceAttemptDeclare`) the named item is discarded and the modifier is
+threaded onto the chain payload → `faction-influence-roll` pending kind → the
+roll resolver (`resolveInfluenceAttemptRoll` adds `bonusModifier`). Used by the
+Dragons "Roused" factions — Smaug Roused (le-285): "Modifications: influencer
+discards a major item (+3) or a greater item (+6)."
+
+### 25c. `cancel-manifestation-attacks`
+
+A passive, in-play cancellation of every attack sourced from a **manifestation
+of the named entity** against the controller's own companies. `manifestId`
+identifies the manifestation chain (by convention the basic form's id, e.g.
+`tw-90` for Smaug).
+
+```json
+{ "type": "cancel-manifestation-attacks", "manifestId": "tw-90" }
+```
+
+Consumed in `mh-steps.ts` `collectMatchingAhuntAttacks`: while the carrier's
+controller is the moving/defending player, any Ahunt whose source card's
+`manifestId` matches is skipped (`playerCancelsManifestationAttacks`). This
+covers a "Roused" faction's own region attack against its controller and any
+same-chain Ahunt an opponent has in play. Under manifestation uniqueness
+(g.man.1) no other form of the entity can be simultaneously in play to generate
+a site/creature attack, so the Ahunt path is the reachable attack vector. Used
+by Smaug Roused (le-285): "All attacks by manifestations of Smaug against any of
+your companies are canceled."
+
 ### 26. `call-council`
 
 Triggers the "call the council" endgame transition from a card, as the

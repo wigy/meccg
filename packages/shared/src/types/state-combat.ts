@@ -808,6 +808,13 @@ export type ChainEntryPayload =
        * `placeUnderLeaderControl` flag. See {@link LeaderControlEffect}.
        */
       readonly placeUnderLeaderControl?: boolean;
+      /**
+       * Positive influence-check modifier from a Dragons "Roused" faction's
+       * paid `influence-modification` (Smaug Roused le-285: discard a major
+       * item for +3 / greater item for +6). The declare handler discards the
+       * chosen item and threads the modifier here; the roll resolver adds it.
+       */
+      readonly bonusModifier?: number;
     };
 
 /**

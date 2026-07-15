@@ -2273,7 +2273,25 @@ function handleInfluenceAttemptDeclare(
 
   const newCharacters = { ...player.characters, [charId as string]: updatedChar };
 
-  const newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
+  let newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
+
+  // Paid `influence-modification` (Dragons "Roused" factions, e.g. Smaug Roused
+  // le-285): the influencer discards the chosen carried item now, as the cost.
+  // The gained modifier is threaded onto the chain payload → faction-influence
+  // roll (applied whether or not the check then succeeds).
+  let bonusModifier: number | undefined;
+  if (action.discardForBonus) {
+    const discardForBonus = action.discardForBonus;
+    const removed = removeAttachment(newState.players[playerIndex], 'items', discardForBonus.itemInstanceId);
+    if (!removed) return { state, error: 'Item to discard for influence bonus not found' };
+    const discardedItem = toCardInstance(removed.attachment);
+    newState = updatePlayer(newState, playerIndex, () => ({
+      ...removed.player,
+      discardPile: [...removed.player.discardPile, discardedItem],
+    }));
+    bonusModifier = discardForBonus.value;
+    logDetail(`Site: ${def.name} paid influence modification — discarding ${cardName(state, removed.attachment.definitionId, '?')} for ${formatSignedNumber(bonusModifier)}`);
+  }
 
   // Initiate chain — faction card is held by the chain entry, opponent gets priority
   const cardInstance: CardInstance = toCardInstance(handCard);
@@ -2281,6 +2299,7 @@ function handleInfluenceAttemptDeclare(
     type: 'influence-attempt',
     influencingCharacterId: charId,
     placeUnderLeaderControl: action.placeUnderLeaderControl,
+    bonusModifier,
   });
 
   return { state: chainState };
@@ -2296,7 +2315,7 @@ function handleInfluenceAttemptDeclare(
  */
 export function resolveInfluenceAttemptRoll(
   state: GameState,
-  entry: { readonly card: CardInstance | null; readonly declaredBy: import('../index.js').PlayerId; readonly payload: { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId; readonly placeUnderLeaderControl?: boolean } },
+  entry: { readonly card: CardInstance | null; readonly declaredBy: import('../index.js').PlayerId; readonly payload: { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId; readonly placeUnderLeaderControl?: boolean; readonly bonusModifier?: number } },
 ): { state: GameState; effects: GameEffect[] } {
   const siteState = requirePhaseState(state, Phase.Site);
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
@@ -2416,6 +2435,16 @@ export function resolveInfluenceAttemptRoll(
       modifier += constraint.kind.value;
       logDetail(`Influence player-wide constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string}`);
     }
+  }
+
+  // Paid `influence-modification` bonus (Dragons "Roused" factions, e.g. Smaug
+  // Roused le-285): the influencer discarded an item on declare to gain this
+  // modifier. The item is already in the discard pile; the modifier applies
+  // whether or not the check now succeeds.
+  const paidBonus = entry.payload.bonusModifier ?? 0;
+  if (paidBonus !== 0) {
+    modifier += paidBonus;
+    logDetail(`Influence paid-modification bonus ${formatSignedNumber(paidBonus)} (item discarded on declare)`);
   }
 
   // Roll 2d6 + modifier vs influence number
