@@ -3727,7 +3727,14 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             sourceDefinitionId: entry.card.definitionId,
             scope,
             target: { kind: 'character', characterId: targetCharId },
-            kind: { type: 'check-modifier', check: apply.check, value: constraintValue },
+            kind: {
+              type: 'check-modifier',
+              check: apply.check,
+              value: constraintValue,
+              // Carry the optional target-gating condition so an opponent-influence
+              // booster (Mine or No One's ba-68) fires only on a matching attempt.
+              ...(apply.constraintWhen ? { when: apply.constraintWhen } : {}),
+            },
           });
         } else {
           logDetail(`${cardNm} option "${opt.id}": check-modifier could not resolve value/scope — fizzle`);

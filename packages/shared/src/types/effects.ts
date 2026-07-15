@@ -1591,6 +1591,17 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * so the bonus lapses immediately if the named card leaves play mid-turn.
    */
   readonly requiresCardInPlay?: string;
+  /**
+   * For a `check-modifier` constraint: an optional condition evaluated against
+   * the check's resolver context at the moment the check resolves. When present,
+   * the modifier is only applied (and consumed) if the condition matches. Used
+   * by boosters that are specific to one flavour of influence attempt, e.g.
+   * Mine or No One's (ba-68): a +10 that applies only to an *opponent-influence*
+   * attempt (`reason: "opponent-influence-check"`) against an item, ally, or
+   * Orc/Troll faction. A check-modifier constraint with no `constraintWhen`
+   * keeps its legacy behaviour (consumed by the faction-influence roll).
+   */
+  readonly constraintWhen?: Condition;
 }
 
 /**
@@ -3265,7 +3276,7 @@ export interface CancelInfluenceEffect extends EffectBase {
    * `opponent-influence-defend` resolution's `targetKind` appears in this list.
    * When absent (or empty), all target kinds are valid.
    */
-  readonly targetKindFilter?: readonly ('character' | 'ally' | 'faction')[];
+  readonly targetKindFilter?: readonly ('character' | 'ally' | 'faction' | 'item')[];
 }
 
 /**

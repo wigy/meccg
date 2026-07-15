@@ -228,8 +228,8 @@ export interface OpponentInfluenceAttemptAction {
   readonly targetPlayer: PlayerId;
   /** The instance ID of the opponent's card being influenced. */
   readonly targetInstanceId: CardInstanceId;
-  /** Whether the target is a character, ally, or faction. */
-  readonly targetKind: 'character' | 'ally' | 'faction';
+  /** Whether the target is a character, ally, faction, or item. */
+  readonly targetKind: 'character' | 'ally' | 'faction' | 'item';
   /**
    * Optional: instance ID of an identical card revealed from hand.
    * When set, the comparison value (target mind) is treated as 0.

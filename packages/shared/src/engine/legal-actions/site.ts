@@ -2331,6 +2331,54 @@ function opponentInfluenceActions(
           }
         }
       }
+
+      // Items on this character (CoE rule 8.1 item clause): the influencer must
+      // be at the same site (already ensured), the item must not have a
+      // permanent-event played on it, AND the resource player must reveal an
+      // identical item card from hand. The reveal is mandatory, so an item
+      // attempt is only offered when a matching item sits in the influencer's
+      // hand. The comparison value (rule 8.3) is the controlling character's
+      // mind; its unused DI is subtracted as controller DI.
+      const itemControllerMind = oppCharDef.mind;
+      const itemControllerDI = availableDI(state, oppCharId, opponent);
+      for (const itemInst of oppChar.items) {
+        const itemDef = defById(state, itemInst.definitionId);
+        if (!itemDef || !isItemCard(itemDef)) continue;
+        // Skip items that have a permanent-event attached to them.
+        const hasPermEventOnItem = opponent.cardsInPlay.some(c => c.attachedToItem === itemInst.instanceId);
+        if (hasPermEventOnItem) {
+          logDetail(`Opponent influence: item ${itemDef.name} has a permanent-event on it — cannot be influenced`);
+          continue;
+        }
+        const identicalItemInHand = player.hand.find(h => {
+          const hDef = defById(state, h.definitionId);
+          return hDef && isItemCard(hDef) && hDef.name === itemDef.name;
+        });
+        if (!identicalItemInHand) {
+          logDetail(`Opponent influence: no identical ${itemDef.name} in hand — cannot influence item`);
+          continue;
+        }
+        for (const ch of eligibleInfluencers) {
+          const charDef = defById(state, ch.definitionId);
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          const influencerDI = availableDI(state, ch.instanceId, player);
+          const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind (controller): ${itemControllerMind}, controller DI: ${itemControllerDI}${crossAlignmentSuffix} (reveal identical ${itemDef.name})`;
+          logDetail(`Opponent influence: ${charDef.name} can target item ${itemDef.name} (${explanation})`);
+          actions.push({
+            action: {
+              type: 'opponent-influence-attempt',
+              player: playerId,
+              influencingCharacterId: ch.instanceId,
+              targetPlayer: opponent.id,
+              targetInstanceId: itemInst.instanceId,
+              targetKind: 'item',
+              revealedCardInstanceId: identicalItemInHand.instanceId,
+              explanation,
+            },
+            viable: true,
+          });
+        }
+      }
     }
   }
 

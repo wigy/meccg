@@ -143,6 +143,13 @@ export interface ResolverContext {
   readonly target?: {
     readonly name: string;
     readonly race: string;
+    /**
+     * The kind of card being influenced in an opponent-influence attempt:
+     * `"character"`, `"ally"`, `"faction"`, or `"item"`. Exposed so an
+     * opponent-influence booster can gate on the target type, e.g. Mine or No
+     * One's (ba-68) applies only to an item/ally/faction target.
+     */
+    readonly kind?: string;
     /** Home site names parsed from the character's `homesite` string, for conditions like `{ "target.homesite": { "$includes": "Edoras" } }`. */
     readonly homesite?: readonly string[];
     /** The target character's keyword tags, for conditions like `{ "target.keywords": { "$includes": "balrog-specific" } }`. */
