@@ -2674,6 +2674,30 @@ function playHazardsActions(
           }
         }
 
+        // create-site-auto-attack (FEAR! FIRE! FOES! as-29 Mode A): "Playable on
+        // a Free-hold [{F}] or Border-hold [{B}]." The company must be moving
+        // (destinationSite set) to a site whose type is one of the effect's
+        // siteTypes. On resolution it installs the extra automatic-attack.
+        const createAttackEffect = getCardEffects(def).find(
+          (e): e is import('../../index.js').CreateSiteAutoAttackEffect => e.type === 'create-site-auto-attack',
+        );
+        if (createAttackEffect) {
+          if (!targetCompany.destinationSite) {
+            logDetail(`Hazard short-event "${def.name}" requires a moving company`);
+            actions.push({ action, viable: false, reason: `${def.name} can only be played on a moving company` });
+            continue;
+          }
+          const destSiteDef = resolveDef(state, targetCompany.destinationSite.instanceId);
+          if (!destSiteDef || !isSiteCard(destSiteDef) || !createAttackEffect.siteTypes.includes(destSiteDef.siteType)) {
+            logDetail(`Hazard short-event "${def.name}" requires the company to be moving to a ${createAttackEffect.siteTypes.join(' or ')}`);
+            actions.push({ action, viable: false, reason: `${def.name}: destination is not a ${createAttackEffect.siteTypes.join(' or ')}` });
+            continue;
+          }
+          logDetail(`Hazard short-event "${def.name}" is playable (moving to ${destSiteDef.name}, a ${destSiteDef.siteType})`);
+          actions.push({ action, viable: true });
+          continue;
+        }
+
         // play-discard-cost on an untargeted short event (Desire All for Thy
         // Belly ba-16): the hazard player must discard a matching card (a Spawn
         // card) from hand as a play cost. Offer one action per candidate cost
