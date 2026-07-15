@@ -1322,8 +1322,27 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Tap Shadow-cloak to cancel one hazard creature strike against bearer keyed by type to a Shadow-land [{s}], Shadow-hold [{S}], Dark-domain [{d}], or Dark-hold [{D}]. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "cancel-strike",
+        "cost": { "tap": "self" },
+        "when": {
+          "$or": [
+            { "attack.keying": "shadow" },
+            { "attack.keying": "dark" },
+            { "attack.siteKeyingTypes": "shadow-hold" },
+            { "attack.siteKeyingTypes": "dark-hold" }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "text": "Tap Shadow-cloak to cancel one hazard creature strike against bearer keyed by type to a Shadow-land [{s}], Shadow-hold [{S}], Dark-domain [{d}], or Dark-hold [{D}]. Cannot be duplicated on a given character.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-item",

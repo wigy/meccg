@@ -2969,9 +2969,17 @@ qualify as valid protection targets.
 The effect may be declared on an item attached to a character with
 `cost: { "tap": "self" }`. Tapping the item cancels a strike against
 its bearer; the `when` clause is evaluated against a context exposing
-`bearer.skills`, `bearer.race`, `bearer.name`, and `enemy.race`, so
-cards can gate the ability on the bearer's skill or race (e.g. Enruned
-Shield — Warrior only). The item must be untapped when activated.
+`bearer.skills`, `bearer.race`, `bearer.name`, `enemy.race`, and the
+attack's keying (`attack.source`, `attack.keying` — region types,
+`attack.siteKeyingTypes` — site types, `attack.keyingRegionNames` —
+region names), so cards can gate the ability on the bearer's skill or
+race (e.g. Enruned Shield — Warrior only) or on where the hazard
+creature was keyed (e.g. Shadow-cloak le-344 — a strike from a creature
+keyed to a Shadow-land [{s}], Shadow-hold [{S}], Dark-domain [{d}], or
+Dark-hold [{D}]). The keying fields mirror the ones already exposed to
+`cancel-attack` conditions; automatic attacks leave them empty, so a
+keying-gated cancel-strike never fires against a site auto-attack. The
+item must be untapped when activated.
 
 ```json
 { "type": "cancel-strike",

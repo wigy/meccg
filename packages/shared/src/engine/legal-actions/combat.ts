@@ -911,6 +911,32 @@ function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: 
 }
 
 /**
+ * Build the `attack` sub-context exposed to a `cancel-strike` effect's `when`
+ * clause. Mirrors the keying fields already surfaced to `cancel-attack`
+ * conditions (see {@link resolveStrikeActions}'s `whenContext`): `source` (the
+ * attack-source discriminator), plus the attack's region-type keying
+ * (`keying`), site-type keying (`siteKeyingTypes`), and region-name keying
+ * (`keyingRegionNames`) when populated. Lets a self-tap cancel-strike item gate
+ * on where the hazard creature was keyed — e.g. Shadow-cloak (le-344) cancels a
+ * strike only from a creature keyed to a Shadow-land [{s}], Shadow-hold [{S}],
+ * Dark-domain [{d}], or Dark-hold [{D}]. Automatic attacks leave every keying
+ * field empty, so a keying-gated cancel never fires against them.
+ */
+function buildAttackKeyingCtx(combat: CombatState): Record<string, unknown> {
+  const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
+  if (combat.attackKeying && combat.attackKeying.length > 0) {
+    attackCtx.keying = combat.attackKeying;
+  }
+  if (combat.attackSiteKeyingTypes && combat.attackSiteKeyingTypes.length > 0) {
+    attackCtx.siteKeyingTypes = combat.attackSiteKeyingTypes;
+  }
+  if (combat.attackKeyingRegionNames && combat.attackKeyingRegionNames.length > 0) {
+    attackCtx.keyingRegionNames = combat.attackKeyingRegionNames;
+  }
+  return attackCtx;
+}
+
+/**
  * Scan `candidates` (a struck character's untapped items/allies, or a struck
  * ally itself) for `cancel-strike` effects that tap themselves to protect their
  * bearer (cost `tap: 'self'`, target absent or `'self'`), emitting one
@@ -1291,7 +1317,7 @@ function resolveStrikeActions(
     const buildCancelCtx = (): Record<string, unknown> => {
       const ctx: Record<string, unknown> = {
         bearer: { skills: bearerSkills, race: bearerRace, name: bearerName },
-        attack: { source: combat.attackSource.type },
+        attack: buildAttackKeyingCtx(combat),
       };
       if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
       return ctx;
@@ -1312,7 +1338,7 @@ function resolveStrikeActions(
     const { ally } = allyMatch;
     const cancelCtx = (): Record<string, unknown> => {
       const ctx: Record<string, unknown> = {
-        attack: { source: combat.attackSource.type },
+        attack: buildAttackKeyingCtx(combat),
       };
       if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
       return ctx;
