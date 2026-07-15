@@ -810,6 +810,24 @@ export interface GangwaysExtraMoveAction {
 }
 
 /**
+ * `grant-extra-mh-phase` resources (Forced March le-185, Bridge tw-202, Leg It
+ * Double Quick le-202, Ûvatha Unleashed le-248): during the `extra-mh-move-offer`
+ * step the active player chooses a new destination for the company that just
+ * completed its movement/hazard phase, sending it on another movement (a fresh
+ * movement/hazard phase). Passing instead finishes the company.
+ */
+export interface ExtraMHMoveAction {
+  /** Action discriminant. */
+  readonly type: 'extra-mh-move';
+  /** The active (resource) player. */
+  readonly player: PlayerId;
+  /** The company taking another movement/hazard phase. */
+  readonly companyId: CompanyId;
+  /** The chosen destination site (an instance in the site deck). */
+  readonly destinationSite: CardInstanceId;
+}
+
+/**
  * Tap an in-play ally (Goldberry) to negate a `force-return-to-origin`
  * chain entry before it resolves. Legal during M/H chain declaring when
  * the ally is untapped and the chain contains an unresolved entry tagged

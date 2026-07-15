@@ -38,9 +38,11 @@ import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions } from '../mh-agents.js';
+import { extraMHMoveDestinations } from '../mh-hazard-play.js';
 import { currentHazardLimit } from '../hazard-limit.js';
 import { collectRegionKeyingBoosts, regionPathsWithBoosts, collectRegionTypeRemaps, applyRegionTypeRemaps } from '../region-keying.js';
 import { asViable as viable } from './evaluated.js';
+import { notPlayable } from './action-builders.js';
 
 /**
  * Count unresolved hazard-creature / hazard-event chain entries. Used
@@ -157,6 +159,18 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
     return viable(gangwaysOfferActions(state, playerId, mhState));
   }
 
+  // extra-mh-move-offer step (grant-extra-mh-phase resources — Forced March
+  // le-185, Bridge tw-202, Leg It Double Quick le-202): the active player may
+  // send the company that just finished its M/H phase on another movement to an
+  // additional site, or pass to finish it.
+  if (mhState.step === 'extra-mh-move-offer') {
+    if (!isActive) {
+      logDetail(`Not active player — no actions during extra-mh-move-offer step`);
+      return [];
+    }
+    return viable(extraMHMoveOfferActions(state, playerId, mhState));
+  }
+
   // TODO: assign-strike, resolve-strike, support-strike
   if (!isActive) {
     logDetail(`Not active player, no movement/hazard actions`);
@@ -202,6 +216,85 @@ function gangwaysOfferActions(
   }
   // Always allow passing to finish the company.
   actions.push({ type: 'pass', player: playerId });
+  return actions;
+}
+
+/**
+ * Generate actions for the `extra-mh-move-offer` step (`grant-extra-mh-phase`
+ * resources — Forced March le-185, Bridge tw-202, Leg It Double Quick le-202).
+ *
+ * The active player may send the company that just finished its movement/hazard
+ * phase on another movement to any site normally reachable from its current site
+ * (each offered as an `extra-mh-move`), or pass to finish the company.
+ */
+function extraMHMoveOfferActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): GameAction[] {
+  const activeIndex = getPlayerIndex(state, playerId);
+  const player = state.players[activeIndex];
+  const company = player.companies[mhState.activeCompanyIndex];
+  const actions: GameAction[] = [];
+  if (company) {
+    for (const siteInst of extraMHMoveDestinations(state, activeIndex, company)) {
+      const destDef = defById(state, siteInst.definitionId);
+      actions.push({ type: 'extra-mh-move', player: playerId, companyId: company.id, destinationSite: siteInst.instanceId });
+      logDetail(`Extra M/H phase: offering extra move to ${destDef?.name ?? (siteInst.definitionId as string)}`);
+    }
+  }
+  // Always allow passing to finish the company.
+  actions.push({ type: 'pass', player: playerId });
+  return actions;
+}
+
+/**
+ * Generate play actions for `grant-extra-mh-phase` resource short-events
+ * (Forced March le-185, Bridge tw-202, Leg It Double Quick le-202) during the
+ * play-hazards step. The card is playable at the end of the M/H phase on the
+ * active company only when that company is moving and its destination meets the
+ * effect's requirement (site type / alignment — e.g. a Darkhaven for Forced
+ * March). Resolving the event flags the company for an extra movement/hazard
+ * phase (see `handlePlayResourceShortEvent` / `advanceAfterCompanyMH`).
+ */
+function extraMHPhaseResourceActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+  const company = player.companies[mhState.activeCompanyIndex];
+  if (!company) return actions;
+
+  const destDef = company.destinationSite ? defById(state, company.destinationSite.definitionId) : undefined;
+  const destSite = destDef && isSiteCard(destDef) ? destDef : undefined;
+
+  for (const handCard of player.hand) {
+    const def = defById(state, handCard.definitionId);
+    const effect = def && getCardEffects(def).find(
+      (e): e is import('../../types/effects.js').GrantExtraMHPhaseEffect => e.type === 'grant-extra-mh-phase',
+    );
+    if (!def || !effect) continue;
+    const cardInstanceId = handCard.instanceId;
+
+    // Must be a moving company (there is no "additional" site to move to otherwise).
+    if (!destSite) {
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: the company is not moving`));
+      continue;
+    }
+    if (effect.requiresDestinationSiteType && destSite.siteType !== effect.requiresDestinationSiteType) {
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: the company is not moving to a ${effect.requiresDestinationSiteType}`));
+      continue;
+    }
+    if (effect.requiresDestinationAlignment && destSite.alignment !== effect.requiresDestinationAlignment) {
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: destination is not a ${effect.requiresDestinationAlignment} site`));
+      continue;
+    }
+    logDetail(`Resource short-event "${def.name}" playable — company ${company.id as string} moving to ${destSite.name} qualifies for an extra M/H phase`);
+    actions.push({ action: { type: 'play-short-event', player: playerId, cardInstanceId }, viable: true });
+  }
   return actions;
 }
 
@@ -3252,6 +3345,10 @@ function playHazardsActions(
     actions.push(...playPermanentEventActions(state, playerId));
     actions.push(...playShortEventActions(state, playerId));
     actions.push(...heroResourceShortEventActions(state, playerId, 'movement-hazard'));
+    // grant-extra-mh-phase resources (Forced March le-185, Bridge tw-202, Leg It
+    // Double Quick le-202): playable at the end of the M/H phase on the active
+    // company when it is moving to a qualifying site (e.g. a Darkhaven).
+    actions.push(...extraMHPhaseResourceActions(state, playerId, mhState));
     // Character-recruitment events (A Chance Meeting tw-188): bring a character
     // into play at a company at a qualifying site during M/H, bypassing the
     // one-character-per-turn limit.

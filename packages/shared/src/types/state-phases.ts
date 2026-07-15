@@ -373,7 +373,16 @@ export type MHStep =
    * (`gangways-extra-move`) — re-entering the phase at `reveal-new-site` with
    * a cumulative roll penalty — or passes to finish the company.
    */
-  | 'gangways-offer';
+  | 'gangways-offer'
+  /**
+   * `grant-extra-mh-phase` resources (Forced March le-185, Bridge tw-202, Leg
+   * It Double Quick le-202, Ûvatha Unleashed le-248): after a company that
+   * moved to the qualifying site (e.g. a Darkhaven) completes its M/H phase,
+   * the active player may send it on another movement to an additional site —
+   * a fresh movement/hazard phase — by choosing a new destination
+   * (`extra-mh-move`), or pass to finish the company.
+   */
+  | 'extra-mh-move-offer';
 
 export interface MovementHazardPhaseState {
   /** Phase discriminant. */

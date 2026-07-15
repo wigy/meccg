@@ -2013,6 +2013,21 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
     return { state: { ...clearedState, phaseState: resetCompanyMHFields(mhState) } };
   }
 
+  // grant-extra-mh-phase (Forced March le-185, Bridge tw-202, Leg It Double
+  // Quick le-202): the company was flagged when the enabling resource event
+  // resolved. Now that its move has committed, clear the flag and offer another
+  // movement to an additional site — a fresh movement/hazard phase — via the
+  // dedicated offer step. The active player may instead pass to finish here.
+  if (currentCompany.extraMHPhasePending) {
+    logDetail(`Extra M/H phase: company ${currentCompany.id as string} may move to an additional site → extra-mh-move-offer`);
+    const clearedState = updatePlayer(state, activeIndex, p => ({
+      ...p,
+      companies: p.companies.map((c, idx) =>
+        idx !== mhState.activeCompanyIndex ? c : { ...c, extraMHPhasePending: false }),
+    }));
+    return { state: { ...clearedState, phaseState: { ...mhState, step: 'extra-mh-move-offer' as const } } };
+  }
+
   if (playerHasExtraUnderDeepsMH(state, activeIndex)) {
     const cid = currentCompany.id as string;
     // Record this completed M/H phase and the site the company now occupies.
@@ -2214,6 +2229,98 @@ export function handleGangwaysOffer(
 function cardNameLocal(state: GameState, defId: CardDefinitionId): string {
   const def = defById(state, defId);
   return def?.name ?? (defId as string);
+}
+
+/**
+ * Enumerate the destination sites (instances in the active player's site deck)
+ * a company may reach with a `grant-extra-mh-phase` extra movement (Forced March
+ * le-185, Bridge tw-202, Leg It Double Quick le-202): any site normally reachable
+ * from the company's current site (starter or region movement) whose card is
+ * still in the site deck. Restricted to the mover's own alignment so identically
+ * named sites of the other side don't leak in. De-duplicated by definition.
+ */
+export function extraMHMoveDestinations(
+  state: GameState,
+  activeIndex: number,
+  company: Company,
+): readonly CardInstance[] {
+  const player = state.players[activeIndex];
+  const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  if (!currentDef || !isSiteCard(currentDef)) return [];
+  const movementMap = buildMovementMap(state.cardPool, player.alignment);
+  const allSites = Object.values(state.cardPool).filter(
+    (s): s is SiteCard => isSiteCard(s) && s.alignment === player.alignment,
+  );
+  const reachableNames = new Set(getReachableSites(movementMap, currentDef, allSites).map(r => r.site.name));
+  const seenDefs = new Set<string>();
+  const dests: CardInstance[] = [];
+  for (const siteInst of player.siteDeck) {
+    if (seenDefs.has(siteInst.definitionId as string)) continue;
+    const destDef = defById(state, siteInst.definitionId);
+    if (!destDef || !isSiteCard(destDef)) continue;
+    if (!reachableNames.has(destDef.name)) continue;
+    seenDefs.add(siteInst.definitionId as string);
+    dests.push(siteInst);
+  }
+  return dests;
+}
+
+/**
+ * Handle the `extra-mh-move-offer` step (`grant-extra-mh-phase` resources —
+ * Forced March le-185, Bridge tw-202, Leg It Double Quick le-202): the active
+ * player either finishes the company (`pass` → finalize) or picks a new
+ * destination for another movement/hazard phase (`extra-mh-move`).
+ *
+ * On selection, the chosen site is drawn from the site deck and installed as the
+ * company's destination; the per-phase state is reset and the phase re-enters at
+ * `reveal-new-site`, so the company proceeds through the normal declare-path flow
+ * and faces a fresh set of hazards.
+ */
+export function handleExtraMHMoveOffer(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+
+  if (action.type === 'pass') {
+    logDetail(`Extra M/H phase: active player declined the additional move — finalizing company`);
+    return finalizeCompanyMH(state, mhState);
+  }
+
+  if (action.type !== 'extra-mh-move') {
+    return wrongActionType(state, action, 'extra-mh-move', 'extra-mh-move-offer step');
+  }
+
+  const player = state.players[activeIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIdx !== mhState.activeCompanyIndex) {
+    return { state, error: 'Extra M/H move must target the company that just finished its M/H phase' };
+  }
+  const company = player.companies[companyIdx];
+
+  const dest = extraMHMoveDestinations(state, activeIndex, company)
+    .find(s => s.instanceId === action.destinationSite);
+  if (!dest) {
+    return { state, error: 'Chosen site is not a legal extra-movement destination' };
+  }
+
+  const companies = [...player.companies];
+  companies[companyIdx] = {
+    ...company,
+    destinationSite: { ...toCardInstance(dest), status: CardStatus.Untapped },
+    movementPath: [],
+  };
+  const siteDeck = removeById(player.siteDeck, dest.instanceId);
+  const destName = cardNameLocal(state, dest.definitionId);
+  logDetail(`Extra M/H phase: company ${action.companyId as string} sets destination ${destName} → re-entering reveal-new-site (extra M/H phase)`);
+
+  return {
+    state: {
+      ...updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })),
+      phaseState: { ...resetCompanyMHFields(mhState), step: 'reveal-new-site' as const, siteRevealed: true },
+    },
+  };
 }
 
 /**
