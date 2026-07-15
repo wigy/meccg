@@ -2767,7 +2767,9 @@
       {
         "site": "Woodmen-town"
       }
-    ]
+    ],
+    "effects": [],
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-faction",

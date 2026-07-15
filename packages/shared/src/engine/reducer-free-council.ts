@@ -18,6 +18,7 @@ import { Phase } from '../types/state-phases.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
+import { isCharacterCard } from '../types/cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { roll2d6, diceRollEffect, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -217,6 +218,28 @@ function resolveCorruptionCheck(
       if (constraint.kind.autoPass) autoPass = true;
       logDetail(`Free Council: consuming one-shot check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id as string}${constraint.kind.autoPass ? ' (auto-pass)' : ''}`);
       state = removeConstraint(state, constraint.id);
+    }
+  }
+
+  // Company-scoped corruption check-modifier constraints (Ren the Ringwraith
+  // le-56: "modify all corruption checks made this turn by minions in any one
+  // of your companies by +2"): applied to every corruption check by a minion
+  // character in the *targeted* company, and NOT consumed (they persist for
+  // their turn scope).
+  const fcCompany = findCharacterCompany(
+    state.players[playerIndex].companies, pending.characterId,
+  );
+  const fcCharDef = resolveDef(state, pending.characterId);
+  const fcIsMinion = isCharacterCard(fcCharDef) && fcCharDef.cardType === 'minion-character';
+  if (fcCompany && fcIsMinion) {
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type === 'check-modifier'
+          && constraint.kind.check === 'corruption'
+          && constraint.target.kind === 'company'
+          && constraint.target.companyId === fcCompany.id) {
+        effectModifier += constraint.kind.value;
+        logDetail(`Free Council: company-wide corruption check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id as string}`);
+      }
     }
   }
 

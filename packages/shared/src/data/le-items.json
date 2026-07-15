@@ -596,8 +596,73 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "May only be played at a Free-hold [{F}] where gold rings are playable. Bearer must make a corruption check at the end of each of his untap phases. Discard Bright Gold Ring when tested. If tested, make a roll to determine which ring card may be immediately played: a Spirit Ring (8,9,10,11,12+); a Dwarven Ring (9,10,11,12+); a Magic Ring (1,2,3,4,5); a Lesser Ring (any result). You may search your play deck or discard pile for a Lesser Ring to be played."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "$and": [
+            {
+              "site.siteType": "free-hold"
+            },
+            {
+              "site.playableResources": {
+                "$includes": "gold-ring"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "untap-phase-end",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "bearer"
+      },
+      {
+        "type": "storable-at",
+        "sites": [
+          "Dol Guldur",
+          "Minas Morgul",
+          "Carn Dûm",
+          "Moria",
+          "The Under-gates"
+        ]
+      },
+      {
+        "type": "ring-test-table",
+        "table": [
+          {
+            "category": "lesser-ring",
+            "min": null,
+            "max": null
+          },
+          {
+            "category": "magic-ring",
+            "min": 1,
+            "max": 5
+          },
+          {
+            "category": "dwarven-ring",
+            "min": 9,
+            "max": null
+          },
+          {
+            "category": "spirit-ring",
+            "min": 8,
+            "max": null
+          }
+        ]
+      },
+      {
+        "type": "ring-test-search",
+        "category": "lesser-ring"
+      }
+    ],
+    "text": "May only be played at a Free-hold [{F}] where gold rings are playable. Bearer must make a corruption check at the end of each of his untap phases. Discard Bright Gold Ring when tested. If tested, make a roll to determine which ring card may be immediately played: a Spirit Ring (8,9,10,11,12+); a Dwarven Ring (9,10,11,12+); a Magic Ring (1,2,3,4,5); a Lesser Ring (any result). You may search your play deck or discard pile for a Lesser Ring to be played.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-item",
@@ -736,6 +801,7 @@
     "cardType": "minion-resource-item",
     "alignment": "ringwraith",
     "id": "le-312",
+    "certified": "2026-07-15",
     "name": "Gold Ring that Sauron Fancies",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GoldRingthatSauronFancies.jpg",
     "unique": false,
@@ -749,7 +815,70 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": [
+          "Bag End"
+        ],
+        "filter": {
+          "$and": [
+            {
+              "site.siteType": "ruins-and-lairs"
+            },
+            {
+              "site.playableResources": {
+                "$includes": "gold-ring"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "untap-phase-end",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "bearer"
+      },
+      {
+        "type": "storable-at",
+        "sites": [
+          "Dol Guldur",
+          "Minas Morgul",
+          "Carn Dûm",
+          "Moria",
+          "The Under-gates"
+        ]
+      },
+      {
+        "type": "ring-test-table",
+        "table": [
+          {
+            "category": "lesser-ring",
+            "min": null,
+            "max": null
+          },
+          {
+            "category": "magic-ring",
+            "min": 1,
+            "max": 5
+          },
+          {
+            "category": "dwarven-ring",
+            "min": 8,
+            "max": null
+          },
+          {
+            "category": "the-one-ring",
+            "min": 11,
+            "max": null
+          }
+        ]
+      }
+    ],
     "text": "May only be played at Bag End or a Ruins & Lairs [{R}] where gold rings are playable. Bearer must make a corruption check at the end of each of his untap phases. Discard this ring when tested. If tested, obtain a random value to determine which ring card may be immediately played: The One Ring (11,12+); a Dwarven Ring (8,9,10,11,12+); a Magic Ring (1,2,3,4,5); a Lesser Ring (any result)."
   },
   {
@@ -979,7 +1108,8 @@
     "unique": false,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "spirit-ring"
     ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
@@ -987,7 +1117,25 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": -2,
+        "min": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "certified": "2026-07-15",
     "text": "Spirit Ring. Playable only with a gold ring and after a test indicates a Spirit Ring. -2 to bearer’s mind (minimum of 1). +4 to bearer’s direct influence. Cannot be duplicated on a given character."
   },
   {

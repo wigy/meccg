@@ -1288,7 +1288,7 @@
     "id": "le-56",
     "name": "Ren the Ringwraith",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/RentheRingwraith.jpg",
-    "text": "Unique. Manifestation of Ren the Unclean. Can use sorcery and shadow-magic. -2 direct influence in Heralded Lord mode. +2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, he may tap during your organization phase to modify all corruption checks made this turn by your characters by -1 or +1.",
+    "text": "Unique. Manifestation of Ren the Unclean. Can use sorcery and shadow-magic. -2 direct influence in Heralded Lord mode. +2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, he may tap during your organization phase to modify all corruption checks made this turn by minions in any one of your companies by +2.",
     "alignment": "ringwraith",
     "unique": true,
     "race": "ringwraith",
@@ -1321,8 +1321,31 @@
         "when": {
           "bearer.ringwraithMode": "fell-rider"
         }
+      },
+      {
+        "type": "grant-action",
+        "action": "modify-company-corruption-checks",
+        "cost": {
+          "tap": "bearer"
+        },
+        "when": {
+          "bearer.isRevealedAvatar": true,
+          "bearer.atDarkhaven": true
+        },
+        "targets": {
+          "scope": "player-companies"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "corruption",
+          "value": 2,
+          "scope": "turn",
+          "target": "action-target-company"
+        }
       }
-    ]
+    ],
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-character",
@@ -1606,8 +1629,28 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Carn Dûm",
-    "effects": [],
-    "text": "Unique. +1 prowess against Orcs and Elves."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "elf"
+        }
+      }
+    ],
+    "text": "Unique. +1 prowess against Orcs and Elves.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-character",

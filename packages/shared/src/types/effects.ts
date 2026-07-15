@@ -1591,6 +1591,17 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * so the bonus lapses immediately if the named card leaves play mid-turn.
    */
   readonly requiresCardInPlay?: string;
+  /**
+   * For a `check-modifier` constraint: an optional condition evaluated against
+   * the check's resolver context at the moment the check resolves. When present,
+   * the modifier is only applied (and consumed) if the condition matches. Used
+   * by boosters that are specific to one flavour of influence attempt, e.g.
+   * Mine or No One's (ba-68): a +10 that applies only to an *opponent-influence*
+   * attempt (`reason: "opponent-influence-check"`) against an item, ally, or
+   * Orc/Troll faction. A check-modifier constraint with no `constraintWhen`
+   * keeps its legacy behaviour (consumed by the faction-influence roll).
+   */
+  readonly constraintWhen?: Condition;
 }
 
 /**
@@ -2934,7 +2945,8 @@ export interface OnGuardRevealEffect extends EffectBase {
 
 /**
  * Restricts an item to be playable only where the company's current
- * site satisfies a constraint. Two mutually-exclusive forms:
+ * site satisfies a constraint. Two forms, combined with **OR** when both
+ * are present (either satisfies):
  *
  * - `sites`: the site's name must appear in the list (e.g. Palantír of
  *   Orthanc — Isengard only).
@@ -2942,12 +2954,17 @@ export interface OnGuardRevealEffect extends EffectBase {
  *   `{ site: <site definition> }` (e.g. hoard items: every site whose
  *   card definition has `hoard: true`).
  *
+ * Most cards use exactly one form, but a card whose printed restriction is
+ * "at <named site> or <site type>" uses both — e.g. Gold Ring that Sauron
+ * Fancies (le-312): playable at Bag End **or** any Ruins & Lairs where gold
+ * rings are playable.
+ *
  * When present, the normal site-type check (`playableResources`) is
  * bypassed; the item is playable only if its restriction matches.
  */
 export interface ItemPlaySiteEffect extends EffectBase {
   readonly type: 'item-play-site';
-  /** Site names where the item can be played. Mutually exclusive with `filter`. */
+  /** Site names where the item can be played. Combined with `filter` via OR when both are set. */
   readonly sites?: readonly string[];
   /**
    * Generic site filter, evaluated against `{ site: siteDef }`. The site
@@ -3302,7 +3319,7 @@ export interface CancelInfluenceEffect extends EffectBase {
    * `opponent-influence-defend` resolution's `targetKind` appears in this list.
    * When absent (or empty), all target kinds are valid.
    */
-  readonly targetKindFilter?: readonly ('character' | 'ally' | 'faction')[];
+  readonly targetKindFilter?: readonly ('character' | 'ally' | 'faction' | 'item')[];
 }
 
 /**
@@ -3478,6 +3495,16 @@ export interface ModifyAttackEffect extends EffectBase {
    * in-play allies with `cost: { tap: "self" }` (e.g. Great Bats, as-74).
    */
   readonly removeAttackerChoosesDefenders?: true;
+  /**
+   * When true (from-hand path), the current attack loses its detainment status
+   * — {@link CombatState.detainment} is set to `false` — so its strikes wound
+   * (and can eliminate) normally instead of merely tapping. Used by the
+   * attacker-played FEAR! FIRE! FOES! (as-29) Mode B: "playable on a detainment
+   * automatic-attack. Against a minion company the attack becomes normal (not
+   * detainment) and has -1 prowess." Gate the play with `when` on
+   * `attack.detainment` (and, for as-29, `defender.minionCompany`).
+   */
+  readonly removeDetainment?: true;
   /**
    * When set, the item is discarded instead of tapped if the bearer's
    * race is NOT in `race`. The modifier still applies (whole-attack scope only).
@@ -4281,6 +4308,46 @@ export interface EddyLockEffect extends EffectBase {
 }
 
 /**
+ * Generic Balrog site-domination lock carried by a permanent-event bound to a
+ * site (`attachedToSite` = the site definition id). While the card is in play
+ * (and not still `pendingTriggerAttack`), the bound site gains two ongoing
+ * behaviours — plus an optional faction-influence penalty:
+ *
+ * 1. **Permanence** — the card is exempt from the site-attached orphan sweep
+ *    ({@link import('../engine/reducer-utils.js').discardOrphanedSiteAttachedEvents})
+ *    and the bound site is always returned to its owner's location deck rather
+ *    than discarded (the permanent branch in `mh-hazard-play.ts` step 8),
+ *    realising "This site is never discarded." Recognised via
+ *    {@link import('../engine/reducer-utils.js').cardKeepsBoundSitePermanent},
+ *    shared with {@link EddyLockEffect} / {@link SurfaceRegionAdjacencyEffect}.
+ * 2. **Never untaps for the owner** — when the owner's company re-enters a
+ *    version of the bound site definition, the site is placed **tapped** rather
+ *    than untapped (`mh-hazard-play.ts` step 8, via
+ *    {@link import('../engine/reducer-utils.js').siteNeverUntapsForOwner}),
+ *    realising "never untaps for you" (the engine never untaps a stationary
+ *    site, so re-placement on movement is the only refresh point).
+ * 3. **Faction-influence modifier** (optional `factionInfluenceModifier`) —
+ *    every influence attempt against a faction at any version of the bound site
+ *    (by either player) is modified by this value (`-5` for People Diminished),
+ *    summed live from bound in-play cards via
+ *    {@link import('../engine/reducer-utils.js').siteFactionInfluenceModifier}
+ *    in the site-phase influence path.
+ *
+ * Unlike {@link EddyLockEffect} this carries no per-company tax. Used by People
+ * Diminished (ba-72): "This site is never discarded and never untaps for you.
+ * -5 to each attempt against any faction at any version of this site."
+ */
+export interface SiteLockEffect extends EffectBase {
+  readonly type: 'site-lock';
+  /**
+   * Optional modifier applied to every faction-influence attempt against a
+   * faction at any version of the bound site (e.g. `-5` for People Diminished).
+   * A negative value raises the influence number the attacker must roll.
+   */
+  readonly factionInfluenceModifier?: number;
+}
+
+/**
  * Balrog-specific movement grant: while this permanent-event is in play (and the
  * card named in `suppressedByInPlay` is *not* in play), a company containing The
  * Balrog avatar may use **region** movement — overriding his printed "may not use
@@ -4997,6 +5064,7 @@ export type CardEffect =
   | CancelPrisonerTakingEffect
   | HazardMaintenanceEffect
   | DuplicateSiteAutoAttacksEffect
+  | CreateSiteAutoAttackEffect
   | SiteItemTrapEffect
   | HazardLimitSwapEffect
   | DiscardForHazardLimitEffect
@@ -5045,6 +5113,7 @@ export type CardEffect =
   | SurfaceRegionAdjacencyEffect
   | SurfaceSiteRollZeroEffect
   | EddyLockEffect
+  | SiteLockEffect
   | BalrogSurfaceRegionMovementEffect
   | CompanyMovementRestrictionEffect
   | VoluntaryDiscardEffect
@@ -5458,6 +5527,43 @@ export interface HazardMaintenanceEffect extends EffectBase {
  */
 export interface DuplicateSiteAutoAttacksEffect extends EffectBase {
   readonly type: 'duplicate-site-auto-attacks';
+}
+
+/**
+ * FEAR! FIRE! FOES! (as-29) Mode A: a hazard short-event played during the M/H
+ * phase on a company **moving to** a site whose type is one of {@link siteTypes}
+ * ("Playable on a Free-hold [{F}] or Border-hold [{B}]"). On resolution it
+ * installs a turn-scoped `extra-automatic-attack` constraint keyed to the
+ * destination site instance (which becomes the company's `currentSite` on
+ * arrival), so the company faces one **additional real automatic-attack** at the
+ * site this turn — resolved through the normal site-phase auto-attack flow
+ * alongside the site's printed attacks. Unlike Tidings of Bold Spies
+ * ({@link DuplicateSiteAutoAttacksEffect}), the created attack IS an
+ * automatic-attack (so cards referencing automatic-attacks apply) and it is
+ * faced in the SITE phase, not immediately in M/H.
+ *
+ * The attack carries no creature race ("no attack type") and forced detainment,
+ * expressed on the injected {@link AutomaticAttack} via `creatureType: ""` and
+ * `forceDetainment: true`.
+ */
+export interface CreateSiteAutoAttackEffect extends EffectBase {
+  readonly type: 'create-site-auto-attack';
+  /**
+   * The destination site types the company may be moving to for this card to be
+   * playable (e.g. `["free-hold", "border-hold"]`). Checked against the target
+   * company's destination site during M/H short-event emission.
+   */
+  readonly siteTypes: readonly import('./common.js').SiteType[];
+  /** The additional automatic-attack created at the site this turn. */
+  readonly attack: {
+    /** Creature type; empty string means "no attack type". */
+    readonly creatureType: string;
+    readonly strikes: number;
+    readonly prowess: number;
+    readonly body?: number;
+    /** When true, the created attack is detainment regardless of alignment/site. */
+    readonly detainment?: boolean;
+  };
 }
 
 /**

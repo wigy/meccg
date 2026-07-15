@@ -669,10 +669,10 @@ function handleSiteAutomaticAttacks(
         const inPlayNamesR = buildInPlayNames(state);
         const dupBoostCtxR = { companyId: company.id };
         const dupProwessR = resolveAttackProwess(state, aa.prowess, inPlayNamesR, dupRace, true, undefined, dupBoostCtxR);
-        const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR);
+        const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR, effectiveSiteType);
         const dupBodyR = resolveAttackBody(state, aa.body ?? null, inPlayNamesR, dupRace, dupBoostCtxR);
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
-        const dupDetainmentR = (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
+        const dupDetainmentR = (!convertsDetainment && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
           attackEffects: siteDef.effects,
           attackRace: dupRace as Race | null,
           defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -718,11 +718,11 @@ function handleSiteAutomaticAttacks(
       const creatureRace2 = normalizeCreatureRace(aa.creatureType);
       const dupBoostCtx = { companyId: company.id };
       const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true, undefined, dupBoostCtx);
-      const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, true, dupBoostCtx);
+      const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, true, dupBoostCtx, effectiveSiteType);
       const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
       const dupState = removeConstraint(state, dupConstraint.id);
-      const dupDetainment = (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
+      const dupDetainment = (!convertsDetainment && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
         attackEffects: siteDef.effects,
         attackRace: creatureRace2 as Race | null,
         defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -774,7 +774,7 @@ function handleSiteAutomaticAttacks(
   const creatureRace = normalizeCreatureRace(aa.creatureType);
   const aaBoostCtx = { companyId: company.id };
   const baseEffective = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, aaBoostCtx);
-  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, aaBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, aaBoostCtx, effectiveSiteType);
   const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, aaBoostCtx);
 
   // One-shot prowess boost from short-event environments like Choking
@@ -824,7 +824,10 @@ function handleSiteAutomaticAttacks(
     phase: isEachCharacter ? 'resolve-strike' : 'assign-strikes',
     assignmentPhase: isEachCharacter ? 'done' : (aaAttackerChooses ? 'cancel-window' : 'defender'),
     bodyCheckTarget: null,
-    detainment: (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
+    // `aa.forceDetainment` is set on runtime-injected attacks with no race/keying
+    // (FEAR! FIRE! FOES! as-29 Mode A), for which the §3.II derivation cannot
+    // apply — still overridden to normal by the defender's convertsDetainment.
+    detainment: (!convertsDetainment && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
       attackEffects: siteDef.effects,
       attackRace: creatureRace as Race | null,
       // Site auto-attacks are implicitly "keyed to" the site's type (§3.II.2.R1/B1).
@@ -903,7 +906,7 @@ function buildSiteRepeatedAttackCombat(
   const boostCtx = { companyId: company.id };
   const baseProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, boostCtx);
   const effectiveProwess = baseProwess + opts.prowessBonus;
-  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, boostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, boostCtx, effectiveSiteType);
   const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, boostCtx);
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
   const aaAttackerChooses = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
@@ -914,7 +917,7 @@ function buildSiteRepeatedAttackCombat(
     ? facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
     : [];
   const strikesTotalValue = isEachCharacter ? facingChars.length : effectiveStrikes;
-  const detainment = (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
+  const detainment = (!convertsDetainment && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
     attackEffects: siteDef.effects,
     attackRace: creatureRace as Race | null,
     attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
@@ -2353,6 +2356,10 @@ export function resolveInfluenceAttemptRoll(
       if (constraint.kind.check !== 'influence') continue;
       if (constraint.target.kind !== 'character') continue;
       if (constraint.target.characterId !== charId) continue;
+      // A constraint that opted into a specific influence flavour via `when`
+      // (e.g. Mine or No One's ba-68 → opponent-influence only) is left for that
+      // path; only consume it here if its condition matches this faction check.
+      if (constraint.kind.when && !matchesContext(constraint.kind.when, resolverCtx)) continue;
       const boostSourceName = (defById(state, constraint.sourceDefinitionId) as { name?: string } | undefined)?.name;
       if (boostSourceName && blockedBoostCardNames.has(boostSourceName)) {
         // "cannot be done with <named card>": the boost is suppressed (still consumed).
@@ -2512,6 +2519,9 @@ function handleOpponentInfluenceAttempt(
 
   let targetMind = 0;
   let controllerDI = 0;
+  // Target identity for the opponent-influence resolver context (booster gating).
+  let targetRace = '';
+  let targetName = '';
 
   if (action.targetKind === 'character') {
     const targetChar = opponent.characters[action.targetInstanceId];
@@ -2522,6 +2532,8 @@ function handleOpponentInfluenceAttempt(
     // A `control-restriction` (e.g. Wizard's Myrmidon) overrides the
     // influence-to-control threshold the opponent must beat.
     targetMind = controlCostOf(state, targetChar, targetDef.mind) ?? targetDef.mind;
+    targetRace = targetDef.race;
+    targetName = targetDef.name;
 
     // Controller DI (rule 10.12 step 5) — only if under DI, not GI
     if (targetChar.controlledBy !== 'general') {
@@ -2539,6 +2551,8 @@ function handleOpponentInfluenceAttempt(
         if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) return { state, error: 'Target is not an ally' };
         targetMind = allyEffectiveMind(state, allyInst);
         controllerDI = availableDI(state, oppCharId, opponent);
+        // Allies carry no race field; only kind matters for booster gating.
+        targetName = allyDef?.name ?? '';
         allyFound = true;
         break;
       }
@@ -2554,6 +2568,28 @@ function handleOpponentInfluenceAttempt(
     // not a character).
     targetMind = factionDef.inPlayInfluenceNumber ?? factionDef.influenceNumber;
     controllerDI = 0;
+    targetRace = factionDef.race;
+    targetName = factionDef.name;
+  } else if (action.targetKind === 'item') {
+    // CoE rule 8.3: influencing an item — the comparison value is the mind of
+    // the character controlling the item, and its controller's unused DI is
+    // subtracted (rule 10.12 step 5 / 8.3 step 5). The identical-item reveal is
+    // enforced at legal-action time and required to declare the attempt.
+    let itemFound = false;
+    for (const [oppCharId, oppChar] of characterEntries(opponent)) {
+      const itemInst = oppChar.items.find(i => i.instanceId === action.targetInstanceId);
+      if (itemInst) {
+        const itemDef = defById(state, itemInst.definitionId);
+        const ctrlDef = defById(state, oppChar.definitionId);
+        targetMind = ctrlDef && isCharacterCard(ctrlDef) && ctrlDef.mind !== null ? ctrlDef.mind : 0;
+        controllerDI = availableDI(state, oppCharId, opponent);
+        // Items carry no race field; only kind matters for booster gating.
+        targetName = itemDef?.name ?? '';
+        itemFound = true;
+        break;
+      }
+    }
+    if (!itemFound) return { state, error: 'Target item not found' };
   }
 
   const charDef = defById(state, charInPlay.definitionId);
@@ -2570,33 +2606,23 @@ function handleOpponentInfluenceAttempt(
     const revealedHandCard = newHand[revealIdx];
     const revealedDef = defById(state, revealedHandCard.definitionId);
 
-    // Validate: must be same name as target
-    let targetName: string | undefined;
-    if (action.targetKind === 'character') {
-      const tDef = state.cardPool[opponent.characters[action.targetInstanceId]?.definitionId];
-      targetName = tDef?.name;
-    } else if (action.targetKind === 'faction') {
-      const targetFaction = findById(opponent.cardsInPlay, action.targetInstanceId);
-      const tDef = targetFaction ? defById(state, targetFaction.definitionId) : undefined;
-      targetName = tDef?.name;
-    } else {
-      for (const ch of Object.values(opponent.characters)) {
-        const ally = ch.allies.find(a => a.instanceId === action.targetInstanceId);
-        if (ally) {
-          const aDef = defById(state, ally.definitionId);
-          targetName = aDef?.name;
-          break;
-        }
-      }
-    }
+    // Validate: must be same name as the target (computed above for every kind).
     if (!revealedDef || revealedDef.name !== targetName) {
       return { state, error: 'Revealed card does not match target name' };
     }
 
     revealedCard = toCardInstance(revealedHandCard);
     newHand.splice(revealIdx, 1);
-    effectiveTargetMind = 0;
-    logDetail(`Opponent influence: revealing identical ${revealedDef.name} from hand — target mind treated as 0`);
+    // CoE rule 8.3: the comparison value is treated as zero only when an
+    // identical *non-item* card was revealed. Influencing an item requires
+    // revealing an identical item (rule 8.1) but the value — the controlling
+    // character's mind — is NOT zeroed.
+    if (action.targetKind !== 'item') {
+      effectiveTargetMind = 0;
+      logDetail(`Opponent influence: revealing identical ${revealedDef.name} from hand — target mind treated as 0`);
+    } else {
+      logDetail(`Opponent influence: revealing identical item ${revealedDef.name} from hand (required; mind not zeroed)`);
+    }
   }
 
   // Tap the influencing character
@@ -2655,7 +2681,31 @@ function handleOpponentInfluenceAttempt(
     }
   }
 
-  logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (contribution: ${influencerContribution}, opponent GI: ${opponentGI}, target mind: ${effectiveTargetMind}${revealedCard ? ' [revealed]' : ''}, controller DI: ${controllerDI}, cross-alignment penalty: ${crossAlignmentPenalty}, region penalty: ${regionPenalty})`);
+  // Fold in (and consume) one-shot influence `check-modifier` constraints that
+  // target the influencer and opt into this opponent-influence attempt via
+  // their `when` (e.g. Mine or No One's ba-68: +10 against an item/ally/Orc or
+  // Troll faction). Constraints with no `when` belong to the faction-influence
+  // roll and are left untouched here. The context exposes the target's kind and
+  // race so the booster can gate on the printed target list.
+  let boostModifier = 0;
+  const consumedBoostIds: string[] = [];
+  const oppInfluenceCtx: ResolverContext = {
+    reason: 'opponent-influence-check',
+    ...(charDef && isCharacterCard(charDef) ? { bearer: buildBearerContext(charDef) } : {}),
+    target: { kind: action.targetKind, race: targetRace, name: targetName },
+  };
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'check-modifier') continue;
+    if (constraint.kind.check !== 'influence') continue;
+    if (constraint.target.kind !== 'character' || constraint.target.characterId !== charId) continue;
+    if (!constraint.kind.when) continue; // no `when` → faction-influence booster, not for this path
+    if (!matchesContext(constraint.kind.when, oppInfluenceCtx)) continue;
+    boostModifier += constraint.kind.value;
+    consumedBoostIds.push(constraint.id as string);
+    logDetail(`Opponent influence boost ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);
+  }
+
+  logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (contribution: ${influencerContribution}, opponent GI: ${opponentGI}, target mind: ${effectiveTargetMind}${revealedCard ? ' [revealed]' : ''}, controller DI: ${controllerDI}, cross-alignment penalty: ${crossAlignmentPenalty}, region penalty: ${regionPenalty}, boost: ${formatSignedNumber(boostModifier)})`);
 
   // Enqueue a pending opponent-influence-defend resolution for the
   // hazard player. The unified pending system replaces the old
@@ -2663,6 +2713,7 @@ function handleOpponentInfluenceAttempt(
   const stateAfterAttempt: GameState = {
     ...stateAfterTap,
     rng, cheatRollTotal,
+    activeConstraints: stateAfterTap.activeConstraints.filter(c => !consumedBoostIds.includes(c.id as string)),
     phaseState: {
       ...siteState,
       opponentInteractionThisTurn: 'influence',
@@ -2688,6 +2739,7 @@ function handleOpponentInfluenceAttempt(
           controllerDI,
           crossAlignmentPenalty,
           regionPenalty,
+          boostModifier,
           revealedCard,
         },
       },
@@ -2729,9 +2781,10 @@ export function resolveOpponentInfluenceDefend(
   //   - controller DI + cross-alignment penalty (non-positive; 0 or -5)
   //   - region penalty (Prophet of Doom wh-106; 0 for normal same-site attempts)
   const regionPenalty = attempt.regionPenalty ?? 0;
-  const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI + attempt.crossAlignmentPenalty - regionPenalty;
+  const boostModifier = attempt.boostModifier ?? 0;
+  const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI + attempt.crossAlignmentPenalty - regionPenalty + boostModifier;
 
-  logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) - ${regionPenalty} (region) = ${finalResult} vs mind ${attempt.targetMind}`);
+  logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) - ${regionPenalty} (region) + ${boostModifier} (boost) = ${finalResult} vs mind ${attempt.targetMind}`);
 
   const newPlayers = clonePlayers(state);
 
@@ -2741,9 +2794,13 @@ export function resolveOpponentInfluenceDefend(
     // Find the company of the influenced target (for membership-change sweep)
     const opponent2 = state.players[opponentIndex];
     let influencedCompanyId: import('../index.js').CompanyId | undefined;
-    if (attempt.targetKind === 'ally') {
+    if (attempt.targetKind === 'ally' || attempt.targetKind === 'item') {
+      // Allies and items sit on a controlling character — locate that character's company.
       for (const [charId, ch] of characterEntries(opponent2)) {
-        if (ch.allies.some(a => a.instanceId === attempt.targetInstanceId)) {
+        const holds = attempt.targetKind === 'ally'
+          ? ch.allies.some(a => a.instanceId === attempt.targetInstanceId)
+          : ch.items.some(i => i.instanceId === attempt.targetInstanceId);
+        if (holds) {
           influencedCompanyId = findCharacterCompany(opponent2.companies, charId)?.id;
           break;
         }
@@ -2754,7 +2811,7 @@ export function resolveOpponentInfluenceDefend(
 
     // Check if the influenced target is a leader (for leader-leaves-company sweep)
     let influencedIsLeader = false;
-    if (attempt.targetKind !== 'ally') {
+    if (attempt.targetKind === 'character') {
       const targetChar = opponent2.characters[attempt.targetInstanceId];
       if (targetChar) {
         const targetDef = defById(state, targetChar.definitionId);
@@ -2763,6 +2820,22 @@ export function resolveOpponentInfluenceDefend(
     }
 
     discardInfluencedCard(newPlayers, opponentIndex, attempt, state);
+
+    // The revealed identical card was removed from the attacker's hand when the
+    // attempt was declared. On success the attacker MAY immediately play it
+    // (CoE rule 8.4) — that optional play is not automated, so the un-played
+    // card simply returns to hand rather than vanishing (preserving the
+    // no-card-disappears invariant). For an item attempt the reveal is
+    // mandatory, so this always runs when influencing an item.
+    if (attempt.revealedCard) {
+      const attackerIndex = playerIndex;
+      const attacker = newPlayers[attackerIndex];
+      newPlayers[attackerIndex] = {
+        ...attacker,
+        hand: [...attacker.hand, { instanceId: attempt.revealedCard.instanceId, definitionId: attempt.revealedCard.definitionId }],
+      };
+      logDetail(`Revealed card ${attempt.revealedCard.instanceId as string} returns to hand after successful influence (rule 8.4 play not automated)`);
+    }
 
     const afterInfluence = cleanupEmptyCompanies({ ...state, players: newPlayers, rng, cheatRollTotal });
     let afterSweep = influencedCompanyId
@@ -2830,6 +2903,26 @@ function discardInfluencedCard(
         const newDiscard = [...opponent.discardPile, toCardInstance(ally)];
         players[opponentIndex] = { ...opponent, characters: newChars, discardPile: newDiscard };
         logDetail(`Discarded ally ${ally.instanceId}`);
+        return;
+      }
+    }
+    return;
+  }
+
+  if (pending.targetKind === 'item') {
+    // Find and remove the item from its bearing character, discarding it to the
+    // opponent's discard pile (CoE 8.3: the influenced card is discarded).
+    for (const [charId, charInPlay] of characterEntries(opponent)) {
+      const itemIdx = charInPlay.items.findIndex(i => i.instanceId === pending.targetInstanceId);
+      if (itemIdx !== -1) {
+        const item = charInPlay.items[itemIdx];
+        const newItems = [...charInPlay.items];
+        newItems.splice(itemIdx, 1);
+        const updatedChar = { ...charInPlay, items: newItems };
+        const newChars = { ...opponent.characters, [charId]: updatedChar };
+        const newDiscard = [...opponent.discardPile, toCardInstance(item)];
+        players[opponentIndex] = { ...opponent, characters: newChars, discardPile: newDiscard };
+        logDetail(`Discarded item ${item.instanceId as string}`);
         return;
       }
     }

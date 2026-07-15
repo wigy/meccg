@@ -312,6 +312,41 @@ and Troll factions."
   "when": { "reason": "faction-influence-check", "faction.race": { "$in": ["orc", "troll"] } } }
 ```
 
+A one-shot influence booster may instead be scoped to an **opponent-influence
+attempt** (influencing an opponent's in-play card — CoE rule 8, "Mine or No
+One's" ba-68) rather than a faction-influence roll. This uses the ordinary
+`play-target` + `play-option` → `add-constraint check-modifier check:"influence"`
+form (the Muster shape), but the `apply` carries an extra `constraintWhen`
+condition. That condition is stored on the resulting one-shot constraint and
+evaluated at the influence step against an `opponent-influence-check` resolver
+context that exposes `bearer` (the influencer) and `target` (`{ kind, race,
+name }`, where `kind` is `"character" | "ally" | "faction" | "item"`). The
+modifier is applied — and consumed — only when the condition matches. Two rules
+keep the two influence flavours from stealing each other's boosters:
+
+- The **opponent-influence** declaration consumes a one-shot influence
+  constraint only when it carries a matching `constraintWhen`. A constraint with
+  no `when` is left alone (it belongs to the faction path).
+- The **faction-influence** roll consumes a one-shot influence constraint when
+  it has no `when`, or when its `when` matches the faction context. A
+  `constraintWhen` gated on `reason: "opponent-influence-check"` never matches
+  there, so it is not swallowed by an ordinary faction check.
+
+Used by Mine or No One's (ba-68): "+10 to an influence attempt by The Balrog
+against an opponent's item, ally, Troll faction, or Orc faction. Cannot be
+duplicated on a given attempt." (`duplication-limit` scope `"active-check"`
+enforces the last sentence.)
+
+```json
+{ "type": "play-option", "id": "influence-boost",
+  "apply": { "type": "add-constraint", "constraint": "check-modifier", "check": "influence",
+             "scope": "until-cleared", "value": 10,
+             "constraintWhen": { "reason": "opponent-influence-check",
+               "$or": [ { "target.kind": "item" }, { "target.kind": "ally" },
+                        { "$and": [ { "target.kind": "faction" },
+                                    { "target.race": { "$in": ["orc", "troll"] } } ] } ] } } }
+```
+
 ### 2z. `site-path-reduction` active constraint
 
 A **player-scoped, turn-scoped** constraint that makes each of the player's
@@ -1410,6 +1445,45 @@ Actions:
     ] } }
   ```
 
+- `modify-company-corruption-checks` — a **company-wide, turn-scoped**
+  corruption-check modifier chosen during the organization phase. Declared on a
+  character with a `targets: { "scope": "player-companies" }` descriptor so the
+  scanner emits one activation per company the controller owns (each carrying
+  the chosen company on `targetCompanyId`, "any one of your companies"). The
+  `apply` is an `add-constraint` of a `check-modifier` (`check: "corruption"`,
+  `target: "action-target-company"`, `scope: "turn"`). Unlike the one-shot
+  `modify-corruption-check`, this constraint is **not consumed** — both
+  corruption-check resolvers collect a company-scoped corruption `check-modifier`
+  for every check by a **minion character** (`cardType === "minion-character"`)
+  whose company matches the constraint's `companyId`, and it persists for the
+  whole turn (`corruptionCheckActions` in `legal-actions/pending.ts` for the
+  unified pending window; `resolveCorruptionCheck` in `reducer-free-council.ts`
+  for the end-of-turn window). Gate the ability's availability with a `when`
+  clause on the grant-action context (`bearer.isRevealedAvatar` for "as your
+  Ringwraith", `bearer.atDarkhaven` for "if at a Darkhaven"). Used by *Ren the
+  Ringwraith* (le-56): "As your Ringwraith, if at a Darkhaven, he may tap during
+  your organization phase to modify all corruption checks made this turn by
+  minions in any one of your companies by +2."
+
+  ```json
+  { "type": "grant-action", "action": "modify-company-corruption-checks",
+    "cost": { "tap": "bearer" },
+    "when": { "bearer.isRevealedAvatar": true, "bearer.atDarkhaven": true },
+    "targets": { "scope": "player-companies" },
+    "apply": { "type": "add-constraint", "constraint": "check-modifier",
+      "check": "corruption", "value": 2, "scope": "turn",
+      "target": "action-target-company" } }
+  ```
+
+  The grant-action context field `bearer.atDarkhaven` is `true` only when the
+  bearer's company is at a **minion-aligned Haven** — a `haven` site whose
+  `alignment` is `ringwraith` or `balrog` (Minas Morgul / Dol Guldur / Carn Dûm
+  / Geann a-Lisch; Moria / The Under-gates). It is deliberately stricter than
+  `bearer.atHaven` (any `haven` site): a Ringwraith standing on a METW hero
+  Haven (Rivendell etc.) reached via a mode card is at a Haven but **not** at a
+  Darkhaven. Implemented in `buildGrantActionContext`
+  (`legal-actions/organization.ts`).
+
 Action-less activations may also be declared directly on a character
 card via `"apply"` on the grant-action effect, reusing the shared
 TriggeredAction apply dispatch. The character's `"cost": { "tap": "self" }`
@@ -2472,7 +2546,11 @@ plays the effect:
 The `when` clause is evaluated against the standard combat context:
 `enemy.race`, `enemy.name` (the attacking creature's card name, for
 creature attacks), `attack.source`, `attack.automatic` (`true` for a
-site automatic-attack or played auto-attack), `attack.keying`, `inPlay`.
+site automatic-attack or played auto-attack), `attack.detainment` (the
+live attack's current detainment status), `attack.keying`, `inPlay`,
+`defender.covert`, `defender.companyContainsBalrog`, `defender.inPlay`, and
+`defender.minionCompany` (`true` when the defending/resource player is a
+Ringwraith (minion) player).
 
 ```json
 { "type": "modify-attack", "fromHand": true,
@@ -2497,6 +2575,26 @@ i.e. "the attack is reduced to one strike" is `"setStrikesTo": 1`. Used by
 Darkness Wielded (ba-55): a defender-played `modify-attack` giving `-2` strike
 prowess, `-1` body, and `setStrikesTo: 1`, gated on
 `defender.companyContainsBalrog` + `defender.inPlay $includes "Great Shadow"`.
+
+**`removeDetainment` (make a detainment attack normal).** When
+`"removeDetainment": true`, applying the effect sets `CombatState.detainment`
+to `false`, so the attack's strikes wound (and can eliminate) normally instead
+of merely tapping. Gate the play with a `when` on `attack.detainment` so the
+card is only offered on a detainment attack. Used by FEAR! FIRE! FOES! (as-29)
+Mode B: "playable on a detainment automatic-attack. Against a minion company
+the attack becomes normal (not detainment) and has -1 prowess." — an
+attacker-played from-hand `modify-attack` with `prowessModifier: -1` and
+`removeDetainment: true`, gated on `attack.automatic` + `attack.detainment` +
+`defender.minionCompany`.
+
+```json
+{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+  "prowessModifier": -1, "removeDetainment": true,
+  "when": { "$and": [
+    { "attack.automatic": true },
+    { "attack.detainment": true },
+    { "defender.minionCompany": true } ] } }
+```
 
 **`firstCancelRemovesEffect` (cancel protection).** When set on an
 attacker-played from-hand `modify-attack`, the buffed attack gains cancel
@@ -6348,6 +6446,49 @@ Used by Tidings of Bold Spies (le-143).
 
 Used by Tidings of Bold Spies (le-143).
 
+### 49a. `create-site-auto-attack`
+
+A hazard **short-event** played during the M/H phase on a company **moving to**
+a site whose type is one of `siteTypes` ("Playable on a Free-hold [{F}] or
+Border-hold [{B}]"). Unlike `duplicate-site-auto-attacks`, it does **not**
+create an immediate M/H combat — it installs one **additional real
+automatic-attack** the company faces in the *site* phase.
+
+**Play restriction**: emitted by the M/H short-event path
+(`legal-actions/movement-hazard.ts`) only when the target company has a
+`destinationSite` whose `siteType` ∈ `siteTypes`.
+
+**Resolution**: when the short-event resolves, `chain-reducer.ts` installs a
+turn-scoped `extra-automatic-attack` active constraint keyed to the destination
+site *instance* (which becomes the company's `currentSite` on arrival). The
+constraint carries an {@link AutomaticAttack} (with `creatureType: ""` for "no
+attack type" and `forceDetainment` when the effect's `attack.detainment` is set).
+
+**Consumption**: `manifestations.ts` `getActiveAutoAttacks` appends the
+constraint's attack whenever the queried site instance matches. The company
+therefore faces it in the site phase as a genuine `automatic-attack` (it counts
+for the enter/skip decision and for any card that references automatic-attacks),
+resolved through the normal `reducer-site.ts` auto-attack flow. `forceDetainment`
+forces detainment for the injected attack (which has no race/keying to derive it
+from), still overridden to normal by a defender's `detainment-attacks-normal`
+effect (Alatar wh-1).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `siteTypes` | yes | Destination site types the company may be moving to (e.g. `["free-hold", "border-hold"]`). |
+| `attack` | yes | `{ creatureType, strikes, prowess, body?, detainment? }` — the created attack. |
+
+```json
+{ "type": "create-site-auto-attack",
+  "siteTypes": ["free-hold", "border-hold"],
+  "attack": { "creatureType": "", "strikes": 5, "prowess": 8, "detainment": true } }
+```
+
+Used by FEAR! FIRE! FOES! (as-29) Mode A: "An additional automatic-attack is
+created at the site this turn: 5 strikes with 8 prowess (detainment, no attack
+type)." (Its Mode B is a `modify-attack` from-hand — see [`modify-attack` —
+played from hand](#10e-modify-attack--played-from-hand-fromhand-true).)
+
 ### 50. `ring-test-table`
 
 Declares the roll-result → ring-category mapping for a gold-ring item (Rule 9.21).
@@ -7943,6 +8084,59 @@ Behaviour, while the card is in play bound to site `S`
 
 Used by Eddy in Fate's Tide (ba-57). "Balrog specific" is a deck-construction
 keyword with no play-time gate.
+
+### 52d-iii. `site-lock`
+
+A generic Balrog site-domination lock — the tax-free sibling of `eddy-lock`
+(§52d-ii). Carried by a **`trigger-attack-on-play`** permanent-event played on
+the untapped site (`play-target: { target: "site" }`) that is *kept* in the
+marshalling-point pile after its self-inflicted attacks (`afterAttack:
+"move-to-mp-pile"`); the card stays bound to the site (`attachedToSite` = the
+site definition id). Unlike `eddy-lock`, `site-lock` taps no character on play
+(the site is tapped by the companion `play-flag: tap-site-on-play`) and levies no
+per-company tax.
+
+```json
+{
+  "type": "site-lock",
+  "factionInfluenceModifier": -5
+}
+```
+
+Behaviour, while the card is in play bound to site `S` and no longer
+`pendingTriggerAttack` (its ongoing effects are suppressed until the keep is
+resolved):
+
+- **Permanence** — "This site is never discarded." Recognised by the shared
+  `cardKeepsBoundSitePermanent` predicate (`reducer-utils.ts`), exactly like
+  `eddy-lock` / `surface-region-adjacency`: the card is exempt from the
+  site-attached orphan sweep and `S` is always returned to the owner's location
+  deck rather than discarded when a company leaves it.
+- **Never untaps for the owner** — "never untaps for you." When the owner's
+  company re-enters a version of the bound site definition, the destination is
+  placed **tapped** rather than untapped (`mh-hazard-play.ts` step 8, gated by
+  the shared `siteNeverUntapsForOwner(state, destDef, movingPlayer)` predicate,
+  which recognises both `eddy-lock` and `site-lock`).
+- **Faction-influence modifier** (optional `factionInfluenceModifier`) — "-N to
+  each attempt against any faction at any version of this site." Summed live
+  from bound in-play `site-lock` cards (either player) via
+  `siteFactionInfluenceModifier(state, siteDefId)` (`reducer-utils.ts`) and
+  added to the faction-influence need in the site-phase influence path
+  (`legal-actions/site.ts`), alongside the turn-scoped `influence-at-site-modifier`
+  constraint. A negative value raises the roll the influencer must beat.
+
+Used by People Diminished (ba-72): "Playable during the site phase on an untapped
+Free-hold [{F}] or Border-hold [{B}]. Tap the site. The company faces 3 attacks
+(Men — 4/8, 3/10, 2/12). Following the attacks, tap a character or discard this
+card. If this card is not discarded, discard all unique factions playable at the
+site. -5 to each attempt against any faction at any version of this site. This
+site is never discarded and never untaps for you. Cannot be duplicated on a given
+site." — `play-target: site` (`siteType $in [free-hold, border-hold]`) +
+`play-flag untapped-site-required` + `play-flag tap-site-on-play` +
+`duplication-limit` scope site + `trigger-attack-on-play` (3× Men,
+`move-to-mp-pile`, `discardUniqueFactionsAtSite`) + `site-lock`
+(`factionInfluenceModifier` -5). ("Balrog specific" is a deck-construction
+keyword with no play-time gate.)
 
 ### 52e. `balrog-surface-region-movement`
 

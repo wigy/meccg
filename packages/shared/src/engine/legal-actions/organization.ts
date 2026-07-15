@@ -1281,6 +1281,18 @@ export function buildGrantActionContext(
     ? (siteDef as { siteType: string }).siteType
     : '';
   const atHaven = siteType === 'haven';
+  // A **Darkhaven** is a Haven controlled by a minion side (Ringwraith:
+  // Minas Morgul / Dol Guldur / Carn Dûm / Geann a-Lisch; Balrog: Moria /
+  // The Under-gates). Every minion Haven site carries a minion alignment
+  // (`ringwraith` / `balrog`), so a Darkhaven is a `haven` site whose
+  // alignment is a minion alignment — distinct from the METW hero Havens
+  // (Rivendell etc.) a Ringwraith could only reach with a mode card. Used
+  // by "if at a Darkhaven" gates (e.g. Ren the Ringwraith le-56).
+  const siteAlignment = siteDef && 'alignment' in siteDef
+    ? (siteDef as { alignment?: string }).alignment
+    : undefined;
+  const atDarkhaven = atHaven
+    && (siteAlignment === 'ringwraith' || siteAlignment === 'balrog');
 
   // `As your Ringwraith` gating: true only when this character is the player's
   // own revealed avatar (a Ringwraith follower controlled by another avatar is
@@ -1297,6 +1309,7 @@ export function buildGrantActionContext(
     canUsePalantir: !!canUsePalantir,
     siteType,
     atHaven,
+    atDarkhaven,
     isRevealedAvatar,
   };
 

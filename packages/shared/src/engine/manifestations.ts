@@ -249,6 +249,21 @@ export function getActiveAutoAttacks(
   const peAugments = collectPermanentEventAttacks(state, siteDef);
   let combined: readonly AutomaticAttack[] = peAugments.length === 0 ? printed : [...printed, ...peAugments];
 
+  // FEAR! FIRE! FOES! (as-29) Mode A: turn-scoped `extra-automatic-attack`
+  // constraints append one additional real automatic-attack to the specific
+  // site *instance* they were created at (matched by instance id, not
+  // definition id, so only the targeted company's site is augmented).
+  if (siteInstanceId) {
+    const extras = state.activeConstraints.filter(
+      c => c.kind.type === 'extra-automatic-attack' && c.kind.siteInstanceId === siteInstanceId,
+    );
+    for (const c of extras) {
+      if (c.kind.type !== 'extra-automatic-attack') continue;
+      logDetail(`extra-automatic-attack: appending ${c.kind.attack.creatureType || 'no-type'} attack (${c.kind.attack.strikes} strikes, ${c.kind.attack.prowess} prowess${c.kind.attack.forceDetainment ? ', detainment' : ''}) at ${siteDef.name}`);
+      combined = [...combined, c.kind.attack];
+    }
+  }
+
   // MEBA: "If The Balrog is in play or has been defeated, ignore all Balrog
   // automatic-attacks (i.e., at The Under-gates)." Strip Balrog-typed attacks
   // (e.g. The Under-gates dm-38, 2×16) once the Balrog avatar has entered play
