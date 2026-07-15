@@ -236,8 +236,11 @@ function creatureEquivalent(
   if (def.cardType === 'hazard-event' && def.keywords?.includes('agent')) return 0.5;
   // A creature that is also playable as an event.
   if (defHasPlayFlag(def, 'playable-as-event')) return 0.5;
-  // An "Ahunt" or "At Home" Dragon manifestation.
-  if ('effects' in def && def.effects?.some(e => e.type === 'ahunt-attack' || e.type === 'dragon-at-home')) {
+  // An "Ahunt" or "At Home" Dragon manifestation (a hazard). A "Roused" Dragon
+  // faction (Smaug Roused le-285) also carries an `ahunt-attack`, but it is a
+  // *resource* faction, not a hazard, so it must not be counted here.
+  if (def.cardType === 'hazard-event'
+    && 'effects' in def && def.effects?.some(e => e.type === 'ahunt-attack' || e.type === 'dragon-at-home')) {
     return 0.5;
   }
   // A "Spawn" permanent-event.

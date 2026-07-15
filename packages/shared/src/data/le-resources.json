@@ -4248,13 +4248,36 @@
     "marshallingCategory": "faction",
     "influenceNumber": 13,
     "race": "dragon",
+    "manifestId": "tw-90",
     "playableAt": [
       {
-        "site": "The"
+        "site": "The Lonely Mountain"
       }
     ],
-    "effects": [],
-    "text": "Unique. Manifestation of Smaug. Playable at The Lonely Mountain if the influence check is greater than 12. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Smaug against any of your companies are canceled. Any company moving in Withered Heath, Northern Rhovanion, Grey Mountain Narrows, and/or Iron Hills faces one attack: Dragon — 2 strikes at 17/8 (attacker chooses defending characters)."
+    "effects": [
+      {
+        "type": "influence-modification",
+        "options": [
+          { "discardItemSubtype": "major", "value": 3 },
+          { "discardItemSubtype": "greater", "value": 6 }
+        ]
+      },
+      {
+        "type": "cancel-manifestation-attacks",
+        "manifestId": "tw-90"
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": ["Withered Heath", "Northern Rhovanion", "Grey Mountain Narrows", "Iron Hills"],
+        "strikes": 2,
+        "prowess": 17,
+        "body": 8,
+        "race": "dragon",
+        "combatRules": ["attacker-chooses-defenders"]
+      }
+    ],
+    "text": "Unique. Manifestation of Smaug. Playable at The Lonely Mountain if the influence check is greater than 12. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Smaug against any of your companies are canceled. Any company moving in Withered Heath, Northern Rhovanion, Grey Mountain Narrows, and/or Iron Hills faces one attack: Dragon — 2 strikes at 17/8 (attacker chooses defending characters).",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-faction",

@@ -17,7 +17,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, PlayerState } from '../index.js';
 import type { AhuntAttackEffect, UnderDeepsRollModifierEffect } from '../types/effects.js';
 import type { CardInstanceId } from '../types/common.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
@@ -37,6 +37,7 @@ import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRol
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
 import { companyMovementRestrictions } from './effects/company-restrictions.js';
 import { isDetainmentAttack } from './detainment.js';
+import { manifestIdOf } from './manifestations.js';
 import { advanceAfterCompanyMH } from './mh-hazard-play.js';
 
 /**
@@ -664,6 +665,27 @@ export function snapshotHazardLimit(
  */
 
 /**
+ * True when `player` (the moving/defending player) controls an in-play card
+ * whose `cancel-manifestation-attacks` effect names `manifestId`. Backs a
+ * Dragons "Roused" faction's "All attacks by manifestations of <Dragon> against
+ * any of your companies are canceled" (Smaug Roused le-285): the faction's own —
+ * or an opponent's same-chain — Ahunt region attack is skipped for this player.
+ */
+function playerCancelsManifestationAttacks(
+  state: GameState,
+  player: PlayerState,
+  manifestId: string,
+): boolean {
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'cancel-manifestation-attacks' && effect.manifestId === manifestId) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Collect all ahunt-attack effects from both players' cardsInPlay that
  * match the current company's movement path. Returns an array of
  * { instanceId, effect } pairs, one per matching long-event.
@@ -689,6 +711,15 @@ export function collectMatchingAhuntAttacks(
       const def = defById(state, card.definitionId);
       for (const effect of getCardEffects(def)) {
         if (effect.type !== 'ahunt-attack') continue;
+        // "All attacks by manifestations of <Dragon> against any of your
+        // companies are canceled" (Smaug Roused le-285): skip this Ahunt when
+        // its source card is a manifestation whose chain the moving player has
+        // named in a `cancel-manifestation-attacks` effect they control.
+        const srcManifest = manifestIdOf(def);
+        if (srcManifest !== undefined && playerCancelsManifestationAttacks(state, movingPlayer, srcManifest)) {
+          logDetail(`Ahunt "${def?.name ?? card.definitionId}" is a manifestation of ${srcManifest} — canceled against ${movingPlayer.name}'s companies`);
+          continue;
+        }
         if (effect.noEffectOnMinion && movingPlayerIsMinion) {
           logDetail(`Ahunt "${def?.name ?? card.definitionId}" has no effect on minion player — skipping`);
           continue;

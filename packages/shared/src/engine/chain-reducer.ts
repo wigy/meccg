@@ -3913,6 +3913,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         factionDefinitionId: entry.card.definitionId,
         influencingCharacterId: entry.payload.influencingCharacterId,
         placeUnderLeaderControl: entry.payload.placeUnderLeaderControl,
+        bonusModifier: entry.payload.bonusModifier,
       },
     });
     return { state: current, needsInput: true };

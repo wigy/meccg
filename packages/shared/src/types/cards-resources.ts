@@ -13,6 +13,7 @@ import type {
   Alignment,
   CardDefinitionId,
   Keyword,
+  ManifestId,
   Race,
   Skill,
   SiteType,
@@ -351,6 +352,16 @@ export interface MinionFactionCard {
   readonly inPlayInfluenceNumber?: number;
   /** The faction's race. */
   readonly race: Race;
+  /**
+   * Manifestation-chain tag (Dragons expansion). A "Roused" faction such as
+   * Smaug Roused (le-285) is one in-game form of a unique Dragon; every card in
+   * the chain — the basic creature, the Ahunt long-event, the At-Home
+   * permanent-event, and this faction — carries the same `manifestId` (by
+   * convention the basic form's id). Wires the faction into manifestation
+   * uniqueness (g.man.1), the defeat cascade, and "manifestations of <Dragon>"
+   * references such as this card's own attack-cancellation.
+   */
+  readonly manifestId?: ManifestId;
   /** Locations where this faction can be played (typically a single named site). */
   readonly playableAt: readonly PlayableAtEntry[];
   /** Declarative effects describing this faction's abilities. */

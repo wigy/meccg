@@ -259,6 +259,12 @@ export interface PendingResolution {
          * site untapped. Threaded from the chain entry's payload.
          */
         readonly placeUnderLeaderControl?: boolean;
+        /**
+         * Positive influence-check modifier from a Dragons "Roused" faction's
+         * paid `influence-modification` (Smaug Roused le-285). Threaded from
+         * the chain entry's payload; added by the roll resolver.
+         */
+        readonly bonusModifier?: number;
       }
     | {
         /**

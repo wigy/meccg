@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, RegionType, CardDefinition, CardDefinitionId } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, RegionType, CardDefinition, CardDefinitionId, CardEffect } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform } from '../effective.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -30,7 +30,7 @@ import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
 import { isUnderDeepsSurfaceSite } from './organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
-import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
+import { getActiveAutoAttacks, manifestationOfEntityInPlay, manifestationInCardsInPlay, manifestIdOf } from '../manifestations.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { asViable as viable } from './evaluated.js';
 
@@ -1730,6 +1730,20 @@ function playResourcesActions(
         continue;
       }
 
+      // Manifestation uniqueness (g.man.1): a Dragons "Roused" faction is one
+      // form of a unique Dragon; block it while any other manifestation of the
+      // same chain (its basic creature/agent, Ahunt long-event, At-Home
+      // permanent-event, or another Roused faction) is already in play on
+      // either side. Only manifestId-tagged factions are affected.
+      if (manifestIdOf(factionDef) !== undefined) {
+        const manifestBlock = manifestationOfEntityInPlay(state, factionDef) ?? manifestationInCardsInPlay(state, factionDef);
+        if (manifestBlock) {
+          logDetail(`Faction ${factionDef.name}: blocked — manifestation "${manifestBlock}" already in play`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: a manifestation (${manifestBlock}) is already in play`));
+          continue;
+        }
+      }
+
       if (untappedCharacters.length === 0) {
         logDetail(`Faction ${factionDef.name}: no untapped character to attempt influence`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: no untapped character in company`));
@@ -1870,6 +1884,37 @@ function playResourcesActions(
           },
           viable: true,
         });
+
+        // Dragons "Roused" factions (Smaug Roused le-285): "Modifications:
+        // influencer discards a major item (+3) or a greater item (+6)." Offer
+        // one extra influence-attempt per eligible carried item — the influencer
+        // may pay the discard to lower the (very high) need.
+        const infMod = factionDef.effects?.find(
+          (e): e is Extract<CardEffect, { type: 'influence-modification' }> => e.type === 'influence-modification',
+        );
+        if (infMod) {
+          for (const option of infMod.options) {
+            for (const item of ch.items) {
+              const itemDef = defById(state, item.definitionId);
+              if ((itemDef as { subtype?: string } | undefined)?.subtype !== option.discardItemSubtype) continue;
+              const itemName = itemDef?.name ?? (item.definitionId as string);
+              const bonusNeed = infNeed - option.value;
+              logDetail(`Faction ${factionDef.name}: ${charName} may discard ${option.discardItemSubtype} item "${itemName}" for ${formatSignedNumber(option.value)} (need ${bonusNeed})`);
+              actions.push({
+                action: {
+                  type: 'influence-attempt',
+                  player: playerId,
+                  factionInstanceId: cardInstanceId,
+                  influencingCharacterId: ch.instanceId,
+                  need: bonusNeed,
+                  explanation: `Need roll >= ${bonusNeed} — discard ${option.discardItemSubtype} item "${itemName}" for ${formatSignedNumber(option.value)} (${infParts.join(', ')})`,
+                  discardForBonus: { itemInstanceId: item.instanceId, value: option.value },
+                },
+                viable: true,
+              });
+            }
+          }
+        }
 
         // LE "Orcs of Udûn"-style factions: an eligible Orc/Troll leader may
         // additionally choose to take the faction under their control on

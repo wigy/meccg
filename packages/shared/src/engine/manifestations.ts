@@ -113,6 +113,29 @@ export function manifestationOfEntityInPlay(
 }
 
 /**
+ * Companion to {@link manifestationOfEntityInPlay} that scans the two players'
+ * `cardsInPlay` (in-play factions, permanent-events, long-events) for a card
+ * that is a manifestation of the same entity as `def`. Used for faction
+ * manifestation uniqueness (g.man.1): a Dragons "Roused" faction such as Smaug
+ * Roused (le-285) cannot be played while another form of the same Dragon — its
+ * Ahunt long-event, At-Home permanent-event, or another Roused faction — is
+ * already in play on either side. Returns the blocking card's name, or `null`.
+ */
+export function manifestationInCardsInPlay(
+  state: GameState,
+  def: CardDefinition,
+): string | null {
+  const nameOf = (d: CardDefinition): string => (d as { name?: string }).name ?? (d.id as string);
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const cardDef = defById(state, card.definitionId);
+      if (cardDef && sameManifestationEntity(cardDef, def)) return nameOf(cardDef);
+    }
+  }
+  return null;
+}
+
+/**
  * The terminal off-board piles — cards here are gone for good. The
  * discard pile is intentionally excluded: a routine end-of-LE-phase
  * discard of an Ahunt is just that one instance expiring, not the
