@@ -4238,6 +4238,46 @@ export interface EddyLockEffect extends EffectBase {
 }
 
 /**
+ * Generic Balrog site-domination lock carried by a permanent-event bound to a
+ * site (`attachedToSite` = the site definition id). While the card is in play
+ * (and not still `pendingTriggerAttack`), the bound site gains two ongoing
+ * behaviours — plus an optional faction-influence penalty:
+ *
+ * 1. **Permanence** — the card is exempt from the site-attached orphan sweep
+ *    ({@link import('../engine/reducer-utils.js').discardOrphanedSiteAttachedEvents})
+ *    and the bound site is always returned to its owner's location deck rather
+ *    than discarded (the permanent branch in `mh-hazard-play.ts` step 8),
+ *    realising "This site is never discarded." Recognised via
+ *    {@link import('../engine/reducer-utils.js').cardKeepsBoundSitePermanent},
+ *    shared with {@link EddyLockEffect} / {@link SurfaceRegionAdjacencyEffect}.
+ * 2. **Never untaps for the owner** — when the owner's company re-enters a
+ *    version of the bound site definition, the site is placed **tapped** rather
+ *    than untapped (`mh-hazard-play.ts` step 8, via
+ *    {@link import('../engine/reducer-utils.js').siteNeverUntapsForOwner}),
+ *    realising "never untaps for you" (the engine never untaps a stationary
+ *    site, so re-placement on movement is the only refresh point).
+ * 3. **Faction-influence modifier** (optional `factionInfluenceModifier`) —
+ *    every influence attempt against a faction at any version of the bound site
+ *    (by either player) is modified by this value (`-5` for People Diminished),
+ *    summed live from bound in-play cards via
+ *    {@link import('../engine/reducer-utils.js').siteFactionInfluenceModifier}
+ *    in the site-phase influence path.
+ *
+ * Unlike {@link EddyLockEffect} this carries no per-company tax. Used by People
+ * Diminished (ba-72): "This site is never discarded and never untaps for you.
+ * -5 to each attempt against any faction at any version of this site."
+ */
+export interface SiteLockEffect extends EffectBase {
+  readonly type: 'site-lock';
+  /**
+   * Optional modifier applied to every faction-influence attempt against a
+   * faction at any version of the bound site (e.g. `-5` for People Diminished).
+   * A negative value raises the influence number the attacker must roll.
+   */
+  readonly factionInfluenceModifier?: number;
+}
+
+/**
  * Balrog-specific movement grant: while this permanent-event is in play (and the
  * card named in `suppressedByInPlay` is *not* in play), a company containing The
  * Balrog avatar may use **region** movement — overriding his printed "may not use
@@ -4991,6 +5031,7 @@ export type CardEffect =
   | SurfaceRegionAdjacencyEffect
   | SurfaceSiteRollZeroEffect
   | EddyLockEffect
+  | SiteLockEffect
   | BalrogSurfaceRegionMovementEffect
   | CompanyMovementRestrictionEffect
   | VoluntaryDiscardEffect

@@ -1597,13 +1597,66 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/PeopleDiminished.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": {
+            "$in": [
+              "free-hold",
+              "border-hold"
+            ]
+          }
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "untapped-site-required"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          {
+            "creatureType": "Men",
+            "strikes": 4,
+            "prowess": 8
+          },
+          {
+            "creatureType": "Men",
+            "strikes": 3,
+            "prowess": 10
+          },
+          {
+            "creatureType": "Men",
+            "strikes": 2,
+            "prowess": 12
+          }
+        ],
+        "afterAttack": "move-to-mp-pile",
+        "discardUniqueFactionsAtSite": true
+      },
+      {
+        "type": "site-lock",
+        "factionInfluenceModifier": -5
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on an untapped Free-hold [{F}] or Border-hold [{B}]. Tap the site. The company faces 3 attacks (Men — 4 strikes with 8 prowess, 3 strikes with 10 prowess, 2 strikes with 12 prowess). Following the attacks, tap a character or discard this card. If this card is not discarded, discard all unique factions playable at the site. -5 to each attempt against any faction at any version of this site. This site is never discarded and never untaps for you. Cannot be duplicated on a given site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-event",

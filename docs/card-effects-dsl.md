@@ -7907,6 +7907,59 @@ Behaviour, while the card is in play bound to site `S`
 Used by Eddy in Fate's Tide (ba-57). "Balrog specific" is a deck-construction
 keyword with no play-time gate.
 
+### 52d-iii. `site-lock`
+
+A generic Balrog site-domination lock — the tax-free sibling of `eddy-lock`
+(§52d-ii). Carried by a **`trigger-attack-on-play`** permanent-event played on
+the untapped site (`play-target: { target: "site" }`) that is *kept* in the
+marshalling-point pile after its self-inflicted attacks (`afterAttack:
+"move-to-mp-pile"`); the card stays bound to the site (`attachedToSite` = the
+site definition id). Unlike `eddy-lock`, `site-lock` taps no character on play
+(the site is tapped by the companion `play-flag: tap-site-on-play`) and levies no
+per-company tax.
+
+```json
+{
+  "type": "site-lock",
+  "factionInfluenceModifier": -5
+}
+```
+
+Behaviour, while the card is in play bound to site `S` and no longer
+`pendingTriggerAttack` (its ongoing effects are suppressed until the keep is
+resolved):
+
+- **Permanence** — "This site is never discarded." Recognised by the shared
+  `cardKeepsBoundSitePermanent` predicate (`reducer-utils.ts`), exactly like
+  `eddy-lock` / `surface-region-adjacency`: the card is exempt from the
+  site-attached orphan sweep and `S` is always returned to the owner's location
+  deck rather than discarded when a company leaves it.
+- **Never untaps for the owner** — "never untaps for you." When the owner's
+  company re-enters a version of the bound site definition, the destination is
+  placed **tapped** rather than untapped (`mh-hazard-play.ts` step 8, gated by
+  the shared `siteNeverUntapsForOwner(state, destDef, movingPlayer)` predicate,
+  which recognises both `eddy-lock` and `site-lock`).
+- **Faction-influence modifier** (optional `factionInfluenceModifier`) — "-N to
+  each attempt against any faction at any version of this site." Summed live
+  from bound in-play `site-lock` cards (either player) via
+  `siteFactionInfluenceModifier(state, siteDefId)` (`reducer-utils.ts`) and
+  added to the faction-influence need in the site-phase influence path
+  (`legal-actions/site.ts`), alongside the turn-scoped `influence-at-site-modifier`
+  constraint. A negative value raises the roll the influencer must beat.
+
+Used by People Diminished (ba-72): "Playable during the site phase on an untapped
+Free-hold [{F}] or Border-hold [{B}]. Tap the site. The company faces 3 attacks
+(Men — 4/8, 3/10, 2/12). Following the attacks, tap a character or discard this
+card. If this card is not discarded, discard all unique factions playable at the
+site. -5 to each attempt against any faction at any version of this site. This
+site is never discarded and never untaps for you. Cannot be duplicated on a given
+site." — `play-target: site` (`siteType $in [free-hold, border-hold]`) +
+`play-flag untapped-site-required` + `play-flag tap-site-on-play` +
+`duplication-limit` scope site + `trigger-attack-on-play` (3× Men,
+`move-to-mp-pile`, `discardUniqueFactionsAtSite`) + `site-lock`
+(`factionInfluenceModifier` -5). ("Balrog specific" is a deck-construction
+keyword with no play-time gate.)
+
 ### 52e. `balrog-surface-region-movement`
 
 Carried by a bare Balrog **permanent-event** in the player's `cardsInPlay`. While
