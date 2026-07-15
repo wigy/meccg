@@ -945,6 +945,7 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness"
         ],
         "siteTypes": [
@@ -952,7 +953,12 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
+    "certified": "2026-07-15",
     "text": "Dragon. Two strikes. Attacker chooses defending characters."
   },
   {
