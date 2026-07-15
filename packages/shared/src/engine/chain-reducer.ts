@@ -895,6 +895,19 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   );
   if (onEvents.length === 0) return state;
 
+  // New Moon (tw-68): a card offering a `tap-character` mode alongside these
+  // arrival-override modes. The two are mutually exclusive ("Alternatively"):
+  // when the player chose the tap mode (a targetCharacterId rides on the
+  // payload), the arrival-override modes must not also fire.
+  if (
+    entry.payload.type === 'short-event'
+    && entry.payload.targetCharacterId
+    && getCardEffects(def).some(e => e.type === 'tap-character')
+  ) {
+    logDetail(`Short-event "${def.name}" tap-character mode chosen — skipping arrival-override modes`);
+    return state;
+  }
+
   // Only fire during M/H — outside of M/H there is no active company
   // for a "company arrives at site" trigger to attach to.
   if (state.phaseState.phase !== Phase.MovementHazard) {

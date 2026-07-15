@@ -8545,12 +8545,27 @@ The on-tap behaviour is the card's other top-level effects:
 { "type": "tap-character" }
 ```
 
-- `filter` (optional) — a condition on the target character definition; absent =
+- `filter` (optional) — a condition on the target character definition (evaluated
+  via `matchesDefinition`, so `{ "race": "elf" }` matches `def.race`); absent =
   any character in play. The legal-action generator emits one action per
   eligible untapped target; the choice rides on the action's `targetCharacterId`
   and is applied on chain resolution (`applyTapCharacter`, `chain-reducer.ts`).
 
 Used by Adûnaphel tw-2's on-tap: "When tapped, … causes any one character to tap."
+
+`tap-character` also works as a **top-level effect on a plain short hazard-event**
+(not only via `creature-alt-event`). The M/H legal-action generator
+(`legal-actions/movement-hazard.ts`, short-event section) emits one `play-hazard`
+action per eligible untapped, filter-matching character in the resource player's
+companies (targeting any company, mirroring tw-2's "any one character"). When the
+card **also** carries `on-event company-arrives-at-site` override modes (Doors-of-
+Night alternatives — see §43 / `site-type-override` / `region-type-override`), the
+two are mutually exclusive: a `targetCharacterId` on the play action selects the
+tap mode, and `applyShortEventArrivalTrigger` skips the arrival-override modes
+whenever the resolving short-event carries both a `tap-character` effect and a
+`targetCharacterId`. New Moon (tw-68): "Tap one Elf character. Alternatively, if
+Doors of Night is in play, treat one Free-domain as a Border-land or one Free-hold
+as a Border-hold until the end of the turn."
 
 ### 57. `agent-tap-return-character`
 

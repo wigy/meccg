@@ -1370,8 +1370,62 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Tap one Elf character.Alternatively, if Doors of Night is in play, treat one Free-domain [{f}] as a Border-land [{b}] or one Free-hold [{F}] as a Border-hold [{B}] until the end of the turn.Cannot be duplicated."
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
+      {
+        "type": "tap-character",
+        "filter": {
+          "race": "elf"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationSiteType": "free-hold"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "border-hold",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationRegionType": "free"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-type-override",
+          "overrideType": "border",
+          "regionName": "destination",
+          "scope": "turn"
+        }
+      }
+    ],
+    "text": "Environment. Tap one Elf character.Alternatively, if Doors of Night is in play, treat one Free-domain [{f}] as a Border-land [{b}] or one Free-hold [{F}] as a Border-hold [{B}] until the end of the turn.Cannot be duplicated.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "hazard-event",

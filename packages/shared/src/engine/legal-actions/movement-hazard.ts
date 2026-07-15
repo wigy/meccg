@@ -2254,6 +2254,72 @@ function playHazardsActions(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',
         );
 
+        // New Moon (tw-68): a plain short hazard-event carrying a `tap-character`
+        // effect. Two mutually-exclusive ("Alternatively") modes:
+        //   Mode A — tap one filter-matching (Elf) character. One action per
+        //     eligible untapped opponent character; the tap rides on
+        //     `targetCharacterId` and resolves via `applyTapCharacter`.
+        //   Mode B — with Doors of Night in play, reinterpret one Free-domain /
+        //     Free-hold as a Border-land / Border-hold for the turn, via the
+        //     card's `on-event company-arrives-at-site` override handlers. A
+        //     single untargeted action, offered when the company is moving and
+        //     an override mode's `when` matches the arrival context.
+        // The modes are distinguished by presence/absence of targetCharacterId;
+        // the arrival-override resolution is skipped when a character was tapped
+        // (see `applyShortEventArrivalTrigger`).
+        const tapCharacterEffect = getCardEffects(def).find(
+          (e): e is import('../../types/effects.js').TapCharacterEffect => e.type === 'tap-character',
+        );
+        if (tapCharacterEffect) {
+          let offeredAny = false;
+          // Mode A — tap one eligible character. A hazard "Tap one Elf character"
+          // targets the opponent (resource) player's characters (any company),
+          // mirroring Adûnaphel tw-2's "causes any one character to tap".
+          for (const [charId, charData] of Object.entries(resourcePlayer.characters)) {
+            if (charData.status === CardStatus.Tapped) continue;
+            const charDef = defById(state, charData.definitionId);
+            if (!charDef || !isCharacterCard(charDef)) continue;
+            if (tapCharacterEffect.filter && !matchesDefinition(charDef, tapCharacterEffect.filter)) continue;
+            logDetail(`Hazard short-event "${def.name}": Mode A — may tap "${charDef.name}" (${charId})`);
+            actions.push({
+              action: { ...action, targetCharacterId: charId as import('../../index.js').CardInstanceId },
+              viable: true,
+            });
+            offeredAny = true;
+          }
+          // Mode B — arrival-override modes. Offer a single untargeted action
+          // when the active company is moving and at least one on-event
+          // company-arrives-at-site mode's `when` condition currently matches.
+          const arrivalModes = getCardEffects(def).filter(
+            (e): e is import('../../types/effects.js').OnEventEffect =>
+              e.type === 'on-event' && e.event === 'company-arrives-at-site',
+          );
+          if (arrivalModes.length > 0 && targetCompany.destinationSite) {
+            const inPlayNames = buildInPlayNames(state);
+            const arrivalCompany: Record<string, unknown> = {};
+            if (mhState.destinationSiteType) arrivalCompany.destinationSiteType = mhState.destinationSiteType;
+            if (mhState.destinationSiteName) arrivalCompany.destinationSiteName = mhState.destinationSiteName;
+            if (mhState.resolvedSitePath.length > 0) {
+              arrivalCompany.destinationRegionType = mhState.resolvedSitePath[mhState.resolvedSitePath.length - 1];
+            }
+            const arrivalCtx: Record<string, unknown> = {
+              company: arrivalCompany,
+              inPlay: inPlayNames,
+              environment: { doorsOfNightInPlay: inPlayNames.includes('Doors of Night') },
+            };
+            if (arrivalModes.some(m => !m.when || matchesCondition(m.when, arrivalCtx))) {
+              logDetail(`Hazard short-event "${def.name}": Mode B — arrival-override available`);
+              actions.push({ action, viable: true });
+              offeredAny = true;
+            }
+          }
+          if (!offeredAny) {
+            logDetail(`Hazard short-event "${def.name}": no eligible target (no Elf to tap, no region/site to reinterpret)`);
+            actions.push({ action, viable: false, reason: `${def.name}: no character to tap and no region/site to reinterpret` });
+          }
+          continue;
+        }
+
         // Pilfer Anything Unwatched (as-33): played on one of the hazard
         // player's untapped agents, targeting an opponent character in play
         // whose home site matches the agent's current site. Independent of the
