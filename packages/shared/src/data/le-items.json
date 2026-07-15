@@ -979,7 +979,8 @@
     "unique": false,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "spirit-ring"
     ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
@@ -987,7 +988,25 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": -2,
+        "min": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "certified": "2026-07-15",
     "text": "Spirit Ring. Playable only with a gold ring and after a test indicates a Spirit Ring. -2 to bearer’s mind (minimum of 1). +4 to bearer’s direct influence. Cannot be duplicated on a given character."
   },
   {
