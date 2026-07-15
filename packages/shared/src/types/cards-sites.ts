@@ -76,6 +76,16 @@ export interface AutomaticAttack {
    * to trigger `onDefeat` logic (e.g. Balrog of Moria removal from play).
    */
   readonly sourceInstanceId?: CardInstanceId;
+  /**
+   * When true, this attack is detainment regardless of the defending
+   * alignment or site type. Set on runtime-injected attacks that have no
+   * race/keying (so the standard §3.II detainment derivation cannot apply)
+   * but are printed as detainment — e.g. FEAR! FIRE! FOES! (as-29) Mode A's
+   * additional automatic-attack ("5 strikes with 8 prowess (detainment, no
+   * attack type)"). Still overridden by a defender's `detainment-attacks-normal`
+   * effect (Alatar wh-1), matching every other detainment source.
+   */
+  readonly forceDetainment?: boolean;
 }
 
 /**

@@ -2972,7 +2972,7 @@ function modifyAttackActions(
       const enemyCtx: Record<string, unknown> = { prowess: baseProwess };
       if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
       if (creatureName) enemyCtx['name'] = creatureName;
-      const attackCtx: Record<string, unknown> = { source: combat.attackSource.type, automatic: isAutomatic };
+      const attackCtx: Record<string, unknown> = { source: combat.attackSource.type, automatic: isAutomatic, detainment: combat.detainment };
       if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
       const defendingPlayer = playerById(state, combat.defendingPlayerId);
       const defendingCompany = defendingPlayer ? companyById(defendingPlayer.companies, combat.companyId) : undefined;
@@ -2985,7 +2985,11 @@ function modifyAttackActions(
       const defenderContainsBalrog = defendingPlayer && defendingCompany
         ? companyContainsBalrogAvatar(state, defendingPlayer, defendingCompany) : false;
       const defenderInPlay = defendingPlayer ? inPlayNamesForPlayerDeep(state, defendingPlayer) : [];
-      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx, defender: { covert: defenderCovert, companyContainsBalrog: defenderContainsBalrog, inPlay: defenderInPlay } };
+      // `defender.minionCompany` gates "against a minion company" (FEAR! FIRE!
+      // FOES! as-29 Mode B): true when the defending (resource) player is a
+      // Ringwraith (minion) player.
+      const defenderMinionCompany = defendingPlayer?.alignment === Alignment.Ringwraith;
+      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx, defender: { covert: defenderCovert, companyContainsBalrog: defenderContainsBalrog, inPlay: defenderInPlay, minionCompany: defenderMinionCompany } };
       if (!matchesCondition(effect.when, ctx)) {
         logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: when condition not met`);
         continue;

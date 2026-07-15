@@ -998,7 +998,7 @@
         "value": 2,
         "target": "all-automatic-attacks",
         "when": {
-          "site.type": {
+          "site.siteType": {
             "$in": ["free-hold", "border-hold"]
           }
         }

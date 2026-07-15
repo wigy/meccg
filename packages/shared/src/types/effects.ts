@@ -3476,6 +3476,16 @@ export interface ModifyAttackEffect extends EffectBase {
    */
   readonly removeAttackerChoosesDefenders?: true;
   /**
+   * When true (from-hand path), the current attack loses its detainment status
+   * — {@link CombatState.detainment} is set to `false` — so its strikes wound
+   * (and can eliminate) normally instead of merely tapping. Used by the
+   * attacker-played FEAR! FIRE! FOES! (as-29) Mode B: "playable on a detainment
+   * automatic-attack. Against a minion company the attack becomes normal (not
+   * detainment) and has -1 prowess." Gate the play with `when` on
+   * `attack.detainment` (and, for as-29, `defender.minionCompany`).
+   */
+  readonly removeDetainment?: true;
+  /**
    * When set, the item is discarded instead of tapped if the bearer's
    * race is NOT in `race`. The modifier still applies (whole-attack scope only).
    */
@@ -5024,6 +5034,7 @@ export type CardEffect =
   | CancelPrisonerTakingEffect
   | HazardMaintenanceEffect
   | DuplicateSiteAutoAttacksEffect
+  | CreateSiteAutoAttackEffect
   | SiteItemTrapEffect
   | HazardLimitSwapEffect
   | DiscardForHazardLimitEffect
@@ -5486,6 +5497,43 @@ export interface HazardMaintenanceEffect extends EffectBase {
  */
 export interface DuplicateSiteAutoAttacksEffect extends EffectBase {
   readonly type: 'duplicate-site-auto-attacks';
+}
+
+/**
+ * FEAR! FIRE! FOES! (as-29) Mode A: a hazard short-event played during the M/H
+ * phase on a company **moving to** a site whose type is one of {@link siteTypes}
+ * ("Playable on a Free-hold [{F}] or Border-hold [{B}]"). On resolution it
+ * installs a turn-scoped `extra-automatic-attack` constraint keyed to the
+ * destination site instance (which becomes the company's `currentSite` on
+ * arrival), so the company faces one **additional real automatic-attack** at the
+ * site this turn — resolved through the normal site-phase auto-attack flow
+ * alongside the site's printed attacks. Unlike Tidings of Bold Spies
+ * ({@link DuplicateSiteAutoAttacksEffect}), the created attack IS an
+ * automatic-attack (so cards referencing automatic-attacks apply) and it is
+ * faced in the SITE phase, not immediately in M/H.
+ *
+ * The attack carries no creature race ("no attack type") and forced detainment,
+ * expressed on the injected {@link AutomaticAttack} via `creatureType: ""` and
+ * `forceDetainment: true`.
+ */
+export interface CreateSiteAutoAttackEffect extends EffectBase {
+  readonly type: 'create-site-auto-attack';
+  /**
+   * The destination site types the company may be moving to for this card to be
+   * playable (e.g. `["free-hold", "border-hold"]`). Checked against the target
+   * company's destination site during M/H short-event emission.
+   */
+  readonly siteTypes: readonly import('./common.js').SiteType[];
+  /** The additional automatic-attack created at the site this turn. */
+  readonly attack: {
+    /** Creature type; empty string means "no attack type". */
+    readonly creatureType: string;
+    readonly strikes: number;
+    readonly prowess: number;
+    readonly body?: number;
+    /** When true, the created attack is detainment regardless of alignment/site. */
+    readonly detainment?: boolean;
+  };
 }
 
 /**

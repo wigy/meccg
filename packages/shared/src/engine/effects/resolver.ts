@@ -33,13 +33,11 @@ import type {
 } from '../../index.js';
 import { HAND_SIZE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
-import { isCharacterCard, isSiteCard } from '../../types/cards.js';
+import { isCharacterCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
-import type { SiteType } from '../../types/common.js';
 import { evaluateExpr } from './expression-eval.js';
 import { pickActiveItemsForCharacter } from '../item-slots.js';
-import { getCardEffects, findPlayerAndCompany, companyById, isCardNameInPlayForPlayer } from '../reducer-utils.js';
-import { getEffectiveSiteType } from '../effective.js';
+import { getCardEffects, findPlayerAndCompany, isCardNameInPlayForPlayer } from '../reducer-utils.js';
 
 /**
  * Context object passed to conditions and expressions when resolving effects.
@@ -1016,13 +1014,18 @@ export interface CreatureSelfContext {
  * @param inPlayNames - Names of all cards currently in play.
  * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
  * @param companyFacedRaces - Creature races the defending company has already faced.
+ * @param defenderAlignment - Alignment of the defending player, for self-effect conditions.
+ * @param siteType - Effective site type of the site whose automatic-attack is being
+ *   resolved, exposed as `site.siteType`. Populated only for site automatic-attacks,
+ *   so global effects can gate on the site type (e.g. Awaken Minions tw-10 doubles
+ *   automatic-attack strikes at Shadow-hold / Dark-hold sites).
  */
 function buildAttackContext(
   inPlayNames: readonly string[],
   creatureRace?: string,
   companyFacedRaces?: readonly string[],
   defenderAlignment?: string,
-  siteType?: SiteType,
+  siteType?: string,
 ): ResolverContext {
   const context: ResolverContext = {
     reason: 'combat',
@@ -1035,42 +1038,17 @@ function buildAttackContext(
     ? { ...withCompany, defender: { alignment: defenderAlignment } }
     : withCompany;
   // Expose the defending company's effective site type so global
-  // `all-automatic-attacks` modifiers can gate on it (Awaken Defenders le-103 /
-  // Awaken Denizens / Awaken Minions: "strikes … at a Free-hold / Ruins & Lairs
-  // … doubled"). Populated only for automatic-attacks (the only attacks keyed to
-  // a site) via `attackSiteTypeForCompany`.
+  // `all-automatic-attacks` modifiers can gate on it (Awaken Minions tw-10 /
+  // Awaken Defenders le-103: "strikes … at a Shadow-hold / Free-hold …
+  // doubled"). Populated only for automatic-attacks (the only attacks keyed to
+  // a site), via the effective site type threaded in by the caller.
   const withSite = siteType
-    ? { ...withDefender, site: { type: siteType } }
+    ? { ...withDefender, site: { siteType } }
     : withDefender;
   if (creatureRace) {
     return { ...withSite, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
   }
   return withSite;
-}
-
-/**
- * Resolves the effective {@link SiteType} of the automatic-attack a company is
- * facing — the type of that company's current site, folding in any active
- * `site.type` override (e.g. Hold Rebuilt and Repaired). Returns `undefined`
- * when the company or its current site cannot be resolved. Used to expose
- * `site.type` in the attack-resolution context for automatic-attacks only.
- */
-function attackSiteTypeForCompany(
-  state: GameState,
-  companyId: CompanyId,
-): SiteType | undefined {
-  for (const player of state.players) {
-    const company = companyById(player.companies, companyId);
-    if (!company) continue;
-    const siteInst = company.currentSite ?? company.destinationSite;
-    if (!siteInst) return undefined;
-    const defId = resolveInstanceId(state, siteInst.instanceId);
-    if (!defId) return undefined;
-    const def = state.cardPool[defId];
-    if (!def || !isSiteCard(def)) return undefined;
-    return getEffectiveSiteType(state, defId, def.siteType, siteInst.instanceId);
-  }
-  return undefined;
 }
 
 /**
@@ -1102,10 +1080,7 @@ export function resolveAttackProwess(
   creatureSelf?: CreatureSelfContext,
   attackBoostCtx?: CreatureAttackBoostContext,
 ): number {
-  const siteType = isAutomaticAttack && attackBoostCtx
-    ? attackSiteTypeForCompany(state, attackBoostCtx.companyId)
-    : undefined;
-  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType);
+  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
@@ -1144,6 +1119,10 @@ export function resolveAttackProwess(
  * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
  * @param isAutomaticAttack - Whether this is a site automatic-attack (not a hazard creature).
  * @param attackBoostCtx - Optional company/creature context for constraint-based boosts.
+ * @param siteType - Effective site type of the site whose automatic-attack is being
+ *   resolved (only for site automatic-attacks), exposed as `site.siteType` so global
+ *   effects can gate on it (e.g. Awaken Minions tw-10 doubles strikes at Shadow-hold /
+ *   Dark-hold sites).
  * @returns The modified strikes value after applying all-attacks effects.
  */
 export function resolveAttackStrikes(
@@ -1153,10 +1132,8 @@ export function resolveAttackStrikes(
   creatureRace?: string,
   isAutomaticAttack = false,
   attackBoostCtx?: CreatureAttackBoostContext,
+  siteType?: string,
 ): number {
-  const siteType = isAutomaticAttack && attackBoostCtx
-    ? attackSiteTypeForCompany(state, attackBoostCtx.companyId)
-    : undefined;
   const context = buildAttackContext(inPlayNames, creatureRace, undefined, undefined, siteType);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {

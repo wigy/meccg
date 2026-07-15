@@ -1657,8 +1657,11 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     // The applied strike delta (may differ from strikesModifier if clamped);
     // stored so a cancel-redirect reverses exactly what was applied.
     const appliedStrikesDelta = newStrikesTotal - combat.strikesTotal;
+    // FEAR! FIRE! FOES! (as-29) Mode B: the detainment attack "becomes normal".
+    const removesDetainment = effect.removeDetainment === true && combat.detainment;
+    const newDetainment = removesDetainment ? false : combat.detainment;
     const cardLabel = cardDef.name;
-    logDetail(`Modify-attack (${onGuard ? 'on-guard reveal' : 'from hand'}): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}`);
+    logDetail(`Modify-attack (${onGuard ? 'on-guard reveal' : 'from hand'}): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}${removesDetainment ? ', detainment → normal' : ''}`);
 
     // Cancel protection: the first attempt to cancel the attack instead
     // strips these modifiers (Unabated in Malice ba-26). Record the exact
@@ -1708,6 +1711,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         strikeProwess: newStrikeProwess,
         creatureBody: newCreatureBody,
         strikesTotal: newStrikesTotal,
+        detainment: newDetainment,
         ...(cancelProtection ? { cancelProtection } : {}),
       },
     };
