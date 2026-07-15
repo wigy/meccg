@@ -815,8 +815,12 @@ export function findMoveEffectByShape(
 /**
  * Translate a `move`-shape "fetch into deck or hand" effect into the
  * {@link FetchToDeckEffect} shape used by the pending-effects queue.
- * The move's `from` zones (`'sideboard' | 'discard'`) map to the
- * legacy pile names (`'sideboard' | 'discard-pile'`).
+ * The move's `from` zones (`'sideboard' | 'discard' | 'deck'`) map to the
+ * legacy pile names (`'sideboard' | 'discard-pile' | 'deck'`). A `'deck'`
+ * source lets a card search (tutor) its own play deck; when a card is
+ * fetched from the deck the reducer reshuffles it (Akhôrahil Unleashed
+ * le-162: "take a magic card from your play deck or discard pile to your
+ * hand — reshuffle play deck if searched").
  *
  * Handles both `to: 'deck'` (shuffle into play deck) and `to: 'hand'`
  * (return directly to hand). Returns null for non-fetch move shapes.
@@ -828,8 +832,8 @@ export function moveToFetchToDeckPayload(
   if (move.to !== 'deck' && move.to !== 'hand') return null;
   const fromArr = Array.isArray(move.from) ? move.from : [move.from];
   const source = fromArr.map(z =>
-    z === 'discard' ? 'discard-pile' : z === 'sideboard' ? 'sideboard' : null,
-  ).filter((s): s is 'sideboard' | 'discard-pile' => s !== null);
+    z === 'discard' ? 'discard-pile' : z === 'sideboard' ? 'sideboard' : z === 'deck' ? 'deck' : null,
+  ).filter((s): s is 'sideboard' | 'discard-pile' | 'deck' => s !== null);
   return {
     type: 'fetch-to-deck',
     source,
