@@ -507,6 +507,29 @@ export interface DetainmentAttacksNormalEffect extends EffectBase {
 }
 
 /**
+ * Global (in-play, either player's `cardsInPlay`) rule: every automatic-attack
+ * at a site whose effective {@link SiteType} is in {@link siteTypes} resolves as
+ * a **normal** attack rather than a detainment attack (CoE §3.II — detainment
+ * taps rather than wounds and awards no kill MP; a normal attack does neither).
+ *
+ * Unlike {@link DetainmentAttacksNormalEffect} — which a *defending* character
+ * carries and which converts detainment for that player's companies regardless
+ * of site — this is a site-type-scoped global carried by a long hazard-event and
+ * applies to any company entering a matching site. It short-circuits the
+ * detainment computation to `false` for that attack (see `isDetainmentAttack`'s
+ * `defenderForcesNormalAttacks`, fed via `siteTypeForcesAutoAttacksNormal`).
+ *
+ * Used by Awaken Defenders (le-103): "each detainment automatic-attack at a
+ * Free-hold or Border-hold becomes a normal automatic-attack" —
+ * `{ "type": "auto-attacks-normal", "siteTypes": ["free-hold", "border-hold"] }`.
+ */
+export interface AutoAttacksNormalEffect extends EffectBase {
+  readonly type: 'auto-attacks-normal';
+  /** Effective site types at which automatic-attacks become normal. */
+  readonly siteTypes: readonly SiteType[];
+}
+
+/**
  * Contributes stage points to the Fallen-wizard who controls this card (MEWH).
  *
  * Stage points reflect how far a Fallen-wizard has deviated from his original
@@ -4897,6 +4920,7 @@ export type CardEffect =
   | FallenWizardCharacterAllyMpEffect
   | FallenWizardKillMpEffect
   | DetainmentAttacksNormalEffect
+  | AutoAttacksNormalEffect
   | CompanyModifierEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect

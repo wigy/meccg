@@ -125,6 +125,12 @@ of strikes on creature and automatic attacks (e.g. Wake of War), or with
 only — not hazard creatures (e.g. Redoubled Force's +3 strikes to Orc/Troll
 automatic-attacks). Both `prowess` and `strikes` honour `all-automatic-attacks`.
 
+For automatic-attacks the resolution context also exposes `site.type` — the
+defending company's effective current-site type — so a global modifier can gate
+on the site type it applies at, e.g. `when: { "site.type": { "$in": ["free-hold",
+"border-hold"] } }` (Awaken Defenders le-103 / Awaken Denizens / Awaken Minions:
+"strikes … at a Free-hold / Ruins & Lairs / Shadow-hold … doubled").
+
 The optional `op` field controls how `value` combines with the running stat
 total: `"add"` (the default) does `result += value`, while `"multiply"` does
 `result *= value`. All multiplicative modifiers are applied **after** every
@@ -650,6 +656,32 @@ is 7.
 
 ```json
 { "type": "detainment-attacks-normal", "stagePointsAbove": 7 }
+```
+
+### 3e-bis. `auto-attacks-normal`
+
+A **global**, site-type-scoped variant of `detainment-attacks-normal`: while a long
+hazard-event carrying this effect is in play (either player's `cardsInPlay`), every
+automatic-attack at a site whose effective `SiteType` is in `siteTypes` resolves as
+a **normal** attack rather than a detainment attack — regardless of which company is
+defending. Unlike `detainment-attacks-normal` (carried by a *defending* character,
+scoped to that player's companies at any site), this keys on the *site type* of the
+attack, so it applies to whichever company enters a matching site. Computed via
+`siteTypeForcesAutoAttacksNormal` (`reducer-utils.ts`) and OR-ed with the per-player
+conversion into `isDetainmentAttack`'s `defenderForcesNormalAttacks` at every site
+automatic-attack call site.
+
+Pair it with a `stat-modifier` on `strikes` (`target: "all-automatic-attacks"`,
+gated by `when: { "site.type": { "$in": [...] } }`) to model the full "Awaken"
+family of hazards — the attack-resolution context now exposes `site.type` (the
+defending company's effective current-site type) for automatic-attacks.
+
+Used by Awaken Defenders (le-103): "The number of strikes for each automatic-attack
+at a Free-hold or Border-hold is doubled. Additionally, each detainment
+automatic-attack at a Free-hold or Border-hold becomes a normal automatic-attack."
+
+```json
+{ "type": "auto-attacks-normal", "siteTypes": ["free-hold", "border-hold"] }
 ```
 
 ### 3a. `stage-points`
