@@ -3614,7 +3614,21 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "in-play-item-modifier",
+        "itemFilter": { "item.keywords": { "$includes": "ring" } },
+        "corruptionPoints": 1,
+        "marshallingPoints": 1
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "certified": "2026-07-15",
     "text": "+1 to the corruption points and the marshalling points for all ring items. Discard when any play deck is exhausted. Cannot be duplicated."
   },
   {
