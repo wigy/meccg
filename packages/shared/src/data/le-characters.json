@@ -1502,7 +1502,8 @@
     "race": "dúnadan",
     "skills": [
       "sage",
-      "diplomat"
+      "diplomat",
+      "spirit-magic"
     ],
     "prowess": 3,
     "body": 7,
@@ -1513,7 +1514,8 @@
     "corruptionModifier": 0,
     "homesite": "Carn Dûm",
     "effects": [],
-    "text": "Unique. Can use spirit-magic."
+    "text": "Unique. Can use spirit-magic.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-character",
