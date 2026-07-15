@@ -170,7 +170,7 @@ describe('A Malady Without Healing (le-159)', () => {
 
   test("an opponent's non-Ringwraith, non-Wizard character at the same site is targetable", () => {
     const state = maladyState({ minionChars: [CIRYAHER], heroChars: [LEGOLAS] });
-    const legolasId = getCharacter(state, PLAYER_2, LEGOLAS).instanceId;
+    const legolasId = getCharacter(state, HAZARD_PLAYER, LEGOLAS).instanceId;
     expect(maladyActionForTarget(state, legolasId)).toBeDefined();
   });
 
@@ -179,9 +179,9 @@ describe('A Malady Without Healing (le-159)', () => {
       minionChars: [CIRYAHER, WITCH_KING],
       heroChars: [LEGOLAS, GANDALF],
     });
-    const witchId = getCharacter(state, PLAYER_1, WITCH_KING).instanceId;
-    const gandalfId = getCharacter(state, PLAYER_2, GANDALF).instanceId;
-    const legolasId = getCharacter(state, PLAYER_2, LEGOLAS).instanceId;
+    const witchId = getCharacter(state, RESOURCE_PLAYER, WITCH_KING).instanceId;
+    const gandalfId = getCharacter(state, HAZARD_PLAYER, GANDALF).instanceId;
+    const legolasId = getCharacter(state, HAZARD_PLAYER, LEGOLAS).instanceId;
 
     const targets = new Set(maladyActions(state).map(a => a.targetCharacterId));
     expect(targets.has(witchId)).toBe(false);   // Ringwraith excluded
@@ -195,7 +195,7 @@ describe('A Malady Without Healing (le-159)', () => {
       heroChars: [LEGOLAS],
       heroSite: AWAY_SITE,
     });
-    const legolasId = getCharacter(state, PLAYER_2, LEGOLAS).instanceId;
+    const legolasId = getCharacter(state, HAZARD_PLAYER, LEGOLAS).instanceId;
     expect(maladyActionForTarget(state, legolasId)).toBeUndefined();
   });
 
@@ -203,8 +203,8 @@ describe('A Malady Without Healing (le-159)', () => {
 
   test('playing on a hero victim enqueues target CC (-1), a body check, and caster CC (-5)', () => {
     const state = maladyState({ minionChars: [CIRYAHER], heroChars: [LEGOLAS] });
-    const legolasId = getCharacter(state, PLAYER_2, LEGOLAS).instanceId;
-    const ciryaherId = getCharacter(state, PLAYER_1, CIRYAHER).instanceId;
+    const legolasId = getCharacter(state, HAZARD_PLAYER, LEGOLAS).instanceId;
+    const ciryaherId = getCharacter(state, RESOURCE_PLAYER, CIRYAHER).instanceId;
     const after = dispatch(state, maladyActionForTarget(state, legolasId)!);
 
     const ccs = after.pendingResolutions.filter(r => r.kind.type === 'corruption-check');
@@ -238,7 +238,7 @@ describe('A Malady Without Healing (le-159)', () => {
       minionChars: [CIRYAHER],
       heroChars: [{ defId: LEGOLAS, status: CardStatus.Tapped }],
     });
-    const legolasId = getCharacter(state, PLAYER_2, LEGOLAS).instanceId;
+    const legolasId = getCharacter(state, HAZARD_PLAYER, LEGOLAS).instanceId;
     const after = dispatch(state, maladyActionForTarget(state, legolasId)!);
 
     const bc = after.pendingResolutions.find(r => r.kind.type === 'dice-check');
@@ -251,7 +251,7 @@ describe('A Malady Without Healing (le-159)', () => {
 
   test('a Ringwraith caster (Witch-king) makes NO corruption check', () => {
     const state = maladyState({ minionChars: [WITCH_KING], heroChars: [LEGOLAS] });
-    const legolasId = getCharacter(state, PLAYER_2, LEGOLAS).instanceId;
+    const legolasId = getCharacter(state, HAZARD_PLAYER, LEGOLAS).instanceId;
     const after = dispatch(state, maladyActionForTarget(state, legolasId)!);
 
     const ccs = after.pendingResolutions.filter(r => r.kind.type === 'corruption-check');
@@ -265,39 +265,39 @@ describe('A Malady Without Healing (le-159)', () => {
 
   test('body check eliminates a hero on a high roll → caster receives his kill MP', () => {
     const state = maladyState({ minionChars: [WITCH_KING], heroChars: [LEGOLAS] });
-    const legolasId = getCharacter(state, PLAYER_2, LEGOLAS).instanceId;
+    const legolasId = getCharacter(state, HAZARD_PLAYER, LEGOLAS).instanceId;
     let s = dispatch(state, maladyActionForTarget(state, legolasId)!);
 
     // Target survives the -1 corruption check (Legolas CP 0 → any roll passes).
     s = executeAction(s, PLAYER_2, 'corruption-check', 8);
-    expect(s.players[PLAYER_2].characters[legolasId as string]).toBeDefined();
+    expect(s.players[HAZARD_PLAYER].characters[legolasId]).toBeDefined();
 
     // Body check: roll 12 > body 8 → Legolas eliminated.
     s = executeAction(s, PLAYER_2, 'resolve-dice-check', 12);
-    expect(s.players[PLAYER_2].characters[legolasId as string]).toBeUndefined();
+    expect(s.players[HAZARD_PLAYER].characters[legolasId]).toBeUndefined();
 
     // Eliminated hero credited to the caster's (minion) out-of-play pile, scoring
     // kill MP equal to his mind (6); the hero owner scores nothing.
     const recomputed = recomputeDerived(s);
-    expect(recomputed.players[PLAYER_1].outOfPlayPile.some(c => c.instanceId === legolasId)).toBe(true);
-    expect(recomputed.players[PLAYER_1].marshallingPoints.kill).toBe(6);
-    expect(recomputed.players[PLAYER_2].marshallingPoints.kill).toBe(0);
+    expect(recomputed.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === legolasId)).toBe(true);
+    expect(recomputed.players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(6);
+    expect(recomputed.players[HAZARD_PLAYER].marshallingPoints.kill).toBe(0);
   });
 
   test('corruption check eliminates a corrupt hero → caster receives his kill MP', () => {
     let state = maladyState({ minionChars: [WITCH_KING], heroChars: [LEGOLAS] });
     // Give Legolas 3 corruption points so a low roll fails the -1 check lethally.
-    state = attachItemToChar(state, PLAYER_2, LEGOLAS, ARKENSTONE);
+    state = attachItemToChar(state, HAZARD_PLAYER, LEGOLAS, ARKENSTONE);
     state = recomputeDerived(state);
-    const legolasId = getCharacter(state, PLAYER_2, LEGOLAS).instanceId;
+    const legolasId = getCharacter(state, HAZARD_PLAYER, LEGOLAS).instanceId;
 
     let s = dispatch(state, maladyActionForTarget(state, legolasId)!);
     // Corruption check: roll 2 + (-1) = 1, well below CP 3 → hero eliminated.
     s = executeAction(s, PLAYER_2, 'corruption-check', 2);
-    expect(s.players[PLAYER_2].characters[legolasId as string]).toBeUndefined();
+    expect(s.players[HAZARD_PLAYER].characters[legolasId]).toBeUndefined();
 
     const recomputed = recomputeDerived(s);
-    expect(recomputed.players[PLAYER_1].outOfPlayPile.some(c => c.instanceId === legolasId)).toBe(true);
-    expect(recomputed.players[PLAYER_1].marshallingPoints.kill).toBe(6);
+    expect(recomputed.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === legolasId)).toBe(true);
+    expect(recomputed.players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(6);
   });
 });
