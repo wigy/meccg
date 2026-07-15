@@ -20,7 +20,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, companySubphaseScope, defById, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
@@ -1440,12 +1440,11 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
 
   // Discard the card and return. If dice-check (glamour) resolutions were
   // enqueued, the legal-action system will automatically surface only roll
-  // actions until all resolutions are cleared.
+  // actions until all resolutions are cleared. A magic card cast by a player
+  // whose Ringwraith is Akhôrahil (le-51) is instead shuffled back into their
+  // play deck (see `discardOrRecyclePlayedEvent`).
   return {
-    state: updatePlayer(newState, playerIndex, p => ({
-      ...p,
-      discardPile: [...p.discardPile, handCard],
-    })),
+    state: discardOrRecyclePlayedEvent(newState, playerIndex, handCard),
   };
 }
 

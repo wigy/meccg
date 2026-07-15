@@ -26,7 +26,7 @@ import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { resolveInstanceId } from '../types/state.js';
-import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { resolveAttackProwess, resolveAttackStrikes, normalizeCreatureRace } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -468,15 +468,15 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
   }
 
   // Move card from hand to discard pile — short events are physically
-  // discarded at play time; the chain holds only a reference.
-  const newHand = removeById(defPlayer.hand, handCard.instanceId);
-  const newDiscard = [...defPlayer.discardPile, toCardInstance(handCard)];
-
+  // discarded at play time; the chain holds only a reference. A magic
+  // cancel-attack card (e.g. The Tormented Earth as-102) cast by a player
+  // whose Ringwraith is Akhôrahil (le-51) is shuffled back into their play
+  // deck instead of discarded (see `discardOrRecyclePlayedEvent`).
   resultState = updatePlayer(resultState, defPlayerIndex, p => ({
     ...p,
-    hand: newHand,
-    discardPile: newDiscard,
+    hand: removeById(p.hand, handCard.instanceId),
   }));
+  resultState = discardOrRecyclePlayedEvent(resultState, defPlayerIndex, toCardInstance(handCard));
 
   // Attack-scoped duplication limit: record this play as a constraint so the
   // legal-action scanner can block a second copy on the same attack. Applies

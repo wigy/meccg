@@ -2086,7 +2086,10 @@
     "unique": true,
     "race": "ringwraith",
     "skills": [
-      "sage"
+      "sage",
+      "sorcery",
+      "spirit-magic",
+      "shadow-magic"
     ],
     "prowess": 8,
     "body": 9,
@@ -2096,7 +2099,12 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any site in Nurn",
-    "effects": [],
-    "text": "Unique. Manifestation of Akhôrahil. Can use sorcery, spirit-magic, and shadow-magic. +3 direct influence in Heralded Lord mode. +1 prowess in Fell Rider mode. As your Ringwraith, when a magic card used by him has to be discarded, return it to the play deck and reshuffle."
+    "effects": [
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 3, "when": { "bearer.ringwraithMode": "heralded-lord" } },
+      { "type": "stat-modifier", "stat": "prowess", "value": 1, "when": { "bearer.ringwraithMode": "fell-rider" } },
+      { "type": "magic-discard-to-deck" }
+    ],
+    "text": "Unique. Manifestation of Akhôrahil. Can use sorcery, spirit-magic, and shadow-magic. +3 direct influence in Heralded Lord mode. +1 prowess in Fell Rider mode. As your Ringwraith, when a magic card used by him has to be discarded, return it to the play deck and reshuffle.",
+    "certified": "2026-07-15"
   }
 ]

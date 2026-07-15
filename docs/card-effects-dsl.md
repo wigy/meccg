@@ -7120,6 +7120,36 @@ company during your organization phase and requires no influence to control."
 
 ---
 
+### 55c. `magic-discard-to-deck`
+
+Passive marker carried by a Ringwraith avatar card. While that avatar is a
+player's **revealed Ringwraith** (its own avatar in play, controlled by general
+influence), any *magic card* that player casts is **shuffled back into their
+play deck** (and the deck reshuffled) when it would otherwise be discarded,
+rather than going to the discard pile.
+
+A "magic card" is any card whose `keywords` include `spell`, `sorcery`,
+`spirit-magic`, or `shadow-magic` (`isMagicCard`, `reducer-utils.ts`). The
+redirect is applied by the single helper `discardOrRecyclePlayedEvent(state,
+playerIndex, card)`: for a non-magic card, or a magic card cast by a player
+whose avatar lacks this flag, the card discards normally; otherwise it lands in
+the play deck. The helper is wired into every point a just-played magic event
+reaches the caster's discard pile — the resource short-event fall-through
+(`reducer-events.ts`), the cancel-attack discard (`combat-cancel.ts`), and the
+cancel-influence discard (`pending-reducers.ts`). No card instance is ever lost:
+it moves to exactly one of `playDeck` / `discardPile`.
+
+This effect has no fields.
+
+```json
+{ "type": "magic-discard-to-deck" }
+```
+
+Used by: Akhôrahil the Ringwraith (le-51) — "As your Ringwraith, when a magic
+card used by him has to be discarded, return it to the play deck and reshuffle."
+
+---
+
 ### 56. `absorb-wound`
 
 When a strike against the bearer succeeds (would wound), the wound is prevented.
