@@ -417,8 +417,20 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "drake",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Elven Shores",
+          "Forochel",
+          "Angmar",
+          "Gundabad",
+          "Grey Mountain Narrows",
+          "Withered Heath"
+        ]
+      }
+    ],
     "effects": [],
+    "certified": "2026-07-15",
     "text": "Drake. Two strikes. May be played keyed to Elven Shores, Forochel, Angmar, Gundabad, Grey Mountain Narrows, and Withered Heath."
   },
   {
