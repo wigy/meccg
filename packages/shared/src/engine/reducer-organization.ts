@@ -827,6 +827,20 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const itemInstId = action.itemInstanceId;
 
   if (!player.characters[charId]) return { state, error: 'Character not found' };
+
+  // `no-storage` site-rule (Geann a-Lisch le-374): "Resources may never be
+  // stored at this site." Reject a store attempt as a backstop to the
+  // legal-action suppression in storeItemActions.
+  const storeCompany = findCharacterCompany(player.companies, charId);
+  const storeSiteDef = storeCompany?.currentSite
+    ? defById(state, storeCompany.currentSite.definitionId)
+    : undefined;
+  if (storeSiteDef && isSiteCard(storeSiteDef)
+    && storeSiteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
+    logDetail(`Store item rejected: ${storeSiteDef.name} carries no-storage site-rule`);
+    return { state, error: `Resources may never be stored at ${storeSiteDef.name}` };
+  }
+
   const removed = removeAttachment(player, 'items', itemInstId);
   if (!removed || removed.charId !== charId) return { state, error: 'Item not found on character' };
   const item = removed.attachment;

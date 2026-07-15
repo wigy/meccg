@@ -57,6 +57,11 @@ export function enterSetHazardLimitAndAutoAdvance(
 ): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activeIndex].companies[mhState.activeCompanyIndex];
+  // `hazard-site-type-override` site-rule (Geann a-Lisch le-374): a Haven that
+  // "counts as a Ruins & Lairs for the purposes of playing and interpreting
+  // hazards". Reinterpret the effective site's type (and, if declared, its site
+  // path) for the keying pass only, before the snapshot/order-effects funnel.
+  mhState = applyHazardSiteTypeOverride(state, company, mhState);
   const snapshot = snapshotHazardLimit(state, company);
   // Left Behind (td-41): a company created (or flagged) by Left Behind faces its
   // separate movement/hazard phase with a hazard limit of exactly one.
@@ -74,6 +79,47 @@ export function enterSetHazardLimitAndAutoAdvance(
     preRevealHazardLimitConstraintIds: preRevealConstraintIds,
   };
   return handleOrderEffects(state, orderEffectsMhState);
+}
+
+/**
+ * Apply a `hazard-site-type-override` site-rule carried by a company's effective
+ * site (destination if moving, else current) to the movement/hazard state used
+ * for the creature-keying pass. The rule reinterprets the site's type — and, if
+ * it declares one, its site path — purely for "playing and interpreting
+ * hazards" (Geann a-Lisch le-374: "counts as a Ruins & Lairs … its site path
+ * for this purpose … is the one from Carn Dûm").
+ *
+ * A Haven normally blocks hazards emergently (its `haven` type and empty site
+ * path match no creature keying); overriding `destinationSiteType` and
+ * `resolvedSitePath` re-exposes a company here to hazards keyed to that type /
+ * path. No other purpose (movement, draws, healing, storage) sees the override.
+ * Returns `mhState` unchanged when no such rule applies.
+ */
+function applyHazardSiteTypeOverride(
+  state: GameState,
+  company: Company,
+  mhState: MovementHazardPhaseState,
+): MovementHazardPhaseState {
+  const effectiveSite = company.destinationSite ?? company.currentSite;
+  if (!effectiveSite) return mhState;
+  const siteDef = defById(state, effectiveSite.definitionId);
+  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return mhState;
+  const rule = siteDef.effects.find(
+    e => e.type === 'site-rule' && e.rule === 'hazard-site-type-override',
+  );
+  if (!rule || rule.type !== 'site-rule' || rule.rule !== 'hazard-site-type-override') {
+    return mhState;
+  }
+  const overriddenPath = rule.sitePath ? [...rule.sitePath] : mhState.resolvedSitePath;
+  logDetail(
+    `Hazard-site-type-override: ${siteDef.name} counts as ${rule.siteType} for hazard keying`
+    + (rule.sitePath ? ` (site path ${overriddenPath.join(', ')})` : ''),
+  );
+  return {
+    ...mhState,
+    destinationSiteType: rule.siteType,
+    resolvedSitePath: overriddenPath,
+  };
 }
 
 /**

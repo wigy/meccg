@@ -1024,6 +1024,13 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
       continue;
     }
 
+    // `no-storage` site-rule (Geann a-Lisch le-374): "Resources may never be
+    // stored at this site." Suppress every store-item offer for a company here.
+    if (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
+      logDetail(`Store-item: ${siteName} carries no-storage site-rule — skipping company`);
+      continue;
+    }
+
     for (const charInstId of company.characters) {
       const char = player.characters[charInstId];
       if (!char || char.items.length === 0) continue;
