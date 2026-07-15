@@ -1389,6 +1389,13 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     mp = { ...mp, misc: mp.misc + player.bonusMiscMarshallingPoints };
   }
 
+  // One-time kill MP not tied to a defeated creature in the kill pile (A Malady
+  // Without Healing le-159: "you receive his kill marshalling points" for a hero
+  // eliminated by the card's checks). Held on the player and folded into kill.
+  if (player.bonusKillMarshallingPoints) {
+    mp = { ...mp, kill: mp.kill + player.bonusKillMarshallingPoints };
+  }
+
   // CoE rule 2.2: an eliminated avatar provides -5 miscellaneous marshalling
   // points to its player. This penalty is in effect throughout the game (CoE
   // 10.3.vi — "despite having already been in effect for the purposes of

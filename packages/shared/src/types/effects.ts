@@ -19,7 +19,7 @@
  * See `docs/card-effects-dsl.md` for the full design document with examples.
  */
 
-import type { CardDefinitionId, Keyword, MarshallingCategory, RegionType, SiteType } from './common.js';
+import type { CardDefinitionId, Keyword, MarshallingCategory, PlayerId, RegionType, SiteType } from './common.js';
 import type { SiteRuleEffect } from './effects/site-rules.js';
 
 // ---- Value Expressions ----
@@ -1456,6 +1456,8 @@ export type TriggeredActionType =
   | 'discard-target-character'
   | 'force-discard-one-company-item'
   | 'enqueue-corruption-check'
+  | 'enqueue-body-check'
+  | 'malady-without-healing'
   | 'enqueue-pending-fetch'
   | 'enqueue-ring-play-offer'
   | 'enqueue-gold-ring-test'
@@ -1537,6 +1539,47 @@ export interface EnqueueCorruptionCheckAction extends TriggeredActionBase {
   readonly target?: string;
   /** Apply run if the check succeeds (Cracks of Doom: succeed → win-game). Recursive. */
   readonly onSuccess?: TriggeredAction;
+}
+
+/**
+ * `enqueue-body-check` — an `onSuccess` follow-up on a target's corruption
+ * check (A Malady Without Healing le-159: "…followed by a body check (modified
+ * by +1 if tapped)"). When the corruption check passes and the target survives,
+ * this enqueues a standalone (out-of-combat) body check on that same character:
+ * the `rollerPlayerId` rolls 2d6, +1 if the target is tapped (or wounded); if
+ * the modified roll exceeds the target's body the character is eliminated
+ * (CoE 3.I.2.1 — a failed body check on any character eliminates it). Modelled
+ * as a generic `dice-check` resolution enqueued by the corruption-check
+ * resolver, with `onPass: eliminate-character` carrying `awardKillMpTo`.
+ */
+export interface EnqueueBodyCheckAction extends TriggeredActionBase {
+  readonly type: 'enqueue-body-check';
+  /** Player who rolls the body check (the caster / non-controller). */
+  readonly rollerPlayerId: PlayerId;
+  /** Add +1 to the roll when the target is tapped or wounded (not untapped). */
+  readonly plusOneIfTapped?: boolean;
+  /** Credit this player with the hero target's kill MP if the body check eliminates it. */
+  readonly awardKillMpTo?: PlayerId;
+  /** UI/log banner for the enqueued check. */
+  readonly reason?: string;
+}
+
+/**
+ * `malady-without-healing` — the bespoke `self-enters-play` orchestrator for
+ * A Malady Without Healing (le-159). On resolution it: (1) enqueues a
+ * corruption check (`targetCorruptionModifier`, default -1) on the target
+ * character — which may be an opponent's, rolled by the target's controller —
+ * carrying `awardKillMpTo` (caster) and an `enqueue-body-check` `onSuccess`
+ * follow-up; and (2) unless the acting player's chosen shadow-magic user at the
+ * target's site is a Ringwraith, enqueues a corruption check
+ * (`casterCorruptionModifier`, default -5) on that user.
+ */
+export interface MaladyWithoutHealingAction extends TriggeredActionBase {
+  readonly type: 'malady-without-healing';
+  /** Roll modifier for the target's corruption check (le-159: -1). */
+  readonly targetCorruptionModifier: number;
+  /** Roll modifier for the non-Ringwraith shadow-magic user's corruption check (le-159: -5). */
+  readonly casterCorruptionModifier: number;
 }
 
 /** `roll-check` — roll 2d6, sum check modifiers, emit a labelled dice GameEffect. */
@@ -1699,6 +1742,14 @@ export interface DiscardCharacterAction extends TriggeredActionBase {
  */
 export interface EliminateCharacterAction extends TriggeredActionBase {
   readonly type: 'eliminate-character';
+  /**
+   * When set, and the eliminated character is a **hero**, the named player is
+   * credited with the character's marshalling points as *kill* MP (added to
+   * `player.bonusKillMarshallingPoints`). Used by A Malady Without Healing
+   * (le-159) whose standalone body check "if target character is a hero and is
+   * eliminated by these checks, you receive his kill marshalling points."
+   */
+  readonly awardKillMpTo?: PlayerId;
 }
 
 /**
@@ -1970,6 +2021,8 @@ export type TriggeredAction =
   | ForceCheckAction
   | ForceCheckAllCompanyAction
   | EnqueueCorruptionCheckAction
+  | EnqueueBodyCheckAction
+  | MaladyWithoutHealingAction
   | RollCheckAction
   | RollThenApplyAction
   | WinConditionRollAction
@@ -2943,6 +2996,22 @@ export interface PlayTargetEffect extends EffectBase {
    * item whose `stat-modifier` effects flow to the item's bearer).
    */
   readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item';
+  /**
+   * Widens a `character` target beyond the default own-characters scope. When
+   * `'any-player'`, candidates are drawn from **both** players' characters so a
+   * resource event may target an opponent's character (A Malady Without Healing
+   * le-159: "May target an opponent's character"). Absent = own characters only.
+   */
+  readonly targetScope?: 'any-player';
+  /**
+   * Play-condition for A Malady Without Healing (le-159): the card is only
+   * playable on a target character sitting at the **same site** as a
+   * shadow-magic-using character the **acting player controls** (a Ringwraith,
+   * or any character with the `shadow-magic` skill, incl. item-granted). The
+   * enabler must be a different character than the target. Evaluated per
+   * candidate by the legal-action generator and re-derived by the reducer.
+   */
+  readonly requiresControlledShadowMagicUserAtSite?: boolean;
   /**
    * Optional DSL condition refining which candidates qualify. Evaluated
    * against the per-candidate context (e.g. `target.race`,

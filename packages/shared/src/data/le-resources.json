@@ -2910,10 +2910,41 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AMaladyWithoutHealing.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "shadow-magic"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Shadow-magic. Playable during the site phase on a non-Ringwraith, non-Wizard character at the same site as a shadow-magic-using character you control. Target character must make a corruption check modified by -1 followed by a body check (modified by +1 if tapped). If target character is a hero and is eliminated by these checks, you receive his kill marshalling points. Unless the shadow-magic-user is a Ringwraith, he makes a corruption check modified by -5.May target an opponent’s character."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "targetScope": "any-player",
+        "requiresControlledShadowMagicUserAtSite": true,
+        "filter": {
+          "$not": {
+            "target.race": {
+              "$in": ["ringwraith", "wizard"]
+            }
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "malady-without-healing",
+          "targetCorruptionModifier": -1,
+          "casterCorruptionModifier": -5
+        }
+      }
+    ],
+    "text": "Magic. Shadow-magic. Playable during the site phase on a non-Ringwraith, non-Wizard character at the same site as a shadow-magic-using character you control. Target character must make a corruption check modified by -1 followed by a body check (modified by +1 if tapped). If target character is a hero and is eliminated by these checks, you receive his kill marshalling points. Unless the shadow-magic-user is a Ringwraith, he makes a corruption check modified by -5.May target an opponent’s character.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-event",

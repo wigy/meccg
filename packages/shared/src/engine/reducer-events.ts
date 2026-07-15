@@ -17,7 +17,7 @@ import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { ownerOf, resolveInstanceId } from '../types/state.js';
-import { resolveDef } from './effects/index.js';
+import { resolveDef, getItemGrantedSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, companyById, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -1686,6 +1686,84 @@ function applyShortEventOnEntersPlay(
         reason: def.name,
         onSuccess: onEvent.apply.onSuccess,
       });
+      continue;
+    }
+
+    // A Malady Without Healing (le-159): the target (possibly an opponent's
+    // character) makes a corruption check (-1) then, if it survives, a body
+    // check (+1 if tapped); a hero eliminated by either credits the caster his
+    // kill MP. Separately, unless the caster's shadow-magic user at the target's
+    // site is a Ringwraith, that user makes a corruption check (-5).
+    if (onEvent.apply.type === 'malady-without-healing') {
+      const targetId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+      if (!targetId) {
+        logDetail(`"${def.name}": malady-without-healing — no target character — fizzle`);
+        continue;
+      }
+      const ownerIdx = state.players.findIndex(p => !!p.characters[targetId]);
+      if (ownerIdx < 0) {
+        logDetail(`"${def.name}": malady-without-healing — target ${targetId as string} not in play — fizzle`);
+        continue;
+      }
+      const casterId = state.players[playerIndex].id;
+      const targetOwnerId = state.players[ownerIdx].id;
+      const targetCompany = findCharacterCompany(state.players[ownerIdx].companies, targetId);
+      const targetSiteDefId = targetCompany?.currentSite?.definitionId;
+
+      // Collect the caster's shadow-magic users co-located with the target
+      // (excluding the target itself). A Ringwraith among them lets the caster
+      // avoid the -5 check; otherwise the first non-Ringwraith user makes it.
+      const caster = state.players[playerIndex];
+      const enablers: { id: CardInstanceId; isRingwraith: boolean }[] = [];
+      for (const co of caster.companies) {
+        if (!targetSiteDefId || co.currentSite?.definitionId !== targetSiteDefId) continue;
+        for (const cid of co.characters) {
+          if (cid === targetId) continue;
+          const ch = caster.characters[cid];
+          if (!ch) continue;
+          const cDef = defById(state, ch.definitionId);
+          if (!cDef || !isCharacterCard(cDef)) continue;
+          const isRingwraith = cDef.race === 'ringwraith';
+          const usesShadowMagic = isRingwraith
+            || [...cDef.skills, ...getItemGrantedSkills(state, ch)].includes('shadow-magic');
+          if (usesShadowMagic) enablers.push({ id: cid, isRingwraith });
+        }
+      }
+
+      const targetMod = onEvent.apply.targetCorruptionModifier;
+      logDetail(`"${def.name}" played on ${targetId as string} (owner ${targetOwnerId as string}) — enqueuing corruption check (modifier ${targetMod}) + follow-up body check`);
+      state = enqueueCorruptionCheck(state, {
+        source: handCard.instanceId,
+        actor: targetOwnerId,
+        scope: { kind: 'phase', phase: state.phaseState.phase },
+        characterId: targetId,
+        modifier: targetMod,
+        reason: def.name,
+        awardKillMpTo: casterId,
+        onSuccess: {
+          type: 'enqueue-body-check',
+          rollerPlayerId: casterId,
+          plusOneIfTapped: true,
+          awardKillMpTo: casterId,
+          reason: `${def.name} (body)`,
+        },
+      });
+
+      const ringwraithEnabler = enablers.find(e => e.isRingwraith);
+      if (!ringwraithEnabler && enablers.length > 0) {
+        const casterMod = onEvent.apply.casterCorruptionModifier;
+        logDetail(`"${def.name}": shadow-magic user ${enablers[0].id as string} is not a Ringwraith — enqueuing corruption check (modifier ${casterMod})`);
+        state = enqueueCorruptionCheck(state, {
+          source: handCard.instanceId,
+          actor: casterId,
+          scope: { kind: 'phase', phase: state.phaseState.phase },
+          characterId: enablers[0].id,
+          modifier: casterMod,
+          reason: `${def.name} (shadow-magic user)`,
+        });
+      } else if (ringwraithEnabler) {
+        logDetail(`"${def.name}": shadow-magic user is a Ringwraith — no corruption check for the caster`);
+      }
       continue;
     }
 
