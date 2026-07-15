@@ -3107,6 +3107,81 @@ export function purgeCompanyAlliesAndFollowers(
   return sweepCompanyMembershipChangedEvents(result, [companyId]);
 }
 
+/**
+ * Discards every follower character in a company, leaving the general-influence
+ * members (and their allies) in place. A follower's own attached allies and
+ * items go to the owner's discard; its hazards go to the opponent's discard.
+ *
+ * Backs Black Rider (le-170): "Discard this card and any other Ringwraith
+ * followers in the company …" — evaluated at a following organization phase
+ * when the mode card self-discards. Unlike {@link purgeCompanyAlliesAndFollowers}
+ * (Fell Rider's on-play purge) this does NOT discard the non-follower members'
+ * own allies, since Black Rider's text targets followers only.
+ */
+export function purgeCompanyFollowers(
+  state: GameState,
+  playerIndex: number,
+  companyId: CompanyId,
+): GameState {
+  const player = state.players[playerIndex];
+  const company = player.companies.find(c => c.id === companyId);
+  if (!company) return state;
+  const opponentIndex = playerIndex === 0 ? 1 : 0;
+
+  const newChars: Record<string, CharacterInPlay> = { ...player.characters };
+  const discard: CardInstance[] = [...player.discardPile];
+  const oppDiscard: CardInstance[] = [...state.players[opponentIndex].discardPile];
+
+  // Followers in the company = characters controlled by another character.
+  const followerSet = new Set<string>();
+  for (const id of company.characters) {
+    const c = newChars[id as string];
+    if (c && c.controlledBy !== 'general') followerSet.add(id as string);
+  }
+  if (followerSet.size === 0) return state;
+
+  // Discard each follower character entirely, together with its own attached
+  // allies (→ owner), items (→ owner) and hazards (→ opponent).
+  for (const id of followerSet) {
+    const f = newChars[id];
+    if (!f) continue;
+    for (const ally of f.allies) discard.push(toCardInstance(ally));
+    for (const item of f.items) discard.push(toCardInstance(item));
+    for (const hz of f.hazards) oppDiscard.push(toCardInstance(hz));
+    discard.push(toCardInstance(f));
+    delete newChars[id];
+  }
+
+  // Remaining (non-follower) members drop any discarded follower from their
+  // `followers` list but keep their own allies.
+  for (const id of company.characters) {
+    if (followerSet.has(id as string)) continue;
+    const c = newChars[id as string];
+    if (!c) continue;
+    newChars[id as string] = {
+      ...c,
+      followers: c.followers.filter(fid => !followerSet.has(fid as string)),
+    };
+  }
+
+  const newCompanies = player.companies.map(co =>
+    co.id === companyId
+      ? { ...co, characters: co.characters.filter(id => !followerSet.has(id as string)) }
+      : co,
+  );
+
+  const updatedPlayers = state.players.map((p, i) =>
+    i === playerIndex
+      ? { ...player, characters: newChars, companies: newCompanies, discardPile: discard }
+      : i === opponentIndex
+        ? { ...p, discardPile: oppDiscard }
+        : p,
+  ) as unknown as readonly [PlayerState, PlayerState];
+
+  const result: GameState = { ...state, players: updatedPlayers };
+  return sweepCompanyMembershipChangedEvents(result, [companyId]);
+}
+
 export function discardEventCard(state: GameState, cardInstanceId: CardInstanceId, playerIndex: number): GameState {
   const player = state.players[playerIndex];
   const eventCard = findById(player.cardsInPlay, cardInstanceId);

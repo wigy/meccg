@@ -12,13 +12,13 @@ import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard } from '../types/cards.js';
 import { CardStatus, SiteType } from '../types/common.js';
-import type { CardInstanceId } from '../types/common.js';
+import type { CardInstanceId, CompanyId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { ownerOf } from '../types/state.js';
 import { getEffectiveSiteType, resolveSiteInstanceTransform } from './effective.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, defById, getCardEffects, isHavenForPlayer, isSelfDiscardMove, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, defById, getCardEffects, isHavenForPlayer, isSelfDiscardMove, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
@@ -608,6 +608,9 @@ function advanceToOrganization(state: GameState): ReducerResult {
       }
     }
     const toDiscard: typeof p.cardsInPlay[0][] = [];
+    // Companies whose Ringwraith followers must also be discarded when the mode
+    // card self-discards (Black Rider le-170's `alsoDiscardCompanyFollowers`).
+    const followerPurgeCompanyIds: string[] = [];
     for (const card of p.cardsInPlay) {
       const cid = card.companyId as string | undefined;
       if (!cid || !activePlayerCompanyIds.has(cid)) continue;
@@ -623,6 +626,10 @@ function advanceToOrganization(state: GameState): ReducerResult {
         if (oe.when && !matchesContext(oe.when, ctx)) continue;
         logDetail(`organization-phase-start: discarding "${eDef.name ?? card.definitionId}" from company ${cid} (siteType=${siteType ?? 'none'})`);
         toDiscard.push(card);
+        if ((oe.apply as { readonly alsoDiscardCompanyFollowers?: boolean }).alsoDiscardCompanyFollowers) {
+          logDetail(`organization-phase-start: also discarding Ringwraith followers in company ${cid} (${eDef.name ?? card.definitionId})`);
+          followerPurgeCompanyIds.push(cid);
+        }
         break;
       }
     }
@@ -639,6 +646,9 @@ function advanceToOrganization(state: GameState): ReducerResult {
         };
       }) as unknown as typeof advanced.players,
     };
+    for (const cid of followerPurgeCompanyIds) {
+      advanced = purgeCompanyFollowers(advanced, pi, cid as CompanyId);
+    }
   }
 
   // Clear `influenceUnsubtracted` flags on the active player's characters: any

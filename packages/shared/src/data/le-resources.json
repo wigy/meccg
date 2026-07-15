@@ -1346,10 +1346,37 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-07-15",
     "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "target.siteType": "haven"
+        }
+      },
       {
         "type": "ringwraith-mode",
         "mode": "black-rider"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "when": {
+          "company.atHaven": true
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard",
+          "alsoDiscardCompanyFollowers": true
+        }
       }
     ]
   },
