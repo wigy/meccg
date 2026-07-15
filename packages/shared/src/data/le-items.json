@@ -1334,7 +1334,8 @@
     "unique": false,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "lesser-ring"
     ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
@@ -1342,7 +1343,26 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": { "reason": "influence-check" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": { "reason": "opponent-influence-check", "target.kind": "character" }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "certified": "2026-07-15",
     "text": "Lesser Ring. Playable only with a gold ring and after a test indicates a Lesser Ring. +3 to direct influence against characters. Cannot be duplicated on a given character."
   },
   {

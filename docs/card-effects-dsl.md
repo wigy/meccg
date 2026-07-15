@@ -347,6 +347,32 @@ enforces the last sentence.)
                                     { "target.race": { "$in": ["orc", "troll"] } } ] } ] } } }
 ```
 
+Beyond one-shot constraints, a **persistent** `stat-modifier direct-influence`
+borne by the influencer is also folded into an opponent-influence attempt when
+its `when` matches the `opponent-influence-check` context. `reducer-site.ts`
+collects the influencer's `when`-gated stat-modifiers (`collectCharacterEffects`
+with the opponent-influence context) and adds them to the influencer's
+contribution. Only `when`-gated modifiers are folded in here — an unconditional
+`direct-influence` modifier is already baked into effective DI (and thus into
+`availableDI`), so including it again would double-count. This is how a "+X
+direct influence against characters" item applies to influencing an opponent's
+character but not an ally/item/faction. Used by Trifling Ring (le-346):
+
+```json
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 3,
+  "when": { "reason": "influence-check" } },
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 3,
+  "when": { "reason": "opponent-influence-check", "target.kind": "character" } }
+```
+
+The first entry (`reason: "influence-check"`, no target predicate) covers
+*controlling* a character as a follower — that resolver context (`availableDI`
+with a target `CharacterCard`) only ever describes a character, so an unqualified
+`influence-check` condition means "against any character". The second covers
+*influencing* an opponent's character. Neither fires for a faction: the
+faction-influence roll uses `reason: "faction-influence-check"`, which matches
+neither condition, so the bonus is correctly excluded against factions.
+
 ### 2z. `site-path-reduction` active constraint
 
 A **player-scoped, turn-scoped** constraint that makes each of the player's
