@@ -4752,9 +4752,25 @@ for reference:
 | `discard-cards-in-play` | `{ select: 'filter-all', from: 'in-play', to: 'discard', filter }` | Doors of Night |
 | `discard-non-special-items` | `{ select: 'filter-all', from: 'items-on-wounded', to: 'discard', toOwner: 'defender', filter }` | creature wound triggers |
 | `reshuffle-self-from-hand` | `{ select: 'self', from: 'hand', to: 'deck', shuffleAfter: true }` | Sudden Call |
-| `fetch-to-deck` | `{ select: 'target', from: ['sideboard','discard'], to: 'deck', shuffleAfter: true, filter, count }` | Smoke Rings, Longbottom Leaf |
+| `fetch-to-deck` | `{ select: 'target', from: ['sideboard','discard','deck'], to: 'deck' \| 'hand', shuffleAfter: true, filter, count }` | Smoke Rings, Longbottom Leaf, Akhôrahil Unleashed |
 | `bounce-hazard-events` | `{ select: 'filter-all', from: 'attached-to-target-company', to: 'hand', toOwner: 'opponent', filter, corruptionCheck }` | Wizard Uncloaked |
 | `sideboard-self-to-deck` | `{ select: 'self', from: ['sideboard'], to: 'deck', shuffleAfter: true }` | Terror Heralds Doom (ba-78) |
+
+A `select: 'target'` fetch move may also draw from the player's own **play
+deck** (`from` includes `'deck'`) — a self-tutor. When the chosen card is
+searched out of the play deck, the reducer reshuffles the deck after removing
+it (`handleFetchFromPile`, reducer-utils.ts); a card taken from the discard
+pile is not reshuffled. Combined with `to: 'hand'` this models *Akhôrahil
+Unleashed* (le-162): "take a magic card from your play deck or discard pile to
+your hand (reshuffle play deck if searched)." `from: ['deck','discard']` offers
+one `fetch-from-pile` per matching card in either pile — the play-deck cards
+carry `source: 'deck'`, discard cards `source: 'discard-pile'`. The magic-card
+filter is an `$or` over the keywords `spell` / `sorcery` / `spirit-magic` /
+`shadow-magic` (the same "magic card" filter used by Indûr's end-of-turn fetch).
+The play restriction "on Akhôrahil the Ringwraith (as your Ringwraith)" is a
+`play-target` (`target: character`) filtered to `target.name === "Akhôrahil the
+Ringwraith"` **and** `target.isRevealedAvatar` — playable only on the player's
+own revealed Ringwraith avatar, never a follower.
 
 A `select: 'self'` move with `from: ['sideboard']`, `to: 'deck'` models the
 Balrog sideboard family's "You may bring this card from your sideboard into

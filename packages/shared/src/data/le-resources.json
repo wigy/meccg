@@ -2938,8 +2938,36 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on Akhôrahil the Ringwraith (as your Ringwraith). You may take a magic card from your play deck or discard pile to your hand (reshuffle play deck if searched)."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.name": "Akhôrahil the Ringwraith" },
+            { "target.isRevealedAvatar": true }
+          ]
+        }
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": ["deck", "discard"],
+        "to": "hand",
+        "shuffleAfter": true,
+        "count": 1,
+        "filter": {
+          "$or": [
+            { "keywords": { "$includes": "spell" } },
+            { "keywords": { "$includes": "sorcery" } },
+            { "keywords": { "$includes": "spirit-magic" } },
+            { "keywords": { "$includes": "shadow-magic" } }
+          ]
+        }
+      }
+    ],
+    "text": "Playable on Akhôrahil the Ringwraith (as your Ringwraith). You may take a magic card from your play deck or discard pile to your hand (reshuffle play deck if searched).",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-event",
