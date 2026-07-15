@@ -2730,7 +2730,26 @@
       {
         "site": "Variag Camp"
       }
-    ]
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Nûriags"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Haradrim"
+        }
+      }
+    ],
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-faction",
