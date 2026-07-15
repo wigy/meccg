@@ -2723,6 +2723,49 @@ export interface RegionKeyingBoostEffect extends EffectBase {
 }
 
 /**
+ * One region-type substitution offered by a {@link RegionTypeRemapEffect}: for
+ * creature-keying purposes, every region of type {@link from} in a company's
+ * traversed site path is treated as a region of type {@link to} (e.g.
+ * `{ from: "border", to: "wilderness" }` = "treat all Border-lands as
+ * Wildernesses").
+ */
+export interface RegionTypeRemap {
+  /** The printed region type being reinterpreted. */
+  readonly from: RegionType;
+  /** The region type it is treated as. */
+  readonly to: RegionType;
+}
+
+/**
+ * An environment effect (Fell Winter, le-111) that reinterprets whole classes
+ * of region for creature-keying purposes: "treat all Free-domains as
+ * Border-lands and all Border-lands as Wildernesses". Unlike
+ * {@link RegionKeyingBoostEffect} (an additive alternative applied to one
+ * region), this is a wholesale **replacement** applied to every matching region
+ * of the traversed site path simultaneously — each region is mapped from its
+ * printed type, so listing both `border→wilderness` and `free→border` never
+ * cascades a Free-domain all the way to a Wilderness.
+ *
+ * The optional {@link when} clause (evaluated against `{ inPlay }`) gates the
+ * remap dynamically while the carrying card is in play — Fell Winter's remap is
+ * active only while Doors of Night is also in play. The creature-keying matchers
+ * (`findCreatureKeyingMatches`, `checkCreatureKeying`) consult the remap live
+ * and transform the effective region-type path before matching; the underlying
+ * path is never mutated.
+ */
+export interface RegionTypeRemapEffect extends EffectBase {
+  readonly type: 'region-type-remap';
+  /** The region-type substitutions applied to the traversed site path. */
+  readonly remap: readonly RegionTypeRemap[];
+  /**
+   * Optional gate evaluated against `{ inPlay }`. When present, the remap is
+   * active only while the condition holds (e.g. Doors of Night in play). Absent
+   * means the remap is active whenever the carrying card is in play.
+   */
+  readonly when?: Condition;
+}
+
+/**
  * Greed (le-113 / tw-42): a hazard short-event played on a site. Until the
  * end of the turn, every character at the bound site (except the one playing
  * the item) must make a corruption check each time an item is played at the
@@ -4302,8 +4345,18 @@ export interface DragonAtHomeEffect extends EffectBase {
  */
 export interface PermanentEventAutoAttackEffect extends EffectBase {
   readonly type: 'permanent-event-auto-attack';
-  /** Site definition IDs whose auto-attack list is augmented while this event is in play. */
+  /**
+   * Site definition IDs whose auto-attack list is augmented while this event is
+   * in play. May be empty when {@link siteType} is used to target every site of
+   * a given type instead of a fixed list.
+   */
   readonly siteIds: readonly CardDefinitionId[];
+  /**
+   * When present, the attack is added to **every** site of this printed type
+   * (e.g. Fell Winter le-111: "Each Border-hold receives an additional
+   * automatic-attack"), in addition to any explicit {@link siteIds}.
+   */
+  readonly siteType?: SiteType;
   /** The attack stats contributed to those sites. */
   readonly attack: {
     readonly creatureType: string;
@@ -4883,6 +4936,7 @@ export type CardEffect =
   | NameAliasEffect
   | ManifestationSwapEffect
   | RegionKeyingBoostEffect
+  | RegionTypeRemapEffect
   | ItemPlayCorruptionCheckEffect
   | PlayTargetEffect
   | PlayOptionEffect

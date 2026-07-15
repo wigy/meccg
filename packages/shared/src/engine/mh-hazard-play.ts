@@ -49,7 +49,7 @@ import { handleGrantActionApply } from './grant-action-apply.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { collectRegionKeyingBoosts, regionPathsWithBoosts } from './region-keying.js';
+import { collectRegionKeyingBoosts, regionPathsWithBoosts, collectRegionTypeRemaps, applyRegionTypeRemaps } from './region-keying.js';
 import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter } from './mh-agents.js';
 
 /**
@@ -2307,9 +2307,15 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   // index-parallel (site-path types vs. just origin/destination names), so
   // the override is skipped there — there is no reliable region to attribute
   // it to.
-  const effectiveSitePath = mhState.resolvedSitePath.length === mhState.resolvedSitePathNames.length
+  const overriddenSitePath = mhState.resolvedSitePath.length === mhState.resolvedSitePathNames.length
     ? mhState.resolvedSitePath.map((rt, i) => getEffectiveRegionType(state, mhState.resolvedSitePathNames[i], rt))
     : mhState.resolvedSitePath;
+
+  // region-type-remap environments (Fell Winter le-111): reinterpret whole
+  // classes of region ("all Border-lands as Wildernesses") on the traversed
+  // path before keying. Evaluated live so the DoN gate tracks play/leave.
+  const regionRemaps = collectRegionTypeRemaps(state, inPlayNames);
+  const effectiveSitePath = applyRegionTypeRemaps(overriddenSitePath, regionRemaps);
 
   // region-keying-boost environments (Withered Lands): build the candidate
   // paths once. Each is the resolved path with at most one boost applied.

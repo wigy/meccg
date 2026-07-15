@@ -39,7 +39,7 @@ import { manifestationSwapActions } from './manifestation-swap.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions } from '../mh-agents.js';
 import { currentHazardLimit } from '../hazard-limit.js';
-import { collectRegionKeyingBoosts, regionPathsWithBoosts } from '../region-keying.js';
+import { collectRegionKeyingBoosts, regionPathsWithBoosts, collectRegionTypeRemaps, applyRegionTypeRemaps } from '../region-keying.js';
 import { asViable as viable } from './evaluated.js';
 
 /**
@@ -3486,10 +3486,15 @@ function findCreatureKeyingMatches(
     inPlay: inPlayNames,
     destinationSite: { sitePath: destSitePathCounts },
   };
+  // region-type-remap environments (Fell Winter le-111): reinterpret whole
+  // classes of region ("all Border-lands as Wildernesses") on the traversed
+  // path before keying. Evaluated live so the DoN gate tracks play/leave.
+  const regionRemaps = collectRegionTypeRemaps(state, inPlayNames);
+  const remappedRegionTypes = applyRegionTypeRemaps(effectiveRegionTypes, regionRemaps);
   // region-keying-boost environments (Withered Lands): build the candidate
   // paths once. Each is the effective path with at most one boost applied.
   const keyingBoosts = collectRegionKeyingBoosts(state);
-  const candidateRegionPaths = regionPathsWithBoosts(effectiveRegionTypes, keyingBoosts);
+  const candidateRegionPaths = regionPathsWithBoosts(remappedRegionTypes, keyingBoosts);
   for (const key of def.keyedTo) {
     if (key.when && !matchesCondition(key.when, whenContext)) continue;
     // Region type matches — try the effective path plus each boosted variant.
