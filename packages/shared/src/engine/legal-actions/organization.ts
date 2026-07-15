@@ -2061,6 +2061,68 @@ function eligiblePlayOptionTargets(
   return out;
 }
 
+/** True when the in-play character can use shadow-magic (own skill or item-granted). */
+function charCanUseShadowMagic(
+  state: GameState,
+  owner: PlayerState,
+  charId: CardInstanceId,
+): boolean {
+  const ch = owner.characters[charId];
+  if (!ch) return false;
+  const cDef = defById(state, ch.definitionId);
+  if (!cDef || !isCharacterCard(cDef)) return false;
+  if (cDef.race === 'ringwraith') return true; // Ringwraiths can use shadow-magic
+  return [...cDef.skills, ...getItemGrantedSkills(state, ch)].includes('shadow-magic' as never);
+}
+
+/**
+ * Enumerate site-scoped candidate target characters for a `play-target` with a
+ * `targetSide` widening (A Malady Without Healing le-159: "May target an
+ * opponent's character"). During the site phase the acting player's active
+ * company defines both the site and — when `requiresControlledShadowMagicUser`
+ * is set — the mandatory shadow-magic caster. Own candidates come from the
+ * active company; opponent candidates come from any opponent company standing at
+ * the *same site*. Each candidate is filtered through the play-target `filter`.
+ */
+function siteScopedCharacterTargets(
+  state: GameState,
+  player: PlayerState,
+  playTarget: PlayTargetEffect,
+): CardInstanceId[] {
+  const activeCompanyIndex = (state.phaseState as { activeCompanyIndex?: number }).activeCompanyIndex ?? 0;
+  const activeCompany = player.companies[activeCompanyIndex];
+  if (!activeCompany) return [];
+  // "…at the same site as a shadow-magic-using character you control."
+  if (playTarget.requiresControlledShadowMagicUser
+    && !activeCompany.characters.some(cid => charCanUseShadowMagic(state, player, cid))) {
+    return [];
+  }
+  const out: CardInstanceId[] = [];
+  const addMatching = (owner: PlayerState, charId: CardInstanceId): void => {
+    const ch = owner.characters[charId];
+    if (!ch) return;
+    const cDef = defById(state, ch.definitionId);
+    if (!cDef || !isCharacterCard(cDef)) return;
+    if (playTarget.filter && !matchesCondition(playTarget.filter, buildTargetContext(state, ch, owner))) return;
+    out.push(charId);
+  };
+  const side = playTarget.targetSide ?? 'own';
+  if (side === 'own' || side === 'any') {
+    for (const cid of activeCompany.characters) addMatching(player, cid);
+  }
+  if (side === 'opponent' || side === 'any') {
+    const siteDefId = activeCompany.currentSite?.definitionId;
+    const opponent = state.players.find(p => p.id !== player.id);
+    if (opponent && siteDefId) {
+      for (const co of opponent.companies) {
+        if (co.currentSite?.definitionId !== siteDefId) continue;
+        for (const cid of co.characters) addMatching(opponent, cid);
+      }
+    }
+  }
+  return out;
+}
+
 /**
  * Generates `play-short-event` actions for a card with {@link PlayOptionEffect}s.
  * One action per (target, option) pair whose `when` (if any) matches the
@@ -2683,6 +2745,30 @@ export function playResourceShortEventActions(
               cardInstanceId: handCard.instanceId,
               targetScoutInstanceId: targetId,
               optionId: 'sideboard-fetch',
+            },
+            viable: true,
+          });
+        }
+      }
+    } else if (playTarget && playTarget.target === 'character'
+      && (playTarget.targetSide === 'any' || playTarget.targetSide === 'opponent'
+        || playTarget.requiresControlledShadowMagicUser)) {
+      // Cross-side, site-scoped character target (A Malady Without Healing
+      // le-159): the victim may be on either player's side but must stand at the
+      // acting caster's site, and a controlled shadow-magic user must be present.
+      const siteTargets = siteScopedCharacterTargets(state, player, playTarget);
+      if (siteTargets.length === 0) {
+        logDetail(`${def.name}: no eligible character targets (site-scoped / caster gate) — not playable`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
+      } else {
+        for (const targetId of siteTargets) {
+          logDetail(`Resource short-event playable (site-scoped target ${String(targetId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              targetCharacterId: targetId,
             },
             viable: true,
           });

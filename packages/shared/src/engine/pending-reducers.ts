@@ -20,6 +20,7 @@ import type {
   CardInstanceId,
   GameEffect,
   CharacterInPlay,
+  PlayerId,
   TwoDiceSix,
 } from '../index.js';
 import type { CardInPlay } from '../types/state-cards.js';
@@ -262,6 +263,19 @@ export function applyCorruptionCheckResolution(
   // Failed — discard or eliminate the character
   const newCharacters = { ...player.characters };
 
+  // Kill-MP credit (A Malady Without Healing le-159): when this check removes a
+  // *hero* target from play and the producing effect asked to credit the caster,
+  // route the eliminated/discarded character card to the caster's out-of-play
+  // pile (where `recompute-derived` scores it) instead of the owner's pile.
+  const creditKillMpTo = top.kind.type === 'corruption-check' ? top.kind.creditKillMpTo : undefined;
+  const isHeroTarget = charDef?.cardType === 'hero-character';
+  const killCreditIdx = creditKillMpTo != null && isHeroTarget
+    ? playersAfterRoll.findIndex(p => p.id === creditKillMpTo)
+    : -1;
+  if (killCreditIdx >= 0) {
+    logDetail(`Corruption check eliminated hero ${charName} — crediting kill MP to ${playersAfterRoll[killCreditIdx].name} (le-159)`);
+  }
+
   // For transfer checks, remove the transferred item from its new bearer
   // (the transfer didn't stick — the item is included in the discard via
   // action.possessions).
@@ -325,8 +339,11 @@ export function applyCorruptionCheckResolution(
       };
     }
 
+    const charCard: CardInstance = { instanceId: characterId, definitionId: char.definitionId };
+    // Credit the character to the caster's out-of-play (kill) pile when asked;
+    // otherwise the character card joins the owner's discard pile as normal.
     const toDiscard: CardInstance[] = [
-      { instanceId: characterId, definitionId: char.definitionId },
+      ...(killCreditIdx >= 0 ? [] : [charCard]),
       ...nonHazardPossessions,
     ];
     playersAfterRoll[playerIndex] = {
@@ -335,6 +352,12 @@ export function applyCorruptionCheckResolution(
       companies: newCompanies,
       discardPile: [...playersAfterRoll[playerIndex].discardPile, ...toDiscard],
     };
+    if (killCreditIdx >= 0) {
+      playersAfterRoll[killCreditIdx] = {
+        ...playersAfterRoll[killCreditIdx],
+        outOfPlayPile: [...playersAfterRoll[killCreditIdx].outOfPlayPile, charCard],
+      };
+    }
     for (const hazard of char.hazards) {
       logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
       const hazOwner = ownerOf(hazard.instanceId);
@@ -382,13 +405,22 @@ export function applyCorruptionCheckResolution(
       };
     }
 
+    const elimCharCard: CardInstance = { instanceId: characterId, definitionId: char.definitionId };
     playersAfterRoll[playerIndex] = {
       ...playersAfterRoll[playerIndex],
       characters: newCharacters,
       companies: newCompanies,
-      outOfPlayPile: [...player.outOfPlayPile, { instanceId: characterId, definitionId: char.definitionId }],
+      outOfPlayPile: killCreditIdx >= 0 && killCreditIdx !== playerIndex
+        ? player.outOfPlayPile
+        : [...player.outOfPlayPile, elimCharCard],
       discardPile: [...playersAfterRoll[playerIndex].discardPile, ...nonHazardPossessions],
     };
+    if (killCreditIdx >= 0 && killCreditIdx !== playerIndex) {
+      playersAfterRoll[killCreditIdx] = {
+        ...playersAfterRoll[killCreditIdx],
+        outOfPlayPile: [...playersAfterRoll[killCreditIdx].outOfPlayPile, elimCharCard],
+      };
+    }
     for (const hazard of char.hazards) {
       logDetail(`Discarding hazard ${hazard.instanceId as string} from eliminated character`);
       const hazOwner = ownerOf(hazard.instanceId);
@@ -844,6 +876,25 @@ function diceCheckChainMatcher(
  * the verbs the collapsed roll kinds need; a `move` whose target can't be
  * located fizzles (matching the originals' no-op on an already-gone target).
  */
+/**
+ * Resolve the kill-MP credit player index for a dice-check elimination verb
+ * (le-159's body check). Returns the credit player's index when the dice-check
+ * asked to credit kill MP AND the eliminated character is a *hero*; otherwise
+ * `undefined` (normal elimination to the owner's out-of-play pile).
+ */
+function killCreditFor(
+  state: GameState,
+  ctx: { readonly creditKillMpTo?: PlayerId; readonly targetCharacterId?: CardInstanceId },
+  ownerIndex: number,
+): number | undefined {
+  if (ctx.creditKillMpTo == null || !ctx.targetCharacterId) return undefined;
+  const charInPlay = state.players[ownerIndex].characters[ctx.targetCharacterId];
+  const charDef = charInPlay ? defById(state, charInPlay.definitionId) : undefined;
+  if (!charDef || charDef.cardType !== 'hero-character') return undefined;
+  const creditIdx = state.players.findIndex(p => p.id === ctx.creditKillMpTo);
+  return creditIdx >= 0 ? creditIdx : undefined;
+}
+
 function applyDiceCheckBranch(
   state: GameState,
   branch: TriggeredAction,
@@ -852,6 +903,8 @@ function applyDiceCheckBranch(
     readonly targetInstanceId?: CardInstanceId;
     readonly source: CardInstanceId | null;
     readonly rollerIndex: number;
+    /** Player to credit kill MP to when a hero target is eliminated (le-159). */
+    readonly creditKillMpTo?: PlayerId;
   },
 ): ReducerResult {
   if (branch.type === 'sequence') {
@@ -929,7 +982,7 @@ function applyDiceCheckBranch(
       return { state };
     }
     const charInPlay = state.players[ownerIndex].characters[ctx.targetCharacterId];
-    return { state: eliminateCharacter(state, ownerIndex, ctx.targetCharacterId, charInPlay) };
+    return { state: eliminateCharacter(state, ownerIndex, ctx.targetCharacterId, charInPlay, killCreditFor(state, ctx, ownerIndex)) };
   }
   if (branch.type === 'set-character-status') {
     if (!ctx.targetCharacterId || !branch.status) return { state };
@@ -984,7 +1037,7 @@ function applyDiceCheckBranch(
       const charInPlay = state.players[ownerIndex].characters[targetId];
       if (charInPlay.status === CardStatus.Inverted) {
         logDetail(`wound-or-eliminate: character ${targetId as string} already wounded → eliminated`);
-        return { state: eliminateCharacter(state, ownerIndex, targetId, charInPlay) };
+        return { state: eliminateCharacter(state, ownerIndex, targetId, charInPlay, killCreditFor(state, ctx, ownerIndex)) };
       }
       logDetail(`wound-or-eliminate: character ${targetId as string} wounded`);
       return {
@@ -1078,6 +1131,7 @@ export function applyDiceCheckResolution(
       targetInstanceId: kind.targetInstanceId,
       source: top.source,
       rollerIndex,
+      creditKillMpTo: kind.creditKillMpTo,
     });
     if ('error' in r) return r;
     post = r.state;
@@ -1370,6 +1424,7 @@ function discardCharacter(
   characterId: import('../index.js').CardInstanceId,
   charInPlay: import('../index.js').CharacterInPlay,
   characterDestination: 'discard' | 'out-of-play' = 'discard',
+  killMpCreditPlayerIndex?: number,
 ): GameState {
   // Press-gang (ba-22): a character that would otherwise be *discarded* from
   // play is instead held off to the side by an opponent's Press-gang. Only the
@@ -1431,7 +1486,15 @@ function discardCharacter(
 
   // The character card itself: discarded (default) or eliminated to the owner's
   // out-of-play pile. Its possessions were already pushed to newDiscard above.
-  const newOutOfPlay = characterDestination === 'out-of-play'
+  // When `killMpCreditPlayerIndex` is supplied (le-159's kill-MP clause), an
+  // eliminated character is instead credited to that player's out-of-play pile,
+  // where `recompute-derived` scores it as kill MP.
+  const creditIdx = characterDestination === 'out-of-play'
+    && killMpCreditPlayerIndex != null
+    && killMpCreditPlayerIndex !== playerIndex
+    ? killMpCreditPlayerIndex
+    : -1;
+  const newOutOfPlay = characterDestination === 'out-of-play' && creditIdx < 0
     ? [...player.outOfPlayPile, toCardInstance(charInPlay)]
     : player.outOfPlayPile;
   if (characterDestination === 'discard') {
@@ -1446,6 +1509,12 @@ function discardCharacter(
     outOfPlayPile: newOutOfPlay,
   };
   newPlayers[opponentIndex] = { ...opponent, discardPile: newOpponentDiscard };
+  if (creditIdx >= 0) {
+    newPlayers[creditIdx] = {
+      ...newPlayers[creditIdx],
+      outOfPlayPile: [...newPlayers[creditIdx].outOfPlayPile, toCardInstance(charInPlay)],
+    };
+  }
 
   const removedDef = defById(state, charInPlay.definitionId);
   const removedIsLeader = !!(removedDef && isCharacterCard(removedDef) && (removedDef.keywords ?? []).includes('leader'));
@@ -1473,8 +1542,9 @@ export function eliminateCharacter(
   playerIndex: number,
   characterId: import('../index.js').CardInstanceId,
   charInPlay: import('../index.js').CharacterInPlay,
+  killMpCreditPlayerIndex?: number,
 ): GameState {
-  return discardCharacter(state, playerIndex, characterId, charInPlay, 'out-of-play');
+  return discardCharacter(state, playerIndex, characterId, charInPlay, 'out-of-play', killMpCreditPlayerIndex);
 }
 
 /**

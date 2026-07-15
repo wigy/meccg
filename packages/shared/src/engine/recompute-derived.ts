@@ -1381,6 +1381,18 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         }
       }
     }
+
+    // Kill MP for an *opponent's* eliminated character resting in this player's
+    // out-of-play pile: a defeated hero counts as kill MPs equal to his mind
+    // (CoE rule 8.21 CvCC "counts as kill MPs for the opposing player"). The
+    // out-of-play pile otherwise only ever holds the player's *own* eliminated
+    // cards, so the ownership guard (rule 10.4 — no MP from your own cards)
+    // means this only fires for characters deliberately credited here (A Malady
+    // Without Healing le-159 routes an eliminated hero target to the caster's
+    // out-of-play pile). Owner is O(1) from the instance-ID prefix.
+    if (isCharacterCard(def) && def.mind !== null && ownerOf(card.instanceId) !== player.id) {
+      mp = { ...mp, kill: mp.kill + def.mind };
+    }
   }
 
   // MEBA: one-time bonus misc MP (Challenge the Power 9–10 band) is held on the

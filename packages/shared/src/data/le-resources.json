@@ -2912,7 +2912,62 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "keywords": [
+      "shadow-magic"
+    ],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "targetSide": "any",
+        "requiresControlledShadowMagicUser": true,
+        "filter": {
+          "$and": [
+            {
+              "$not": {
+                "target.race": "ringwraith"
+              }
+            },
+            {
+              "$not": {
+                "target.race": "wizard"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -1,
+          "creditKillMpToController": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-body-check",
+          "modifierWhenTapped": 1,
+          "creditKillMpToController": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -5,
+          "target": "active-company-shadow-magic-user"
+        }
+      }
+    ],
     "text": "Magic. Shadow-magic. Playable during the site phase on a non-Ringwraith, non-Wizard character at the same site as a shadow-magic-using character you control. Target character must make a corruption check modified by -1 followed by a body check (modified by +1 if tapped). If target character is a hero and is eliminated by these checks, you receive his kill marshalling points. Unless the shadow-magic-user is a Ringwraith, he makes a corruption check modified by -5.May target an opponent’s character."
   },
   {

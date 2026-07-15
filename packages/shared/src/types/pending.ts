@@ -207,6 +207,13 @@ export interface PendingResolution {
          */
         readonly failureMode?: 'discard-ring-only' | 'discard-instead-of-eliminate';
         /**
+         * When set and this check *eliminates* a hero character, the eliminated
+         * character is credited as kill marshalling points to this player (the
+         * caster) — its card is routed to that player's out-of-play pile, where
+         * `recompute-derived` scores it. A Malady Without Healing le-159.
+         */
+        readonly creditKillMpTo?: PlayerId;
+        /**
          * Follow-up effect run when the check *passes* (CoE 10.39 hook).
          * Used by Cracks of Doom (tw-205): a successful −4 corruption check
          * on the Ring's bearer wins the game. The resolver runs this apply
@@ -305,6 +312,13 @@ export interface PendingResolution {
         readonly targetCharacterId?: CardInstanceId;
         /** Instance the onPass/onFail verbs act on (muster faction, glamour hazard, cvcc ally). */
         readonly targetInstanceId?: CardInstanceId;
+        /**
+         * When set and an onPass/onFail verb *eliminates* a hero target
+         * character, that character is credited as kill marshalling points to
+         * this player (routed to their out-of-play pile). A Malady Without
+         * Healing le-159's body check.
+         */
+        readonly creditKillMpTo?: PlayerId;
       }
     | {
         /**

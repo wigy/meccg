@@ -1533,10 +1533,40 @@ export interface ForceCheckAllCompanyAction extends TriggeredActionBase {
 export interface EnqueueCorruptionCheckAction extends TriggeredActionBase {
   readonly type: 'enqueue-corruption-check';
   readonly modifier?: number;
-  /** e.g. `'company-shadow-magic-user'` to pick the non-Ringwraith shadow user. */
+  /**
+   * Which character makes the check. Absent → the played-on / attached target
+   * character. `'company-shadow-magic-user'` → the non-Ringwraith shadow-magic
+   * user in the *target's* company (as-108 Well-preserved). `'active-company-
+   * shadow-magic-user'` → the non-Ringwraith shadow-magic user in the *acting*
+   * site-phase company (the caster you control — A Malady Without Healing
+   * le-159). Ringwraith casters are exempt (no check enqueued).
+   */
   readonly target?: string;
   /** Apply run if the check succeeds (Cracks of Doom: succeed → win-game). Recursive. */
   readonly onSuccess?: TriggeredAction;
+  /**
+   * When true and the check *eliminates* a hero target character, the
+   * eliminated character is credited as kill marshalling points to the acting
+   * player (the card's controller) instead of merely leaving play. A Malady
+   * Without Healing le-159: "If target character is a hero and is eliminated by
+   * these checks, you receive his kill marshalling points."
+   */
+  readonly creditKillMpToController?: boolean;
+}
+
+/**
+ * `enqueue-body-check` — a single lethal body check on the played-on target
+ * character during the site phase (A Malady Without Healing le-159's "followed
+ * by a body check"). Distinct from `force-check-all-company` (whole company,
+ * tap-on-fail): this fires on one target and *eliminates* on a high roll,
+ * mirroring the combat body check (roll + modifiers > body → eliminated).
+ */
+export interface EnqueueBodyCheckAction extends TriggeredActionBase {
+  readonly type: 'enqueue-body-check';
+  /** Roll modifier applied only when the target is currently tapped. */
+  readonly modifierWhenTapped?: number;
+  /** As {@link EnqueueCorruptionCheckAction.creditKillMpToController}. */
+  readonly creditKillMpToController?: boolean;
 }
 
 /** `roll-check` — roll 2d6, sum check modifiers, emit a labelled dice GameEffect. */
@@ -1970,6 +2000,7 @@ export type TriggeredAction =
   | ForceCheckAction
   | ForceCheckAllCompanyAction
   | EnqueueCorruptionCheckAction
+  | EnqueueBodyCheckAction
   | RollCheckAction
   | RollThenApplyAction
   | WinConditionRollAction
@@ -2990,6 +3021,22 @@ export interface PlayTargetEffect extends EffectBase {
    * and never see set-aside cards.
    */
   readonly targetsSetAside?: boolean;
+  /**
+   * Which side's characters the card may target. Default (absent) is the
+   * acting player's own characters. `"any"` widens the candidate set to
+   * include the opponent's characters *at the same site as the acting
+   * company* (A Malady Without Healing le-159: "May target an opponent's
+   * character"). `"opponent"` restricts to the opponent's side only.
+   */
+  readonly targetSide?: 'own' | 'opponent' | 'any';
+  /**
+   * When true, the card is only playable if the acting site-phase company
+   * contains a shadow-magic-using character the acting player controls (the
+   * "shadow-magic-using character you control" caster requirement). The
+   * caster is auto-selected for any `active-company-shadow-magic-user`
+   * corruption check. Used by A Malady Without Healing le-159.
+   */
+  readonly requiresControlledShadowMagicUser?: boolean;
 }
 
 /**

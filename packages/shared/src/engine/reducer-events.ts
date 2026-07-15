@@ -17,7 +17,7 @@ import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { ownerOf, resolveInstanceId } from '../types/state.js';
-import { resolveDef } from './effects/index.js';
+import { resolveDef, getItemGrantedSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, companyById, companySubphaseScope, defById, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -1625,6 +1625,55 @@ function applyPlayOptionAddConstraint(
   };
 }
 
+/** The index of the player whose in-play characters include `charId`, or -1. */
+function characterOwnerIndex(state: GameState, charId: import('../types/common.js').CardInstanceId): number {
+  return state.players.findIndex(p => !!p.characters[charId]);
+}
+
+/** True when the in-play character can use shadow-magic (own skill or item-granted). */
+function charUsesShadowMagic(
+  state: GameState,
+  charInPlay: import('../types/state-cards.js').CharacterInPlay,
+): boolean {
+  const cDef = defById(state, charInPlay.definitionId);
+  if (!cDef || !isCharacterCard(cDef)) return false;
+  return [...cDef.skills, ...getItemGrantedSkills(state, charInPlay)].includes('shadow-magic' as never);
+}
+
+/**
+ * The non-Ringwraith shadow-magic user the acting player controls in the current
+ * site-phase company — the caster who makes A Malady Without Healing le-159's
+ * −5 corruption check. Ringwraith casters are exempt (returns null).
+ */
+function activeCompanyShadowMagicCaster(
+  state: GameState,
+  playerIndex: number,
+): import('../types/common.js').CardInstanceId | null {
+  const activeCompanyIndex = (state.phaseState as { activeCompanyIndex?: number }).activeCompanyIndex ?? 0;
+  const company = state.players[playerIndex].companies[activeCompanyIndex];
+  if (!company) return null;
+  for (const memberId of company.characters) {
+    const member = state.players[playerIndex].characters[memberId];
+    if (!member) continue;
+    const mDef = defById(state, member.definitionId);
+    if (!mDef || !isCharacterCard(mDef)) continue;
+    if (mDef.race === 'ringwraith') continue; // Ringwraith caster: no check
+    if (charUsesShadowMagic(state, member)) return memberId;
+  }
+  return null;
+}
+
+/** Items/allies/hazards borne by an in-play character (for a corruption check). */
+function characterPossessions(
+  charInPlay: import('../types/state-cards.js').CharacterInPlay,
+): import('../types/common.js').CardInstanceId[] {
+  return [
+    ...charInPlay.items.map(i => i.instanceId),
+    ...charInPlay.allies.map(a => a.instanceId),
+    ...charInPlay.hazards.map(h => h.instanceId),
+  ];
+}
+
 /**
  * Process `on-event: self-enters-play` effects for a resource short-event.
  * Currently handles `add-constraint` effects, where the target company is
@@ -1658,17 +1707,37 @@ function applyShortEventOnEntersPlay(
         logDetail(`enqueue-corruption-check: deferred to postCorruptionCheck (fetch sub-flow active)`);
         continue;
       }
-      const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+      // Resolve which character makes the check. Default is the played-on target
+      // (which may be an *opponent's* character — le-159 targets either side).
+      // `active-company-shadow-magic-user` picks the acting player's non-Ringwraith
+      // shadow-magic caster in the current site-phase company (le-159's −5 check;
+      // Ringwraith caster ⇒ no check).
+      const playedOnId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+      let characterId: import('../types/common.js').CardInstanceId | undefined;
+      if (onEvent.apply.target === 'active-company-shadow-magic-user') {
+        characterId = activeCompanyShadowMagicCaster(state, playerIndex) ?? undefined;
+        if (!characterId) {
+          logDetail(`"${def.name}" enqueue-corruption-check: shadow-magic caster is a Ringwraith or absent — no check`);
+          continue;
+        }
+      } else {
+        characterId = playedOnId;
+      }
       if (!characterId) {
         logDetail(`enqueue-corruption-check: no target character — fizzle`);
         continue;
       }
+      const ownerIndex = characterOwnerIndex(state, characterId);
+      if (ownerIndex < 0) {
+        logDetail(`enqueue-corruption-check: character ${characterId as string} not in play — fizzle`);
+        continue;
+      }
+      const checkCharInPlay = state.players[ownerIndex].characters[characterId];
       // If the effect has a `when` condition, evaluate it against the target
       // character's definition. Used e.g. by Deeper Shadow to skip the check
       // for Ringwraith characters ("Unless he is a Ringwraith, ...").
       if (onEvent.when) {
-        const charInPlay = state.players[playerIndex].characters[characterId];
-        const charDef = charInPlay ? defById(state, charInPlay.definitionId) : undefined;
+        const charDef = checkCharInPlay ? defById(state, checkCharInPlay.definitionId) : undefined;
         const targetRace = charDef && isCharacterCard(charDef) ? charDef.race : undefined;
         const whenCtx = { target: { race: targetRace } };
         if (!matchesCondition(onEvent.when, whenCtx)) {
@@ -1677,15 +1746,64 @@ function applyShortEventOnEntersPlay(
         }
       }
       const modifier = (onEvent.apply.modifier) ?? 0;
-      logDetail(`"${def.name}" played — enqueuing corruption check on ${characterId as string} (modifier ${modifier})`);
+      // The check is made by the character's controller (le-159 may target an
+      // opponent's character). Credit kill MP to the caster's player when asked.
+      const creditKillMpTo = onEvent.apply.creditKillMpToController ? state.players[playerIndex].id : undefined;
+      logDetail(`"${def.name}" played — enqueuing corruption check on ${characterId as string} (modifier ${modifier}, roller ${state.players[ownerIndex].name})`);
       state = enqueueCorruptionCheck(state, {
         source: handCard.instanceId,
-        actor: state.players[playerIndex].id,
+        actor: state.players[ownerIndex].id,
         scope: { kind: 'phase', phase: state.phaseState.phase },
         characterId,
         modifier,
+        possessions: checkCharInPlay ? characterPossessions(checkCharInPlay) : [],
         reason: def.name,
         onSuccess: onEvent.apply.onSuccess,
+        ...(creditKillMpTo != null ? { creditKillMpTo } : {}),
+      });
+      continue;
+    }
+
+    // enqueue-body-check (le-159): a single lethal body check on the played-on
+    // target character. Modeled as a generic `dice-check` — eliminate on
+    // roll(+modifiers) > body (combat body-check semantics), with a +N modifier
+    // when the target is currently tapped. The check is rolled by the target's
+    // controller; a hero eliminated here credits kill MP to the caster.
+    if (onEvent.apply.type === 'enqueue-body-check') {
+      const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+      if (!characterId) {
+        logDetail(`enqueue-body-check: no target character — fizzle`);
+        continue;
+      }
+      const ownerIndex = characterOwnerIndex(state, characterId);
+      if (ownerIndex < 0) {
+        logDetail(`enqueue-body-check: character ${characterId as string} not in play — fizzle`);
+        continue;
+      }
+      const bodyCheckChar = state.players[ownerIndex].characters[characterId];
+      const bDef = defById(state, bodyCheckChar.definitionId);
+      const body = bDef && isCharacterCard(bDef) && bDef.body != null ? bDef.body : 9;
+      const tappedMod = bodyCheckChar.status === CardStatus.Tapped ? (onEvent.apply.modifierWhenTapped ?? 0) : 0;
+      const cName = bDef && isCharacterCard(bDef) ? bDef.name : (characterId as string);
+      const creditKillMpTo = onEvent.apply.creditKillMpToController ? state.players[playerIndex].id : undefined;
+      logDetail(`"${def.name}" played — enqueuing body check on ${cName} (body ${body}, tapped modifier +${tappedMod})`);
+      state = enqueueResolution(state, {
+        source: handCard.instanceId,
+        actor: state.players[ownerIndex].id,
+        scope: { kind: 'phase', phase: state.phaseState.phase },
+        kind: {
+          type: 'dice-check',
+          label: `Body check (${def.name}): ${cName}`,
+          modifiers: tappedMod !== 0 ? [{ kind: 'constant', value: tappedMod }] : [],
+          threshold: body,
+          comparison: 'gt',
+          // Eliminate on a high roll (roll + mods > body); survive otherwise.
+          onPass: { type: 'eliminate-character' },
+          continuation: { kind: 'dequeue-only' },
+          requireTargetPresent: true,
+          targetCharacterId: characterId,
+          ...(creditKillMpTo != null ? { creditKillMpTo } : {}),
+        },
       });
       continue;
     }
