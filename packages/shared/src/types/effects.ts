@@ -292,6 +292,36 @@ export interface MpModifierEffect extends EffectBase {
 }
 
 /**
+ * A game-wide modifier to the corruption points and/or marshalling points of
+ * every in-play item that matches an item filter, sourced from an in-play
+ * permanent-event (in either player's `cardsInPlay`). Unlike {@link MpModifierEffect}
+ * (which rides the item being scored and is gated on the *bearer*), this effect
+ * lives on a *separate* card and reaches out to every matching item borne by any
+ * character of any player.
+ *
+ * `itemFilter` is evaluated against a per-item context `{ item: { keywords,
+ * name, cardType } }` (an absent filter matches every item). The `corruptionPoints`
+ * delta is folded into each matching item's bearer corruption total (in
+ * `computeEffectiveStats`, respecting the same Balrog-avatar exclusion as the
+ * item's printed corruption); the `marshallingPoints` delta is added flat to the
+ * item's marshalling category in the MP tally.
+ *
+ * Used by Rumor of the One (le-224): "+1 to the corruption points and the
+ * marshalling points for all ring items." — `itemFilter`
+ * `{ "item.keywords": { "$includes": "ring" } }`, `corruptionPoints: 1`,
+ * `marshallingPoints: 1`.
+ */
+export interface InPlayItemModifierEffect extends EffectBase {
+  readonly type: 'in-play-item-modifier';
+  /** Item-context condition selecting which items are affected (absent → all items). */
+  readonly itemFilter?: Condition;
+  /** Corruption-point delta added to each matching item (default 0). */
+  readonly corruptionPoints?: number;
+  /** Marshalling-point delta added to each matching item's category (default 0). */
+  readonly marshallingPoints?: number;
+}
+
+/**
  * Grants a fixed marshalling-point value while the carrying card sits in a
  * player's marshalling-point (kill) pile.
  *
@@ -4902,6 +4932,7 @@ export type CardEffect =
   | CheckModifierEffect
   | BodyCheckModifierEffect
   | MpModifierEffect
+  | InPlayItemModifierEffect
   | FallenWizardItemMpEffect
   | FallenWizardAllyMpFullEffect
   | FallenWizardCharacterAllyMpEffect

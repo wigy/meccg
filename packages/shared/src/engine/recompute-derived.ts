@@ -585,6 +585,66 @@ function resolveCompanyRingwraithMode(
   return undefined;
 }
 
+/** One in-play global item-stat modifier (from an `in-play-item-modifier` effect). */
+type InPlayItemModifier = {
+  readonly itemFilter?: Condition;
+  readonly corruptionPoints: number;
+  readonly marshallingPoints: number;
+};
+
+/**
+ * Collects every `in-play-item-modifier` effect carried by a card in either
+ * player's `cardsInPlay` (e.g. Rumor of the One le-224, "+1 to the corruption
+ * points and the marshalling points for all ring items"). Returns an empty
+ * array when no such card is in play, so the per-item scan below short-circuits.
+ */
+function collectInPlayItemModifiers(state: GameState): InPlayItemModifier[] {
+  const out: InPlayItemModifier[] = [];
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'in-play-item-modifier') continue;
+        out.push({
+          itemFilter: effect.itemFilter,
+          corruptionPoints: effect.corruptionPoints ?? 0,
+          marshallingPoints: effect.marshallingPoints ?? 0,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Sums the corruption-point and marshalling-point deltas that the in-play
+ * global item modifiers grant to a single item, matching each modifier's
+ * optional `itemFilter` against a per-item context `{ item: { keywords, name,
+ * cardType } }`. Returns `{ cp: 0, mp: 0 }` when nothing matches.
+ */
+function itemModifierDeltas(
+  itemDef: CardDefinition,
+  mods: readonly InPlayItemModifier[],
+): { cp: number; mp: number } {
+  if (mods.length === 0) return { cp: 0, mp: 0 };
+  const ctx = {
+    item: {
+      keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
+      name: itemDef.name,
+      cardType: itemDef.cardType,
+    },
+  };
+  let cp = 0;
+  let mp = 0;
+  for (const m of mods) {
+    if (m.itemFilter && !matchesContext(m.itemFilter, ctx)) continue;
+    cp += m.corruptionPoints;
+    mp += m.marshallingPoints;
+  }
+  return { cp, mp };
+}
+
 /**
  * Computes effective stats for a character using the card effects resolver.
  *
@@ -713,6 +773,10 @@ function computeEffectiveStats(
   // structural fallback; ditto for unrelated DSL effects on the item
   // itself, e.g. `item-play-site`.)
   const activeItems = pickActiveItemsForCharacter(state, char);
+  // Global item-stat modifiers in play (Rumor of the One le-224: +1 corruption
+  // point to all ring items). Applied to each borne matching item's corruption
+  // total below, under the same Balrog-avatar exclusion as its printed CP.
+  const inPlayItemMods = collectInPlayItemModifiers(state);
   // Whip of Many Thongs (ba-82): weapons whose effects were cancelled for the
   // current combat contribute no structural prowess/body either (the DSL-effect
   // path is filtered in `collectCharacterEffects`; this covers weapons that
@@ -740,6 +804,7 @@ function computeEffectiveStats(
       // attributes — its corruption points do not apply either.
       if (!bearerIsBalrogAvatar) {
         corruptionPoints += itemDef.corruptionPoints;
+        corruptionPoints += itemModifierDeltas(itemDef, inPlayItemMods).cp;
       }
     }
   }
@@ -937,6 +1002,10 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   let generalInfluenceBonus = 0;
   let generalInfluenceControlPenalty = 0;
   let mp = ZERO_MARSHALLING_POINTS;
+  // Global item-stat modifiers in play (Rumor of the One le-224: +1 marshalling
+  // point to all ring items). Collected once per recompute; applied flat to each
+  // matching item's marshalling category in the item MP loop below.
+  const inPlayItemMods = collectInPlayItemModifiers(state);
   // MEAS §6e: marshalling points of company-held cards (characters, their items
   // and allies) at an Under-deeps site, accumulated separately so they can be
   // excluded from the *call* threshold while remaining in the final tally.
@@ -1054,6 +1123,15 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       const fwExempt = fwItemExemptions.length > 0 && cardExemptFromFwClamp(itemDef, fwItemExemptions, bearerInAvatarCompany);
       mp = addItemMP(mp, itemDef, player.alignment, fwExempt);
       if (atUnderDeeps) underDeepsMp = addItemMP(underDeepsMp, itemDef, player.alignment, fwExempt);
+      // Global item-MP bonus (Rumor of the One le-224): a flat delta to the
+      // item's marshalling category, independent of the cross-alignment / §4
+      // clamps applied to the item's own printed MP above.
+      const globalMpDelta = itemModifierDeltas(itemDef, inPlayItemMods).mp;
+      if (globalMpDelta !== 0 && hasMarshallingPoints(itemDef)) {
+        const cat = itemDef.marshallingCategory;
+        mp = { ...mp, [cat]: mp[cat] + globalMpDelta };
+        if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + globalMpDelta };
+      }
       // Apply bearer-conditional mp-modifier effects on items
       // (e.g. Durin's Axe: +2 MP if held by a Dwarf). Skipped for a Fallen-wizard
       // (MEWH §4): his items are worth a flat 1 MP and cannot be boosted by such

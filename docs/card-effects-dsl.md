@@ -493,6 +493,34 @@ Modifies marshalling points conditionally.
 { "type": "mp-modifier", "value": -3, "when": { "reason": "elimination" } }
 ```
 
+### 3a-ii. `in-play-item-modifier`
+
+A game-wide modifier to the **corruption points** and/or **marshalling points**
+of every in-play item matching an item filter, sourced from a permanent-event in
+either player's `cardsInPlay`. Unlike `mp-modifier` (which rides the item being
+scored and is gated on the *bearer*), this effect lives on a *separate* card and
+reaches out to every matching item borne by any character of any player.
+
+`itemFilter` is evaluated against a per-item context `{ item: { keywords, name,
+cardType } }` (absent → matches every item). The `corruptionPoints` delta is
+folded into each matching item's bearer corruption total (in `computeEffectiveStats`,
+under the same Balrog-avatar exclusion as the item's printed corruption); the
+`marshallingPoints` delta is added flat to the item's marshalling category in the
+MP tally (independent of the cross-alignment / MEWH §4 clamps applied to the
+item's own printed MP). Both collected once per recompute via
+`collectInPlayItemModifiers` in `recompute-derived.ts`.
+
+```json
+{ "type": "in-play-item-modifier",
+  "itemFilter": { "item.keywords": { "$includes": "ring" } },
+  "corruptionPoints": 1,
+  "marshallingPoints": 1 }
+```
+
+Used by Rumor of the One (le-224): "+1 to the corruption points and the
+marshalling points for all ring items." — paired with an `on-event:
+play-deck-exhausted` self-discard `move` and `duplication-limit` scope `game`.
+
 ### 3aa. `mp-in-pile`
 
 Grants a flat marshalling-point value while the carrying card sits in a player's
