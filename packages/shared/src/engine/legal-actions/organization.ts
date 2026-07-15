@@ -2724,7 +2724,26 @@ export function playResourceShortEventActions(
           actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires a sage and a gold ring in the same company`));
         }
       } else {
+        // duplication-limit: scope "character" — "Cannot be duplicated on a
+        // given character." A short event does not attach, but its rest-of-turn
+        // effect leaves a character-targeted active constraint (e.g. Words of
+        // Menace and Deceit le-258's +5 direct-influence character-stat-modifier)
+        // whose `sourceDefinitionId` marks the card. Skip any target that already
+        // bears the limit's worth of such constraints from this definition.
+        const charDupLimit = findDuplicationLimitEffect(def, 'character');
         for (const targetId of filterTargets) {
+          if (charDupLimit) {
+            const copiesOnChar = state.activeConstraints.filter(
+              c =>
+                c.sourceDefinitionId === def.id &&
+                c.target.kind === 'character' &&
+                c.target.characterId === targetId,
+            ).length;
+            if (copiesOnChar >= charDupLimit.max) {
+              logDetail(`${def.name}: cannot be duplicated on character ${String(targetId)} (${copiesOnChar} active constraint(s))`);
+              continue;
+            }
+          }
           logDetail(`Resource short-event playable (filter-target ${String(targetId)}): ${def.name}`);
           actions.push({
             action: {

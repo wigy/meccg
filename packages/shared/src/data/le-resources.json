@@ -3919,10 +3919,53 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WordsofMenaceandDeceit.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spirit-magic"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character. +5 to the character’s direct influence for the rest of the turn. Unless he is a Ringwraith, he makes a corruption check modified by -4. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "spirit-magic"
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "direct-influence",
+          "value": 5,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": {
+          "$not": {
+            "target.race": "ringwraith"
+          }
+        },
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -4
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character. +5 to the character’s direct influence for the rest of the turn. Unless he is a Ringwraith, he makes a corruption check modified by -4. Cannot be duplicated on a given character.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-faction",
