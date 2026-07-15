@@ -793,13 +793,29 @@ function handleSiteAutomaticAttacks(
     baseEffective,
     { site: { type: siteDef.siteType } },
   );
-  const effectiveProwess = boost.value;
+  let effectiveProwess = boost.value;
   if (boost.consumedIds.length > 0) {
     for (const id of boost.consumedIds) {
       const src = state.activeConstraints.find(c => c.id === id);
       if (src) logDetail(`Site: consuming attribute-modifier (auto-attack.prowess +${boost.value - baseEffective}) from "${cardName(state, src.sourceDefinitionId, '?')}"`);
       boostedState = removeConstraint(boostedState, id);
     }
+  }
+
+  // Arouse Defenders (le-101): a single-use `auto-attack-boost` constraint on
+  // this company boosts the prowess of one automatic-attack (the first faced)
+  // and can make it uncancelable. Consume the first matching constraint.
+  let arouseUncancelable = false;
+  const arouseBoost = boostedState.activeConstraints.find(
+    c => c.target.kind === 'company'
+      && c.target.companyId === company.id
+      && c.kind.type === 'auto-attack-boost',
+  );
+  if (arouseBoost && arouseBoost.kind.type === 'auto-attack-boost') {
+    effectiveProwess += arouseBoost.kind.prowessBonus;
+    arouseUncancelable = arouseBoost.kind.uncancelable;
+    logDetail(`Site: consuming auto-attack-boost (+${arouseBoost.kind.prowessBonus} prowess${arouseBoost.kind.uncancelable ? ', cannot be canceled' : ''}) from "${cardName(state, arouseBoost.sourceDefinitionId, '?')}"`);
+    boostedState = removeConstraint(boostedState, arouseBoost.id);
   }
 
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
@@ -848,8 +864,9 @@ function handleSiteAutomaticAttacks(
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
     // "cannot be canceled" (Vile Fumes' Gas wh-54, Shelob's Lair le-402)
     // suppresses cancel-attack actions; "wound-eliminates" upgrades any wound
-    // dealt by this attack into immediate elimination.
-    ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
+    // dealt by this attack into immediate elimination. Arouse Defenders
+    // (le-101) makes its boosted attack uncancelable via `arouseUncancelable`.
+    ...((aa.combatRules?.includes('cannot-be-canceled') || arouseUncancelable) ? { uncancelable: true } : {}),
     ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
     ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),

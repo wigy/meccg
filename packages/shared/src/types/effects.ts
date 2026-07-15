@@ -5089,6 +5089,7 @@ export type CardEffect =
   | HazardMaintenanceEffect
   | DuplicateSiteAutoAttacksEffect
   | CreateSiteAutoAttackEffect
+  | AutoAttackBoostEffect
   | SiteItemTrapEffect
   | HazardLimitSwapEffect
   | DiscardForHazardLimitEffect
@@ -5588,6 +5589,35 @@ export interface CreateSiteAutoAttackEffect extends EffectBase {
     /** When true, the created attack is detainment regardless of alignment/site. */
     readonly detainment?: boolean;
   };
+}
+
+/**
+ * Arouse Defenders (le-101): a hazard short-event played in the M/H phase on a
+ * company moving to a Free-hold [{F}] or Border-hold [{B}]. It boosts the
+ * prowess of one automatic-attack (the hazard player's choice) at the target
+ * site by {@link prowessBonus} and makes that attack impossible to cancel, for
+ * that turn's site phase. "Cannot be duplicated on a given site."
+ *
+ * Like {@link CreateSiteAutoAttackEffect}, the playability gate is the
+ * destination site's type; on resolution an `auto-attack-boost` constraint is
+ * installed against the moving company (scope `company-site-phase`, keyed to the
+ * destination site definition for the per-site duplication limit). The boost is
+ * consumed on the first automatic-attack the company faces at the site — the
+ * same "one automatic-attack (your choice) = the first faced" modelling used by
+ * Choking Shadows (tw-21).
+ */
+export interface AutoAttackBoostEffect extends EffectBase {
+  readonly type: 'auto-attack-boost';
+  /**
+   * The destination site types the company may be moving to for this card to be
+   * playable (e.g. `["free-hold", "border-hold"]`). Checked against the target
+   * company's destination site during M/H short-event emission.
+   */
+  readonly siteTypes: readonly import('./common.js').SiteType[];
+  /** Prowess added to the boosted automatic-attack (Arouse Defenders: +2). */
+  readonly prowessBonus: number;
+  /** When true, the boosted automatic-attack cannot be canceled that turn. */
+  readonly uncancelable: boolean;
 }
 
 /**

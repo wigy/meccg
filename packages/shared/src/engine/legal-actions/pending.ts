@@ -1179,6 +1179,11 @@ function applyOneConstraint(
       // directly by `cancelAttackActions` (combat.ts) and consumed by
       // `handleCancelAttack` — no broad legal-action filtering needed here.
       return base;
+    case 'auto-attack-boost':
+      // Arouse Defenders (le-101): consumed directly by the site auto-attack
+      // initiation in `reducer-site.ts` (adds prowess / marks the attack
+      // uncancelable) — no broad legal-action filtering needed here.
+      return base;
   }
 }
 

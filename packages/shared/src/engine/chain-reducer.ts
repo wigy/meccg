@@ -3487,6 +3487,43 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // Arouse Defenders (le-101): auto-attack-boost — hazard short event played in
+  // M/H on a company moving to a Free-hold/Border-hold. Install a single-use
+  // `auto-attack-boost` constraint against the moving company (scope
+  // company-site-phase, keyed to the destination site definition), so the first
+  // automatic-attack the company faces at the site this turn gets +prowessBonus
+  // and (if flagged) cannot be canceled.
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.MovementHazard) {
+    const boostCardDef = defById(current, entry.card.definitionId);
+    const boostEffect = getCardEffects(boostCardDef).find(
+      (e): e is import('../index.js').AutoAttackBoostEffect => e.type === 'auto-attack-boost',
+    );
+    if (boostEffect) {
+      const activeIndex = getPlayerIndex(current, current.activePlayer!);
+      const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
+      const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
+      if (company && destSiteInst) {
+        current = addConstraint(current, {
+          source: entry.card.instanceId,
+          sourceDefinitionId: entry.card.definitionId,
+          scope: { kind: 'company-site-phase', companyId: company.id },
+          target: { kind: 'company', companyId: company.id },
+          kind: {
+            type: 'auto-attack-boost',
+            prowessBonus: boostEffect.prowessBonus,
+            uncancelable: boostEffect.uncancelable,
+            siteDefinitionId: destSiteInst.definitionId,
+          },
+        });
+        const destSiteName = (defById(current, destSiteInst.definitionId) as { name?: string } | undefined)?.name ?? (destSiteInst.definitionId as string);
+        logDetail(`Arouse Defenders: one automatic-attack at ${destSiteName} gets +${boostEffect.prowessBonus} prowess${boostEffect.uncancelable ? ' and cannot be canceled' : ''} this turn`);
+      }
+    }
+  }
+
   // Veils Flung Away / force-check-all-company{body}: hazard short event targeting the whole
   // company. Enqueue one body-check-company pending resolution per character in
   // the active M/H company so each character rolls 2d6 against their body.

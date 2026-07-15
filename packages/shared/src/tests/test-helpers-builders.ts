@@ -557,6 +557,33 @@ export function buildSitePhaseState(opts: {
 }
 
 /**
+ * Build an M/H-phase state with PLAYER_1 (resource) moving a company from
+ * Rivendell to `destination`, and PLAYER_2 (hazard) holding `hazardHand`. Used
+ * by hold-targeting hazard short-event card tests (FEAR! FIRE! FOES! as-29,
+ * Arouse Defenders le-101) that must be offered against a moving company whose
+ * destination site type matches the card's gate.
+ */
+export function buildHazardMovingState(
+  destination: CardDefinitionId,
+  destinationSiteName: string,
+  hazardHand: CardDefinitionId[],
+  characters: CharacterEntry[] = [ARAGORN],
+): GameState {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    players: [
+      { id: PLAYER_1, companies: [{ site: RIVENDELL, characters, destinationSite: destination }], hand: [], siteDeck: [MORIA] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: hazardHand, siteDeck: [MINAS_TIRITH] },
+    ],
+  });
+  return {
+    ...state,
+    phaseState: makeMHState({ hazardsPlayedThisCompany: 0, hazardLimitAtReveal: 4, destinationSiteName }),
+  };
+}
+
+/**
  * Build a Fallen-wizard site-phase state at the play-resources step with one
  * company at `site`. Mirrors {@link buildSitePhaseState} but for Fallen-wizard
  * card tests, where alignment-sensitive logic (Wizardhaven gates, Stage

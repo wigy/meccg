@@ -6521,6 +6521,50 @@ created at the site this turn: 5 strikes with 8 prowess (detainment, no attack
 type)." (Its Mode B is a `modify-attack` from-hand — see [`modify-attack` —
 played from hand](#10e-modify-attack--played-from-hand-fromhand-true).)
 
+### 49b. `auto-attack-boost`
+
+A hazard **short-event** played during the M/H phase on a company **moving to**
+a site whose type is one of `siteTypes` ("Playable on a Free-hold [{F}] or
+Border-hold [{B}]"). It boosts **one** of the target site's automatic-attacks —
+the attacker's choice, modelled as the **first** attack the company faces (the
+same rule Choking Shadows tw-21 uses) — by adding `prowessBonus` to its prowess
+and, when `uncancelable` is set, making that attack impossible to cancel, for
+this turn only.
+
+**Play restriction**: same gate as `create-site-auto-attack` — the M/H
+short-event path (`legal-actions/movement-hazard.ts`) offers it only when the
+target company has a `destinationSite` whose `siteType` ∈ `siteTypes`.
+
+**Resolution**: on chain resolution (`chain-reducer.ts`) it installs a single-use
+`auto-attack-boost` active constraint against the moving company, scope
+`company-site-phase`, carrying `prowessBonus`, `uncancelable`, and the
+destination `siteDefinitionId`.
+
+**Consumption**: the site auto-attack initiation (`reducer-site.ts`) finds the
+first matching constraint on the company, adds `prowessBonus` to the attack's
+effective prowess, sets the combat uncancelable when flagged, then removes the
+constraint — so exactly one attack is affected. Pair with
+`{ "type": "duplication-limit", "scope": "site", "max": 1 }` for "Cannot be
+duplicated on a given site" (the per-site counter also tallies resolved
+`auto-attack-boost` constraints bound to that site).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `siteTypes` | yes | Destination site types the company may be moving to (e.g. `["free-hold", "border-hold"]`). |
+| `prowessBonus` | yes | Prowess added to the boosted automatic-attack. |
+| `uncancelable` | yes | When `true`, the boosted attack cannot be canceled that turn. |
+
+```json
+{ "type": "auto-attack-boost",
+  "siteTypes": ["free-hold", "border-hold"],
+  "prowessBonus": 2,
+  "uncancelable": true }
+```
+
+Used by Arouse Defenders (le-101): "This turn, the prowess of one
+automatic-attack (your choice) at target site is increased by 2 and cannot be
+canceled. Cannot be duplicated on a given site."
+
 ### 50. `ring-test-table`
 
 Declares the roll-result → ring-category mapping for a gold-ring item (Rule 9.21).

@@ -952,6 +952,29 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Arouse Defenders (le-101): a single-use boost applied to one of the
+         * target company's automatic-attacks at its site — the first attack the
+         * company faces consumes it, matching the "one automatic-attack (your
+         * choice)" modelling of Choking Shadows (tw-21). The constraint is
+         * scoped `company-site-phase` and targets the moving company; the site
+         * auto-attack initiation in `reducer-site.ts` adds {@link prowessBonus}
+         * to the attack's prowess and, when {@link uncancelable} is set, marks
+         * the combat as impossible to cancel, then removes the constraint.
+         *
+         * {@link siteDefinitionId} records the target site so the "cannot be
+         * duplicated on a given site" limit can count copies bound to it (same
+         * approach as Greed le-113).
+         */
+        readonly type: 'auto-attack-boost';
+        /** Prowess added to the boosted automatic-attack (le-101: +2). */
+        readonly prowessBonus: number;
+        /** When set, the boosted automatic-attack cannot be canceled. */
+        readonly uncancelable: boolean;
+        /** Target site definition (for the per-site duplication limit). */
+        readonly siteDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Generic attribute override: a conditional `add`/`override`
          * modifier on an entity attribute. Collapses what used to be
          * three separate constraint kinds

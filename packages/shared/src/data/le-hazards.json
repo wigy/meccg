@@ -964,8 +964,21 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ArouseDefenders.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a Free-hold [{F}] or Border-hold [{B}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 2 and cannot be canceled. Cannot be duplicated on a given site."
+    "effects": [
+      {
+        "type": "auto-attack-boost",
+        "siteTypes": ["free-hold", "border-hold"],
+        "prowessBonus": 2,
+        "uncancelable": true
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      }
+    ],
+    "text": "Playable on a Free-hold [{F}] or Border-hold [{B}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 2 and cannot be canceled. Cannot be duplicated on a given site.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "hazard-event",
