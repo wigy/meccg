@@ -980,6 +980,33 @@ export function playerConvertsDetainmentToNormal(state: GameState, player: Playe
 }
 
 /**
+ * True when some in-play long hazard-event (either player's `cardsInPlay`)
+ * carries an `auto-attacks-normal` effect whose `siteTypes` include
+ * `effectiveSiteType` — Awaken Defenders (le-103): "each detainment
+ * automatic-attack at a Free-hold or Border-hold becomes a normal
+ * automatic-attack." When true, the site's automatic-attacks are resolved as
+ * normal attacks (threaded into `isDetainmentAttack` via
+ * `defenderForcesNormalAttacks`, mirroring
+ * {@link playerConvertsDetainmentToNormal}). Site-type-scoped and global, so it
+ * applies to any company entering a matching site regardless of alignment.
+ */
+export function siteTypeForcesAutoAttacksNormal(
+  state: GameState,
+  effectiveSiteType: SiteType,
+): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'auto-attacks-normal') continue;
+        if (effect.siteTypes.includes(effectiveSiteType)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * True when the given player controls a **protected Wizardhaven** — a site that
  * is both (a) one of their Wizardhavens (a Fallen-wizard haven, or a site
  * converted into one via `wizardhaven-conversion`) and (b) protected for them

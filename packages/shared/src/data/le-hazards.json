@@ -984,7 +984,30 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AwakenDefenders.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
+    "certified": "2026-07-15",
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "op": "multiply",
+        "value": 2,
+        "target": "all-automatic-attacks",
+        "when": {
+          "site.siteType": {
+            "$in": ["free-hold", "border-hold"]
+          }
+        }
+      },
+      {
+        "type": "auto-attacks-normal",
+        "siteTypes": ["free-hold", "border-hold"]
+      }
+    ],
     "text": "The number of strikes for each automatic-attack at a Free-hold [{F}] or Border-hold [{B}] is doubled. Additionally, each detainment automatic-attack at a Free-hold [{F}] or Border-hold [{B}] becomes a normal automatic-attack. Cannot be duplicated."
   },
   {

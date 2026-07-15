@@ -1037,6 +1037,11 @@ function buildAttackContext(
   const withDefender = defenderAlignment
     ? { ...withCompany, defender: { alignment: defenderAlignment } }
     : withCompany;
+  // Expose the defending company's effective site type so global
+  // `all-automatic-attacks` modifiers can gate on it (Awaken Minions tw-10 /
+  // Awaken Defenders le-103: "strikes … at a Shadow-hold / Free-hold …
+  // doubled"). Populated only for automatic-attacks (the only attacks keyed to
+  // a site), via the effective site type threaded in by the caller.
   const withSite = siteType
     ? { ...withDefender, site: { siteType } }
     : withDefender;
