@@ -2589,12 +2589,17 @@ export function playResourceShortEventActions(
       }
     }
 
-    // Detect enqueue-ring-play-offer apply: requires per-(sage × gold ring) emission.
-    const hasRingPlayOffer = def.effects?.some(
-      e => e.type === 'on-event'
-        && (e as { event?: string; apply?: { type?: string } }).event === 'self-enters-play'
-        && (e as { event?: string; apply?: { type?: string } }).apply?.type === 'enqueue-ring-play-offer',
-    ) ?? false;
+    // Detect enqueue-ring-play-offer / enqueue-gold-ring-test applies: both
+    // require per-(sage × gold ring) emission so the player picks the sage's
+    // company AND which gold ring to test/replace via targetGoldRingInstanceId.
+    const selfEntersApplyType = (e: { type: string }): string | undefined =>
+      e.type === 'on-event'
+        && (e as { event?: string }).event === 'self-enters-play'
+        ? (e as { apply?: { type?: string } }).apply?.type
+        : undefined;
+    const hasRingPlayOffer = def.effects?.some(e => selfEntersApplyType(e) === 'enqueue-ring-play-offer') ?? false;
+    const hasGoldRingTest = def.effects?.some(e => selfEntersApplyType(e) === 'enqueue-gold-ring-test') ?? false;
+    const crossesGoldRing = hasRingPlayOffer || hasGoldRingTest;
 
     // Emit one play action per eligible target combination. When the card
     // has a play-target with tap cost AND discard-in-play, emit the cross-
@@ -2635,7 +2640,7 @@ export function playResourceShortEventActions(
       if (tapTargets.length === 0) {
         logDetail(`${def.name}: no eligible targets — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
-      } else if (hasRingPlayOffer) {
+      } else if (crossesGoldRing) {
         // Cross sage targets with gold rings in each sage's company.
         let anyOffered = false;
         for (const targetId of tapTargets) {
@@ -2690,6 +2695,34 @@ export function playResourceShortEventActions(
       if (filterTargets.length === 0) {
         logDetail(`${def.name}: no eligible character targets — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
+      } else if (crossesGoldRing) {
+        // Test of Fire (le-239): sage filter with no tap cost. Cross each
+        // eligible sage with the gold rings borne by characters in that sage's
+        // company; emit targetGoldRingInstanceId so the reducer tests the chosen
+        // ring. This enforces "test a gold ring in a sage's company".
+        // A company may hold several sages; emit each gold ring once regardless
+        // of how many sages could authorize its test.
+        const offeredRings = new Set<CardInstanceId>();
+        for (const sageId of filterTargets) {
+          const sageCompany = findCharacterCompany(player.companies, sageId);
+          if (!sageCompany) continue;
+          for (const charId of sageCompany.characters) {
+            const char = player.characters[charId];
+            if (!char) continue;
+            for (const item of char.items) {
+              if (offeredRings.has(item.instanceId)) continue;
+              const itemDef = defById(state, item.definitionId);
+              if (itemDef && 'subtype' in itemDef && (itemDef as { subtype?: string }).subtype === 'gold-ring') {
+                emitPlay(undefined, item.instanceId);
+                offeredRings.add(item.instanceId);
+              }
+            }
+          }
+        }
+        if (offeredRings.size === 0) {
+          logDetail(`${def.name}: no eligible (sage × gold ring) pair — not playable`);
+          actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires a sage and a gold ring in the same company`));
+        }
       } else {
         for (const targetId of filterTargets) {
           logDetail(`Resource short-event playable (filter-target ${String(targetId)}): ${def.name}`);

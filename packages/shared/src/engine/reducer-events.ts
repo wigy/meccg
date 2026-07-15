@@ -2022,6 +2022,51 @@ function applyShortEventOnEntersPlay(
         },
       });
     }
+
+    if (onEvent.apply.type === 'enqueue-gold-ring-test') {
+      // "Test of Fire" path (le-239): run the full Rule 6.2 gold-ring test on
+      // the chosen gold ring borne by a character in a sage's company. The
+      // action carries the gold ring as `targetGoldRingInstanceId`; the shared
+      // `gold-ring-test` pending resolution rolls 2d6 (plus this rollModifier),
+      // consults the ring's own `ring-test-table`, discards the ring, and
+      // offers a matching special ring to replace it.
+      const goldRingInstanceId = action.type === 'play-short-event'
+        ? action.targetGoldRingInstanceId
+        : undefined;
+      if (!goldRingInstanceId) {
+        logDetail(`"${def.name}": enqueue-gold-ring-test — no gold ring instance — fizzle`);
+        continue;
+      }
+
+      // Locate the bearer of the gold ring. The ring stays in the character's
+      // items; the pending resolution finds and discards it on resolution.
+      const actor = state.players[playerIndex];
+      let bearerId: CardInstanceId | undefined;
+      for (const [charIdStr, char] of Object.entries(actor.characters)) {
+        if (char.items.some(i => i.instanceId === goldRingInstanceId)) {
+          bearerId = charIdStr as CardInstanceId;
+          break;
+        }
+      }
+      if (!bearerId) {
+        logDetail(`"${def.name}": enqueue-gold-ring-test — gold ring ${goldRingInstanceId as string} not borne by any character — fizzle`);
+        continue;
+      }
+
+      const rollModifier = (onEvent.apply as { rollModifier?: number }).rollModifier ?? 0;
+      logDetail(`"${def.name}": enqueue-gold-ring-test on ring ${goldRingInstanceId as string} (bearer ${bearerId as string}, roll modifier ${rollModifier})`);
+      state = enqueueResolution(state, {
+        source: handCard.instanceId,
+        actor: actor.id,
+        scope: { kind: 'phase', phase: state.phaseState.phase },
+        kind: {
+          type: 'gold-ring-test',
+          goldRingInstanceId,
+          rollModifier,
+          characterInstanceId: bearerId,
+        },
+      });
+    }
   }
 
   return state;
