@@ -1502,7 +1502,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "unique": true
+    "unique": true,
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-site",
