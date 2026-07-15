@@ -3445,6 +3445,48 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // FEAR! FIRE! FOES! (as-29) Mode A: create-site-auto-attack — hazard short
+  // event played in M/H on a company moving to a Free-hold/Border-hold. Install
+  // a turn-scoped `extra-automatic-attack` constraint keyed to the destination
+  // site instance (which becomes the company's currentSite on arrival), so the
+  // company faces one additional real automatic-attack at the site this turn.
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.MovementHazard) {
+    const fffCardDef = defById(current, entry.card.definitionId);
+    const createEffect = getCardEffects(fffCardDef).find(
+      (e): e is import('../index.js').CreateSiteAutoAttackEffect => e.type === 'create-site-auto-attack',
+    );
+    if (createEffect) {
+      const activeIndex = getPlayerIndex(current, current.activePlayer!);
+      const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
+      const destSiteInst = company?.destinationSite ?? company?.currentSite ?? null;
+      if (company && destSiteInst) {
+        const injected: import('../types/cards-sites.js').AutomaticAttack = {
+          creatureType: createEffect.attack.creatureType,
+          strikes: createEffect.attack.strikes,
+          prowess: createEffect.attack.prowess,
+          ...(createEffect.attack.body !== undefined ? { body: createEffect.attack.body } : {}),
+          ...(createEffect.attack.detainment ? { forceDetainment: true } : {}),
+        };
+        current = addConstraint(current, {
+          source: entry.card.instanceId,
+          sourceDefinitionId: entry.card.definitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'company', companyId: company.id },
+          kind: {
+            type: 'extra-automatic-attack',
+            siteInstanceId: destSiteInst.instanceId,
+            attack: injected,
+          },
+        });
+        const destSiteName = (defById(current, destSiteInst.definitionId) as { name?: string } | undefined)?.name ?? (destSiteInst.definitionId as string);
+        logDetail(`FEAR! FIRE! FOES!: additional automatic-attack (${injected.strikes} strikes, ${injected.prowess} prowess${injected.forceDetainment ? ', detainment' : ''}, no attack type) created at ${destSiteName} this turn`);
+      }
+    }
+  }
+
   // Veils Flung Away / force-check-all-company{body}: hazard short event targeting the whole
   // company. Enqueue one body-check-company pending resolution per character in
   // the active M/H company so each character rolls 2d6 against their body.

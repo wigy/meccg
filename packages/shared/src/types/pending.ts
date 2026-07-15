@@ -1180,6 +1180,23 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * FEAR! FIRE! FOES! (as-29) Mode A: one **additional** automatic-attack
+         * is created at a specific site instance for the rest of the turn.
+         * Installed (scope `'turn'`) when the hazard short-event resolves during
+         * M/H against a company moving to a Free-hold/Border-hold, keyed to the
+         * destination site instance (which becomes the company's `currentSite`).
+         * `getActiveAutoAttacks` appends {@link attack} when its `siteInstanceId`
+         * matches the queried site instance, so the company faces it as a real
+         * automatic-attack in the site phase.
+         */
+        readonly type: 'extra-automatic-attack';
+        /** The site instance the extra attack is created at. */
+        readonly siteInstanceId: import('./common.js').CardInstanceId;
+        /** The additional automatic-attack (carries `forceDetainment` / empty race). */
+        readonly attack: import('./cards-sites.js').AutomaticAttack;
+      }
+    | {
+        /**
          * Blasting Fire (wh-51): every faction-influence attempt made
          * against a faction at the named site is modified by {@link value}
          * for the rest of the turn. Placed (scope `'turn'`) when the item

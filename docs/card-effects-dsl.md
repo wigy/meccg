@@ -2546,7 +2546,11 @@ plays the effect:
 The `when` clause is evaluated against the standard combat context:
 `enemy.race`, `enemy.name` (the attacking creature's card name, for
 creature attacks), `attack.source`, `attack.automatic` (`true` for a
-site automatic-attack or played auto-attack), `attack.keying`, `inPlay`.
+site automatic-attack or played auto-attack), `attack.detainment` (the
+live attack's current detainment status), `attack.keying`, `inPlay`,
+`defender.covert`, `defender.companyContainsBalrog`, `defender.inPlay`, and
+`defender.minionCompany` (`true` when the defending/resource player is a
+Ringwraith (minion) player).
 
 ```json
 { "type": "modify-attack", "fromHand": true,
@@ -2571,6 +2575,26 @@ i.e. "the attack is reduced to one strike" is `"setStrikesTo": 1`. Used by
 Darkness Wielded (ba-55): a defender-played `modify-attack` giving `-2` strike
 prowess, `-1` body, and `setStrikesTo: 1`, gated on
 `defender.companyContainsBalrog` + `defender.inPlay $includes "Great Shadow"`.
+
+**`removeDetainment` (make a detainment attack normal).** When
+`"removeDetainment": true`, applying the effect sets `CombatState.detainment`
+to `false`, so the attack's strikes wound (and can eliminate) normally instead
+of merely tapping. Gate the play with a `when` on `attack.detainment` so the
+card is only offered on a detainment attack. Used by FEAR! FIRE! FOES! (as-29)
+Mode B: "playable on a detainment automatic-attack. Against a minion company
+the attack becomes normal (not detainment) and has -1 prowess." — an
+attacker-played from-hand `modify-attack` with `prowessModifier: -1` and
+`removeDetainment: true`, gated on `attack.automatic` + `attack.detainment` +
+`defender.minionCompany`.
+
+```json
+{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+  "prowessModifier": -1, "removeDetainment": true,
+  "when": { "$and": [
+    { "attack.automatic": true },
+    { "attack.detainment": true },
+    { "defender.minionCompany": true } ] } }
+```
 
 **`firstCancelRemovesEffect` (cancel protection).** When set on an
 attacker-played from-hand `modify-attack`, the buffed attack gains cancel
@@ -6420,6 +6444,49 @@ Used by Tidings of Bold Spies (le-143).
 ```
 
 Used by Tidings of Bold Spies (le-143).
+
+### 49a. `create-site-auto-attack`
+
+A hazard **short-event** played during the M/H phase on a company **moving to**
+a site whose type is one of `siteTypes` ("Playable on a Free-hold [{F}] or
+Border-hold [{B}]"). Unlike `duplicate-site-auto-attacks`, it does **not**
+create an immediate M/H combat — it installs one **additional real
+automatic-attack** the company faces in the *site* phase.
+
+**Play restriction**: emitted by the M/H short-event path
+(`legal-actions/movement-hazard.ts`) only when the target company has a
+`destinationSite` whose `siteType` ∈ `siteTypes`.
+
+**Resolution**: when the short-event resolves, `chain-reducer.ts` installs a
+turn-scoped `extra-automatic-attack` active constraint keyed to the destination
+site *instance* (which becomes the company's `currentSite` on arrival). The
+constraint carries an {@link AutomaticAttack} (with `creatureType: ""` for "no
+attack type" and `forceDetainment` when the effect's `attack.detainment` is set).
+
+**Consumption**: `manifestations.ts` `getActiveAutoAttacks` appends the
+constraint's attack whenever the queried site instance matches. The company
+therefore faces it in the site phase as a genuine `automatic-attack` (it counts
+for the enter/skip decision and for any card that references automatic-attacks),
+resolved through the normal `reducer-site.ts` auto-attack flow. `forceDetainment`
+forces detainment for the injected attack (which has no race/keying to derive it
+from), still overridden to normal by a defender's `detainment-attacks-normal`
+effect (Alatar wh-1).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `siteTypes` | yes | Destination site types the company may be moving to (e.g. `["free-hold", "border-hold"]`). |
+| `attack` | yes | `{ creatureType, strikes, prowess, body?, detainment? }` — the created attack. |
+
+```json
+{ "type": "create-site-auto-attack",
+  "siteTypes": ["free-hold", "border-hold"],
+  "attack": { "creatureType": "", "strikes": 5, "prowess": 8, "detainment": true } }
+```
+
+Used by FEAR! FIRE! FOES! (as-29) Mode A: "An additional automatic-attack is
+created at the site this turn: 5 strikes with 8 prowess (detainment, no attack
+type)." (Its Mode B is a `modify-attack` from-hand — see [`modify-attack` —
+played from hand](#10e-modify-attack--played-from-hand-fromhand-true).)
 
 ### 50. `ring-test-table`
 

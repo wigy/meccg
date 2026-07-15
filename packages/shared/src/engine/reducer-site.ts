@@ -672,7 +672,7 @@ function handleSiteAutomaticAttacks(
         const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR);
         const dupBodyR = resolveAttackBody(state, aa.body ?? null, inPlayNamesR, dupRace, dupBoostCtxR);
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
-        const dupDetainmentR = (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
+        const dupDetainmentR = (!convertsDetainment && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
           attackEffects: siteDef.effects,
           attackRace: dupRace as Race | null,
           defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -722,7 +722,7 @@ function handleSiteAutomaticAttacks(
       const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
       const dupState = removeConstraint(state, dupConstraint.id);
-      const dupDetainment = (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
+      const dupDetainment = (!convertsDetainment && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
         attackEffects: siteDef.effects,
         attackRace: creatureRace2 as Race | null,
         defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -824,7 +824,10 @@ function handleSiteAutomaticAttacks(
     phase: isEachCharacter ? 'resolve-strike' : 'assign-strikes',
     assignmentPhase: isEachCharacter ? 'done' : (aaAttackerChooses ? 'cancel-window' : 'defender'),
     bodyCheckTarget: null,
-    detainment: (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
+    // `aa.forceDetainment` is set on runtime-injected attacks with no race/keying
+    // (FEAR! FIRE! FOES! as-29 Mode A), for which the §3.II derivation cannot
+    // apply — still overridden to normal by the defender's convertsDetainment.
+    detainment: (!convertsDetainment && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
       attackEffects: siteDef.effects,
       attackRace: creatureRace as Race | null,
       // Site auto-attacks are implicitly "keyed to" the site's type (§3.II.2.R1/B1).
@@ -914,7 +917,7 @@ function buildSiteRepeatedAttackCombat(
     ? facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
     : [];
   const strikesTotalValue = isEachCharacter ? facingChars.length : effectiveStrikes;
-  const detainment = (!convertsDetainment && forcedDetainment) || isDetainmentAttack({
+  const detainment = (!convertsDetainment && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
     attackEffects: siteDef.effects,
     attackRace: creatureRace as Race | null,
     attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
