@@ -4980,6 +4980,15 @@ export interface MoveEffect extends EffectBase {
   readonly corruptionCheck?: { readonly modifier: number };
   /** For `select: 'named'`: the card name to match. */
   readonly cardName?: string;
+  /**
+   * For an `organization-phase-start` self-discard on a company-bound
+   * permanent-event: when true, discarding the card also discards every
+   * Ringwraith follower character in the bound company (their attached
+   * items/allies go with them; hazards to the opponent). Backs Black Rider
+   * (le-170) — "Discard this card and any other Ringwraith followers in the
+   * company …". The avatar's own allies are untouched.
+   */
+  readonly alsoDiscardCompanyFollowers?: boolean;
 }
 
 /**
