@@ -553,6 +553,34 @@ Used by Rumor of the One (le-224): "+1 to the corruption points and the
 marshalling points for all ring items." — paired with an `on-event:
 play-deck-exhausted` self-discard `move` and `duplication-limit` scope `game`.
 
+### 3a-iii. `corruption-source-multiplier`
+
+A game-wide effect (carried by a permanent/long event in either player's
+`cardsInPlay`) that scales **one** of every character's corruption sources by
+`multiplier` (default 2 — "doubled"), the controlling player choosing which
+source. Since scaling a larger source would add strictly more corruption, the
+engine doubles the character's **smallest** source (the only rational choice);
+with N copies in play the N smallest distinct sources are scaled (the minimising
+assignment, largest multiplier paired with smallest source).
+
+A "corruption source" is a distinct corruption-bearing card the character holds:
+a borne item worth corruption points (its printed value plus any
+`in-play-item-modifier` delta), an attached `hazard-corruption` card, or a card
+contributing corruption via a `stat-modifier` on `corruption-points` (grouped by
+source card instance — e.g. The One Ring, Durin's Axe on a Dwarf). A character
+with no corruption source is unaffected. The Balrog avatar (whose borne items
+contribute no corruption) is excluded. Collected once per recompute via
+`collectCorruptionSourceMultipliers`; the extra corruption is computed by
+`corruptionSourceMultiplierDelta` in `recompute-derived.ts`.
+
+```json
+{ "type": "corruption-source-multiplier", "multiplier": 2 }
+```
+
+Used by The Balance of Things (tw-93): "Each character has the corruption points
+doubled for one of his sources of corruption (the player controlling the
+character chooses)." — "Unique" is deck-level, so no in-play `duplication-limit`.
+
 ### 3aa. `mp-in-pile`
 
 Grants a flat marshalling-point value while the carrying card sits in a player's

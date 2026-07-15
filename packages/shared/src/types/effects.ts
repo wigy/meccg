@@ -322,6 +322,35 @@ export interface InPlayItemModifierEffect extends EffectBase {
 }
 
 /**
+ * Game-wide effect that multiplies the corruption points of **one** of each
+ * character's corruption sources, with the controlling player choosing which
+ * source. Carried by a permanent/long event in either player's `cardsInPlay`;
+ * while in play, every character in the game (both players) has one of its
+ * corruption sources scaled by {@link multiplier}.
+ *
+ * The controlling player always minimises the corruption they suffer, so the
+ * engine doubles the character's **smallest** corruption source — the only
+ * rational choice, since scaling any larger source would add strictly more
+ * corruption. With N copies of the effect in play, the N smallest distinct
+ * sources are scaled (the minimising assignment).
+ *
+ * A "corruption source" is a corruption-bearing card the character holds: a
+ * borne item worth corruption points (its printed value plus any in-play item
+ * modifier, e.g. Rumor of the One), an attached `hazard-corruption` card, or a
+ * card contributing corruption via a `stat-modifier` on `corruption-points`
+ * (e.g. The One Ring). Characters with no corruption source are unaffected.
+ *
+ * Used by The Balance of Things (tw-93): "Each character has the corruption
+ * points doubled for one of his sources of corruption (the player controlling
+ * the character chooses)."
+ */
+export interface CorruptionSourceMultiplierEffect extends EffectBase {
+  readonly type: 'corruption-source-multiplier';
+  /** Factor applied to the chosen source's corruption points (default 2 — "doubled"). */
+  readonly multiplier?: number;
+}
+
+/**
  * Grants a fixed marshalling-point value while the carrying card sits in a
  * player's marshalling-point (kill) pile.
  *
@@ -5152,6 +5181,7 @@ export type CardEffect =
   | BodyCheckModifierEffect
   | MpModifierEffect
   | InPlayItemModifierEffect
+  | CorruptionSourceMultiplierEffect
   | FallenWizardItemMpEffect
   | FallenWizardAllyMpFullEffect
   | FallenWizardCharacterAllyMpEffect

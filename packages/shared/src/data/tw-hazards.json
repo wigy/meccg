@@ -1480,7 +1480,13 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheBalanceofThings.jpg",
     "unique": true,
     "eventType": "long",
-    "effects": [],
+    "certified": "2026-07-15",
+    "effects": [
+      {
+        "type": "corruption-source-multiplier",
+        "multiplier": 2
+      }
+    ],
     "text": "Unique. Each character has the corruption points doubled for one of his sources of corruption (the player controlling the character chooses)."
   },
   {

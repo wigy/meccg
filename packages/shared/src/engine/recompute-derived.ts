@@ -43,6 +43,7 @@ import {
   collectGlobalEffects,
   resolveStatModifiers,
   resolveDef,
+  evaluateExpr,
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
@@ -646,6 +647,52 @@ function itemModifierDeltas(
 }
 
 /**
+ * Collects the multipliers of every `corruption-source-multiplier` effect
+ * carried by a card in either player's `cardsInPlay` (The Balance of Things
+ * tw-93, "corruption points doubled for one of his sources of corruption").
+ * Each in-play copy scales one of a character's corruption sources; the
+ * returned array holds one multiplier per copy. Empty when none is in play,
+ * so the per-character source scan below short-circuits.
+ */
+function collectCorruptionSourceMultipliers(state: GameState): number[] {
+  const out: number[] = [];
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'corruption-source-multiplier') continue;
+        out.push(effect.multiplier ?? 2);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Given a character's individual corruption-source values and the multipliers
+ * of every in-play `corruption-source-multiplier` effect, returns the extra
+ * corruption the character suffers. The controlling player minimises their
+ * corruption, so each copy scales the character's smallest remaining source and
+ * the largest multiplier is paired with the smallest source (rearrangement
+ * inequality). Returns 0 when the character has no source or no copy is in play.
+ */
+function corruptionSourceMultiplierDelta(
+  sources: readonly number[],
+  multipliers: readonly number[],
+): number {
+  if (sources.length === 0 || multipliers.length === 0) return 0;
+  const ascSources = [...sources].sort((a, b) => a - b);
+  const descIncrements = multipliers.map(m => m - 1).sort((a, b) => b - a);
+  const k = Math.min(ascSources.length, descIncrements.length);
+  let delta = 0;
+  for (let i = 0; i < k; i++) {
+    delta += ascSources[i] * descIncrements[i];
+  }
+  return delta;
+}
+
+/**
  * Computes effective stats for a character using the card effects resolver.
  *
  * Collects all effects from the character's card definition and their
@@ -731,6 +778,16 @@ function computeEffectiveStats(
   let directInfluence: number;
   let corruptionPoints = 0;
 
+  // The Balance of Things (tw-93): while a `corruption-source-multiplier` card
+  // is in play, one of each character's corruption sources is scaled (the
+  // controller minimising, so the smallest source). Track individual source
+  // values only when such a card is in play and the bearer can hold corruption
+  // (the Balrog avatar's borne items contribute none). See
+  // `corruptionSourceMultiplierDelta`.
+  const corruptionMultipliers = collectCorruptionSourceMultipliers(state);
+  const trackCorruptionSources = corruptionMultipliers.length > 0 && !bearerIsBalrogAvatar;
+  const corruptionSources: number[] = [];
+
   if (hasAnyEffects) {
     prowess = resolveStatModifiers(collected, 'prowess', charDef.prowess, context);
     body = resolveStatModifiers(collected, 'body', charDef.body, context);
@@ -744,6 +801,23 @@ function computeEffectiveStats(
     // through here as normal stat-modifier entries.
     const cpFromEffects = resolveStatModifiers(collected, 'corruption-points', 0, context);
     corruptionPoints = cpFromEffects;
+
+    // Each card contributing corruption via a `corruption-points` stat-modifier
+    // (e.g. The One Ring) is one corruption source: group the modifiers by
+    // source card instance and sum each card's contribution.
+    if (trackCorruptionSources) {
+      const exprCtx = context as unknown as Record<string, unknown>;
+      const perSource = new Map<string, number>();
+      for (const ce of collected) {
+        if (ce.effect.type === 'stat-modifier' && ce.effect.stat === 'corruption-points') {
+          const v = evaluateExpr(ce.effect.value, exprCtx);
+          perSource.set(ce.sourceInstance as string, (perSource.get(ce.sourceInstance as string) ?? 0) + v);
+        }
+      }
+      for (const v of perSource.values()) {
+        if (v > 0) corruptionSources.push(v);
+      }
+    }
   } else {
     // Fallback: use the old hardcoded approach for cards without effects
     prowess = charDef.prowess;
@@ -803,8 +877,9 @@ function computeEffectiveStats(
       // MEBA: an item borne by the Balrog avatar has no effect on his
       // attributes — its corruption points do not apply either.
       if (!bearerIsBalrogAvatar) {
-        corruptionPoints += itemDef.corruptionPoints;
-        corruptionPoints += itemModifierDeltas(itemDef, inPlayItemMods).cp;
+        const itemCp = itemDef.corruptionPoints + itemModifierDeltas(itemDef, inPlayItemMods).cp;
+        corruptionPoints += itemCp;
+        if (trackCorruptionSources && itemCp > 0) corruptionSources.push(itemCp);
       }
     }
   }
@@ -813,7 +888,15 @@ function computeEffectiveStats(
     const hDef = resolveDef(state, hazard.instanceId);
     if (hDef && hDef.cardType === 'hazard-corruption') {
       corruptionPoints += hDef.corruptionPoints;
+      if (trackCorruptionSources && hDef.corruptionPoints > 0) corruptionSources.push(hDef.corruptionPoints);
     }
+  }
+
+  // The Balance of Things (tw-93): scale one (per in-play copy) of the
+  // character's corruption sources, the controller minimising by scaling the
+  // smallest. No source → no effect.
+  if (trackCorruptionSources && corruptionSources.length > 0) {
+    corruptionPoints += corruptionSourceMultiplierDelta(corruptionSources, corruptionMultipliers);
   }
 
   // MELE §8.37: trophy bonus — sum total printed MPs on all trophy cards.
