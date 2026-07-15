@@ -284,6 +284,11 @@
   },
   "sites": [
     {
+      "name": "Ettenmoors",
+      "card": "le-373",
+      "qty": 1
+    },
+    {
       "name": "Bag End",
       "card": "le-350",
       "qty": 1
@@ -311,7 +316,7 @@
     {
       "name": "Deep Mines",
       "card": "wh-55",
-      "qty": 2
+      "qty": 1
     }
   ],
   "sideboard": [
