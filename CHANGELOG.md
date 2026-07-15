@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.49.0 — 2026-07-15
+
+Challenge Deck K
+
+### Game Engine
+
+- Complete the card pool for challenge deck (K) "Lord of Rings" — all 110 cards are now certified, making the deck playable end to end; also corrected illegal/unplayable card counts in decks K and Q against the source PDFs
+- New gold-ring and ring-item primitives: `enqueue-gold-ring-test` active org-phase sage ring test (Test of Fire le-239), a game-wide `in-play-item-modifier` boosting CP/MP on filtered ring items (Rumor of the One le-224), and support for the special ring cards Bright Gold Ring (le-303), Gold Ring that Sauron Fancies (le-312), The Oracle's Ring (le-327), and Trifling Ring (le-346, "+3 direct influence against characters")
+- New auto-attack manipulation primitives: `auto-attack-boost` (Arouse Defenders le-101), doubled auto-attack strikes at Shadow/Dark-holds (Awaken Minions tw-10, Awaken Defenders le-103 with detainment→normal at Free/Border-holds), and dual-mode auto-attack control (FEAR! FIRE! FOES! as-29)
+- New site and creature behaviours: region-type remap plus permanent-event auto-attack (Fell Winter le-111), gold-ring-only site with wound-corruption check (Gladden Fields le-375), Amon Hen (le-349) Barrow-downs-style Info+minor test, Dúnedain region-keyed creatures (Arthadan Rangers le-60), and Incite Denizens (le-116)
+- New dual-mode tap-character short hazard-event with a region/site arrival override (New Moon tw-68)
+- Direct-influence and combat modifiers: Súrion +2 DI vs Dúnedain/Southern-Gondor (dm-24), Gulla +1 prowess against Orcs and Elves (le-13), Mine or No One's +10 Balrog opponent-influence booster (ba-68), People Diminished (ba-72), Ren the Ringwraith (le-56), Woodmen manifestation uniqueness (le-295), Variags of Khand Standard Modifications + manifestation uniqueness (le-292), and Woodmen-town (le-414)
+
+### Card Data
+
+- 24 newly certified cards (837 → 861 of 1683), concentrated on the challenge deck (K) "Lord of Rings" pool plus supporting Lidless Eye gold-ring, ring-item, and faction cards
+
+### Infrastructure
+
+- Regenerate card-test and rule-test coverage reports (card tests 781 → 805 of 813)
+
 ## 0.48.0 — 2026-07-15
 
 Balrog Deck #2

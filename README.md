@@ -22,17 +22,17 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
 | Rule tests | 269 | 332 | 81.0% |
-| Card tests | 781 | 789 | 99.0% |
+| Card tests | 805 | 813 | 99.0% |
 | Cards created | 1683 | 1683 | 100.0% |
-| Cards certified | 837 | 1683 | 49.7% |
-| **Total** | **3570** | **4487** | **79.6%** |
+| Cards certified | 861 | 1683 | 51.2% |
+| **Total** | **3618** | **4511** | **80.2%** |
 
 ### Deck Catalog
 
 | Deck | Alignment | Cards | Data Available | Certified |
 |:-----|:----------|------:|---------------:|----------:|
 | (#1) The Shadow-deeps | balrog | 129 | 129 (100.0%) | 129 (100.0%) |
-| (#2) Balrog's Host | balrog | 121 | 121 (100.0%) | 119 (98.3%) |
+| (#2) Balrog's Host | balrog | 121 | 121 (100.0%) | 121 (100.0%) |
 | (A) Stewards of Gondor | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (B) Release the Prisoners | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (C) Dwarven Quest | hero | 110 | 110 (100.0%) | 110 (100.0%) |
@@ -43,17 +43,17 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 110 (100.0%) |
-| (K) Lord of Rings | minion | 109 | 109 (100.0%) | 76 (69.7%) |
-| (L) Wolves! | minion | 110 | 110 (100.0%) | 103 (93.6%) |
-| (M) It's magic! | minion | 110 | 110 (100.0%) | 94 (85.5%) |
-| (N) Smoke on the Water | minion | 110 | 110 (100.0%) | 93 (84.5%) |
+| (K) Lord of Rings | minion | 110 | 110 (100.0%) | 110 (100.0%) |
+| (L) Wolves! | minion | 110 | 110 (100.0%) | 104 (94.5%) |
+| (M) It's magic! | minion | 110 | 110 (100.0%) | 95 (86.4%) |
+| (N) Smoke on the Water | minion | 110 | 110 (100.0%) | 95 (86.4%) |
 | (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 91 (82.7%) |
 | (S) Await the Onset | fallen-wizard | 110 | 110 (100.0%) | 83 (75.5%) |
 | (T) Feel Free | hero | 110 | 110 (100.0%) | 89 (80.9%) |
-| (U) Come by Night upon them | minion | 110 | 110 (100.0%) | 95 (86.4%) |
+| (U) Come by Night upon them | minion | 110 | 110 (100.0%) | 98 (89.1%) |
 | (V) Great Shadow | balrog | 110 | 110 (100.0%) | 110 (100.0%) |
 
 ## Getting Started

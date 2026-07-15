@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 789 | 781 | 8 | 99.0% |
+| 813 | 805 | 8 | 99.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 54 | 54 | 100.0% |
-| BA | 92 | 92 | 100.0% |
-| DM | 69 | 69 | 100.0% |
-| LE | 210 | 207 | 98.6% |
+| AS | 55 | 55 | 100.0% |
+| BA | 94 | 94 | 100.0% |
+| DM | 70 | 70 | 100.0% |
+| LE | 228 | 225 | 98.7% |
 | TD | 59 | 59 | 100.0% |
-| TW | 258 | 253 | 98.1% |
+| TW | 260 | 255 | 98.1% |
 | WH | 47 | 47 | 100.0% |
 
 ## Detailed Test Matrix
@@ -32,6 +32,7 @@
 | as-8 | Durin’s Folk | — | 6 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
 | as-24 | Alone and Unadvised | — | 14 | ☑ |
+| as-29 | FEAR! FIRE! FOES! | — | 13 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
 | as-33 | Pilfer Anything Unwatched | — | 13 | ☑ |
 | as-34 | Power Built by Waiting | — | 13 | ☑ |
@@ -135,9 +136,11 @@
 | ba-65 | Lord and Usurper | — | 12 | ☑ |
 | ba-66 | Maker’s Map | — | 9 | ☑ |
 | ba-67 | Memories of Old Torture | — | 6 | ☑ |
+| ba-68 | Mine or No One’s | — | 10 | ☑ |
 | ba-69 | Obey Him or Die | — | 12 | ☑ |
 | ba-70 | Orders from the Great Demon | — | 9 | ☑ |
 | ba-71 | Out He Sprang | — | 8 | ☑ |
+| ba-72 | People Diminished | — | 18 | ☑ |
 | ba-73 | Roam the Waste | — | 10 | ☑ |
 | ba-74 | Roots of the Earth | — | 16 | ☑ |
 | ba-75 | Scourge of Fire | — | 10 | ☑ |
@@ -179,6 +182,7 @@
 | dm-15 | The Grimburgoth | — | 5 | ☑ |
 | dm-17 | Ivic | — | 4 | ☑ |
 | dm-23 | Râisha | — | 4 | ☑ |
+| dm-24 | Súrion | — | 3 | ☑ |
 | dm-26 | Woffung | — | 3 | ☑ |
 | dm-27 | Wormtongue | — | 4 | ☑ |
 | dm-28 | Lobelia Sackville-Baggins | — | 6 | ☑ |
@@ -247,6 +251,7 @@
 | le-10 | Eradan | — | 3 | ☑ |
 | le-11 | Gorbag | — | 4 | ☑ |
 | le-12 | Grishnákh | — | 4 | ☑ |
+| le-13 | Gulla | — | 3 | ☑ |
 | le-14 | Hador | — | 3 | ☑ |
 | le-16 | Horseman in the Night | — | 4 | ☑ |
 | le-17 | Jerrek | — | 4 | ☑ |
@@ -277,9 +282,11 @@
 | le-52 | Dwar the Ringwraith | — | 10 | ☑ |
 | le-53 | Hoarmûrath the Ringwraith | — | 7 | ☑ |
 | le-54 | Indûr the Ringwraith | — | 9 | ☑ |
+| le-56 | Ren the Ringwraith | — | 12 | ☑ |
 | le-57 | Ûvatha the Ringwraith | — | 14 | ☑ |
 | le-58 | The Witch-king | — | 12 | ☑ |
 | le-59 | Ambusher | — | 10 | ☑ |
+| le-60 | Arthadan Rangers | — | 6 | ☑ |
 | le-61 | Barrow-wight | — | 6 | ☑ |
 | le-65 | Cave Worm | — | 3 | ☑ |
 | le-67 | Corpse-candle | — | 10 | ☑ |
@@ -303,12 +310,16 @@
 | le-98 | Wargs | — | 5 | ☑ |
 | le-99 | Watcher in the Water | — | 9 | ☑ |
 | le-100 | Wild Trolls | — | 5 | ☑ |
+| le-101 | Arouse Defenders | — | 10 | ☑ |
+| le-103 | Awaken Defenders | — | 7 | ☑ |
 | le-105 | Call of Home | — | 9 | ☑ |
 | le-107 | Covetous Thoughts | — | 11 | ☑ |
 | le-110 | Doors of Night | — | 7 | ☑ |
+| le-111 | Fell Winter | — | 11 | ☑ |
 | le-112 | Foolish Words | — | 8 | ☑ |
 | le-113 | Greed | — | 11 | ☑ |
 | le-115 | Incite Defenders | — | 11 | ☑ |
+| le-116 | Incite Denizens | — | 9 | ☑ |
 | le-117 | Long Winter | — | 8 | ☑ |
 | le-122 | Lure of Expedience | — | 11 | ☑ |
 | le-123 | Lure of Nature | — | 13 | ☑ |
@@ -352,6 +363,7 @@
 | le-216 | Orc Quarrels | — | 11 | ☑ |
 | le-219 | Poisonous Despair | — | 9 | ☑ |
 | le-220 | Ready to His Will | — | 8 | ☑ |
+| le-224 | Rumor of the One | — | 8 | ☑ |
 | le-225 | Ruse | — | 10 | ☑ |
 | le-226 | Secrets of Their Forging | — | 21 | ☑ |
 | le-228 | Skies of Fire | — | 9 | ☑ |
@@ -359,6 +371,7 @@
 | le-235 | Sudden Call | — | 9 | ☑ |
 | le-237 | Swarm of Bats | — | 13 | ☑ |
 | le-238 | Swift Strokes | — | 6 | ☑ |
+| le-239 | Test of Fire | — | 12 | ☑ |
 | le-240 | That Ain’t No Secret | — | 14 | ☑ |
 | le-241 | That’s Been Heard Before Tonight | — | 13 | ☑ |
 | le-246 | To Satisfy the Questioner | — | 13 | ☑ |
@@ -386,15 +399,20 @@
 | le-287 | Southrons | — | 9 | ☑ |
 | le-288 | Stone Trolls | — | 7 | ☑ |
 | le-291 | Uruk-hai | — | 8 | ☑ |
+| le-292 | Variags of Khand | — | 10 | ☑ |
+| le-295 | Woodmen | — | 5 | ☑ |
 | le-296 | Woses of the Eryn Vorn | — | 3 | ☑ |
 | le-299 | Black Mace | — | 7 | ☑ |
 | le-302 | Blazon of the Eye | — | 4 | ☑ |
+| le-303 | Bright Gold Ring | — | 18 | ☑ |
 | le-304 | Broad-headed Spear | — | 7 | ☑ |
 | le-310 | Foul-smelling Paste | — | 11 | ☑ |
 | le-311 | Gleaming Gold Ring | — | 24 | ☑ |
+| le-312 | Gold Ring that Sauron Fancies | — | 21 | ☑ |
 | le-313 | High Helm | — | 11 | ☑ |
 | le-315 | The Least of Gold Rings | — | 6 | ☑ |
 | le-324 | Minor Ring | — | 9 | ☑ |
+| le-327 | The Oracle’s Ring | — | 9 | ☑ |
 | le-328 | Orc-draughts | — | 12 | ☑ |
 | le-333 | Palantír of Minas Tirith | — | 11 | ☑ |
 | le-334 | Palantír of Orthanc | — | 10 | ☑ |
@@ -403,6 +421,8 @@
 | le-342 | Saw-toothed Blade | — | 3 | ☑ |
 | le-343 | Scroll of Isildur | — | 9 | ☑ |
 | le-345 | Strange Rations | — | 14 | ☑ |
+| le-346 | Trifling Ring | — | 13 | ☑ |
+| le-349 | Amon Hen | — | 10 | ☑ |
 | le-350 | Bag End | — | 12 | ☑ |
 | le-351 | Bandit Lair | — | 12 | ☑ |
 | le-352 | Barad-dûr | — | 11 | ☑ |
@@ -420,6 +440,7 @@
 | le-371 | Easterling Camp | — | 7 | ☑ |
 | le-372 | Edoras | — | 10 | ☑ |
 | le-373 | Ettenmoors | — | 10 | ☑ |
+| le-375 | Gladden Fields | — | 10 | ☑ |
 | le-376 | Glittering Caves | — | 11 | ☑ |
 | le-377 | Gobel Mírlond | — | 13 | ☑ |
 | le-378 | Goblin-gate | — | 9 | ☑ |
@@ -445,6 +466,7 @@
 | le-411 | Variag Camp | — | 5 | ☑ |
 | le-412 | The White Towers | — | 9 | ☑ |
 | le-413 | The Wind Throne | — | 12 | ☑ |
+| le-414 | Woodmen-town | — | 5 | ☑ |
 | le-415 | The Worthy Hills | — | 19 | ☑ |
 | le-417 | Zarak Dûm | — | 5 | ☑ |
 | le-418 | The Arkenstone | — | 16 | ☑ |
@@ -512,6 +534,7 @@
 | tw-2 | Adûnaphel | — | 10 | ☑ |
 | tw-5 | Ambusher | — | 3 | ☑ |
 | tw-008 | — | — | 10 | ☑ |
+| tw-10 | Awaken Minions | — | 6 | ☑ |
 | tw-12 | Balrog of Moria | — | 8 | ☑ |
 | tw-015 | Barrow-wight | — | 6 | ☑ |
 | tw-016 | “Bert” (Bûrat) | — | 7 | ☑ |
@@ -537,6 +560,7 @@
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-65 | Mouth of Sauron | — | 6 | ☑ |
 | tw-067 | — | — | 6 | ☑ |
+| tw-068 | — | — | 8 | ☑ |
 | tw-70 | Old Man Willow | — | 9 | ☑ |
 | tw-71 | Olog-hai (Trolls) | — | 8 | ☑ |
 | tw-072 | Orc-guard | — | 3 | ☑ |
