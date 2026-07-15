@@ -354,8 +354,11 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "men",
-    "keyedTo": [],
+    "keyedTo": [
+      { "regionNames": ["Enedhwaith", "Cardolan", "Hollin", "Rhudaur", "Dunland"] }
+    ],
     "effects": [],
+    "certified": "2026-07-15",
     "text": "Men. Five strikes. Playable keyed to Enedhwaith, Cardolan, Hollin, Rhudaur, and Dunland; and may also be played at Ruins & Lairs [{R}] in these regions."
   },
   {
