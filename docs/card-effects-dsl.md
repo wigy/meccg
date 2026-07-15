@@ -4076,6 +4076,22 @@ Rules:
   { "type": "site-rule", "rule": "deep-mines-movement" }
   ```
 
+- `allow-agent-recruit` — lets an agent character be brought into play as a
+  company character at this site even though it is not the agent's home site
+  (relaxing rule 2.II.2.2.5). The agent must be recruited **under direct
+  influence** of a character already in a company at this site; the
+  general-influence bring-into-play path (available at havens / the avatar's
+  site) is never offered for an agent admitted by this rule, matching the
+  printed "under direct influence" wording. Only agents are affected — non-agent
+  characters keep the ordinary haven/home-site rules. Consumed by
+  `siteAllowsAgentRecruit()` / `findPlayableSites()` in
+  `engine/legal-actions/organization-characters.ts`. Used by *Bree* (le-356) —
+  "Agent minions may be brought into play under direct influence at this site."
+
+  ```json
+  { "type": "site-rule", "rule": "allow-agent-recruit" }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site

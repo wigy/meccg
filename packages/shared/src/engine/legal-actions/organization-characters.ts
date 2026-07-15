@@ -117,6 +117,18 @@ function isDarkhavenSite(siteDef: SiteCard): boolean {
 }
 
 /**
+ * Returns true if the site carries the `allow-agent-recruit` site-rule (Bree
+ * le-356). Such a site lets agent characters be brought into play here even
+ * though it is not the agent's home site (relaxing rule 2.II.2.2.5). The
+ * recruitment is restricted to direct influence — see {@link findPlayableSites}.
+ */
+function siteAllowsAgentRecruit(siteDef: SiteCard): boolean {
+  return (siteDef.effects ?? []).some(
+    eff => eff.type === 'site-rule' && eff.rule === 'allow-agent-recruit',
+  );
+}
+
+/**
  * Returns true if the character declares the `home-site-only` play-flag, or
  * if the character has the `agent` keyword (rule 2.II.2.2.5: agents played as
  * characters can only be played at the character's home site, not at havens),
@@ -203,13 +215,14 @@ function findPlayableSites(
    * the agent may be summoned there via the vehicle.
    */
   includeDarkhavensForAgent = false,
-): { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] {
-  const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] = [];
+): { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string; agentRecruitDiOnly?: boolean }[] {
+  const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string; agentRecruitDiOnly?: boolean }[] = [];
   const seenInstances = new Set<string>();
   const seenSiteNames = new Set<string>();
   const homeSiteOnly = hasHomeSiteOnlyRestriction(charDef);
   const extraHavenNames = avatarExtraHavenNames(charDef);
   const allowAgentDarkhaven = includeDarkhavensForAgent && isAgentCharacter(charDef);
+  const charIsAgent = isAgentCharacter(charDef);
 
   if (homeSiteOnly) {
     logDetail(`  play-restriction: ${charDef.name} has home-site-only — havens excluded`);
@@ -235,13 +248,20 @@ function findPlayableSites(
     if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
     const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
     const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSite(siteDef);
+    // Bree (le-356): an agent may be brought into play here even though this is
+    // not its home site — but only under direct influence (flagged below).
+    const agentRecruitSite = charIsAgent && !isHomesite && siteAllowsAgentRecruit(siteDef);
 
-    if ((homeSiteOnly ? isHomesite : (isHaven || isHomesite)) || agentDarkhaven) {
+    if ((homeSiteOnly ? isHomesite : (isHaven || isHomesite)) || agentDarkhaven || agentRecruitSite) {
       if (isCharacterDeniedBySiteRule(charDef, siteDef)) {
         logDetail(`  play-restriction: ${charDef.name} denied at ${siteDef.name} by site rule`);
         continue;
       }
-      results.push({ instanceId: siteId, siteDef, siteName: siteDef.name });
+      const diOnly = agentRecruitSite && !isHomesite && !isHaven;
+      if (diOnly) {
+        logDetail(`  agent-recruit site-rule: ${charDef.name} may be brought into play at ${siteDef.name} under direct influence only`);
+      }
+      results.push({ instanceId: siteId, siteDef, siteName: siteDef.name, ...(diOnly ? { agentRecruitDiOnly: true } : {}) });
       seenSiteNames.add(siteDef.name);
     }
   }
@@ -776,7 +796,10 @@ export function playCharacterActions(
         // own Wizardhavens ("even if your Fallen-wizard is not there").
         const isOwnWizardhaven = orcTrollAtWizardhavens
           && isHavenForPlayer(site.siteDef, player.alignment, { state, siteDefinitionId: site.siteDef.id, playerId });
-        const giAllowedAtSite = !avatarInPlay || site.instanceId === avatarSiteId || isOwnWizardhaven;
+        // Bree (le-356) agent-recruit sites admit the agent under direct
+        // influence only — never general influence, even if the avatar is here.
+        const giAllowedAtSite = (!avatarInPlay || site.instanceId === avatarSiteId || isOwnWizardhaven)
+          && !site.agentRecruitDiOnly;
         // Open to the Summons (wh-46): the agent is summoned *via the vehicle*
         // (card placed with it, mind − 1) only at a Darkhaven; at its home site
         // it is played normally at full mind with no vehicle attached.

@@ -42,6 +42,7 @@ export type SiteRuleEffect =
   | CancelFirstAttackIfInPlaySiteRule
   | StolenKnowledgeSiteRule
   | DeepMinesMovementSiteRule
+  | AllowAgentRecruitSiteRule
   | DynamicUnderDeepsAdjacencySiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
@@ -319,6 +320,28 @@ export interface DynamicAutoAttackSiteRule extends EffectBase {
 export interface AlwaysReturnToDeckSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'always-return-to-deck';
+}
+
+/**
+ * Declares that agent minions may be brought into play as characters at this
+ * site — relaxing rule 2.II.2.2.5 (an agent played as a character can normally
+ * only be played at its own home site). The agent must still be recruited
+ * **under direct influence** of a character already in a company at this site:
+ * the general-influence bring-into-play path (available at havens / the avatar's
+ * site) is not offered for agents admitted by this rule, matching the printed
+ * "under direct influence" wording. Only agents are affected; non-agent
+ * characters keep the ordinary haven/home-site rules.
+ *
+ * Example — Bree (le-356): "Agent minions may be brought into play under direct
+ * influence at this site."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "allow-agent-recruit" }
+ * ```
+ */
+export interface AllowAgentRecruitSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'allow-agent-recruit';
 }
 
 /**
