@@ -5210,6 +5210,7 @@ export type CardEffect =
   | RingwraithModeEffect
   | RingwraithFollowerSlotsEffect
   | RingwraithSelfFollowerEffect
+  | MagicDiscardToDeckEffect
   | AbsorbWoundEffect
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
@@ -6045,6 +6046,23 @@ export interface RingwraithFollowerSlotsEffect extends EffectBase {
  */
 export interface RingwraithSelfFollowerEffect extends EffectBase {
   readonly type: 'ringwraith-self-follower';
+}
+
+/**
+ * Passive avatar flag: while this avatar is a player's revealed Ringwraith,
+ * any *magic card* (a card carrying a `spell` / `sorcery` / `spirit-magic` /
+ * `shadow-magic` keyword) that the player casts is shuffled back into their
+ * play deck when it would otherwise be discarded, rather than going to the
+ * discard pile. The play deck is reshuffled after the card is returned.
+ *
+ * Used by *Akhôrahil the Ringwraith* (le-51): "As your Ringwraith, when a
+ * magic card used by him has to be discarded, return it to the play deck and
+ * reshuffle." The engine treats the redirect as a replacement applied at the
+ * point a just-played magic event would land in the caster's discard pile
+ * (see `discardOrRecyclePlayedEvent` in `reducer-utils.ts`).
+ */
+export interface MagicDiscardToDeckEffect extends EffectBase {
+  readonly type: 'magic-discard-to-deck';
 }
 
 /**

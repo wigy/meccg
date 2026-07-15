@@ -36,7 +36,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
@@ -681,11 +681,13 @@ function applyCancelInfluence(
     return { state, error: 'No matching cancel-influence effect for this character and target' };
   }
 
-  const newDiscard = [...player.discardPile, toCardInstance(discardedCard)];
-
   logDetail(`Cancel-influence: ${cardDef.name} played, influence attempt auto-canceled`);
 
-  let resultState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: handCards, discardPile: newDiscard }));
+  // A magic cancel-influence card (e.g. Poisonous Despair le-219) cast by a
+  // player whose Ringwraith is Akhôrahil (le-51) is shuffled back into their
+  // play deck instead of discarded (see `discardOrRecyclePlayedEvent`).
+  let resultState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: handCards }));
+  resultState = discardOrRecyclePlayedEvent(resultState, playerIndex, toCardInstance(discardedCard));
   resultState = dequeueResolution(resultState, top.id);
 
   if (cancelEffect.cost?.check === 'corruption') {

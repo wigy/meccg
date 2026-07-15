@@ -1342,6 +1342,73 @@ export function findPlayerAvatar(
 }
 
 /**
+ * Keywords that mark a card as a *magic card* (a spell). Any of these on a
+ * card's `keywords` list qualifies: the generic `spell` tag plus the three
+ * casting classes. Backs Akhôrahil the Ringwraith's (le-51) magic-recycling
+ * passive ({@link MagicDiscardToDeckEffect}).
+ */
+const MAGIC_CARD_KEYWORDS = ['spell', 'sorcery', 'spirit-magic', 'shadow-magic'] as const;
+
+/**
+ * True when `def` is a magic card — it carries any {@link MAGIC_CARD_KEYWORDS}.
+ */
+export function isMagicCard(def: CardDefinition | undefined): boolean {
+  if (!def || !('keywords' in def) || !Array.isArray((def as { keywords?: readonly string[] }).keywords)) {
+    return false;
+  }
+  const keywords = (def as { keywords: readonly string[] }).keywords;
+  return MAGIC_CARD_KEYWORDS.some(k => keywords.includes(k));
+}
+
+/**
+ * True when `playerIndex`'s revealed avatar in play carries a
+ * `magic-discard-to-deck` passive (Akhôrahil the Ringwraith le-51). Such a
+ * player recycles the magic cards they cast back into their play deck instead
+ * of discarding them.
+ */
+export function playerRecyclesMagicToDeck(state: GameState, playerIndex: number): boolean {
+  const avatar = findPlayerAvatar(state, state.players[playerIndex]);
+  if (!avatar) return false;
+  const def = resolveDef(state, avatar.instanceId);
+  return getCardEffects(def).some(e => e.type === 'magic-discard-to-deck');
+}
+
+/**
+ * Dispose of a just-played event `card` for the player at `playerIndex`. By
+ * default the card goes to that player's discard pile. But when the card is a
+ * magic card ({@link isMagicCard}) and the player's revealed avatar carries the
+ * `magic-discard-to-deck` passive ({@link playerRecyclesMagicToDeck}) — i.e.
+ * Akhôrahil the Ringwraith (le-51) is their Ringwraith — the card is instead
+ * shuffled back into their play deck and the deck reshuffled: "As your
+ * Ringwraith, when a magic card used by him has to be discarded, return it to
+ * the play deck and reshuffle."
+ *
+ * Callers pass the already-removed-from-hand event instance; this helper only
+ * decides its destination (no card instance disappears: it lands in exactly one
+ * of playDeck or discardPile).
+ */
+export function discardOrRecyclePlayedEvent(
+  state: GameState,
+  playerIndex: number,
+  card: CardInstance,
+): GameState {
+  const def = defById(state, card.definitionId);
+  if (isMagicCard(def) && playerRecyclesMagicToDeck(state, playerIndex)) {
+    const player = state.players[playerIndex];
+    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, card], state.rng);
+    logDetail(
+      `${def && 'name' in def ? def.name : (card.definitionId as string)}: magic card returned to ${player.id as string}'s ` +
+      `play deck and reshuffled (Akhôrahil the Ringwraith) instead of discarding`,
+    );
+    return {
+      ...updatePlayer(state, playerIndex, p => ({ ...p, playDeck: shuffledDeck })),
+      rng: nextRng,
+    };
+  }
+  return updatePlayer(state, playerIndex, p => ({ ...p, discardPile: [...p.discardPile, card] }));
+}
+
+/**
  * The name of a player's Wizard avatar in play (e.g. "Radagast", "Gandalf"),
  * or `undefined` when no avatar is in play. Backs faction "Standard
  * Modifications: if <Wizard> is your Wizard (+N)" clauses — exposed on the
