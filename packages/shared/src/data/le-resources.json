@@ -4117,19 +4117,45 @@
     "cardType": "minion-resource-faction",
     "alignment": "ringwraith",
     "id": "le-267",
+    "certified": "2026-07-15",
     "name": "Half-trolls",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Halftrolls.jpg",
     "unique": true,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
     "influenceNumber": 10,
+    "inPlayInfluenceNumber": 0,
     "race": "troll",
     "playableAt": [
       {
-        "site": "Cirith"
+        "site": "Cirith Ungol"
+      },
+      {
+        "site": "Barad-dûr"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Variags of Khand"
+        }
+      }
+    ],
     "text": "Unique. Playable at Cirith Ungol or Barad-dûr if the influence check is greater than 9. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra faction marshalling points. Standard Modifications: Variags of Khand (+2)."
   },
   {
