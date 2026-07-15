@@ -8248,6 +8248,46 @@ the per-phase state reset) or passes to finalize the company
 item", via the `starting-item` keyword) and `duplication-limit` scope `game`
 ("Cannot be duplicated").
 
+### 52b-i. `grant-extra-mh-phase`
+
+Carried by a **resource short-event** played at the end of a company's
+movement/hazard phase; grants that company **one** additional movement/hazard
+phase this turn (Forced March le-185, Bridge tw-202, Leg It Double Quick le-202,
+Ûvatha Unleashed le-248). The company may move to an additional site: another
+site card is played and a fresh movement/hazard phase immediately follows for
+that company.
+
+Optional fields gate the play window to the qualifying move:
+
+- `requiresDestinationSiteType` — the moving company's destination must be this
+  `SiteType` (e.g. `"haven"` for Forced March / Bridge, which trigger on a move
+  to a Darkhaven / Haven).
+- `requiresDestinationAlignment` — the destination site must carry this
+  alignment (e.g. `"ringwraith"` — a Darkhaven — for Forced March). Distinguishes
+  the minion "Darkhaven" card from the hero "Haven" version.
+
+With neither field set, any moving company qualifies (Leg It Double Quick).
+
+```json
+{ "type": "grant-extra-mh-phase", "requiresDestinationSiteType": "haven", "requiresDestinationAlignment": "ringwraith" }
+```
+
+Behaviour: the card is offered during the play-hazards step by
+`extraMHPhaseResourceActions` (`legal-actions/movement-hazard.ts`) only when the
+active company is moving and its destination meets the requirements; it is
+excluded from the generic resource-short-event path
+(`heroResourceShortEventActions`). Resolving it (`handlePlayResourceShortEvent`,
+`reducer-events.ts`) sets `extraMHPhasePending` on the active company. After the
+company commits its move (`endCompanyMH`), `advanceAfterCompanyMH`
+(`mh-hazard-play.ts`) consumes the flag and enters the dedicated
+`extra-mh-move-offer` step: the active player either chooses a new destination
+reachable from the current site (`extra-mh-move`, `handleExtraMHMoveOffer`
+re-enters `reveal-new-site` with the per-phase state reset) or passes to finalize
+the company. Unlike `extra-under-deeps-mh-phase`, the extra move is a normal
+starter/region movement (not restricted to Under-deeps), grants exactly one extra
+phase (a one-shot short-event, not a persistent in-play effect), and carries no
+roll penalty.
+
 ### 52c. `surface-region-adjacency`
 
 Carried by a Balrog **permanent-event** played on an Under-deeps site during the

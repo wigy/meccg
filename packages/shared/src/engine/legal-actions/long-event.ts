@@ -155,6 +155,14 @@ export function heroResourceShortEventActions(
     // the reshuffle would actually recycle a matching card from the discard.
     const altReshuffle = altShortEventReshuffleEffect(def);
     if (def.eventType !== 'short' && !altReshuffle) continue;
+
+    // grant-extra-mh-phase resources (Forced March le-185, Bridge tw-202, Leg
+    // It Double Quick le-202) are emitted by the movement/hazard-specific
+    // `extraMHPhaseResourceActions`, which enforces the "at the end of the
+    // movement/hazard phase, on a company moving to the qualifying site" window.
+    // Skip them in this generic short-event path so they aren't offered
+    // ungated (e.g. during the site phase or against a non-qualifying company).
+    if ((def.effects ?? []).some(e => e.type === 'grant-extra-mh-phase')) continue;
     if (def.eventType !== 'short' && altReshuffle) {
       if (!playerHasReshuffleMatch(state, player, altReshuffle)) {
         logDetail(`${def.name}: short-event mode has no matching card in discard — not playable`);

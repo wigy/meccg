@@ -5257,6 +5257,7 @@ export type CardEffect =
   | UnderDeepsRollModifierEffect
   | ProhibitCardPlayEffect
   | ExtraUnderDeepsMhPhaseEffect
+  | GrantExtraMHPhaseEffect
   | RegionMovementLimitEffect
   | HazardLimitEnvironmentEffect
   | TakePrisonerEffect
@@ -5542,6 +5543,32 @@ export interface ProhibitCardPlayEffect extends EffectBase {
  */
 export interface ExtraUnderDeepsMhPhaseEffect extends EffectBase {
   readonly type: 'extra-under-deeps-mh-phase';
+}
+
+/**
+ * Resource short-event that grants a moving company **another** movement/hazard
+ * phase this turn (Forced March le-185, Bridge tw-202, Leg It Double Quick
+ * le-202, Ûvatha Unleashed le-248). Played at the end of the company's
+ * movement/hazard phase — routed through the resource short-event handler,
+ * which flags the active company with `extraMHPhasePending`. Once the company
+ * commits its current move, `advanceAfterCompanyMH` consumes the flag and
+ * offers it a new movement to an additional site (the `extra-mh-move-offer`
+ * step): another site card is played and a fresh movement/hazard phase follows
+ * for that company.
+ *
+ * The play window is gated to the qualifying destination: when
+ * {@link requiresDestinationSiteType} is set, the company must be moving to a
+ * site of that type (e.g. `haven` for Forced March / Bridge); when
+ * {@link requiresDestinationAlignment} is set, the destination site must carry
+ * that alignment (e.g. `ringwraith` — a Darkhaven — for Forced March). With no
+ * requirements, any moving company qualifies (Leg It Double Quick).
+ */
+export interface GrantExtraMHPhaseEffect extends EffectBase {
+  readonly type: 'grant-extra-mh-phase';
+  /** Required destination {@link SiteType} of the qualifying move, if any. */
+  readonly requiresDestinationSiteType?: SiteType;
+  /** Required destination site alignment (e.g. `ringwraith` for a Darkhaven), if any. */
+  readonly requiresDestinationAlignment?: string;
 }
 
 /**

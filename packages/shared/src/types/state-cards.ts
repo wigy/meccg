@@ -411,6 +411,15 @@ export interface Company {
    * company's M/H sub-phase once and clears the flag.
    */
   readonly leftBehindExtraPhasePending?: boolean | undefined;
+  /**
+   * Set when a `grant-extra-mh-phase` resource event (e.g. Forced March le-185,
+   * Bridge tw-202, Leg It Double Quick le-202) resolves on this company during
+   * its movement/hazard phase. After the company completes its current M/H phase
+   * (its move to the qualifying site is committed), `advanceAfterCompanyMH`
+   * consumes the flag and offers the company another movement to an additional
+   * site — a fresh movement/hazard phase — via the `extra-mh-move-offer` step.
+   */
+  readonly extraMHPhasePending?: boolean | undefined;
 }
 
 

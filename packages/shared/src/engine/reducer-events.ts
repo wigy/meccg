@@ -401,6 +401,27 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: triggerCouncilCall(afterDiscard, action.player, 'opponent') };
   }
 
+  // grant-extra-mh-phase (Forced March le-185, Bridge tw-202, Leg It Double
+  // Quick le-202): flag the active company so that once its current move
+  // commits, `advanceAfterCompanyMH` offers it another movement/hazard phase.
+  // The legal-action emitter has already verified the M/H window and the
+  // destination requirement, so resolution simply sets the flag and discards
+  // the spent event.
+  const grantExtraMHPhase = def.effects?.find(
+    (e): e is import('../types/effects.js').GrantExtraMHPhaseEffect => e.type === 'grant-extra-mh-phase',
+  );
+  if (grantExtraMHPhase && state.phaseState.phase === Phase.MovementHazard) {
+    const companyIndex = state.phaseState.activeCompanyIndex;
+    logDetail(`${def.name}: granting company (index ${companyIndex}) an extra movement/hazard phase this turn`);
+    const afterFlag = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      hand: newHand,
+      discardPile: [...p.discardPile, handCard],
+      companies: p.companies.map((c, idx) => idx === companyIndex ? { ...c, extraMHPhasePending: true } : c),
+    }));
+    return { state: afterFlag };
+  }
+
   // Apply play-target tap cost (e.g. Stealth taps the chosen scout). The
   // legal-actions emitter generates one play-short-event action per eligible
   // target, so the targetScoutInstanceId here is guaranteed to be one of

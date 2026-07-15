@@ -3175,7 +3175,10 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "grant-extra-mh-phase", "requiresDestinationSiteType": "haven", "requiresDestinationAlignment": "ringwraith" }
+    ],
+    "certified": "2026-07-15",
     "text": "Playable at the end of the movement/hazard phase on a company that moved to a Darkhaven [{DH}]. The company may move to an additional site this turn. Another site card may be played and another movement/hazard phase immediately follows for that company."
   },
   {
