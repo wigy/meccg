@@ -224,6 +224,40 @@ export function applyCorruptionCheckResolution(
       logHeading(`Corruption check succeeded — ${player.name} wins with The One Ring (CoE 10.39)`);
       stateAfterDequeue = oneRingWin(stateAfterDequeue, player.id, winCard ?? null);
     }
+    // A Malady Without Healing (le-159): a target that survives the corruption
+    // check must then make a body check (modified by +1 if tapped). Enqueue it
+    // as a standalone dice-check on the still-in-play target: the roller (the
+    // caster) rolls 2d6; if the modified roll exceeds the target's body the
+    // character is eliminated (CoE 3.I.2.1). The +1-if-tapped modifier is folded
+    // into the threshold (eliminate when roll > body - tapMod) from the target's
+    // current status.
+    if (onSuccess?.type === 'enqueue-body-check') {
+      const survivor = stateAfterDequeue.players[playerIndex].characters[characterId];
+      const survivorDef = survivor ? defById(stateAfterDequeue, survivor.definitionId) : undefined;
+      if (survivor && survivorDef && isCharacterCard(survivorDef)) {
+        const body = survivorDef.body ?? 9;
+        const tapped = survivor.status !== CardStatus.Untapped;
+        const tapMod = onSuccess.plusOneIfTapped && tapped ? 1 : 0;
+        const bodyLabel = onSuccess.reason ?? 'Body check';
+        logDetail(`le-159: ${charName} passed corruption check — enqueuing body check (body ${body}${tapMod ? ', +1 tapped' : ''}) rolled by ${onSuccess.rollerPlayerId as string}`);
+        stateAfterDequeue = enqueueResolution(stateAfterDequeue, {
+          source: top.source,
+          actor: onSuccess.rollerPlayerId,
+          scope: { kind: 'phase', phase: stateAfterDequeue.phaseState.phase },
+          kind: {
+            type: 'dice-check',
+            label: `${bodyLabel}: ${charName}`,
+            modifiers: [],
+            threshold: body - tapMod,
+            comparison: 'gt',
+            onPass: { type: 'eliminate-character', awardKillMpTo: onSuccess.awardKillMpTo },
+            continuation: { kind: 'dequeue-only' },
+            requireTargetPresent: true,
+            targetCharacterId: characterId,
+          },
+        });
+      }
+    }
     return { state: stateAfterDequeue, effects: [rollEffect] };
   }
 
@@ -395,6 +429,21 @@ export function applyCorruptionCheckResolution(
       let hazOwnerIdx = playersAfterRoll.findIndex(p => p.id === hazOwner);
       if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
       playersAfterRoll[hazOwnerIdx] = { ...playersAfterRoll[hazOwnerIdx], discardPile: [...playersAfterRoll[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+    }
+
+    // A Malady Without Healing (le-159): a hero target eliminated by this
+    // corruption check credits the caster the hero's kill marshalling points.
+    const awardKillMpTo = top.kind.awardKillMpTo;
+    if (awardKillMpTo && charDef && isCharacterCard(charDef) && charDef.cardType === 'hero-character') {
+      const casterIdx = playersAfterRoll.findIndex(p => p.id === awardKillMpTo);
+      if (casterIdx >= 0) {
+        const killMp = charDef.marshallingPoints ?? 0;
+        playersAfterRoll[casterIdx] = {
+          ...playersAfterRoll[casterIdx],
+          bonusKillMarshallingPoints: (playersAfterRoll[casterIdx].bonusKillMarshallingPoints ?? 0) + killMp,
+        };
+        logDetail(`le-159: hero ${charName} eliminated by corruption check — awarding ${killMp} kill MP to ${awardKillMpTo as string}`);
+      }
     }
   }
 
@@ -929,7 +978,25 @@ function applyDiceCheckBranch(
       return { state };
     }
     const charInPlay = state.players[ownerIndex].characters[ctx.targetCharacterId];
-    return { state: eliminateCharacter(state, ownerIndex, ctx.targetCharacterId, charInPlay) };
+    let afterElim = eliminateCharacter(state, ownerIndex, ctx.targetCharacterId, charInPlay);
+    // A Malady Without Healing (le-159): a hero eliminated by the standalone
+    // body check credits the caster the hero's kill marshalling points.
+    if (branch.awardKillMpTo) {
+      const elimDef = defById(state, charInPlay.definitionId);
+      const awardTo = branch.awardKillMpTo;
+      if (elimDef && isCharacterCard(elimDef) && elimDef.cardType === 'hero-character') {
+        const casterIdx = afterElim.players.findIndex(p => p.id === awardTo);
+        if (casterIdx >= 0) {
+          const killMp = elimDef.marshallingPoints ?? 0;
+          afterElim = updatePlayer(afterElim, casterIdx, p => ({
+            ...p,
+            bonusKillMarshallingPoints: (p.bonusKillMarshallingPoints ?? 0) + killMp,
+          }));
+          logDetail(`le-159: hero ${elimDef.name} eliminated by body check — awarding ${killMp} kill MP to ${awardTo as string}`);
+        }
+      }
+    }
+    return { state: afterElim };
   }
   if (branch.type === 'set-character-status') {
     if (!ctx.targetCharacterId || !branch.status) return { state };

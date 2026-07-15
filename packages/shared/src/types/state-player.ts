@@ -91,6 +91,14 @@ export interface PlayerState {
    */
   readonly bonusMiscMarshallingPoints?: number;
   /**
+   * One-time *kill* marshalling points awarded to this player for eliminating an
+   * opposing hero outside the normal defeated-creature kill-pile flow — used by
+   * A Malady Without Healing (le-159): "If target character is a hero and is
+   * eliminated by these checks, you receive his kill marshalling points." Folded
+   * into the `kill` category by `recompute-derived`. Defaults to 0/undefined.
+   */
+  readonly bonusKillMarshallingPoints?: number;
+  /**
    * MEBA: set true once Challenge the Power (ba-52) resolves on its 9–10 band
    * ("The One Ring affects The Balrog"). Marks that the One Ring borne by the
    * Balrog now affects him; consumed wherever the Balrog's item/corruption

@@ -1891,6 +1891,51 @@ Apply types:
                "onSuccess": { "type": "win-game", "via": "one-ring" } } }
   ```
 
+- `malady-without-healing` -- the bespoke `self-enters-play` orchestrator for
+  A Malady Without Healing (le-159). On resolution it locates the target
+  (`action.targetCharacterId`, which may be an **opponent's** character) and
+  (1) enqueues a corruption check (`targetCorruptionModifier`, -1) on the
+  target — rolled by the target's controller — carrying `awardKillMpTo` (the
+  caster) and an `enqueue-body-check` `onSuccess` follow-up; and (2) unless the
+  caster's shadow-magic user co-located with the target is a Ringwraith,
+  enqueues a corruption check (`casterCorruptionModifier`, -5) on that user. The
+  enabler is the first co-located controlled shadow-magic user (Ringwraith, or a
+  character with the `shadow-magic` skill), preferring a Ringwraith so the
+  caster avoids the -5 when possible. Implemented in `reducer-events.ts`
+  (`applyShortEventOnEntersPlay`).
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "malady-without-healing",
+               "targetCorruptionModifier": -1, "casterCorruptionModifier": -5 } }
+  ```
+
+- `enqueue-body-check` -- a corruption-check `onSuccess` follow-up (A Malady
+  Without Healing le-159: "…followed by a body check (modified by +1 if
+  tapped)"). When the target survives the corruption check, this enqueues a
+  standalone (out-of-combat) body check as a generic `dice-check`: the
+  `rollerPlayerId` rolls 2d6, +1 if the target is tapped/wounded, and if the
+  modified roll exceeds the target's body the character is eliminated (CoE
+  3.I.2.1 — a failed body check eliminates any character, wounded or not). The
+  +1-if-tapped is folded into the check threshold (`body - tapMod`, comparison
+  `gt`) at enqueue time. `onPass` is an `eliminate-character` carrying
+  `awardKillMpTo`. Implemented in `pending-reducers.ts`
+  (`applyCorruptionCheckResolution` success branch). This effect is not written
+  in card JSON directly — it is synthesised by the `malady-without-healing`
+  apply. The `eliminate-character` triggered action gains an optional
+  `awardKillMpTo`: when the eliminated character is a **hero-character**, the
+  named player is credited the hero's marshalling points as kill MP (via
+  `player.bonusKillMarshallingPoints`, folded into `mp.kill` by
+  `recompute-derived.ts`). The `corruption-check` pending kind gains the same
+  `awardKillMpTo` field for hero eliminations by the corruption check itself.
+
+- `play-target` gains two fields used by A Malady Without Healing (le-159):
+  `targetScope: "any-player"` draws `character` candidates from **both** players
+  (so a resource event may target an opponent's character), and
+  `requiresControlledShadowMagicUserAtSite: true` restricts candidates to those
+  co-located with a shadow-magic user the acting player controls. Enumerated by
+  `eligibleMaladyTargets` in `legal-actions/organization.ts`.
+
 - `win-game` -- end the game immediately as a win for the controller of the
   source card (CoE rule 10.39 / MELE §1). `via` is currently always
   `"one-ring"`. Resolves through the shared `endGame` primitive

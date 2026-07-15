@@ -2062,6 +2062,49 @@ function eligiblePlayOptionTargets(
 }
 
 /**
+ * Candidate targets for A Malady Without Healing (le-159): a `play-target`
+ * with `requiresControlledShadowMagicUserAtSite`. Unlike
+ * {@link eligiblePlayOptionTargets}, candidates are drawn from **both** players'
+ * characters ("May target an opponent's character"). A candidate qualifies when
+ * it passes the play-target `filter` (non-Ringwraith, non-Wizard) **and** the
+ * acting player controls a shadow-magic user (a Ringwraith, or a character with
+ * the `shadow-magic` skill incl. item-granted) in a company at the candidate's
+ * current site — a different character than the candidate itself.
+ */
+function eligibleMaladyTargets(
+  state: GameState,
+  caster: PlayerState,
+  playTarget: PlayTargetEffect,
+): CardInstanceId[] {
+  const out: CardInstanceId[] = [];
+  for (const owner of state.players) {
+    for (const [charId, char] of characterEntries(owner)) {
+      const charDef = defById(state, char.definitionId);
+      if (!charDef || !isCharacterCard(charDef)) continue;
+      if (playTarget.filter && !matchesCondition(playTarget.filter, buildTargetContext(state, char, owner))) continue;
+      const targetCompany = findCharacterCompany(owner.companies, charId);
+      const siteDefId = targetCompany?.currentSite?.definitionId;
+      if (!siteDefId) continue;
+      const hasUserAtSite = caster.companies.some(co =>
+        co.currentSite?.definitionId === siteDefId
+        && co.characters.some(cid => {
+          if (cid === charId) return false;
+          const ch = caster.characters[cid];
+          if (!ch) return false;
+          const cDef = defById(state, ch.definitionId);
+          if (!cDef || !isCharacterCard(cDef)) return false;
+          if (cDef.race === 'ringwraith') return true;
+          return [...cDef.skills, ...getItemGrantedSkills(state, ch)].includes('shadow-magic');
+        }),
+      );
+      if (!hasUserAtSite) continue;
+      out.push(charId);
+    }
+  }
+  return out;
+}
+
+/**
  * Generates `play-short-event` actions for a card with {@link PlayOptionEffect}s.
  * One action per (target, option) pair whose `when` (if any) matches the
  * target context. The chosen option is carried on the action via
@@ -2635,7 +2678,28 @@ export function playResourceShortEventActions(
       }
     };
 
-    if (playTarget && playTarget.cost?.tap === 'character') {
+    if (playTarget && playTarget.target === 'character' && playTarget.requiresControlledShadowMagicUserAtSite) {
+      // A Malady Without Healing (le-159): cross-player targets gated on the
+      // acting player controlling a shadow-magic user at the target's site.
+      const maladyTargets = eligibleMaladyTargets(state, player, playTarget);
+      if (maladyTargets.length === 0) {
+        logDetail(`${def.name}: no eligible target (non-Ringwraith/Wizard character co-located with a controlled shadow-magic user) — not playable`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: no valid target character at a site with a shadow-magic user you control`));
+      } else {
+        for (const targetId of maladyTargets) {
+          logDetail(`Resource short-event playable (malady target ${String(targetId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              targetCharacterId: targetId,
+            },
+            viable: true,
+          });
+        }
+      }
+    } else if (playTarget && playTarget.cost?.tap === 'character') {
       const tapTargets = eligiblePlayOptionTargets(state, player, playTarget);
       if (tapTargets.length === 0) {
         logDetail(`${def.name}: no eligible targets — not playable`);

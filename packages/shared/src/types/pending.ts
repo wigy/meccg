@@ -214,6 +214,14 @@ export interface PendingResolution {
          * standard checks.
          */
         readonly onSuccess?: TriggeredAction;
+        /**
+         * When set, and this check *eliminates* a **hero** character, the named
+         * player is credited the hero's marshalling points as kill MP (folded
+         * into `player.bonusKillMarshallingPoints`). Used by A Malady Without
+         * Healing (le-159): "If target character is a hero and is eliminated by
+         * these checks, you receive his kill marshalling points."
+         */
+        readonly awardKillMpTo?: PlayerId;
       }
     | {
         readonly type: 'order-effects';
