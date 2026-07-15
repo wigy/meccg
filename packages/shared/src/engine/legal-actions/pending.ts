@@ -787,6 +787,25 @@ export function corruptionCheckActions(
     logDetail(`One-shot check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id}`);
   }
 
+  // Company-scoped corruption check-modifier constraints (Ren the Ringwraith
+  // le-56: "modify all corruption checks made this turn by minions in any one
+  // of your companies by +2"): applied to every corruption check by a minion
+  // character in the *targeted* company, and NOT consumed — they persist for
+  // the constraint's turn scope. The checked character's own company must
+  // match the constraint's companyId.
+  const checkCompany = findCharacterCompany(player.companies, characterId);
+  const isMinionChar = isCharacterCard(charDef) && charDef.cardType === 'minion-character';
+  if (checkCompany && isMinionChar) {
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'corruption') continue;
+      if (constraint.target.kind !== 'company') continue;
+      if (constraint.target.companyId !== checkCompany.id) continue;
+      totalModifier += constraint.kind.value;
+      logDetail(`Company-wide corruption check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id}`);
+    }
+  }
+
   // Build the source-card keyword list so item check-modifiers can gate
   // on what produced the check (e.g. Wizard's Staff keys off source.keywords
   // $includes 'spell'). The source is the PendingResolution's source card.
