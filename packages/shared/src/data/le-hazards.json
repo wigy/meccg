@@ -1116,8 +1116,41 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Each Border-hold [{B}] receives an additional automatic-attack: Wolves — 3 strikes with 7 prowess. Additionally, if Doors of Night is in play, treat all Free-domains [{f}] as Border-lands [{b}] and all Border-lands [{b}] as Wildernesses [{w}]. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "permanent-event-auto-attack",
+        "siteIds": [],
+        "siteType": "border-hold",
+        "attack": {
+          "creatureType": "Wolves",
+          "strikes": 3,
+          "prowess": 7
+        }
+      },
+      {
+        "type": "region-type-remap",
+        "when": {
+          "inPlay": "Doors of Night"
+        },
+        "remap": [
+          {
+            "from": "free",
+            "to": "border"
+          },
+          {
+            "from": "border",
+            "to": "wilderness"
+          }
+        ]
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. Each Border-hold [{B}] receives an additional automatic-attack: Wolves — 3 strikes with 7 prowess. Additionally, if Doors of Night is in play, treat all Free-domains [{f}] as Border-lands [{b}] and all Border-lands [{b}] as Wildernesses [{w}]. Cannot be duplicated.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "hazard-event",

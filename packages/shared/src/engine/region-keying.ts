@@ -16,9 +16,10 @@
 
 import type { GameState } from '../types/state.js';
 import type { RegionType } from '../types/common.js';
-import type { RegionKeyingBoost } from '../types/effects.js';
+import type { CardEffect, RegionKeyingBoost, RegionTypeRemap } from '../types/effects.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 
-export type { RegionKeyingBoost };
+export type { RegionKeyingBoost, RegionTypeRemap };
 
 /**
  * Collect every region treatment offered by active `region-keying-boost`
@@ -58,4 +59,53 @@ export function regionPathsWithBoosts(
     paths.push(variant);
   }
   return paths;
+}
+
+/**
+ * Collect every region-type substitution offered by active `region-type-remap`
+ * effects (e.g. Fell Winter, le-111). Scans both players' `cardsInPlay` for the
+ * effect and — for each whose optional `when` gate holds against the given
+ * in-play name list (Fell Winter's remap requires Doors of Night in play) —
+ * returns its `remap` entries. Because the gate is evaluated live, the remap
+ * activates and deactivates as its gating card enters or leaves play.
+ */
+export function collectRegionTypeRemaps(
+  state: GameState,
+  inPlayNames: readonly string[],
+): RegionTypeRemap[] {
+  const remaps: RegionTypeRemap[] = [];
+  const whenCtx = { inPlay: inPlayNames };
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = state.cardPool[card.definitionId] as
+        { effects?: readonly CardEffect[] } | undefined;
+      const effects = def?.effects;
+      if (!effects) continue;
+      for (const e of effects) {
+        if (e.type !== 'region-type-remap') continue;
+        if (e.when && !matchesCondition(e.when, whenCtx)) continue;
+        remaps.push(...e.remap);
+      }
+    }
+  }
+  return remaps;
+}
+
+/**
+ * Apply the collected region-type remaps to a traversed region-type path. Every
+ * region is mapped from its **printed** type (the remaps are applied
+ * simultaneously, never chained), so a table of `border→wilderness` and
+ * `free→border` turns `[free, border]` into `[border, wilderness]` — not
+ * `[border, wilderness]` via a cascade of `free→border→wilderness`. Returns the
+ * path unchanged when there are no remaps.
+ */
+export function applyRegionTypeRemaps(
+  path: readonly RegionType[],
+  remaps: readonly RegionTypeRemap[],
+): RegionType[] {
+  if (remaps.length === 0) return [...path];
+  return path.map(rt => {
+    const entry = remaps.find(r => r.from === rt);
+    return entry ? entry.to : rt;
+  });
 }

@@ -5854,7 +5854,8 @@ dynamic step.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `siteIds` | yes | Array of site definition IDs to augment (e.g. `["tw-413", "le-392"]`). |
+| `siteIds` | yes | Array of site definition IDs to augment (e.g. `["tw-413", "le-392"]`). May be empty (`[]`) when `siteType` targets a whole class of site instead. |
+| `siteType` | no | Augment **every** site of this printed type (e.g. `"border-hold"`), in addition to any `siteIds`. Used by *Fell Winter* (le-111): "Each Border-hold receives an additional automatic-attack." |
 | `attack.creatureType` | yes | Creature race label (e.g. `"Balrog"`, `"Spawn"`). |
 | `attack.strikes` | yes | Number of strikes. |
 | `attack.prowess` | yes | Prowess of each strike. |
@@ -7279,6 +7280,42 @@ removes it. The corresponding constraint kind is `region-keying-boost` in
 
 Used by: *Withered Lands* (td-85) — gated on *Doors of Night* in play via a
 `play-condition` `requires: site-path` clause (`{ "inPlay": "Doors of Night" }`).
+
+### 43a. `region-type-remap`
+
+A creature-**keying** environment that reinterprets whole classes of region.
+Unlike `region-keying-boost` (an additive alternative applied to one region of
+the path), this is a wholesale **replacement**: every region matching a `from`
+type on a company's traversed site path is treated as its `to` type. All entries
+apply **simultaneously** — each region is mapped from its *printed* type, so a
+table listing both `border→wilderness` and `free→border` turns
+`[free, border]` into `[border, wilderness]`, never cascading a Free-domain all
+the way to a Wilderness.
+
+The optional `when` clause (evaluated against `{ inPlay }`) gates the remap
+dynamically while the carrying card is in play, so it activates/deactivates as
+its gating card enters or leaves play.
+
+```json
+{ "type": "region-type-remap",
+  "when": { "inPlay": "Doors of Night" },
+  "remap": [
+    { "from": "free", "to": "border" },
+    { "from": "border", "to": "wilderness" }
+  ] }
+```
+
+The two creature-keying matchers — `findCreatureKeyingMatches`
+(`legal-actions/movement-hazard.ts`, read path) and `checkCreatureKeying`
+(`mh-hazard-play.ts`, write path) — call the shared helpers in
+`engine/region-keying.ts`: `collectRegionTypeRemaps(state, inPlayNames)` scans
+both players' `cardsInPlay` for the effect (applying each whose `when` gate
+holds) and `applyRegionTypeRemaps(path, remaps)` transforms the effective
+region-type path before matching (and before any `region-keying-boost`
+variants). The underlying site path is never mutated.
+
+Used by: *Fell Winter* (le-111) — "if Doors of Night is in play, treat all
+Free-domains as Border-lands and all Border-lands as Wildernesses."
 
 ### 44. `company-strike`
 

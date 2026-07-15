@@ -414,7 +414,12 @@ function collectPermanentEventAttacks(state: GameState, siteDef: SiteCard): Auto
       for (const e of effects) {
         if (e.type !== 'permanent-event-auto-attack') continue;
         const eff = e;
-        if (!eff.siteIds.includes(siteDef.id)) continue;
+        // Match either an explicitly listed site definition (Spawn-type events)
+        // or, when `siteType` is set, every site of that printed type (Fell
+        // Winter le-111: "Each Border-hold receives an additional auto-attack").
+        const matchesById = eff.siteIds.includes(siteDef.id);
+        const matchesByType = eff.siteType !== undefined && siteDef.siteType === eff.siteType;
+        if (!matchesById && !matchesByType) continue;
         out.push({
           creatureType: eff.attack.creatureType,
           strikes: eff.attack.strikes,
