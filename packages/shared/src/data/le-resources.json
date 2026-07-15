@@ -3747,7 +3747,12 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "organization" },
+      { "type": "play-target", "target": "character", "filter": { "target.skills": { "$includes": "sage" } } },
+      { "type": "on-event", "event": "self-enters-play", "apply": { "type": "enqueue-gold-ring-test", "rollModifier": 0 } }
+    ],
+    "certified": "2026-07-15",
     "text": "Sage only. Play to test a gold ring in a sage’s company."
   },
   {

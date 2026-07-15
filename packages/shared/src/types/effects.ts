@@ -1458,6 +1458,7 @@ export type TriggeredActionType =
   | 'enqueue-corruption-check'
   | 'enqueue-pending-fetch'
   | 'enqueue-ring-play-offer'
+  | 'enqueue-gold-ring-test'
   | 'heal-target-character'
   | 'return-character-to-hand'
   | 'increment-company-extra-region-distance'
@@ -1860,6 +1861,22 @@ export interface EnqueueRingPlayOfferAction extends TriggeredActionBase {
   readonly excludeCategories?: readonly string[];
 }
 
+/**
+ * `enqueue-gold-ring-test` — run the full Rule 6.2 gold-ring test on a chosen
+ * gold-ring item borne by a character in a sage's company. Enqueues the shared
+ * `gold-ring-test` pending resolution: the ring's owner rolls 2d6 (plus this
+ * `rollModifier`), the gold ring's own `ring-test-table` maps the total to the
+ * eligible ring categories, the gold ring is discarded, and a `ring-play-offer`
+ * follows so the player may play a matching special ring from hand. Used by the
+ * "Test of X" short-event ring-test cards (e.g. Test of Fire le-239, whose
+ * `rollModifier` is 0; Test of Lore tw-340 uses -1).
+ */
+export interface EnqueueGoldRingTestAction extends TriggeredActionBase {
+  readonly type: 'enqueue-gold-ring-test';
+  /** Modifier applied to the 2d6 ring-test roll (default 0). */
+  readonly rollModifier?: number;
+}
+
 /** `sequence` — run an ordered list of sub-applies on the state each produces. Recursive. */
 export interface SequenceAction extends TriggeredActionBase {
   readonly type: 'sequence';
@@ -1978,6 +1995,7 @@ export type TriggeredAction =
   | OfferRestoreCharacterAction
   | EnqueuePendingFetchAction
   | EnqueueRingPlayOfferAction
+  | EnqueueGoldRingTestAction
   | SequenceAction
   | CancelChainEntryAction
   | CounterCancelAttackTriggeredAction

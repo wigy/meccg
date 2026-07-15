@@ -1925,6 +1925,30 @@ Apply types:
     "apply": { "type": "heal-target-character" } }
   ```
 
+- `enqueue-gold-ring-test` -- under `on-event: self-enters-play` on a resource
+  short-event, run the full Rule 6.2 gold-ring test on the gold ring named by
+  `action.targetGoldRingInstanceId`. The reducer locates the ring's bearer and
+  enqueues the shared `gold-ring-test` pending resolution, which rolls 2d6 (plus
+  the optional `rollModifier`, default 0), consults the gold ring's own
+  `ring-test-table` to map the total to eligible ring categories, discards the
+  gold ring regardless of outcome, and then enqueues a `ring-play-offer` so the
+  player may play a matching special ring from hand. The card pairs it with a
+  `play-target` `character` filtered on `sage` skill and a `play-window`
+  (`phase: organization`); the legal-action emitter crosses each eligible sage
+  with the gold rings borne in that sage's company, emitting one
+  `play-short-event` per gold ring (via `targetGoldRingInstanceId`) — this
+  enforces "test a gold ring in a sage's company". Unlike `enqueue-ring-play-offer`
+  (Secrets of Their Forging, which bypasses the dice roll and offers every table
+  category), this apply performs the actual roll. Used by *Test of Fire*
+  (le-239, `rollModifier: 0`); *Test of Lore* (tw-340) would use `rollModifier: -1`.
+  Implemented in `reducer-events.ts` (`applyShortEventOnEntersPlay`) and
+  `legal-actions/organization.ts` (`playResourceShortEventActions`).
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "enqueue-gold-ring-test", "rollModifier": 0 } }
+  ```
+
 - `cancel-chain-entry` -- negate an unresolved chain entry or discard a
   card in play / remove active constraints sourced from a given card.
   Selectors:
