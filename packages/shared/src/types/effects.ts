@@ -2891,7 +2891,8 @@ export interface OnGuardRevealEffect extends EffectBase {
 
 /**
  * Restricts an item to be playable only where the company's current
- * site satisfies a constraint. Two mutually-exclusive forms:
+ * site satisfies a constraint. Two forms, combined with **OR** when both
+ * are present (either satisfies):
  *
  * - `sites`: the site's name must appear in the list (e.g. Palantír of
  *   Orthanc — Isengard only).
@@ -2899,12 +2900,17 @@ export interface OnGuardRevealEffect extends EffectBase {
  *   `{ site: <site definition> }` (e.g. hoard items: every site whose
  *   card definition has `hoard: true`).
  *
+ * Most cards use exactly one form, but a card whose printed restriction is
+ * "at <named site> or <site type>" uses both — e.g. Gold Ring that Sauron
+ * Fancies (le-312): playable at Bag End **or** any Ruins & Lairs where gold
+ * rings are playable.
+ *
  * When present, the normal site-type check (`playableResources`) is
  * bypassed; the item is playable only if its restriction matches.
  */
 export interface ItemPlaySiteEffect extends EffectBase {
   readonly type: 'item-play-site';
-  /** Site names where the item can be played. Mutually exclusive with `filter`. */
+  /** Site names where the item can be played. Combined with `filter` via OR when both are set. */
   readonly sites?: readonly string[];
   /**
    * Generic site filter, evaluated against `{ site: siteDef }`. The site
