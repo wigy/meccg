@@ -2734,6 +2734,22 @@ function handleOpponentInfluenceAttempt(
     logDetail(`Opponent influence boost ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);
   }
 
+  // Fold in conditional direct-influence stat-modifiers borne by the influencer
+  // that gate on the opponent-influence target context — e.g. Trifling Ring
+  // (le-346): "+3 to direct influence against characters" applies only when the
+  // target is a character, not a faction/ally/item. Only `when`-gated modifiers
+  // are considered here: unconditional DI is already baked into effective stats
+  // and folded into `influencerContribution` via availableDI above, so including
+  // it again would double-count. Conditional modifiers are excluded from
+  // effective DI (no target context at effective-stats time) and applied here.
+  const conditionalInfluencerEffects = collectCharacterEffects(state, charInPlay, oppInfluenceCtx)
+    .filter(e => e.effect.when !== undefined);
+  const conditionalInfluencerDI = resolveStatModifiers(conditionalInfluencerEffects, 'direct-influence', 0, oppInfluenceCtx);
+  if (conditionalInfluencerDI !== 0) {
+    influencerContribution += conditionalInfluencerDI;
+    logDetail(`Opponent influence: conditional influencer DI ${formatSignedNumber(conditionalInfluencerDI)} (target ${action.targetKind}) → contribution ${influencerContribution}`);
+  }
+
   logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (contribution: ${influencerContribution}, opponent GI: ${opponentGI}, target mind: ${effectiveTargetMind}${revealedCard ? ' [revealed]' : ''}, controller DI: ${controllerDI}, cross-alignment penalty: ${crossAlignmentPenalty}, region penalty: ${regionPenalty}, boost: ${formatSignedNumber(boostModifier)})`);
 
   // Enqueue a pending opponent-influence-defend resolution for the
