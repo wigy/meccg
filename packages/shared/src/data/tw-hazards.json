@@ -1080,7 +1080,18 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AwakenMinions.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "op": "multiply",
+        "value": 2,
+        "target": "all-automatic-attacks",
+        "when": { "site.siteType": { "$in": ["shadow-hold", "dark-hold"] } }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "certified": "2026-07-15",
     "text": "The number of strikes for each automatic-attack at a Shadow-hold [{S}] site or at a Dark-hold [{D}] site is doubled.Cannot be duplicated."
   },
   {

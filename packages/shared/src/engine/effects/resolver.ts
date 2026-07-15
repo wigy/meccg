@@ -1014,12 +1014,18 @@ export interface CreatureSelfContext {
  * @param inPlayNames - Names of all cards currently in play.
  * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
  * @param companyFacedRaces - Creature races the defending company has already faced.
+ * @param defenderAlignment - Alignment of the defending player, for self-effect conditions.
+ * @param siteType - Effective site type of the site whose automatic-attack is being
+ *   resolved, exposed as `site.siteType`. Populated only for site automatic-attacks,
+ *   so global effects can gate on the site type (e.g. Awaken Minions tw-10 doubles
+ *   automatic-attack strikes at Shadow-hold / Dark-hold sites).
  */
 function buildAttackContext(
   inPlayNames: readonly string[],
   creatureRace?: string,
   companyFacedRaces?: readonly string[],
   defenderAlignment?: string,
+  siteType?: string,
 ): ResolverContext {
   const context: ResolverContext = {
     reason: 'combat',
@@ -1031,10 +1037,13 @@ function buildAttackContext(
   const withDefender = defenderAlignment
     ? { ...withCompany, defender: { alignment: defenderAlignment } }
     : withCompany;
+  const withSite = siteType
+    ? { ...withDefender, site: { siteType } }
+    : withDefender;
   if (creatureRace) {
-    return { ...withDefender, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
+    return { ...withSite, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
   }
-  return withDefender;
+  return withSite;
 }
 
 /**
@@ -1105,6 +1114,10 @@ export function resolveAttackProwess(
  * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
  * @param isAutomaticAttack - Whether this is a site automatic-attack (not a hazard creature).
  * @param attackBoostCtx - Optional company/creature context for constraint-based boosts.
+ * @param siteType - Effective site type of the site whose automatic-attack is being
+ *   resolved (only for site automatic-attacks), exposed as `site.siteType` so global
+ *   effects can gate on it (e.g. Awaken Minions tw-10 doubles strikes at Shadow-hold /
+ *   Dark-hold sites).
  * @returns The modified strikes value after applying all-attacks effects.
  */
 export function resolveAttackStrikes(
@@ -1114,8 +1127,9 @@ export function resolveAttackStrikes(
   creatureRace?: string,
   isAutomaticAttack = false,
   attackBoostCtx?: CreatureAttackBoostContext,
+  siteType?: string,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace);
+  const context = buildAttackContext(inPlayNames, creatureRace, undefined, undefined, siteType);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
