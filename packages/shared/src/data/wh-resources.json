@@ -2046,9 +2046,28 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Radagast"
+        }
+      },
+      {
+        "type": "grant-ally-play",
+        "filter": {
+          "$and": [
+            { "target.unique": { "$ne": true } },
+            { "target.mind": 1 }
+          ]
+        },
+        "excludeBearerControlsCopy": true,
+        "fromDiscard": true
       }
     ],
-    "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. Any non-unique ally with 1 mind (a copy of which he does not already control) is considered playable with Radagast at his site. This ally may be taken from your discard pile or hand."
+    "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. Any non-unique ally with 1 mind (a copy of which he does not already control) is considered playable with Radagast at his site. This ally may be taken from your discard pile or hand.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-event",

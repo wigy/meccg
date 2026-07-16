@@ -483,6 +483,36 @@ export interface FallenWizardAllyMpFullEffect extends EffectBase {
 }
 
 /**
+ * Exempts matching allies the source's controller has in play from their
+ * printed "discard if the company moves to …" movement restriction (a
+ * `bearer-company-moves` self-discard, e.g. Mistress Lobelia dm-178). CRF 22:
+ * an ally's "movement restriction" is exactly its "Discard if he/she moves to"
+ * clause; this effect makes those clauses not fire for the matching allies.
+ *
+ * Collected during the end-of-movement discard sweep (`mh-hazard-play.ts`) from
+ * the moving player's in-play characters and `cardsInPlay`. When a matching
+ * ally would be discarded by a `bearer-company-moves` self-discard, the discard
+ * is skipped.
+ *
+ * Used by Radagast (wh-8): "Hero allies Radagast controls have no movement
+ * restrictions." — `filter` `{ cardType: "hero-resource-ally" }`.
+ *
+ * ```json
+ * { "type": "ally-movement-restriction-exemption",
+ *   "filter": { "cardType": "hero-resource-ally" } }
+ * ```
+ */
+export interface AllyMovementRestrictionExemptionEffect extends EffectBase {
+  readonly type: 'ally-movement-restriction-exemption';
+  /**
+   * Condition matched against an ally's card definition. Matching allies are
+   * exempt from their `bearer-company-moves` self-discard; omit to exempt every
+   * ally the controller has in play.
+   */
+  readonly filter?: Condition;
+}
+
+/**
  * Fallen-wizard character/ally marshalling-point floor (MEWH §4 exception).
  *
  * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
@@ -5237,6 +5267,7 @@ export interface EvilHourGrantMovementEffect extends EffectBase {
 export type CardEffect =
   | EvilHourTapTriggerEffect
   | EvilHourGrantMovementEffect
+  | AllyMovementRestrictionExemptionEffect
   | StatModifierEffect
   | CheckModifierEffect
   | BodyCheckModifierEffect
@@ -5414,7 +5445,51 @@ export type CardEffect =
   | CompanyMovementTaxEffect
   | VoluntaryDiscardEffect
   | CvccAttackPermissionEffect
+  | GrantAllyPlayEffect
   | FactionInfluenceRestrictionEffect;
+
+/**
+ * Grants extended ally-play permission from a permanent-event attached to a
+ * character (the *bearer*). While in play, any ally matching {@link filter}
+ * becomes playable in the bearer's company at its **current site** — regardless
+ * of the ally's printed `playableAt` restrictions — and, when
+ * {@link fromDiscard} is set, may be sourced from the player's **discard pile**
+ * as well as the hand. When {@link excludeBearerControlsCopy} is set, an ally is
+ * excluded from the grant if the bearer already controls a copy of it (matched
+ * by card name).
+ *
+ * Used by Glove of Radagast (wh-111): "Any non-unique ally with 1 mind (a copy
+ * of which he does not already control) is considered playable with Radagast at
+ * his site. This ally may be taken from your discard pile or hand." Here
+ * `filter` matches non-unique, 1-mind allies, `excludeBearerControlsCopy` is
+ * true, and `fromDiscard` is true.
+ *
+ * ```json
+ * { "type": "grant-ally-play",
+ *   "filter": { "$and": [ { "target.unique": { "$ne": true } }, { "target.mind": 1 } ] },
+ *   "excludeBearerControlsCopy": true,
+ *   "fromDiscard": true }
+ * ```
+ */
+export interface GrantAllyPlayEffect extends EffectBase {
+  readonly type: 'grant-ally-play';
+  /**
+   * Condition matched against the candidate ally's card definition, wrapped as
+   * `{ target: allyDef }` (so `target.unique`, `target.mind`, `target.race`,
+   * etc. are available). Omit to grant every ally.
+   */
+  readonly filter?: Condition;
+  /**
+   * When `true`, a granted ally may also be played from the player's discard
+   * pile (not only the hand).
+   */
+  readonly fromDiscard?: boolean;
+  /**
+   * When `true`, an ally is excluded from the grant if the bearer already
+   * controls a copy of it (same card name in the bearer's `allies`).
+   */
+  readonly excludeBearerControlsCopy?: boolean;
+}
 
 /**
  * Marks a hazard-creature card as also playable in an alternative event mode

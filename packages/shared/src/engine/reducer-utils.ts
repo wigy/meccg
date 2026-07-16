@@ -3123,6 +3123,74 @@ export function companyHasNoAllyRestriction(
 }
 
 /**
+ * An in-play `grant-ally-play` permission (Glove of Radagast wh-111) plus the
+ * instance id of the character bearing it. Returned by
+ * {@link findAllyPlayGrant}.
+ */
+export interface AllyPlayGrant {
+  readonly effect: import('../types/effects.js').GrantAllyPlayEffect;
+  /** The character bearing the granting permanent-event (Radagast). */
+  readonly bearerId: CardInstanceId;
+}
+
+/**
+ * Finds a `grant-ally-play` permission active for the given company: an attached
+ * permanent-event (stored among a company member's `items`) whose definition
+ * carries a `grant-ally-play` effect. Returns the effect and the bearer's
+ * instance id, or `undefined` when the company has no such grant. Backs Glove of
+ * Radagast (wh-111): "Any non-unique ally with 1 mind … is considered playable
+ * with Radagast at his site."
+ */
+export function findAllyPlayGrant(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): AllyPlayGrant | undefined {
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char) continue;
+    for (const item of char.items) {
+      const def = defById(state, item.definitionId);
+      if (!def) continue;
+      const eff = getCardEffects(def).find(
+        (e): e is import('../types/effects.js').GrantAllyPlayEffect => e.type === 'grant-ally-play',
+      );
+      if (eff) return { effect: eff, bearerId: charId };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * True when a `grant-ally-play` permission active for `company` extends
+ * playability to the given ally definition: the ally matches the grant's
+ * `filter` and — when `excludeBearerControlsCopy` is set — the bearer does not
+ * already control a copy of it (same card name in the bearer's `allies`). Used
+ * both to relax the site-match check for a hand ally and to source granted
+ * allies from the discard pile (Glove of Radagast wh-111).
+ */
+export function allyPlayGrantAllowsAlly(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  allyDef: CardDefinition,
+): boolean {
+  const grant = findAllyPlayGrant(state, player, company);
+  if (!grant) return false;
+  if (grant.effect.filter && !matchesCondition(grant.effect.filter, { target: allyDef as unknown as Record<string, unknown> })) {
+    return false;
+  }
+  if (grant.effect.excludeBearerControlsCopy) {
+    const bearer = player.characters[grant.bearerId];
+    const allyName = (allyDef as { name?: string }).name;
+    if (bearer && bearer.allies.some(a => defById(state, a.definitionId)?.name === allyName)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Discards every ally and every direct-influence follower character in the
  * given company (Fell Rider le-183: "Discard all allies and Ringwraith
  * followers in the company"). Allies and follower items go to the controlling
