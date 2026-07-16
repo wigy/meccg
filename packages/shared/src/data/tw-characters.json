@@ -1947,7 +1947,11 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Bree",
-    "effects": [],
+    "effects": [
+      { "type": "check-modifier", "check": "corruption", "value": -1 },
+      { "type": "check-modifier", "check": "influence", "value": -1, "when": { "reason": "faction-influence-check" } }
+    ],
+    "certified": "2026-07-16",
     "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions."
   },
   {
