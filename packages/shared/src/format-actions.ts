@@ -597,6 +597,8 @@ export function describeAction(
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} to cancel all effects of weapon ${instName(action.weaponInstanceId)} until end of combat (Whip of Many Thongs)`;
     case 'pay-site-tax':
       return `${playerName(action.player)} taps ${instName(action.characterId)} to pay the site tax before playing an ally or item (Eddy in Fate's Tide)`;
+    case 'pay-movement-tax':
+      return `${playerName(action.player)} taps ${instName(action.characterId)} to pay company ${action.companyId}'s movement tax (Enchanted Stream)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

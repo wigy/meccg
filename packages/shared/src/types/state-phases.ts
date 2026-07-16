@@ -252,6 +252,16 @@ export interface OrganizationPhaseState {
    */
   readonly sideboardFetchDestination: 'discard' | 'deck' | null;
   /**
+   * Enchanted Stream (as-27) movement tax: how many of a company's untapped
+   * characters have been tapped toward the tax this organization phase, keyed
+   * by company id. A company bound by a `company-movement-tax` permanent event
+   * may not voluntarily declare movement or split until this reaches the
+   * effect's `taxTapCharacters` (or the company has no untapped character left
+   * to tap). Reset each organization phase (the phase state is rebuilt on
+   * entry). Optional — absent/`{}` means no tax has been paid yet.
+   */
+  readonly movementTaxPaid?: Readonly<Record<string, number>>;
+  /**
    * The active sub-step within the organization phase.
    *
    * - `'play-actions'` (default): the active player is taking their

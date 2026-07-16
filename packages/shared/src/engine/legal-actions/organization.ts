@@ -55,6 +55,7 @@ import {
   splitCompanyActions,
   moveToCompanyActions,
   mergeCompaniesActions,
+  companyMovementTaxUnpaid,
 } from './organization-companies.js';
 import { fetchFromSideboardActions, cardSideboardToDeckActions } from './organization-sideboard.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -236,6 +237,35 @@ export function voluntaryDiscardInPlayActions(state: GameState, playerId: Player
       action: { type: 'voluntary-discard-in-play', player: playerId, cardInstanceId: card.instanceId },
       viable: true,
     });
+  }
+  return actions;
+}
+
+/**
+ * Enchanted Stream (as-27) movement-tax payment actions. For each of the
+ * player's companies bound by a `company-movement-tax` permanent event whose
+ * tax is not yet satisfied this org phase, offer one `pay-movement-tax` action
+ * per untapped character in that company. Paying taps the chosen character and
+ * counts toward the tax, unlocking `plan-movement` / `split-company` once the
+ * required number ("to a maximum of two") have been tapped.
+ */
+export function payMovementTaxActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    if (!companyMovementTaxUnpaid(state, player, company)) continue;
+    for (const charId of company.characters) {
+      const char = player.characters[charId];
+      if (!char || char.status !== CardStatus.Untapped) continue;
+      logDetail(`Enchanted Stream: offering to tap ${cardName(state, char.definitionId)} toward company ${company.id as string}'s movement tax`);
+      actions.push({
+        action: { type: 'pay-movement-tax', player: playerId, companyId: company.id, characterId: charId },
+        viable: true,
+      });
+    }
   }
   return actions;
 }
@@ -461,6 +491,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Plan-movement actions for each company
   actions.push(...planMovementActions(state, playerId));
+
+  // Enchanted Stream (as-27): tap untapped characters toward a company's
+  // movement tax so it may voluntarily move/split this org phase.
+  actions.push(...payMovementTaxActions(state, playerId));
 
   // Transfer-item actions (move items between characters at the same site)
   actions.push(...transferItemActions(state, playerId));

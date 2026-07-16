@@ -19,8 +19,9 @@ import { getPlayerIndex } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect, GrantActionEffect, CounterCancelAttackRollEffect } from '../../types/effects.js';
-import { isSiteCard } from '../../types/cards.js';
+import { isSiteCard, isCharacterCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
+import { cardStatusToName } from '../../types/common.js';
 import { logDetail } from './log.js';
 import { playerById, getCardEffects, defById, companyById } from '../reducer-utils.js';
 import { companyContainsBalrogAvatar } from '../../state-utils.js';
@@ -102,6 +103,10 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
       const destDef = company.destinationSite ? defById(state, company.destinationSite.definitionId) : undefined;
       const destinationRegion = destDef && isSiteCard(destDef) ? destDef.region : undefined;
       actions.push(...emitAllyCancelChainActions(state, playerId, company, hazardCount, destinationRegion));
+      // Enchanted Stream (as-27): a hazard being played that carries its own
+      // "a <skill> in the company may tap to cancel this card before it
+      // resolves" grant-action. Offered to the active (resource) player.
+      actions.push(...emitHazardSelfCancelBySkillActions(state, playerId, company));
     }
   }
 
@@ -183,6 +188,78 @@ function emitAllyCancelChainActions(
           viable: true,
         });
       }
+    }
+  }
+  return actions;
+}
+
+/**
+ * Emit `activate-granted-action` cancel-chain-entry activations for an
+ * unresolved hazard chain entry whose **own** source card carries a static
+ * `grant-action` with `action: "cancel-chain-entry"` gated on the *acting
+ * character's* skills — Enchanted Stream (as-27): "A ranger in the company can
+ * tap to cancel this card before it resolves."
+ *
+ * Unlike Tom Bombadil (an in-play ally that cancels *other* hazards —
+ * {@link emitAllyCancelChainActions}), here the grant lives on the hazard being
+ * played, and the canceller is an untapped **character** in the target (active)
+ * company whose printed skills satisfy the grant's `when` (`actor.skills`).
+ * Only the active/resource player — whose company is the target — is offered
+ * the cancel. The shared `handleGrantActionApply` → `cancel-chain-entry` path
+ * negates the most-recent unresolved hazard entry (this card) and returns it to
+ * its owner's discard, and the `{ tap: "character" }` cost taps the ranger.
+ */
+function emitHazardSelfCancelBySkillActions(
+  state: GameState,
+  playerId: PlayerId,
+  company: import('../../index.js').Company,
+): EvaluatedAction[] {
+  const chain = state.chain;
+  if (!chain) return [];
+  // Only the active (resource) player, whose company is under attack, may use a
+  // character in that company to cancel the hazard before it resolves.
+  if (state.activePlayer !== playerId) return [];
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const entry of chain.entries) {
+    if (entry.resolved || entry.negated || !entry.card) continue;
+    const def = defById(state, entry.card.definitionId);
+    const grant = getCardEffects(def).find(
+      (e): e is GrantActionEffect =>
+        e.type === 'grant-action'
+        && e.action === 'cancel-chain-entry'
+        && e.apply?.type === 'cancel-chain-entry',
+    );
+    if (!grant) continue;
+
+    for (const charInstId of company.characters) {
+      const char = player.characters[charInstId];
+      if (!char || char.status !== CardStatus.Untapped) continue;
+      const charDef = defById(state, char.definitionId);
+      const actorCtx = {
+        actor: {
+          status: cardStatusToName(char.status),
+          name: charDef && isCharacterCard(charDef) ? charDef.name : '',
+          race: charDef && isCharacterCard(charDef) ? charDef.race : '',
+          skills: charDef && isCharacterCard(charDef) ? charDef.skills : [],
+        },
+      };
+      if (grant.when && !matchesCondition(grant.when, actorCtx)) continue;
+      logDetail(`Hazard self-cancel: ${charDef && isCharacterCard(charDef) ? charDef.name : '?'} may tap to cancel "${(def as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string)}" before it resolves`);
+      actions.push({
+        action: {
+          type: 'activate-granted-action',
+          player: playerId,
+          characterId: charInstId,
+          sourceCardId: entry.card.instanceId,
+          sourceCardDefinitionId: entry.card.definitionId,
+          actionId: 'cancel-chain-entry',
+          rollThreshold: 0,
+        },
+        viable: true,
+      });
     }
   }
   return actions;

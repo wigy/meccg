@@ -21,7 +21,7 @@
  */
 
 import type { GameState, Company, PlayerState } from '../../index.js';
-import type { CompanyMovementRestrictionEffect } from '../../types/effects.js';
+import type { CompanyMovementRestrictionEffect, CompanyMovementTaxEffect } from '../../types/effects.js';
 import { defById, getCardEffects } from '../reducer-utils.js';
 
 /**
@@ -70,4 +70,53 @@ export function companyMovementRestrictions(
 
   if (!found) return null;
   return { noStarterMovement, regionMovementMax, hazardLimitModifier, hazardLimitFloor };
+}
+
+/**
+ * The strongest `company-movement-tax` (Enchanted Stream as-27) bound to
+ * `company`, or `null` when none is in play. A hazard of this kind is played by
+ * the opponent onto the resource player's company, so — unlike
+ * {@link companyMovementRestrictions} — this scans **both** players'
+ * `cardsInPlay` for a card whose `companyId` matches; the largest declared
+ * `taxTapCharacters` wins when multiple are bound.
+ */
+export function companyMovementTax(
+  state: GameState,
+  company: Company,
+): { readonly taxTapCharacters: number } | null {
+  let taxTapCharacters = 0;
+  let found = false;
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      if (card.companyId !== company.id) continue;
+      const def = defById(state, card.definitionId);
+      for (const eff of getCardEffects(def)) {
+        if (eff.type !== 'company-movement-tax') continue;
+        const e: CompanyMovementTaxEffect = eff;
+        found = true;
+        taxTapCharacters = Math.max(taxTapCharacters, e.taxTapCharacters);
+      }
+    }
+  }
+  return found ? { taxTapCharacters } : null;
+}
+
+/**
+ * Whether `company`'s Enchanted Stream (as-27) movement tax has been satisfied
+ * this organization phase — i.e. the required number of untapped characters
+ * have been tapped toward it, or the company has no untapped character left to
+ * tap ("tap all of its untapped characters to a maximum of two"). Returns
+ * `true` when no tax is in play (the common case).
+ *
+ * `untappedCount` is the company's current count of untapped top-level
+ * characters; `paidCount` is how many have already been tapped toward the tax
+ * this org phase (`OrganizationPhaseState.movementTaxPaid[companyId]`).
+ */
+export function isMovementTaxSatisfied(
+  tax: { readonly taxTapCharacters: number } | null,
+  untappedCount: number,
+  paidCount: number,
+): boolean {
+  if (!tax) return true;
+  return paidCount >= tax.taxTapCharacters || untappedCount === 0;
 }
