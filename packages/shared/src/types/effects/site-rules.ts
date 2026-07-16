@@ -42,6 +42,8 @@ export type SiteRuleEffect =
   | CancelFirstAttackIfInPlaySiteRule
   | StolenKnowledgeSiteRule
   | DeepMinesMovementSiteRule
+  | NoStorageSiteRule
+  | HazardSiteTypeOverrideSiteRule
   | AllowAgentPlaySiteRule
   | DynamicUnderDeepsAdjacencySiteRule;
 
@@ -581,4 +583,60 @@ export interface StolenKnowledgeSiteRule extends EffectBase {
 export interface DeepMinesMovementSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'deep-mines-movement';
+}
+
+/**
+ * Declares that resources may never be stored at this site. The standard
+ * storage flow (regular items at any Haven, or `storable-at` items at their
+ * listed sites/site-types) is suppressed for any company whose current site
+ * carries this rule — no `store-item` action is offered there (organization
+ * phase or an `allow-store-eot` end-of-turn window), and the reducer rejects a
+ * store attempt as a safety backstop.
+ *
+ * Example — Geann a-Lisch (le-374): "Resources may never be stored at this
+ * site." (a minion Haven that would otherwise permit storing regular items).
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "no-storage" }
+ * ```
+ */
+export interface NoStorageSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'no-storage';
+}
+
+/**
+ * Overrides the site-type (and, optionally, the site path) the engine uses when
+ * **playing and interpreting hazards** against a company whose effective site
+ * (destination if moving, else current) carries this rule. The override applies
+ * only to hazard keying — the site keeps its printed type for every other
+ * purpose (movement, healing/untap, draws, storage, etc.).
+ *
+ * This models a site that "counts as a <site type> for the purposes of playing
+ * and interpreting hazards": normally a Haven blocks hazards emergently (its
+ * empty site path and `haven` type match no creature keying), so declaring an
+ * override site-type — and the site path to use "if needed" — re-exposes the
+ * company to hazards keyed to that type / path.
+ *
+ * `siteType` replaces `mhState.destinationSiteType` for the keying pass;
+ * `sitePath` (when present) replaces `mhState.resolvedSitePath`, so creatures
+ * keyed to the listed region-types can be played.
+ *
+ * Example — Geann a-Lisch (le-374): "Geann a-Lisch counts as a Ruins & Lairs
+ * [{R}] for the purposes of playing and interpreting hazards. Its site path for
+ * this purpose, if needed, is the one from Carn Dûm [{s}{w}{w}{w}{w}]."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "hazard-site-type-override",
+ *   "siteType": "ruins-and-lairs",
+ *   "sitePath": ["shadow", "wilderness", "wilderness", "wilderness", "wilderness"] }
+ * ```
+ */
+export interface HazardSiteTypeOverrideSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'hazard-site-type-override';
+  /** Site-type to use when keying hazards against a company at this site. */
+  readonly siteType: SiteType;
+  /** Optional site path (region-types) to use for hazard keying "if needed". */
+  readonly sitePath?: readonly RegionType[];
 }

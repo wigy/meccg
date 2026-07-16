@@ -204,9 +204,26 @@
         "rule": "deny-character",
         "filter": {},
         "exceptHomesite": true
+      },
+      {
+        "type": "site-rule",
+        "rule": "no-storage"
+      },
+      {
+        "type": "site-rule",
+        "rule": "hazard-site-type-override",
+        "siteType": "ruins-and-lairs",
+        "sitePath": [
+          "shadow",
+          "wilderness",
+          "wilderness",
+          "wilderness",
+          "wilderness"
+        ]
       }
     ],
-    "unique": true
+    "unique": true,
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-site",

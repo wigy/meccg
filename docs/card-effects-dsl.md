@@ -4119,6 +4119,37 @@ Rules:
   { "type": "site-rule", "rule": "deep-mines-movement" }
   ```
 
+- `no-storage` — "Resources may never be stored at this site." Suppresses every
+  `store-item` offer for a company whose current site carries this rule (both the
+  organization-phase generator and any `allow-store-eot` end-of-turn window in
+  `storeItemActions`), and the store-item reducer (`handleStoreItem`) rejects a
+  store attempt as a backstop. Used by *Geann a-Lisch* (le-374), a minion Haven
+  that would otherwise permit storing regular items.
+
+  ```json
+  { "type": "site-rule", "rule": "no-storage" }
+  ```
+
+- `hazard-site-type-override` — a site that "counts as a `<site type>` for the
+  purposes of playing and interpreting hazards". Overrides the site-type — and,
+  when declared, the site path — the engine uses for the *creature-keying pass*
+  against a company whose effective site (destination if moving, else current)
+  carries the rule; every other purpose (movement, healing/untap, draws, storage)
+  keeps the printed type. A Haven normally blocks hazards emergently (its `haven`
+  type and empty path match no keying), so this re-exposes a company here to
+  hazards keyed to the override type / path. Applied in
+  `enterSetHazardLimitAndAutoAdvance` (`mh-steps.ts`): `siteType` replaces
+  `mhState.destinationSiteType` and `sitePath` (optional) replaces
+  `mhState.resolvedSitePath`. Used by *Geann a-Lisch* (le-374): "counts as a
+  Ruins & Lairs [{R}] … its site path for this purpose … is the one from Carn
+  Dûm [{s}{w}{w}{w}{w}]."
+
+  ```json
+  { "type": "site-rule", "rule": "hazard-site-type-override",
+    "siteType": "ruins-and-lairs",
+    "sitePath": ["shadow", "wilderness", "wilderness", "wilderness", "wilderness"] }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site
