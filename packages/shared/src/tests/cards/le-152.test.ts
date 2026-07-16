@@ -38,7 +38,7 @@ import {
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
 import type {
-  CardDefinitionId, CardInstanceId, CombatState,
+  CardDefinitionId, CombatState,
   AssignStrikeAction, PlayHeroResourceAction,
 } from '../../index.js';
 
