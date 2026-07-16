@@ -528,7 +528,37 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Sage-tap ring tests granted by the company's current site (e.g. Mount Doom)
   actions.push(...siteSageRingTestActivations(state, playerId));
 
+  // Voluntary return-to-hand of an attached ally (Radagast's Black Bird wh-114)
+  actions.push(...returnAttachedToHandActions(state, playerId));
+
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  return actions;
+}
+
+/**
+ * Emit `return-attached-to-hand` actions for allies in play that carry a
+ * `return-to-hand` effect whose triggers include `organization` — "You may
+ * return this ally to your hand during your organization phase" (Radagast's
+ * Black Bird wh-114). One action per matching ally the active player controls.
+ */
+export function returnAttachedToHandActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const char of Object.values(player.characters)) {
+    for (const ally of char.allies) {
+      const def = defById(state, ally.definitionId);
+      const canReturn = getCardEffects(def).some(
+        e => e.type === 'return-to-hand' && e.during.includes('organization'),
+      );
+      if (!canReturn) continue;
+      logDetail(`Return-to-hand available: ${def?.name ?? (ally.definitionId as string)} may return to hand`);
+      actions.push({
+        action: { type: 'return-attached-to-hand', player: playerId, cardInstanceId: ally.instanceId },
+        viable: true,
+      });
+    }
+  }
   return actions;
 }
 

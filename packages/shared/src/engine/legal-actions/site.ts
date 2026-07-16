@@ -28,6 +28,7 @@ import { availableDI, grantedActionActivations, inPlayFactionGrantActions, playR
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
+import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { isUnderDeepsSurfaceSite } from './organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay, manifestationInCardsInPlay, manifestIdOf } from '../manifestations.js';
@@ -1676,14 +1677,38 @@ function playResourcesActions(
         continue;
       }
 
-      if (untappedCharacters.length === 0) {
-        logDetail(`Ally ${allyDef.name}: no untapped character to control it`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: no untapped character in company`));
+      // Determine which characters may control this ally.
+      //  - A wizard-specific ally (e.g. Radagast's Black Bird wh-114,
+      //    `radagast-specific`) may only be controlled by the matching
+      //    Fallen-wizard avatar.
+      //  - An ally that taps neither controller nor site on play
+      //    (`no-tap-on-play`) may be played by a tapped controller too — it
+      //    never needs to tap ("need not tap himself"); otherwise the
+      //    controlling character must be untapped as usual.
+      const allyNoTapOnPlay = hasPlayFlag(allyDef, 'no-tap-on-play');
+      const requiredController = wizardSpecificName(allyDef);
+      const controllerPool = allyNoTapOnPlay
+        ? company.characters
+            .map(cId => player.characters[cId])
+            .filter((ch): ch is NonNullable<typeof ch> => ch !== undefined)
+        : untappedCharacters;
+      const controllerCandidates = controllerPool.filter(ch => {
+        if (requiredController === null) return true;
+        const cd = defById(state, ch.definitionId);
+        return isCharacterCard(cd) && cd.name === requiredController;
+      });
+
+      if (controllerCandidates.length === 0) {
+        const reason = requiredController !== null
+          ? `${allyDef.name}: only ${requiredController} may control it`
+          : `${allyDef.name}: no untapped character in company`;
+        logDetail(`Ally ${allyDef.name}: no eligible controlling character (${reason})`);
+        actions.push(notPlayable(playerId, cardInstanceId, reason));
         continue;
       }
 
-      // One action per untapped character that could control the ally
-      for (const ch of untappedCharacters) {
+      // One action per eligible character that could control the ally
+      for (const ch of controllerCandidates) {
         const charDef = defById(state, ch.definitionId);
         const charName = charDef?.name ?? ch.instanceId;
         logDetail(`Ally ${allyDef.name}: playable under ${charName}`);
@@ -1795,21 +1820,37 @@ function playResourcesActions(
         }
       }
 
-      if (untappedCharacters.length === 0) {
-        logDetail(`Faction ${factionDef.name}: no untapped character to attempt influence`);
+      // Influencers: untapped characters, plus untapped allies flagged
+      // `influences-factions` ("may attempt to influence factions as if he
+      // were a character" — Radagast's Black Bird wh-114).
+      const influencerAllies = company.characters
+        .flatMap(cId => player.characters[cId]?.allies ?? [])
+        .filter(a => {
+          if (a.status !== CardStatus.Untapped) return false;
+          const aDef = defById(state, a.definitionId);
+          return isAllyCard(aDef) && hasPlayFlag(aDef, 'influences-factions');
+        });
+      const factionInfluencers = [
+        ...untappedCharacters.map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId, status: c.status })),
+        ...influencerAllies.map(a => ({ instanceId: a.instanceId, definitionId: a.definitionId, status: a.status })),
+      ];
+
+      if (factionInfluencers.length === 0) {
+        logDetail(`Faction ${factionDef.name}: no untapped influencer to attempt influence`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: no untapped character in company`));
         continue;
       }
 
-      // One action per untapped character that could attempt influence
-      for (const ch of untappedCharacters) {
+      // One action per influencer (character or influencing ally)
+      for (const ch of factionInfluencers) {
         const charDef = defById(state, ch.definitionId);
         const charName = charDef?.name ?? ch.instanceId;
 
-        // Compute modifier for this character
+        // Compute modifier for this influencer
         let infModifier = 0;
         const infParts: string[] = [`influence # ${factionDef.influenceNumber}`];
-        if (charDef && isCharacterCard(charDef)) {
+        const fullCharacter = player.characters[ch.instanceId];
+        if (fullCharacter && charDef && isCharacterCard(charDef)) {
           // Use free DI (total DI minus mind cost of followers), not the raw card stat
           const freeDI = availableDI(state, ch.instanceId, player);
           infModifier += freeDI;
@@ -1819,7 +1860,7 @@ function playResourcesActions(
           const resolverCtx: ResolverContext = {
             reason: 'faction-influence-check',
             bearer: {
-              race: charDef.race, skills: [...charDef.skills, ...getItemGrantedSkills(state, ch)],
+              race: charDef.race, skills: [...charDef.skills, ...getItemGrantedSkills(state, fullCharacter)],
               baseProwess: charDef.prowess, baseBody: charDef.body,
               baseDirectInfluence: charDef.directInfluence, name: charDef.name,
               // Character subgrouping keywords (e.g. "leader"), so a faction's
@@ -1839,8 +1880,8 @@ function playResourcesActions(
               wizard: playerWizardName(state, player),
             },
           };
-          const charEffects = collectCharacterEffects(state, ch, resolverCtx);
-          charEffects.push(...collectCompanyAllyEffects(state, ch, resolverCtx));
+          const charEffects = collectCharacterEffects(state, fullCharacter, resolverCtx);
+          charEffects.push(...collectCompanyAllyEffects(state, fullCharacter, resolverCtx));
           // Player-scoped ongoing influence bonuses from bare in-play
           // permanent-events (Great Army of the North ba-38).
           charEffects.push(...collectPlayerInPlayInfluenceEffects(state, playerId, resolverCtx));
@@ -1920,6 +1961,38 @@ function playResourcesActions(
               infParts.push(`site lock ${formatSignedNumber(siteLockMod)}`);
             }
           }
+        } else if (charDef && isAllyCard(charDef)) {
+          // Ally influencing "as if a character" (Radagast's Black Bird wh-114):
+          // its printed direct influence, plus the player-/site-scoped influence
+          // modifiers that apply to any influencer (not per-character DSL bonuses,
+          // which an ally does not carry).
+          const allyDI = charDef.directInfluence ?? 0;
+          infModifier += allyDI;
+          infParts.push(`DI ${allyDI}`);
+
+          for (const constraint of state.activeConstraints) {
+            if (constraint.kind.type !== 'check-modifier') continue;
+            if (constraint.kind.check !== 'influence') continue;
+            if (constraint.target.kind !== 'player') continue;
+            if (constraint.target.playerId !== playerId) continue;
+            infModifier += constraint.kind.value;
+            infParts.push(`player-wide bonus ${formatSignedNumber(constraint.kind.value)}`);
+          }
+
+          const allySiteDefId = company.currentSite?.definitionId;
+          if (allySiteDefId) {
+            for (const constraint of state.activeConstraints) {
+              if (constraint.kind.type !== 'influence-at-site-modifier') continue;
+              if (constraint.kind.siteDefinitionId !== allySiteDefId) continue;
+              infModifier += constraint.kind.value;
+              infParts.push(`site influence bonus ${formatSignedNumber(constraint.kind.value)}`);
+            }
+            const siteLockMod = siteFactionInfluenceModifier(state, allySiteDefId);
+            if (siteLockMod !== 0) {
+              infModifier += siteLockMod;
+              infParts.push(`site lock ${formatSignedNumber(siteLockMod)}`);
+            }
+          }
         }
         const infNeed = factionDef.influenceNumber - infModifier;
 
@@ -1944,8 +2017,9 @@ function playResourcesActions(
           (e): e is Extract<CardEffect, { type: 'influence-modification' }> => e.type === 'influence-modification',
         );
         if (infMod) {
+          const influencerItems = player.characters[ch.instanceId]?.items ?? [];
           for (const option of infMod.options) {
-            for (const item of ch.items) {
+            for (const item of influencerItems) {
               const itemDef = defById(state, item.definitionId);
               if ((itemDef as { subtype?: string } | undefined)?.subtype !== option.discardItemSubtype) continue;
               const itemName = itemDef?.name ?? (item.definitionId as string);
@@ -1971,7 +2045,7 @@ function playResourcesActions(
         // additionally choose to take the faction under their control on
         // success (leaving the site untapped). Offer this as a separate
         // variant so the player decides ("you may").
-        if (getLeaderControlEffect(factionDef) && charDef && leaderControlEligibility(factionDef, charDef)) {
+        if (getLeaderControlEffect(factionDef) && charDef && isCharacterCard(charDef) && leaderControlEligibility(factionDef, charDef)) {
           logDetail(`Faction ${factionDef.name}: ${charName} may take it under leader control (site not tapped)`);
           actions.push({
             action: {

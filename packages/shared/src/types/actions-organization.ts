@@ -503,6 +503,19 @@ export interface VoluntaryDiscardInPlayAction {
 }
 
 /**
+ * Returns an attached resource (an ally carrying a `return-to-hand` effect whose
+ * triggers include `organization`) from play to its owner's hand during that
+ * player's organization phase. Used by Radagast's Black Bird (wh-114): "You may
+ * return … to your hand: during your organization phase …".
+ */
+export interface ReturnAttachedToHandAction {
+  readonly type: 'return-attached-to-hand';
+  readonly player: PlayerId;
+  /** The attached ally instance to return to hand. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Activates the optional once-per-organization-phase fetch granted by an in-play
  * permanent-event carrying an `org-phase-fetch` effect (A Strident Spawn wh-61:
  * "During your organization phase, you may take one Half-orc character from your

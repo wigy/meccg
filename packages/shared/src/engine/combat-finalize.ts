@@ -37,7 +37,7 @@ import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
-import { makeCombatState, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, nextCompanyId, playerConvertsDetainmentToNormal, playerHasKillMpExemption, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { makeCombatState, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, nextCompanyId, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -1303,9 +1303,11 @@ function discardWoundedCharacters(
       ...newPlayerData.discardPile,
       { instanceId: charId, definitionId: charDefId! },
     ];
-    for (const ally of charData.allies) {
-      logDetail(`${sourceName}: discarding ally ${ally.instanceId as string} from discarded character`);
-      newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
+    {
+      const { toHand, toDiscard } = partitionLeavingAllies(stateOut, charData.allies);
+      if (toHand.length > 0) logDetail(`${sourceName}: ${toHand.length} ally(ies) return to hand from discarded character`);
+      newPlayerData.hand = [...newPlayerData.hand, ...toHand];
+      newPlayerData.discardPile = [...newPlayerData.discardPile, ...toDiscard];
     }
     for (const item of charData.items) {
       logDetail(`${sourceName}: discarding item ${item.instanceId as string} from discarded character`);

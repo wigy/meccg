@@ -42,7 +42,7 @@ import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions 
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { asViable as viable } from './evaluated.js';
 
@@ -372,17 +372,20 @@ export function factionInfluenceRollActions(
   if (!def || !isFactionCard(def)) return [];
 
   const charInPlay = player.characters[influencingCharacterId];
-  if (!charInPlay) return [];
+  // The influencer may be a character or an ally that "influences factions as
+  // if a character" (Radagast's Black Bird wh-114).
+  const influencerAlly = charInPlay ? null : findAttachment(player, 'allies', influencingCharacterId);
+  if (!charInPlay && !influencerAlly) return [];
 
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+  const charDef = defById(state, (charInPlay ?? influencerAlly!.attachment).definitionId);
+  const charName = (isCharacterCard(charDef) || isAllyCard(charDef)) ? charDef.name : '?';
   const factionName = def.name;
 
   // Calculate influence modifier using current state (post-chain effects)
   let modifier = 0;
   const parts: string[] = [];
 
-  if (charDef && isCharacterCard(charDef)) {
+  if (charInPlay && charDef && isCharacterCard(charDef)) {
     const freeDI = availableDI(state, influencingCharacterId, player);
     modifier += freeDI;
     parts.push(`DI ${freeDI}`);
@@ -432,6 +435,21 @@ export function factionInfluenceRollActions(
       if (constraint.target.characterId !== influencingCharacterId) continue;
       modifier += constraint.kind.value;
       parts.push(`constraint ${formatSignedNumber(constraint.kind.value)}`);
+    }
+  } else if (influencerAlly && charDef && isAllyCard(charDef)) {
+    // Ally influencing "as if a character" (Radagast's Black Bird wh-114): its
+    // printed direct influence plus any player-scoped influence bonuses.
+    const allyDI = charDef.directInfluence ?? 0;
+    modifier += allyDI;
+    parts.push(`DI ${allyDI}`);
+
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'influence') continue;
+      if (constraint.target.kind !== 'player') continue;
+      if (constraint.target.playerId !== playerId) continue;
+      modifier += constraint.kind.value;
+      parts.push(`player-wide ${formatSignedNumber(constraint.kind.value)}`);
     }
   }
 

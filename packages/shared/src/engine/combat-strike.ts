@@ -30,7 +30,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveProwess } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
-import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, roll2d6, toCardInstance, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, partitionLeavingAllies, roll2d6, toCardInstance, wrongActionType } from './reducer-utils.js';
 import { defenderAlignmentLabel } from './detainment.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
@@ -596,10 +596,14 @@ export function eliminateCombatantFromStrike(
   const elimCharDefId = resolveInstanceId(state, strike.characterId);
   newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
 
-  // Discard allies on the eliminated character immediately; hazards go to opposing (hazard) player
-  for (const ally of charData.allies) {
-    logDetail(`Discarding ally ${ally.instanceId as string} from eliminated character`);
-    newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
+  // Discard allies on the eliminated character immediately (an ally that returns
+  // to hand when its controller leaves play — Radagast's Black Bird wh-114 —
+  // goes to the owner's hand instead); hazards go to opposing (hazard) player.
+  {
+    const { toHand, toDiscard } = partitionLeavingAllies(state, charData.allies);
+    if (toHand.length > 0) logDetail(`${toHand.length} ally(ies) return to hand from eliminated character`);
+    newPlayerData.hand = [...newPlayerData.hand, ...toHand];
+    newPlayerData.discardPile = [...newPlayerData.discardPile, ...toDiscard];
   }
   newPlayers2[defPlayerIndex] = newPlayerData;
   const hazardPlayerElim = newPlayers2[1 - defPlayerIndex];

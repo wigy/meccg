@@ -32,7 +32,7 @@ import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, removeAttachment, removeById, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
@@ -552,9 +552,13 @@ function discardCharacterAfterBodyCheck(
   }
   const discardedCharDefId = resolveInstanceId(state, strike.characterId);
   newPlayerData.discardPile = [...newPlayerData.discardPile, { instanceId: strike.characterId, definitionId: discardedCharDefId! }];
-  for (const ally of charData.allies) {
-    logDetail(`Discarding ally ${ally.instanceId as string} from discarded character`);
-    newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
+  // An ally that returns to hand when its controller leaves play (Radagast's
+  // Black Bird wh-114) is preserved to the owner's hand; the rest are discarded.
+  {
+    const { toHand, toDiscard } = partitionLeavingAllies(state, charData.allies);
+    if (toHand.length > 0) logDetail(`${toHand.length} ally(ies) return to hand from discarded character`);
+    newPlayerData.hand = [...newPlayerData.hand, ...toHand];
+    newPlayerData.discardPile = [...newPlayerData.discardPile, ...toDiscard];
   }
   for (const item of charData.items) {
     logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
