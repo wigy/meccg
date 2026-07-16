@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1567,7 +1567,15 @@ function playResourcesActions(
       const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType, siteRegionTypeOf(state, siteDefForAlly), isUnderDeepsSurfaceSite(state, siteDefForAlly)));
       const matchesPlayTarget = siteDefForAlly !== undefined && sitePlayTarget !== undefined
         && (!sitePlayTarget.filter || matchesDefinition(siteDefForAlly, sitePlayTarget.filter));
-      if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget)) {
+      // Glove of Radagast (wh-111): a `grant-ally-play` permission on a company
+      // member makes any matching non-unique 1-mind ally playable at the
+      // company's current site, bypassing the ally's printed `playableAt`.
+      const grantedByAllyPlay = siteDefForAlly !== undefined
+        && allyPlayGrantAllowsAlly(state, player, company, allyDef);
+      if (grantedByAllyPlay && !matchesPlayableAt && !matchesPlayTarget) {
+        logDetail(`Ally ${allyDef.name}: playability granted at ${siteName} by grant-ally-play (Glove of Radagast)`);
+      }
+      if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget && !grantedByAllyPlay)) {
         const allowedSites = allyDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'any' in e ? 'any-qualifying-site' : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Ally ${allyDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: not playable at ${siteName}`));
@@ -1940,6 +1948,75 @@ function playResourcesActions(
     }
 
     // TODO: information
+  }
+
+  // Glove of Radagast (wh-111): a `grant-ally-play` permission with
+  // `fromDiscard` lets a granted ally be played from the discard pile as well
+  // as the hand. The hand-source case is handled by the loop above (the ally's
+  // site-match is relaxed via `grantedByAllyPlay`); here we source the same
+  // matching allies from the discard pile. All the normal ally gates apply
+  // (untapped site, company open to joins, an untapped controller, manifestation
+  // blocks, company duplication limits, MEWH §10 cross-alignment, Eddy tax).
+  const allyPlayGrant = findAllyPlayGrant(state, player, company);
+  if (allyPlayGrant?.effect.fromDiscard
+      && !companyBlocksJoins(state, company.id)
+      && !companyHasNoAllyRestriction(state, player, company)
+      && untappedCharacters.length > 0) {
+    for (const discardCard of player.discardPile) {
+      const allyDef = defById(state, discardCard.definitionId);
+      if (!allyDef || !isAllyCard(allyDef)) continue;
+      if (!allyPlayGrantAllowsAlly(state, player, company, allyDef)) continue;
+
+      // MEWH §10 cross-alignment site-tap (mirrors the hand loop). A Double-dealing
+      // unlock lifts it at the played-on site.
+      if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(allyDef, siteDef)) {
+        const crossUnlocked = hasSiteFlagForPlayer(
+          state.activeConstraints, 'cross-alignment-resources-unlocked', siteDefId, playerId,
+        );
+        if (!crossUnlocked) {
+          logDetail(`Discard ally ${allyDef.name}: barred — cross-alignment site-tap (MEWH §10)`);
+          continue;
+        }
+      }
+
+      if (eddyTaxUnpaid) continue;
+
+      if (siteIsTapped && !hasPlayFlag(allyDef, 'playable-at-tapped-site')) {
+        logDetail(`Discard ally ${allyDef.name}: site is already tapped`);
+        continue;
+      }
+
+      const blockingManifestation = manifestationOfEntityInPlay(state, allyDef);
+      if (blockingManifestation) {
+        logDetail(`Discard ally ${allyDef.name}: blocked — manifestation "${blockingManifestation}" already in play`);
+        continue;
+      }
+
+      const discardAllyDupLimit = findDuplicationLimitEffect(allyDef, 'company');
+      if (discardAllyDupLimit) {
+        const copiesInCompany = countAttachedInCompany(state, player, company, allyDef.name, 'allies');
+        if (copiesInCompany >= discardAllyDupLimit.max) {
+          logDetail(`Discard ally ${allyDef.name}: company duplication limit reached (${copiesInCompany}/${discardAllyDupLimit.max})`);
+          continue;
+        }
+      }
+
+      for (const ch of untappedCharacters) {
+        const charName = defById(state, ch.definitionId)?.name ?? ch.instanceId;
+        logDetail(`Discard ally ${allyDef.name}: playable from discard under ${charName} (Glove of Radagast)`);
+        actions.push({
+          action: {
+            type: 'play-hero-resource',
+            player: playerId,
+            cardInstanceId: discardCard.instanceId,
+            companyId: company.id,
+            attachToCharacterId: ch.instanceId,
+            fromDiscard: true,
+          },
+          viable: true,
+        });
+      }
+    }
   }
 
   // Resource short-events (e.g. Marvels Told) — per CoE 2.1.1 the resource

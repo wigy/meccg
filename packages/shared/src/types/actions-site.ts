@@ -171,6 +171,13 @@ export interface PlayHeroResourceAction {
   readonly companyId: CompanyId;
   /** For items, the character who will carry the item. */
   readonly attachToCharacterId?: CardInstanceId;
+  /**
+   * When `true`, the card is sourced from the player's discard pile instead of
+   * the hand. Enabled by an in-play `grant-ally-play` effect with
+   * `fromDiscard` (Glove of Radagast wh-111): a granted ally may be played from
+   * the discard pile.
+   */
+  readonly fromDiscard?: boolean;
 }
 
 /**
