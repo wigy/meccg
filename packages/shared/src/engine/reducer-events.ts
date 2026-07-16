@@ -20,7 +20,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getItemGrantedSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
@@ -267,6 +267,54 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
 }
 
 /**
+ * Resolve The Ring Leaves Its Mark (le-223) mode 2: "playable on your tapped
+ * Ringwraith. Make a roll—if the result is greater than 6, untap your
+ * Ringwraith." Rolls 2d6 (honouring `cheatRollTotal` for deterministic tests);
+ * on a total at or above the apply's `threshold` (7) the `onSuccess` branch —
+ * a `set-character-status untapped` on the targeted character — is applied.
+ * The event card is then discarded to its owner's discard pile. Generic in the
+ * `roll-then-apply`/`set-character-status` shape so any future "roll to change a
+ * targeted character's status" short event can reuse it.
+ */
+function resolveShortEventRollUntap(
+  state: GameState,
+  targetId: CardInstanceId,
+  def: CardDefinition,
+  handCard: CardInstance,
+  playerIndex: number,
+  newHand: readonly CardInstance[],
+  apply: import('../types/effects.js').RollThenApplyAction,
+): ReducerResult {
+  const player = state.players[playerIndex];
+  const targetChar = player.characters[targetId];
+  if (!targetChar) return { state, error: `${def.name}: target character ${targetId as string} not found` };
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2;
+  const targetDef = defById(state, targetChar.definitionId);
+  const targetName = targetDef?.name ?? String(targetId);
+  const success = total >= apply.threshold;
+  logDetail(`${def.name}: ${player.name} rolls ${roll.die1} + ${roll.die2} = ${total} vs threshold ${apply.threshold} — ${success ? 'success' : 'failure'} (untap ${targetName})`);
+  const rollEffect = diceRollEffect(player.name, roll, `${def.name}: untap ${targetName}`);
+
+  let newCharacters = player.characters;
+  const branch = success ? apply.onSuccess : apply.onFailure;
+  if (branch && branch.type === 'set-character-status' && branch.status !== undefined) {
+    const statusEnum = cardStatusFromName(branch.status);
+    logDetail(`${def.name}: ${targetName} → status ${branch.status}`);
+    newCharacters = { ...newCharacters, [targetId as string]: { ...targetChar, status: statusEnum } };
+  }
+
+  const finalState = updatePlayer({ ...state, rng, cheatRollTotal }, playerIndex, p => ({
+    ...p,
+    hand: newHand,
+    characters: newCharacters,
+    discardPile: [...p.discardPile, handCard],
+  }));
+  return { state: finalState, effects: [rollEffect] };
+}
+
+/**
  * Handle playing a resource short-event card during the long-event phase.
  *
  * Removes the card from hand, discards it, and if it has a `fetch-to-deck`
@@ -383,6 +431,25 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   state = revealInstances(state, [handCard]);
 
   const newHand = removeById(player.hand, handCard.instanceId);
+
+  // The Ring Leaves Its Mark (le-223) mode 2: "playable on your tapped
+  // Ringwraith. Make a roll—if the result is greater than 6, untap your
+  // Ringwraith." The legal-action emitter targets the player's own tapped
+  // revealed Ringwraith avatar via `targetCharacterId`; a self-enters-play
+  // `roll-then-apply` carries the threshold (7 = "greater than 6") and the
+  // untap (`set-character-status untapped`) branch. Mode 1 (the fetch) has no
+  // `targetCharacterId` and falls through to the generic resolution below.
+  const rollUntapOnEnter = action.type === 'play-short-event' && action.targetCharacterId
+    ? getOnEventEffects(def, 'self-enters-play').find(
+        (e): e is import('../types/effects.js').OnEventEffect & { apply: import('../types/effects.js').RollThenApplyAction } =>
+          e.apply.type === 'roll-then-apply',
+      )
+    : undefined;
+  if (action.type === 'play-short-event' && action.targetCharacterId && rollUntapOnEnter) {
+    return resolveShortEventRollUntap(
+      state, action.targetCharacterId, def, handCard, playerIndex, newHand, rollUntapOnEnter.apply,
+    );
+  }
 
   // Resource-side `call-council` (e.g. Sudden Call, le-235): the card
   // triggers the endgame — discard the card, bypass normal short-event
