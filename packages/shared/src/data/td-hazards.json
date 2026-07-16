@@ -1266,8 +1266,54 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Stormcrow.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "The direct influence of each Wizard is reduced by 2 (by 4 if Doors of Night is in play). Discard all resource permanent-events that have been played on each company with a Wizard (i. e., on the company as a whole, not individual characters, e. g., Fellowship). No such cards may be played on each Wizard’s company.Discard this card when any play deck is exhausted. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2,
+        "target": "all-characters",
+        "when": {
+          "target.race": "wizard"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2,
+        "target": "all-characters",
+        "when": {
+          "$and": [
+            {
+              "target.race": "wizard"
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
+      },
+      {
+        "type": "prohibit-company-events",
+        "companyHasRace": "wizard"
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "The direct influence of each Wizard is reduced by 2 (by 4 if Doors of Night is in play). Discard all resource permanent-events that have been played on each company with a Wizard (i. e., on the company as a whole, not individual characters, e. g., Fellowship). No such cards may be played on each Wizard’s company.Discard this card when any play deck is exhausted. Cannot be duplicated.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "hazard-event",
