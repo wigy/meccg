@@ -2842,15 +2842,28 @@
     "unique": true,
     "prowess": 5,
     "body": 9,
+    "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "any site in Western Mirkwood, Heart of Mirkwood, or Southern Mirkwood (except Dol Guldur)"
+        "any": true,
+        "when": {
+          "$and": [
+            { "site.region": { "$in": ["Western Mirkwood", "Heart of Mirkwood", "Southern Mirkwood"] } },
+            { "site.name": { "$ne": "Dol Guldur" } }
+          ]
+        }
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at any site in Western Mirkwood, Heart of Mirkwood, or Southern Mirkwood (except Dol Guldur). May not face any strike at a site or from an automatic-attack."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-attack-site-keyed"
+      }
+    ],
+    "text": "Unique. Playable at any site in Western Mirkwood, Heart of Mirkwood, or Southern Mirkwood (except Dol Guldur). May not face any strike at a site or from an automatic-attack.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-ally",
