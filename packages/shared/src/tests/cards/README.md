@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 817 | 809 | 8 | 99.0% |
+| 829 | 821 | 8 | 99.0% |
 
 ## Category Breakdown
 
@@ -15,9 +15,9 @@
 | AS | 55 | 55 | 100.0% |
 | BA | 94 | 94 | 100.0% |
 | DM | 70 | 70 | 100.0% |
-| LE | 231 | 228 | 98.7% |
-| TD | 60 | 60 | 100.0% |
-| TW | 260 | 255 | 98.1% |
+| LE | 241 | 238 | 98.8% |
+| TD | 61 | 61 | 100.0% |
+| TW | 261 | 256 | 98.1% |
 | WH | 47 | 47 | 100.0% |
 
 ## Detailed Test Matrix
@@ -244,6 +244,7 @@
 | dm-179 | Noble Hound | — | 7 | ☑ |
 | dm-181 | Baugúr | — | 11 | ☑ |
 | le-1 | Asternak | — | 2 | ☑ |
+| le-2 | Belegorn | — | 3 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
 | le-8 | Dorelas | — | 3 | ☑ |
@@ -279,6 +280,7 @@
 | le-47 | Uchel | — | 3 | ☑ |
 | le-48 | Ufthak | — | 2 | ☑ |
 | le-50 | Adûnaphel the Ringwraith | — | 9 | ☑ |
+| le-51 | Akhôrahil the Ringwraith | — | 7 | ☑ |
 | le-52 | Dwar the Ringwraith | — | 10 | ☑ |
 | le-53 | Hoarmûrath the Ringwraith | — | 7 | ☑ |
 | le-54 | Indûr the Ringwraith | — | 9 | ☑ |
@@ -289,6 +291,7 @@
 | le-60 | Arthadan Rangers | — | 6 | ☑ |
 | le-61 | Barrow-wight | — | 6 | ☑ |
 | le-65 | Cave Worm | — | 3 | ☑ |
+| le-66 | Cave-drake | — | 5 | ☑ |
 | le-67 | Corpse-candle | — | 10 | ☑ |
 | le-68 | Dire Wolves | — | 5 | ☑ |
 | le-69 | Elf-lord Revealed in Wrath | — | 6 | ☑ |
@@ -342,7 +345,9 @@
 | le-156 | War-warg | — | 9 | ☑ |
 | le-157 | War-wolf | — | 8 | ☑ |
 | le-158 | The Warg-king | — | 11 | ☑ |
+| le-159 | A Malady Without Healing | — | 12 | ☑ |
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
+| le-162 | Akhôrahil Unleashed | — | 8 | ☑ |
 | le-165 | Awaiting the Call | — | 10 | ☑ |
 | le-167 | Bade to Rule | — | 13 | ◐ |
 | le-170 | Black Rider | — | 8 | ☑ |
@@ -356,6 +361,7 @@
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
 | le-183 | Fell Rider | — | 12 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
+| le-185 | Forced March | — | 6 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
 | le-195 | I’ll Be At Your Heels | — | 14 | ☑ |
@@ -385,6 +391,7 @@
 | le-264 | Easterlings | — | 8 | ☑ |
 | le-265 | Goblins of Goblin-gate | — | 7 | ☑ |
 | le-266 | Grey Mountain Goblins | — | 9 | ☑ |
+| le-267 | Half-trolls | — | 8 | ☑ |
 | le-268 | Hill Trolls | — | 7 | ☑ |
 | le-270 | Ice-orcs | — | 8 | ☑ |
 | le-272 | Misty Mountain Wargs | — | 15 | ☑ |
@@ -423,6 +430,7 @@
 | le-341 | Sable Shield | — | 6 | ☑ |
 | le-342 | Saw-toothed Blade | — | 3 | ☑ |
 | le-343 | Scroll of Isildur | — | 9 | ☑ |
+| le-344 | Shadow-cloak | — | 5 | ☑ |
 | le-345 | Strange Rations | — | 14 | ☑ |
 | le-346 | Trifling Ring | — | 13 | ☑ |
 | le-349 | Amon Hen | — | 10 | ☑ |
@@ -431,6 +439,7 @@
 | le-352 | Barad-dûr | — | 11 | ☑ |
 | le-353 | Barrow-downs | — | 10 | ☑ |
 | le-354 | Beorn’s House | — | 7 | ☑ |
+| le-356 | Bree | — | 12 | ☑ |
 | le-357 | Buhr Widu | — | 7 | ☑ |
 | le-359 | Carn Dûm | — | 18 | ☑ |
 | le-360 | Caves of Ûlund | — | 6 | ☑ |
@@ -443,6 +452,7 @@
 | le-371 | Easterling Camp | — | 7 | ☑ |
 | le-372 | Edoras | — | 10 | ☑ |
 | le-373 | Ettenmoors | — | 10 | ☑ |
+| le-374 | Geann a-Lisch | — | 9 | ☑ |
 | le-375 | Gladden Fields | — | 10 | ☑ |
 | le-376 | Glittering Caves | — | 11 | ☑ |
 | le-377 | Gobel Mírlond | — | 13 | ☑ |
@@ -487,6 +497,7 @@
 | td-21 | Eärcaraxë Ahunt | — | 11 | ☑ |
 | td-25 | Foolish Words | — | 8 | ☑ |
 | td-27 | From the Pits of Angband | — | 15 | ☑ |
+| td-32 | Ice-drake | — | 2 | ☑ |
 | td-34 | Incite Denizens | — | 10 | ☑ |
 | td-37 | Itangast Ahunt | — | 13 | ☑ |
 | td-41 | Left Behind | — | 10 | ☑ |
@@ -577,6 +588,7 @@
 | tw-89 | Slayer | — | 7 | ☑ |
 | tw-90 | Smaug | — | 7 | ☑ |
 | tw-91 | Snowstorm | — | 5 | ☑ |
+| tw-93 | The Balance of Things | — | 6 | ☑ |
 | tw-99 | The Ring’s Betrayal | — | 6 | ☑ |
 | tw-103 | “Tom” (Tûma) | — | 7 | ☑ |
 | tw-106 | Twilight | — | 10 | ☑ |

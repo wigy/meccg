@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.51.0 — 2026-07-16
+
+Challenge Deck M
+
+### Game Engine
+
+- Completed the card pool for challenge deck (M) "It's magic!" — all 110 cards are now certified, making the deck playable end to end
+- Certified Geann a-Lisch (le-374), a dangerous minion Haven introducing two new site-rules: `no-storage` ("resources may never be stored here") and `hazard-site-type-override` (the site counts as a Ruins & Lairs with Carn Dûm's site path for hazard keying only, re-exposing companies to hazards that a Haven would otherwise block emergently); its "no characters unless this is their home site" rule needed data only, via the existing `deny-character` rule with an empty filter
+- Certified Bree (le-356) with a new `allow-agent-play` site-rule, letting agent characters be brought into play under a controlling character's *direct* influence (overriding rule 2.II.2.2.5's home-site confinement) while leaving Ringwraith/Fallen-wizard alignment gating unchanged; also filled in Bree's materially incomplete data (playable resources, Dúnedain auto-attack, covert-gated detainment)
+- Certified The Balance of Things (tw-93) with a new `corruption-source-multiplier` effect: a game-wide long-event that doubles each character's *smallest* corruption source (the controlling player minimises), with N in-play copies scaling the N smallest sources; the Balrog avatar is excluded
+- Certified Forced March (le-185) with a new `grant-extra-mh-phase` primitive, granting an extra movement/hazard phase to a company that moved to a Darkhaven
+- Certified Akhôrahil the Ringwraith (le-51) with a new magic-discard-to-deck passive, recycling the caster's magic cards to the play deck instead of the discard pile
+- Certified Akhôrahil Unleashed (le-162): the move fetch now accepts a `deck` source, enabling a magic-card self-tutor across play deck and discard with a reshuffle
+- Certified A Malady Without Healing (le-159), adding a cross-player play-target, a standalone body check, and hero kill MP via `bonusKillMarshallingPoints`
+- Certified Shadow-cloak (le-344) with a cancel-strike attack-keying when-context primitive
+
+### Card Data
+
+- 12 newly certified cards (865 → 877 of 1683), concentrated on the challenge deck (M) "It's magic!" pool
+- Certified Half-trolls (le-267), an Orcs-of-Udûn leader-control faction sibling of le-262 — data fix only
+- Certified Cave-drake (le-66) as a data-fix sibling of tw-020: added the `combat-attacker-chooses-defenders` effect and corrected its keying to `{w}{w}` (two wildernesses)
+- Certified Ice-drake (td-32), a plain region-name-keyed hazard Drake encoded via a single `keyedTo.regionNames` entry — no engine work
+- Certified Belegorn (le-2) — restored the missing "can use spirit-magic" skill
+
 ## 0.50.0 — 2026-07-15
 
 Challenge Deck L

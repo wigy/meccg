@@ -22,10 +22,10 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
 | Rule tests | 269 | 332 | 81.0% |
-| Card tests | 809 | 817 | 99.0% |
+| Card tests | 821 | 829 | 99.0% |
 | Cards created | 1683 | 1683 | 100.0% |
-| Cards certified | 865 | 1683 | 51.4% |
-| **Total** | **3626** | **4515** | **80.3%** |
+| Cards certified | 877 | 1683 | 52.1% |
+| **Total** | **3650** | **4527** | **80.6%** |
 
 ### Deck Catalog
 
@@ -45,8 +45,8 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (K) Lord of Rings | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (L) Wolves! | minion | 110 | 110 (100.0%) | 110 (100.0%) |
-| (M) It's magic! | minion | 110 | 110 (100.0%) | 95 (86.4%) |
-| (N) Smoke on the Water | minion | 110 | 110 (100.0%) | 95 (86.4%) |
+| (M) It's magic! | minion | 110 | 110 (100.0%) | 110 (100.0%) |
+| (N) Smoke on the Water | minion | 110 | 110 (100.0%) | 97 (88.2%) |
 | (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
