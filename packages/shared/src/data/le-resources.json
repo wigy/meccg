@@ -3766,12 +3766,51 @@
     "alignment": "ringwraith",
     "id": "le-230",
     "name": "Smoke on the Wind",
+    "certified": "2026-07-16",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SmokeontheWind.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 3,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": "free-hold"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tapped-site-only"
+      },
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          {
+            "creatureType": "Men",
+            "strikes": 5,
+            "prowess": 8
+          },
+          {
+            "creatureType": "Men",
+            "strikes": 1,
+            "prowess": 10
+          }
+        ],
+        "afterAttack": "move-to-mp-pile",
+        "discardFactionsAtSite": true
+      }
+    ],
     "text": "Playable at an already tapped Free-hold [{F}] during the site phase. The company faces two attacks (Men — 5 strikes with 8 prowess, 1 strike with 10 prowess). If no characters are untapped following the attack, discard this card. Otherwise, you may tap one character in the company and put this card in your marshalling point pile. Discard any factions you have in play that are playable at this site. Cannot be duplicated at a given site."
   },
   {
