@@ -483,6 +483,36 @@ export interface FallenWizardAllyMpFullEffect extends EffectBase {
 }
 
 /**
+ * Exempts matching allies the source's controller has in play from their
+ * printed "discard if the company moves to …" movement restriction (a
+ * `bearer-company-moves` self-discard, e.g. Mistress Lobelia dm-178). CRF 22:
+ * an ally's "movement restriction" is exactly its "Discard if he/she moves to"
+ * clause; this effect makes those clauses not fire for the matching allies.
+ *
+ * Collected during the end-of-movement discard sweep (`mh-hazard-play.ts`) from
+ * the moving player's in-play characters and `cardsInPlay`. When a matching
+ * ally would be discarded by a `bearer-company-moves` self-discard, the discard
+ * is skipped.
+ *
+ * Used by Radagast (wh-8): "Hero allies Radagast controls have no movement
+ * restrictions." — `filter` `{ cardType: "hero-resource-ally" }`.
+ *
+ * ```json
+ * { "type": "ally-movement-restriction-exemption",
+ *   "filter": { "cardType": "hero-resource-ally" } }
+ * ```
+ */
+export interface AllyMovementRestrictionExemptionEffect extends EffectBase {
+  readonly type: 'ally-movement-restriction-exemption';
+  /**
+   * Condition matched against an ally's card definition. Matching allies are
+   * exempt from their `bearer-company-moves` self-discard; omit to exempt every
+   * ally the controller has in play.
+   */
+  readonly filter?: Condition;
+}
+
+/**
  * Fallen-wizard character/ally marshalling-point floor (MEWH §4 exception).
  *
  * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
@@ -5203,6 +5233,7 @@ export interface EvilHourGrantMovementEffect extends EffectBase {
 export type CardEffect =
   | EvilHourTapTriggerEffect
   | EvilHourGrantMovementEffect
+  | AllyMovementRestrictionExemptionEffect
   | StatModifierEffect
   | CheckModifierEffect
   | BodyCheckModifierEffect
