@@ -5382,6 +5382,7 @@ export type CardEffect =
   | ExtraUnderDeepsMhPhaseEffect
   | GrantExtraMHPhaseEffect
   | RegionMovementLimitEffect
+  | ProhibitCompanyEventsEffect
   | HazardLimitEnvironmentEffect
   | TakePrisonerEffect
   | StrikeShieldEffect
@@ -5765,6 +5766,43 @@ export interface RegionMovementLimitEffect extends EffectBase {
   readonly reduceWithDoorsOfNight?: number;
   /** Floor below which the reduced max region distance may never drop. */
   readonly min: number;
+}
+
+/**
+ * Environment effect that suppresses **resource permanent-events played on a
+ * company as a whole** (e.g. Fellowship tw-240) for every company that
+ * contains a character of {@link companyHasRace}.
+ *
+ * Carried by an in-play hazard environment permanent-event, it applies
+ * game-wide and has two faces:
+ *
+ * - **Discard** — every resource permanent-event bound to a matching company
+ *   (`CardInPlay.companyId` set, cardType `hero-resource-event` /
+ *   `minion-resource-event`, `eventType: "permanent"`) is discarded to its
+ *   owner's discard pile. Run continuously by `sweepProhibitedCompanyEvents`
+ *   (a `postReduce` sweep in `reducer.ts`), so it also catches a case where a
+ *   matching character later joins a company already carrying such an event.
+ * - **Prohibition** — no such card may be played on a matching company. The
+ *   organization-phase `play-target: company` emitter
+ *   (`legal-actions/organization-events.ts`) refuses the play via
+ *   `isCompanyEventPlayProhibited`.
+ *
+ * "Played on the company as a whole, not individual characters" is exactly the
+ * `companyId`-bound resource permanent-event (Fellowship), distinct from a
+ * character-attached permanent-event (which sets `attachedTo`, not
+ * `companyId`), so those are untouched.
+ *
+ * Used by Stormcrow (td-73): "Discard all resource permanent-events that have
+ * been played on each company with a Wizard … No such cards may be played on
+ * each Wizard's company." — `companyHasRace: "wizard"`.
+ */
+export interface ProhibitCompanyEventsEffect extends EffectBase {
+  readonly type: 'prohibit-company-events';
+  /**
+   * Only companies containing a character of this race (e.g. `"wizard"`) are
+   * affected — matched against each company member's printed `race`.
+   */
+  readonly companyHasRace: string;
 }
 
 /**

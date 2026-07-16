@@ -2626,6 +2626,100 @@ export function discardCardsInPlayWhere(
 }
 
 /**
+ * Whether `company` (owned by `player`) contains a character whose printed
+ * `race` equals `race`. Shared by the {@link ProhibitCompanyEventsEffect}
+ * machinery (Stormcrow td-73) to detect "a company with a Wizard".
+ */
+export function companyContainsRace(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  race: string,
+): boolean {
+  return company.characters.some(cId => {
+    const ch = player.characters[cId];
+    if (!ch) return false;
+    const def = defById(state, ch.definitionId);
+    return !!def && isCharacterCard(def) && def.race === race;
+  });
+}
+
+/**
+ * Collects the races prohibited by every in-play
+ * {@link ProhibitCompanyEventsEffect} (Stormcrow td-73), across both players'
+ * `cardsInPlay`. A card still resolving a `trigger-attack-on-play` keep is
+ * skipped (its ongoing effects are suppressed until the keep is confirmed).
+ */
+function collectProhibitedCompanyEventRaces(state: GameState): string[] {
+  const races: string[] = [];
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.pendingTriggerAttack) continue;
+      for (const e of getCardEffects(defById(state, c.definitionId))) {
+        if (e.type === 'prohibit-company-events') {
+          races.push(e.companyHasRace);
+        }
+      }
+    }
+  }
+  return races;
+}
+
+/**
+ * Whether a resource permanent-event played on the company as a whole (e.g.
+ * Fellowship tw-240) may **not** be played on `company` (owned by `player`)
+ * because an in-play {@link ProhibitCompanyEventsEffect} (Stormcrow td-73)
+ * targets a race present in the company. Consulted by the organization-phase
+ * `play-target: company` emitter.
+ */
+export function isCompanyEventPlayProhibited(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): boolean {
+  const races = collectProhibitedCompanyEventRaces(state);
+  return races.some(race => companyContainsRace(state, player, company, race));
+}
+
+/**
+ * `postReduce` sweep: while a {@link ProhibitCompanyEventsEffect} (Stormcrow
+ * td-73) is in play, discard every resource permanent-event bound to a
+ * matching company (a company containing a prohibited race) to its owner's
+ * discard pile. Runs continuously so it also catches a matching character
+ * joining a company that already carries such an event. Company-bound
+ * resource permanent-events are exactly the "played on the company as a whole"
+ * cards (Fellowship); character-attached permanent-events (which set
+ * `attachedTo`, not `companyId`) are untouched.
+ */
+export function sweepProhibitedCompanyEvents(state: GameState): GameState {
+  const races = collectProhibitedCompanyEventRaces(state);
+  if (races.length === 0) return state;
+  const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+    state,
+    (card, player) => {
+      if (card.companyId === undefined) return false;
+      const def = defById(state, card.definitionId);
+      if (!def) return false;
+      if (def.cardType !== 'hero-resource-event' && def.cardType !== 'minion-resource-event') return false;
+      if ((def as { eventType?: string }).eventType !== 'permanent') return false;
+      const company = player.companies.find(c => c.id === card.companyId);
+      if (!company) return false;
+      return races.some(race => companyContainsRace(state, player, company, race));
+    },
+    card => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`Stormcrow: discarding company-bound resource event "${def?.name ?? card.definitionId}" — company has a prohibited race`);
+    },
+  );
+  if (removedInstanceIds.length === 0) return state;
+  const removedSources = new Set(removedInstanceIds.map(id => id as string));
+  return {
+    ...next,
+    activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+  };
+}
+
+/**
  * Fires the `company-membership-changes` event against every company-targeted
  * permanent event (cardsInPlay with a matching `companyId`) that carries an
  * `on-event: company-membership-changes` + self-discard `move` effect. Used by

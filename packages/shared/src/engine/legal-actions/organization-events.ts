@@ -26,7 +26,7 @@ import { getItemGrantedSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { hasSiteFlagForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf, matchesCompanyContextCondition } from '../reducer-utils.js';
+import { hasSiteFlagForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
@@ -381,6 +381,13 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         if (!company.currentSite) continue;
         if (heroEventForFw && companyHasOrcOrTroll(state, company, player)) {
           logDetail(`Permanent event ${def.name}: hero resource cannot be played on company ${company.id as string} — contains an Orc/Troll (MEWH §9)`);
+          continue;
+        }
+        // Stormcrow (td-73): "No such cards may be played on each Wizard's
+        // company." A resource permanent-event played on the company as a whole
+        // is barred from any company containing a prohibited race (a Wizard).
+        if (isCompanyEventPlayProhibited(state, player, company)) {
+          logDetail(`Permanent event ${def.name}: cannot be played on company ${company.id as string} — a Stormcrow-style effect prohibits company events there`);
           continue;
         }
         const siteDef = defById(state, company.currentSite.definitionId);

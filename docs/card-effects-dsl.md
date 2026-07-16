@@ -8344,6 +8344,45 @@ floor. Consumed both at movement-plan time (`organization-companies.ts`
 using region movement is reduced by one (by two if Doors of Night is in play) to
 a minimum of two."
 
+### 52a. `prohibit-company-events`
+
+Carried by an in-play hazard permanent-event; suppresses **resource
+permanent-events played on a company as a whole** (Fellowship tw-240, played via
+`play-target: "company"` so its `CardInPlay.companyId` is set) for every company
+containing a character of `companyHasRace`. It applies game-wide (either player's
+companies).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `companyHasRace` | yes | Only companies containing a character of this printed `race` (e.g. `"wizard"`) are affected. |
+
+```json
+{ "type": "prohibit-company-events", "companyHasRace": "wizard" }
+```
+
+Two faces (both driven by `collectProhibitedCompanyEventRaces` in
+`reducer-utils.ts`, which scans both players' `cardsInPlay`, skipping any card
+still resolving a `trigger-attack-on-play` keep):
+
+- **Discard** — `sweepProhibitedCompanyEvents` (a `postReduce` sweep in
+  `reducer.ts`) discards every `companyId`-bound resource permanent-event
+  (cardType `hero-resource-event`/`minion-resource-event`, `eventType:
+  "permanent"`) whose bound company contains a prohibited race to its owner's
+  discard pile (clearing its `activeConstraints`). Running continuously, it also
+  catches a matching character joining a company that already carries such an
+  event.
+- **Prohibition** — `isCompanyEventPlayProhibited` stops the organization-phase
+  `play-target: "company"` emitter (`legal-actions/organization-events.ts`) from
+  offering such a card on a matching company.
+
+Character-attached permanent-events (which set `attachedTo`, not `companyId`) are
+untouched — matching "on the company as a whole, not individual characters."
+Used by Stormcrow (td-73): "Discard all resource permanent-events that have been
+played on each company with a Wizard … No such cards may be played on each
+Wizard's company." — combined with two `all-characters` `direct-influence`
+`stat-modifier`s (net -2, or -4 with Doors of Night), an `on-event
+play-deck-exhausted` self-discard, and `duplication-limit` scope `game`.
+
 ### 52b. `company-movement-restriction`
 
 Carried by a permanent-event **bound to a company** (`play-target`
