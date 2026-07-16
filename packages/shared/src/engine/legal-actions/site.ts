@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1551,12 +1551,6 @@ function playResourcesActions(
         (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
       );
 
-      if (siteIsTapped && !hasPlayFlag(allyDef, 'playable-at-tapped-site') && sitePlayTarget?.requireTapped !== false) {
-        logDetail(`Ally ${allyDef.name}: site is already tapped`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: site is already tapped`));
-        continue;
-      }
-
       // Check ally is playable at this site via playableAt entries or a play-target site filter
       const siteDefForAlly = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
       const allyEffSiteType = siteDefForAlly && siteDefId
@@ -1576,10 +1570,56 @@ function playResourcesActions(
       if (grantedByAllyPlay && !matchesPlayableAt && !matchesPlayTarget) {
         logDetail(`Ally ${allyDef.name}: playability granted at ${siteName} by grant-ally-play (Glove of Radagast)`);
       }
-      if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget && !grantedByAllyPlay)) {
+
+      // An Untimely Brood (wh-62): a player-scoped `grant-ally-play` with
+      // `atProtectedWizardhavens` makes any matching non-unique 1-mind ally
+      // playable at one of the player's own protected Wizardhavens — tapped or
+      // untapped — once per site phase.
+      const wizGrant = findWizardhavenAllyPlayGrant(state, player);
+      const siteIsProtectedWizardhaven = siteDefForAlly !== undefined
+        && siteIsProtectedByPlayer(state, siteDefId, playerId)
+        && isHavenForPlayer(siteDefForAlly, player.alignment, { state, siteDefinitionId: siteDefId, playerId });
+      const grantedByWizardhaven = wizGrant !== undefined
+        && siteIsProtectedWizardhaven
+        && (!wizGrant.effect.filter || matchesCondition(wizGrant.effect.filter, { target: allyDef as unknown as Record<string, unknown> }));
+
+      // The tapped-site block: an ally normally requires an untapped site. It is
+      // lifted by the ally's own `playable-at-tapped-site` flag / play-target
+      // `requireTapped: false`, or by the wh-62 Wizardhaven grant's
+      // `allowTappedSite`.
+      const allyAllowsTappedSite = hasPlayFlag(allyDef, 'playable-at-tapped-site')
+        || sitePlayTarget?.requireTapped === false
+        || (grantedByWizardhaven && wizGrant.effect.allowTappedSite === true);
+      if (siteIsTapped && !allyAllowsTappedSite) {
+        logDetail(`Ally ${allyDef.name}: site is already tapped`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: site is already tapped`));
+        continue;
+      }
+
+      // Would the ally be playable here on its own (printed playability, and —
+      // when the site is tapped — a tapped-site allowance of its own)? Used to
+      // decide whether a play actually *consumes* the wh-62 grant.
+      const normallyPlayableHere = (matchesPlayableAt || matchesPlayTarget)
+        && (!siteIsTapped || hasPlayFlag(allyDef, 'playable-at-tapped-site') || sitePlayTarget?.requireTapped === false);
+      const usesWizardhavenGrant = grantedByWizardhaven && !normallyPlayableHere && !grantedByAllyPlay;
+      if (grantedByWizardhaven && !matchesPlayableAt && !matchesPlayTarget && !grantedByAllyPlay) {
+        logDetail(`Ally ${allyDef.name}: playability granted at ${siteName} by grant-ally-play (An Untimely Brood, protected Wizardhaven)`);
+      }
+
+      if (!siteDefForAlly || (!matchesPlayableAt && !matchesPlayTarget && !grantedByAllyPlay && !grantedByWizardhaven)) {
         const allowedSites = allyDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'any' in e ? 'any-qualifying-site' : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Ally ${allyDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: not playable at ${siteName}`));
+        continue;
+      }
+
+      // wh-62 once-per-site-phase: if this ally can only be played through the
+      // Wizardhaven grant and that grant has already been used this phase, it is
+      // no longer playable.
+      if (usesWizardhavenGrant && wizGrant.effect.oncePerSitePhase
+          && grantedActionUsedThisTurn(state, wizGrant.sourceId, 'grant-ally-play')) {
+        logDetail(`Ally ${allyDef.name}: An Untimely Brood's Wizardhaven ally already played this site phase`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name}: only one ally may be played at a Wizardhaven this site phase (An Untimely Brood)`));
         continue;
       }
 
@@ -1679,6 +1719,9 @@ function playResourcesActions(
             cardInstanceId,
             companyId: company.id,
             attachToCharacterId: ch.instanceId,
+            // wh-62: mark the play as consuming the Wizardhaven grant so the
+            // reducer records its once-per-site-phase lock.
+            ...(usesWizardhavenGrant ? { viaWizardhavenAllyGrant: wizGrant.sourceId } : {}),
           },
           viable: true,
         });

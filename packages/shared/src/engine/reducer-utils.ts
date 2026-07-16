@@ -2704,6 +2704,100 @@ export function discardCardsInPlayWhere(
 }
 
 /**
+ * Whether `company` (owned by `player`) contains a character whose printed
+ * `race` equals `race`. Shared by the {@link ProhibitCompanyEventsEffect}
+ * machinery (Stormcrow td-73) to detect "a company with a Wizard".
+ */
+export function companyContainsRace(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  race: string,
+): boolean {
+  return company.characters.some(cId => {
+    const ch = player.characters[cId];
+    if (!ch) return false;
+    const def = defById(state, ch.definitionId);
+    return !!def && isCharacterCard(def) && def.race === race;
+  });
+}
+
+/**
+ * Collects the races prohibited by every in-play
+ * {@link ProhibitCompanyEventsEffect} (Stormcrow td-73), across both players'
+ * `cardsInPlay`. A card still resolving a `trigger-attack-on-play` keep is
+ * skipped (its ongoing effects are suppressed until the keep is confirmed).
+ */
+function collectProhibitedCompanyEventRaces(state: GameState): string[] {
+  const races: string[] = [];
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.pendingTriggerAttack) continue;
+      for (const e of getCardEffects(defById(state, c.definitionId))) {
+        if (e.type === 'prohibit-company-events') {
+          races.push(e.companyHasRace);
+        }
+      }
+    }
+  }
+  return races;
+}
+
+/**
+ * Whether a resource permanent-event played on the company as a whole (e.g.
+ * Fellowship tw-240) may **not** be played on `company` (owned by `player`)
+ * because an in-play {@link ProhibitCompanyEventsEffect} (Stormcrow td-73)
+ * targets a race present in the company. Consulted by the organization-phase
+ * `play-target: company` emitter.
+ */
+export function isCompanyEventPlayProhibited(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): boolean {
+  const races = collectProhibitedCompanyEventRaces(state);
+  return races.some(race => companyContainsRace(state, player, company, race));
+}
+
+/**
+ * `postReduce` sweep: while a {@link ProhibitCompanyEventsEffect} (Stormcrow
+ * td-73) is in play, discard every resource permanent-event bound to a
+ * matching company (a company containing a prohibited race) to its owner's
+ * discard pile. Runs continuously so it also catches a matching character
+ * joining a company that already carries such an event. Company-bound
+ * resource permanent-events are exactly the "played on the company as a whole"
+ * cards (Fellowship); character-attached permanent-events (which set
+ * `attachedTo`, not `companyId`) are untouched.
+ */
+export function sweepProhibitedCompanyEvents(state: GameState): GameState {
+  const races = collectProhibitedCompanyEventRaces(state);
+  if (races.length === 0) return state;
+  const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+    state,
+    (card, player) => {
+      if (card.companyId === undefined) return false;
+      const def = defById(state, card.definitionId);
+      if (!def) return false;
+      if (def.cardType !== 'hero-resource-event' && def.cardType !== 'minion-resource-event') return false;
+      if ((def as { eventType?: string }).eventType !== 'permanent') return false;
+      const company = player.companies.find(c => c.id === card.companyId);
+      if (!company) return false;
+      return races.some(race => companyContainsRace(state, player, company, race));
+    },
+    card => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`Stormcrow: discarding company-bound resource event "${def?.name ?? card.definitionId}" — company has a prohibited race`);
+    },
+  );
+  if (removedInstanceIds.length === 0) return state;
+  const removedSources = new Set(removedInstanceIds.map(id => id as string));
+  return {
+    ...next,
+    activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+  };
+}
+
+/**
  * Fires the `company-membership-changes` event against every company-targeted
  * permanent event (cardsInPlay with a matching `companyId`) that carries an
  * `on-event: company-membership-changes` + self-discard `move` effect. Used by
@@ -2796,6 +2890,12 @@ export function discardOrphanedControlledFactions(state: GameState): GameState {
  * (ba-50, `surface-site-roll-zero`), Roots of the Earth (ba-74,
  * `site-instance-transform`), and Eddy in Fate's Tide (ba-57, `eddy-lock`,
  * "This site is never discarded").
+ *
+ * Also true for Girdle of Radagast (wh-110, `region-type-conversion`): a
+ * permanent Fallen-wizard **stage** resource bound to a Wizardhaven purely to
+ * anchor its region-conversion effect. It contributes stage points for the rest
+ * of the game and must persist when the company leaves the haven, so it is
+ * exempt from the orphan sweep (the haven itself is never discarded regardless).
  */
 export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefined): boolean {
   return getCardEffects(def).some(
@@ -2803,7 +2903,8 @@ export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefin
       || e.type === 'surface-site-roll-zero'
       || e.type === 'site-instance-transform'
       || e.type === 'eddy-lock'
-      || e.type === 'site-lock',
+      || e.type === 'site-lock'
+      || e.type === 'region-type-conversion',
   );
 }
 
@@ -3266,6 +3367,61 @@ export function allyPlayGrantAllowsAlly(
     }
   }
   return true;
+}
+
+/**
+ * A player-scoped, Wizardhaven-keyed `grant-ally-play` permission (An Untimely
+ * Brood wh-62) plus the instance id of the granting permanent-event. Unlike the
+ * bearer-scoped grant located by {@link findAllyPlayGrant}, this permission is a
+ * free-standing permanent-event in the player's `cardsInPlay`.
+ */
+export interface WizardhavenAllyPlayGrant {
+  readonly effect: import('../types/effects.js').GrantAllyPlayEffect;
+  /** The permanent-event card instance carrying the grant (wh-62). */
+  readonly sourceId: CardInstanceId;
+}
+
+/**
+ * Finds a `grant-ally-play` permission with `atProtectedWizardhavens` among the
+ * player's in-play permanent-events. Returns the effect and the granting card's
+ * instance id, or `undefined` when the player has no such grant. Backs An
+ * Untimely Brood (wh-62): "One non-unique ally with a mind of 1 is playable at
+ * one of your … protected Wizardhavens each of your site phases."
+ */
+export function findWizardhavenAllyPlayGrant(
+  state: GameState,
+  player: PlayerState,
+): WizardhavenAllyPlayGrant | undefined {
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const eff = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').GrantAllyPlayEffect =>
+        e.type === 'grant-ally-play' && e.atProtectedWizardhavens === true,
+    );
+    if (eff) return { effect: eff, sourceId: card.instanceId };
+  }
+  return undefined;
+}
+
+/**
+ * True when a turn-scoped `granted-action-used` lock is active for the given
+ * source card instance and action id — i.e. a once-per-turn / once-per-phase
+ * ability has already been used this turn. The lock is added by the reducer on
+ * first use and cleared at turn-end. Shared by the grant-action scanner
+ * (Strangling Coils ba-76) and the Wizardhaven ally grant (An Untimely Brood
+ * wh-62, action id `grant-ally-play`).
+ */
+export function grantedActionUsedThisTurn(
+  state: GameState,
+  sourceInstanceId: CardInstanceId,
+  actionId: string,
+): boolean {
+  return state.activeConstraints.some(c =>
+    c.kind.type === 'granted-action-used'
+    && c.kind.sourceInstanceId === sourceInstanceId
+    && c.kind.actionId === actionId,
+  );
 }
 
 /**

@@ -49,7 +49,7 @@ import { handleGrantActionApply } from './grant-action-apply.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { collectRegionKeyingBoosts, regionPathsWithBoosts, collectRegionTypeRemaps, applyRegionTypeRemaps } from './region-keying.js';
+import { collectRegionKeyingBoosts, regionPathsWithBoosts, collectRegionTypeRemaps, applyRegionTypeRemaps, collectRegionTypeConversions, applyRegionTypeConversions } from './region-keying.js';
 import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter } from './mh-agents.js';
 
 /**
@@ -2448,7 +2448,16 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   // classes of region ("all Border-lands as Wildernesses") on the traversed
   // path before keying. Evaluated live so the DoN gate tracks play/leave.
   const regionRemaps = collectRegionTypeRemaps(state, inPlayNames);
-  const effectiveSitePath = applyRegionTypeRemaps(overriddenSitePath, regionRemaps);
+  const remappedSitePath = applyRegionTypeRemaps(overriddenSitePath, regionRemaps);
+
+  // region-type-conversion environments (Girdle of Radagast le-... wh-110):
+  // named regions bound to a Wizardhaven (and its adjacents) "become
+  // Wilderness". Applied last, keyed by region name, so those regions read as
+  // the converted type regardless of their printed type or any type-class remap.
+  const regionConversions = collectRegionTypeConversions(state);
+  const effectiveSitePath = mhState.resolvedSitePath.length === mhState.resolvedSitePathNames.length
+    ? applyRegionTypeConversions(remappedSitePath, mhState.resolvedSitePathNames, regionConversions)
+    : remappedSitePath;
 
   // region-keying-boost environments (Withered Lands): build the candidate
   // paths once. Each is the resolved path with at most one boost applied.

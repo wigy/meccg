@@ -288,6 +288,31 @@ at his site. This ally may be taken from your discard pile or hand."
   "fromDiscard": true }
 ```
 
+A **player-scoped, Wizardhaven-keyed** variant (`atProtectedWizardhavens: true`)
+lives on a free-standing permanent-event in the player's `cardsInPlay` instead
+of on a bearer character. The engine finds it via `findWizardhavenAllyPlayGrant`
+and extends playability to a matching ally only when the acting company's
+current site is one of the player's own **protected Wizardhavens**
+(`siteIsProtectedByPlayer` ∧ `isHavenForPlayer`). `allowTappedSite: true` lifts
+the untapped-site requirement (the Wizardhaven may be tapped or untapped);
+`oncePerSitePhase: true` limits it to one grant-enabled ally per site phase — the
+reducer records a turn-scoped `granted-action-used` lock (action id
+`grant-ally-play`) keyed by the granting card, read back via
+`grantedActionUsedThisTurn`. The play carries `viaWizardhavenAllyGrant` (the
+grant card's instance id) so only a play that actually *depends* on the grant
+(i.e. the ally is not independently playable at the site in its current
+tapped/untapped state) consumes the allowance. Used by An Untimely Brood (wh-62):
+"One non-unique ally with a mind of 1 is playable at one of your tapped or
+untapped protected Wizardhavens each of your site phases."
+
+```json
+{ "type": "grant-ally-play",
+  "filter": { "$and": [ { "target.unique": { "$ne": true } }, { "target.mind": 1 } ] },
+  "atProtectedWizardhavens": true,
+  "allowTappedSite": true,
+  "oncePerSitePhase": true }
+```
+
 For faction-influence checks the engine also collects `check-modifier` and
 `stat-modifier` (`direct-influence`) effects from every ally in the
 influencing character's company — e.g. The Warg-king's "+2 to any
@@ -4812,6 +4837,23 @@ check) and `reducer-events.ts` (discard execution).
 { "type": "play-condition", "requires": "site-protected" }
 ```
 
+- `supporters-in-region` — for org-phase site-target Stage permanent-events
+  (`play-target` target `site`): the combined count of the player's **allies in
+  play** (every `CharacterInPlay.allies` entry) plus their **unique factions in
+  play** that can be played at a site in the anchor Wizardhaven's region or an
+  adjacent region (`buildFactionPlayableRegions` ∩ the region + its
+  `adjacentRegions`) must reach `min`. The parenthetical region restriction
+  applies **only to the factions** — allies always count. Checked in
+  `legal-actions/organization-events.ts` inside the site-target branch, so it is
+  evaluated against the specific candidate Wizardhaven. Used by *Girdle of
+  Radagast* (wh-110): "… have at least 12 SPs and 6 allies and/or unique factions
+  in play (the factions must be playable at sites in the Wizardhaven's [{H}]
+  region or adjacent regions)."
+
+```json
+{ "type": "play-condition", "requires": "supporters-in-region", "min": 6 }
+```
+
 ### 24. `creature-race-choice`
 
 Requires the player to choose a creature race when playing the card.
@@ -7861,6 +7903,32 @@ variants). The underlying site path is never mutated.
 Used by: *Fell Winter* (le-111) — "if Doors of Night is in play, treat all
 Free-domains as Border-lands and all Border-lands as Wildernesses."
 
+### 43b. `region-type-conversion`
+
+A **persistent** environment effect that converts a set of *named* regions to a
+region type for creature keying — the region of the site the carrying card is
+bound to (`attachedToSite`) and, when `includeAdjacent` is set, every region in
+that region card's `adjacentRegions`. Unlike `region-type-remap` (whole *type
+classes* along a path), this replaces specific regions **by name**, so it
+depends on the card being anchored to a site whose `region` names the origin.
+
+```json
+{ "type": "region-type-conversion", "to": "wilderness", "includeAdjacent": true }
+```
+
+The conversion is read live from either player's `cardsInPlay` — active for
+exactly as long as the card is in play with its `attachedToSite` set.
+`collectRegionTypeConversions(state)` / `applyRegionTypeConversions(pathTypes,
+pathNames, conversions)` (`engine/region-keying.ts`) are consulted by both
+creature-keying matchers (`checkCreatureKeying`, `findCreatureKeyingMatches`)
+after the `region-type-remap` step; the underlying site path is never mutated. A
+card carrying this effect is exempt from the site-attached orphan sweep
+(`cardKeepsBoundSitePermanent`), so a permanent stage marshalling-point card
+persists when its company leaves the anchored (Wizard)haven.
+
+Used by: *Girdle of Radagast* (wh-110) — "The Wizardhaven's region and all
+adjacent regions become Wilderness [{w}]."
+
 ### 44. `company-strike`
 
 A hazard short-event effect that makes **each character** in the target
@@ -8364,6 +8432,45 @@ floor. Consumed both at movement-plan time (`organization-companies.ts`
 (dm-75): "The number of region cards that may be played by a moving company
 using region movement is reduced by one (by two if Doors of Night is in play) to
 a minimum of two."
+
+### 52a. `prohibit-company-events`
+
+Carried by an in-play hazard permanent-event; suppresses **resource
+permanent-events played on a company as a whole** (Fellowship tw-240, played via
+`play-target: "company"` so its `CardInPlay.companyId` is set) for every company
+containing a character of `companyHasRace`. It applies game-wide (either player's
+companies).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `companyHasRace` | yes | Only companies containing a character of this printed `race` (e.g. `"wizard"`) are affected. |
+
+```json
+{ "type": "prohibit-company-events", "companyHasRace": "wizard" }
+```
+
+Two faces (both driven by `collectProhibitedCompanyEventRaces` in
+`reducer-utils.ts`, which scans both players' `cardsInPlay`, skipping any card
+still resolving a `trigger-attack-on-play` keep):
+
+- **Discard** — `sweepProhibitedCompanyEvents` (a `postReduce` sweep in
+  `reducer.ts`) discards every `companyId`-bound resource permanent-event
+  (cardType `hero-resource-event`/`minion-resource-event`, `eventType:
+  "permanent"`) whose bound company contains a prohibited race to its owner's
+  discard pile (clearing its `activeConstraints`). Running continuously, it also
+  catches a matching character joining a company that already carries such an
+  event.
+- **Prohibition** — `isCompanyEventPlayProhibited` stops the organization-phase
+  `play-target: "company"` emitter (`legal-actions/organization-events.ts`) from
+  offering such a card on a matching company.
+
+Character-attached permanent-events (which set `attachedTo`, not `companyId`) are
+untouched — matching "on the company as a whole, not individual characters."
+Used by Stormcrow (td-73): "Discard all resource permanent-events that have been
+played on each company with a Wizard … No such cards may be played on each
+Wizard's company." — combined with two `all-characters` `direct-influence`
+`stat-modifier`s (net -2, or -4 with Doors of Night), an `on-event
+play-deck-exhausted` self-discard, and `duplication-limit` scope `game`.
 
 ### 52b. `company-movement-restriction`
 
