@@ -226,10 +226,13 @@ describe('Girdle of Radagast (wh-110)', () => {
   // ── Rule 1: 3 stage points (Fallen-wizard only) ───────────────────────────
 
   test('contributes 3 stage points to a Fallen-wizard who has it in play', () => {
+    // Company sits away from Rhosgobel (which itself grants +1 SP while
+    // occupied, wh-57) so only the Girdle's 3 SP are counted; the Girdle stays
+    // in play anchored to Rhosgobel even with no company there (rule 10).
     const state = buildTestState({
       activePlayer: PLAYER_1, phase: Phase.Organization, recompute: true,
       players: [
-        { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: RHOSGOBEL, characters: [RADAGAST] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [girdleInPlay(RHOSGOBEL)] },
+        { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: MORIA, characters: [RADAGAST] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [girdleInPlay(RHOSGOBEL)] },
         { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
@@ -265,14 +268,17 @@ describe('Girdle of Radagast (wh-110)', () => {
     expect(canPlayGirdle(state)).toBe(false);
   });
 
+  // Isengard (wh-56) is a Fallen-wizard Wizardhaven that is NOT inherently
+  // protected (unlike Rhosgobel wh-57), so it stands in for an unprotected
+  // Wizardhaven that only a `site-protected` constraint can protect.
   test('NOT playable on an unprotected Wizardhaven', () => {
-    const state = orgState({ protectedForP1: false, stagePoints: 12, allyCount: 6 });
+    const state = orgState({ site: ISENGARD, protectedForP1: false, stagePoints: 12, allyCount: 6 });
     expect(canPlayGirdle(state)).toBe(false);
   });
 
   test('NOT playable if the protection is owned by the opponent', () => {
-    const base = orgState({ stagePoints: 12, allyCount: 6 });
-    const state = { ...base, activeConstraints: [siteProtected(PLAYER_2, RHOSGOBEL)] };
+    const base = orgState({ site: ISENGARD, stagePoints: 12, allyCount: 6 });
+    const state = { ...base, activeConstraints: [siteProtected(PLAYER_2, ISENGARD)] };
     expect(canPlayGirdle(state)).toBe(false);
   });
 
