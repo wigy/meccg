@@ -232,6 +232,16 @@ export interface StrikeAssignment {
    * rest of the combat. Absent for ordinary strike assignments.
    */
   readonly reduceAttackBodyOnParry?: number;
+  /**
+   * How the facing character resolved this strike (`'tap'`, `'untap'`,
+   * `'dodge'`, `'reroll'`). Recorded in `resolveStrikeCore` so the later
+   * `body-check` action can gate `enemy-modifier` body reductions on the
+   * resolution mode — e.g. Mechanical Bow (wh-53): "-1 to the body of any
+   * strike its bearer faces **if he taps to face the strike**" is an
+   * `enemy-modifier` body -1 gated on `combat.strikeMode: "tap"`. Absent until
+   * the strike is resolved.
+   */
+  readonly strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll';
 }
 
 /**

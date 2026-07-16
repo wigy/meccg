@@ -893,6 +893,21 @@ reducing a hazard creature's body. Implemented in `combat-actions.ts`
   "when": { "bearer.skills": { "$includes": "warrior" } } }
 ```
 
+The combat context also exposes `combat.strikeMode` (`"tap"` / `"untap"` /
+`"dodge"` / `"reroll"`) during the creature body check, recorded on the strike
+assignment when it resolves. A `body` `enemy-modifier` can therefore gate on the
+bearer **tapping to face the strike** — the reduction then applies only to the
+body check that follows a strike the bearer taps to face, not a stay-untapped
+one. Used by Mechanical Bow (wh-53): "-1 to the body of any strike its bearer
+faces if he taps to face the strike."
+
+```json
+{ "type": "enemy-modifier", "stat": "body", "op": "subtract", "value": 1,
+  "when": { "$and": [
+    { "bearer.skills": { "$includes": "warrior" } },
+    { "combat.strikeMode": "tap" } ] } }
+```
+
 ### 6. `hand-size-modifier`
 
 Modifies the player's hand size. Evaluated by `resolveHandSize`, which builds a

@@ -27,14 +27,18 @@ import {
   ARAGORN, LEGOLAS, RIVENDELL, LORIEN, MINAS_TIRITH,
 } from '../../test-helpers.js';
 
-// Dagger of Westernesse (tw-206): hero minor item, prowessModifier +1, no DSL effects.
+// Dagger of Westernesse (tw-206): hero item, +1 prowess (unconditional, max 8).
 const HERO_ITEM = 'tw-206' as CardDefinitionId;
-// Mechanical Bow (wh-53): minion major item, prowessModifier +2, no DSL effects.
+// Mechanical Bow (wh-53): minion item, "Warrior only: +2 prowess (max 8)". The
+// prowess bonus is warrior-gated, so the bearer below is a warrior for the bonus
+// to serve as an observable "the item is being used" probe.
 const MINION_ITEM = 'wh-53' as CardDefinitionId;
-// Layos (le-19): minion character, race "man" (not Orc/Troll/Ringwraith) — isolates
-// the player-alignment usage restriction from the character-race-based ones
-// (Orc/Troll hero-item ban, Ringwraith-avatar all-item ban).
-const LAYOS = 'le-19' as CardDefinitionId;
+// Dorelas (le-8): minion character, race "man" (not Orc/Troll/Ringwraith), skill
+// warrior — isolates the player-alignment usage restriction from the character-
+// race-based ones (Orc/Troll hero-item ban, Ringwraith-avatar all-item ban) while
+// still qualifying for the Mechanical Bow's warrior-only prowess bonus.
+const BEARER = 'le-8' as CardDefinitionId;
+const BEARER_PROWESS = 2;
 // Adûnaphel the Ringwraith (le-50): a Ringwraith (Nazgûl) avatar character, printed
 // prowess 8 — "Ringwraiths may bear items but those items cannot be used" is about
 // this race, not about being owned by a Ringwraith-aligned player.
@@ -64,14 +68,15 @@ describe('Rule 9.20 — Alignment Item Usage Restrictions', () => {
   });
 
   test('[MINION] a Ringwraith player\'s character cannot use a hero item it bears', () => {
-    // Layos (printed prowess 3) bearing Dagger of Westernesse (+1).
-    expect(prowessWithItem(Alignment.Ringwraith, LAYOS, HERO_ITEM)).toBe(3);
+    // Dorelas (printed prowess 2) bearing Dagger of Westernesse (+1) — the hero
+    // item's bonus does not apply for a Ringwraith-aligned bearer.
+    expect(prowessWithItem(Alignment.Ringwraith, BEARER, HERO_ITEM)).toBe(BEARER_PROWESS);
   });
 
   test('[MINION] a Ringwraith player\'s non-avatar character CAN use a matching-alignment (minion) item', () => {
-    // Layos bearing the Mechanical Bow (+2) — only hero items are blocked
+    // Dorelas (warrior) bearing the Mechanical Bow (+2) — only hero items are blocked
     // for a Ringwraith-aligned player; the player's own minion items work normally.
-    expect(prowessWithItem(Alignment.Ringwraith, LAYOS, MINION_ITEM)).toBe(3 + 2);
+    expect(prowessWithItem(Alignment.Ringwraith, BEARER, MINION_ITEM)).toBe(BEARER_PROWESS + 2);
   });
 
   test('[MINION] the Ringwraith (Nazgûl) avatar itself cannot use ANY item, even a minion one', () => {
@@ -82,8 +87,8 @@ describe('Rule 9.20 — Alignment Item Usage Restrictions', () => {
   });
 
   test('[FALLEN-WIZARD] a non-Orc/Troll character may use both hero and minion items', () => {
-    expect(prowessWithItem(Alignment.FallenWizard, LAYOS, MINION_ITEM)).toBe(3 + 2);
-    expect(prowessWithItem(Alignment.FallenWizard, LAYOS, HERO_ITEM)).toBe(3 + 1);
+    expect(prowessWithItem(Alignment.FallenWizard, BEARER, MINION_ITEM)).toBe(BEARER_PROWESS + 2);
+    expect(prowessWithItem(Alignment.FallenWizard, BEARER, HERO_ITEM)).toBe(BEARER_PROWESS + 1);
   });
 
   // Control: a Wizard player's character normally benefits from a hero item.

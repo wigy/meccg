@@ -654,7 +654,10 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       if (charData2) {
         const inPlayNames2 = buildInPlayNames(stateWithRoll);
         const enemy2 = { race: combat.creatureRace, name: '', prowess: combat.strikeProwess, body: combat.creatureBody };
-        const modifiedBody = resolveEnemyBody(stateWithRoll, charData2, enemy2, body, inPlayNames2);
+        // Mechanical Bow (wh-53): "-1 to the body of any strike its bearer faces
+        // if he taps to face the strike." The recorded `strikeMode` gates the
+        // bearer's `enemy-modifier` body reduction on `combat.strikeMode: tap`.
+        const modifiedBody = resolveEnemyBody(stateWithRoll, charData2, enemy2, body, inPlayNames2, strike2.strikeMode);
         if (modifiedBody !== body) {
           logDetail(`Enemy body modified by character effects: ${body} → ${modifiedBody}`);
           body = modifiedBody;
