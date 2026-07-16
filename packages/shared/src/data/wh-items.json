@@ -162,16 +162,53 @@
     "unique": false,
     "subtype": "major",
     "keywords": [
-      "weapon"
+      "weapon",
+      "technology"
     ],
     "marshallingPoints": 1,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
-    "prowessModifier": 2,
-    "bodyModifier": 1,
+    "prowessModifier": 0,
+    "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Weapon. Technology. -1 to bearer’s body. Warrior only: +2 prowess to a maximum of 8; -1 to the body of any strike its bearer faces if he taps to face the strike."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": -1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "max": 8,
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
+      },
+      {
+        "type": "enemy-modifier",
+        "stat": "body",
+        "op": "subtract",
+        "value": 1,
+        "when": {
+          "$and": [
+            {
+              "bearer.skills": {
+                "$includes": "warrior"
+              }
+            },
+            {
+              "combat.strikeMode": "tap"
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Weapon. Technology. -1 to bearer’s body. Warrior only: +2 prowess to a maximum of 8; -1 to the body of any strike its bearer faces if he taps to face the strike.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-item",

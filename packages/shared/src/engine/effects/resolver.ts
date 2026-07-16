@@ -1182,12 +1182,17 @@ function buildCombatContext(
   char: { race: string; skills: readonly string[]; baseProwess: number; baseBody: number; baseDirectInfluence: number; name: string },
   enemy: { race: string; name: string; prowess: number; body: number | null },
   inPlayNames: readonly string[],
+  strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
 ): ResolverContext {
   return {
     reason: 'combat',
     bearer: char,
     enemy,
     inPlay: inPlayNames,
+    // Exposed only when the caller knows how the character faced the strike, so
+    // an `enemy-modifier` can gate on "when tapping to face a strike"
+    // (Mechanical Bow wh-53). Absent otherwise — the condition then never matches.
+    ...(strikeMode ? { combat: { strikeMode } } : {}),
   };
 }
 
@@ -1247,6 +1252,10 @@ export function resolveCombatProwessBonus(
  * @param enemy - The enemy creature info.
  * @param baseBody - The enemy's base body value.
  * @param inPlayNames - Names of all cards currently in play.
+ * @param strikeMode - How the character faced the strike, exposed as
+ *   `combat.strikeMode` so a modifier can gate on "if he taps to face the
+ *   strike" (Mechanical Bow wh-53). Omit for contexts with no strike-facing
+ *   mode (e.g. the CvCC attacker path) — the gate then never matches.
  * @returns The modified enemy body value.
  */
 export function resolveEnemyBody(
@@ -1255,11 +1264,12 @@ export function resolveEnemyBody(
   enemy: { race: string; name: string; prowess: number; body: number | null },
   baseBody: number,
   inPlayNames: readonly string[],
+  strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
 ): number {
   const charDef = resolveDef(state, char.instanceId);
   if (!charDef || !isCharacterCard(charDef)) return baseBody;
   const charInfo = buildBearerContext(charDef);
-  const context = buildCombatContext(charInfo, enemy, inPlayNames);
+  const context = buildCombatContext(charInfo, enemy, inPlayNames, strikeMode);
   const effects = collectCharacterEffects(state, char, context);
 
   let body = baseBody;

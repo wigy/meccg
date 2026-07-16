@@ -336,6 +336,7 @@ export function resolveStrikeCore(
           resolved: true,
           result: assignmentResult,
           wasAlreadyWounded,
+          strikeMode: mode,
           ...(mode === 'dodge' ? { dodged: true, dodgeBodyPenalty } : {}),
         }
       : a,
