@@ -39,7 +39,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { computeLegalActions, reduce, Phase, Alignment, validateDeck } from '../../index.js';
+import { computeLegalActions, Phase, Alignment, validateDeck } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, GameState, PlayerId, DeckList } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import {
