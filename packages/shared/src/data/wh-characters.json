@@ -222,7 +222,38 @@
     "generalInfluence": 22,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Rhosgobel"
+    "homesite": "Rhosgobel",
+    "effects": [
+      {
+        "type": "faction-mp-override",
+        "rules": [
+          {
+            "when": {
+              "$and": [
+                { "faction.unique": true },
+                { "$not": { "faction.race": { "$in": ["man", "dwarf", "dunadan", "hobbit", "orc", "troll"] } } }
+              ]
+            },
+            "value": 2
+          }
+        ]
+      },
+      {
+        "type": "fw-ally-mp-full",
+        "filter": { "cardType": "hero-resource-ally" }
+      },
+      {
+        "type": "ally-movement-restriction-exemption",
+        "filter": { "cardType": "hero-resource-ally" }
+      },
+      {
+        "type": "draw-modifier",
+        "draw": "resource",
+        "value": "sitePath.wildernessCount",
+        "min": 0
+      }
+    ],
+    "certified": "2026-07-16"
   },
   {
     "cardType": "hero-character",

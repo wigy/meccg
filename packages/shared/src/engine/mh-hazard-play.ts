@@ -17,7 +17,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition } from '../index.js';
-import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, PlayDiscardCostEffect } from '../types/effects.js';
+import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, PlayDiscardCostEffect, Condition } from '../types/effects.js';
 import type { CardInstance } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
@@ -42,7 +42,7 @@ import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js'
 import { getEffectiveRegionType } from './effective.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -1575,6 +1575,28 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
         if (cp.attachedTo !== allyInstanceId) return false;
         return shouldDiscardOnMove(defById(state, cp.definitionId));
       });
+    // Radagast (wh-8): "Hero allies Radagast controls have no movement
+    // restrictions." An `ally-movement-restriction-exemption` effect the moving
+    // player carries (on an in-play character or in `cardsInPlay`) suppresses the
+    // `bearer-company-moves` self-discard for every ally matching its filter —
+    // CRF 22 defines an ally's "movement restriction" as exactly its "Discard if
+    // he/she moves to …" clause. Collected once per move for the active player.
+    const allyMovementExemptionFilters: (Condition | null)[] = [];
+    for (const def of [
+      ...newPlayers[activeIndex].cardsInPlay.map(c => defById(state, c.definitionId)),
+      ...Object.values(newPlayers[activeIndex].characters).map(c => defById(state, c.definitionId)),
+    ]) {
+      for (const eff of getCardEffects(def)) {
+        if (eff.type === 'ally-movement-restriction-exemption') {
+          allyMovementExemptionFilters.push(eff.filter ?? null);
+        }
+      }
+    }
+    // Whether a given ally definition is exempt from its movement-restriction
+    // discard (any exemption filter matches; a `null` filter exempts every ally).
+    const allyExemptFromMovementRestriction = (allyDef: CardDefinition | undefined): boolean =>
+      allyDef !== undefined
+      && allyMovementExemptionFilters.some(f => f === null || matchesDefinition(allyDef, f));
     let discardedAny = false;
     for (const charId of movedCompany.characters) {
       const charData = newPlayers[activeIndex].characters[charId];
@@ -1593,7 +1615,11 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       }
       for (const ally of charData.allies) {
         const allyDef = defById(state, ally.definitionId);
-        if (shouldDiscardOnMove(allyDef) || attachedEventDiscardsAllyOnMove(ally.instanceId)) {
+        const wouldDiscard = shouldDiscardOnMove(allyDef) || attachedEventDiscardsAllyOnMove(ally.instanceId);
+        if (wouldDiscard && allyExemptFromMovementRestriction(allyDef)) {
+          logDetail(`bearer-company-moves: ally "${allyDef?.name ?? ally.definitionId}" would be discarded but has no movement restrictions (Radagast) — kept`);
+          alliesToKeep.push(ally);
+        } else if (wouldDiscard) {
           logDetail(`bearer-company-moves: discarding ally "${allyDef?.name ?? ally.definitionId}" from ${charId as string} (moved to ${destDef?.name ?? '?'})`);
           toDiscard.push(toCardInstance(ally));
         } else {

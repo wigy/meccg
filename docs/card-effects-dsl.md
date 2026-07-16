@@ -675,6 +675,26 @@ the same effect player-wide (no `inAvatarCompany`).
   "inAvatarCompany": true }
 ```
 
+### 3b-iii. `ally-movement-restriction-exemption`
+
+Exempts matching allies the source's controller has in play from their printed
+"Discard if he/she moves to …" movement restriction. CRF 22 defines an ally's
+"movement restriction" as exactly its `bearer-company-moves` self-discard clause
+(see `bearer-company-moves`), so this effect makes those clauses not fire for the
+matching allies. Collected during the end-of-movement discard sweep
+(`mh-hazard-play.ts` step 8a-2) from the moving player's in-play characters and
+`cardsInPlay`; when a matching ally would be discarded by a `bearer-company-moves`
+self-discard, the discard is skipped and the ally is kept. `filter` matches the
+ally's card definition (omit to exempt every ally the controller has in play).
+
+Used by Radagast (wh-8): "Hero allies Radagast controls have no movement
+restrictions." — `filter` `{ "cardType": "hero-resource-ally" }`.
+
+```json
+{ "type": "ally-movement-restriction-exemption",
+  "filter": { "cardType": "hero-resource-ally" } }
+```
+
 ### 3c. `fw-character-ally-mp`
 
 Fallen-wizard character/ally marshalling-point floor (MEWH §4 exception). MEWH §4
