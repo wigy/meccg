@@ -36,7 +36,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
@@ -1453,13 +1453,19 @@ function discardCharacter(
   const opponentIndex = playerIndex === 0 ? 1 : 0;
   const opponent = newPlayers[opponentIndex];
   const newDiscard = [...player.discardPile];
+  const newHand = [...player.hand];
   const newOpponentDiscard = [...opponent.discardPile];
 
   for (const item of charInPlay.items) {
     newDiscard.push(toCardInstance(item));
   }
-  for (const ally of charInPlay.allies) {
-    newDiscard.push(toCardInstance(ally));
+  // An ally that "may return to hand … if its controlling character leaves
+  // active play" (Radagast's Black Bird wh-114) goes to its owner's hand
+  // instead of the discard pile.
+  {
+    const { toHand, toDiscard } = partitionLeavingAllies(state, charInPlay.allies);
+    newHand.push(...toHand);
+    newDiscard.push(...toDiscard);
   }
   for (const hazard of charInPlay.hazards) {
     newOpponentDiscard.push(toCardInstance(hazard));
@@ -1511,6 +1517,7 @@ function discardCharacter(
     ...player,
     characters: newCharacters,
     companies: newCompanies,
+    hand: newHand,
     discardPile: newDiscard,
     outOfPlayPile: newOutOfPlay,
   };

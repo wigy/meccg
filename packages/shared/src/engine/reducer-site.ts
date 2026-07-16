@@ -17,13 +17,14 @@ import { logDetail } from './legal-actions/log.js';
 import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
 import { matchesContext } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, siteTypeForcesAutoAttacksNormal, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
+import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, siteTypeForcesAutoAttacksNormal, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -1953,7 +1954,12 @@ function handleSitePlayHeroResource(
   const charInPlay = player.characters[targetCharId];
   const charDef = defById(state, charInPlay.definitionId);
   const charName = charDef?.name ?? targetCharId;
-  logDetail(`Site: playing ${def.name} on ${charName}${fromDiscard ? ' (from discard pile)' : ''} — tapping character and site`);
+
+  // no-tap-on-play (Radagast's Black Bird wh-114): playing this ally taps
+  // neither the controlling character nor the site ("need not tap himself or
+  // the site to do so"). The controller keeps its current status.
+  const noTapOnPlay = isAlly && hasPlayFlag(def, 'no-tap-on-play');
+  logDetail(`Site: playing ${def.name} on ${charName}${fromDiscard ? ' (from discard pile)' : ''}${noTapOnPlay ? ' — no-tap-on-play (leaving character and site untapped)' : ' — tapping character and site'}`);
 
   // Remove card from its source zone (hand, or the discard pile for a granted
   // discard-sourced ally).
@@ -1962,10 +1968,10 @@ function handleSitePlayHeroResource(
     ? removeById(player.discardPile, handCard.instanceId)
     : player.discardPile;
 
-  // Tap the character and attach the item or ally
+  // Tap the character and attach the item or ally (unless no-tap-on-play)
   const updatedChar: CharacterInPlay = {
     ...charInPlay,
-    status: CardStatus.Tapped,
+    status: noTapOnPlay ? charInPlay.status : CardStatus.Tapped,
     items: isItem
       ? [...charInPlay.items, { instanceId: action.cardInstanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }]
       : charInPlay.items,
@@ -2033,17 +2039,17 @@ function handleSitePlayHeroResource(
     && (itemSubtypeForBounty === 'minor' || itemSubtypeForBounty === 'major' || itemSubtypeForBounty === 'gold-ring');
   const nextThoroughSearchAvailable = usingThoroughSearch ? false : siteState.thoroughSearchAvailable;
 
-  // Thorough Search (and the Saruman's Machinery Technology bonus) prevent site
-  // tap and do not count as the "first resource played" (so the opening
-  // minor-item bonus does not fire for them).
-  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus;
+  // Thorough Search (and the Saruman's Machinery Technology bonus, and a
+  // no-tap-on-play ally) prevent site tap and do not count as the "first
+  // resource played" (so the opening minor-item bonus does not fire for them).
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus && !noTapOnPlay;
   const nextMinorItemAvailableActual = openingBonusActual
     ? true
     : consumingBonus
       ? false
       : siteState.minorItemAvailable;
 
-  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus;
+  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || noTapOnPlay;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
     ...company,
@@ -2054,7 +2060,7 @@ function handleSitePlayHeroResource(
     ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscardPile, characters: newCharacters, companies: newCompaniesActual })),
     phaseState: {
       ...siteState,
-      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus) ? siteState.resourcePlayed : true,
+      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || noTapOnPlay) ? siteState.resourcePlayed : true,
       minorItemAvailable: nextMinorItemAvailableActual,
       hoardBountyAvailable: nextHoardBountyAvailable,
       thoroughSearchAvailable: nextThoroughSearchAvailable,
@@ -2266,7 +2272,11 @@ function handleInfluenceAttemptDeclare(
 
   const charId = action.influencingCharacterId;
   const charInPlay = player.characters[charId];
-  if (!charInPlay) return { state, error: 'Influencing character not found' };
+  // The influencer may be a character or an ally that "influences factions as
+  // if a character" (Radagast's Black Bird wh-114); the latter lives in some
+  // character's `allies` list rather than in `player.characters`.
+  const influencerAlly = charInPlay ? null : findAttachment(player, 'allies', charId);
+  if (!charInPlay && !influencerAlly) return { state, error: 'Influencing character not found' };
 
   logDetail(`Site: ${def.name} influence attempt declared by ${player.name} — initiating chain`);
 
@@ -2274,15 +2284,15 @@ function handleInfluenceAttemptDeclare(
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
-  // Tap the influencing character
-  const updatedChar: CharacterInPlay = {
-    ...charInPlay,
-    status: CardStatus.Tapped,
-  };
-
-  const newCharacters = { ...player.characters, [charId as string]: updatedChar };
-
-  let newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
+  // Tap the influencer (character or influencing ally)
+  let newState: GameState = updatePlayer(state, playerIndex, p => {
+    const withHand = { ...p, hand: newHand };
+    if (charInPlay) {
+      return { ...withHand, characters: { ...withHand.characters, [charId as string]: { ...withHand.characters[charId], status: CardStatus.Tapped } } };
+    }
+    const tapped = updateAttachment(withHand, 'allies', charId, a => ({ ...a, status: CardStatus.Tapped }));
+    return tapped ? tapped.player : withHand;
+  });
 
   // Paid `influence-modification` (Dragons "Roused" factions, e.g. Smaug Roused
   // le-285): the influencer discards the chosen carried item now, as the cost.
@@ -2337,14 +2347,17 @@ export function resolveInfluenceAttemptRoll(
 
   const charId = entry.payload.influencingCharacterId;
   const charInPlay = player.characters[charId];
-  if (!charInPlay) return { state, effects: [] };
+  // The influencer may be a character or an ally that "influences factions as
+  // if a character" (Radagast's Black Bird wh-114).
+  const influencerAlly = charInPlay ? null : findAttachment(player, 'allies', charId);
+  if (!charInPlay && !influencerAlly) return { state, effects: [] };
 
-  const charDef = defById(state, charInPlay.definitionId);
+  const charDef = defById(state, (charInPlay ?? influencerAlly!.attachment).definitionId);
   const charName = charDef?.name ?? charId;
 
   // Calculate influence modifier using current state (post-on-guard effects)
   let modifier = 0;
-  if (charDef && isCharacterCard(charDef)) {
+  if (charInPlay && charDef && isCharacterCard(charDef)) {
     // Use free DI (total DI minus mind cost of followers), not the raw card stat
     modifier += availableDI(state, charId, player);
 
@@ -2436,6 +2449,34 @@ export function resolveInfluenceAttemptRoll(
     // ba-78: "+2 to all influence attempts this turn by any of your
     // characters"): applied to every influence check by any character of the
     // targeted player, and NOT consumed (persist for the constraint's scope).
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'influence') continue;
+      if (constraint.target.kind !== 'player') continue;
+      if (constraint.target.playerId !== player.id) continue;
+      modifier += constraint.kind.value;
+      logDetail(`Influence player-wide constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string}`);
+    }
+  } else if (influencerAlly && charDef && isAllyCard(charDef)) {
+    // Ally influencing "as if a character" (Radagast's Black Bird wh-114): its
+    // printed direct influence plus the player-scoped/region influence
+    // modifiers that apply to any influencer.
+    const allyDI = charDef.directInfluence ?? 0;
+    modifier += allyDI;
+    logDetail(`Influence attempt by ally ${charName}: DI ${allyDI}`);
+
+    const influencingCompanyForRegion = player.companies[siteState.activeCompanyIndex];
+    const currentSiteDef = influencingCompanyForRegion?.currentSite
+      ? defById(state, influencingCompanyForRegion.currentSite.definitionId)
+      : undefined;
+    const siteRegionName = (currentSiteDef as { region?: string } | undefined)?.region;
+    const influencerIsMinion = player.alignment === Alignment.Ringwraith;
+    const { modifier: restrictionModifier } = collectFactionInfluenceRestriction(state, siteRegionName, influencerIsMinion);
+    if (restrictionModifier !== 0) {
+      modifier += restrictionModifier;
+      logDetail(`Faction-influence-restriction at ${siteRegionName}: ${formatSignedNumber(restrictionModifier)}`);
+    }
+
     for (const constraint of state.activeConstraints) {
       if (constraint.kind.type !== 'check-modifier') continue;
       if (constraint.kind.check !== 'influence') continue;

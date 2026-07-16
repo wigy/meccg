@@ -589,6 +589,8 @@ export function describeAction(
       return `${playerName(action.player)} applies ${instName(action.cardInstanceId)} to the attack (+prowess / detainment)`;
     case 'voluntary-discard-in-play':
       return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} from play`;
+    case 'return-attached-to-hand':
+      return `${playerName(action.player)} returns ${instName(action.cardInstanceId)} to hand`;
     case 'discard-for-evil-hour-movement':
       return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} to grant company ${action.companyId} the region-movement bonus (A More Evil Hour)`;
     case 'left-behind-rejoin':

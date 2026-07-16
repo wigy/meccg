@@ -2117,20 +2117,46 @@
     "unique": true,
     "prowess": 2,
     "body": 8,
+    "mind": 2,
+    "directInfluence": 3,
+    "skills": ["scout", "diplomat"],
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "one of your Wizardhavens [{H}]"
+        "any": true
       }
     ],
     "effects": [
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-tap-on-play"
+      },
+      {
+        "type": "play-flag",
+        "flag": "influences-factions"
+      },
+      {
+        "type": "return-to-hand",
+        "during": ["organization", "controller-leaves-play"]
+      },
+      {
+        "type": "cancel-strike",
+        "cost": {
+          "tap": "self"
+        }
       }
     ],
-    "text": "Unique. Radagast specific. Playable at one of your Wizardhavens [{H}]. You may return Radagast’s Black Bird to your hand: during your organization phase or if its controlling character leaves active play. Radagast may play this ally at any site (tapped or untapped) and need not tap himself or the site to do so. This ally may attempt to influence factions as if he were a character. He may cancel a strike directed against him—tapping afterwards if not already tapped."
+    "text": "Unique. Radagast specific. Playable at one of your Wizardhavens [{H}]. You may return Radagast’s Black Bird to your hand: during your organization phase or if its controlling character leaves active play. Radagast may play this ally at any site (tapped or untapped) and need not tap himself or the site to do so. This ally may attempt to influence factions as if he were a character. He may cancel a strike directed against him—tapping afterwards if not already tapped.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-event",

@@ -65,6 +65,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'test-ring-at-site': handleTestRingAtSite,
   'discard-stage-resource': handleDiscardStageResource,
   'voluntary-discard-in-play': handleVoluntaryDiscardInPlay,
+  'return-attached-to-hand': handleReturnAttachedToHand,
   'activate-org-fetch': handleActivateOrgFetch,
   'discard-for-evil-hour-movement': handleDiscardForEvilHourMovement,
   'pay-movement-tax': handlePayMovementTax,
@@ -181,6 +182,33 @@ function handleVoluntaryDiscardInPlay(state: GameState, action: GameAction): Red
     ...p,
     cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
     discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+  return { state: recomputeDerived(next) };
+}
+
+/**
+ * Returns an attached ally to its owner's hand during the organization phase
+ * ("You may return … to your hand: during your organization phase" — Radagast's
+ * Black Bird wh-114). The ally must carry a `return-to-hand` effect whose
+ * triggers include `organization`. It is detached from its controlling
+ * character and placed into the player's hand (not the discard pile).
+ */
+function handleReturnAttachedToHand(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'return-attached-to-hand') return wrongActionType(state, action, 'return-attached-to-hand');
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const removed = removeAttachment(player, 'allies', action.cardInstanceId);
+  if (!removed) return { state, error: 'return-attached-to-hand: ally not found in play' };
+  const def = defById(state, removed.attachment.definitionId);
+  const canReturn = getCardEffects(def).some(
+    e => e.type === 'return-to-hand' && e.during.includes('organization'),
+  );
+  if (!canReturn) return { state, error: 'return-attached-to-hand: ally may not return to hand this phase' };
+
+  logDetail(`Organization: ${player.name} returns ${def?.name ?? '?'} to hand`);
+  const next = updatePlayer(state, playerIndex, () => ({
+    ...removed.player,
+    hand: [...removed.player.hand, toCardInstance(removed.attachment)],
   }));
   return { state: recomputeDerived(next) };
 }
