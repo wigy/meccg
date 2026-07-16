@@ -1323,6 +1323,35 @@ realizes ba-76's "untap all tapped characters in The Balrog's company; if then
 untapped, tap The Balrog" (the empty `cost` lets it fire even when the Balrog is
 already tapped).
 
+### `roll-then-apply` as a short-event self-enters-play apply (roll to untap your tapped Ringwraith)
+
+A resource short event may "make a roll" on play and conditionally change a
+target character's status. Attach `roll-then-apply` (2d6; `onSuccess` fires when
+the total ≥ `threshold`, else `onFailure`) as an `on-event: self-enters-play`
+apply, with a `set-character-status` (`target: "target-character"`) branch. Pair
+it with a `play-target` whose `filter` selects the qualifying character — e.g.
+`target.isRevealedAvatar` + `target.status: "tapped"` for "your tapped
+Ringwraith". The emitter (`playResourceShortEventActions`) offers one play action
+per eligible target (carried as `targetCharacterId`); `resolveShortEventRollUntap`
+(`reducer-events.ts`) rolls 2d6, emits the dice-roll effect, applies the matching
+branch to the target, and discards the event.
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [ { "target.isRevealedAvatar": true },
+                        { "target.status": "tapped" } ] } }
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "roll-then-apply", "threshold": 7,
+    "onSuccess": { "type": "set-character-status",
+                   "status": "untapped", "target": "target-character" } } }
+```
+
+Used by The Ring Leaves Its Mark (le-223): "playable on your tapped Ringwraith.
+Make a roll—if the result is greater than 6, untap your Ringwraith" (threshold 7
+= "greater than 6"). le-223 combines this with a `move` fetch-to-deck as its
+alternative mode; the two modes are discriminated at the reducer by the presence
+of a `targetCharacterId` on the play action.
+
 **`endOfTurnOnly: true` — restrictive, not additive.** Unlike the flags
 above (which *extend* an ability's natural-phase availability), this flag
 *removes* the ability from the generic per-phase scanner's organization-phase

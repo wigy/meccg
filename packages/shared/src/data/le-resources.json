@@ -3718,8 +3718,42 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Bring one Black Rider, Fell Rider, or Heralded Lord card from your sideboard or discard pile into your play deck and reshuffle. Alternatively, playable on your tapped Ringwraith. Make a roll—if the result is greater than 6, untap your Ringwraith.Cannot be included in a Balrog's deck."
+    "effects": [
+      {
+        "type": "move",
+        "select": "target",
+        "from": ["sideboard", "discard"],
+        "to": "deck",
+        "shuffleAfter": true,
+        "count": 1,
+        "filter": { "name": { "$in": ["Black Rider", "Fell Rider", "Heralded Lord"] } }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isRevealedAvatar": true },
+            { "target.status": "tapped" }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": {
+            "type": "set-character-status",
+            "status": "untapped",
+            "target": "target-character"
+          }
+        }
+      }
+    ],
+    "text": "Bring one Black Rider, Fell Rider, or Heralded Lord card from your sideboard or discard pile into your play deck and reshuffle. Alternatively, playable on your tapped Ringwraith. Make a roll—if the result is greater than 6, untap your Ringwraith.Cannot be included in a Balrog's deck.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-event",
