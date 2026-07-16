@@ -45,6 +45,7 @@ export type SiteRuleEffect =
   | NoStorageSiteRule
   | HazardSiteTypeOverrideSiteRule
   | AllowAgentPlaySiteRule
+  | ProtectedWizardhavenSiteRule
   | DynamicUnderDeepsAdjacencySiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
@@ -603,6 +604,40 @@ export interface DeepMinesMovementSiteRule extends EffectBase {
 export interface NoStorageSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'no-storage';
+}
+
+/**
+ * Declares that this site is an **inherently protected Wizardhaven** — it is a
+ * Wizardhaven that is always protected for the Fallen-wizard who controls it,
+ * without any card having to establish protection on it (unlike Isengard/The
+ * White Towers, which only become protected once The Fortress of Isen wh-68 /
+ * Guarded Haven wh-74 etc. are played on them).
+ *
+ * The site behaves exactly as if it carried an active `site-protected`
+ * constraint owned by its Fallen-wizard controller: it counts as one of that
+ * player's *protected Wizardhavens* for every consumer of that concept — the
+ * Deep Mines (wh-55) descent source, the "at a protected Wizardhaven" play
+ * conditions (A Strident Spawn wh-61 / An Untimely Brood wh-62, Half-orcs
+ * wh-86/87), the `player.hasProtectedWizardhaven` player-state flag, and the
+ * protected-site marshalling-point block against the opponent. The controller
+ * is the Fallen-wizard for whom this is a Wizardhaven ({@link isHavenForPlayer})
+ * and who satisfies the site's `<wizard>-specific` keyword restriction, if any
+ * (Rhosgobel is `radagast-specific`, so only Radagast controls it).
+ *
+ * Per CRF 22 the bare phrase "protected Wizardhaven" is otherwise just a
+ * keyword; the attack-cancellation Rhosgobel also prints is a separate
+ * `cancel-attacks` rule, and the stage point it grants is a separate
+ * `stage-points` effect.
+ *
+ * Example — Rhosgobel (wh-57): "This site is a protected Wizardhaven [{H}]."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "protected-wizardhaven" }
+ * ```
+ */
+export interface ProtectedWizardhavenSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'protected-wizardhaven';
 }
 
 /**

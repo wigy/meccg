@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -88,7 +88,7 @@ function siteIsProtectedAgainstPlayer(
   siteDefId: CardDefinitionId | undefined,
   playerId: PlayerId,
 ): boolean {
-  return hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefId, playerId, 'opponent');
+  return isSiteProtectedForPlayer(state, siteDefId, playerId, 'opponent');
 }
 
 /**
@@ -104,7 +104,7 @@ function siteIsProtectedByPlayer(
   siteDefId: CardDefinitionId | undefined,
   playerId: PlayerId,
 ): boolean {
-  return hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefId, playerId);
+  return isSiteProtectedForPlayer(state, siteDefId, playerId);
 }
 
 /**
@@ -995,7 +995,7 @@ function playResourcesActions(
         // protected Isengard or your protected The White Towers."
         const siteProtectedCond = findPlayConditionEffect(eventDef, 'site-protected');
         if (siteProtectedCond) {
-          const protectedForPlayer = hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefId, playerId);
+          const protectedForPlayer = isSiteProtectedForPlayer(state, siteDefId, playerId);
           if (!protectedForPlayer) {
             logDetail(`Permanent event ${eventDef.name}: site ${siteName} is not a protected site for ${playerId as string}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: ${siteName} is not protected`));

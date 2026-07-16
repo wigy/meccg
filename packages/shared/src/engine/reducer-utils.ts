@@ -15,7 +15,7 @@ import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle, nextInt } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
-import { CardStatus, Race, Skill, SiteType } from '../types/common.js';
+import { CardStatus, Race, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -1034,13 +1034,83 @@ export function siteTypeForcesAutoAttacksNormal(
 }
 
 /**
+ * The `<wizard>-specific` avatar name a site definition binds to (e.g.
+ * "Radagast" for Rhosgobel's `radagast-specific` keyword), or `null` when the
+ * site carries no such keyword. Kept local to avoid a module cycle with
+ * `fallen-wizard-specific.ts` (which depends on this module).
+ */
+function siteWizardSpecificName(def: CardDefinition | undefined): string | null {
+  if (!def || !('keywords' in def)) return null;
+  for (const k of (def as { keywords?: readonly string[] }).keywords ?? []) {
+    if (k in WIZARD_SPECIFIC_KEYWORD_NAMES) return WIZARD_SPECIFIC_KEYWORD_NAMES[k];
+  }
+  return null;
+}
+
+/**
+ * The Fallen-wizard player who **inherently protects** the site with
+ * `siteDefinitionId`, or `null` when the site is not an inherently protected
+ * Wizardhaven (Rhosgobel wh-57: `site-rule protected-wizardhaven`). The owner is
+ * the Fallen-wizard for whom this is a Wizardhaven ({@link isHavenForPlayer}, so
+ * a Fallen-wizard haven or a Hidden-Haven conversion) and who counts as the
+ * avatar named by the site's `<wizard>-specific` keyword, if any — so only the
+ * Radagast player owns Rhosgobel even in the rare Fallen-wizard-vs-Fallen-wizard
+ * matchup where both players nominally treat it as a haven.
+ */
+export function inherentProtectedWizardhavenOwner(
+  state: GameState,
+  siteDefinitionId: CardDefinitionId | undefined,
+): PlayerId | null {
+  if (!siteDefinitionId) return null;
+  const siteDef = defById(state, siteDefinitionId);
+  if (!isSiteCard(siteDef)) return null;
+  const isInherentlyProtected = getCardEffects(siteDef).some(
+    e => e.type === 'site-rule' && e.rule === 'protected-wizardhaven',
+  );
+  if (!isInherentlyProtected) return null;
+  const requiredWizard = siteWizardSpecificName(siteDef);
+  for (const player of state.players) {
+    if (!isHavenForPlayer(siteDef, player.alignment, { state, siteDefinitionId, playerId: player.id })) continue;
+    if (requiredWizard && findFallenWizardAvatarName(state, player) !== requiredWizard) continue;
+    return player.id;
+  }
+  return null;
+}
+
+/**
+ * True when the site with `siteDefinitionId` is a **protected site** for the
+ * given player — either an active `site-protected` constraint binds it (The
+ * Fortress of Isen wh-68 / Guarded Haven wh-74 family) or it is an inherently
+ * protected Wizardhaven ({@link inherentProtectedWizardhavenOwner}, Rhosgobel
+ * wh-57). `match` selects the protector relationship, mirroring
+ * {@link hasSiteFlagForPlayer}: `'self'` (default) tests protection *owned by*
+ * `playerId`; `'opponent'` tests protection owned by someone *other than*
+ * `playerId` (the marshalling-point block a protected site imposes on the
+ * opponent).
+ */
+export function isSiteProtectedForPlayer(
+  state: GameState,
+  siteDefinitionId: CardDefinitionId | undefined,
+  playerId: PlayerId,
+  match: 'self' | 'opponent' = 'self',
+): boolean {
+  if (hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefinitionId, playerId, match)) {
+    return true;
+  }
+  const owner = inherentProtectedWizardhavenOwner(state, siteDefinitionId);
+  if (owner === null) return false;
+  return match === 'self' ? owner === playerId : owner !== playerId;
+}
+
+/**
  * True when the given player controls a **protected Wizardhaven** — a site that
  * is both (a) one of their Wizardhavens (a Fallen-wizard haven, or a site
- * converted into one via `wizardhaven-conversion`) and (b) protected for them
- * by a `site-protected` constraint (e.g. The Fortress of Isen wh-68, Fortress
- * of the Towers wh-69, Guarded Haven wh-74). Used by play-conditions such as A
- * Strident Spawn (wh-61) / An Untimely Brood (wh-62), which require "a protected
- * Wizardhaven".
+ * converted into one via `wizardhaven-conversion`) and (b) protected for them,
+ * either by a `site-protected` constraint (e.g. The Fortress of Isen wh-68,
+ * Fortress of the Towers wh-69, Guarded Haven wh-74) or because the site is an
+ * inherently protected Wizardhaven one of their companies occupies (Rhosgobel
+ * wh-57). Used by play-conditions such as A Strident Spawn (wh-61) / An Untimely
+ * Brood (wh-62), which require "a protected Wizardhaven".
  */
 export function playerHasProtectedWizardhaven(state: GameState, playerId: PlayerId): boolean {
   for (const c of state.activeConstraints) {
@@ -1051,6 +1121,14 @@ export function playerHasProtectedWizardhaven(state: GameState, playerId: Player
     if (!isSiteCard(siteDef)) continue;
     const isFwHaven = siteDef.siteType === 'haven' && siteDef.alignment === 'fallen-wizard';
     if (isFwHaven || isWizardhavenConversionFor(state, siteDefId, playerId)) return true;
+  }
+  // Inherently protected Wizardhaven (Rhosgobel): the player controls it while
+  // one of their companies occupies it.
+  const player = playerById(state, playerId);
+  if (player) {
+    for (const company of player.companies) {
+      if (inherentProtectedWizardhavenOwner(state, company.currentSite?.definitionId) === playerId) return true;
+    }
   }
   return false;
 }

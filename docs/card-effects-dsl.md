@@ -4299,6 +4299,27 @@ Rules:
     "sitePath": ["shadow", "wilderness", "wilderness", "wilderness", "wilderness"] }
   ```
 
+- `protected-wizardhaven` — the site is an **inherently protected Wizardhaven**:
+  a Wizardhaven that is always protected for the Fallen-wizard who controls it,
+  with no card needing to establish protection on it (unlike Isengard / The
+  White Towers, which only become protected once *The Fortress of Isen* wh-68 /
+  *Guarded Haven* wh-74 are played on them). It behaves exactly as if it carried
+  an active `site-protected` constraint owned by its controller: the shared
+  `isSiteProtectedForPlayer` / `inherentProtectedWizardhavenOwner` helpers
+  (`reducer-utils.ts`) fold it into every protected-site consumer — the Deep
+  Mines (wh-55) descent source, the "at a protected Wizardhaven" play conditions
+  (A Strident Spawn wh-61 / An Untimely Brood wh-62, Half-orcs wh-86/87), the
+  `player.hasProtectedWizardhaven` player-state flag, and the marshalling-point
+  block a protected site imposes on the opponent. The controller is the
+  Fallen-wizard for whom the site is a Wizardhaven and who satisfies the site's
+  `<wizard>-specific` keyword, if any. Used by *Rhosgobel* (wh-57): "This site is
+  a protected Wizardhaven [{H}]." (`radagast-specific`, so only Radagast controls
+  it).
+
+  ```json
+  { "type": "site-rule", "rule": "protected-wizardhaven" }
+  ```
+
 ### 20. `item-play-site`
 
 Restricts an item to be playable only where the company's current site

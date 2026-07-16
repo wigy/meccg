@@ -28,7 +28,7 @@ import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../.
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, generalInfluenceControlLimit, hasSiteFlagForPlayer, inPlayNamesForPlayerDeep } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
@@ -371,7 +371,7 @@ export function isProtectedWizardhavenFor(
 ): boolean {
   if (alignment !== 'fallen-wizard') return false;
   if (!isHavenForPlayer(siteDef, alignment, { state, siteDefinitionId: siteDefId, playerId })) return false;
-  return hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefId, playerId);
+  return isSiteProtectedForPlayer(state, siteDefId, playerId);
 }
 
 /** Minimum stage points a Fallen-wizard needs to descend to Deep Mines (>6). */
