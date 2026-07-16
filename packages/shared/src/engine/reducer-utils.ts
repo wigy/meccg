@@ -2691,6 +2691,12 @@ export function discardOrphanedControlledFactions(state: GameState): GameState {
  * (ba-50, `surface-site-roll-zero`), Roots of the Earth (ba-74,
  * `site-instance-transform`), and Eddy in Fate's Tide (ba-57, `eddy-lock`,
  * "This site is never discarded").
+ *
+ * Also true for Girdle of Radagast (wh-110, `region-type-conversion`): a
+ * permanent Fallen-wizard **stage** resource bound to a Wizardhaven purely to
+ * anchor its region-conversion effect. It contributes stage points for the rest
+ * of the game and must persist when the company leaves the haven, so it is
+ * exempt from the orphan sweep (the haven itself is never discarded regardless).
  */
 export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefined): boolean {
   return getCardEffects(def).some(
@@ -2698,7 +2704,8 @@ export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefin
       || e.type === 'surface-site-roll-zero'
       || e.type === 'site-instance-transform'
       || e.type === 'eddy-lock'
-      || e.type === 'site-lock',
+      || e.type === 'site-lock'
+      || e.type === 'region-type-conversion',
   );
 }
 

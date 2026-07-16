@@ -4735,6 +4735,23 @@ check) and `reducer-events.ts` (discard execution).
 { "type": "play-condition", "requires": "site-protected" }
 ```
 
+- `supporters-in-region` — for org-phase site-target Stage permanent-events
+  (`play-target` target `site`): the combined count of the player's **allies in
+  play** (every `CharacterInPlay.allies` entry) plus their **unique factions in
+  play** that can be played at a site in the anchor Wizardhaven's region or an
+  adjacent region (`buildFactionPlayableRegions` ∩ the region + its
+  `adjacentRegions`) must reach `min`. The parenthetical region restriction
+  applies **only to the factions** — allies always count. Checked in
+  `legal-actions/organization-events.ts` inside the site-target branch, so it is
+  evaluated against the specific candidate Wizardhaven. Used by *Girdle of
+  Radagast* (wh-110): "… have at least 12 SPs and 6 allies and/or unique factions
+  in play (the factions must be playable at sites in the Wizardhaven's [{H}]
+  region or adjacent regions)."
+
+```json
+{ "type": "play-condition", "requires": "supporters-in-region", "min": 6 }
+```
+
 ### 24. `creature-race-choice`
 
 Requires the player to choose a creature race when playing the card.
@@ -7783,6 +7800,32 @@ variants). The underlying site path is never mutated.
 
 Used by: *Fell Winter* (le-111) — "if Doors of Night is in play, treat all
 Free-domains as Border-lands and all Border-lands as Wildernesses."
+
+### 43b. `region-type-conversion`
+
+A **persistent** environment effect that converts a set of *named* regions to a
+region type for creature keying — the region of the site the carrying card is
+bound to (`attachedToSite`) and, when `includeAdjacent` is set, every region in
+that region card's `adjacentRegions`. Unlike `region-type-remap` (whole *type
+classes* along a path), this replaces specific regions **by name**, so it
+depends on the card being anchored to a site whose `region` names the origin.
+
+```json
+{ "type": "region-type-conversion", "to": "wilderness", "includeAdjacent": true }
+```
+
+The conversion is read live from either player's `cardsInPlay` — active for
+exactly as long as the card is in play with its `attachedToSite` set.
+`collectRegionTypeConversions(state)` / `applyRegionTypeConversions(pathTypes,
+pathNames, conversions)` (`engine/region-keying.ts`) are consulted by both
+creature-keying matchers (`checkCreatureKeying`, `findCreatureKeyingMatches`)
+after the `region-type-remap` step; the underlying site path is never mutated. A
+card carrying this effect is exempt from the site-attached orphan sweep
+(`cardKeepsBoundSitePermanent`), so a permanent stage marshalling-point card
+persists when its company leaves the anchored (Wizard)haven.
+
+Used by: *Girdle of Radagast* (wh-110) — "The Wizardhaven's region and all
+adjacent regions become Wilderness [{w}]."
 
 ### 44. `company-strike`
 

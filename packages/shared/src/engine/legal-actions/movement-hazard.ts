@@ -40,7 +40,7 @@ import { emitGrantedActionConstraintActions } from './granted-action-constraints
 import { countExtraAgentActions } from '../mh-agents.js';
 import { extraMHMoveDestinations } from '../mh-hazard-play.js';
 import { currentHazardLimit } from '../hazard-limit.js';
-import { collectRegionKeyingBoosts, regionPathsWithBoosts, collectRegionTypeRemaps, applyRegionTypeRemaps } from '../region-keying.js';
+import { collectRegionKeyingBoosts, regionPathsWithBoosts, collectRegionTypeRemaps, applyRegionTypeRemaps, collectRegionTypeConversions, applyRegionTypeConversions } from '../region-keying.js';
 import { asViable as viable } from './evaluated.js';
 import { notPlayable } from './action-builders.js';
 
@@ -3686,7 +3686,16 @@ function findCreatureKeyingMatches(
       overriddenRegionTypes.set(regionName, c.kind.value as import('../../types/common.js').RegionType);
     }
   }
-  const effectiveRegionTypes: import('../../types/common.js').RegionType[] = [...mhState.resolvedSitePath];
+  // region-type-conversion environments (Girdle of Radagast wh-110): named
+  // regions bound to a Wizardhaven (and its adjacents) "become Wilderness".
+  // Applied to the name-parallel base path (a replacement keyed by region name)
+  // before the additive constraint overrides below, so the converted regions
+  // read as Wilderness on the offering side exactly as the reducer validates.
+  const regionConversions = collectRegionTypeConversions(state);
+  const convertedBase = mhState.resolvedSitePath.length === mhState.resolvedSitePathNames.length
+    ? applyRegionTypeConversions([...mhState.resolvedSitePath], mhState.resolvedSitePathNames, regionConversions)
+    : [...mhState.resolvedSitePath];
+  const effectiveRegionTypes: import('../../types/common.js').RegionType[] = [...convertedBase];
   for (const rt of overriddenRegionTypes.values()) {
     if (!effectiveRegionTypes.includes(rt)) effectiveRegionTypes.push(rt);
   }

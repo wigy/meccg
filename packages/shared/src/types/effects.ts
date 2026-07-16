@@ -2987,6 +2987,34 @@ export interface RegionTypeRemapEffect extends EffectBase {
 }
 
 /**
+ * A persistent environment effect (Girdle of Radagast, wh-110) that converts a
+ * specific set of **named regions** — the region of the Wizardhaven the carrying
+ * card is bound to (`attachedToSite`) and, when {@link includeAdjacent} is set,
+ * every region adjacent to it — to the region type {@link to} for
+ * creature-keying purposes. Unlike {@link RegionTypeRemapEffect} (which
+ * reinterprets whole *type classes* along a path), this replaces specific
+ * regions by **name**, so it depends on the card being anchored to a site whose
+ * `region` names the origin region.
+ *
+ * The conversion is active for exactly as long as the carrying card is in play
+ * with its `attachedToSite` set. The creature-keying matchers
+ * (`findCreatureKeyingMatches`, `checkCreatureKeying`) consult it live via
+ * `collectRegionTypeConversions` / `applyRegionTypeConversions`
+ * (`engine/region-keying.ts`) and replace each matching region in the effective
+ * region-type path; the underlying path is never mutated.
+ */
+export interface RegionTypeConversionEffect extends EffectBase {
+  readonly type: 'region-type-conversion';
+  /** The region type the anchored regions are converted to (e.g. wilderness). */
+  readonly to: RegionType;
+  /**
+   * When `true`, the regions adjacent to the anchor region (per the region
+   * card's `adjacentRegions`) are converted as well, not just the anchor.
+   */
+  readonly includeAdjacent?: boolean;
+}
+
+/**
  * Greed (le-113 / tw-42): a hazard short-event played on a site. Until the
  * end of the turn, every character at the bound site (except the one playing
  * the item) must make a corruption check each time an item is played at the
@@ -3940,7 +3968,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region';
   /**
    * `requires: 'site-protected'` takes no extra fields. On a faction it gates
    * the influence attempt on the company's current site being **protected by
@@ -4094,6 +4122,16 @@ export interface PlayConditionEffect extends EffectBase {
    * the item subtype to check (e.g. `"information"`, `"gold-ring"`).
    */
   readonly subtype?: string;
+  /**
+   * For `requires: 'supporters-in-region'`: the minimum combined count of the
+   * playing player's **allies in play** plus their **unique factions in play
+   * that can be played at a site in the target Wizardhaven's region or an
+   * adjacent region**. Only offered when that combined count reaches this
+   * threshold. Used by Girdle of Radagast (wh-110): "… have at least … 6 allies
+   * and/or unique factions in play (the factions must be playable at sites in
+   * the Wizardhaven's [{H}] region or adjacent regions)."
+   */
+  readonly min?: number;
 }
 
 /**
@@ -5290,6 +5328,7 @@ export type CardEffect =
   | ManifestationSwapEffect
   | RegionKeyingBoostEffect
   | RegionTypeRemapEffect
+  | RegionTypeConversionEffect
   | ItemPlayCorruptionCheckEffect
   | PlayTargetEffect
   | PlayOptionEffect

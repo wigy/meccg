@@ -109,3 +109,94 @@ export function applyRegionTypeRemaps(
     return entry ? entry.to : rt;
   });
 }
+
+/**
+ * One active `region-type-conversion` (Girdle of Radagast, wh-110): the set of
+ * region **names** whose type is replaced by {@link to} for creature keying.
+ */
+export interface RegionTypeConversion {
+  readonly regions: ReadonlySet<string>;
+  readonly to: RegionType;
+}
+
+/**
+ * The set of region names anchored by a site-bound `region-type-conversion`
+ * card: the bound site's own `region`, plus (when `includeAdjacent`) every
+ * region named in that region card's `adjacentRegions`. Returns an empty set
+ * when the site or its region cannot be resolved.
+ */
+function anchoredRegionSet(
+  state: GameState,
+  siteDefId: string,
+  includeAdjacent: boolean,
+): Set<string> {
+  const set = new Set<string>();
+  const siteDef = state.cardPool[siteDefId as keyof typeof state.cardPool] as
+    { region?: string } | undefined;
+  const region = siteDef?.region;
+  if (!region) return set;
+  set.add(region);
+  if (includeAdjacent) {
+    for (const cardDef of Object.values(state.cardPool)) {
+      const rc = cardDef as { cardType?: string; name?: string; adjacentRegions?: readonly string[] };
+      if (rc.cardType === 'region' && rc.name === region) {
+        for (const adj of rc.adjacentRegions ?? []) set.add(adj);
+        break;
+      }
+    }
+  }
+  return set;
+}
+
+/**
+ * Collect every persistent `region-type-conversion` in play (Girdle of
+ * Radagast, wh-110). Scans both players' `cardsInPlay` for the effect on a card
+ * bound to a site (`attachedToSite`), resolving each into the set of region
+ * names it converts and the target type. Because the conversion is read live
+ * from `cardsInPlay`, it activates and deactivates as the card enters or leaves
+ * play.
+ */
+export function collectRegionTypeConversions(state: GameState): RegionTypeConversion[] {
+  const out: RegionTypeConversion[] = [];
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      if (card.pendingTriggerAttack) continue;
+      const siteDefId = card.attachedToSite;
+      if (!siteDefId) continue;
+      const def = state.cardPool[card.definitionId] as
+        { effects?: readonly CardEffect[] } | undefined;
+      const effects = def?.effects;
+      if (!effects) continue;
+      for (const e of effects) {
+        if (e.type !== 'region-type-conversion') continue;
+        const regions = anchoredRegionSet(state, siteDefId as string, e.includeAdjacent ?? false);
+        if (regions.size > 0) out.push({ regions, to: e.to });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Replace the type of every traversed region whose **name** is targeted by an
+ * active conversion (the last matching conversion wins). The type path and name
+ * path are index-parallel (each declared region contributes one type and one
+ * name together), so the replacement is applied per index. Returns the path
+ * unchanged when there are no conversions.
+ */
+export function applyRegionTypeConversions(
+  pathTypes: readonly RegionType[],
+  pathNames: readonly string[],
+  conversions: readonly RegionTypeConversion[],
+): RegionType[] {
+  if (conversions.length === 0) return [...pathTypes];
+  return pathTypes.map((rt, i) => {
+    const name = pathNames[i];
+    if (name === undefined) return rt;
+    let value = rt;
+    for (const conv of conversions) {
+      if (conv.regions.has(name)) value = conv.to;
+    }
+    return value;
+  });
+}
