@@ -174,7 +174,7 @@ describe('The Witch-king (le-58)', () => {
   });
 
   test('a second Ringwraith cannot be played when the revealed avatar has no follower ability', () => {
-    // Khamûl is the revealed avatar — he has no ringwraith-follower-slots
+    // Dwar is the revealed avatar — he has no ringwraith-follower-slots
     // effect, so a different Ringwraith in hand cannot be played at all
     // (rule 2.II.2.1.1: no second avatar reveal).
     const state = buildTestState({
@@ -182,7 +182,7 @@ describe('The Witch-king (le-58)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [KHAMUL] }], hand: [DWAR], siteDeck: [MINAS_MORGUL] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [DWAR] }], hand: [REN], siteDeck: [MINAS_MORGUL] },
         { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });

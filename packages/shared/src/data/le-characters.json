@@ -1280,8 +1280,22 @@
         "when": {
           "bearer.ringwraithMode": "fell-rider"
         }
+      },
+      {
+        "type": "enemy-modifier",
+        "stat": "body",
+        "op": "subtract",
+        "value": 2,
+        "when": {
+          "enemy.race": "elf"
+        }
+      },
+      {
+        "type": "ringwraith-follower-slots",
+        "count": 1
       }
-    ]
+    ],
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-character",
