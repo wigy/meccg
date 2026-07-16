@@ -2118,6 +2118,23 @@ function handleSitePlayHeroResource(
     afterAttach = sweepCompanyMembershipChangedEvents(afterAttach, [company.id]);
   }
 
+  // An Untimely Brood (wh-62): an ally played through the player's Wizardhaven
+  // `grant-ally-play` permission consumes its once-per-site-phase allowance —
+  // record a turn-scoped lock keyed by the granting permanent-event so the
+  // legal-action scanner suppresses a second grant-enabled play this phase.
+  if (isAlly && action.viaWizardhavenAllyGrant) {
+    const grantId = action.viaWizardhavenAllyGrant;
+    const grantCard = afterAttach.players[playerIndex].cardsInPlay.find(c => c.instanceId === grantId);
+    afterAttach = addConstraint(afterAttach, {
+      source: grantId,
+      sourceDefinitionId: grantCard?.definitionId ?? handCard.definitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'player', playerId: action.player },
+      kind: { type: 'granted-action-used', sourceInstanceId: grantId, actionId: 'grant-ally-play' },
+    });
+    logDetail(`An Untimely Brood: recorded once-per-site-phase Wizardhaven ally lock on ${grantId as string}`);
+  }
+
   // Troll-purse (dm-95): playing an item at a site bearing an opponent's
   // Troll-purse forces the company to re-face all the site's automatic-attacks
   // (+3 prowess, prisoner-on-success). If triggered, the first re-faced attack

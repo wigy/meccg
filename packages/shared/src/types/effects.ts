@@ -5528,6 +5528,32 @@ export interface GrantAllyPlayEffect extends EffectBase {
    * controls a copy of it (same card name in the bearer's `allies`).
    */
   readonly excludeBearerControlsCopy?: boolean;
+  /**
+   * When `true`, the grant is **player-scoped and Wizardhaven-keyed** rather
+   * than tied to a bearer character. The engine finds the granting
+   * permanent-event in the player's `cardsInPlay` (not a company member's
+   * `items`) and extends playability to a matching ally only when the acting
+   * company's current site is one of the player's own **protected
+   * Wizardhavens** ({@link playerHasProtectedWizardhaven}). Used by An Untimely
+   * Brood (wh-62): "One non-unique ally with a mind of 1 is playable at one of
+   * your tapped or untapped protected Wizardhavens each of your site phases."
+   */
+  readonly atProtectedWizardhavens?: boolean;
+  /**
+   * When `true`, the target site may be **tapped or untapped** — the grant
+   * lifts the normal untapped-site requirement for ally play. Only meaningful
+   * with {@link atProtectedWizardhavens} (wh-62: "tapped or untapped protected
+   * Wizardhavens").
+   */
+  readonly allowTappedSite?: boolean;
+  /**
+   * When `true`, only **one** ally may be played through this grant per site
+   * phase. The reducer records a turn-scoped `granted-action-used` lock
+   * (keyed by the granting card instance) the first time such an ally is
+   * played; the legal-action scanner suppresses further grant-enabled plays
+   * for the rest of the phase (wh-62: "each of your site phases").
+   */
+  readonly oncePerSitePhase?: boolean;
 }
 
 /**

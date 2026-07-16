@@ -178,6 +178,14 @@ export interface PlayHeroResourceAction {
    * the discard pile.
    */
   readonly fromDiscard?: boolean;
+  /**
+   * When set, the ally is being played through a player-scoped, Wizardhaven-keyed
+   * `grant-ally-play` permission (An Untimely Brood wh-62) whose
+   * `oncePerSitePhase` limit applies. Carries the instance id of the granting
+   * permanent-event so the reducer can record the turn-scoped once-per-phase
+   * lock against it.
+   */
+  readonly viaWizardhavenAllyGrant?: CardInstanceId;
 }
 
 /**
