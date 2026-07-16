@@ -391,6 +391,33 @@ export function removeAttachment(
 }
 
 /**
+ * Partition a leaving character's allies into those that return to their
+ * owner's hand and those that go to the discard pile.
+ *
+ * An ally carrying a `return-to-hand` effect whose triggers include
+ * `controller-leaves-play` (Radagast's Black Bird wh-114: "You may return … to
+ * your hand … if its controlling character leaves active play") is preserved to
+ * hand instead of discarded. Every "controlling character leaves active play"
+ * site (combat elimination, body-check discard, dice-check eliminate, hazard
+ * discard) routes its allies through this helper so the rule fires uniformly.
+ */
+export function partitionLeavingAllies(
+  state: GameState,
+  allies: readonly AllyInPlay[],
+): { toHand: CardInstance[]; toDiscard: CardInstance[] } {
+  const toHand: CardInstance[] = [];
+  const toDiscard: CardInstance[] = [];
+  for (const ally of allies) {
+    const def = defById(state, ally.definitionId);
+    const returnsToHand = getCardEffects(def).some(
+      e => e.type === 'return-to-hand' && e.during.includes('controller-leaves-play'),
+    );
+    (returnsToHand ? toHand : toDiscard).push(toCardInstance(ally));
+  }
+  return { toHand, toDiscard };
+}
+
+/**
  * Produce a {@link ReducerResult} rejecting an action whose `type` did not
  * match the expected value. When `context` is supplied the message names the
  * step the rejection happened in (e.g. `during draw-cards step`).

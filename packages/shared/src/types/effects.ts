@@ -2178,6 +2178,29 @@ export interface FleeFromStrikeEffect extends EffectBase {
 }
 
 /**
+ * An attached resource (currently an ally) that its controller "may return to
+ * hand" under listed triggers, instead of being discarded.
+ *
+ * Two triggers are supported:
+ * - `organization` — during the owning player's organization phase, the player
+ *   may voluntarily return the card to hand (a legal action emitted by the
+ *   organization-phase computer; the reducer detaches it and moves it to the
+ *   owner's hand).
+ * - `controller-leaves-play` — when the controlling character leaves active
+ *   play (elimination/discard), the card returns to its owner's hand rather
+ *   than to the discard pile (`discardCharacter` routes it accordingly).
+ *
+ * Used by Radagast's Black Bird (wh-114): "You may return … to your hand:
+ * during your organization phase or if its controlling character leaves active
+ * play."
+ */
+export interface ReturnToHandEffect extends EffectBase {
+  readonly type: 'return-to-hand';
+  /** The triggers under which the card may/should return to hand. */
+  readonly during: readonly ('organization' | 'controller-leaves-play')[];
+}
+
+/**
  * The attacking player assigns strikes to defending characters, instead
  * of the defender assigning them. Example: Cave-drake.
  */
@@ -2374,6 +2397,17 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   an untapped site" rule). Used by Noble Steed, which is playable at "tapped
  *   or untapped" non-Haven sites in its region list, and by Snaga-hai (le-286),
  *   which is playable at "any tapped or untapped Shadow-hold".
+ * - `no-tap-on-play` — playing this ally taps neither the controlling character
+ *   nor the site (overrides the default "an ally taps its controller and the
+ *   site"). Combined with a wizard-specific keyword, models "X may play this
+ *   ally … and need not tap himself or the site to do so." Used by Radagast's
+ *   Black Bird (wh-114). A controlling character may therefore be tapped when
+ *   it plays the ally (it does not need to be untapped, since it never taps).
+ * - `influences-factions` — this ally "may attempt to influence factions as if
+ *   he were a character" (CoE: allies are normally not influencers). A company
+ *   ally carrying this flag with a printed `directInfluence` is offered as a
+ *   faction-influence source alongside untapped characters; it taps for the
+ *   attempt exactly as a character would. Used by Radagast's Black Bird (wh-114).
  * - `block-company-joins` — while this permanent event is in play bound to a
  *   company (`CardInPlay.companyId`), no ally and no direct-influence follower
  *   may join that company. On play the company's existing allies and follower
@@ -2394,7 +2428,7 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -5245,6 +5279,7 @@ export type CardEffect =
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect
   | FleeFromStrikeEffect
+  | ReturnToHandEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect
   | CombatCancelAttackByTapEffect

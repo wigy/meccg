@@ -3602,6 +3602,62 @@ purely declarative — presence is the whole payload.
 { "type": "play-flag", "flag": "playable-as-event" }
 ```
 
+### 15f. Radagast's Black Bird primitives (`no-tap-on-play`, `influences-factions`, `return-to-hand`)
+
+A cluster of ally primitives introduced for Radagast's Black Bird (wh-114), a
+`radagast-specific` unique ally with `directInfluence` (a new optional field on
+the ally card types) and `playableAt: [{ "any": true }]`.
+
+- **Wizard-specific ally control** — a `<wizard>-specific` ally may only be
+  controlled by the matching Fallen-wizard avatar. The ally-play emitter
+  (`legal-actions/site.ts`) restricts the controlling-character candidates to
+  the avatar named by `wizardSpecificName` (from the `radagast-specific`
+  keyword). No new effect — the keyword drives it.
+
+- **`play-flag: "no-tap-on-play"`** — playing the ally taps neither the
+  controlling character nor the site ("need not tap himself or the site").
+  The emitter additionally lets a **tapped** controller play it (it never
+  taps), and `handlePlayHeroResource` (`reducer-site.ts`) leaves character and
+  site untapped and does not consume the site's resource slot / opening
+  minor-item bonus. Combine with `playableAt: [{ "any": true }]` and
+  `playable-at-tapped-site` for "may play this ally at any site (tapped or
+  untapped)".
+
+  ```json
+  { "type": "play-flag", "flag": "no-tap-on-play" }
+  ```
+
+- **`play-flag: "influences-factions"`** — the ally "may attempt to influence
+  factions as if he were a character". Untapped company allies carrying this
+  flag (with a printed `directInfluence`) are added to the faction-influence
+  emitter's influencer list (`legal-actions/site.ts`), and the declare/resolve
+  reducers (`reducer-site.ts`) plus the pending `faction-influence-roll` legal
+  action (`legal-actions/pending.ts`) tap the ally and compute its DI-based
+  need when the `influencingCharacterId` resolves to an ally.
+
+  ```json
+  { "type": "play-flag", "flag": "influences-factions" }
+  ```
+
+- **`return-to-hand`** — the ally's controller "may return it to hand" under
+  the listed triggers, instead of it being discarded:
+  - `organization` — a `return-attached-to-hand` action offered during the
+    owner's organization phase (`returnAttachedToHandActions` in
+    `legal-actions/organization.ts`; reducer in `reducer-organization.ts`).
+  - `controller-leaves-play` — when the controlling character leaves active
+    play, the ally goes to the owner's hand rather than the discard pile. The
+    shared `partitionLeavingAllies` (`reducer-utils.ts`) routes it at every
+    character-leaves-play site (`discardCharacter`, combat body-check discard,
+    combat elimination, card-discard elimination).
+
+  ```json
+  { "type": "return-to-hand", "during": ["organization", "controller-leaves-play"] }
+  ```
+
+Radagast's Black Bird also carries a `cancel-strike` (`cost: { tap: self }`,
+no `when`), reusing the self-tap cancel-strike primitive (§11) so it cancels any
+strike directed against it (creature or automatic-attack), tapping afterwards.
+
 ### 15a. `extra-troll-leader-slot`
 
 Marker effect on a company-bound permanent event. While this event is in play,

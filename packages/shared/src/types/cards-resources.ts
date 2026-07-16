@@ -207,6 +207,13 @@ export interface HeroAllyCard {
   /** The ally's mind value, used as the comparison value in opponent influence attempts. */
   readonly mind: number;
   /**
+   * The ally's direct influence, relevant only when the ally can "attempt to
+   * influence factions as if he were a character" (the `influences-factions`
+   * play-flag, e.g. Radagast's Black Bird wh-114). Optional: most allies do not
+   * influence factions and have no printed direct-influence value.
+   */
+  readonly directInfluence?: number;
+  /**
    * Skills the ally possesses (e.g. Sage). Per CoE rule 2.V.2.2, allies are
    * treated as characters when fulfilling "skill only" active conditions, so
    * a sage ally (e.g. Treebeard) can tap to play a Sage-only card like
@@ -398,6 +405,13 @@ export interface MinionAllyCard {
   readonly body: number;
   /** The ally's mind value, used as the comparison value in opponent influence attempts. */
   readonly mind: number;
+  /**
+   * The ally's direct influence, relevant only when the ally can "attempt to
+   * influence factions as if he were a character" (the `influences-factions`
+   * play-flag, e.g. Radagast's Black Bird wh-114). Optional: most allies do not
+   * influence factions and have no printed direct-influence value.
+   */
+  readonly directInfluence?: number;
   /**
    * Skills the ally possesses. Per CoE rule 2.V.2.2, allies are treated as
    * characters when fulfilling "skill only" active conditions. Optional:
