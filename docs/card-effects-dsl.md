@@ -3966,6 +3966,21 @@ Rules:
   { "type": "site-rule", "rule": "always-return-to-deck" }
   ```
 
+- `allow-agent-play` — lets agent characters be brought into play at this
+  site under a character's **direct influence** (as a follower joining a
+  company already at the site), overriding rule 2.II.2.2.5 which otherwise
+  confines an agent played as a character to its own home site. Only
+  Ringwraith/Fallen-wizard players may play agents as characters at all, and
+  only direct influence is granted here — general-influence play at the site
+  is not. Consumed by `legal-actions/organization-characters.ts`
+  (`findPlayableSites` widens agent eligibility; the general-influence branch
+  skips such sites). Used by *Bree* (le-356): "Agent minions may be brought
+  into play under direct influence at this site."
+
+  ```json
+  { "type": "site-rule", "rule": "allow-agent-play" }
+  ```
+
 - `dynamic-under-deeps-adjacency` — an Under-deeps site whose adjacency is
   *chosen when it is played* rather than fixed on the card ("one Under-deeps
   <type> chosen by you when playing this card (N)"). The engine has no

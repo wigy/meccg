@@ -42,6 +42,7 @@ export type SiteRuleEffect =
   | CancelFirstAttackIfInPlaySiteRule
   | StolenKnowledgeSiteRule
   | DeepMinesMovementSiteRule
+  | AllowAgentPlaySiteRule
   | DynamicUnderDeepsAdjacencySiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
@@ -319,6 +320,31 @@ export interface DynamicAutoAttackSiteRule extends EffectBase {
 export interface AlwaysReturnToDeckSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'always-return-to-deck';
+}
+
+/**
+ * Declares that agent characters may be brought into play at this site under a
+ * character's **direct influence** (as a follower joining a company already at
+ * the site), overriding rule 2.II.2.2.5 — which otherwise confines an agent
+ * played as a character to its own home site.
+ *
+ * The permission applies only to Ringwraith/Fallen-wizard players (the only
+ * players who may play agents as characters at all) and only via direct
+ * influence: general-influence play at this site is NOT granted, matching the
+ * printed wording "under direct influence at this site". A company must be
+ * physically at the site with an untapped controller holding enough direct
+ * influence for the agent's mind.
+ *
+ * Example — Bree (le-356): "Agent minions may be brought into play under direct
+ * influence at this site."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "allow-agent-play" }
+ * ```
+ */
+export interface AllowAgentPlaySiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'allow-agent-play';
 }
 
 /**
