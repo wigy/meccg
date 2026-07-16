@@ -55,6 +55,18 @@ function isAgentCharacter(charDef: CharacterCard): boolean {
 }
 
 /**
+ * Returns true if the site carries an `allow-agent-play` site-rule, which lets
+ * agent characters be brought into play there under direct influence even
+ * though the site is not the agent's home site (Bree le-356). The permission
+ * is direct-influence-only; the general-influence branch below skips such sites.
+ */
+function siteAllowsAgentPlay(siteDef: SiteCard): boolean {
+  return (siteDef.effects ?? []).some(
+    eff => eff.type === 'site-rule' && eff.rule === 'allow-agent-play',
+  );
+}
+
+/**
  * Evaluates the Fallen-wizard Orc/Troll play permission (CoE 2.II.2.2.F2) for a
  * candidate character. A Fallen-wizard player may only play an Orc or Troll
  * character (Half-orcs count as Orcs) when a Stage resource in play
@@ -203,8 +215,8 @@ function findPlayableSites(
    * the agent may be summoned there via the vehicle.
    */
   includeDarkhavensForAgent = false,
-): { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] {
-  const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] = [];
+): { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string; directInfluenceOnly: boolean }[] {
+  const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string; directInfluenceOnly: boolean }[] = [];
   const seenInstances = new Set<string>();
   const seenSiteNames = new Set<string>();
   const homeSiteOnly = hasHomeSiteOnlyRestriction(charDef);
@@ -235,13 +247,20 @@ function findPlayableSites(
     if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
     const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
     const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSite(siteDef);
+    // Bree (le-356) `allow-agent-play`: an agent may join a company already at
+    // this site under direct influence, even though it is not the agent's home
+    // site. General-influence play is not granted (directInfluenceOnly below).
+    const agentPlayHere = isAgentCharacter(charDef) && siteAllowsAgentPlay(siteDef);
 
-    if ((homeSiteOnly ? isHomesite : (isHaven || isHomesite)) || agentDarkhaven) {
+    if ((homeSiteOnly ? (isHomesite || agentPlayHere) : (isHaven || isHomesite)) || agentDarkhaven) {
       if (isCharacterDeniedBySiteRule(charDef, siteDef)) {
         logDetail(`  play-restriction: ${charDef.name} denied at ${siteDef.name} by site rule`);
         continue;
       }
-      results.push({ instanceId: siteId, siteDef, siteName: siteDef.name });
+      if (agentPlayHere && !isHomesite) {
+        logDetail(`  play-permission: ${charDef.name} (agent) may be played at ${siteDef.name} under direct influence (allow-agent-play)`);
+      }
+      results.push({ instanceId: siteId, siteDef, siteName: siteDef.name, directInfluenceOnly: agentPlayHere && !isHomesite });
       seenSiteNames.add(siteDef.name);
     }
   }
@@ -269,7 +288,7 @@ function findPlayableSites(
         logDetail(`  play-restriction: ${charDef.name} denied at ${siteDef.name} by site rule`);
         continue;
       }
-      results.push({ instanceId: siteCard.instanceId, siteDef, siteName: siteDef.name });
+      results.push({ instanceId: siteCard.instanceId, siteDef, siteName: siteDef.name, directInfluenceOnly: false });
       seenSiteNames.add(siteDef.name);
     }
   }
@@ -783,7 +802,12 @@ export function playCharacterActions(
         const summonHere = isAgentSummonsCandidate && isDarkhavenSite(site.siteDef);
         const costHere = summonHere ? summonsCostMind : costMind;
         const recruitFieldHere = summonHere && vehicle ? { viaRecruitmentInstanceId: vehicle.instanceId } : recruitField;
-        if (costHere <= remainingGI && giAllowedAtSite) {
+        // Bree (le-356) `allow-agent-play` grants direct-influence play only;
+        // never offer the agent under general influence at such a site.
+        if (site.directInfluenceOnly) {
+          logDetail(`  → GI play skipped at ${site.siteName}: agent may only be played under direct influence here (allow-agent-play)`);
+        }
+        if (costHere <= remainingGI && giAllowedAtSite && !site.directInfluenceOnly) {
           logDetail(`  → viable: play under GI at ${site.siteName} (mind cost ${costHere}, remaining GI ${remainingGI})${recruitViaVehicle ? ' via recruitment vehicle' : ''}${summonHere ? ' via agent-summons at Darkhaven' : ''}`);
           results.push({
             action: {

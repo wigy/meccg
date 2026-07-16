@@ -1686,11 +1686,38 @@
     ],
     "nearestHaven": "Carn Dûm",
     "region": "Arthedain",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "gold-ring",
+      "information"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dúnedain",
+        "strikes": 1,
+        "prowess": 7,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-agent-play"
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Carn DûmPlayable: Information, Items (minor, gold ring)Automatic-attacks: Dúnedain — each character faces 1 strike with 7 prowess (detainment against covert company)Special: Agent minions may be brought into play under direct influence at this site."
+    "unique": true,
+    "certified": "2026-07-15",
+    "text": "Nearest Darkhaven: Carn Dûm Playable: Information, Items (minor, gold ring) Automatic-attacks: Dúnedain — each character faces 1 strike with 7 prowess (detainment against covert company) Special: Agent minions may be brought into play under direct influence at this site."
   },
   {
     "cardType": "minion-site",
