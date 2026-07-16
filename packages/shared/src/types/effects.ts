@@ -5379,7 +5379,51 @@ export type CardEffect =
   | CompanyMovementTaxEffect
   | VoluntaryDiscardEffect
   | CvccAttackPermissionEffect
+  | GrantAllyPlayEffect
   | FactionInfluenceRestrictionEffect;
+
+/**
+ * Grants extended ally-play permission from a permanent-event attached to a
+ * character (the *bearer*). While in play, any ally matching {@link filter}
+ * becomes playable in the bearer's company at its **current site** — regardless
+ * of the ally's printed `playableAt` restrictions — and, when
+ * {@link fromDiscard} is set, may be sourced from the player's **discard pile**
+ * as well as the hand. When {@link excludeBearerControlsCopy} is set, an ally is
+ * excluded from the grant if the bearer already controls a copy of it (matched
+ * by card name).
+ *
+ * Used by Glove of Radagast (wh-111): "Any non-unique ally with 1 mind (a copy
+ * of which he does not already control) is considered playable with Radagast at
+ * his site. This ally may be taken from your discard pile or hand." Here
+ * `filter` matches non-unique, 1-mind allies, `excludeBearerControlsCopy` is
+ * true, and `fromDiscard` is true.
+ *
+ * ```json
+ * { "type": "grant-ally-play",
+ *   "filter": { "$and": [ { "target.unique": { "$ne": true } }, { "target.mind": 1 } ] },
+ *   "excludeBearerControlsCopy": true,
+ *   "fromDiscard": true }
+ * ```
+ */
+export interface GrantAllyPlayEffect extends EffectBase {
+  readonly type: 'grant-ally-play';
+  /**
+   * Condition matched against the candidate ally's card definition, wrapped as
+   * `{ target: allyDef }` (so `target.unique`, `target.mind`, `target.race`,
+   * etc. are available). Omit to grant every ally.
+   */
+  readonly filter?: Condition;
+  /**
+   * When `true`, a granted ally may also be played from the player's discard
+   * pile (not only the hand).
+   */
+  readonly fromDiscard?: boolean;
+  /**
+   * When `true`, an ally is excluded from the grant if the bearer already
+   * controls a copy of it (same card name in the bearer's `allies`).
+   */
+  readonly excludeBearerControlsCopy?: boolean;
+}
 
 /**
  * Marks a hazard-creature card as also playable in an alternative event mode

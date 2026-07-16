@@ -259,6 +259,35 @@ site" is not a single site type: A Panoply of Wings (wh-37) is playable at "any
 non-Haven, non-Shadow-hold, non-Dark-hold site in a Wilderness [{w}]":
 `"playableAt": [ { "any": true, "when": { "$and": [ { "$not": { "site.siteType": { "$in": ["haven", "shadow-hold", "dark-hold"] } } }, { "site.regionType": "wilderness" } ] } } ]`.
 
+### `grant-ally-play`
+
+Extends ally-play permission from a permanent-event attached to a character (the
+*bearer*). While in play, any ally matching `filter` becomes playable in the
+bearer's company at its **current site** — bypassing the ally's printed
+`playableAt` — and, when `fromDiscard` is set, may be sourced from the player's
+**discard pile** as well as the hand. When `excludeBearerControlsCopy` is set, an
+ally is excluded if the bearer already controls a copy of it (matched by card
+name). `filter` is matched against the candidate ally's definition wrapped as
+`{ target: allyDef }` (so `target.unique`, `target.mind`, `target.race`, … are
+available).
+
+Implemented in `legal-actions/site.ts` (the ally site-match is relaxed via
+`allyPlayGrantAllowsAlly`, and a discard-source loop offers granted allies with
+`fromDiscard`) and `reducer-site.ts` (a `fromDiscard` `play-hero-resource`
+removes the card from the discard pile instead of the hand). All the normal ally
+gates still apply (untapped site, company open to joins, an untapped controller,
+manifestation blocks, company duplication limits, MEWH §10 cross-alignment, Eddy
+tax). Used by Glove of Radagast (wh-111): "Any non-unique ally with 1 mind (a
+copy of which he does not already control) is considered playable with Radagast
+at his site. This ally may be taken from your discard pile or hand."
+
+```json
+{ "type": "grant-ally-play",
+  "filter": { "$and": [ { "target.unique": { "$ne": true } }, { "target.mind": 1 } ] },
+  "excludeBearerControlsCopy": true,
+  "fromDiscard": true }
+```
+
 For faction-influence checks the engine also collects `check-modifier` and
 `stat-modifier` (`direct-influence`) effects from every ally in the
 influencing character's company — e.g. The Warg-king's "+2 to any

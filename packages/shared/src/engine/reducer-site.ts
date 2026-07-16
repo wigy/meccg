@@ -1936,8 +1936,13 @@ function handleSitePlayHeroResource(
   const player = state.players[playerIndex];
   const company = player.companies[siteState.activeCompanyIndex];
 
-  const handCard = findById(player.hand, action.cardInstanceId);
-  if (!handCard) return { state, error: 'Card not found in hand' };
+  // Glove of Radagast (wh-111): a granted ally may be sourced from the discard
+  // pile instead of the hand (`fromDiscard`). Otherwise the card is in hand.
+  const fromDiscard = action.fromDiscard === true;
+  const handCard = fromDiscard
+    ? findById(player.discardPile, action.cardInstanceId)
+    : findById(player.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: fromDiscard ? 'Card not found in discard pile' : 'Card not found in hand' };
   const def = defById(state, handCard.definitionId)!;
   const isItem = isItemCard(def);
   const isAlly = !isItem && isAllyCard(def);
@@ -1948,10 +1953,14 @@ function handleSitePlayHeroResource(
   const charInPlay = player.characters[targetCharId];
   const charDef = defById(state, charInPlay.definitionId);
   const charName = charDef?.name ?? targetCharId;
-  logDetail(`Site: playing ${def.name} on ${charName} — tapping character and site`);
+  logDetail(`Site: playing ${def.name} on ${charName}${fromDiscard ? ' (from discard pile)' : ''} — tapping character and site`);
 
-  // Remove card from hand
-  const newHand = removeById(player.hand, handCard.instanceId);
+  // Remove card from its source zone (hand, or the discard pile for a granted
+  // discard-sourced ally).
+  const newHand = fromDiscard ? player.hand : removeById(player.hand, handCard.instanceId);
+  const newDiscardPile = fromDiscard
+    ? removeById(player.discardPile, handCard.instanceId)
+    : player.discardPile;
 
   // Tap the character and attach the item or ally
   const updatedChar: CharacterInPlay = {
@@ -2042,7 +2051,7 @@ function handleSitePlayHeroResource(
   };
 
   let afterAttach: GameState = {
-    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters, companies: newCompaniesActual })),
+    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscardPile, characters: newCharacters, companies: newCompaniesActual })),
     phaseState: {
       ...siteState,
       resourcePlayed: (usingThoroughSearch || usingTechnologyBonus) ? siteState.resourcePlayed : true,
