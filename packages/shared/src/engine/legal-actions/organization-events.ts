@@ -19,7 +19,7 @@ import type {
 } from '../../index.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
-import { isCharacterCard, isAvatarCharacter, isSiteCard } from '../../types/cards.js';
+import { isCharacterCard, isAvatarCharacter, isSiteCard, isFactionCard } from '../../types/cards.js';
 import { Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { getItemGrantedSkills } from '../effects/index.js';
@@ -29,7 +29,50 @@ import { notPlayable } from './action-builders.js';
 import { hasSiteFlagForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf, matchesCompanyContextCondition } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
+import { buildFactionPlayableRegions } from '../recompute-derived.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
+
+/**
+ * The combined count of a player's supporters for Girdle of Radagast (wh-110):
+ * every ally in play (an ally borne by any of the player's characters) plus
+ * every **unique faction** in play that can be played at a site in the anchor
+ * Wizardhaven's region or an adjacent region. The parenthetical region
+ * restriction on the card applies only to the factions, so allies always count.
+ */
+function girdleSupporterCount(
+  state: GameState,
+  player: import('../../index.js').PlayerState,
+  siteDef: import('../../index.js').SiteCard,
+): number {
+  // Allies in play — allies attach to characters (CharacterInPlay.allies).
+  let count = 0;
+  for (const ch of Object.values(player.characters)) {
+    count += ch.allies.length;
+  }
+
+  // Region set: the Wizardhaven's region plus its adjacent regions.
+  const regionSet = new Set<string>();
+  const anchorRegion = siteDef.region;
+  if (anchorRegion) {
+    regionSet.add(anchorRegion);
+    for (const cardDef of Object.values(state.cardPool)) {
+      const rc = cardDef as { cardType?: string; name?: string; adjacentRegions?: readonly string[] };
+      if (rc.cardType === 'region' && rc.name === anchorRegion) {
+        for (const adj of rc.adjacentRegions ?? []) regionSet.add(adj);
+        break;
+      }
+    }
+  }
+
+  // Unique factions in play playable at a site in the region set.
+  for (const c of player.cardsInPlay) {
+    const def = defById(state, c.definitionId);
+    if (!def || !isFactionCard(def) || !def.unique) continue;
+    const playableRegions = buildFactionPlayableRegions(state, def);
+    if (playableRegions.some(r => regionSet.has(r))) count++;
+  }
+  return count;
+}
 
 /**
  * Whether `company` contains an Orc or Troll character (MEWH §9). Half-orcs
@@ -184,6 +227,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // `site-protected` constraint owned by this player (Saruman's Machinery
       // wh-120: "Playable on your protected Isengard or The White Towers").
       const siteProtectedCond = findPlayConditionEffect(def, 'site-protected');
+      const supportersInRegionCond = findPlayConditionEffect(def, 'supporters-in-region');
       const siteDupLimit = findDuplicationLimitEffect(def, 'site');
       let anySite = false;
       for (const company of player.companies) {
@@ -216,6 +260,16 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           const copiesAtSite = countPermanentEventCopiesAtSite(state, def.name, siteDefId);
           if (copiesAtSite >= siteDupLimit.max) {
             logDetail(`Permanent event ${def.name}: site duplication limit reached at ${siteDef.name}`);
+            continue;
+          }
+        }
+        // play-condition: supporters-in-region — Girdle of Radagast (wh-110):
+        // "… 6 allies and/or unique factions in play (the factions must be
+        // playable at sites in the Wizardhaven's region or adjacent regions)."
+        if (supportersInRegionCond?.min !== undefined) {
+          const supporters = girdleSupporterCount(state, player, siteDef);
+          if (supporters < supportersInRegionCond.min) {
+            logDetail(`Permanent event ${def.name}: only ${supporters} supporter(s) for ${siteDef.name} region, need ${supportersInRegionCond.min}`);
             continue;
           }
         }
