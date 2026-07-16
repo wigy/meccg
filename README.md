@@ -22,10 +22,10 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
 | Rule tests | 269 | 332 | 81.0% |
-| Card tests | 821 | 829 | 99.0% |
+| Card tests | 829 | 837 | 99.0% |
 | Cards created | 1683 | 1683 | 100.0% |
-| Cards certified | 877 | 1683 | 52.1% |
-| **Total** | **3650** | **4527** | **80.6%** |
+| Cards certified | 885 | 1683 | 52.6% |
+| **Total** | **3666** | **4535** | **80.8%** |
 
 ### Deck Catalog
 
@@ -46,7 +46,7 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (K) Lord of Rings | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (L) Wolves! | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (M) It's magic! | minion | 110 | 110 (100.0%) | 110 (100.0%) |
-| (N) Smoke on the Water | minion | 110 | 110 (100.0%) | 97 (88.2%) |
+| (N) Smoke on the Water | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |

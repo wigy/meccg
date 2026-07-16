@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.52.0 — 2026-07-16
+
+Challenge Deck N
+
+### Game Engine
+
+- Completed the card pool for challenge deck (N) "Smoke on the Water" — all 110 cards are now certified, making the deck playable end to end
+- Certified Enchanted Stream (as-27), a permanent hazard-event bound to the opponent's moving company, introducing a new `company-movement-tax` effect: the company may not voluntarily split or move until it taps up to two of its untapped characters during its organization phase (new `pay-movement-tax` action, reducer, and per-org counter gating both `planMovementActions` and `splitCompanyActions`). A ranger in the company may tap to cancel it before it resolves, via a static `grant-action cancel-chain-entry` offered during movement/hazard chain declaration. Also fixed the long/permanent-event branch of `playHazardsActions`, which previously skipped the `play-condition requires: site-path` check that the short-event branch already enforced
+- Certified The Ring Leaves Its Mark (le-223), a dual-mode minion short event: either fetch a Black Rider / Fell Rider / Heralded Lord from the sideboard or discard into the play deck and reshuffle, or play it on your tapped Ringwraith and roll to untap. Legal-actions emits both modes and the reducer discriminates them by the presence of `targetCharacterId`
+- Certified Mechanical Bow (wh-53): the `enemy-modifier` body reduction can now gate on the bearer tapping to face a strike. `StrikeAssignment` gains a `strikeMode` field, recorded in `resolveStrikeCore` and threaded through the creature body-check path into `resolveEnemyBody`, where it is exposed as `combat.strikeMode`
+- Certified Khamûl the Ringwraith (le-55) by reusing existing primitives — a race-gated intrinsic `enemy-modifier` (Elf body -2 against his strikes in character-vs-character combat) and `ringwraith-follower-slots` count 1, the single-slot sibling of The Witch-king's two-slot ability
+
+### Card Data
+
+- 8 newly certified cards (877 → 885 of 1683), concentrated on the challenge deck (N) "Smoke on the Water" pool
+- Certified Cameth Brin (le-358), a data-twin of Raider-hold (le-399): filled in empty playable resources and the Men each-character automatic attack, plus covert-gated detainment and a `deny-item` site rule — all engine support pre-existed
+- Certified Blackbole (le-152), the minion Ringwraith counterpart of the Ent ally Quickbeam: replaced the free-text `playableAt` placeholder with a structured Mirkwood-except-Dol-Guldur condition, added the `no-attack-site-keyed` play-flag, and restored the missing `mind: 3`
+- Certified Smoke on the Wind (le-230), a data-only sibling of Burning Rick, Cot, and Tree (le-173) keyed to a Free-hold instead of a Border-hold; corrected printed marshalling points 0 → 3
+- Certified Lieutenant of Angmar (le-20) as a data-fix sibling of le-21
+
+### Testing & Infrastructure
+
+- Added `bin/update-readme.mjs`, a generator that regenerates the rules and card test READMEs plus the top-level Project Status and Deck Catalog tables from the tests and card data (supports `--check` for CI-style verification)
+- Fixed two rule/card tests whose premises were invalidated by new certifications: rule-9.20 now uses a warrior bearer for the Mechanical Bow's warrior-gated prowess, and the le-58 test uses Dwar as its follower-less avatar now that Khamûl has follower slots
+
 ## 0.51.0 — 2026-07-16
 
 Challenge Deck M

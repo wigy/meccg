@@ -6,19 +6,19 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 829 | 821 | 8 | 99.0% |
+| 837 | 829 | 8 | 99.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 55 | 55 | 100.0% |
+| AS | 56 | 56 | 100.0% |
 | BA | 94 | 94 | 100.0% |
 | DM | 70 | 70 | 100.0% |
-| LE | 241 | 238 | 98.8% |
+| LE | 247 | 244 | 98.8% |
 | TD | 61 | 61 | 100.0% |
 | TW | 261 | 256 | 98.1% |
-| WH | 47 | 47 | 100.0% |
+| WH | 48 | 48 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -32,6 +32,7 @@
 | as-8 | Durin’s Folk | — | 6 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
 | as-24 | Alone and Unadvised | — | 14 | ☑ |
+| as-27 | Enchanted Stream | — | 13 | ☑ |
 | as-29 | FEAR! FIRE! FOES! | — | 13 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
 | as-33 | Pilfer Anything Unwatched | — | 13 | ☑ |
@@ -258,6 +259,7 @@
 | le-17 | Jerrek | — | 4 | ☑ |
 | le-18 | Lagduf | — | 2 | ☑ |
 | le-19 | Layos | — | 3 | ☑ |
+| le-20 | Lieutenant of Angmar | — | 9 | ☑ |
 | le-21 | Lieutenant of Dol Guldur | — | 7 | ☑ |
 | le-22 | Lieutenant of Morgul | — | 7 | ☑ |
 | le-23 | Luitprand | — | 3 | ☑ |
@@ -284,6 +286,7 @@
 | le-52 | Dwar the Ringwraith | — | 10 | ☑ |
 | le-53 | Hoarmûrath the Ringwraith | — | 7 | ☑ |
 | le-54 | Indûr the Ringwraith | — | 9 | ☑ |
+| le-55 | Khamûl the Ringwraith | — | 9 | ☑ |
 | le-56 | Ren the Ringwraith | — | 12 | ☑ |
 | le-57 | Ûvatha the Ringwraith | — | 14 | ☑ |
 | le-58 | The Witch-king | — | 12 | ☑ |
@@ -340,6 +343,7 @@
 | le-143 | Tidings of Bold Spies | — | 7 | ☑ |
 | le-146 | Veils Flung Away | — | 13 | ☑ |
 | le-149 | Weariness of the Heart | — | 4 | ☑ |
+| le-152 | Blackbole | — | 6 | ☑ |
 | le-153 | Last Child of Ungoliant | — | 11 | ◐ |
 | le-154 | Stinker | — | 16 | ☑ |
 | le-156 | War-warg | — | 9 | ☑ |
@@ -370,10 +374,12 @@
 | le-216 | Orc Quarrels | — | 11 | ☑ |
 | le-219 | Poisonous Despair | — | 9 | ☑ |
 | le-220 | Ready to His Will | — | 8 | ☑ |
+| le-223 | The Ring Leaves Its Mark | — | 13 | ☑ |
 | le-224 | Rumor of the One | — | 8 | ☑ |
 | le-225 | Ruse | — | 10 | ☑ |
 | le-226 | Secrets of Their Forging | — | 21 | ☑ |
 | le-228 | Skies of Fire | — | 9 | ☑ |
+| le-230 | Smoke on the Wind | — | 11 | ☑ |
 | le-231 | Sneakin’ | — | 8 | ☑ |
 | le-235 | Sudden Call | — | 9 | ☑ |
 | le-237 | Swarm of Bats | — | 13 | ☑ |
@@ -441,6 +447,7 @@
 | le-354 | Beorn’s House | — | 7 | ☑ |
 | le-356 | Bree | — | 12 | ☑ |
 | le-357 | Buhr Widu | — | 7 | ☑ |
+| le-358 | Cameth Brin | — | 12 | ☑ |
 | le-359 | Carn Dûm | — | 18 | ☑ |
 | le-360 | Caves of Ûlund | — | 6 | ☑ |
 | le-361 | Cirith Gorgor | — | 5 | ☑ |
@@ -822,6 +829,7 @@
 | wh-46 | Open to the Summons | — | 11 | ☑ |
 | wh-47 | Piercing All Shadows | — | 7 | ☑ |
 | wh-51 | Blasting Fire | — | 9 | ☑ |
+| wh-53 | Mechanical Bow | — | 8 | ☑ |
 | wh-54 | Vile Fumes | — | 12 | ☑ |
 | wh-55 | Deep Mines | — | 14 | ☑ |
 | wh-56 | Isengard | — | 3 | ☑ |
