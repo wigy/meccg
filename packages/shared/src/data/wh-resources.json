@@ -812,9 +812,57 @@
       {
         "type": "stage-points",
         "value": 4
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            {
+              "player.avatar": {
+                "$in": [
+                  "Radagast",
+                  "Alatar"
+                ]
+              }
+            },
+            {
+              "player.stagePoints": {
+                "$gte": 6
+              }
+            },
+            {
+              "player.hasProtectedWizardhaven": true
+            }
+          ]
+        }
+      },
+      {
+        "type": "grant-ally-play",
+        "filter": {
+          "$and": [
+            {
+              "target.unique": {
+                "$ne": true
+              }
+            },
+            {
+              "target.mind": 1
+            }
+          ]
+        },
+        "atProtectedWizardhavens": true,
+        "allowTappedSite": true,
+        "oncePerSitePhase": true
       }
     ],
-    "text": "Playable if you are Radagast or Alatar and have 6 or more stage points and a protected Wizardhaven [{H}]. One non-unique ally with a mind of 1 is playable at one of your tapped or untapped protected Wizardhavens [{H}] each of your site phases. Cannot be duplicated by a given player."
+    "text": "Playable if you are Radagast or Alatar and have 6 or more stage points and a protected Wizardhaven [{H}]. One non-unique ally with a mind of 1 is playable at one of your tapped or untapped protected Wizardhavens [{H}] each of your site phases. Cannot be duplicated by a given player.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-event",

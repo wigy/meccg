@@ -288,6 +288,31 @@ at his site. This ally may be taken from your discard pile or hand."
   "fromDiscard": true }
 ```
 
+A **player-scoped, Wizardhaven-keyed** variant (`atProtectedWizardhavens: true`)
+lives on a free-standing permanent-event in the player's `cardsInPlay` instead
+of on a bearer character. The engine finds it via `findWizardhavenAllyPlayGrant`
+and extends playability to a matching ally only when the acting company's
+current site is one of the player's own **protected Wizardhavens**
+(`siteIsProtectedByPlayer` ∧ `isHavenForPlayer`). `allowTappedSite: true` lifts
+the untapped-site requirement (the Wizardhaven may be tapped or untapped);
+`oncePerSitePhase: true` limits it to one grant-enabled ally per site phase — the
+reducer records a turn-scoped `granted-action-used` lock (action id
+`grant-ally-play`) keyed by the granting card, read back via
+`grantedActionUsedThisTurn`. The play carries `viaWizardhavenAllyGrant` (the
+grant card's instance id) so only a play that actually *depends* on the grant
+(i.e. the ally is not independently playable at the site in its current
+tapped/untapped state) consumes the allowance. Used by An Untimely Brood (wh-62):
+"One non-unique ally with a mind of 1 is playable at one of your tapped or
+untapped protected Wizardhavens each of your site phases."
+
+```json
+{ "type": "grant-ally-play",
+  "filter": { "$and": [ { "target.unique": { "$ne": true } }, { "target.mind": 1 } ] },
+  "atProtectedWizardhavens": true,
+  "allowTappedSite": true,
+  "oncePerSitePhase": true }
+```
+
 For faction-influence checks the engine also collects `check-modifier` and
 `stat-modifier` (`direct-influence`) effects from every ally in the
 influencing character's company — e.g. The Warg-king's "+2 to any

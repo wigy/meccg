@@ -3164,6 +3164,61 @@ export function allyPlayGrantAllowsAlly(
 }
 
 /**
+ * A player-scoped, Wizardhaven-keyed `grant-ally-play` permission (An Untimely
+ * Brood wh-62) plus the instance id of the granting permanent-event. Unlike the
+ * bearer-scoped grant located by {@link findAllyPlayGrant}, this permission is a
+ * free-standing permanent-event in the player's `cardsInPlay`.
+ */
+export interface WizardhavenAllyPlayGrant {
+  readonly effect: import('../types/effects.js').GrantAllyPlayEffect;
+  /** The permanent-event card instance carrying the grant (wh-62). */
+  readonly sourceId: CardInstanceId;
+}
+
+/**
+ * Finds a `grant-ally-play` permission with `atProtectedWizardhavens` among the
+ * player's in-play permanent-events. Returns the effect and the granting card's
+ * instance id, or `undefined` when the player has no such grant. Backs An
+ * Untimely Brood (wh-62): "One non-unique ally with a mind of 1 is playable at
+ * one of your … protected Wizardhavens each of your site phases."
+ */
+export function findWizardhavenAllyPlayGrant(
+  state: GameState,
+  player: PlayerState,
+): WizardhavenAllyPlayGrant | undefined {
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const eff = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').GrantAllyPlayEffect =>
+        e.type === 'grant-ally-play' && e.atProtectedWizardhavens === true,
+    );
+    if (eff) return { effect: eff, sourceId: card.instanceId };
+  }
+  return undefined;
+}
+
+/**
+ * True when a turn-scoped `granted-action-used` lock is active for the given
+ * source card instance and action id — i.e. a once-per-turn / once-per-phase
+ * ability has already been used this turn. The lock is added by the reducer on
+ * first use and cleared at turn-end. Shared by the grant-action scanner
+ * (Strangling Coils ba-76) and the Wizardhaven ally grant (An Untimely Brood
+ * wh-62, action id `grant-ally-play`).
+ */
+export function grantedActionUsedThisTurn(
+  state: GameState,
+  sourceInstanceId: CardInstanceId,
+  actionId: string,
+): boolean {
+  return state.activeConstraints.some(c =>
+    c.kind.type === 'granted-action-used'
+    && c.kind.sourceInstanceId === sourceInstanceId
+    && c.kind.actionId === actionId,
+  );
+}
+
+/**
  * Discards every ally and every direct-influence follower character in the
  * given company (Fell Rider le-183: "Discard all allies and Ringwraith
  * followers in the company"). Allies and follower items go to the controlling
