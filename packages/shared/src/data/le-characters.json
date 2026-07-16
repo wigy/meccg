@@ -1697,8 +1697,60 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Carn Dûm",
-    "effects": [],
-    "text": "Unique. Olog-hai. Leader. Manifestation of Rogrog. Discard on a body check result of 9. +4 direct influence against Trolls, Orcs, Troll factions, and Orc factions. When he is at Carn Dûm, you may keep one more card than normal in your hand."
+    "keywords": [
+      "leader",
+      "olog-hai"
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": 1,
+        "when": {
+          "self.location": "Carn Dûm"
+        }
+      }
+    ],
+    "text": "Unique. Olog-hai. Leader. Manifestation of Rogrog. Discard on a body check result of 9. +4 direct influence against Trolls, Orcs, Troll factions, and Orc factions. When he is at Carn Dûm, you may keep one more card than normal in your hand.",
+    "certified": "2026-07-16",
+    "discardBodyCheck": [
+      9
+    ]
   },
   {
     "cardType": "minion-character",
