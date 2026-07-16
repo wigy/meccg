@@ -32,7 +32,9 @@ import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeade
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
-import { companyMovementRestrictions } from '../effects/company-restrictions.js';
+import { companyMovementRestrictions, companyMovementTax, isMovementTaxSatisfied } from '../effects/company-restrictions.js';
+import { CardStatus } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import { viableWithRegress } from '../reverse-actions.js';
 import { isBalrogAvatarDef, companyContainsBalrogAvatar, totalMarshallingPoints } from '../../state-utils.js';
 import { availableDI } from './organization.js';
@@ -508,6 +510,33 @@ function collectPassiveMovementBonus(
 }
 
 /**
+ * True when `company` is bound by an Enchanted Stream (as-27) movement tax that
+ * has not yet been satisfied this organization phase. While unpaid, the company
+ * may not voluntarily declare movement or split — the controlling player must
+ * first tap the required untapped characters via `pay-movement-tax`. Returns
+ * false when no tax is in play (the common case).
+ */
+export function companyMovementTaxUnpaid(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): boolean {
+  const tax = companyMovementTax(state, company);
+  if (!tax) return false;
+  const untappedCount = company.characters.filter(
+    cId => player.characters[cId]?.status === CardStatus.Untapped,
+  ).length;
+  const paid = (state.phaseState.phase === Phase.Organization
+    ? state.phaseState.movementTaxPaid?.[company.id as string]
+    : 0) ?? 0;
+  const satisfied = isMovementTaxSatisfied(tax, untappedCount, paid);
+  if (!satisfied) {
+    logDetail(`Company ${company.id as string}: Enchanted Stream movement tax unpaid (${paid}/${tax.taxTapCharacters}, ${untappedCount} untapped) — voluntary move/split blocked`);
+  }
+  return !satisfied;
+}
+
+/**
  * Computes plan-movement actions for each company.
  * For every company, emits one viable action per reachable site in the player's
  * site deck, determined by the movement map (starter and region movement),
@@ -534,6 +563,14 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         && c.target.companyId === company.id,
     )) {
       logDetail(`Company ${company.id as string} is locked stationary (company-cannot-move) — no movement offered`);
+      continue;
+    }
+
+    // Enchanted Stream (as-27): the bound company may not voluntarily move to a
+    // new site until it has tapped its untapped characters (to a max of two)
+    // toward the movement tax this org phase. Until paid, offer no movement; the
+    // `pay-movement-tax` actions are emitted by `payMovementTaxActions`.
+    if (companyMovementTaxUnpaid(state, player, company)) {
       continue;
     }
 
@@ -1102,6 +1139,10 @@ export function splitCompanyActions(state: GameState, playerId: PlayerId): Evalu
 
     // Need at least 2 GI characters to split (one stays, one leaves)
     if (giChars.length < 2) continue;
+
+    // Enchanted Stream (as-27): a bound company may not voluntarily split until
+    // its movement tax has been paid this org phase.
+    if (companyMovementTaxUnpaid(state, player, company)) continue;
 
     for (const charInstId of giChars) {
       const char = player.characters[charInstId];

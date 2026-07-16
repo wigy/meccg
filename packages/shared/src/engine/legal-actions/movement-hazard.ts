@@ -2981,6 +2981,22 @@ function playHazardsActions(
         }
       }
 
+      // play-condition: site-path — the permanent/long event is only playable
+      // when the active moving company's resolved site path satisfies the
+      // condition (e.g. Enchanted Stream as-27: "at least one Wilderness in its
+      // site path"). Enforced here in the long/permanent branch; the short-event
+      // branch checks site-path separately above.
+      {
+        const sitePathCond = getCardEffects(def).find(
+          (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === 'site-path',
+        );
+        if (sitePathCond && !checkSitePathCondition(mhState, sitePathCond, state)) {
+          logDetail(`Hazard event "${def.name}": site path condition not met`);
+          actions.push({ action, viable: false, reason: `${def.name}: site path condition not met` });
+          continue;
+        }
+      }
+
       // play-target DSL: permanent events / corruption cards targeting a character get one action per character
       const playTarget = def.effects?.find(
         (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',

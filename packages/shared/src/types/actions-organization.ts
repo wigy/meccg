@@ -531,3 +531,22 @@ export interface DiscardForEvilHourMovementAction {
   /** The controller's company that gains the movement bonus. */
   readonly companyId: CompanyId;
 }
+
+/**
+ * Tap one untapped character in a company toward its Enchanted Stream (as-27)
+ * movement tax during the organization phase. The company is bound by a
+ * `company-movement-tax` permanent event and may not voluntarily declare
+ * movement or split until the tax is paid; each `pay-movement-tax` taps one
+ * character and increments {@link OrganizationPhaseState.movementTaxPaid} for
+ * that company. ("Tap all of its untapped characters to a maximum of two.")
+ */
+export interface PayMovementTaxAction {
+  /** Action discriminant. */
+  readonly type: 'pay-movement-tax';
+  /** The active player paying the tax. */
+  readonly player: PlayerId;
+  /** The company whose movement tax is being paid. */
+  readonly companyId: CompanyId;
+  /** The untapped character in that company to tap. */
+  readonly characterId: CardInstanceId;
+}

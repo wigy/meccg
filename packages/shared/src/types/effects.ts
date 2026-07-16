@@ -2798,6 +2798,33 @@ export interface CompanyMovementRestrictionEffect extends EffectBase {
 }
 
 /**
+ * A permanent event bound to a company (`CardInPlay.companyId`) that taxes the
+ * company's *voluntary* movement and splitting during the organization phase:
+ * before the bound company may declare movement (`plan-movement`) or split
+ * (`split-company`), the controlling player must first tap up to
+ * {@link taxTapCharacters} of its untapped characters ("tap all of its untapped
+ * characters to a maximum of two"). The tax is satisfied when that many have
+ * been tapped toward it this org phase **or** the company has no untapped
+ * character left to tap. The running count lives on
+ * `OrganizationPhaseState.movementTaxPaid` keyed by company id and is paid one
+ * character at a time via the `pay-movement-tax` action.
+ *
+ * Unlike {@link CompanyMovementRestrictionEffect} (Going Ever Under Dark ba-37,
+ * a same-player resource event), this is a *hazard* played by the opponent onto
+ * the resource player's company, so the reader
+ * ({@link companyMovementTax}) scans **both** players' `cardsInPlay`.
+ *
+ * Used by Enchanted Stream (as-27): "The company cannot voluntarily split or
+ * move to a new site unless it taps all of its untapped characters to a maximum
+ * of two during its organization phase."
+ */
+export interface CompanyMovementTaxEffect extends EffectBase {
+  readonly type: 'company-movement-tax';
+  /** Maximum number of untapped characters that must be tapped before the company may move/split. */
+  readonly taxTapCharacters: number;
+}
+
+/**
  * Lets the controller voluntarily discard the carrying in-play permanent-event
  * during their own organization phase ("Discard during your organization phase
  * if you choose"). Offered as a `voluntary-discard-in-play` action in the
@@ -5349,6 +5376,7 @@ export type CardEffect =
   | SiteLockEffect
   | BalrogSurfaceRegionMovementEffect
   | CompanyMovementRestrictionEffect
+  | CompanyMovementTaxEffect
   | VoluntaryDiscardEffect
   | CvccAttackPermissionEffect
   | FactionInfluenceRestrictionEffect;

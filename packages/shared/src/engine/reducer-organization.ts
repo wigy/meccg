@@ -67,6 +67,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'voluntary-discard-in-play': handleVoluntaryDiscardInPlay,
   'activate-org-fetch': handleActivateOrgFetch,
   'discard-for-evil-hour-movement': handleDiscardForEvilHourMovement,
+  'pay-movement-tax': handlePayMovementTax,
 };
 
 export function handleOrganization(state: GameState, action: GameAction): ReducerResult {
@@ -182,6 +183,43 @@ function handleVoluntaryDiscardInPlay(state: GameState, action: GameAction): Red
     discardPile: [...p.discardPile, toCardInstance(card)],
   }));
   return { state: recomputeDerived(next) };
+}
+
+/**
+ * Enchanted Stream (as-27): tap one untapped character toward a company's
+ * movement tax. Increments {@link OrganizationPhaseState.movementTaxPaid} for
+ * that company; once the required number ("to a maximum of two") have been
+ * tapped, `plan-movement` / `split-company` are unlocked for the company this
+ * org phase.
+ */
+function handlePayMovementTax(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'pay-movement-tax') return wrongActionType(state, action, 'pay-movement-tax');
+  const orgState = requirePhaseState(state, Phase.Organization);
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const company = companyById(player.companies, action.companyId);
+  if (!company) return { state, error: 'pay-movement-tax: company not found' };
+  if (!company.characters.includes(action.characterId)) {
+    return { state, error: 'pay-movement-tax: character is not in the company' };
+  }
+  const char = player.characters[action.characterId];
+  if (!char || char.status !== CardStatus.Untapped) {
+    return { state, error: 'pay-movement-tax: character is not an untapped member' };
+  }
+  const cid = action.companyId as string;
+  const paidSoFar = (orgState.movementTaxPaid?.[cid] ?? 0) + 1;
+  const charName = defById(state, char.definitionId)?.name ?? action.characterId;
+  logDetail(`Organization: paying Enchanted Stream movement tax — tapping ${charName} for company ${cid} (${paidSoFar} paid this org phase)`);
+  const afterTap = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    characters: { ...p.characters, [action.characterId]: { ...char, status: CardStatus.Tapped } },
+  }));
+  return {
+    state: recomputeDerived({
+      ...afterTap,
+      phaseState: { ...orgState, movementTaxPaid: { ...(orgState.movementTaxPaid ?? {}), [cid]: paidSoFar } },
+    }),
+  };
 }
 
 /**
