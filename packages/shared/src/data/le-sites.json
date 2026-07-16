@@ -1761,11 +1761,70 @@
     ],
     "nearestHaven": "Carn Dûm",
     "region": "Rhudaur",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 7,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-item",
+        "when": {
+          "$and": [
+            {
+              "subtype": "major"
+            },
+            {
+              "$not": {
+                "$or": [
+                  {
+                    "keywords": {
+                      "$includes": "weapon"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "armor"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "shield"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "helmet"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major*) *—weapon, armor, shield, or helmet onlyAutomatic-attacks: Men — each character faces 1 strike with 7 prowess (detainment against covert company)"
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major*) *—weapon, armor, shield, or helmet onlyAutomatic-attacks: Men — each character faces 1 strike with 7 prowess (detainment against covert company)",
+    "unique": true,
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-site",

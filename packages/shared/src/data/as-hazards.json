@@ -213,7 +213,29 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/EnchantedStream.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "company" },
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": { "sitePath.wildernessCount": { "$gt": 0 } }
+      },
+      { "type": "company-movement-tax", "taxTapCharacters": 2 },
+      {
+        "type": "grant-action",
+        "action": "cancel-chain-entry",
+        "cost": { "tap": "character" },
+        "when": { "actor.skills": { "$includes": "ranger" } },
+        "apply": { "type": "cancel-chain-entry", "select": "most-recent-unresolved-hazard" }
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+        "when": { "company.atHaven": true }
+      }
+    ],
+    "certified": "2026-07-16",
     "text": "Playable on a moving company with at least one Wilderness [{w}] in its site path. A ranger in the company can tap to cancel this card before it resolves. The company cannot voluntarily split or move to a new site unless it taps all of its untapped characters to a maximum of two during its organization phase. Discard during any organization phase if the  company is at a Haven/Darkhaven [{DH}]."
   },
   {

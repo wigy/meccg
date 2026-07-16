@@ -39,7 +39,7 @@ import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-deriv
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
-import { findMoveEffectByShape } from '../reducer-move.js';
+import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { viableWithRegress } from '../reverse-actions.js';
@@ -55,6 +55,7 @@ import {
   splitCompanyActions,
   moveToCompanyActions,
   mergeCompaniesActions,
+  companyMovementTaxUnpaid,
 } from './organization-companies.js';
 import { fetchFromSideboardActions, cardSideboardToDeckActions } from './organization-sideboard.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -236,6 +237,35 @@ export function voluntaryDiscardInPlayActions(state: GameState, playerId: Player
       action: { type: 'voluntary-discard-in-play', player: playerId, cardInstanceId: card.instanceId },
       viable: true,
     });
+  }
+  return actions;
+}
+
+/**
+ * Enchanted Stream (as-27) movement-tax payment actions. For each of the
+ * player's companies bound by a `company-movement-tax` permanent event whose
+ * tax is not yet satisfied this org phase, offer one `pay-movement-tax` action
+ * per untapped character in that company. Paying taps the chosen character and
+ * counts toward the tax, unlocking `plan-movement` / `split-company` once the
+ * required number ("to a maximum of two") have been tapped.
+ */
+export function payMovementTaxActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    if (!companyMovementTaxUnpaid(state, player, company)) continue;
+    for (const charId of company.characters) {
+      const char = player.characters[charId];
+      if (!char || char.status !== CardStatus.Untapped) continue;
+      logDetail(`Enchanted Stream: offering to tap ${cardName(state, char.definitionId)} toward company ${company.id as string}'s movement tax`);
+      actions.push({
+        action: { type: 'pay-movement-tax', player: playerId, companyId: company.id, characterId: charId },
+        viable: true,
+      });
+    }
   }
   return actions;
 }
@@ -461,6 +491,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Plan-movement actions for each company
   actions.push(...planMovementActions(state, playerId));
+
+  // Enchanted Stream (as-27): tap untapped characters toward a company's
+  // movement tax so it may voluntarily move/split this org phase.
+  actions.push(...payMovementTaxActions(state, playerId));
 
   // Transfer-item actions (move items between characters at the same site)
   actions.push(...transferItemActions(state, playerId));
@@ -2570,6 +2604,64 @@ export function playResourceShortEventActions(
     // combination whose option `when` matches the target's context.
     const playTarget = getPlayTargetEffect(def);
     const playOptions = getPlayOptionEffects(def);
+
+    // The Ring Leaves Its Mark (le-223): a dual-mode short event. Mode 1 fetches
+    // one named Ringwraith mode card (Black Rider / Fell Rider / Heralded Lord)
+    // from the sideboard or discard pile into the play deck and reshuffles;
+    // mode 2 is "playable on your tapped Ringwraith" — a self-enters-play
+    // `roll-then-apply` makes a roll and, on success, untaps it. Emit both:
+    // mode 1 is a no-target play action (offered only when a matching card is
+    // in the sideboard/discard), mode 2 one action per eligible tapped revealed
+    // avatar (carried as `targetCharacterId`). The reducer discriminates the two
+    // by the presence of `targetCharacterId`.
+    const rollUntapOnEnter = def.effects?.find(
+      (e): e is import('../../types/effects.js').OnEventEffect =>
+        e.type === 'on-event'
+        && e.event === 'self-enters-play'
+        && e.apply?.type === 'roll-then-apply',
+    );
+    if (playTarget && playTarget.target === 'character' && rollUntapOnEnter) {
+      let anyMode = false;
+      // Mode 1: fetch — offered when the sideboard or discard holds a match.
+      const fetchMove = (def.effects ?? []).find(
+        (e): e is import('../../types/effects.js').MoveEffect =>
+          e.type === 'move' && !!moveToFetchToDeckPayload(e),
+      );
+      if (fetchMove) {
+        const fetchFilter = fetchMove.filter;
+        const pileHasMatch = [...player.sideboard, ...player.discardPile].some(c => {
+          const cd = defById(state, c.definitionId);
+          return cd ? (fetchFilter ? matchesDefinition(cd, fetchFilter) : true) : false;
+        });
+        if (pileHasMatch) {
+          logDetail(`Resource short-event playable (mode 1 fetch-to-deck): ${def.name}`);
+          actions.push({
+            action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+            viable: true,
+          });
+          anyMode = true;
+        }
+      }
+      // Mode 2: roll to untap the player's own tapped revealed Ringwraith avatar.
+      for (const targetId of eligiblePlayOptionTargets(state, player, playTarget)) {
+        logDetail(`Resource short-event playable (mode 2 roll-to-untap, target ${String(targetId)}): ${def.name}`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            targetCharacterId: targetId,
+          },
+          viable: true,
+        });
+        anyMode = true;
+      }
+      if (!anyMode) {
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: no Black Rider, Fell Rider, or Heralded Lord to retrieve and no tapped Ringwraith to untap`));
+      }
+      continue;
+    }
+
     if (playOptions.length > 0 && playTarget) {
       const optionActions = playOptionActionsForCard(
         state, player, playerId, handCard.instanceId, def, playTarget, playOptions, currentPhase,

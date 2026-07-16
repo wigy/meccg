@@ -1338,6 +1338,35 @@ realizes ba-76's "untap all tapped characters in The Balrog's company; if then
 untapped, tap The Balrog" (the empty `cost` lets it fire even when the Balrog is
 already tapped).
 
+### `roll-then-apply` as a short-event self-enters-play apply (roll to untap your tapped Ringwraith)
+
+A resource short event may "make a roll" on play and conditionally change a
+target character's status. Attach `roll-then-apply` (2d6; `onSuccess` fires when
+the total ≥ `threshold`, else `onFailure`) as an `on-event: self-enters-play`
+apply, with a `set-character-status` (`target: "target-character"`) branch. Pair
+it with a `play-target` whose `filter` selects the qualifying character — e.g.
+`target.isRevealedAvatar` + `target.status: "tapped"` for "your tapped
+Ringwraith". The emitter (`playResourceShortEventActions`) offers one play action
+per eligible target (carried as `targetCharacterId`); `resolveShortEventRollUntap`
+(`reducer-events.ts`) rolls 2d6, emits the dice-roll effect, applies the matching
+branch to the target, and discards the event.
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [ { "target.isRevealedAvatar": true },
+                        { "target.status": "tapped" } ] } }
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "roll-then-apply", "threshold": 7,
+    "onSuccess": { "type": "set-character-status",
+                   "status": "untapped", "target": "target-character" } } }
+```
+
+Used by The Ring Leaves Its Mark (le-223): "playable on your tapped Ringwraith.
+Make a roll—if the result is greater than 6, untap your Ringwraith" (threshold 7
+= "greater than 6"). le-223 combines this with a `move` fetch-to-deck as its
+alternative mode; the two modes are discriminated at the reducer by the presence
+of a `targetCharacterId` on the play action.
+
 **`endOfTurnOnly: true` — restrictive, not additive.** Unlike the flags
 above (which *extend* an ability's natural-phase availability), this flag
 *removes* the ability from the generic per-phase scanner's organization-phase
@@ -8238,6 +8267,45 @@ path), and the hazard-limit snapshot (`mh-steps.ts` `snapshotHazardLimit`, appli
 the floored hazard modifier). The hazard modifier is gated on a region-moving
 company (`movementType === region`), per CRF 22: "The hazard limit reduction only
 works if the company is moving." Used by Going Ever Under Dark (ba-37).
+
+### 52b-i. `company-movement-tax`
+
+Carried by a permanent-event **bound to a company** (`CardInPlay.companyId`) that
+taxes the company's *voluntary* movement and splitting during the organization
+phase. Before the bound company may declare movement (`plan-movement`) or split
+(`split-company`), the controlling player must first tap up to `taxTapCharacters`
+of its untapped characters ("tap all of its untapped characters to a maximum of
+two"). The tax is satisfied when that many have been tapped toward it this org
+phase **or** the company has no untapped character left to tap. Unlike
+`company-movement-restriction` (a same-player resource event), this is a *hazard*
+played by the opponent onto the resource player's company, so the reader
+(`effects/company-restrictions.ts` `companyMovementTax` / `isMovementTaxSatisfied`)
+scans **both** players' `cardsInPlay`; the largest declared `taxTapCharacters`
+wins when several are bound.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `taxTapCharacters` | yes | Maximum number of untapped characters that must be tapped before the company may move/split. |
+
+```json
+{ "type": "company-movement-tax", "taxTapCharacters": 2 }
+```
+
+Behaviour: `companyMovementTaxUnpaid` (`legal-actions/organization-companies.ts`)
+gates both `planMovementActions` and `splitCompanyActions`, skipping the bound
+company while unpaid; `payMovementTaxActions` (`legal-actions/organization.ts`)
+offers one `pay-movement-tax` action per untapped character, and the reducer
+(`reducer-organization.ts` `handlePayMovementTax`) taps the chosen character and
+increments `OrganizationPhaseState.movementTaxPaid[companyId]` (reset each org
+phase). Used by Enchanted Stream (as-27), paired with a `play-condition`
+`requires: "site-path"` (`sitePath.wildernessCount > 0`, now enforced in the
+long/permanent-event branch of `playHazardsActions`), a `grant-action`
+`cancel-chain-entry` gated on `actor.skills $includes "ranger"` (a ranger in the
+company may tap to cancel the card before it resolves — offered to the active
+player during M/H chain declaring by `emitHazardSelfCancelBySkillActions` in
+`legal-actions/chain.ts`), and an `on-event organization-phase-start`
+self-discard `when: { "company.atHaven": true }` (the shared company-bound
+org-phase-start sweep in `reducer-untap.ts`).
 
 ### 52c. `voluntary-discard`
 

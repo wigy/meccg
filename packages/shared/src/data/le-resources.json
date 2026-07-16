@@ -2842,15 +2842,28 @@
     "unique": true,
     "prowess": 5,
     "body": 9,
+    "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "any site in Western Mirkwood, Heart of Mirkwood, or Southern Mirkwood (except Dol Guldur)"
+        "any": true,
+        "when": {
+          "$and": [
+            { "site.region": { "$in": ["Western Mirkwood", "Heart of Mirkwood", "Southern Mirkwood"] } },
+            { "site.name": { "$ne": "Dol Guldur" } }
+          ]
+        }
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at any site in Western Mirkwood, Heart of Mirkwood, or Southern Mirkwood (except Dol Guldur). May not face any strike at a site or from an automatic-attack."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-attack-site-keyed"
+      }
+    ],
+    "text": "Unique. Playable at any site in Western Mirkwood, Heart of Mirkwood, or Southern Mirkwood (except Dol Guldur). May not face any strike at a site or from an automatic-attack.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-ally",
@@ -3705,8 +3718,42 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Bring one Black Rider, Fell Rider, or Heralded Lord card from your sideboard or discard pile into your play deck and reshuffle. Alternatively, playable on your tapped Ringwraith. Make a roll—if the result is greater than 6, untap your Ringwraith.Cannot be included in a Balrog's deck."
+    "effects": [
+      {
+        "type": "move",
+        "select": "target",
+        "from": ["sideboard", "discard"],
+        "to": "deck",
+        "shuffleAfter": true,
+        "count": 1,
+        "filter": { "name": { "$in": ["Black Rider", "Fell Rider", "Heralded Lord"] } }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isRevealedAvatar": true },
+            { "target.status": "tapped" }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": {
+            "type": "set-character-status",
+            "status": "untapped",
+            "target": "target-character"
+          }
+        }
+      }
+    ],
+    "text": "Bring one Black Rider, Fell Rider, or Heralded Lord card from your sideboard or discard pile into your play deck and reshuffle. Alternatively, playable on your tapped Ringwraith. Make a roll—if the result is greater than 6, untap your Ringwraith.Cannot be included in a Balrog's deck.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-event",
@@ -3766,12 +3813,51 @@
     "alignment": "ringwraith",
     "id": "le-230",
     "name": "Smoke on the Wind",
+    "certified": "2026-07-16",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SmokeontheWind.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 3,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": "free-hold"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tapped-site-only"
+      },
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          {
+            "creatureType": "Men",
+            "strikes": 5,
+            "prowess": 8
+          },
+          {
+            "creatureType": "Men",
+            "strikes": 1,
+            "prowess": 10
+          }
+        ],
+        "afterAttack": "move-to-mp-pile",
+        "discardFactionsAtSite": true
+      }
+    ],
     "text": "Playable at an already tapped Free-hold [{F}] during the site phase. The company faces two attacks (Men — 5 strikes with 8 prowess, 1 strike with 10 prowess). If no characters are untapped following the attack, discard this card. Otherwise, you may tap one character in the company and put this card in your marshalling point pile. Discard any factions you have in play that are playable at this site. Cannot be duplicated at a given site."
   },
   {
