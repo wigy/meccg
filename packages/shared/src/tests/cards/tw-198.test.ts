@@ -40,7 +40,6 @@ import {
 } from '../test-helpers.js';
 import { CardStatus, BAG_END } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, RunHomeAction } from '../../index.js';
-import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { reduce } from '../../engine/reducer.js';
 
 const BILL = 'tw-198' as CardDefinitionId;

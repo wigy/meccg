@@ -574,8 +574,8 @@ function handleRunHome(state: GameState, action: GameAction): ReducerResult {
     return { state, error: `run-home: nearest haven "${havenName}" not found in location deck for player ${action.player as string}` };
   }
 
-  const havenInstance: SiteInPlay = havenAlreadyInPlay
-    ? { ...siblingAtHaven!.currentSite! }
+  const havenInstance: SiteInPlay = siblingAtHaven?.currentSite
+    ? { ...siblingAtHaven.currentSite }
     : { instanceId: havenFromDeck!.instanceId, definitionId: havenFromDeck!.definitionId, status: CardStatus.Untapped };
 
   logDetail(`run-home: company ${action.companyId as string} discards ally ${ally.definitionId as string} and moves to nearest haven ${havenName}${havenAlreadyInPlay ? ' (shared with sibling company)' : ''}`);
