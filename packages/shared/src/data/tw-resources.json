@@ -3169,11 +3169,12 @@
     "race": "eagle",
     "playableAt": [
       {
-        "site": "Eagles’"
+        "site": "Eagles’ Eyrie"
       }
     ],
     "effects": [],
-    "text": "Unique. Playable at Eagles’ Eyrie if the influence check is greater than 9. Standard Modifications: none."
+    "text": "Unique. Playable at Eagles’ Eyrie if the influence check is greater than 9. Standard Modifications: none.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "hero-resource-ally",
