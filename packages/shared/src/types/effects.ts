@@ -3044,6 +3044,34 @@ export interface NameAliasEffect extends EffectBase {
 }
 
 /**
+ * A game-wide override of which named environment cards are *considered* in or
+ * out of play, applied while the bearer is itself in play. Unlike
+ * {@link NameAliasEffect} (which only *adds* the bearer's alias), this can both
+ * add names to the in-play set (`considerInPlay`) and remove names from it
+ * (`considerNotInPlay`), reshaping the global environment that every
+ * `{ "inPlay": "<name>" }` DSL condition reads.
+ *
+ * Used by Peril Returned (td-54): "If Gates of Morning is not in play, Doors of
+ * Night is considered to be in play. If Gates of Morning is in play, it is
+ * considered to be out of play while Peril Returned is in play." Both branches
+ * net to the same unconditional state — Doors of Night considered in, Gates of
+ * Morning considered out — so the card carries `considerInPlay: ["Doors of
+ * Night"]` and `considerNotInPlay: ["Gates of Morning"]`. The Gates of Morning
+ * *card* itself stays in `cardsInPlay` (it may still be removed normally by
+ * Twilight, Doors of Night, etc.); only its interpretation is suppressed.
+ *
+ * Removals are applied before additions, so a name in both lists ends up
+ * considered in play.
+ */
+export interface EnvironmentOverrideEffect extends EffectBase {
+  readonly type: 'environment-override';
+  /** Card names to treat as in play while the bearer is in play. */
+  readonly considerInPlay?: readonly string[];
+  /** Card names to treat as out of play while the bearer is in play. */
+  readonly considerNotInPlay?: readonly string[];
+}
+
+/**
  * Carried by a character that is a manifestation of another character
  * (e.g. Strider ba-1, "Manifestation of Aragorn II"): while this
  * character is in play, its controller may play the named manifestation
@@ -5508,6 +5536,7 @@ export type CardEffect =
   | PlayFlagEffect
   | DuplicationLimitEffect
   | NameAliasEffect
+  | EnvironmentOverrideEffect
   | ManifestationSwapEffect
   | RegionKeyingBoostEffect
   | RegionTypeRemapEffect

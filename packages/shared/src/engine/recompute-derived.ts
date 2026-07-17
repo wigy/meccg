@@ -47,7 +47,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -370,9 +370,33 @@ function inPlayNamesOf(state: GameState, player: PlayerState): string[] {
  * Builds the list of card names currently in play as events or other cards.
  * Used to populate the `inPlay` context field so DSL conditions
  * like `{ "inPlay": "Gates of Morning" }` can be evaluated.
+ *
+ * Any in-play card carrying an `environment-override` effect (Peril Returned
+ * td-54) reshapes the resulting set game-wide: its `considerNotInPlay` names are
+ * removed (so their environment interpretation is suppressed even though the
+ * card itself remains in `cardsInPlay`) and its `considerInPlay` names are added
+ * (treated as in play without an actual card). Removals precede additions.
  */
 export function buildInPlayNames(state: GameState): readonly string[] {
-  return state.players.flatMap(player => inPlayNamesOf(state, player));
+  const names = state.players.flatMap(player => inPlayNamesOf(state, player));
+  return applyEnvironmentOverrides(state, names);
+}
+
+/**
+ * Applies every in-play `environment-override` effect to a raw in-play-names
+ * list. Collects all `considerNotInPlay` / `considerInPlay` names across both
+ * players' `cardsInPlay`, removes the former, then adds the latter (additions
+ * win over removals for any name in both). Returns the input unchanged when no
+ * override is in play (the common case), avoiding array churn.
+ */
+function applyEnvironmentOverrides(state: GameState, names: string[]): string[] {
+  const { add, remove } = collectEnvironmentOverride(state);
+  if (remove.size === 0 && add.size === 0) return names;
+  const result = names.filter(n => !remove.has(n) || add.has(n));
+  for (const n of add) {
+    if (!result.includes(n)) result.push(n);
+  }
+  return result;
 }
 
 /**
