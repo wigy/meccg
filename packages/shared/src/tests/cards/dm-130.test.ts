@@ -34,7 +34,7 @@ import {
   buildSitePhaseState, resetMint, Phase, CardStatus,
   viableActions, dispatch, playPermanentEventAndResolve,
   findCharInstanceId, findHandCardId,
-  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
+  PLAYER_1, RESOURCE_PLAYER,
   BILBO, GANDALF, GIMLI, BREE, EDORAS, MORIA,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, GameState } from '../../index.js';
