@@ -33,8 +33,8 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2,
-  RESOURCE_PLAYER, HAZARD_PLAYER,
+  PLAYER_1,
+  RESOURCE_PLAYER,
   CardStatus,
   buildSitePhaseState, buildMinionSitePhaseState,
   resetMint, mint,
@@ -48,7 +48,7 @@ import { resolveInfluenceAttemptRoll } from '../../engine/reducer-site.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
 import type {
-  CardDefinitionId, CardInstanceId, GameState, SitePhaseState,
+  CardDefinitionId, GameState, SitePhaseState,
   PlayPermanentEventAction,
 } from '../../index.js';
 
@@ -114,7 +114,7 @@ describe('No Strangers at this Time (as-51)', () => {
 
   test('successfully playing a faction sets factionPlayedThisSitePhase', () => {
     const at = buildSitePhaseState({ site: GOBEL_MIRLOND, characters: [ARAGORN], hand: [RIDERS_OF_ROHAN] });
-    expect((at.phaseState as SitePhaseState).factionPlayedThisSitePhase).toBeFalsy();
+    expect(at.phaseState.factionPlayedThisSitePhase).toBeFalsy();
     const factionCard = at.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === RIDERS_OF_ROHAN)!;
     const after = resolveInfluenceAttemptRoll(
       { ...at, cheatRollTotal: 12 },
