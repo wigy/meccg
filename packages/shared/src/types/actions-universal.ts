@@ -339,6 +339,25 @@ export interface HavenReturnAction {
 }
 
 /**
+ * "Run home" — discard a `run-home-to-haven` ally (Bill the Pony tw-198) and
+ * move its company to the site's nearest Haven.
+ *
+ * Offered during the end-of-turn phase when the ally's company is at a
+ * non-Haven, non-Under-deeps site whose character count is within the ally's
+ * `maxCompanySize`. The company's `currentSite` is replaced with the nearest
+ * haven and the ally is discarded; no M/H phase is triggered.
+ */
+export interface RunHomeAction {
+  readonly type: 'run-home';
+  /** The resource player exercising the option. */
+  readonly player: PlayerId;
+  /** The company running home to its nearest haven. */
+  readonly companyId: CompanyId;
+  /** The ally being discarded to power the move (e.g. Bill the Pony). */
+  readonly allyInstanceId: CardInstanceId;
+}
+
+/**
  * Tap a character as the mandatory cost of a hazard effect at the start of
  * the site phase (e.g. Stench of Mordor). The resource player selects one
  * untapped character in the active company to tap. Resolves the

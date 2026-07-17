@@ -16,7 +16,8 @@ import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { CardEffect, TriggeredAction, Condition } from '../../types/effects.js';
 import { matchesDefinition, characterEntries, playerById, getCardEffects, defById, findCharacterCompany } from '../reducer-utils.js';
-import { isCharacterCard } from '../../types/cards.js';
+import { isCharacterCard, isSiteCard } from '../../types/cards.js';
+import { getEffectiveSiteType } from '../effective.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { buildGrantActionContext } from './organization.js';
 import { resolveHandSize } from '../effects/index.js';
@@ -97,6 +98,10 @@ function discardStepActions(state: GameState, playerId: PlayerId): GameAction[] 
     }
     // Great-road: offer haven-return for any eligible company
     for (const a of havenReturnActions(state, playerId)) {
+      actions.push(a);
+    }
+    // Bill the Pony (tw-198): offer run-home for any eligible company
+    for (const a of runHomeActions(state, playerId)) {
       actions.push(a);
     }
     // Safe from the Shadow / Tokens to Show: allow-store-eot flag in cardsInPlay
@@ -200,6 +205,11 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
     actions.push(a);
   }
 
+  // Bill the Pony (tw-198): offer run-home for any eligible company
+  for (const a of runHomeActions(state, playerId)) {
+    actions.push(a);
+  }
+
   // Safe from the Shadow / Tokens to Show: allow-store-eot flag in cardsInPlay
   if (allowStoreEot(state, playerIndex)) {
     logDetail(`End-of-Turn signal-end: allow-store-eot in play for ${player.name} — adding store-item actions`);
@@ -229,6 +239,58 @@ function havenReturnActions(state: GameState, playerId: PlayerId): GameAction[] 
     if (!player.companies.some(co => co.id === companyId)) continue;
     logDetail(`End-of-Turn: offering haven-return for company ${companyId as string} (origin haven ${c.kind.originHavenDefinitionId as string})`);
     actions.push({ type: 'haven-return', player: playerId, companyId });
+  }
+  return actions;
+}
+
+/**
+ * Generate `run-home` actions for any company containing a `run-home-to-haven`
+ * ally (Bill the Pony tw-198). Only the resource player may use this option,
+ * and only when the ally's company is at a non-Haven, non-Under-deeps site
+ * whose character count is within the ally's `maxCompanySize` and the site's
+ * nearest haven is known.
+ */
+function runHomeActions(state: GameState, playerId: PlayerId): GameAction[] {
+  if (state.activePlayer !== playerId) return [];
+  const player = playerById(state, playerId)!;
+  const actions: GameAction[] = [];
+  for (const company of player.companies) {
+    const site = company.currentSite;
+    if (!site) continue;
+    const siteDef = defById(state, site.definitionId);
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+
+    // Non-Haven, non-Under-deeps site (the ability's precondition).
+    const effType = getEffectiveSiteType(state, site.definitionId, siteDef.siteType, site.instanceId);
+    if (effType === 'haven') {
+      logDetail(`run-home: company ${company.id as string} is at a haven — skipping`);
+      continue;
+    }
+    if (siteDef.keywords?.includes('under-deeps')) {
+      logDetail(`run-home: company ${company.id as string} is at an Under-deeps site — skipping`);
+      continue;
+    }
+    if (!siteDef.nearestHaven) {
+      logDetail(`run-home: site ${siteDef.name} has no nearest haven — skipping`);
+      continue;
+    }
+
+    const size = company.characters.length;
+    for (const charId of company.characters) {
+      const char = player.characters[charId];
+      if (!char) continue;
+      for (const ally of char.allies) {
+        const allyDef = defById(state, ally.definitionId);
+        const effect = getCardEffects(allyDef).find(e => e.type === 'run-home-to-haven');
+        if (!effect || effect.type !== 'run-home-to-haven') continue;
+        if (size > effect.maxCompanySize) {
+          logDetail(`run-home: ${allyDef?.name ?? ally.definitionId as string} — company size ${size} exceeds max ${effect.maxCompanySize}`);
+          continue;
+        }
+        logDetail(`run-home: offering ${allyDef?.name ?? ally.definitionId as string} to move company ${company.id as string} to nearest haven ${siteDef.nearestHaven}`);
+        actions.push({ type: 'run-home', player: playerId, companyId: company.id, allyInstanceId: ally.instanceId });
+      }
+    }
   }
   return actions;
 }
