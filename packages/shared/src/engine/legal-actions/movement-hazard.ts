@@ -870,8 +870,11 @@ function agentTurnActions(
         if (!destDef || !isSiteCard(destDef)) continue;
         if (seenDest.has(destDef.name)) continue;
         if (!reachableNames.has(destDef.name)) continue;
-        // Exclude haven sites (rule 9.07)
-        if (isHavenSite(state, siteInst.definitionId as string)) continue;
+        // Exclude haven sites (rule 9.07) — unless the agent's card grants the
+        // `agent-may-move-to-haven` exemption (e.g. Elwen dm-8: "Agent only:
+        // may move to a Haven").
+        if (isHavenSite(state, siteInst.definitionId as string)
+          && !(agentDef && isCharacterCard(agentDef) && hasPlayFlag(agentDef, 'agent-may-move-to-haven'))) continue;
         // Per-card restriction: skip forbidden site types (rule on card text).
         if (restrictedSiteTypes.has(destDef.siteType)) {
           logDetail(`Agent ${agentName}: cannot move to "${destDef.name}" (${destDef.siteType} restricted by card text)`);

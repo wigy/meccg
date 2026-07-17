@@ -227,7 +227,31 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "elf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "opponent-influence-check",
+          "target.race": "elf"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "agent-may-move-to-haven"
+      }
+    ],
+    "certified": "2026-07-17",
     "text": "Unique. Agent. +2 direct influence against Elves and Elf Factions. Agent only: may move to a Haven [{H}]."
   },
   {
