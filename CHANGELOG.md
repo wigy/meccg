@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.53.0 — 2026-07-17
+
+Challenge Deck R
+
+### Game Engine
+
+- Completed the card pool for challenge deck (R) "The Ally-Armada" — all 110 cards are now certified, making the deck playable end to end
+- Certified Radagast (wh-8), the Fallen-wizard avatar the deck is built around, with a new `ally-movement-restriction-exemption` effect (his allies ignore the normal "allies may not move" restriction) layered on the existing `faction-mp-override`, `fw-ally-mp-full`, and `draw-modifier` primitives. Note for future card data: a `$not` written as a sibling of field keys is silently dropped by the condition matcher — wrap it in an explicit `$and`
+- Certified Shifter of Hues (wh-115), Radagast's Shapeshifter form: stat effects gain an `op: "set"` mode for absolute (rather than relative) values, plus `override-skills` threaded through `getEffectiveSkills`, `bearer-cannot-move` / `bearer-cannot-use-items` restrictions, and a lasting `check-modifier` scoped to the next organization phase
+- Certified Radagast's Black Bird (wh-114) with two new play-flags — `no-tap-on-play` and `influences-factions` (an ally contributing direct influence to faction checks) — a `return-to-hand` effect, and `partitionLeavingAllies` so allies are correctly separated across the four leave-play sites
+- Certified Girdle of Radagast (wh-110) with a new persistent `region-type-conversion` effect (named regions re-key as Wilderness) and a `supporters-in-region` play-condition
+- Certified Rhosgobel (wh-57) with a new inherently-protected-Wizardhaven site-rule and an `isSiteProtectedForPlayer` helper; deck validation for rule 1.07 now also scans the sites section, which it previously skipped
+- Certified Stormcrow (td-73) with a new `prohibit-company-events` primitive (discarding/prohibiting Fellowship-style company events on Wizard companies) plus the Wizard direct-influence -2/-4 modifier
+- Certified Glove of Radagast (wh-111) with a new `grant-ally-play` primitive: a non-unique 1-mind ally playable at the bearer's site, supporting `fromDiscard` and `excludeBearerControlsCopy`
+- Certified An Untimely Brood (wh-62), a Wizardhaven-keyed variant of `grant-ally-play` adding `atProtectedWizardhavens`, `allowTappedSite`, and `oncePerSitePhase`
+
+### Card Data
+
+- 11 newly certified cards (885 → 896 of 1683), concentrated on the challenge deck (R) "The Ally-Armada" pool, which reached 110/110
+- Certified Barliman Butterbur (tw-125) as a dual `check-modifier` (corruption -1 and faction-influence -1), reusing the existing primitive with no engine work
+- Certified Lure of Nature (tw-58) and Lure of Expedience (tw-57) as data-fix siblings of le-123 and le-122 (identical card text). Lure of Nature needed `keywords: ["corruption"]` so rule 10.08's no-tap removal applies
+
+### Testing & Infrastructure
+
+- Adapted the Girdle of Radagast (wh-110) tests to Rhosgobel's newly inherent protection and stage point. Gotcha worth remembering: `buildTestState` with `recompute: true` resets `stagePoints` to 0
+
 ## 0.52.0 — 2026-07-16
 
 Challenge Deck N

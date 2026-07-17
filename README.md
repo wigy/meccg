@@ -22,10 +22,10 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
 | Rule tests | 269 | 332 | 81.0% |
-| Card tests | 829 | 837 | 99.0% |
+| Card tests | 840 | 848 | 99.1% |
 | Cards created | 1683 | 1683 | 100.0% |
-| Cards certified | 885 | 1683 | 52.6% |
-| **Total** | **3666** | **4535** | **80.8%** |
+| Cards certified | 896 | 1683 | 53.2% |
+| **Total** | **3688** | **4546** | **81.1%** |
 
 ### Deck Catalog
 
@@ -50,9 +50,9 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
-| (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 93 (84.5%) |
+| (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (S) Await the Onset | fallen-wizard | 110 | 110 (100.0%) | 83 (75.5%) |
-| (T) Feel Free | hero | 110 | 110 (100.0%) | 90 (81.8%) |
+| (T) Feel Free | hero | 110 | 110 (100.0%) | 92 (83.6%) |
 | (U) Come by Night upon them | minion | 110 | 110 (100.0%) | 98 (89.1%) |
 | (V) Great Shadow | balrog | 110 | 110 (100.0%) | 110 (100.0%) |
 

@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 837 | 829 | 8 | 99.0% |
+| 848 | 840 | 8 | 99.1% |
 
 ## Category Breakdown
 
@@ -16,9 +16,9 @@
 | BA | 94 | 94 | 100.0% |
 | DM | 70 | 70 | 100.0% |
 | LE | 247 | 244 | 98.8% |
-| TD | 61 | 61 | 100.0% |
-| TW | 261 | 256 | 98.1% |
-| WH | 48 | 48 | 100.0% |
+| TD | 62 | 62 | 100.0% |
+| TW | 264 | 259 | 98.1% |
+| WH | 55 | 55 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -516,6 +516,7 @@
 | td-64 | Scorba Ahunt | — | 13 | ☑ |
 | td-67 | Searching Eye | — | 9 | ☑ |
 | td-70 | Smaug Ahunt | — | 17 | ☑ |
+| td-73 | Stormcrow | — | 12 | ☑ |
 | td-77 | True Cold-drake | — | 3 | ☑ |
 | td-85 | Withered Lands | — | 9 | ☑ |
 | td-90 | Brand | — | 3 | ☑ |
@@ -577,6 +578,8 @@
 | tw-47 | Khamûl the Easterling | — | 11 | ☑ |
 | tw-050 | — | — | 7 | ☑ |
 | tw-053 | — | — | 6 | ☑ |
+| tw-57 | Lure of Expedience | — | 11 | ☑ |
+| tw-58 | Lure of Nature | — | 13 | ☑ |
 | tw-060 | — | — | 7 | ☑ |
 | tw-60 | Lure of the Senses | — | 1 | ☑ |
 | tw-61 | Minions Stir | — | 9 | ☑ |
@@ -613,6 +616,7 @@
 | tw-122 | Arwen | — | 3 | ☑ |
 | tw-123 | Balin | — | 5 | ☑ |
 | tw-124 | Bard Bowman | — | 1 | ☐ |
+| tw-125 | Barliman Butterbur | — | 2 | ☑ |
 | tw-126 | Beorn | — | 4 | ☑ |
 | tw-127 | Beregond | — | 3 | ☑ |
 | tw-128 | Beretar | — | 4 | ☑ |
@@ -817,6 +821,7 @@
 | wh-5 | Ill-favoured Fellow | — | 6 | ☑ |
 | wh-6 | Lugdush | — | 2 | ☑ |
 | wh-7 | Pallando | — | 6 | ☑ |
+| wh-8 | Radagast | — | 12 | ☑ |
 | wh-9 | Saruman | — | 10 | ☑ |
 | wh-10 | Sly Southerner | — | 6 | ☑ |
 | wh-29 | Rolled down to the Sea | — | 5 | ☑ |
@@ -833,9 +838,11 @@
 | wh-54 | Vile Fumes | — | 12 | ☑ |
 | wh-55 | Deep Mines | — | 14 | ☑ |
 | wh-56 | Isengard | — | 3 | ☑ |
+| wh-57 | Rhosgobel | — | 10 | ☑ |
 | wh-58 | The White Towers | — | 3 | ☑ |
 | wh-60 | A New Ringlord | — | 4 | ☑ |
 | wh-61 | A Strident Spawn | — | 10 | ☑ |
+| wh-62 | An Untimely Brood | — | 13 | ☑ |
 | wh-65 | Delver’s Harvest | — | 4 | ☑ |
 | wh-66 | Double-dealing | — | 10 | ☑ |
 | wh-68 | The Fortress of Isen | — | 17 | ☑ |
@@ -857,6 +864,10 @@
 | wh-105 | Pallando’s Hood | — | 9 | ☑ |
 | wh-106 | Prophet of Doom | — | 15 | ☑ |
 | wh-108 | Truths of Doom | — | 8 | ☑ |
+| wh-110 | Girdle of Radagast | — | 18 | ☑ |
+| wh-111 | Glove of Radagast | — | 11 | ☑ |
+| wh-114 | Radagast’s Black Bird | — | 10 | ☑ |
+| wh-115 | Shifter of Hues | — | 21 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
 | wh-119 | Man of Skill | — | 7 | ☑ |
 | wh-120 | Saruman’s Machinery | — | 20 | ☑ |
