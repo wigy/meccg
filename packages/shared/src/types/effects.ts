@@ -147,8 +147,17 @@ export interface StatModifierEffect extends EffectBase {
    *   modifiers. Used for "doubled"-style effects, e.g. Plague of Wights
    *   (le-130) doubles the number of strikes of each Undead attack when
    *   Doors of Night is in play (`op: "multiply", value: 2`).
+   * - `"set"` — `result = value`, an **absolute override** of the printed
+   *   base, applied **before** every additive and multiplicative modifier so
+   *   that ordinary +N/-N bonuses still stack on top of the new base. Used by
+   *   the Radagast Shapeshifter forms (Master of Shapes wh-112, Shifter of
+   *   Hues wh-115, Winged Change-master wh-116), whose "adopting the given
+   *   attributes" replaces Radagast's printed prowess/body/DI/GI rather than
+   *   adjusting them — Winged Change-master's prowess 3 is *lower* than
+   *   Radagast's printed 6, which is what rules out a delta reading. When more
+   *   than one `set` for the same stat is collected, the last one wins.
    */
-  readonly op?: 'add' | 'multiply';
+  readonly op?: 'add' | 'multiply' | 'set';
   /** Maximum resulting stat value. Can be a MathJS expression. */
   readonly max?: ValueExpr;
   /** Minimum resulting stat value (floor). Can be a MathJS expression. E.g. `0` prevents negative DI. */
@@ -1407,6 +1416,17 @@ export interface GrantActionTargets {
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
+  /**
+   * For scope `'player-companies'`: restrict the enumerated companies to those
+   * that have declared movement this organization phase **and** whose declared
+   * destination's printed site path contains at least one region of this type.
+   *
+   * Shifter of Hues (wh-115) uses `"wilderness"` — "this company must be moving
+   * with at least one Wilderness [{w}] in their site path". Because movement is
+   * planned during the organization phase, the destination (and therefore the
+   * site path) is already known when the ability is offered.
+   */
+  readonly movingThroughRegionType?: string;
 }
 
 /** The cost required to activate a granted action. */
@@ -1697,6 +1717,14 @@ export interface AddConstraintAction extends TriggeredActionBase {
   /** Numeric payload (check-modifier, *-stat-modifier, hazard-limit-modifier, hand-size-modifier, …). */
   readonly value?: number;
   /**
+   * For a `check-modifier` payload: when true the modifier is not consumed by
+   * the first matching check but keeps applying until its `scope` sweeps it
+   * (Shifter of Hues wh-115: "+2 to the corruption checks of the characters in
+   * one company through your next organization phase"). Omit for the ordinary
+   * one-shot "add +N to one check" behaviour.
+   */
+  readonly lasting?: boolean;
+  /**
    * For a `check-modifier` payload: when true, the targeted character's next
    * matching check (e.g. corruption) succeeds unconditionally, regardless of
    * the roll, instead of being adjusted by {@link value}. Used by Ancient
@@ -1756,6 +1784,14 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * attempt (`reason: "opponent-influence-check"`) against an item, ally, or
    * Orc/Troll faction. A check-modifier constraint with no `constraintWhen`
    * keeps its legacy behaviour (consumed by the faction-influence roll).
+   *
+   * On a **company**-targeted corruption check-modifier it instead narrows
+   * which of the company's characters benefit, evaluated against a
+   * `{ target: { cardType, race, name } }` context describing the character
+   * making the check: Ren the Ringwraith (le-56) modifies checks "by minions
+   * in any one of your companies" and carries
+   * `{ "target.cardType": "minion-character" }`, while Shifter of Hues
+   * (wh-115) aids "the characters in one company" wholesale and omits it.
    */
   readonly constraintWhen?: Condition;
 }
@@ -2226,8 +2262,27 @@ export interface FleeFromStrikeEffect extends EffectBase {
  */
 export interface ReturnToHandEffect extends EffectBase {
   readonly type: 'return-to-hand';
-  /** The triggers under which the card may/should return to hand. */
-  readonly during: readonly ('organization' | 'controller-leaves-play')[];
+  /**
+   * The triggers under which the card may/should return to hand.
+   *
+   * - `organization` — offered as a `return-attached-to-hand` action during
+   *   the owner's organization phase (optional; the player chooses).
+   * - `controller-leaves-play` — automatic, when the controlling character
+   *   leaves active play the card goes to hand rather than the discard pile.
+   * - `replaced-by-keyword` — automatic, when another card carrying
+   *   {@link replacedByKeyword} is placed on the same character. Models the
+   *   Radagast Shapeshifter forms (wh-112/115/116): "Return this card to your
+   *   hand when you play another Shapeshifter card" — taking a new shape sheds
+   *   the old one instead of stacking forms.
+   */
+  readonly during: readonly ('organization' | 'controller-leaves-play' | 'replaced-by-keyword')[];
+  /**
+   * For the `replaced-by-keyword` trigger: the keyword whose arrival on the
+   * same character displaces this card (e.g. `"shapeshifter"`). The most
+   * recently placed carrier of the keyword stays; every earlier one that
+   * declares this trigger returns to its owner's hand.
+   */
+  readonly replacedByKeyword?: string;
 }
 
 /**
@@ -2458,7 +2513,7 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -5436,6 +5491,7 @@ export type CardEffect =
   | RingTestTableEffect
   | RingTestSearchEffect
   | GrantSkillEffect
+  | OverrideSkillsEffect
   | ItemSlotModifierEffect
   | CompanyOvertEffect
   | AssignStrikeWhenTappedEffect
@@ -6214,6 +6270,28 @@ export interface GrantSkillEffect extends EffectBase {
   readonly type: 'grant-skill';
   /** The skill to grant (e.g. `"scout"`, `"warrior"`, `"sage"`). */
   readonly skill: string;
+}
+
+/**
+ * **Replaces** the bearer's printed skills with {@link skills} while the card
+ * carrying this effect is in play on them.
+ *
+ * The counterpart to {@link GrantSkillEffect}, which only *adds*. Used by the
+ * Radagast Shapeshifter forms ("Radagast's skills become Warrior/Diplomat" —
+ * Shifter of Hues wh-115), where taking a new shape strips the skills the
+ * previous shape had rather than accumulating them. Skills granted by other
+ * cards (`grant-skill`) still stack on top of the replacement set: the
+ * override replaces what the *character card* prints, not what other cards
+ * confer.
+ *
+ * Resolved through {@link getEffectiveSkills}; when several overrides are
+ * collected (which no printed card currently does — the Shapeshifter forms
+ * return each other to hand) the last one collected wins.
+ */
+export interface OverrideSkillsEffect extends EffectBase {
+  readonly type: 'override-skills';
+  /** The bearer's complete skill set while this card is on them. */
+  readonly skills: readonly string[];
 }
 
 /**

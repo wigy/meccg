@@ -300,7 +300,7 @@ function runGrantApply(
     if (!kind) {
       return { error: `add-constraint: unsupported constraint kind "${constraintKind}" from grant-action (${ctx.sourceName})` };
     }
-    const scope = parseConstraintScope(apply.scope, newPlayers[ctx.playerIndex], ctx.action.characterId);
+    const scope = parseConstraintScope(apply.scope, newPlayers[ctx.playerIndex], ctx.action.characterId, ctx.action.player, state.turnNumber);
     if (!scope) {
       return { error: `add-constraint: unknown or unresolved scope "${apply.scope ?? ''}" on ${ctx.sourceName}` };
     }
@@ -914,6 +914,8 @@ function buildPayloadConstraintKind(
       check: apply.check,
       value: apply.value,
       ...(apply.autoPass ? { autoPass: true } : {}),
+      ...(apply.lasting ? { lasting: true } : {}),
+      ...(apply.constraintWhen ? { when: apply.constraintWhen } : {}),
     };
   }
   return null;
@@ -924,12 +926,18 @@ function parseConstraintScope(
   scopeName: string | undefined,
   player: import('../types/state.js').PlayerState,
   characterId: CardInstanceId,
+  playerId: import('../types/common.js').PlayerId,
+  turnNumber: number,
 ): import('../types/pending.js').ConstraintScope | null {
   switch (scopeName) {
     case 'turn':
       return { kind: 'turn' };
     case 'until-cleared':
       return { kind: 'until-cleared' };
+    case 'next-organization-phase':
+      // Stamped with the current turn so the organization phase this was
+      // activated in does not immediately sweep it (Shifter of Hues wh-115).
+      return { kind: 'next-organization-phase', playerId, afterTurn: turnNumber };
     case 'company-site-phase':
     case 'company-mh-phase': {
       const company = findCharacterCompany(player.companies, characterId);
@@ -1024,7 +1032,7 @@ function handleInPlayCardGrantAction(
   const constraintKind = apply.constraint ?? '';
   const kind = buildPayloadConstraintKind(constraintKind, apply) ?? constraintKindWithoutPayload(constraintKind);
   if (!kind) return { state, error: `in-play grant-action: unsupported constraint kind "${constraintKind}" on ${sourceName}` };
-  const scope = parseConstraintScope(apply.scope, newPlayers[playerIndex], action.characterId);
+  const scope = parseConstraintScope(apply.scope, newPlayers[playerIndex], action.characterId, action.player, state.turnNumber);
   if (!scope) return { state, error: `in-play grant-action: unknown scope "${apply.scope ?? ''}" on ${sourceName}` };
   const target = resolveConstraintTarget(apply.target, newPlayers[playerIndex], action.characterId, action.player, action);
   if (!target) return { state, error: `in-play grant-action: cannot resolve target "${apply.target ?? ''}" on ${sourceName}` };

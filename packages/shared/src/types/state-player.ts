@@ -143,6 +143,18 @@ export interface PlayerState {
    */
   readonly generalInfluenceControlPenalty: number;
   /**
+   * Absolute replacement for the base general-influence pool, set by an in-play
+   * `stat-modifier` with `stat: "general-influence"` and `op: "set"`. When
+   * present it substitutes for the number the pool would otherwise start from
+   * (a Fallen-wizard avatar's printed white-hand number, or the base 20);
+   * `generalInfluenceBonus` still applies on top of it.
+   *
+   * Non-undefined only while a Radagast Shapeshifter form (wh-112/115/116) is
+   * on Radagast — "adopting the given attributes" replaces his printed general
+   * influence rather than adjusting it. Recomputed by recomputeDerived.
+   */
+  readonly generalInfluenceOverride?: number;
+  /**
    * Number of times this player's play deck has been exhausted (reshuffled from discard).
    * The game ends via Free Council when a player exhausts their deck twice.
    */

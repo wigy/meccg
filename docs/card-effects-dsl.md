@@ -9672,3 +9672,140 @@ Implemented in `reducer-events.ts` (`handlePlayResourceShortEvent` — discard /
 tap / enqueue rolls), `pending-reducers.ts` (`applyDiceCheckBranch` —
 `wound-or-eliminate`), and `legal-actions/combat.ts` (`siteStormAtSiteActions`,
 wired into the CvCC combat action windows). Used by *Crowned with Storm* (ba-54).
+
+### 22. Radagast Shapeshifter primitives
+
+A cluster introduced for the Shapeshifter family (Master of Shapes wh-112,
+Shifter of Hues wh-115, Winged Change-master wh-116) — permanent-events placed
+on Radagast via `play-target` `{ "target.name": "Radagast" }`. A permanent-event
+played on a character is stored in that character's `items`, so these primitives
+all read that array.
+
+#### `stat-modifier` `op: "set"`
+
+An **absolute override** of the printed base, applied before every `add` and
+`multiply` modifier so ordinary bonuses stack on the adopted value. Last `set`
+wins. This is how "in addition to adopting the given attributes" is modelled:
+the form's printed attribute line replaces Radagast's own.
+
+```json
+{ "type": "stat-modifier", "stat": "prowess", "op": "set", "value": 6 }
+```
+
+The reading is forced by the data rather than chosen: Winged Change-master
+prints prowess 3 against Radagast's printed 6, and Shifter of Hues prints direct
+influence 3 against his printed 5 — a delta cannot lower a stat from a positive
+attribute line.
+
+For `stat: "general-influence"` (a player-level pool, not a per-character stat)
+the override is recorded as `PlayerState.generalInfluenceOverride` and
+substituted by `effectiveGeneralInfluence` for the Fallen-wizard avatar's
+printed white-hand number, with `generalInfluenceBonus` still added on top.
+
+A printed `corruption -N` in the attribute box is ordinary corruption **points**
+— the same meaning it carries on every other card (Bow of Alatar wh-90's
+`corruption 1` is 1 CP); the Shapeshifter forms are just the only ones printing
+a negative one:
+
+```json
+{ "type": "stat-modifier", "stat": "corruption-points", "value": -2 }
+```
+
+#### `override-skills`
+
+**Replaces** the bearer's printed skills — the counterpart to the additive
+`grant-skill`. "Radagast's skills become Warrior/Diplomat" strips his printed
+Scout and Ranger:
+
+```json
+{ "type": "override-skills", "skills": ["warrior", "diplomat"] }
+```
+
+Both primitives compose in `getEffectiveSkills(state, char, charDef)`
+(`effects/resolver.ts`), which every engine consumer asks instead of spreading
+`charDef.skills` by hand. Skills granted by other cards still stack on top of an
+override: the override speaks for the character card, not for other cards.
+
+#### `play-flag: "bearer-cannot-move"`
+
+Character-level immobility ("Radagast may not move") — every other movement
+restriction in the engine is company-scoped. A company is stationary while it
+contains such a character (`companyHasImmobileCharacter`, checked at both
+movement-planning sites); splitting the other characters off is the intended
+escape hatch.
+
+```json
+{ "type": "play-flag", "flag": "bearer-cannot-move" }
+```
+
+#### `play-flag: "bearer-cannot-use-items"`
+
+The card-driven form of the Ringwraith/Balrog avatar item bans: every effect
+sourced from an item on the bearer is dropped and structural
+`prowessModifier`/`bodyModifier` skipped, while borne items' **corruption points
+still apply** — the "may bear, but may not use" wording of MEWH §9 / rule 9.20
+(unlike the Balrog ban, which also suppresses CP).
+
+```json
+{ "type": "play-flag", "flag": "bearer-cannot-use-items" }
+```
+
+#### `return-to-hand` `replaced-by-keyword`
+
+With `replacedByKeyword`, the card returns to its owner's **hand** (never the
+discard pile) when a later card carrying that keyword is placed on the same
+character — "Return this card to your hand when you play another Shapeshifter
+card". Both the card and its replacement must declare the keyword.
+
+```json
+{ "type": "return-to-hand",
+  "during": ["organization", "replaced-by-keyword"],
+  "replacedByKeyword": "shapeshifter" }
+```
+
+Swept in `postReduce` by `sweepKeywordReplaced` (`engine/keyword-replaced.ts`):
+array order in `char.items` is arrival order, so the most recently placed
+carrier stays and every earlier one that declares the trigger goes to hand. The
+`organization` trigger (an optional `return-attached-to-hand` action) covers
+attached permanent-events as well as allies.
+
+#### Lasting company check-modifier + `next-organization-phase` scope
+
+"Radagast can tap [to] give +2 to the corruption checks of the characters in one
+company through your next organization phase (this company must be moving with
+at least one Wilderness [{w}] in their site path)":
+
+```json
+{ "type": "grant-action",
+  "action": "shifter-of-hues-corruption-aid",
+  "cost": { "tap": "bearer" },
+  "targets": { "scope": "player-companies", "movingThroughRegionType": "wilderness" },
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "check-modifier",
+    "check": "corruption",
+    "value": 2,
+    "lasting": true,
+    "scope": "next-organization-phase",
+    "target": "action-target-company"
+  } }
+```
+
+- **`targets.movingThroughRegionType`** narrows a `player-companies` enumeration
+  to companies that have declared movement whose destination's printed site path
+  crosses that region type. Movement is planned during the organization phase,
+  so the destination is already known when the ability is offered.
+- **`lasting: true`** makes the resulting `check-modifier` constraint apply to
+  every matching check without being consumed by the first one (the default is
+  the one-shot "add +N to *one* check" behaviour).
+- **`scope: "next-organization-phase"`** stamps the current turn number at
+  creation. The `organization-phase-end` boundary — raised when the owner leaves
+  their organization phase — drops the constraint only once it sees a strictly
+  greater turn number, so the phase it was created in does not expire it while
+  the player's next one does.
+- **`constraintWhen`** on a company-targeted corruption `check-modifier` narrows
+  which of the company's characters benefit, evaluated against a
+  `{ target: { cardType, race, name } }` context. Ren the Ringwraith (le-56)
+  carries `{ "target.cardType": "minion-character" }` for its "by minions"
+  clause; Shifter of Hues omits it, aiding "the characters in one company"
+  wholesale.

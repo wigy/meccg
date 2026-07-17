@@ -858,19 +858,26 @@ export function resolveStatModifiers(
     activeEffects.push(override ?? base);
   }
 
-  // Apply modifiers. Additive (`op` absent or `"add"`) effects are applied
-  // first; multiplicative (`op: "multiply"`) effects are applied afterwards so
-  // that "doubled"-style modifiers (e.g. Plague of Wights doubling Undead
-  // strikes) act on the already-modified total rather than the raw base.
+  // Apply modifiers in three passes. `op: "set"` effects run first: they
+  // replace the printed base outright (Radagast's Shapeshifter forms adopting
+  // a new attribute line), so ordinary bonuses stack on the adopted value
+  // rather than the printed one. Additive (`op` absent or `"add"`) effects run
+  // next; multiplicative (`op: "multiply"`) effects run last so that
+  // "doubled"-style modifiers (e.g. Plague of Wights doubling Undead strikes)
+  // act on the already-modified total rather than the raw base.
   const exprContext = context as unknown as Record<string, unknown>;
+  const setEffects = activeEffects.filter((e) => e.op === 'set');
   const orderedEffects = [
-    ...activeEffects.filter((e) => e.op !== 'multiply'),
+    ...setEffects,
+    ...activeEffects.filter((e) => e.op !== 'multiply' && e.op !== 'set'),
     ...activeEffects.filter((e) => e.op === 'multiply'),
   ];
   let result = baseValue;
   for (const effect of orderedEffects) {
     const value = evaluateExpr(effect.value, exprContext);
-    result = effect.op === 'multiply' ? result * value : result + value;
+    if (effect.op === 'set') result = value;
+    else if (effect.op === 'multiply') result = result * value;
+    else result = result + value;
     if (effect.max !== undefined) {
       const maxVal = evaluateExpr(effect.max, exprContext);
       result = Math.min(result, maxVal);
@@ -1379,4 +1386,36 @@ export function getItemGrantedSkills(
     }
   }
   return granted;
+}
+
+/**
+ * Returns the skills a character actually has right now: their printed skills
+ * (or the replacement set imposed by an {@link OverrideSkillsEffect} borne on
+ * them) plus every skill granted by an attached card via {@link GrantSkillEffect}.
+ *
+ * This is the single place the two skill primitives compose, and it is what
+ * every consumer should ask rather than spreading `charDef.skills` with
+ * {@link getItemGrantedSkills} by hand:
+ *
+ * - `grant-skill` **adds** (Magic Ring of Stealth tw-274 makes any bearer a scout).
+ * - `override-skills` **replaces** the printed set (Shifter of Hues wh-115:
+ *   "Radagast's skills become Warrior/Diplomat" — his printed Scout and Ranger
+ *   are gone while the form is on him).
+ *
+ * Grants still stack on top of an override: the override speaks for the
+ * character card, not for other cards' contributions.
+ */
+export function getEffectiveSkills(
+  state: GameState,
+  charData: CharacterInPlay,
+  charDef: { readonly skills?: readonly string[] } | undefined,
+): readonly string[] {
+  let base: readonly string[] = charDef?.skills ?? [];
+  for (const attached of charData.items) {
+    const def = state.cardPool[attached.definitionId];
+    for (const eff of getCardEffects(def)) {
+      if (eff.type === 'override-skills') base = eff.skills;
+    }
+  }
+  return [...base, ...getItemGrantedSkills(state, charData)];
 }
