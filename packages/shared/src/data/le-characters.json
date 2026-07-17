@@ -1355,7 +1355,8 @@
           "check": "corruption",
           "value": 2,
           "scope": "turn",
-          "target": "action-target-company"
+          "target": "action-target-company",
+          "constraintWhen": { "target.cardType": "minion-character" }
         }
       }
     ],

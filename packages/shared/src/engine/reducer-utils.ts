@@ -1690,11 +1690,17 @@ export function filterSideboardByDef(
  * base 20 for as long as it stays in play. Before the avatar is revealed (and
  * for every other alignment) the pool is the base 20. On top of either base,
  * permanent events (e.g. Bade to Rule: +5) contribute `generalInfluenceBonus`.
+ *
+ * `generalInfluenceOverride` displaces whichever base would otherwise apply: a
+ * Radagast Shapeshifter form (wh-112/115/116) adopts a whole attribute line,
+ * so its printed general influence *is* the pool while the form is on him.
+ * Ordinary bonuses still stack on top of the adopted number.
  */
 export function effectiveGeneralInfluence(state: GameState, playerId: PlayerId): number {
   const player = playerById(state, playerId);
   if (!player) return GENERAL_INFLUENCE;
   const bonus = player.generalInfluenceBonus ?? 0;
+  if (player.generalInfluenceOverride !== undefined) return player.generalInfluenceOverride + bonus;
   const avatar = findPlayerAvatar(state, player);
   if (avatar) {
     const def = resolveDef(state, avatar.instanceId);
@@ -3296,6 +3302,37 @@ export function companyHasNoAllyRestriction(
     for (const item of char.items) {
       const def = defById(state, item.definitionId);
       if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-allies-in-company')) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True when any character in the given company bears a card carrying the
+ * `bearer-cannot-move` play-flag — "Radagast may not move" (Shifter of Hues
+ * wh-115).
+ *
+ * A company moves as a unit, so a character who may not move keeps their whole
+ * company stationary for as long as they are in it; the player's escape hatch
+ * is the ordinary organization-phase split, which re-forms the rest of the
+ * characters into a company the immobile one is not part of. That makes this a
+ * company-level movement gate derived from a character-level flag, checked
+ * alongside the `company-cannot-move` constraint (Hide in Dark Places le-192)
+ * at both movement-planning sites.
+ */
+export function companyHasImmobileCharacter(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): boolean {
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char) continue;
+    const charDef = defById(state, char.definitionId);
+    if (charDef && hasPlayFlag(charDef as { effects?: readonly CardEffect[] }, 'bearer-cannot-move')) return true;
+    for (const attached of char.items) {
+      const def = defById(state, attached.definitionId);
+      if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'bearer-cannot-move')) return true;
     }
   }
   return false;

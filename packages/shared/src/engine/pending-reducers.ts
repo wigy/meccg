@@ -34,7 +34,7 @@ import { CardStatus, Skill } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
+import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
@@ -167,6 +167,11 @@ export function applyCorruptionCheckResolution(
   // this character contributed to the modifier above and is now cleared. A
   // constraint carrying `autoPass: true` (Ancient Black Axe as-122) instead
   // forces the check to succeed unconditionally, regardless of the roll.
+  //
+  // A `lasting` constraint (Shifter of Hues wh-115) still applies but is never
+  // consumed — it stands until its scope sweeps it. Company-targeted
+  // constraints were never consumed here either (they are matched by company,
+  // not by character, in the modifier computation).
   let postRollState: GameState = { ...state, players: playersAfterRoll, rng, cheatRollTotal };
   let autoPass = false;
   for (const constraint of state.activeConstraints) {
@@ -175,6 +180,10 @@ export function applyCorruptionCheckResolution(
         && constraint.target.kind === 'character'
         && constraint.target.characterId === characterId) {
       if (constraint.kind.autoPass) autoPass = true;
+      if (constraint.kind.lasting) {
+        logDetail(`Lasting check-modifier constraint ${constraint.id} (corruption ${formatSignedNumber(constraint.kind.value)}) applied, not consumed`);
+        continue;
+      }
       logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (corruption ${formatSignedNumber(constraint.kind.value)}${constraint.kind.autoPass ? ', auto-pass' : ''})`);
       postRollState = removeConstraint(postRollState, constraint.id);
     }
@@ -710,7 +719,7 @@ function applyCancelInfluence(
   const charRace = charDef && isCharacterCard(charDef) ? charDef.race : undefined;
   const charData = action.characterId ? player.characters[action.characterId] : undefined;
   const charSkills = charDef && isCharacterCard(charDef)
-    ? [...charDef.skills, ...(charData ? getItemGrantedSkills(state, charData) : [])]
+    ? (charData ? [...getEffectiveSkills(state, charData, charDef)] : [...charDef.skills])
     : [];
   const targetKind = top.kind.type === 'opponent-influence-defend'
     ? top.kind.attempt.targetKind

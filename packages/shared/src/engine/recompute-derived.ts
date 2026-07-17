@@ -768,6 +768,21 @@ function computeEffectiveStats(
   if (bearerIsBalrogAvatar) {
     charEffects = charEffects.filter(ce => !isItemCard(ce.sourceDef));
   }
+
+  // `play-flag: "bearer-cannot-use-items"` — the card-driven form of the same
+  // ban ("Radagast may bear, but may not use, items" — the Shapeshifter forms
+  // wh-112/115/116). Unlike the Ringwraith/Balrog avatar bans above this is not
+  // keyed on the character's race but on a card currently borne by them, so the
+  // flag must be read *before* the filter runs; the flag's own source is a
+  // permanent-event rather than an item, so it never filters itself away.
+  // Corruption points still apply (the item is still borne) — matching the
+  // MEWH §9 / rule 9.20 "bear but not use" wording, and unlike the Balrog ban.
+  const bearerCannotUseItems = charEffects.some(
+    ce => ce.effect.type === 'play-flag' && ce.effect.flag === 'bearer-cannot-use-items',
+  );
+  if (bearerCannotUseItems) {
+    charEffects = charEffects.filter(ce => !isItemCard(ce.sourceDef));
+  }
   const collected = [...charEffects, ...globalEffects, ...ownEffects];
 
   // If we have DSL effects, use the resolver for prowess, body, and DI
@@ -869,7 +884,8 @@ function computeEffectiveStats(
       // items, and any item on a Ringwraith avatar contribute no structural bonus.
       const itemUnusableByAlignment = (bearerBlocksMinionItems && itemDef.cardType === 'minion-resource-item')
         || (bearerBlocksHeroItems && itemDef.cardType === 'hero-resource-item')
-        || bearerIsRingwraithAvatar;
+        || bearerIsRingwraithAvatar
+        || bearerCannotUseItems;
       if (!itemHasStatMod && !heroItemOnOrcTroll && !bearerIsBalrogAvatar && !itemUnusableByAlignment && !weaponSuppressed && activeItems.has(item.instanceId as string)) {
         prowess += itemDef.prowessModifier;
         body += itemDef.bodyModifier;
@@ -1084,6 +1100,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   let generalInfluenceUsed = 0;
   let generalInfluenceBonus = 0;
   let generalInfluenceControlPenalty = 0;
+  let generalInfluenceOverride: number | undefined;
   let mp = ZERO_MARSHALLING_POINTS;
   // Global item-stat modifiers in play (Rumor of the One le-224: +1 marshalling
   // point to all ring items). Collected once per recompute; applied flat to each
@@ -1258,11 +1275,21 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // caps how many of the added points may control characters; the excess is
   // accumulated as `generalInfluenceControlPenalty` (still part of the pool for
   // defensive unused-GI purposes, but never usable to control characters).
+  // `op: "set"` is the exception: it does not add to the pool, it *replaces*
+  // the avatar's printed general influence (Radagast's Shapeshifter forms
+  // adopt a whole attribute line, e.g. Shifter of Hues wh-115's GI 27 in place
+  // of Radagast's printed 22). Recorded separately so `effectiveGeneralInfluence`
+  // can substitute it for the printed number and still add ordinary bonuses on
+  // top. Last override collected wins.
   const applyGeneralInfluenceEffect = (effect: CardEffect): void => {
     if (effect.type !== 'stat-modifier') return;
-    const e = effect as { stat?: string; value?: number; controlLimit?: number };
+    const e = effect as { stat?: string; value?: number; controlLimit?: number; op?: string };
     if (e.stat !== 'general-influence') return;
     const val = typeof e.value === 'number' ? e.value : 0;
+    if (e.op === 'set') {
+      generalInfluenceOverride = val;
+      return;
+    }
     generalInfluenceBonus += val;
     if (typeof e.controlLimit === 'number') {
       generalInfluenceControlPenalty += Math.max(0, val - e.controlLimit);
@@ -1565,6 +1592,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     player.generalInfluenceUsed === generalInfluenceUsed &&
     player.generalInfluenceBonus === generalInfluenceBonus &&
     player.generalInfluenceControlPenalty === generalInfluenceControlPenalty &&
+    player.generalInfluenceOverride === generalInfluenceOverride &&
     player.marshallingPoints === mp &&
     player.callableMarshallingPoints === callable &&
     player.stagePoints === stagePoints
@@ -1578,6 +1606,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     generalInfluenceUsed,
     generalInfluenceBonus,
     generalInfluenceControlPenalty,
+    generalInfluenceOverride,
     marshallingPoints: mp,
     callableMarshallingPoints: callable,
     stagePoints,

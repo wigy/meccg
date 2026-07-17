@@ -36,7 +36,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -324,7 +324,7 @@ function cancelInfluenceActions(
 
             // Check skill restriction (character's innate skills + item-granted skills)
             if (cancelEffect.requiredSkill) {
-              const allSkills = [...charDef.skills, ...getItemGrantedSkills(state, charData)];
+              const allSkills = getEffectiveSkills(state, charData, charDef);
               if (!allSkills.includes(cancelEffect.requiredSkill)) continue;
             }
 
@@ -805,20 +805,34 @@ export function corruptionCheckActions(
     logDetail(`One-shot check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id}`);
   }
 
-  // Company-scoped corruption check-modifier constraints (Ren the Ringwraith
-  // le-56: "modify all corruption checks made this turn by minions in any one
-  // of your companies by +2"): applied to every corruption check by a minion
-  // character in the *targeted* company, and NOT consumed — they persist for
-  // the constraint's turn scope. The checked character's own company must
-  // match the constraint's companyId.
+  // Company-scoped corruption check-modifier constraints: applied to every
+  // matching corruption check by a character in the *targeted* company, and
+  // NOT consumed — they persist for the constraint's scope. The checked
+  // character's own company must match the constraint's companyId.
+  //
+  // The constraint's optional `when` narrows which of the company's characters
+  // benefit, evaluated against the checking character. Ren the Ringwraith
+  // (le-56) modifies checks "by minions in any one of your companies" and so
+  // carries a `minion-character` gate; Shifter of Hues (wh-115) aids "the
+  // characters in one company" wholesale and carries none.
   const checkCompany = findCharacterCompany(player.companies, characterId);
-  const isMinionChar = isCharacterCard(charDef) && charDef.cardType === 'minion-character';
-  if (checkCompany && isMinionChar) {
+  if (checkCompany && isCharacterCard(charDef)) {
+    const targetCtx = {
+      target: {
+        cardType: charDef.cardType,
+        race: charDef.race,
+        name: charDef.name,
+      },
+    } as Record<string, unknown>;
     for (const constraint of state.activeConstraints) {
       if (constraint.kind.type !== 'check-modifier') continue;
       if (constraint.kind.check !== 'corruption') continue;
       if (constraint.target.kind !== 'company') continue;
       if (constraint.target.companyId !== checkCompany.id) continue;
+      if (constraint.kind.when && !matchesCondition(constraint.kind.when, targetCtx)) {
+        logDetail(`Company-wide corruption check-modifier from constraint ${constraint.id} does not apply to ${charDef.name}`);
+        continue;
+      }
       totalModifier += constraint.kind.value;
       logDetail(`Company-wide corruption check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id}`);
     }
@@ -1635,7 +1649,7 @@ export function selectCardBearerActions(
       const ctx: Record<string, unknown> = {
         target: {
           race: chDef.race,
-          skills: [...chDef.skills, ...getItemGrantedSkills(state, ch)],
+          skills: getEffectiveSkills(state, ch, chDef),
           status: ch.status,
           name: chDef.name,
           itemNames: defNamesOf(state, ch.items),

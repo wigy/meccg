@@ -28,7 +28,7 @@ import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../.
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
@@ -563,6 +563,13 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         && c.target.companyId === company.id,
     )) {
       logDetail(`Company ${company.id as string} is locked stationary (company-cannot-move) — no movement offered`);
+      continue;
+    }
+
+    // A company containing a character who may not move (Shifter of Hues wh-115
+    // on Radagast) cannot move; splitting the others off is the way around it.
+    if (companyHasImmobileCharacter(state, player, company)) {
+      logDetail(`Company ${company.id as string} holds a character with bearer-cannot-move — no movement offered`);
       continue;
     }
 

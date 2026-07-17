@@ -17,7 +17,7 @@ import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { ownerOf, resolveInstanceId } from '../types/state.js';
-import { resolveDef, getItemGrantedSkills } from './effects/index.js';
+import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, companyById, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -1813,7 +1813,7 @@ function applyShortEventOnEntersPlay(
           if (!cDef || !isCharacterCard(cDef)) continue;
           const isRingwraith = cDef.race === 'ringwraith';
           const usesShadowMagic = isRingwraith
-            || [...cDef.skills, ...getItemGrantedSkills(state, ch)].includes('shadow-magic');
+            || getEffectiveSkills(state, ch, cDef).includes('shadow-magic');
           if (usesShadowMagic) enablers.push({ id: cid, isRingwraith });
         }
       }

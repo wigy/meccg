@@ -19,12 +19,12 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
-import { clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove } from './reducer-utils.js';
+import { clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { enqueueResolution, enqueueCorruptionCheck, removeConstraint } from './pending.js';
+import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
-import { resolveDef, getItemGrantedSkills } from './effects/index.js';
+import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { directInfluenceControlAllowed } from './control-cost.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { wizardSpecificName } from './fallen-wizard-specific.js';
@@ -112,9 +112,20 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
     return true;
   });
 
+  // Raise the organization-phase-end boundary for the active player so that
+  // "through your next organization phase" constraints (Shifter of Hues wh-115)
+  // created on an earlier turn expire here. The constraint created during *this*
+  // organization phase carries this same turn number and so survives — see
+  // `ConstraintScope['next-organization-phase']`.
+  const swept = sweepExpired(state, {
+    kind: 'organization-phase-end',
+    playerId: activePlayer,
+    turnNumber: state.turnNumber,
+  });
+
   return {
     state: {
-      ...updatePlayer(state, activeIndex, p => ({
+      ...updatePlayer(swept, activeIndex, p => ({
         ...p,
         cardsInPlay: remainingCards,
         discardPile: [...p.discardPile, ...discardedEvents],
@@ -187,23 +198,32 @@ function handleVoluntaryDiscardInPlay(state: GameState, action: GameAction): Red
 }
 
 /**
- * Returns an attached ally to its owner's hand during the organization phase
- * ("You may return … to your hand: during your organization phase" — Radagast's
- * Black Bird wh-114). The ally must carry a `return-to-hand` effect whose
- * triggers include `organization`. It is detached from its controlling
- * character and placed into the player's hand (not the discard pile).
+ * Returns an attached card to its owner's hand during the organization phase
+ * ("You may return … to your hand: during your organization phase").
+ *
+ * Two kinds of attachment qualify, both carrying a `return-to-hand` effect
+ * whose triggers include `organization`:
+ * - an **ally** on its controlling character (Radagast's Black Bird wh-114);
+ * - a **permanent-event placed on a character**, which the engine stores in
+ *   that character's `items` (the Radagast Shapeshifter forms wh-112/115/116:
+ *   "Return this card to your hand … if you choose, during your organization
+ *   phase").
+ *
+ * The card is detached and placed into the player's hand, never the discard
+ * pile.
  */
 function handleReturnAttachedToHand(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'return-attached-to-hand') return wrongActionType(state, action, 'return-attached-to-hand');
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const removed = removeAttachment(player, 'allies', action.cardInstanceId);
-  if (!removed) return { state, error: 'return-attached-to-hand: ally not found in play' };
+  const removed = removeAttachment(player, 'allies', action.cardInstanceId)
+    ?? removeAttachment(player, 'items', action.cardInstanceId);
+  if (!removed) return { state, error: 'return-attached-to-hand: card not found in play' };
   const def = defById(state, removed.attachment.definitionId);
   const canReturn = getCardEffects(def).some(
     e => e.type === 'return-to-hand' && e.during.includes('organization'),
   );
-  if (!canReturn) return { state, error: 'return-attached-to-hand: ally may not return to hand this phase' };
+  if (!canReturn) return { state, error: 'return-attached-to-hand: card may not return to hand this phase' };
 
   logDetail(`Organization: ${player.name} returns ${def?.name ?? '?'} to hand`);
   const next = updatePlayer(state, playerIndex, () => ({
@@ -1200,7 +1220,7 @@ function handleTestRingAtSite(state: GameState, action: GameAction): ReducerResu
 
   const sageDef = defById(state, sage.definitionId);
   if (!sageDef || !isCharacterCard(sageDef)) return { state, error: 'test-ring-at-site: sage is not a character' };
-  const skills = [...(sageDef.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, sage)];
+  const skills = getEffectiveSkills(state, sage, sageDef as { skills?: readonly string[] });
   if (!skills.includes('sage')) return { state, error: 'test-ring-at-site: character is not a sage' };
 
   const company = findCharacterCompany(player.companies, action.characterId);
@@ -1661,6 +1681,13 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
   )) {
     logDetail(`Plan movement rejected: company ${company.id as string} is locked stationary (company-cannot-move)`);
     return { state, error: 'Company is locked stationary this turn (cannot declare movement)' };
+  }
+
+  // A character who may not move (Shifter of Hues wh-115 on Radagast) keeps
+  // their whole company stationary while they remain in it.
+  if (companyHasImmobileCharacter(state, player, company)) {
+    logDetail(`Plan movement rejected: company ${company.id as string} holds a character with bearer-cannot-move`);
+    return { state, error: 'A character in this company may not move' };
   }
 
   const deckCard = findById(player.siteDeck, action.destinationSite);

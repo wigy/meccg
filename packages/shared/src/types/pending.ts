@@ -797,6 +797,17 @@ export type ConstraintScope =
   | { readonly kind: 'phase'; readonly phase: Phase }
   | { readonly kind: 'company-site-phase'; readonly companyId: CompanyId }
   | { readonly kind: 'company-mh-phase'; readonly companyId: CompanyId }
+  /**
+   * Cleared at the end of {@link playerId}'s **next** organization phase —
+   * "through your next organization phase" (Shifter of Hues wh-115).
+   *
+   * {@link afterTurn} records `state.turnNumber` at the moment the constraint
+   * was created. The organization-phase-end sweep only drops the constraint
+   * once it sees a strictly greater turn number, so the organization phase the
+   * constraint was *created in* does not immediately expire it, while the
+   * player's next one (necessarily a later turn) does.
+   */
+  | { readonly kind: 'next-organization-phase'; readonly playerId: PlayerId; readonly afterTurn: number }
   /** Cleared explicitly by another effect; never auto-swept. */
   | { readonly kind: 'until-cleared' };
 
@@ -926,6 +937,18 @@ export interface ActiveConstraint {
          * by {@link value}). Used by Ancient Black Axe (as-122).
          */
         readonly autoPass?: boolean;
+        /**
+         * When true the modifier is **not** consumed by the check it modifies:
+         * it keeps applying to every matching check until its scope sweeps it
+         * away. The default (absent/false) is the one-shot behaviour every
+         * earlier card wanted — "add +2 to *one* corruption check".
+         *
+         * Shifter of Hues (wh-115) needs the lasting form: tapping Radagast
+         * gives "+2 to the corruption checks of the characters in one company
+         * through your next organization phase" — a standing buff over a whole
+         * company for a bounded window, not a single roll.
+         */
+        readonly lasting?: boolean;
         /**
          * Optional condition evaluated against the resolving check's resolver
          * context. When present, the modifier is only applied (and consumed) if
@@ -1573,4 +1596,10 @@ export type ScopeBoundary =
   | { readonly kind: 'company-site-end'; readonly companyId: CompanyId }
   /** Clears `attack`-scoped constraints when an attack finalizes. */
   | { readonly kind: 'attack-end' }
+  /**
+   * Raised when {@link playerId} leaves their organization phase, carrying the
+   * turn number that organization phase belonged to. Clears
+   * `next-organization-phase`-scoped constraints created on an earlier turn.
+   */
+  | { readonly kind: 'organization-phase-end'; readonly playerId: PlayerId; readonly turnNumber: number }
   | { readonly kind: 'turn-end' };

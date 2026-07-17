@@ -20,7 +20,7 @@ import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
-import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getItemGrantedSkills, resolveDef } from '../effects/index.js';
+import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -1178,7 +1178,7 @@ function playResourcesActions(
             const ctx: Record<string, unknown> = {
               target: {
                 race: charDef.race,
-                skills: [...charDef.skills, ...getItemGrantedSkills(state, ch)],
+                skills: getEffectiveSkills(state, ch, charDef),
                 status: ch.status,
                 name: charDef.name,
                 itemNames,
@@ -1492,7 +1492,7 @@ function playResourcesActions(
           const bearerCtx: Record<string, unknown> = {
             target: {
               race: charDef.race,
-              skills: [...charDef.skills, ...getItemGrantedSkills(state, ch)],
+              skills: getEffectiveSkills(state, ch, charDef),
               status: ch.status,
               name: charDef.name,
             },
@@ -1860,7 +1860,7 @@ function playResourcesActions(
           const resolverCtx: ResolverContext = {
             reason: 'faction-influence-check',
             bearer: {
-              race: charDef.race, skills: [...charDef.skills, ...getItemGrantedSkills(state, fullCharacter)],
+              race: charDef.race, skills: getEffectiveSkills(state, fullCharacter, charDef),
               baseProwess: charDef.prowess, baseBody: charDef.body,
               baseDirectInfluence: charDef.directInfluence, name: charDef.name,
               // Character subgrouping keywords (e.g. "leader"), so a faction's
@@ -2252,7 +2252,7 @@ function sitePhaseGrantActions(
         if (!char || char.status !== CardStatus.Untapped) return false;
         const def = defById(state, char.definitionId);
         if (!isCharacterCard(def)) return false;
-        const skills = [...(def.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, char)];
+        const skills = getEffectiveSkills(state, char, def as { skills?: readonly string[] });
         return skills.includes('sage');
       });
       const scouts = company.characters.filter(cId => {
@@ -2260,7 +2260,7 @@ function sitePhaseGrantActions(
         if (!char || char.status !== CardStatus.Untapped) return false;
         const def = defById(state, char.definitionId);
         if (!isCharacterCard(def)) return false;
-        const skills = [...(def.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, char)];
+        const skills = getEffectiveSkills(state, char, def as { skills?: readonly string[] });
         return skills.includes('scout');
       });
 

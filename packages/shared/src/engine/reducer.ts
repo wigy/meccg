@@ -34,6 +34,7 @@ import { sweepPressGang } from './press-gang.js';
 import { sweepFallenWizardSpecific } from './fallen-wizard-specific.js';
 import { sweepGreatHuntDiscards } from './great-hunt.js';
 import { sweepDiscardSelfWhen } from './discard-self-when.js';
+import { sweepKeywordReplaced } from './keyword-replaced.js';
 
 /**
  * Post-action housekeeping: sweep manifestation cascades (METD §4.2) and
@@ -47,7 +48,7 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // card giving them 3+ marshalling points. Runs first, on the raw post-action
   // state, so the later sweeps/recompute see the tapped status.
   const tapped = prevState ? applyEvilHourTaps(prevState, state) : state;
-  return accrueRevealedInstances(recomputeDerived(sweepProhibitedCompanyEvents(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(tapped))))))))))))));
+  return accrueRevealedInstances(recomputeDerived(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(tapped)))))))))))))));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
