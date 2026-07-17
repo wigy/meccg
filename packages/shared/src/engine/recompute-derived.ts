@@ -1092,6 +1092,65 @@ function permanentEventMpOverride(
   return match?.value;
 }
 
+/** One `noncharacter-mp-override` rule: a per-card condition and its MP value. */
+type NonCharacterMpOverrideRule = { readonly when: Condition; readonly value: number };
+
+/**
+ * Collects the `noncharacter-mp-override` rules a player currently has in play
+ * (e.g. Give Welcome to the Unexpected wh-99). The carrying stage
+ * permanent-event is placed "on the avatar", so it lives in the avatar's
+ * `items` rather than `cardsInPlay`; both locations are scanned so the override
+ * counts while the card is attached ("if on Gandalf"). Empty when no such card
+ * is in play, so non-Fallen-wizards and unaffected games pay nothing.
+ */
+function nonCharacterMpOverrideRules(
+  state: GameState,
+  player: PlayerState,
+): NonCharacterMpOverrideRule[] {
+  const rules: NonCharacterMpOverrideRule[] = [];
+  const collect = (def: CardDefinition | undefined): void => {
+    if (!def) return;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'noncharacter-mp-override') rules.push({ when: effect.when, value: effect.value });
+    }
+  };
+  for (const card of player.cardsInPlay) collect(resolveDef(state, card.instanceId));
+  for (const char of Object.values(player.characters)) {
+    for (const item of char.items) collect(resolveDef(state, item.instanceId));
+  }
+  return rules;
+}
+
+/**
+ * Resolves the overridden marshalling-point value for one of the player's
+ * **non-character** MP-scoring cards (an item, ally, faction, or misc
+ * permanent-event) under the active `noncharacter-mp-override` rules, or
+ * `undefined` when no rule matches (so the card scores normally). Each rule is
+ * evaluated against `{ card: { unique, normalMp, cardType, name, race } }`,
+ * where `normalMp` is the card's *printed* marshalling points; the last matching
+ * rule wins. Cards with no printed MP are never overridden.
+ */
+function nonCharacterMpOverride(
+  def: CardDefinition,
+  rules: readonly NonCharacterMpOverrideRule[],
+): number | undefined {
+  if (rules.length === 0 || !hasMarshallingPoints(def)) return undefined;
+  const ctx = {
+    card: {
+      unique: 'unique' in def ? (def as { unique?: boolean }).unique : undefined,
+      normalMp: def.marshallingPoints,
+      cardType: def.cardType,
+      name: 'name' in def ? def.name : undefined,
+      race: 'race' in def ? (def as { race?: string }).race : undefined,
+    },
+  };
+  let value: number | undefined;
+  for (const rule of rules) {
+    if (matchesContext(rule.when, ctx)) value = rule.value;
+  }
+  return value;
+}
+
 function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: readonly string[]): PlayerState {
   // MEWH §4 exception: items matching an in-play `fw-item-mp-full` effect's
   // filter (e.g. Saruman's non-combat items, or Join the Hunt's weapon/armor/
@@ -1108,6 +1167,11 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // characters/allies that normally give >= threshold MP score `value` instead
   // of the §4 1-MP clamp. Empty for non-Fallen-wizards.
   const fwCharAllyCaps = fwCharacterAllyMpCaps(state, player);
+  // Give Welcome to the Unexpected (wh-99): in-play overrides re-valuing the
+  // player's non-character cards (items, allies, factions, misc permanent-events)
+  // that match a per-card condition. Collected from `cardsInPlay` and the
+  // avatar's `items` (the carrier is placed "on Gandalf"); empty otherwise.
+  const ncMpOverrides = nonCharacterMpOverrideRules(state, player);
   // "in Alatar's company": the id of the company holding the player's revealed
   // avatar, resolved only when some exemption is company-restricted (Join the
   // Hunt). Undefined when the avatar is not in play, so no character matches.
@@ -1247,6 +1311,17 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const item of char.items) {
       const itemDef = resolveDef(state, item.instanceId);
       if (!itemDef) continue;
+      // Give Welcome to the Unexpected (wh-99): a matching unique non-character
+      // item scores the override value instead of its printed / §4-clamped MP.
+      const ncOverride = nonCharacterMpOverride(itemDef, ncMpOverrides);
+      if (ncOverride !== undefined && hasMarshallingPoints(itemDef)) {
+        const cat = itemDef.marshallingCategory;
+        if (ncOverride !== 0) {
+          mp = { ...mp, [cat]: mp[cat] + ncOverride };
+          if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + ncOverride };
+        }
+        continue;
+      }
       const fwExempt = fwItemExemptions.length > 0 && cardExemptFromFwClamp(itemDef, fwItemExemptions, bearerInAvatarCompany);
       mp = addItemMP(mp, itemDef, player.alignment, fwExempt);
       if (atUnderDeeps) underDeepsMp = addItemMP(underDeepsMp, itemDef, player.alignment, fwExempt);
@@ -1284,6 +1359,17 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const ally of char.allies) {
       const allyDef = resolveDef(state, ally.instanceId);
       if (allyDef) {
+        // Give Welcome to the Unexpected (wh-99): a matching unique ally scores
+        // the override value instead of its printed / §4-clamped MP.
+        const allyNcOverride = nonCharacterMpOverride(allyDef, ncMpOverrides);
+        if (allyNcOverride !== undefined && hasMarshallingPoints(allyDef)) {
+          const cat = allyDef.marshallingCategory;
+          if (allyNcOverride !== 0) {
+            mp = { ...mp, [cat]: mp[cat] + allyNcOverride };
+            if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + allyNcOverride };
+          }
+          continue;
+        }
         // Join the Hunt (wh-93): a matching ally in the avatar company scores
         // full printed MP instead of the §4 clamp (or a Great Patron cap).
         const allyFull = fwAllyExemptions.length > 0
@@ -1359,6 +1445,15 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);
     if (!def) continue;
+    // Give Welcome to the Unexpected (wh-99): a matching unique non-character
+    // card in play (faction / misc permanent-event) scores the override value,
+    // taking precedence over its printed / §4-clamped MP.
+    const ncOverride = nonCharacterMpOverride(def, ncMpOverrides);
+    if (ncOverride !== undefined) {
+      const cat = hasMarshallingPoints(def) ? def.marshallingCategory : ('misc' as MarshallingCategory);
+      if (ncOverride !== 0) mp = { ...mp, [cat]: mp[cat] + ncOverride };
+      continue;
+    }
     if (factionOverrides.length > 0 && isFactionCard(def)) {
       const overrideMp = resolveFactionMpOverride(def, factionOverrides, avatarName);
       if (overrideMp !== undefined) {

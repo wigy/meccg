@@ -1793,8 +1793,19 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Gandalf" }
+      },
+      {
+        "type": "noncharacter-mp-override",
+        "when": { "card.unique": true, "card.normalMp": 1 },
+        "value": 2
       }
     ],
+    "certified": "2026-07-17",
     "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, your unique non-character cards normally worth 1 marshalling point are each worth 2 marshalling points."
   },
   {
