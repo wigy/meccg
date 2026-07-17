@@ -153,7 +153,62 @@
     "generalInfluence": 18,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Any Free-hold"
+    "homesite": "Any Free-hold",
+    "effects": [
+      {
+        "type": "fw-char-mp-full"
+      },
+      {
+        "type": "fw-ally-mp-full",
+        "filter": {
+          "cardType": "hero-resource-ally"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "untap-self",
+        "oncePerTurn": true,
+        "cost": {},
+        "when": {
+          "bearer.status": "tapped"
+        },
+        "apply": {
+          "type": "set-character-status",
+          "target": "bearer",
+          "status": "untapped"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "test-gold-ring",
+        "cost": {
+          "tap": "self"
+        },
+        "targets": {
+          "scope": "company-items",
+          "filter": {
+            "subtype": "gold-ring"
+          }
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "roll-check",
+              "check": "gold-ring-test",
+              "label": "Gold ring test"
+            },
+            {
+              "type": "move",
+              "select": "target",
+              "from": "in-play",
+              "to": "discard"
+            }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-07-17"
   },
   {
     "cardType": "hero-character",

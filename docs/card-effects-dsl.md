@@ -729,6 +729,27 @@ the same effect player-wide (no `inAvatarCompany`).
   "inAvatarCompany": true }
 ```
 
+### 3b-ii-b. `fw-char-mp-full`
+
+Fallen-wizard **character** marshalling-point exemption (MEWH §4 exception). Like
+`fw-ally-mp-full` but for characters: each character matching `filter` scores its
+**full printed** character MP instead of the §4 flat-1 clamp. Omit `filter` to
+exempt every character the FW controls. The optional `inAvatarCompany: true`
+restricts the exemption to characters in the player's avatar company. Collected
+per player from in-play characters and `cardsInPlay` and consumed in
+`recompute-derived.ts` (`addMP`'s `fwFullMp` path, at the character-scoring loop);
+full-MP takes precedence over any `fw-character-ally-mp` cap and never applies to
+stage cards or non-Fallen-wizards.
+
+Used by the Fallen-wizard Gandalf (wh-4): "Your characters … are each worth full
+marshalling points." — carried player-wide (no `filter`), paired with a
+player-wide `fw-ally-mp-full` filtered to `hero-resource-ally` for the "and hero
+allies" half of the same clause.
+
+```json
+{ "type": "fw-char-mp-full" }
+```
+
 ### 3b-iii. `ally-movement-restriction-exemption`
 
 Exempts matching allies the source's controller has in play from their printed

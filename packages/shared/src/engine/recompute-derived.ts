@@ -1015,6 +1015,25 @@ function fwAllyMpFullEntries(state: GameState, player: PlayerState): FwMpFullEnt
 }
 
 /**
+ * Collects the character marshalling-point exemption entries a Fallen-wizard
+ * player currently has in play (`fw-char-mp-full`, e.g. the wh-4 Gandalf). Each
+ * matching character scores its full printed character MP instead of the §4
+ * 1-MP clamp. Empty for any non-Fallen-wizard player.
+ */
+function fwCharMpFullEntries(state: GameState, player: PlayerState): FwMpFullEntry[] {
+  if (player.alignment !== 'fallen-wizard') return [];
+  const entries: FwMpFullEntry[] = [];
+  for (const def of fwExemptionSourceDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-char-mp-full') {
+        entries.push({ filter: effect.filter ?? null, inAvatarCompany: effect.inAvatarCompany ?? false });
+      }
+    }
+  }
+  return entries;
+}
+
+/**
  * Whether a card definition (item or ally) is exempt from the Fallen-wizard
  * 1-MP clamp given the active full-MP entries. A card is exempt if any entry's
  * filter matches it (a `null` filter matches every card) **and** the entry's
@@ -1082,6 +1101,9 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // Join the Hunt (wh-93) / Oromë's Warders (wh-94): allies matching a
   // `fw-ally-mp-full` filter score full printed MP instead of the §4 1-MP clamp.
   const fwAllyExemptions = fwAllyMpFullEntries(state, player);
+  // Fallen-wizard Gandalf (wh-4): characters matching a `fw-char-mp-full` filter
+  // score their full printed character MP instead of the §4 1-MP clamp.
+  const fwCharExemptions = fwCharMpFullEntries(state, player);
   // Great Patron (wh-72): in-play overrides letting the Fallen-wizard's
   // characters/allies that normally give >= threshold MP score `value` instead
   // of the §4 1-MP clamp. Empty for non-Fallen-wizards.
@@ -1090,7 +1112,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // avatar, resolved only when some exemption is company-restricted (Join the
   // Hunt). Undefined when the avatar is not in play, so no character matches.
   const needsAvatarCompany = fwItemExemptions.some(e => e.inAvatarCompany)
-    || fwAllyExemptions.some(e => e.inAvatarCompany);
+    || fwAllyExemptions.some(e => e.inAvatarCompany)
+    || fwCharExemptions.some(e => e.inAvatarCompany);
   const avatarCompanyId = needsAvatarCompany
     ? (() => {
       const avatar = findPlayerAvatar(state, player);
@@ -1212,8 +1235,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       mp = { ...mp, [cat]: mp[cat] - charMp };
       if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] - charMp };
     } else {
-      mp = addMP(mp, charDef, player.alignment, fwCharAllyCaps);
-      if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, charDef, player.alignment, fwCharAllyCaps);
+      // Fallen-wizard Gandalf (wh-4): a matching character scores full printed
+      // MP instead of the §4 clamp (or a Great Patron cap).
+      const charFull = fwCharExemptions.length > 0
+        && cardExemptFromFwClamp(charDef, fwCharExemptions, bearerInAvatarCompany);
+      mp = addMP(mp, charDef, player.alignment, fwCharAllyCaps, charFull);
+      if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, charDef, player.alignment, fwCharAllyCaps, charFull);
     }
 
     // Item MPs (cross-alignment items are worth half MP, rounded up — MELE Part IV)

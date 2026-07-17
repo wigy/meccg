@@ -492,6 +492,40 @@ export interface FallenWizardAllyMpFullEffect extends EffectBase {
 }
 
 /**
+ * Fallen-wizard character marshalling-point exemption (MEWH §4 exception).
+ *
+ * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
+ * marshalling point — including his characters (which normally score their
+ * printed character MP). A card carrying this effect lets the player's
+ * **characters** matching {@link filter} each score their **full printed** MP
+ * instead of the clamped 1. Characters that do not match remain clamped to 1.
+ *
+ * Used by the Fallen-wizard Gandalf (wh-4): "Your characters and hero allies are
+ * each worth full marshalling points." — carried player-wide (no `filter`,
+ * exempting every character), paired with a player-wide {@link
+ * FallenWizardAllyMpFullEffect} filtered to `hero-resource-ally` for the ally
+ * half of the clause.
+ *
+ * ```json
+ * { "type": "fw-char-mp-full" }
+ * ```
+ */
+export interface FallenWizardCharacterMpFullEffect extends EffectBase {
+  readonly type: 'fw-char-mp-full';
+  /**
+   * Condition matched against a character's card definition. Characters that
+   * match score full printed MP for the Fallen-wizard; omit to exempt every
+   * character (the wh-4 Gandalf case).
+   */
+  readonly filter?: Condition;
+  /**
+   * When `true`, the exemption applies only to characters in the same company as
+   * the player's revealed avatar. Omit for a player-wide exemption (wh-4).
+   */
+  readonly inAvatarCompany?: boolean;
+}
+
+/**
  * Exempts matching allies the source's controller has in play from their
  * printed "discard if the company moves to …" movement restriction (a
  * `bearer-company-moves` self-discard, e.g. Mistress Lobelia dm-178). CRF 22:
@@ -5369,6 +5403,7 @@ export type CardEffect =
   | CorruptionSourceMultiplierEffect
   | FallenWizardItemMpEffect
   | FallenWizardAllyMpFullEffect
+  | FallenWizardCharacterMpFullEffect
   | FallenWizardCharacterAllyMpEffect
   | FallenWizardKillMpEffect
   | DetainmentAttacksNormalEffect
