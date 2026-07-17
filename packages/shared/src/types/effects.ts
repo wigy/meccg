@@ -788,6 +788,42 @@ export interface PermanentEventMpEffect extends EffectBase {
 }
 
 /**
+ * Re-values the controller's **non-character** cards in play that match a
+ * per-card {@link when} condition, overriding their printed marshalling points
+ * (and, for a Fallen-wizard, the MEWH §4 flat-1-MP clamp).
+ *
+ * The override is applied to every MP-scoring non-character card the player
+ * controls — items and allies borne by his characters, and factions / misc
+ * permanent-events in his `cardsInPlay` — but never to characters (which are
+ * scored by their own {@link FallenWizardCharacterAllyMpEffect} / §4 path).
+ * Each candidate is matched against the context
+ * `{ card: { unique, normalMp, cardType, name, race } }`, where `normalMp` is
+ * the card's *printed* marshalling points; a match scores exactly {@link value}.
+ *
+ * The carrying card is typically a stage permanent-event placed on the avatar
+ * (collected from both `cardsInPlay` and the avatar's `items`, so it counts
+ * while attached), so "if on Gandalf" is satisfied by the card being in play.
+ *
+ * Used by Give Welcome to the Unexpected (wh-99): "your unique non-character
+ * cards normally worth 1 marshalling point are each worth 2 marshalling points."
+ *
+ * ```json
+ * { "type": "noncharacter-mp-override", "when": { "card.unique": true, "card.normalMp": 1 }, "value": 2 }
+ * ```
+ */
+export interface NonCharacterMpOverrideEffect extends EffectBase {
+  readonly type: 'noncharacter-mp-override';
+  /**
+   * Condition matched against the per-card context
+   * `{ card: { unique, normalMp, cardType, name, race } }`. Every matching
+   * non-character MP-scoring card the player controls scores {@link value}.
+   */
+  readonly when: Condition;
+  /** MP each matching card is worth, overriding its printed value and the §4 clamp. */
+  readonly value: number;
+}
+
+/**
  * Recruitment-vehicle effect — Thrall of the Voice (wh-82).
  *
  * Marks a permanent resource-event as a "recruitment vehicle": during the
@@ -5573,6 +5609,7 @@ export type CardEffect =
   | ControlRestrictionEffect
   | FactionMpOverrideEffect
   | PermanentEventMpEffect
+  | NonCharacterMpOverrideEffect
   | RecruitmentVehicleEffect
   | RecruitCharacterEffect
   | AllowCharacterPlayEffect
