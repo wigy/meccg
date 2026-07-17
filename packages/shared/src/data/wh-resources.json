@@ -1721,9 +1721,71 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "cardType": "hero-site" },
+            { "siteType": "free-hold" }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "haven",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "wizardhaven-conversion",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "skip-automatic-attacks",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-nothing-playable",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "cancel-attacks-at-site",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
       }
     ],
-    "text": "Gandalf specific. Playable on one of your hero Free-hold [{F}] sites in play. This site becomes a Wizardhaven [{H}] for your companies, loses all automatic-attacks against your companies, and is one of Gandalf’s home sites. Nothing is considered playable as written on the site card. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise. Cannot be duplicated on a given site."
+    "text": "Gandalf specific. Playable on one of your hero Free-hold [{F}] sites in play. This site becomes a Wizardhaven [{H}] for your companies, loses all automatic-attacks against your companies, and is one of Gandalf’s home sites. Nothing is considered playable as written on the site card. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise. Cannot be duplicated on a given site.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "minion-resource-event",

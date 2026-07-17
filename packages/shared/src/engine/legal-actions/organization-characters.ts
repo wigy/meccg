@@ -310,6 +310,13 @@ function findPlayableSites(
  *   home site of 'Any non-Dark-hold Under-deeps site' instead"); for every
  *   other alignment it keeps its literal meaning (matched via Dark-hold
  *   Darkhavens through the haven path, not here).
+ *
+ * The **site-type home-site form** `"Any <site-type>"` (Gandalf wh-4:
+ * `"Any Free-hold"`) matches any site whose *printed* type is that type — using
+ * `siteDef.siteType`, not the effective type, so a Free-hold converted into a
+ * Wizardhaven by Chambers in the Royal Court (wh-97) remains one of Gandalf's
+ * home sites even though its effective type now reads `haven`. Dark-hold is
+ * excluded from this form: "Any Dark-hold" keeps the special meaning above.
  */
 function homesiteMatchesSite(charDef: CharacterCard, siteDef: SiteCard, playerAlignment?: Alignment): boolean {
   let homesite = charDef.homesite;
@@ -322,8 +329,23 @@ function homesiteMatchesSite(charDef: CharacterCard, siteDef: SiteCard, playerAl
     const isUnderDeeps = siteDef.keywords?.includes('under-deeps') ?? false;
     return isUnderDeeps && siteDef.siteType !== SiteType.DarkHold;
   }
+  const anySiteType = SITE_TYPE_HOMESITE_LABELS[homesite];
+  if (anySiteType !== undefined) return siteDef.siteType === anySiteType;
   return false;
 }
+
+/**
+ * `"Any <site-type>"` home-site labels → the printed {@link SiteType} they match
+ * (see {@link homesiteMatchesSite}). Dark-hold is intentionally absent: its
+ * "Any Dark-hold" form has bespoke (Balrog-remap / Darkhaven) handling.
+ */
+const SITE_TYPE_HOMESITE_LABELS: Readonly<Record<string, SiteType>> = {
+  'Any Free-hold': SiteType.FreeHold,
+  'Any Border-hold': SiteType.BorderHold,
+  'Any Ruins & Lairs': SiteType.RuinsAndLairs,
+  'Any Shadow-hold': SiteType.ShadowHold,
+  'Any Haven': SiteType.Haven,
+};
 
 /**
  * Evaluates playing an avatar card from hand as a "Ringwraith follower" of the
