@@ -35,7 +35,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
+  PLAYER_1, PLAYER_2, HAZARD_PLAYER,
   ARAGORN, LEGOLAS, LORIEN, MINAS_TIRITH, BREE, BANDIT_LAIR, WELLINGHALL, DOORS_OF_NIGHT,
   resetMint, buildTestState, makeMHState, viableActions,
 } from '../test-helpers.js';
