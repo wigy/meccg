@@ -1134,6 +1134,36 @@ export function playerHasProtectedWizardhaven(state: GameState, playerId: Player
 }
 
 /**
+ * Counts the **distinct** protected Wizardhaven sites the given player controls
+ * — the same predicate as {@link playerHasProtectedWizardhaven}, but returning
+ * how many separate sites qualify rather than a boolean. Distinctness is by
+ * site {@link CardDefinitionId} so a single site protected by both a constraint
+ * and inherent status (or occupied by two companies) is counted once. Used by
+ * play-conditions that require *more than one* protected Wizardhaven, e.g. Await
+ * the Onset (wh-96): "two protected Wizardhavens [{H}]".
+ */
+export function protectedWizardhavenCount(state: GameState, playerId: PlayerId): number {
+  const sites = new Set<CardDefinitionId>();
+  for (const c of state.activeConstraints) {
+    if (!(c.kind.type === 'site-flag' && c.kind.flag === 'site-protected')) continue;
+    if (c.target.kind !== 'player' || c.target.playerId !== playerId) continue;
+    const siteDefId = c.kind.siteDefinitionId;
+    const siteDef = state.cardPool[siteDefId];
+    if (!isSiteCard(siteDef)) continue;
+    const isFwHaven = siteDef.siteType === 'haven' && siteDef.alignment === 'fallen-wizard';
+    if (isFwHaven || isWizardhavenConversionFor(state, siteDefId, playerId)) sites.add(siteDefId);
+  }
+  const player = playerById(state, playerId);
+  if (player) {
+    for (const company of player.companies) {
+      const siteDefId = company.currentSite?.definitionId;
+      if (siteDefId && inherentProtectedWizardhavenOwner(state, siteDefId) === playerId) sites.add(siteDefId);
+    }
+  }
+  return sites.size;
+}
+
+/**
  * Whether `siteDef` functions as a *haven* for a player of the given alignment
  * (MEWH §3, "Wizardhavens").
  *

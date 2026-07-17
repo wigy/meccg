@@ -38,7 +38,7 @@ import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -2085,8 +2085,13 @@ export function buildActiveCompanyContext(
  *   Gatherer of Loyalties (wh-70) and A Strident Spawn (wh-61).
  * - `player.factionCount` — the number of factions the player controls in play.
  *   Used by The White Hand (wh-122).
+ * - `player.characterCount` — the number of characters the player controls in
+ *   play. Used by Await the Onset (wh-96): "6 characters".
  * - `player.hasProtectedWizardhaven` — `true` when the player controls a
  *   protected Wizardhaven. Used by A Strident Spawn (wh-61).
+ * - `player.protectedWizardhavenCount` — how many *distinct* protected
+ *   Wizardhavens the player controls. Used by Await the Onset (wh-96): "two
+ *   protected Wizardhavens [{H}]".
  * - `inPlay` — the names of cards the player has in play, for
  *   `{ "inPlay": "<name>" }` prerequisites (e.g. The White Hand wh-122).
  */
@@ -2108,6 +2113,13 @@ export function buildPlayerStateContext(
     const def = defById(state, c.definitionId);
     return def && isFactionCard(def);
   }).length;
+  // Number of (non-prisoner) characters the player controls in play — companies
+  // hold the player's characters keyed by instance. Used by Await the Onset
+  // (wh-96): "6 characters".
+  const characterCount = Object.values(player.characters).filter(char => {
+    const def = defById(state, char.definitionId);
+    return def && isCharacterCard(def);
+  }).length;
   // "Playable if you are X" Stage cards test the Fallen-wizard the player
   // counts *as* (CoE 2.2.F2), which persists from declaration (CoE 1.8.F1)
   // until the avatar is eliminated — the avatar need not be in play. Use the
@@ -2120,7 +2132,9 @@ export function buildPlayerStateContext(
       hasRingwraithInPlay,
       stagePoints: player.stagePoints,
       factionCount,
+      characterCount,
       hasProtectedWizardhaven: playerHasProtectedWizardhaven(state, playerId),
+      protectedWizardhavenCount: protectedWizardhavenCount(state, playerId),
     },
     opponent: { alignment: opponent?.alignment },
     inPlay: buildControllerInPlayNames(state, playerId),
