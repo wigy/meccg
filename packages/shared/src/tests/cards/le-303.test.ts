@@ -44,7 +44,7 @@
  * Site fixtures:
  *   - EDORAS (le-372):     free-hold, gold-ring playable       ← valid play site
  *   - MORIA (le-392):      shadow-hold, gold-ring playable     ← invalid (not free-hold)
- *   - DOL_AMROTH (le-366): free-hold, nothing playable         ← invalid (no gold-ring)
+ *   - PELARGIR (le-398):   free-hold, nothing playable         ← invalid (no gold-ring)
  *   - DOL_GULDUR (le-367): haven, storable                     ← for corruption/storage tests
  *   - ETTENMOORS (le-373): ruins-and-lairs                     ← for corruption check tests
  *   - MINAS_MORGUL (le-390): haven                             ← opponent fixture
@@ -75,7 +75,7 @@ const SHAGRAT = 'le-39' as CardDefinitionId;
 
 const EDORAS = 'le-372' as CardDefinitionId;
 const MORIA = 'le-392' as CardDefinitionId;
-const DOL_AMROTH = 'le-366' as CardDefinitionId;
+const PELARGIR = 'le-398' as CardDefinitionId;
 const DOL_GULDUR = 'le-367' as CardDefinitionId;
 const ETTENMOORS = 'le-373' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
@@ -156,12 +156,12 @@ describe('Bright Gold Ring (le-303)', () => {
     expect(plays.length).toBe(0);
   });
 
-  test('not offered at Dol Amroth (free-hold without gold-ring)', () => {
+  test('not offered at Pelargir (free-hold without gold-ring)', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_AMROTH, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
+        { id: PLAYER_1, companies: [{ site: PELARGIR, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
         { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [SHAGRAT] }], hand: [], siteDeck: [MINAS_MORGUL] },
       ],
       phase: Phase.Site,
