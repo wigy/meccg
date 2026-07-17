@@ -979,7 +979,21 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": { "reason": "faction-influence-check", "faction.name": "Riders of Rohan" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": { "reason": "faction-influence-check", "faction.name": "Dunlendings" }
+      }
+    ],
+    "certified": "2026-07-17",
     "text": "Unique. Agent. +1 direct influence against Riders of Rohan and Dunlendings."
   },
   {
