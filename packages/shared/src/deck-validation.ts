@@ -487,6 +487,10 @@ export function validateDeck(
       [poolCards, 'pool'],
       [sideboard, 'sideboard'],
       [antiFwSideboard, 'anti-fw-sideboard'],
+      // The location deck too: a `<wizard>-specific` site (Rhosgobel wh-57,
+      // `radagast-specific`: "Only Radagast's companies may use this card") may
+      // only be included when that wizard is the declared avatar.
+      [sites, 'sites'],
     ];
     for (const [section, sectionKey] of allSections) {
       for (const entry of section) {
