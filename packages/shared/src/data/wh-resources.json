@@ -1740,8 +1740,42 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.avatar": "Gandalf"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "site.isOwnWizardhaven": true
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.isAvatar": {
+            "$ne": true
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "control-restriction",
+        "cost": 1,
+        "sources": ["general", "fallen-wizard"]
       }
     ],
+    "certified": "2026-07-17",
     "text": "Unique. Gandalf specific. Playable on one of your characters at one of your Wizardhavens [{H}] (or in your starting company). +2 to his direct influence. This character requires 1 point of influence to control and may only be controlled by general influence or Gandalf."
   },
   {
