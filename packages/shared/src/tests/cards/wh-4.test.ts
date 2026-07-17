@@ -39,7 +39,7 @@ import {
   RESOURCE_PLAYER,
   ARAGORN, LEGOLAS, PRECIOUS_GOLD_RING,
   ISENGARD, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  addCardInPlay, recomputeDerived, attachAllyToChar,
+  recomputeDerived, attachAllyToChar,
   dispatch, dispatchResult, viableActions, findCharInstanceId, getCharacter,
   expectCharStatus, expectCharItemCount, expectInDiscardPile,
 } from '../test-helpers.js';
