@@ -9,8 +9,36 @@
     "eventType": "permanent",
     "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the site phase on a Free-hold or Border-hold if you have played a faction there. This site is never discarded and never untaps."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": {
+            "$in": ["free-hold", "border-hold"]
+          }
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "company.playedFactionHere": true
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "site-lock",
+        "convertDetainmentVsMinion": true,
+        "duplicateFirstAutoAttackVsMinion": true
+      }
+    ],
+    "text": "Playable during the site phase on a Free-hold [{F}] or Border-hold [{B}] if you have played a faction there. This site is never discarded and never untaps for you. All detainment attacks at all versions of this site against minion companies instead attack normally. Against minion companies, each version of this site has an additional automatic-attack: an exact copy including all modifications of the first automatic-attack listed on its card. Cannot be duplicated on a given site.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "minion-resource-event",

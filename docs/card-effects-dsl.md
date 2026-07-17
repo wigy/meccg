@@ -8833,6 +8833,14 @@ per-company tax.
 }
 ```
 
+```json
+{
+  "type": "site-lock",
+  "convertDetainmentVsMinion": true,
+  "duplicateFirstAutoAttackVsMinion": true
+}
+```
+
 Behaviour, while the card is in play bound to site `S` and no longer
 `pendingTriggerAttack` (its ongoing effects are suppressed until the keep is
 resolved):
@@ -8854,6 +8862,22 @@ resolved):
   added to the faction-influence need in the site-phase influence path
   (`legal-actions/site.ts`), alongside the turn-scoped `influence-at-site-modifier`
   constraint. A negative value raises the roll the influencer must beat.
+- **Detainment → normal vs minion** (optional `convertDetainmentVsMinion`) — "All
+  detainment attacks at all versions of this site against minion companies instead
+  attack normally." When the company facing `S`'s automatic-attacks is a **minion**
+  (Ringwraith) company and a bound copy carries this flag, the auto-attacks are
+  forced non-detainment — folded into the `forcesNormalAttacks` gate in
+  `reducer-site.ts` (via `siteLockAntiMinion(state, siteDefId)`), the same gate
+  used by Alatar wh-1 / Awaken Defenders le-103.
+- **Extra first auto-attack vs minion** (optional
+  `duplicateFirstAutoAttackVsMinion`) — "Against minion companies, each version of
+  this site has an additional automatic-attack: an exact copy including all
+  modifications of the first automatic-attack listed on its card." After every
+  printed automatic-attack (and any race/incite duplicate) is resolved, a minion
+  company faces one more combat that copies `S`'s first automatic-attack; the copy
+  re-resolves through `resolveAttack*`, so its runtime modifications are re-applied.
+  Faced exactly once, guarded by `SitePhaseState.siteLockMinionAttackDone`
+  (`handleSiteAutomaticAttacks` done-branch, `reducer-site.ts`).
 
 Used by People Diminished (ba-72): "Playable during the site phase on an untapped
 Free-hold [{F}] or Border-hold [{B}]. Tap the site. The company faces 3 attacks
@@ -8867,6 +8891,23 @@ site." — `play-target: site` (`siteType $in [free-hold, border-hold]`) +
 `move-to-mp-pile`, `discardUniqueFactionsAtSite`) + `site-lock`
 (`factionInfluenceModifier` -5). ("Balrog specific" is a deck-construction
 keyword with no play-time gate.)
+
+Also used by No Strangers at this Time (as-51), the **hero** counterpart:
+"Playable during the site phase on a Free-hold [{F}] or Border-hold [{B}] if you
+have played a faction there. This site is never discarded and never untaps for
+you. All detainment attacks at all versions of this site against minion companies
+instead attack normally. Against minion companies, each version of this site has
+an additional automatic-attack: an exact copy including all modifications of the
+first automatic-attack listed on its card. Cannot be duplicated on a given site."
+— it carries no `trigger-attack-on-play` and no `factionInfluenceModifier`.
+Instead it is gated by `play-target: site` (`siteType $in [free-hold,
+border-hold]`) + a `play-condition: company-context`
+(`company.playedFactionHere` — a new `SitePhaseState.factionPlayedThisSitePhase`
+flag set by `resolveInfluenceAttemptRoll` when any faction resolves at the
+company's site) + `duplication-limit` scope site + `site-lock`
+(`convertDetainmentVsMinion` + `duplicateFirstAutoAttackVsMinion`). The site is
+already tapped by the required faction play, so there is no `tap-site-on-play` /
+`untapped-site-required`.
 
 ### 52e. `balrog-surface-region-movement`
 
