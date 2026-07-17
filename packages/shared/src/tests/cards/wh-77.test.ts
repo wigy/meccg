@@ -57,7 +57,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
+  PLAYER_1, RESOURCE_PLAYER, HAZARD_PLAYER,
   resetMint, buildFallenWizardSitePhaseState, playPermanentEventAndResolve,
   dispatch, phaseStateAs,
 } from '../test-helpers.js';
