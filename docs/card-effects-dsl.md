@@ -3732,28 +3732,6 @@ Radagast's Black Bird also carries a `cancel-strike` (`cost: { tap: self }`,
 no `when`), reusing the self-tap cancel-strike primitive (§11) so it cancels any
 strike directed against it (creature or automatic-attack), tapping afterwards.
 
-### 15g. `play-flag: "agent-may-move-to-haven"`
-
-A `play-flag` on an **agent character** that grants "Agent only: may move to a
-Haven [{H}]", overriding the general rule-9.07 prohibition ("an agent cannot
-move to a Haven"). Presence of the flag is the whole payload; two engine gates
-consult it:
-
-- **Movement destinations** (`agentTurnActions`, `legal-actions/movement-hazard.ts`):
-  the Haven exclusion (`isHavenSite`) is skipped for this agent, so reachable
-  Haven sites are offered as `agent-move` destinations.
-- **Reveal-time discard** (`handleRevealAgent`, `mh-hazard-play.ts`): the
-  "moved through a Haven → discard" check (rule 9.07) is suppressed, so an agent
-  revealed with a Haven anywhere in its (otherwise legal) movement path is not
-  discarded.
-
-Carried by Elwen (dm-8), Nimloth (dm-20), and Anarin (dm-1). The flag is read
-via `hasPlayFlag` on the agent's card definition.
-
-```json
-{ "type": "play-flag", "flag": "agent-may-move-to-haven" }
-```
-
 ### 15a. `extra-troll-leader-slot`
 
 Marker effect on a company-bound permanent event. While this event is in play,

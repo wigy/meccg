@@ -242,8 +242,8 @@
         "stat": "direct-influence",
         "value": 2,
         "when": {
-          "reason": "faction-influence-check",
-          "faction.race": "elf"
+          "reason": "opponent-influence-check",
+          "target.race": "elf"
         }
       },
       {

@@ -528,13 +528,7 @@ export function handleRevealAgent(state: GameState, action: GameAction): Reducer
   // An agent revealed with a Haven site anywhere in its prior siteStack is
   // immediately discarded (the agent moved through a restricted site).
   // Note: movement TO haven sites is already blocked in agentTurnActions.
-  // Exception: an agent whose card grants Haven movement (Elwen dm-8 et al.,
-  // `agent-may-move-to-haven`) is not discarded for a Haven in its path.
-  const mayMoveToHaven = hasPlayFlag(
-    agentDef && isCharacterCard(agentDef) ? agentDef : undefined,
-    'agent-may-move-to-haven',
-  );
-  if (movementLegal && !mayMoveToHaven && agent.siteStack.length > 0) {
+  if (movementLegal && agent.siteStack.length > 0) {
     for (const stackEntry of agent.siteStack) {
       const stackDef = defById(state, stackEntry.definitionId);
       if (stackDef && isSiteCard(stackDef) && stackDef.siteType === 'haven') {
