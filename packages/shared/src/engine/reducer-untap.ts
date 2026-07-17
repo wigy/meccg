@@ -345,10 +345,12 @@ function performUntap(state: GameState): GameState {
     }));
   }
 
-  // Consume Fled into Darkness (ba-18) one-shot untap skips: the character was
-  // just held tapped (via cannotUntapIds); now remove the constraint and discard
-  // the in-play `flee-from-strike` card to its owner's (the active player's)
-  // discard pile.
+  // Consume the one-shot untap skips: the character was just held tapped (via
+  // cannotUntapIds); now remove the constraint and discard the source card to
+  // its owner's (the active player's) discard pile. The source may sit either in
+  // `cardsInPlay` (Fled into Darkness ba-18's `flee-from-strike` card) or
+  // attached to a character's `items` (Fireworks dm-130, a resource
+  // permanent-event played on the sage).
   if (skipNextUntap.size > 0) {
     const consumedConstraintIds = new Set<string>();
     const discardCardIds = new Set<string>();
@@ -357,13 +359,28 @@ function performUntap(state: GameState): GameState {
       consumedConstraintIds.add(constraintId);
       discardCardIds.add(cardInstanceId);
     }
-    const cardsToDiscard = stateAfterUntap.players[playerIndex].cardsInPlay.filter(
-      c => discardCardIds.has(c.instanceId as string),
-    );
+    // Collect the source cards wherever they live (general cards-in-play or a
+    // character's items), then remove them from every zone in one player update.
+    const player = stateAfterUntap.players[playerIndex];
+    const cardsToDiscard: import('../types/state-cards.js').CardInstance[] = [];
+    for (const c of player.cardsInPlay) {
+      if (discardCardIds.has(c.instanceId as string)) cardsToDiscard.push(toCardInstance(c));
+    }
+    for (const ch of Object.values(player.characters)) {
+      for (const item of ch.items) {
+        if (discardCardIds.has(item.instanceId as string)) cardsToDiscard.push(toCardInstance(item));
+      }
+    }
     stateAfterUntap = updatePlayer(stateAfterUntap, playerIndex, p => ({
       ...p,
       cardsInPlay: p.cardsInPlay.filter(c => !discardCardIds.has(c.instanceId as string)),
-      discardPile: [...p.discardPile, ...cardsToDiscard.map(c => toCardInstance(c))],
+      characters: Object.fromEntries(
+        Object.entries(p.characters).map(([id, ch]) => [
+          id,
+          { ...ch, items: ch.items.filter(item => !discardCardIds.has(item.instanceId as string)) },
+        ]),
+      ),
+      discardPile: [...p.discardPile, ...cardsToDiscard],
     }));
     stateAfterUntap = {
       ...stateAfterUntap,

@@ -1719,6 +1719,62 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   }
 
+  // roll-untap-site (Fireworks dm-130): "Make a roll and add the mind of the
+  // sage (+10 if a Wizard) — if the result is greater than 12, the site untaps."
+  // Enqueue a generic dice-check whose onPass `untap-site` verb untaps the
+  // target character's company's current site. The roll surfaces as its own
+  // `resolve-dice-check` action.
+  if (targetCharId) {
+    const rollUntapEffect = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').RollUntapSiteEffect => e.type === 'roll-untap-site',
+    );
+    if (rollUntapEffect) {
+      let bearerPi = -1;
+      for (let pi = 0; pi < 2; pi++) {
+        if (newState.players[pi].characters[targetCharId]) { bearerPi = pi; break; }
+      }
+      const bearer = bearerPi >= 0 ? newState.players[bearerPi].characters[targetCharId] : undefined;
+      const bearerDef = bearer ? defById(newState, bearer.definitionId) : undefined;
+      const printedMind = bearerDef && isCharacterCard(bearerDef) && bearerDef.mind !== null ? bearerDef.mind : 0;
+      const effectiveMind = bearer?.effectiveStats.mind ?? printedMind;
+      const isWizard = bearerDef && isCharacterCard(bearerDef) && bearerDef.race === 'wizard';
+      const rollBonus = effectiveMind + (isWizard ? rollUntapEffect.wizardBonus : 0);
+      logDetail(`"${def?.name ?? '?'}" roll-untap-site: enqueuing dice-check (roll + mind ${effectiveMind}${isWizard ? ` + wizard ${rollUntapEffect.wizardBonus}` : ''} = +${rollBonus} > ${rollUntapEffect.threshold}) on ${targetCharId as string}`);
+      newState = enqueueResolution(newState, {
+        source: card.instanceId,
+        actor: entry.declaredBy,
+        scope: { kind: 'phase', phase: newState.phaseState.phase },
+        kind: {
+          type: 'dice-check',
+          label: `${def?.name ?? 'Fireworks'} — roll to untap site`,
+          roller: entry.declaredBy,
+          modifiers: [{ kind: 'constant', value: rollBonus }],
+          threshold: rollUntapEffect.threshold,
+          comparison: 'gt',
+          onPass: { type: 'untap-site' },
+          continuation: { kind: 'dequeue-only' },
+          targetCharacterId: targetCharId,
+        },
+      });
+    }
+  }
+
+  // skip-next-untap-on-play (Fireworks dm-130): "The next time the sage would
+  // otherwise become untapped make him tapped instead and discard this card."
+  // Install the one-shot skip-next-untap constraint on the target character;
+  // `performUntap` consumes it (holds him tapped once) and discards the source
+  // card — which, for a resource permanent-event, sits in the character's items.
+  if (targetCharId && getCardEffects(def).some(e => e.type === 'skip-next-untap-on-play')) {
+    logDetail(`"${def?.name ?? '?'}" skip-next-untap-on-play: installing skip-next-untap on ${targetCharId as string}`);
+    newState = addConstraint(newState, {
+      source: card.instanceId,
+      sourceDefinitionId: card.definitionId,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: targetCharId },
+      kind: { type: 'skip-next-untap', cardInstanceId: card.instanceId },
+    });
+  }
+
   // storable-at on direct attachment: add bearer-cannot-untap constraint so the
   // character may not untap until the card is stored (e.g. To Satisfy the Questioner).
   // This mirrors what applySelectCardBearerResolution does for post-attack attachment.
