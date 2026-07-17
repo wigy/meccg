@@ -24,7 +24,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, siteTypeForcesAutoAttacksNormal, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
+import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -589,9 +589,15 @@ function handleSiteAutomaticAttacks(
   // player's companies become normal — overriding even site-forced detainment.
   // Awaken Defenders le-103: an in-play long-event makes every automatic-attack
   // at this site type (Free-hold / Border-hold) resolve as a normal attack.
-  // Either source forces the site's automatic-attacks to be non-detainment.
+  // No Strangers at this Time (as-51): a bound `site-lock` with
+  // `convertDetainmentVsMinion` makes the site's detainment attacks resolve
+  // normally against a minion (Ringwraith) company.
+  // Any source forces the site's automatic-attacks to be non-detainment.
+  const antiMinionLock = siteLockAntiMinion(state, siteDefIdForAttacks);
+  const defenderIsMinion = state.players[activePlayerIndex].alignment === Alignment.Ringwraith;
   const forcesNormalAttacks = playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
-    || siteTypeForcesAutoAttacksNormal(state, effectiveSiteType);
+    || siteTypeForcesAutoAttacksNormal(state, effectiveSiteType)
+    || (defenderIsMinion && antiMinionLock.convertDetainment);
 
   // Advance past attacks that do not apply to this company's covert/overt
   // status (e.g. Minas Tirith's Dúnedain attack, "against overt company
@@ -754,6 +760,61 @@ function handleSiteAutomaticAttacks(
           ...dupState,
           combat: dupCombat,
           phaseState: { ...siteState, automaticAttacksResolved: effectiveResolved + 1 },
+        },
+      };
+    }
+
+    // No Strangers at this Time (as-51): a bound `site-lock` with
+    // `duplicateFirstAutoAttackVsMinion` gives every version of the site one
+    // additional automatic-attack against a minion (Ringwraith) company — an
+    // exact copy of the first automatic-attack listed on the site card. The
+    // copy re-resolves through `resolveAttack*`, so its runtime modifications
+    // ("including all modifications") are re-applied. Faced exactly once
+    // (guarded by `siteLockMinionAttackDone`), after every printed attack and
+    // any race/incite duplicates.
+    if (!siteState.siteLockMinionAttackDone
+      && defenderIsMinion
+      && antiMinionLock.duplicateFirstAutoAttack
+      && autoAttacks.length > 0) {
+      const aa = autoAttacks[0];
+      const inPlayNamesM = buildInPlayNames(state);
+      const creatureRaceM = normalizeCreatureRace(aa.creatureType);
+      const dupBoostCtxM = { companyId: company.id };
+      const dupProwessM = resolveAttackProwess(state, aa.prowess, inPlayNamesM, creatureRaceM, true, undefined, dupBoostCtxM);
+      const dupStrikesM = resolveAttackStrikes(state, aa.strikes, inPlayNamesM, creatureRaceM, true, dupBoostCtxM, effectiveSiteType);
+      const dupBodyM = resolveAttackBody(state, aa.body ?? null, inPlayNamesM, creatureRaceM, dupBoostCtxM);
+      logDetail(`Site: initiating minion-only additional automatic-attack (No Strangers at this Time): ${aa.creatureType} (${dupStrikesM} strikes, ${dupProwessM} prowess)`);
+      const dupDetainmentM = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
+        attackEffects: siteDef.effects,
+        attackRace: creatureRaceM as Race | null,
+        attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
+        defendingAlignment: state.players[activePlayerIndex].alignment,
+        defendingCovert,
+        defendingSiteEffects: siteDef.effects,
+        isAutomaticAttack: true,
+        defenderForcesNormalAttacks: forcesNormalAttacks,
+      });
+      const dupCombatM: CombatState = makeCombatState({
+        attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
+        companyId: company.id,
+        defendingPlayerId: state.activePlayer!,
+        attackingPlayerId: hazardPlayer(state).id,
+        strikesTotal: dupStrikesM,
+        strikeProwess: dupProwessM,
+        creatureBody: dupBodyM,
+        creatureRace: creatureRaceM,
+        assignmentPhase: 'defender',
+        detainment: dupDetainmentM,
+        ...(aa.combatRules?.includes('attacker-chooses-defenders') ? { attackerChoosesDefenders: true } : {}),
+        ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
+        ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
+        ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
+      });
+      return {
+        state: {
+          ...state,
+          combat: dupCombatM,
+          phaseState: { ...siteState, automaticAttacksResolved: effectiveResolved + 1, siteLockMinionAttackDone: true },
         },
       };
     }
@@ -2594,6 +2655,7 @@ export function resolveInfluenceAttemptRoll(
           ...siteState,
           resourcePlayed: true,
           minorItemAvailable: openMinorItemBonus ? true : siteState.minorItemAvailable,
+          factionPlayedThisSitePhase: true,
           ...(factionAtFreeHold ? { uniqueHeroFactionPlayedAtFreeHold: true } : {}),
         },
       },

@@ -4770,6 +4770,11 @@ export interface EddyLockEffect extends EffectBase {
  * Unlike {@link EddyLockEffect} this carries no per-company tax. Used by People
  * Diminished (ba-72): "This site is never discarded and never untaps for you.
  * -5 to each attempt against any faction at any version of this site."
+ *
+ * Also used by No Strangers at this Time (as-51), the hero counterpart, which
+ * carries the anti-minion `convertDetainmentVsMinion` /
+ * `duplicateFirstAutoAttackVsMinion` flags instead of a faction-influence
+ * modifier.
  */
 export interface SiteLockEffect extends EffectBase {
   readonly type: 'site-lock';
@@ -4779,6 +4784,23 @@ export interface SiteLockEffect extends EffectBase {
    * A negative value raises the influence number the attacker must roll.
    */
   readonly factionInfluenceModifier?: number;
+  /**
+   * When true, every detainment automatic-attack at any version of the bound
+   * site against a **minion** (Ringwraith) company resolves as a **normal**
+   * attack instead. No Strangers at this Time (as-51): "All detainment attacks
+   * at all versions of this site against minion companies instead attack
+   * normally." Folded into the `forcesNormalAttacks` gate in `reducer-site.ts`
+   * (via {@link import('../engine/reducer-utils.js').siteLockAntiMinion}).
+   */
+  readonly convertDetainmentVsMinion?: boolean;
+  /**
+   * When true, a **minion** (Ringwraith) company facing this site's automatic-
+   * attacks faces one additional attack: an exact copy of the first automatic-
+   * attack listed on the site card (its runtime modifications are re-applied at
+   * resolution, so "including all modifications" holds). No Strangers at this
+   * Time (as-51). Handled in the `handleSiteAutomaticAttacks` done-branch.
+   */
+  readonly duplicateFirstAutoAttackVsMinion?: boolean;
 }
 
 /**

@@ -1902,6 +1902,7 @@ export function matchesCompanyContextCondition(
   company: Company,
   condition: Condition,
   playedUniqueHeroFactionAtFreeHold: boolean,
+  playedFactionHere = false,
 ): boolean {
   const siteDefId = company.currentSite?.definitionId;
   const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
@@ -1927,7 +1928,7 @@ export function matchesCompanyContextCondition(
 
   const context: Record<string, unknown> = {
     site: { name: siteName, type: siteType, isOwnWizardhaven },
-    company: { characterNames, itemNames, allyNames, playedUniqueHeroFactionAtFreeHold },
+    company: { characterNames, itemNames, allyNames, playedUniqueHeroFactionAtFreeHold, playedFactionHere },
   };
   return matchesCondition(condition, context);
 }
@@ -2963,6 +2964,35 @@ export function siteFactionInfluenceModifier(
     }
   }
   return total;
+}
+
+/**
+ * Aggregated anti-minion flags of every in-play `site-lock` card (of either
+ * player) bound to the given site *definition* (and not still
+ * `pendingTriggerAttack`). No Strangers at this Time (as-51) sets both flags:
+ * against a minion (Ringwraith) company at any version of the bound site,
+ * `convertDetainment` makes the site's detainment automatic-attacks resolve as
+ * normal attacks, and `duplicateFirstAutoAttack` adds one exact copy of the
+ * site's first automatic-attack. Both are gated on the defending company's
+ * alignment by the caller (`reducer-site.ts`).
+ */
+export function siteLockAntiMinion(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+): { convertDetainment: boolean; duplicateFirstAutoAttack: boolean } {
+  const result = { convertDetainment: false, duplicateFirstAutoAttack: false };
+  if (!siteDefId) return result;
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
+      for (const e of getCardEffects(defById(state, c.definitionId))) {
+        if (e.type !== 'site-lock') continue;
+        if (e.convertDetainmentVsMinion) result.convertDetainment = true;
+        if (e.duplicateFirstAutoAttackVsMinion) result.duplicateFirstAutoAttack = true;
+      }
+    }
+  }
+  return result;
 }
 
 /**
