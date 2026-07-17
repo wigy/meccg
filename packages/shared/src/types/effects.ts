@@ -5524,6 +5524,7 @@ export type CardEffect =
   | AllyBodyCheckBoostEffect
   | CreatureAltEventEffect
   | CompanyReturnToOriginEffect
+  | RunHomeToHavenEffect
   | CompanySitePhaseDoNothingEffect
   | TapCharacterEffect
   | MpInPileEffect
@@ -5671,6 +5672,21 @@ export interface CompanyReturnToOriginEffect extends EffectBase {
   readonly type: 'company-return-to-origin';
   /** When this condition matches the target company, the return is skipped. */
   readonly unless?: Condition;
+}
+
+/**
+ * "Run home" ally ability (Bill the Pony tw-198). While the ally carrying this
+ * effect is in a company at a non-Haven, non-Under-deeps site whose character
+ * count is `maxCompanySize` or fewer, the controlling player may — during their
+ * end-of-turn phase — discard this ally and move its company to the site's
+ * nearest Haven [{H}]. Per the card errata this is considered movement with no
+ * movement/hazard phase, so the departure site follows the ordinary site-card
+ * lifecycle (untapped/haven → location deck, tapped → site discard pile).
+ */
+export interface RunHomeToHavenEffect extends EffectBase {
+  readonly type: 'run-home-to-haven';
+  /** Maximum company size (character count) for the option to be available. */
+  readonly maxCompanySize: number;
 }
 
 /**

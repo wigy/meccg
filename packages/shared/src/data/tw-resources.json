@@ -2158,15 +2158,19 @@
     "unique": true,
     "prowess": -2,
     "body": 10,
+    "mind": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
     "playableAt": [
-      {
-        "site": "Bree or Bag End; playable even if the site is tapped"
-      }
+      { "site": "Bree" },
+      { "site": "Bag End" }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Bree or Bag End; playable even if the site is tapped.If at a non-Haven/non-Under-deeps site and if his company’s size is three or less, you may discard Bill the Pony at the end of his company’s turn and replace its site with the nearest Haven [{H}]."
+    "effects": [
+      { "type": "play-flag", "flag": "playable-at-tapped-site" },
+      { "type": "run-home-to-haven", "maxCompanySize": 3 }
+    ],
+    "text": "Unique. Playable at Bree or Bag End; playable even if the site is tapped.If at a non-Haven/non-Under-deeps site and if his company’s size is three or less, you may discard Bill the Pony at the end of his company’s turn and replace its site with the nearest Haven [{H}].",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "hero-resource-event",

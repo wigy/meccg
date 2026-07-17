@@ -6,7 +6,7 @@
  * and transitioning to Free Council.
  */
 
-import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction, CardInstance } from '../index.js';
+import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction, CardInstance, CardInstanceId, SiteInPlay } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard } from '../types/cards.js';
@@ -153,6 +153,10 @@ function handleEndOfTurnDiscard(
 
   if (action.type === 'haven-return') {
     return handleHavenReturn(state, action);
+  }
+
+  if (action.type === 'run-home') {
+    return handleRunHome(state, action);
   }
 
   return { state, error: `Unexpected action '${action.type}' in end-of-turn discard step` };
@@ -411,6 +415,10 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
     return handleHavenReturn(state, action);
   }
 
+  if (action.type === 'run-home') {
+    return handleRunHome(state, action);
+  }
+
   return { state, error: `Unexpected action '${action.type}' in end-of-turn signal-end step` };
 }
 
@@ -499,6 +507,124 @@ function handleHavenReturn(state: GameState, action: GameAction): ReducerResult 
   });
 
   return { state: removeConstraint(updatedState, constraint.id) };
+}
+
+/**
+ * Execute a Bill the Pony (tw-198) "run home": discard the `run-home-to-haven`
+ * ally and move its company to the current site's nearest Haven. Per the card
+ * errata this is considered movement with no movement/hazard phase, so the
+ * departure site follows the ordinary site-card lifecycle (CoE 2.IV.viii):
+ * untapped / haven → location deck, tapped → site discard pile (only when the
+ * company owns the physical card). The nearest haven is pulled from the
+ * player's location deck; if a sibling company already holds it, the haven is
+ * shared (`siteCardOwned = false`). Legality is pre-checked by `runHomeActions`.
+ */
+function handleRunHome(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'run-home') return { state, error: `handleRunHome called with ${action.type}` };
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIdx === -1) {
+    return { state, error: `run-home: company ${action.companyId as string} not found for player ${action.player as string}` };
+  }
+  const company = player.companies[companyIdx];
+  const currentSite = company.currentSite;
+  if (!currentSite) {
+    return { state, error: `run-home: company ${action.companyId as string} has no current site` };
+  }
+
+  // Locate the ally being discarded and the character bearing it.
+  let bearerCharId: CardInstanceId | null = null;
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (char?.allies.some(a => a.instanceId === action.allyInstanceId)) {
+      bearerCharId = charId;
+      break;
+    }
+  }
+  if (!bearerCharId) {
+    return { state, error: `run-home: ally ${action.allyInstanceId as string} not found in company ${action.companyId as string}` };
+  }
+  const bearer = player.characters[bearerCharId];
+  const ally = bearer.allies.find(a => a.instanceId === action.allyInstanceId)!;
+
+  // Determine the nearest haven from the current site definition.
+  const currentSiteDef = defById(state, currentSite.definitionId);
+  if (!currentSiteDef || !isSiteCard(currentSiteDef) || !currentSiteDef.nearestHaven) {
+    return { state, error: `run-home: current site ${currentSite.definitionId as string} has no nearest haven` };
+  }
+  const havenName = currentSiteDef.nearestHaven;
+
+  // Is another of this player's companies already at that haven? If so, share it.
+  const siblingAtHaven = player.companies.find((c, i) => {
+    if (i === companyIdx || !c.currentSite) return false;
+    const def = defById(state, c.currentSite.definitionId);
+    return def && isSiteCard(def) && def.name === havenName;
+  });
+  const havenAlreadyInPlay = siblingAtHaven !== undefined;
+
+  // Otherwise pull the haven card from the location deck.
+  const havenFromDeck = havenAlreadyInPlay
+    ? undefined
+    : player.siteDeck.find(entry => {
+        const def = defById(state, entry.definitionId);
+        return def && isSiteCard(def) && def.siteType === 'haven' && def.name === havenName;
+      });
+  if (!havenAlreadyInPlay && !havenFromDeck) {
+    return { state, error: `run-home: nearest haven "${havenName}" not found in location deck for player ${action.player as string}` };
+  }
+
+  const havenInstance: SiteInPlay = havenAlreadyInPlay
+    ? { ...siblingAtHaven!.currentSite! }
+    : { instanceId: havenFromDeck!.instanceId, definitionId: havenFromDeck!.definitionId, status: CardStatus.Untapped };
+
+  logDetail(`run-home: company ${action.companyId as string} discards ally ${ally.definitionId as string} and moves to nearest haven ${havenName}${havenAlreadyInPlay ? ' (shared with sibling company)' : ''}`);
+
+  const updatedState = updatePlayer(state, playerIndex, p => {
+    let siteDeck = p.siteDeck;
+    let siteDiscardPile = p.siteDiscardPile;
+
+    // Step 1: dispose of the departure site (CoE 2.IV.viii), only if owned.
+    if (company.siteCardOwned) {
+      const departureIsHaven = currentSiteDef.siteType === 'haven';
+      const departureEntry = toCardInstance(currentSite);
+      if (!departureIsHaven && currentSite.status === CardStatus.Tapped) {
+        logDetail(`run-home: departure site ${currentSite.definitionId as string} is tapped — discarding to site discard pile`);
+        siteDiscardPile = [...siteDiscardPile, departureEntry];
+      } else {
+        logDetail(`run-home: departure site ${currentSite.definitionId as string} is ${departureIsHaven ? 'a haven' : 'untapped'} — returning to location deck`);
+        siteDeck = [...siteDeck, departureEntry];
+      }
+    }
+
+    // Step 2: remove the nearest haven from the location deck (unless shared).
+    if (!havenAlreadyInPlay) {
+      siteDeck = removeById(siteDeck, havenInstance.instanceId);
+    }
+
+    return {
+      ...p,
+      siteDeck,
+      siteDiscardPile,
+      // Step 3: discard the ally to its owner's discard pile.
+      discardPile: [...p.discardPile, toCardInstance(ally)],
+      characters: {
+        ...p.characters,
+        [bearerCharId]: {
+          ...p.characters[bearerCharId],
+          allies: p.characters[bearerCharId].allies.filter(a => a.instanceId !== action.allyInstanceId),
+        },
+      },
+      // Step 4: relocate the company to the nearest haven.
+      companies: p.companies.map((c, i) =>
+        i === companyIdx
+          ? { ...c, currentSite: havenInstance, siteCardOwned: !havenAlreadyInPlay }
+          : c,
+      ),
+    };
+  });
+
+  return { state: updatedState };
 }
 
 /**

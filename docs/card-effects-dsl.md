@@ -9126,6 +9126,38 @@ with prowess greater than 4, it must return to its site of origin." Its
 so the short-event mode is only offered against a *moving hero* company (whereas
 its creature mode targets minion companies).
 
+### 56b-iii. `run-home-to-haven`
+
+An **ally** ability that lets its company retreat to safety at the end of the
+turn. During the controlling player's end-of-turn phase (the `discard` and
+`signal-end` steps), while the ally is in a company at a **non-Haven,
+non-Under-deeps** site whose character count is `maxCompanySize` or fewer and the
+site's printed `nearestHaven` is known, the player may discard the ally and move
+its company to that nearest Haven. Per the card errata this is considered
+movement with no movement/hazard phase, so the departure site follows the
+ordinary site-card lifecycle (haven/untapped → location deck, tapped → site
+discard pile), exactly like Great-road's `haven-return`.
+
+```json
+{
+  "type": "run-home-to-haven",
+  "maxCompanySize": 3
+}
+```
+
+- `maxCompanySize` — the largest company (character count) for which the option
+  is offered.
+
+`runHomeActions` (`legal-actions/end-of-turn.ts`, resource player only) emits a
+`run-home` action per eligible ally; `handleRunHome` (`reducer-end-of-turn.ts`)
+discards the ally and relocates the company (sharing the haven with a sibling
+company when one is already there). Pair with `play-flag:
+playable-at-tapped-site` when the card is also "playable even if the site is
+tapped". Used by **Bill the Pony (tw-198)**: "Playable at Bree or Bag End;
+playable even if the site is tapped. If at a non-Haven/non-Under-deeps site and
+if his company's size is three or less, you may discard Bill the Pony at the end
+of his company's turn and replace its site with the nearest Haven [{H}]."
+
 ### 56b-ii. `company-site-phase-do-nothing`
 
 Forbids the active movement/hazard company from doing anything during its
