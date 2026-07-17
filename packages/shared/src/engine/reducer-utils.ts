@@ -1728,9 +1728,22 @@ export function generalInfluenceControlLimit(state: GameState, playerId: PlayerI
 }
 
 export function countCopiesInPlay(state: GameState, name: string): number {
-  return state.players.reduce((count, p) =>
-    count + p.cardsInPlay.filter(c => defById(state, c.definitionId)?.name === name).length,
-  0);
+  let count = 0;
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (defById(state, c.definitionId)?.name === name) count += 1;
+    }
+    // Stage permanent-events "placed on the avatar" (Give Welcome to the
+    // Unexpected wh-99, Pallando's Hood wh-105, Wizard's Myrmidon wh-84) live in
+    // a character's `items`, not `cardsInPlay`; count them there too so a unique
+    // such card cannot be played a second time while one is already attached.
+    for (const char of Object.values(p.characters)) {
+      for (const item of char.items) {
+        if (defById(state, item.definitionId)?.name === name) count += 1;
+      }
+    }
+  }
+  return count;
 }
 
 /**

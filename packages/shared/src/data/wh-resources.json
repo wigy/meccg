@@ -1812,8 +1812,24 @@
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Gandalf" }
+      },
+      {
+        "type": "noncharacter-mp-override",
+        "when": { "card.unique": true, "card.cardType": "hero-resource-faction", "card.normalMp": { "$lte": 2 } },
+        "value": 2
+      },
+      {
+        "type": "noncharacter-mp-override",
+        "when": { "card.unique": true, "card.cardType": "hero-resource-faction", "card.normalMp": { "$gte": 3 } },
+        "value": 3
       }
     ],
+    "certified": "2026-07-17",
     "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, your unique hero factions normally worth 2 or fewer marshalling points are each worth 2 marshalling points. If on Gandalf, your unique hero factions normally worth 3 or more marshalling points are each worth 3 marshalling points."
   },
   {
