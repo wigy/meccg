@@ -864,14 +864,22 @@ function agentTurnActions(
         }
       }
 
+      // Card grant (Elwen dm-8, Nimloth dm-20, Anarin dm-1): "Agent only: may
+      // move to a Haven [{H}]" — overrides the rule-9.07 Haven prohibition.
+      const mayMoveToHaven = hasPlayFlag(
+        agentDef && isCharacterCard(agentDef) ? agentDef : undefined,
+        'agent-may-move-to-haven',
+      );
+
       const seenDest = new Set<string>();
       for (const siteInst of player.siteDeck) {
         const destDef = defById(state, siteInst.definitionId);
         if (!destDef || !isSiteCard(destDef)) continue;
         if (seenDest.has(destDef.name)) continue;
         if (!reachableNames.has(destDef.name)) continue;
-        // Exclude haven sites (rule 9.07)
-        if (isHavenSite(state, siteInst.definitionId as string)) continue;
+        // Exclude haven sites (rule 9.07) unless the agent's card grants Haven
+        // movement (e.g. Elwen dm-8: "Agent only: may move to a Haven [{H}]").
+        if (!mayMoveToHaven && isHavenSite(state, siteInst.definitionId as string)) continue;
         // Per-card restriction: skip forbidden site types (rule on card text).
         if (restrictedSiteTypes.has(destDef.siteType)) {
           logDetail(`Agent ${agentName}: cannot move to "${destDef.name}" (${destDef.siteType} restricted by card text)`);

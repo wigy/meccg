@@ -2512,8 +2512,15 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   That's Been Heard Before Tonight (le-241), Rescue Prisoners (tw-315), and
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
+ * - `agent-may-move-to-haven` — grants an agent character the ability to move
+ *   to a Haven [{H}] site, overriding the general rule-9.07 prohibition ("an
+ *   agent cannot move to a Haven"). When present on the agent's card
+ *   definition, Haven destinations are offered during `agent-move` and the
+ *   reveal-time discard for a Haven in the movement path is suppressed. Models
+ *   "Agent only: may move to a Haven [{H}]." (Elwen dm-8, Nimloth dm-20,
+ *   Anarin dm-1).
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
