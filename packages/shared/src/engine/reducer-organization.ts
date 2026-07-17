@@ -22,7 +22,7 @@ import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { enqueueResolution, enqueueCorruptionCheck, removeConstraint } from './pending.js';
+import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, advanceNextOrganizationPhaseConstraints } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { resolveDef, getItemGrantedSkills } from './effects/index.js';
 import { directInfluenceControlAllowed } from './control-cost.js';
@@ -112,15 +112,19 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
     return true;
   });
 
+  const afterEvents: GameState = {
+    ...updatePlayer(state, activeIndex, p => ({
+      ...p,
+      cardsInPlay: remainingCards,
+      discardPile: [...p.discardPile, ...discardedEvents],
+    })),
+    phaseState: { phase: Phase.LongEvent },
+  };
+  // Arm/expire "through your next organization phase" constraints (Shifter of
+  // Hues wh-115): the end of this player's org phase either arms a freshly
+  // created buff or clears one that has now outlived the owner's next org phase.
   return {
-    state: {
-      ...updatePlayer(state, activeIndex, p => ({
-        ...p,
-        cardsInPlay: remainingCards,
-        discardPile: [...p.discardPile, ...discardedEvents],
-      })),
-      phaseState: { phase: Phase.LongEvent },
-    },
+    state: advanceNextOrganizationPhaseConstraints(afterEvents, activePlayer),
   };
 }
 
@@ -197,8 +201,12 @@ function handleReturnAttachedToHand(state: GameState, action: GameAction): Reduc
   if (action.type !== 'return-attached-to-hand') return wrongActionType(state, action, 'return-attached-to-hand');
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
-  const removed = removeAttachment(player, 'allies', action.cardInstanceId);
-  if (!removed) return { state, error: 'return-attached-to-hand: ally not found in play' };
+  // The returning card may be an attached ally (Radagast's Black Bird wh-114) or
+  // a resource permanent-event on the character (the Radagast Shapeshifter
+  // forms, e.g. Shifter of Hues wh-115, which live in the bearer's `items`).
+  const removed = removeAttachment(player, 'allies', action.cardInstanceId)
+    ?? removeAttachment(player, 'items', action.cardInstanceId);
+  if (!removed) return { state, error: 'return-attached-to-hand: card not found in play' };
   const def = defById(state, removed.attachment.definitionId);
   const canReturn = getCardEffects(def).some(
     e => e.type === 'return-to-hand' && e.during.includes('organization'),

@@ -46,6 +46,7 @@ import {
   evaluateExpr,
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
 import type { ResolverContext } from './effects/index.js';
 import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
@@ -768,6 +769,16 @@ function computeEffectiveStats(
   if (bearerIsBalrogAvatar) {
     charEffects = charEffects.filter(ce => !isItemCard(ce.sourceDef));
   }
+
+  // "May bear, but may not use, items" — a Radagast Shapeshifter form (wh-115)
+  // carries the `cannot-use-items` play-flag; like the Ringwraith/Balrog avatar
+  // ban above, every effect sourced from a true item card the bearer holds is
+  // nulled (the form's own perm-event effects are not item cards, so they
+  // survive). Borne items' corruption points still apply (structural loop below).
+  const bearerCannotUseItems = char.items.some(it => hasPlayFlag(resolveDef(state, it.instanceId) as Parameters<typeof hasPlayFlag>[0], 'cannot-use-items'));
+  if (bearerCannotUseItems) {
+    charEffects = charEffects.filter(ce => !isItemCard(ce.sourceDef));
+  }
   const collected = [...charEffects, ...globalEffects, ...ownEffects];
 
   // If we have DSL effects, use the resolver for prowess, body, and DI
@@ -869,7 +880,8 @@ function computeEffectiveStats(
       // items, and any item on a Ringwraith avatar contribute no structural bonus.
       const itemUnusableByAlignment = (bearerBlocksMinionItems && itemDef.cardType === 'minion-resource-item')
         || (bearerBlocksHeroItems && itemDef.cardType === 'hero-resource-item')
-        || bearerIsRingwraithAvatar;
+        || bearerIsRingwraithAvatar
+        || bearerCannotUseItems;
       if (!itemHasStatMod && !heroItemOnOrcTroll && !bearerIsBalrogAvatar && !itemUnusableByAlignment && !weaponSuppressed && activeItems.has(item.instanceId as string)) {
         prowess += itemDef.prowessModifier;
         body += itemDef.bodyModifier;

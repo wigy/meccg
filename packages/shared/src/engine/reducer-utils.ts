@@ -20,7 +20,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
-import { resolveDef, normalizeCreatureRace } from './effects/index.js';
+import { resolveDef, normalizeCreatureRace, getEffectiveNaturalSkills } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import { revealInstances } from './visibility.js';
 
@@ -649,7 +649,7 @@ export function buildTargetCompanyConditionContext(
     if (charDef.homesite) {
       homeSites.push(...charDef.homesite.split(',').map(s => s.trim()));
     }
-    if (inPlay && inPlay.status === CardStatus.Untapped && charDef.skills.includes(Skill.Warrior)) {
+    if (inPlay && inPlay.status === CardStatus.Untapped && getEffectiveNaturalSkills(state, inPlay, charDef).includes(Skill.Warrior)) {
       const prowess = inPlay.effectiveStats.prowess;
       if (prowess > maxUntappedWarriorProwess) maxUntappedWarriorProwess = prowess;
     }

@@ -2158,7 +2158,7 @@
     "cardType": "minion-resource-event",
     "alignment": "stage",
     "id": "wh-112",
-    "keywords": ["radagast-specific"],
+    "keywords": ["radagast-specific", "shapeshifter"],
     "name": "Master of Shapes",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/MasterofShapes.jpg",
     "unique": false,
@@ -2247,7 +2247,7 @@
     "cardType": "minion-resource-event",
     "alignment": "stage",
     "id": "wh-115",
-    "keywords": ["radagast-specific"],
+    "keywords": ["radagast-specific", "shapeshifter"],
     "name": "Shifter of Hues",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ShifterofHues.jpg",
     "unique": false,
@@ -2258,15 +2258,44 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Radagast" }
+      },
+      { "type": "stat-modifier", "stat": "body", "value": 1 },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": -2 },
+      { "type": "stat-modifier", "stat": "general-influence", "value": 5 },
+      { "type": "check-modifier", "check": "corruption", "value": -2 },
+      { "type": "override-skills", "skills": ["warrior", "diplomat"] },
+      { "type": "hand-size-modifier", "value": 1 },
+      { "type": "play-flag", "flag": "cannot-move" },
+      { "type": "play-flag", "flag": "cannot-use-items" },
+      { "type": "return-to-hand", "during": ["organization", "shapeshifter-played"] },
+      {
+        "type": "grant-action",
+        "action": "modify-company-corruption-checks",
+        "cost": { "tap": "bearer" },
+        "targets": { "scope": "player-companies", "requiresMovingWilderness": true },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "corruption",
+          "value": 2,
+          "scope": "next-organization-phase",
+          "target": "action-target-company"
+        }
       }
     ],
-    "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Warrior/Diplomat. Radagast may not move. You may keep one more card than normal in your hand. Radagast can tap give +2 to the corruption checks of the characters in one company through your next organization phase (this company must be moving with at least one Wilderness [{w}] in their site path). Radagast may bear, but may not use, items."
+    "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Warrior/Diplomat. Radagast may not move. You may keep one more card than normal in your hand. Radagast can tap give +2 to the corruption checks of the characters in one company through your next organization phase (this company must be moving with at least one Wilderness [{w}] in their site path). Radagast may bear, but may not use, items.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "minion-resource-event",
     "alignment": "stage",
     "id": "wh-116",
-    "keywords": ["radagast-specific"],
+    "keywords": ["radagast-specific", "shapeshifter"],
     "name": "Winged Change-master",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/WingedChangemaster.jpg",
     "unique": false,

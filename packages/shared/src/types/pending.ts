@@ -797,6 +797,16 @@ export type ConstraintScope =
   | { readonly kind: 'phase'; readonly phase: Phase }
   | { readonly kind: 'company-site-phase'; readonly companyId: CompanyId }
   | { readonly kind: 'company-mh-phase'; readonly companyId: CompanyId }
+  /**
+   * Cleared at the end of {@link player}'s **next** organization phase. Created
+   * during that player's current organization phase with `armed: false`; the
+   * end of the current org phase arms it (`armed: true`), and the end of the
+   * following org phase clears it. Realises "through your next organization
+   * phase" (Shifter of Hues wh-115's corruption-aid ability). Swept by
+   * `advanceNextOrganizationPhaseConstraints` in `pending.ts`, called from the
+   * organization-phase pass reducer.
+   */
+  | { readonly kind: 'next-organization-phase'; readonly player: PlayerId; readonly armed: boolean }
   /** Cleared explicitly by another effect; never auto-swept. */
   | { readonly kind: 'until-cleared' };
 

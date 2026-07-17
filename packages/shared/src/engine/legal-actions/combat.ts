@@ -24,7 +24,7 @@ import { CardStatus, SiteType, Alignment } from '../../types/common.js';
 import { isBalrogAvatarDef, stayUntappedPenalty, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, buildInPlayNames } from '../recompute-derived.js';
-import { resolveDef } from '../effects/index.js';
+import { resolveDef, getEffectiveNaturalSkills } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
@@ -1143,7 +1143,7 @@ function resolveStrikeActions(
   // strike-modifier short events: scan hand once for cards with a `strike-modifier`
   // effect. Mode is determined by effect flags: dodge (no-tap), reroll (two rolls),
   // or default (prowess/body accumulator). All three emit `play-strike-event`.
-  const struckSkills = charData && charDef && isCharacterCard(charDef) ? (charDef.skills ?? []) : [];
+  const struckSkills = charData && charDef && isCharacterCard(charDef) ? getEffectiveNaturalSkills(state, charData, charDef) : [];
   for (const handCard of player0.hand) {
     const cardDef = defById(state, handCard.definitionId);
     const strikeEffect = getCardEffects(cardDef).find(
@@ -1309,7 +1309,7 @@ function resolveStrikeActions(
   // "self" (item/ally taps to protect its bearer — e.g. Enruned Shield's
   // Warrior-only tap, or Noble Steed's "not from an automatic-attack" cancel).
   if (charData && charDef && isCharacterCard(charDef)) {
-    const bearerSkills = charDef.skills ?? [];
+    const bearerSkills = getEffectiveNaturalSkills(state, charData, charDef);
     const bearerRace = charDef.race;
     const bearerName = charDef.name;
 
@@ -1575,7 +1575,7 @@ function tapItemForStrikeActions(
       const ctx: Record<string, unknown> = {
         bearer: {
           race: charDef.race,
-          skills: charDef.skills,
+          skills: getEffectiveNaturalSkills(state, charData, charDef),
           name: charDef.name,
         },
       };
@@ -2419,7 +2419,7 @@ function protectFromStrikeAssignmentActions(
       if (!charData) continue;
       const charDef = defById(state, charData.definitionId);
       if (!charDef || !isCharacterCard(charDef)) continue;
-      if (!charDef.skills.includes(protEff.requiredSkill as import('../../types/common.js').Skill)) {
+      if (!getEffectiveNaturalSkills(state, charData, charDef).includes(protEff.requiredSkill as import('../../types/common.js').Skill)) {
         logDetail(`protect-from-assignment ${handCard.definitionId as string}: ${charDef.name ?? charId as string} lacks skill "${protEff.requiredSkill}" — skipping`);
         continue;
       }
@@ -2866,7 +2866,7 @@ function modifyAttackActions(
 
           if (effect.when) {
             const ctx: Record<string, unknown> = {
-              bearer: { race: charDef.race, skills: charDef.skills, name: charDef.name },
+              bearer: { race: charDef.race, skills: getEffectiveNaturalSkills(state, charData, charDef), name: charDef.name },
             };
             if (combat.creatureRace) ctx['enemy'] = { race: combat.creatureRace };
             const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
@@ -3640,7 +3640,7 @@ function leftBehindActions(
       if (!charDef || !isCharacterCard(charDef)) continue;
       if (charDef.race === 'wizard') continue;
       if (playTarget?.target === 'character' && playTarget.filter) {
-        const ctx = { target: { race: charDef.race, skills: charDef.skills, name: charDef.name, mind: charDef.mind } };
+        const ctx = { target: { race: charDef.race, skills: getEffectiveNaturalSkills(state, charInPlay, charDef), name: charDef.name, mind: charDef.mind } };
         if (!matchesCondition(playTarget.filter, ctx)) continue;
       }
       logDetail(`Left Behind "${def.name}" playable on ${charDef.name} (attack of ${attackStrikes} strikes)`);

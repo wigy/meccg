@@ -22,7 +22,7 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { isCharacterCard, isAvatarCharacter, isSiteCard, isFactionCard } from '../../types/cards.js';
 import { Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import { getItemGrantedSkills } from '../effects/index.js';
+import { getItemGrantedSkills, getEffectiveNaturalSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -359,7 +359,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           const ch = player.characters[cId];
           if (!ch) return [];
           const cDef = defById(state, ch.definitionId);
-          return cDef && isCharacterCard(cDef) ? [...cDef.skills, ...getItemGrantedSkills(state, ch)] : [];
+          return cDef && isCharacterCard(cDef) ? [...getEffectiveNaturalSkills(state, ch, cDef), ...getItemGrantedSkills(state, ch)] : [];
         });
         // True if the company contains any character who can use shadow-magic:
         // ringwraiths can use it by default; others need the "shadow-magic" skill.
@@ -383,7 +383,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
               target: {
                 race: charDef.race,
                 status: charData.status,
-                skills: [...charDef.skills, ...getItemGrantedSkills(state, charData)],
+                skills: [...getEffectiveNaturalSkills(state, charData, charDef), ...getItemGrantedSkills(state, charData)],
                 name: charDef.name,
                 // Mind cost of the character (null for avatars). Lets a card
                 // gate on the printed mind, e.g. Awaiting the Call (le-165)

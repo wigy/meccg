@@ -14,7 +14,7 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard } fr
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
+import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer, getEffectiveNaturalSkills } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -2239,7 +2239,7 @@ function fireItemPlayCorruptionChecks(
       if (!charDef || !isCharacterCard(charDef)) continue;
       // Exempt characters (Hobbits, Wizards, Ringwraiths) make no check.
       if (exemptFilter) {
-        const ctx = { target: { race: charDef.race, skills: charDef.skills, name: charDef.name } };
+        const ctx = { target: { race: charDef.race, skills: getEffectiveNaturalSkills(newState, char, charDef), name: charDef.name } };
         if (matchesCondition(exemptFilter, ctx)) {
           logDetail(`Greed: ${charDef.name} is exempt (matches exempt filter) — no corruption check`);
           continue;
@@ -3604,7 +3604,7 @@ function fireCvccPreStrikeEffects(
 
     // Build a bearer context for condition evaluation
     const bearerRace = charDef && isCharacterCard(charDef) ? charDef.race : '';
-    const bearerSkills = charDef && isCharacterCard(charDef) ? (charDef.skills ?? []) : [];
+    const bearerSkills = getEffectiveNaturalSkills(newState, char, charDef && isCharacterCard(charDef) ? charDef : undefined);
     const bearerCtx = { bearer: { race: bearerRace, skills: bearerSkills } };
 
     for (const item of char.items) {

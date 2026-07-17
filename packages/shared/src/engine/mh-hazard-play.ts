@@ -33,7 +33,7 @@ import { CardStatus, RegionType, Skill, Alignment } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveHandSize } from './effects/index.js';
-import { getItemGrantedSkills } from './effects/resolver.js';
+import { getItemGrantedSkills, getEffectiveNaturalSkills } from './effects/resolver.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, initiateOrPushChain } from './chain-reducer.js';
@@ -1277,7 +1277,7 @@ export function findForcingEnvironment(
     const charData = movingPlayer.characters[charId];
     const charDef = charData ? defById(state, charData.definitionId) : undefined;
     if (!charDef || !isCharacterCard(charDef)) return false;
-    const skills = [...charDef.skills, ...(charData ? getItemGrantedSkills(state, charData) : [])];
+    const skills = [...getEffectiveNaturalSkills(state, charData, charDef), ...(charData ? getItemGrantedSkills(state, charData) : [])];
     return skills.includes(Skill.Ranger);
   });
 

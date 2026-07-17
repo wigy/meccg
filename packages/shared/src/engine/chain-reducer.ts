@@ -27,14 +27,14 @@ import { logHeading, logDetail } from './legal-actions/log.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer.js';
-import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef, resolveHandSize } from './effects/index.js';
+import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef, resolveHandSize, getEffectiveNaturalSkills } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { siteAttacksCanceled } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeById, removeAttachment, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -1491,6 +1491,33 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     } else {
       logDetail(`Attaching "${def?.name ?? card.definitionId}" to character ${targetCharId as string} (${isResource ? 'items' : 'hazards'})`);
       working = placeMove('in-play-on-character');
+      // "Return this card to your hand when you play another Shapeshifter card"
+      // (the Radagast forms wh-112 / wh-115 / wh-116 replace one another):
+      // playing a new Shapeshifter form on a character returns every OTHER
+      // Shapeshifter form already on that character to its owner's hand.
+      if (((def as { keywords?: readonly string[] }).keywords ?? []).includes('shapeshifter')) {
+        const bearer = working.players[playerIndex].characters[targetCharId];
+        const returning = bearer
+          ? bearer.items.filter(it =>
+              it.instanceId !== card.instanceId &&
+              getCardEffects(defById(working, it.definitionId)).some(
+                e => e.type === 'return-to-hand' && e.during.includes('shapeshifter-played'),
+              ))
+          : [];
+        for (const it of returning) {
+          logDetail(`Shapeshifter "${def?.name ?? card.definitionId}" played → returning prior form "${defById(working, it.definitionId)?.name ?? (it.definitionId as string)}" to hand`);
+        }
+        if (returning.length > 0) {
+          working = updatePlayer(working, playerIndex, p => {
+            let pp = p;
+            for (const it of returning) {
+              const r = removeAttachment(pp, 'items', it.instanceId);
+              if (r) pp = { ...r.player, hand: [...r.player.hand, toCardInstance(r.attachment)] };
+            }
+            return pp;
+          });
+        }
+      }
     }
   } else {
     // General permanent event — add to cardsInPlay. Site-targeting permanent
@@ -3686,7 +3713,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           const effMind = ch.effectiveStats.mind ?? charDef.mind ?? 0;
           if (effMind >= threshold) continue;
           if (tapEffect.filter) {
-            const ctx = { target: { race: charDef.race, mind: effMind, name: charDef.name, skills: charDef.skills } };
+            const ctx = { target: { race: charDef.race, mind: effMind, name: charDef.name, skills: getEffectiveNaturalSkills(current, ch, charDef) } };
             if (!matchesCondition(tapEffect.filter, ctx)) continue;
           }
           logDetail(`  tapping "${charDef.name}" (mind ${effMind})`);

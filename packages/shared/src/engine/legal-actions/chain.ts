@@ -21,6 +21,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect, GrantActionEffect, CounterCancelAttackRollEffect } from '../../types/effects.js';
 import { isSiteCard, isCharacterCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
+import { getEffectiveNaturalSkills } from '../effects/index.js';
 import { cardStatusToName } from '../../types/common.js';
 import { logDetail } from './log.js';
 import { playerById, getCardEffects, defById, companyById } from '../reducer-utils.js';
@@ -243,7 +244,7 @@ function emitHazardSelfCancelBySkillActions(
           status: cardStatusToName(char.status),
           name: charDef && isCharacterCard(charDef) ? charDef.name : '',
           race: charDef && isCharacterCard(charDef) ? charDef.race : '',
-          skills: charDef && isCharacterCard(charDef) ? charDef.skills : [],
+          skills: getEffectiveNaturalSkills(state, char, charDef && isCharacterCard(charDef) ? charDef : undefined),
         },
       };
       if (grant.when && !matchesCondition(grant.when, actorCtx)) continue;

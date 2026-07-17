@@ -21,7 +21,7 @@ import type {
   CardDefinitionId,
   Alignment as AlignmentType,
 } from '../../index.js';
-import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission } from '../../effects/play-flags.js';
+import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission, hasPlayFlag } from '../../effects/play-flags.js';
 import { buildMovementMap, getReachableSites } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
@@ -563,6 +563,19 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         && c.target.companyId === company.id,
     )) {
       logDetail(`Company ${company.id as string} is locked stationary (company-cannot-move) — no movement offered`);
+      continue;
+    }
+
+    // "Radagast may not move" (Shifter of Hues wh-115): a company containing a
+    // character that bears an item / permanent-event with the `cannot-move`
+    // play-flag may not declare movement. (Other members may regroup into a
+    // separate company without the flagged bearer and move normally.)
+    const immobileBearer = company.characters.some(cid => {
+      const c = player.characters[cid];
+      return !!c && c.items.some(it => hasPlayFlag(resolveDef(state, it.instanceId) as Parameters<typeof hasPlayFlag>[0], 'cannot-move'));
+    });
+    if (immobileBearer) {
+      logDetail(`Company ${company.id as string} contains an immobile character (cannot-move) — no movement offered`);
       continue;
     }
 

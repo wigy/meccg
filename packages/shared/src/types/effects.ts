@@ -1407,6 +1407,14 @@ export interface GrantActionTargets {
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
+  /**
+   * For scope `'player-companies'`: restrict the offered target companies to
+   * those that have declared movement this organization phase whose destination
+   * site's printed site path includes at least one Wilderness [{w}] region.
+   * Realises Shifter of Hues (wh-115): the aided company "must be moving with at
+   * least one Wilderness in their site path".
+   */
+  readonly requiresMovingWilderness?: boolean;
 }
 
 /** The cost required to activate a granted action. */
@@ -2226,8 +2234,17 @@ export interface FleeFromStrikeEffect extends EffectBase {
  */
 export interface ReturnToHandEffect extends EffectBase {
   readonly type: 'return-to-hand';
-  /** The triggers under which the card may/should return to hand. */
-  readonly during: readonly ('organization' | 'controller-leaves-play')[];
+  /**
+   * The triggers under which the card may/should return to hand:
+   * - `organization` — the controller may voluntarily return it during their
+   *   organization phase.
+   * - `controller-leaves-play` — it returns to hand (instead of discarding)
+   *   when its controlling character leaves active play.
+   * - `shapeshifter-played` — it returns to hand automatically when the
+   *   controller plays another card with the `shapeshifter` keyword (the
+   *   Radagast Shapeshifter forms wh-112 / wh-115 / wh-116 replace one another).
+   */
+  readonly during: readonly ('organization' | 'controller-leaves-play' | 'shapeshifter-played')[];
 }
 
 /**
@@ -2447,6 +2464,17 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   company. (Allies are only ever played during the site phase, so this
  *   realizes "no allies in his company outside the organization phase" without a
  *   phase gate.) Used by Flame of Udûn (ba-58).
+ * - `cannot-use-items` — while an item / attached permanent-event carrying this
+ *   flag is on a character, that character "may bear, but may not use, items":
+ *   every effect and structural bonus sourced from a true item card it bears is
+ *   nulled (mirroring the Ringwraith / Balrog avatar item ban), while the
+ *   corruption points of borne items still apply. The permanent-event's own
+ *   grants survive (a perm-event is not an item card). Used by the Radagast
+ *   Shapeshifter forms (wh-112 / wh-115 / wh-116).
+ * - `cannot-move` — while a character bearing this flag is in a company, that
+ *   company may not declare movement during the organization phase ("Radagast
+ *   may not move", wh-115). Other characters may still regroup into a separate
+ *   company (without the flagged bearer) and move.
  * - `bearer-cannot-untap-until-stored` — when this storable permanent event is
  *   attached to a character on play (taps the character via a play-target tap
  *   cost or a direct storable-at attachment, or is assigned a bearer after a
@@ -2458,7 +2486,7 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'cannot-use-items' | 'cannot-move';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -5436,6 +5464,7 @@ export type CardEffect =
   | RingTestTableEffect
   | RingTestSearchEffect
   | GrantSkillEffect
+  | OverrideSkillsEffect
   | ItemSlotModifierEffect
   | CompanyOvertEffect
   | AssignStrikeWhenTappedEffect
@@ -6214,6 +6243,22 @@ export interface GrantSkillEffect extends EffectBase {
   readonly type: 'grant-skill';
   /** The skill to grant (e.g. `"scout"`, `"warrior"`, `"sage"`). */
   readonly skill: string;
+}
+
+/**
+ * Replaces the bearer's **natural** skills wholesale with a fixed set, while
+ * the item / attached permanent-event carrying this effect is borne. Unlike
+ * {@link GrantSkillEffect} (which only adds), this discards the character's
+ * printed skills entirely — used by the Radagast Shapeshifter forms, whose
+ * text reads "Radagast's skills become Warrior/Diplomat" (wh-115),
+ * "Warrior/Ranger" (wh-112), or "Scout/Diplomat" (wh-116). Any `grant-skill`
+ * items still stack on top of the replacement set. Resolved by
+ * `getEffectiveNaturalSkills` in `effects/resolver.ts`.
+ */
+export interface OverrideSkillsEffect extends EffectBase {
+  readonly type: 'override-skills';
+  /** The complete replacement set of natural skills (e.g. `["warrior", "diplomat"]`). */
+  readonly skills: readonly string[];
 }
 
 /**

@@ -261,3 +261,42 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
     activeConstraints: newConstraints,
   };
 }
+
+/**
+ * Advance every `next-organization-phase`-scoped constraint owned by the given
+ * player at the end of that player's organization phase. Realises the "through
+ * your next organization phase" duration (Shifter of Hues wh-115):
+ *
+ *  - a constraint created this org phase is still `armed: false` — arm it so it
+ *    survives the current turn's movement/site phases and the opponent's turn;
+ *  - a constraint that was already `armed: true` (created during a previous org
+ *    phase) has now lived through the owner's next organization phase, so drop
+ *    it.
+ *
+ * Constraints belonging to the other player are untouched. Called from the
+ * organization-phase pass reducer with the passing (active) player's id.
+ */
+export function advanceNextOrganizationPhaseConstraints(
+  state: GameState,
+  playerId: PlayerId,
+): GameState {
+  let changed = false;
+  const next: ActiveConstraint[] = [];
+  for (const c of state.activeConstraints) {
+    const s = c.scope;
+    if (s.kind === 'next-organization-phase' && s.player === playerId) {
+      if (s.armed) {
+        // Lived through the owner's next org phase — expire it.
+        changed = true;
+        continue;
+      }
+      // End of the org phase it was created in — arm for the next one.
+      changed = true;
+      next.push({ ...c, scope: { ...s, armed: true } });
+      continue;
+    }
+    next.push(c);
+  }
+  if (!changed) return state;
+  return { ...state, activeConstraints: next };
+}

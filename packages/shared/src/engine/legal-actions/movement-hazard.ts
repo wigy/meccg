@@ -25,7 +25,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, Disc
 import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
-import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
+import { resolveHandSize, isWardedAgainst, resolveDef, getEffectiveNaturalSkills } from '../effects/index.js';
 import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
@@ -2601,7 +2601,7 @@ function playHazardsActions(
               const ctx = {
                 target: {
                   race: charDef.race,
-                  skills: charDef.skills,
+                  skills: getEffectiveNaturalSkills(state, charData, charDef),
                   name: charDef.name,
                   possessions: possessionNames,
                   itemKeywords,
@@ -2633,7 +2633,7 @@ function playHazardsActions(
             }
             if (shortPlayOptions.length > 0) {
               const optionCtx = charDef && isCharacterCard(charDef)
-                ? { target: { race: charDef.race, skills: charDef.skills, name: charDef.name, status: charData?.status } }
+                ? { target: { race: charDef.race, skills: getEffectiveNaturalSkills(state, charData, charDef), name: charDef.name, status: charData?.status } }
                 : { target: {} };
               for (const opt of shortPlayOptions) {
                 if (opt.when && !matchesCondition(opt.when, optionCtx)) {
@@ -3086,7 +3086,7 @@ function playHazardsActions(
                   target: {
                     cardType: charDef.cardType,
                     race: charDef.race,
-                    skills: charDef.skills,
+                    skills: getEffectiveNaturalSkills(state, charData, charDef),
                     name: charDef.name,
                     mind: charDef.mind,
                     possessions: possessionNames,

@@ -1380,3 +1380,30 @@ export function getItemGrantedSkills(
   }
   return granted;
 }
+
+/**
+ * Returns the character's **natural** skills, honouring any `override-skills`
+ * effect borne on an attached item / permanent-event. Without such an effect
+ * this is exactly `charDef.skills`, so it is a behaviour-preserving drop-in at
+ * every site that reads a character's printed skills. When present (the
+ * Radagast Shapeshifter forms), the override's fixed set replaces the printed
+ * skills wholesale — "Radagast's skills become Warrior/Diplomat" (wh-115).
+ *
+ * Combine with {@link getItemGrantedSkills} where the *full* skill set is
+ * needed (`[...getEffectiveNaturalSkills(...), ...getItemGrantedSkills(...)]`);
+ * `grant-skill` items still stack on top of the replacement set.
+ */
+export function getEffectiveNaturalSkills(
+  state: GameState,
+  charData: CharacterInPlay | undefined,
+  charDef: { readonly skills?: readonly string[] } | undefined,
+): readonly string[] {
+  const natural = charDef?.skills ?? [];
+  if (!charData) return natural;
+  for (const item of charData.items) {
+    for (const eff of getCardEffects(state.cardPool[item.definitionId])) {
+      if (eff.type === 'override-skills') return eff.skills;
+    }
+  }
+  return natural;
+}

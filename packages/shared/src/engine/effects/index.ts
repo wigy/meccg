@@ -25,6 +25,7 @@ export {
   normalizeCreatureRace,
   resolveDef,
   getItemGrantedSkills,
+  getEffectiveNaturalSkills,
 } from './resolver.js';
 export type { ResolverContext, CollectedEffect, CreatureSelfContext, CreatureAttackBoostContext } from './resolver.js';
 export { applyWardToBearer, collectBearerWardFilters, isWardedAgainst } from './ward.js';

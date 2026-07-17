@@ -36,7 +36,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getItemGrantedSkills, getEffectiveNaturalSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -324,7 +324,7 @@ function cancelInfluenceActions(
 
             // Check skill restriction (character's innate skills + item-granted skills)
             if (cancelEffect.requiredSkill) {
-              const allSkills = [...charDef.skills, ...getItemGrantedSkills(state, charData)];
+              const allSkills = [...getEffectiveNaturalSkills(state, charData, charDef), ...getItemGrantedSkills(state, charData)];
               if (!allSkills.includes(cancelEffect.requiredSkill)) continue;
             }
 
@@ -531,7 +531,7 @@ export function flateryAttemptRollActions(
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
-  const isDiplomat = isCharacterCard(charDef) && charDef.skills.includes(Skill.Diplomat);
+  const isDiplomat = isCharacterCard(charDef) && getEffectiveNaturalSkills(state, charInPlay, charDef).includes(Skill.Diplomat);
   const bonus = isDiplomat ? diplomatBonus : 0;
   const unusedDI = availableDI(state, characterInstanceId, player);
   const totalModifier = unusedDI + bonus;
@@ -805,15 +805,16 @@ export function corruptionCheckActions(
     logDetail(`One-shot check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id}`);
   }
 
-  // Company-scoped corruption check-modifier constraints (Ren the Ringwraith
-  // le-56: "modify all corruption checks made this turn by minions in any one
-  // of your companies by +2"): applied to every corruption check by a minion
-  // character in the *targeted* company, and NOT consumed — they persist for
-  // the constraint's turn scope. The checked character's own company must
-  // match the constraint's companyId.
+  // Company-scoped corruption check-modifier constraints, applied to every
+  // corruption check by a character in the *targeted* company and NOT consumed
+  // (they persist for the constraint's scope). The checked character's own
+  // company must match the constraint's companyId. A company belongs to a
+  // single side, so this covers both minion-side sources (Ren the Ringwraith
+  // le-56: "modify all corruption checks made this turn by minions in any one of
+  // your companies by +2") and fallen-wizard-side sources (Shifter of Hues
+  // wh-115: "+2 to the corruption checks of the characters in one company").
   const checkCompany = findCharacterCompany(player.companies, characterId);
-  const isMinionChar = isCharacterCard(charDef) && charDef.cardType === 'minion-character';
-  if (checkCompany && isMinionChar) {
+  if (checkCompany) {
     for (const constraint of state.activeConstraints) {
       if (constraint.kind.type !== 'check-modifier') continue;
       if (constraint.kind.check !== 'corruption') continue;
@@ -1635,7 +1636,7 @@ export function selectCardBearerActions(
       const ctx: Record<string, unknown> = {
         target: {
           race: chDef.race,
-          skills: [...chDef.skills, ...getItemGrantedSkills(state, ch)],
+          skills: [...getEffectiveNaturalSkills(state, ch, chDef), ...getItemGrantedSkills(state, ch)],
           status: ch.status,
           name: chDef.name,
           itemNames: defNamesOf(state, ch.items),

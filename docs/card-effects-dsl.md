@@ -9672,3 +9672,66 @@ Implemented in `reducer-events.ts` (`handlePlayResourceShortEvent` — discard /
 tap / enqueue rolls), `pending-reducers.ts` (`applyDiceCheckBranch` —
 `wound-or-eliminate`), and `legal-actions/combat.ts` (`siteStormAtSiteActions`,
 wired into the CvCC combat action windows). Used by *Crowned with Storm* (ba-54).
+
+### 34. Radagast Shapeshifter primitives (`override-skills`, `cannot-use-items`, `cannot-move`, `next-organization-phase`, `shapeshifter-played`)
+
+The Radagast Shapeshifter forms (Master of Shapes wh-112, Shifter of Hues
+wh-115, Winged Change-master wh-116) are `radagast-specific` `shapeshifter`
+resource permanent-events placed on the Radagast avatar (via
+`play-target { "target.name": "Radagast" }`). Because they attach to a single
+known character, their **adopted attributes** are expressed as plain deltas from
+Radagast's printed base (Shifter of Hues: body `+1`, direct-influence `-2`,
+general-influence `+5`, prowess unchanged, plus a corruption `check-modifier`
+`-2`) — no absolute-set primitive is needed. The forms also introduce:
+
+```json
+{ "type": "override-skills", "skills": ["warrior", "diplomat"] }
+```
+
+Replaces the bearer's **natural** skills wholesale ("Radagast's skills become
+Warrior/Diplomat"). Resolved by `getEffectiveNaturalSkills(state, char, charDef)`
+(`effects/resolver.ts`) — a drop-in for every `charDef.skills` read that returns
+the printed skills unless an `override-skills` effect is borne. `grant-skill`
+items still stack on top of the replacement set.
+
+```json
+{ "type": "play-flag", "flag": "cannot-use-items" }
+{ "type": "play-flag", "flag": "cannot-move" }
+```
+
+`cannot-use-items` — "may bear, but may not use, items": `computeEffectiveStats`
+nulls every effect and structural bonus from a true item card the bearer holds
+(like the Ringwraith/Balrog ban); borne items' corruption points still apply and
+the perm-event's own grants survive. `cannot-move` — "Radagast may not move": a
+company containing the flagged bearer may not declare movement in the
+organization phase (`planMovementActions`).
+
+```json
+{ "type": "grant-action", "action": "modify-company-corruption-checks",
+  "cost": { "tap": "bearer" },
+  "targets": { "scope": "player-companies", "requiresMovingWilderness": true },
+  "apply": { "type": "add-constraint", "constraint": "check-modifier",
+             "check": "corruption", "value": 2,
+             "scope": "next-organization-phase",
+             "target": "action-target-company" } }
+```
+
+"Radagast can tap to give +2 to the corruption checks of the characters in one
+company through your next organization phase (moving with at least one
+Wilderness in their site path)". `requiresMovingWilderness` restricts the offered
+companies to those whose declared destination site's printed `sitePath` includes
+`wilderness`. The `next-organization-phase` constraint scope
+(`{ kind, player, armed }`) is created unarmed, armed at the end of the acting
+player's org phase and cleared at the following one
+(`advanceNextOrganizationPhaseConstraints`, `pending.ts`) — realising the
+across-turns "through your next organization phase" duration.
+
+```json
+{ "type": "return-to-hand", "during": ["organization", "shapeshifter-played"] }
+```
+
+`shapeshifter-played` returns the card to hand when the controller plays another
+card carrying the `shapeshifter` keyword onto the same character (the forms
+replace one another); the `organization` trigger keeps the voluntary org-phase
+return, now generalised from attached allies to resource permanent-events in the
+bearer's `items`.

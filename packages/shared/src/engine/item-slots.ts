@@ -26,7 +26,7 @@
  */
 
 import type { CardDefinition, CardInstance, CharacterInPlay, GameState, Keyword } from '../index.js';
-import { resolveDef } from './effects/index.js';
+import { resolveDef, getEffectiveNaturalSkills } from './effects/index.js';
 import { getCardEffects } from './reducer-utils.js';
 
 /**
@@ -151,7 +151,10 @@ export function pickActiveItemsForCharacter(
   char: CharacterInPlay,
 ): ReadonlySet<string> {
   const charDef = resolveDef(state, char.instanceId);
-  const naturalSkills =
-    charDef && 'skills' in charDef && charDef.skills ? (charDef.skills as readonly string[]) : [];
+  const naturalSkills = getEffectiveNaturalSkills(
+    state,
+    char,
+    charDef && 'skills' in charDef ? (charDef as { readonly skills?: readonly string[] }) : undefined,
+  );
   return pickActiveItems(state, char.items, naturalSkills);
 }

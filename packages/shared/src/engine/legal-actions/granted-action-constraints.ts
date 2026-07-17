@@ -25,6 +25,7 @@ import { logDetail } from './log.js';
 import { isCharacterCard } from '../../types/cards.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { cardName, playerById, defById } from '../reducer-utils.js';
+import { getEffectiveNaturalSkills } from '../effects/index.js';
 
 /**
  * Iterate every active `granted-action` constraint whose `phase` /
@@ -76,7 +77,7 @@ export function emitGrantedActionConstraintActions(
         status: cardStatusToName(char.status),
         name: charDef && isCharacterCard(charDef) ? charDef.name : '',
         race: charDef && isCharacterCard(charDef) ? charDef.race : '',
-        skills: charDef && isCharacterCard(charDef) ? charDef.skills : [],
+        skills: getEffectiveNaturalSkills(state, char, charDef && isCharacterCard(charDef) ? charDef : undefined),
       };
 
       const ctx: Record<string, unknown> = {

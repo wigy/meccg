@@ -28,13 +28,13 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard } from '../../types/cards.js';
 import { requirePhaseState, companyContainsBalrogAvatar } from '../../state-utils.js';
-import { CardStatus, cardStatusToName } from '../../types/common.js';
+import { CardStatus, cardStatusToName, RegionType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills, getEffectiveNaturalSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch } from '../reducer-utils.js';
@@ -546,15 +546,18 @@ export function returnAttachedToHandActions(state: GameState, playerId: PlayerId
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
   for (const char of Object.values(player.characters)) {
-    for (const ally of char.allies) {
-      const def = defById(state, ally.definitionId);
+    // Attached allies (Radagast's Black Bird wh-114) and resource
+    // permanent-events on the character (the Radagast Shapeshifter forms, e.g.
+    // Shifter of Hues wh-115) may both carry an `organization` return-to-hand.
+    for (const attachment of [...char.allies, ...char.items]) {
+      const def = defById(state, attachment.definitionId);
       const canReturn = getCardEffects(def).some(
         e => e.type === 'return-to-hand' && e.during.includes('organization'),
       );
       if (!canReturn) continue;
-      logDetail(`Return-to-hand available: ${def?.name ?? (ally.definitionId as string)} may return to hand`);
+      logDetail(`Return-to-hand available: ${def?.name ?? (attachment.definitionId as string)} may return to hand`);
       actions.push({
-        action: { type: 'return-attached-to-hand', player: playerId, cardInstanceId: ally.instanceId },
+        action: { type: 'return-attached-to-hand', player: playerId, cardInstanceId: attachment.instanceId },
         viable: true,
       });
     }
@@ -613,7 +616,7 @@ export function siteSageRingTestActivations(state: GameState, playerId: PlayerId
       if (!sage || sage.status !== CardStatus.Untapped) continue;
       const sageDef = defById(state, sage.definitionId);
       if (!sageDef || !isCharacterCard(sageDef)) continue;
-      const skills = [...(sageDef.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, sage)];
+      const skills = [...getEffectiveNaturalSkills(state, sage, sageDef), ...getItemGrantedSkills(state, sage)];
       if (!skills.includes('sage')) continue;
       for (const ringInstanceId of ringInstanceIds) {
         logDetail(`sage-tap-ring-test at ${siteDef.name}: ${sageDef.name} may tap to test a gold ring (modifier ${formatSignedNumber((rule as { rollModifier: number }).rollModifier)})`);
@@ -708,7 +711,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             if (companion.status !== CardStatus.Untapped) continue;
             const companionDef = defById(state, companion.definitionId);
             if (!companionDef || !isCharacterCard(companionDef)) continue;
-            if (![...(companionDef.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, companion)].includes('sage')) continue;
+            if (![...getEffectiveNaturalSkills(state, companion, companionDef), ...getItemGrantedSkills(state, companion)].includes('sage')) continue;
             logDetail(`Grant-action ${effect.action} available: ${companionDef.name} (sage) can tap to activate (source: ${hazardDef?.name ?? '?'})`);
             actions.push({
               action: {
@@ -1008,6 +1011,40 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 
         const def = defById(state, item.definitionId);
         const costLabel = effect.cost.tap === 'self' ? 'tap' : 'discard';
+
+        // Per-company target enumeration for an item grant-action (Shifter of
+        // Hues wh-115: "Radagast can tap to give +2 to the corruption checks of
+        // the characters in one company … this company must be moving with at
+        // least one Wilderness in their site path"). One activation per eligible
+        // company; the `requiresMovingWilderness` filter drops non-moving or
+        // non-Wilderness companies.
+        if (effect.targets?.scope === 'player-companies') {
+          let emitted = 0;
+          for (const company of player.companies) {
+            if (effect.targets.requiresMovingWilderness && !companyMovingThroughWilderness(state, company)) {
+              continue;
+            }
+            logDetail(`Grant-action ${effect.action} available: ${charDefForCtx?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} targeting company ${company.id as string}`);
+            actions.push({
+              action: {
+                type: 'activate-granted-action',
+                player: playerId,
+                characterId: charId,
+                sourceCardId: item.instanceId,
+                sourceCardDefinitionId: item.definitionId,
+                actionId: effect.action,
+                rollThreshold: rollThresholdFor(effect),
+                targetCompanyId: company.id,
+              },
+              viable: true,
+            });
+            emitted++;
+          }
+          if (emitted === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no eligible companies (moving through Wilderness)`);
+          }
+          continue;
+        }
 
         // `place-item-on-character` (The Forge-master wh-117): tap the bearer to
         // place a qualifying minor item — fetched from the player's discard pile,
@@ -1483,6 +1520,22 @@ function isSiteResourceUnlocked(
  *
  * Returns `{ instanceId, definitionId }` pairs — one per match.
  */
+/**
+ * True when the company has declared movement this organization phase
+ * (`destinationSite` set) whose destination site's printed site path includes a
+ * Wilderness [{w}] region. Backs the `requiresMovingWilderness` target filter of
+ * Shifter of Hues (wh-115): the aided company "must be moving with at least one
+ * Wilderness in their site path". The destination site's own `sitePath` is the
+ * canonical site path traversed to reach it (the same field wh-8 Radagast's
+ * draw-modifier counts wilderness in).
+ */
+function companyMovingThroughWilderness(state: GameState, company: import('../../index.js').Company): boolean {
+  if (!company.destinationSite) return false;
+  const destDef = resolveDef(state, company.destinationSite.instanceId);
+  if (!destDef || !isSiteCard(destDef)) return false;
+  return destDef.sitePath.includes(RegionType.Wilderness);
+}
+
 function enumerateGrantActionTargets(
   state: GameState,
   player: { readonly companies: readonly import('../../index.js').Company[]; readonly characters: { readonly [key: string]: import('../../index.js').CharacterInPlay } },
@@ -1945,7 +1998,7 @@ export function buildPlayOptionContext(
     target: {
       race: def.race,
       status: statusToken(char.status),
-      skills: [...(def.skills as readonly string[]), ...getItemGrantedSkills(state, char)],
+      skills: [...getEffectiveNaturalSkills(state, char, def), ...getItemGrantedSkills(state, char)],
       keywords: (def.keywords as readonly string[] | undefined) ?? [],
       name: def.name,
       mind: def.mind,
@@ -2158,7 +2211,7 @@ function eligibleMaladyTargets(
           const cDef = defById(state, ch.definitionId);
           if (!cDef || !isCharacterCard(cDef)) return false;
           if (cDef.race === 'ringwraith') return true;
-          return [...cDef.skills, ...getItemGrantedSkills(state, ch)].includes('shadow-magic');
+          return [...getEffectiveNaturalSkills(state, ch, cDef), ...getItemGrantedSkills(state, ch)].includes('shadow-magic');
         }),
       );
       if (!hasUserAtSite) continue;

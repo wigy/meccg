@@ -34,7 +34,7 @@ import { CardStatus, Skill } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
+import { resolveDef, getItemGrantedSkills, collectCharacterEffects, resolveCheckModifier, getEffectiveNaturalSkills } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
@@ -710,7 +710,7 @@ function applyCancelInfluence(
   const charRace = charDef && isCharacterCard(charDef) ? charDef.race : undefined;
   const charData = action.characterId ? player.characters[action.characterId] : undefined;
   const charSkills = charDef && isCharacterCard(charDef)
-    ? [...charDef.skills, ...(charData ? getItemGrantedSkills(state, charData) : [])]
+    ? [...getEffectiveNaturalSkills(state, charData, charDef), ...(charData ? getItemGrantedSkills(state, charData) : [])]
     : [];
   const targetKind = top.kind.type === 'opponent-influence-defend'
     ? top.kind.attempt.targetKind
@@ -1249,7 +1249,7 @@ export function applyFlateryAttemptResolution(
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : String(characterInstanceId);
-  const isDiplomat = isCharacterCard(charDef) && charDef.skills.includes(Skill.Diplomat);
+  const isDiplomat = isCharacterCard(charDef) && getEffectiveNaturalSkills(state, charInPlay, charDef).includes(Skill.Diplomat);
   const bonus = isDiplomat ? diplomatBonus : 0;
   const unusedDI = availableDI(state, characterInstanceId, player);
 
