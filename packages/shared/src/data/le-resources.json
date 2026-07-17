@@ -4172,9 +4172,10 @@
     "marshallingCategory": "faction",
     "influenceNumber": 10,
     "race": "man",
+    "certified": "2026-07-17",
     "playableAt": [
       {
-        "site": "Beorn's"
+        "site": "Beorn’s House"
       }
     ],
     "effects": [],
