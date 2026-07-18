@@ -2314,6 +2314,45 @@ export interface FleeFromStrikeEffect extends EffectBase {
 }
 
 /**
+ * On-play roll that untaps the target character's company's current site.
+ *
+ * Carried by a resource permanent-event played on a character at a site. When
+ * the card enters play (`resolvePermanentEvent`), a generic {@link
+ * PendingResolution} `dice-check` is enqueued: the card player rolls 2d6, adds
+ * the target character's effective mind, plus {@link wizardBonus} when the
+ * character is a Wizard. If the modified total is strictly greater than {@link
+ * threshold}, the `untap-site` onPass verb untaps the site the character's
+ * company occupies. The roll surfaces as its own explicit `resolve-dice-check`
+ * action so the die roll is a distinct, replayable step.
+ *
+ * Used by Fireworks (dm-130): "Make a roll and add the mind of the sage (+10 if
+ * a Wizard) — if the result is greater than 12, the site untaps."
+ */
+export interface RollUntapSiteEffect extends EffectBase {
+  readonly type: 'roll-untap-site';
+  /** The modified 2d6 total must be strictly greater than this to untap the site. */
+  readonly threshold: number;
+  /** Bonus added to the roll when the target character is a Wizard. */
+  readonly wizardBonus: number;
+}
+
+/**
+ * On-play marker that installs a one-shot `skip-next-untap` active constraint on
+ * the target character (the same constraint kind Fled into Darkness ba-18 uses):
+ * the next time the character would otherwise untap he stays tapped once, then
+ * the source card is discarded and the constraint is cleared (`performUntap` in
+ * `reducer-untap.ts`, which also scans character-borne cards). The source card
+ * may sit either in the owner's `cardsInPlay` (ba-18) or attached to the target
+ * character's items (a resource permanent-event, dm-130).
+ *
+ * Used by Fireworks (dm-130): "The next time the sage would otherwise become
+ * untapped make him tapped instead and discard this card."
+ */
+export interface SkipNextUntapOnPlayEffect extends EffectBase {
+  readonly type: 'skip-next-untap-on-play';
+}
+
+/**
  * An attached resource (currently an ally) that its controller "may return to
  * hand" under listed triggers, instead of being discarded.
  *
@@ -5496,6 +5535,8 @@ export type CardEffect =
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect
   | FleeFromStrikeEffect
+  | RollUntapSiteEffect
+  | SkipNextUntapOnPlayEffect
   | ReturnToHandEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect
