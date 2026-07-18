@@ -3535,6 +3535,36 @@ halve-strikes, hand-card attack modifiers, region-keying / movement
 play-conditions) fires while Skies of Fire is in play, with no engine code
 naming Skies of Fire.
 
+### 14a-ii. `environment-override`
+
+Reshapes, game-wide, which named environment cards are *considered* in or out of
+play while the bearer is itself in play. Where `name-alias` only *adds* the
+bearer's alias, this can both add names (`considerInPlay`) and remove names
+(`considerNotInPlay`) from every "is X in play?" query — the `inPlay` context
+built by `buildInPlayNames` **and** the name-in-play predicates that back
+`card-in-play` / `card-not-in-play` play-conditions
+(`isCardNameInPlayOrCharacters`, `isCardNameInPlayForPlayer`,
+`inPlayNamesForPlayerDeep`). Removals are applied before additions, so a name in
+both lists ends up considered in play.
+
+```json
+{
+  "type": "environment-override",
+  "considerInPlay": ["Doors of Night"],
+  "considerNotInPlay": ["Gates of Morning"]
+}
+```
+
+Used by Peril Returned (td-54): "If Gates of Morning is not in play, Doors of
+Night is considered to be in play. If Gates of Morning is in play, it is
+considered to be out of play while Peril Returned is in play." Both branches net
+to the same unconditional state (Doors of Night in, Gates of Morning out), so
+the card carries the fixed override above. The Gates of Morning *card* is not
+removed — it stays in `cardsInPlay` and may still be removed normally (Twilight,
+Doors of Night, etc.); only its interpretation is suppressed. Because the
+override touches only the named environments (not `countCopiesInPlay`), it never
+blocks playing an actual Doors of Night or duplicates.
+
 ### 14b. `manifestation-swap` (and character manifestation chains)
 
 A character that is a *manifestation* of another character (e.g. Strider
