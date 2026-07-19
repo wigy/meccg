@@ -149,6 +149,11 @@ export function getEffectiveSiteType(
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'attribute-modifier') continue;
     if (c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
+    // Houses of Healing (td-125): a `healingOnly` override promotes the site to
+    // a Haven for the untap-phase healing sweep only (see `reducer-untap.ts`).
+    // The general effective type is unchanged, so hazard keying, movement,
+    // bring-into-play, and item/faction/ally playability all see the printed type.
+    if (c.kind.healingOnly) continue;
     const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
     if (filterSiteDefId !== (siteDefinitionId as string)) continue;
     value = c.kind.value as SiteType;

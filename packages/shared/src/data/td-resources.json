@@ -614,8 +614,28 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a Free-hold [{F}]. Site becomes a Haven [{H}] for the purposes of healing. Discard Houses of Healing when the site is returned to the location deck or discarded."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": "free-hold"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "haven",
+          "purpose": "healing",
+          "scope": "until-cleared"
+        }
+      }
+    ],
+    "text": "Playable on a Free-hold [{F}]. Site becomes a Haven [{H}] for the purposes of healing. Discard Houses of Healing when the site is returned to the location deck or discarded.",
+    "certified": "2026-07-19"
   },
   {
     "cardType": "hero-resource-event",

@@ -134,12 +134,17 @@ export function buildConstraintKind(
         }
       }
       if (!siteDefinitionId) return null;
+      // Houses of Healing (td-125): `purpose: 'healing'` makes this a
+      // healing-only override — `getEffectiveSiteType` skips it, so only the
+      // untap-phase haven-healing sweep honours it.
+      const purpose = (onEvent.apply as { purpose?: string }).purpose;
       return {
         type: 'attribute-modifier',
         attribute: 'site.type',
         op: 'override',
         value: overrideType,
         filter: { 'site.definitionId': siteDefinitionId as string },
+        ...(purpose === 'healing' ? { healingOnly: true } : {}),
       };
     }
     case 'region-type-override': {
