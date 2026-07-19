@@ -13,7 +13,12 @@
  * |---|--------------------------------------------------|-------------|-------------------------------------------|
  * | 1 | +2 to direct influence                           | IMPLEMENTED | stat-modifier effect                      |
  * | 2 | Eligible as replacement for any gold-ring result | IMPLEMENTED | keyword lesser-ring matches null min/max  |
- * | 3 | Tap to cancel corruption check                   | TODO        | not yet implemented                       |
+ *
+ * The Lesser Ring's entire printed effect is "+2 to direct influence" (see the
+ * authoritative text in data/cards.json TW-266). It has NO corruption-check
+ * ability — an earlier draft of this test carried a phantom "tap to cancel a
+ * corruption check" row/todo that does not correspond to the card. The card is
+ * fully implemented and certified (2026-05-24).
  *
  * Fixture alignment: hero (wizard), using Aragorn (tw-173) at Rivendell.
  */
@@ -117,6 +122,4 @@ describe('Lesser Ring (tw-266)', () => {
       afterPlay.players[RESOURCE_PLAYER].characters[aragornId].items.find(i => i.definitionId === LESSER_RING),
     ).toBeDefined();
   });
-
-  test.todo('tap to cancel one corruption check');
 });

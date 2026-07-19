@@ -24,7 +24,7 @@ import { makeCombatState, companyById, companySubphaseScope, defById, diceRollEf
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
-import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
+import { applyMove, findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
 import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -850,6 +850,31 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
           reason: def.name,
         });
       }
+    }
+  }
+
+  // Remove all hazard permanent-events on the target character (The Sun
+  // Unveiled as-56): a `move { select: filter-all, from: hazards-on-target,
+  // to: discard }` discards each matching hazard to its owner's discard pile.
+  // Distinct from the Wizard Uncloaked bounce above (whole company → opponent's
+  // hand): this targets a single character and removes to the owner's discard.
+  const removeHazardsOnTarget = def.effects?.find(
+    (e): e is import('../types/effects.js').MoveEffect =>
+      e.type === 'move'
+      && e.select === 'filter-all'
+      && e.from === 'hazards-on-target',
+  );
+  if (removeHazardsOnTarget && action.targetCharacterId) {
+    const moveResult = applyMove(newState, removeHazardsOnTarget, {
+      sourceCardId: handCard.instanceId,
+      sourcePlayerIndex: playerIndex,
+      targetCharacterId: action.targetCharacterId,
+    });
+    if ('error' in moveResult) {
+      logDetail(`${def.name}: remove-hazards-on-target failed — ${moveResult.error}`);
+    } else {
+      logDetail(`${def.name}: removed hazard permanent-events on ${action.targetCharacterId as string}`);
+      newState = moveResult.state;
     }
   }
 
