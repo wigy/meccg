@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.55.0 — 2026-07-20
+
+Challenge Deck T
+
+### Game Engine
+
+- Completed the card pool for challenge deck (T) "Feel Free" — all 110 cards are now certified, making the deck playable end to end
+- Certified Await the Advent of Allies (dm-117) with two new marker effects (`general-influence-exempt`, `own-mp-not-counted`), a `resource-taps-or-requires-site` on-event trigger, and an extension of the bearer-wounded combat-finalization scan to attached items and permanent-events
+- Certified Alliance of Free Peoples (as-45) with a `faction-mp-bonus` (race-diversity-gated +1 MP per in-play faction) and a new `discard-on-card-leaves-play` reactive-diff effect
+- Certified Red Arrow (tw-312) with a new `auto-influence-faction` primitive — faction influence succeeds with no 2d6 check, no RNG consumed — plus a +5 direct-influence bonus against characters with Edoras as home site
+- Certified Folco Boffin (dm-180) with a new `discard-to-recruit` primitive that generalizes manifestation-swap: discard the bearer at a Haven to play a filter-matching character into its company, transferring attachments and control without consuming the one-character-per-turn slot
+- Certified Saw Further and Deeper (dm-156) with unrevealed-Wizard support: a `player.avatarInPlay` play-condition, an `avatar-home-site-restriction` marker, and a new `avatar-enters-play` on-event trigger
+- Certified Tookish Blood (tw-104) as a dual hazard/resource card, adding a `protect-from-removal` effect and a turn-scoped `character-removal-protected` constraint that fizzles returns-to-hand and discards
+- Certified The Sun Unveiled (as-56) with a new `hazards-on-target` MoveZone that removes every hazard permanent-event from a character and routes each to its owner's discard
+- Certified Times Are Evil (td-76) with a new `all-in-play` check-modifier scope penalising both players' influence and offering attempts
+- Certified Houses of Healing (td-125) with a healing-only variant of `site-type-override` — the site counts as a Haven for the untap-phase healing sweep only
+- Certified Nenseldë the Wingild (td-142) and Marsh-drake (td-47) from existing primitives; the latter also fixed an invalid `coastal-sea` region type in its keying data
+- Implemented a corruption-check cost variant of `cancel-strike` for The One Ring (tw-347), alongside coverage for Sting (tw-333) and Bard Bowman (tw-124)
+
+### Bug Fixes
+
+- Crown of Flowers (dm-121) no longer blocks the rest of the organization phase — resource pairing is modelled as a non-blocking organization action instead of a blocking pending resolution, and the unused `resource-play-offer` pending kind was removed
+- Gates of Morning may now be replayed in response to a Twilight (CRF 22 Annotation 11): resource permanent-events are offered during movement/hazard and organization chains, and the game-scope duplication check excludes copies already targeted for discard
+- A pending fetch queued above a creature entry on a collapsing chain now resolves before combat, so Smoke Rings (dm-159) is no longer silently skipped
+- Fallen-wizard avatar-specific Stage resources are playable before the avatar is first brought into play (CoE 2.2.F2) — the gate now resolves the declared avatar rather than requiring it in play
+- The General Influence tooltip no longer counts characters exempted by Await the Advent of Allies, matching the engine's calculation
+- Ported pending-effects hazards (Despair of the Heart, Greed, Weariness of the Heart) to their previously inert sibling printings, with parity tests guarding the regression
+
+### AI
+
+- The heuristic AI no longer treats unusable heal/untap cards as untap sources — a restore card counts only when it can actually target a company character in the relevant status
+- The AI no longer idles a healthy company in the Organization phase when a movement target hosts a directly-playable hand resource
+
+### Web Client
+
+- The inbox "Delete Read" button is always rendered, disabled until at least one message is read, with its state recomputed live as messages are read, deleted, or reviews resolved
+- Disabled inbox action buttons are visually muted and no longer highlight on hover
+
+### Card Data
+
+- 11 newly certified cards (915 → 926 of 1683), completing challenge deck (T) "Feel Free" at 110/110
+- Removed a phantom "cancel corruption check" todo from the Lesser Ring (tw-266) test — the card has no such printed ability
+
 ## 0.54.0 — 2026-07-19
 
 Challenge Deck S
