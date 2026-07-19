@@ -1589,6 +1589,20 @@ export interface ActiveConstraint {
          * company that contains The Balrog avatar ("against his company").
          */
         readonly restrictToBalrogCompany: boolean;
+      }
+    | {
+        /**
+         * Tookish Blood (tw-104), resource mode: "For the rest of the turn, the
+         * target Hobbit cannot be discarded or returned to its owner's hand for
+         * any reason." Placed (scope `'turn'`) on the target character when the
+         * card is played as a resource. While present, the central character
+         * removal helpers (`returnCharacterToHand` and the discard path of
+         * `discardCharacter` in `pending-reducers.ts`) fizzle any attempt to
+         * return the character to hand or discard it — including the card's own
+         * hazard mode. Checked via `isCharacterRemovalProtected`
+         * (`engine/removal-protection.ts`). Auto-swept at turn end.
+         */
+        readonly type: 'character-removal-protected';
       };
 }
 

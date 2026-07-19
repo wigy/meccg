@@ -2194,8 +2194,15 @@ function playHazardsActions(
           if (blocked) continue;
         }
 
-        // Environment-cancelers (e.g. Twilight) need an environment target in play
-        if (hasPlayFlag(def, 'playable-as-resource')) {
+        // Environment-cancelers (e.g. Twilight) need an environment target in
+        // play. A `playable-as-resource` hazard that instead has a character
+        // target (Tookish Blood tw-104: `call-of-home-check` / character
+        // protection) is NOT an environment-canceler — let it fall through to
+        // the character-targeting branch below for its hazard mode.
+        const isCharacterTargetingResourceHazard = getCardEffects(def).some(
+          e => e.type === 'call-of-home-check' || e.type === 'protect-from-removal',
+        );
+        if (hasPlayFlag(def, 'playable-as-resource') && !isCharacterTargetingResourceHazard) {
           const envTargets = findEnvironmentTargets(state);
           if (envTargets.length === 0) {
             logDetail(`Hazard short-event "${def.name}": no environment in play to cancel`);

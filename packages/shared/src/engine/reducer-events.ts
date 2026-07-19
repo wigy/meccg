@@ -22,6 +22,7 @@ import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, companyById, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
+import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -120,6 +121,29 @@ export function handlePlayShortEvent(state: GameState, action: GameAction): Redu
   const handCard = findById(player.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'Card not found in hand' };
   const def = state.cardPool[handCard.definitionId] as import('../types/cards-hazards.js').HazardEventCard;
+
+  // Tookish Blood (tw-104) resource mode: "For the rest of the turn, the target
+  // Hobbit cannot be discarded or returned to its owner's hand for any reason."
+  // A `playable-as-resource` hazard-event carrying a `protect-from-removal`
+  // effect and a chosen own-character target installs a turn-scoped removal
+  // protection and discards the spent card. (The card's hazard mode is a
+  // separate `play-hazard` path via `call-of-home-check`.)
+  const protectEffect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').ProtectFromRemovalEffect => e.type === 'protect-from-removal',
+  );
+  if (protectEffect && action.targetCharacterId) {
+    const targetChar = player.characters[action.targetCharacterId];
+    if (!targetChar) return { state, error: `${def.name}: target character not found` };
+    logDetail(`${def.name}: protecting ${action.targetCharacterId as string} from discard/return-to-hand for the rest of the turn`);
+    state = revealInstances(state, [handCard]);
+    let afterProtect = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+      discardPile: [...p.discardPile, handCard],
+    }));
+    afterProtect = addRemovalProtection(afterProtect, action.targetCharacterId, handCard.instanceId, handCard.definitionId);
+    return { state: afterProtect };
+  }
 
   const targetDef = resolveDef(state, action.targetInstanceId!);
   logDetail(`Playing short event ${def.name}: targeting environment ${targetDef?.name ?? action.targetInstanceId} (chain will resolve the cancel)`);

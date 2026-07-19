@@ -39,6 +39,7 @@ import { hasPlayFlag } from '../effects/index.js';
 import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
+import { isCharacterRemovalProtected } from './removal-protection.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import {
@@ -1350,6 +1351,13 @@ function returnCharacterToHand(
   allowItemTransfer = false,
   sourceInstanceId: import('../index.js').CardInstanceId | null = null,
 ): GameState {
+  // Tookish Blood (tw-104) resource mode: a character protected this turn
+  // "cannot be … returned to its owner's hand for any reason" — fizzle.
+  if (isCharacterRemovalProtected(state, characterId)) {
+    logDetail(`return-character-to-hand: ${characterId as string} is removal-protected this turn (Tookish Blood) — no-op`);
+    return state;
+  }
+
   const newPlayers = clonePlayers(state);
   const player = newPlayers[playerIndex];
   const opponentIndex = playerIndex === 0 ? 1 : 0;
@@ -1487,6 +1495,14 @@ function discardCharacter(
   charInPlay: import('../index.js').CharacterInPlay,
   characterDestination: 'discard' | 'out-of-play' = 'discard',
 ): GameState {
+  // Tookish Blood (tw-104) resource mode: a protected character "cannot be
+  // discarded … for any reason" this turn. Only the discard path is guarded —
+  // an elimination (out-of-play) is a distinct removal and is untouched.
+  if (characterDestination === 'discard' && isCharacterRemovalProtected(state, characterId)) {
+    logDetail(`discard-character: ${characterId as string} is removal-protected this turn (Tookish Blood) — no-op`);
+    return state;
+  }
+
   // Press-gang (ba-22): a character that would otherwise be *discarded* from
   // play is instead held off to the side by an opponent's Press-gang. Only the
   // discard path is intercepted — an elimination (out-of-play) is untouched.

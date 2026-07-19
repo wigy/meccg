@@ -4652,6 +4652,29 @@ Implemented in `chain-reducer.ts` (enqueue pending resolution on
 short-event resolution), `legal-actions/pending.ts` (generate roll
 action), and `pending-reducers.ts` (execute roll and apply consequences).
 
+### 23a. `protect-from-removal`
+
+Resource-mode companion to a `playable-as-resource` hazard-event: played on
+one of the controller's own characters (target selected by the companion
+`play-target` `filter`), it protects that character from being **discarded or
+returned to hand** for the rest of the turn "for any reason". Resolution
+installs a turn-scoped `character-removal-protected` active constraint on the
+target (`engine/removal-protection.ts`); the central `returnCharacterToHand`
+and `discardCharacter` helpers (`pending-reducers.ts`) fizzle any such removal
+while the constraint is active. An elimination to out-of-play (combat/corruption
+death) is a distinct removal and is not blocked. The `turn` scope auto-clears at
+turn end.
+
+```json
+{ "type": "protect-from-removal", "duration": "turn" }
+```
+
+Used by Tookish Blood (tw-104): the hazard mode (`call-of-home-check`) returns a
+Hobbit to hand; the resource mode protects your own Hobbit from that same return
+(and any discard) for the rest of the turn. Offered as a `play-short-event` by
+`playShortEventActions` (`legal-actions/organization-events.ts`) and resolved in
+`handlePlayShortEvent` (`reducer-events.ts`).
+
 ### 24. `mass-body-check`
 
 Forces a body check modified by `modifier` (typically negative) on **every
