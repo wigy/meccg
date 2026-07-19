@@ -1045,6 +1045,17 @@ export interface ActiveConstraint {
          * purposes of healing."
          */
         readonly healingOnly?: boolean;
+        /**
+         * For an `auto-attack.prowess` modifier: when true, the modifier is NOT
+         * consumed after being applied to the first automatic-attack. Ordinary
+         * one-shot auto-attack prowess boosts (Choking Shadows) are single-use —
+         * the reducer removes them after the first attack. A `persistent`
+         * modifier keeps applying to every automatic-attack the company faces at
+         * the site until its {@link ConstraintScope} sweeps it (e.g. Come By
+         * Night Upon Them le-176: "-1 to the prowess of all automatic-attacks at
+         * the site" for the company's whole site phase).
+         */
+        readonly persistent?: boolean;
       }
     | {
         /**

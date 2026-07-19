@@ -1948,6 +1948,56 @@ function applyShortEventOnEntersPlay(
       const scopeName = onEvent.apply.scope;
       if (!constraintKind || !scopeName) continue;
 
+      // auto-attack-prowess-boost: a site-scoped modifier on the prowess of
+      // every automatic-attack the active site-phase company faces (Come By
+      // Night Upon Them le-176). Resolved against the active company's current
+      // site (no target character); the modifier persists for the whole site
+      // phase (not consumed after the first attack). The `value` is doubled at
+      // play time when Doors of Night is in play (the card is played immediately
+      // before the auto-attacks resolve, so baking the doubled amount is exact).
+      if (constraintKind === 'auto-attack-prowess-boost') {
+        if (state.phaseState.phase !== Phase.Site) {
+          logDetail(`"${def.name}": auto-attack-prowess-boost played outside site phase — no effect`);
+          continue;
+        }
+        const activeIndex = state.phaseState.activeCompanyIndex;
+        const activeCompany = state.players[playerIndex].companies[activeIndex];
+        if (!activeCompany?.currentSite) {
+          logDetail(`"${def.name}": auto-attack-prowess-boost — active company has no current site — fizzle`);
+          continue;
+        }
+        const baseValue = onEvent.apply.value;
+        const siteType = onEvent.apply.siteType;
+        if (typeof baseValue !== 'number' || !siteType) {
+          logDetail(`"${def.name}": auto-attack-prowess-boost missing value or siteType — fizzle`);
+          continue;
+        }
+        const scope = parseConstraintScope(scopeName, activeCompany.id);
+        if (!scope) {
+          logDetail(`"${def.name}": auto-attack-prowess-boost unknown scope "${scopeName}" — fizzle`);
+          continue;
+        }
+        const doorsOfNight = onEvent.apply.doublesWithDoorsOfNight === true
+          && buildInPlayNames(state).includes('Doors of Night');
+        const value = doorsOfNight ? baseValue * 2 : baseValue;
+        logDetail(`"${def.name}" played — adding persistent auto-attack.prowess ${value} to all automatic-attacks at ${activeCompany.currentSite.definitionId as string} (site type ${siteType}${doorsOfNight ? ', doubled: Doors of Night in play' : ''}), scope ${scopeName}`);
+        state = addConstraint(state, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope,
+          target: { kind: 'company', companyId: activeCompany.id },
+          kind: {
+            type: 'attribute-modifier',
+            attribute: 'auto-attack.prowess',
+            op: 'add',
+            value,
+            filter: { 'site.type': siteType },
+            persistent: true,
+          },
+        });
+        continue;
+      }
+
       // character-stat-modifier: applied to a single targeted character (e.g. Vilya).
       if (constraintKind === 'character-stat-modifier') {
         const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;

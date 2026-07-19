@@ -102,7 +102,12 @@ export function resolveEffective<T extends number | string>(
     } else {
       value = c.kind.value as T;
     }
-    consumedIds.push(c.id);
+    // A `persistent` modifier keeps applying to every automatic-attack the
+    // company faces at the site (Come By Night Upon Them le-176) — do not report
+    // it as consumed, so the reducer leaves it in place until its scope sweeps
+    // it. Ordinary one-shot boosts (Choking Shadows) are consumed after the
+    // first attack.
+    if (!c.kind.persistent) consumedIds.push(c.id);
   }
   return { value, consumedIds };
 }
