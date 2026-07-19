@@ -1275,8 +1275,39 @@
     "eventType": "permanent",
     "marshallingPoints": 3,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on an agent character at a Darkhaven [{DH}] who has a Border-hold [{B}] or Free-hold [{F}] as a home site. If target character is unwounded and at one of his Border-hold [{B}] or Free-hold [{F}] home sites, no factions can be played at any version of that site and you receive this card’s marshalling points. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.keywords": { "$includes": "agent" } },
+            {
+              "$or": [
+                { "target.homeSiteTypes": { "$includes": "border-hold" } },
+                { "target.homeSiteTypes": { "$includes": "free-hold" } }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-type",
+        "siteTypes": ["haven"]
+      },
+      {
+        "type": "agent-home-site-faction-lock",
+        "homeSiteTypes": ["border-hold", "free-hold"]
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "text": "Playable on an agent character at a Darkhaven [{DH}] who has a Border-hold [{B}] or Free-hold [{F}] as a home site. If target character is unwounded and at one of his Border-hold [{B}] or Free-hold [{F}] home sites, no factions can be played at any version of that site and you receive this card’s marshalling points. Cannot be duplicated on a given character.",
+    "certified": "2026-07-20"
   },
   {
     "cardType": "minion-resource-event",

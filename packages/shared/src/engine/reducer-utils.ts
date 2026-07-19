@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
-import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -2307,6 +2307,93 @@ export function agentHomeSiteMatchesTypes(
   const aligned = align !== undefined ? named.filter(s => s.alignment === align) : [];
   const candidates = aligned.length > 0 ? aligned : named;
   return candidates.some(s => types.includes(s.siteType));
+}
+
+/**
+ * The distinct printed {@link SiteType}s of a character's home sites.
+ *
+ * Companion to {@link agentHomeSiteMatchesTypes} that returns the *set* of types
+ * rather than a boolean, so a play-target filter context can expose
+ * `target.homeSiteTypes` and gate on "who has a Border-hold or Free-hold as a
+ * home site" (Faithless Steward as-83). Resolution mirrors
+ * `agentHomeSiteMatchesTypes`: each comma-separated home-site name is resolved
+ * against the pool, preferring sites of the character's own alignment.
+ */
+export function characterHomeSiteTypes(
+  state: GameState,
+  def: { homesite?: string; alignment?: Alignment } | undefined,
+): SiteType[] {
+  if (!def?.homesite) return [];
+  const names = new Set(parseHomesiteNames(def.homesite));
+  if (names.size === 0) return [];
+  const align = def.alignment;
+  const named = Object.values(state.cardPool).filter(
+    (d): d is SiteCard => isSiteCard(d) && names.has(d.name),
+  );
+  const aligned = align !== undefined ? named.filter(s => s.alignment === align) : [];
+  const candidates = aligned.length > 0 ? aligned : named;
+  const types = new Set<SiteType>();
+  for (const s of candidates) types.add(s.siteType);
+  return [...types];
+}
+
+/**
+ * Evaluates whether an {@link AgentHomeSiteFactionLockEffect} (Faithless Steward
+ * as-83) is currently *active* for its bearer character. Active means the bearer
+ * is **unwounded** and its company is standing at one of the character's home
+ * sites whose printed type is in `homeSiteTypes`. Returns the locked site's
+ * printed `name` when active so callers can match "any version of that site".
+ */
+export function agentHomeSiteFactionLockState(
+  state: GameState,
+  char: CharacterInPlay,
+  charDef: { homesite?: string },
+  company: Company | undefined,
+  homeSiteTypes: readonly SiteType[],
+): { active: boolean; siteName?: string } {
+  // Only while the bearer is unwounded (wounded == inverted).
+  if (char.status === CardStatus.Inverted) return { active: false };
+  const currentSite = company?.currentSite;
+  if (!currentSite) return { active: false };
+  const siteDef = state.cardPool[currentSite.definitionId];
+  if (!siteDef || !isSiteCard(siteDef)) return { active: false };
+  // The current site must be one of the bearer's home sites AND of a
+  // qualifying type (Border-hold / Free-hold).
+  if (!homeSiteTypes.includes(siteDef.siteType)) return { active: false };
+  const homeNames = parseHomesiteNames(charDef.homesite ?? '');
+  if (!homeNames.includes(siteDef.name)) return { active: false };
+  return { active: true, siteName: siteDef.name };
+}
+
+/**
+ * True if any in-play {@link AgentHomeSiteFactionLockEffect} (Faithless Steward
+ * as-83) currently bars faction plays at the named site — i.e. some player's
+ * character bears an active lock whose current home site prints that name. Used
+ * by the site-phase faction legal-action gate to forbid factions at "any
+ * version of that site". Scans both players since the lock applies to everyone.
+ */
+export function siteFactionLockedByAgentHomeSite(
+  state: GameState,
+  siteName: string,
+): boolean {
+  for (const player of state.players) {
+    for (const char of Object.values(player.characters)) {
+      for (const item of char.items) {
+        const def = resolveDef(state, item.instanceId);
+        if (!def) continue;
+        const lock = getCardEffects(def).find(
+          (e): e is AgentHomeSiteFactionLockEffect => e.type === 'agent-home-site-faction-lock',
+        );
+        if (!lock) continue;
+        const charDef = resolveDef(state, char.instanceId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        const company = findCharacterCompany(player.companies, char.instanceId);
+        const st = agentHomeSiteFactionLockState(state, char, charDef, company, lock.homeSiteTypes);
+        if (st.active && st.siteName === siteName) return true;
+      }
+    }
+  }
+  return false;
 }
 
 /**

@@ -47,8 +47,8 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect } from './reducer-utils.js';
-import type { Condition } from '../types/effects.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
+import type { Condition, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
 import { manifestIdOf } from './manifestations.js';
@@ -1429,6 +1429,23 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const item of char.items) {
       const itemDef = resolveDef(state, item.instanceId);
       if (!itemDef) continue;
+      // agent-home-site-faction-lock (Faithless Steward as-83): the attached
+      // card's own printed MP is conditional — "you receive this card's
+      // marshalling points" only while the bearer is unwounded at one of his
+      // Border-/Free-hold home sites. Credit it here when active, and skip the
+      // unconditional item-MP tally below so it never counts otherwise.
+      const homeLock = getCardEffects(itemDef).find(
+        (e): e is AgentHomeSiteFactionLockEffect => e.type === 'agent-home-site-faction-lock',
+      );
+      if (homeLock) {
+        const lockState = agentHomeSiteFactionLockState(state, char, charDef, charCompany, homeLock.homeSiteTypes);
+        if (lockState.active && hasMarshallingPoints(itemDef)) {
+          const cat = itemDef.marshallingCategory;
+          mp = { ...mp, [cat]: mp[cat] + itemDef.marshallingPoints };
+          if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + itemDef.marshallingPoints };
+        }
+        continue;
+      }
       // Await the Onset (wh-96): a company-held item outside a Wizardhaven is
       // pinned, overriding the ncOverride / cross-alignment / §4 / bonus logic.
       if (pinValue !== undefined) {
