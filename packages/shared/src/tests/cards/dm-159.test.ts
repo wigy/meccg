@@ -16,11 +16,16 @@ import {
   GLAMDRING, STING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
-  viableActions, actionAs,
-  handCardId, dispatch, resolveChain, RESOURCE_PLAYER,
+  viableActions, actionAs, makeMHState,
+  handCardId, dispatch, resolveChain, companyIdAt,
+  RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase } from '../../index.js';
-import type { FetchFromPileAction } from '../../index.js';
+import { computeLegalActions, Phase, RegionType, SiteType } from '../../index.js';
+import type { FetchFromPileAction, CardDefinitionId } from '../../index.js';
+
+// Cave Worm (le-65): a region-keyed creature hazard used to open combat as the
+// chain collapses. Region-name keyable to Angmar (see le-65.test.ts).
+const CAVE_WORM = 'le-65' as CardDefinitionId;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -290,6 +295,77 @@ describe('Smoke Rings (dm-159)', () => {
     // the opponent has no actions (the response window was during the chain).
     const opponentActions = computeLegalActions(next, PLAYER_2);
     expect(opponentActions).toHaveLength(0);
+  });
+
+  // Regression (game mrs06zup-du4wde, seq 128, bug-report b315a31aefcc7d84):
+  // Smoke Rings "disappeared without effect". A creature hazard (bottom of the
+  // chain) and Smoke Rings (top of the chain) collapsed in the same step, which
+  // queued the fetch-to-deck pending effect AND started the creature's combat.
+  // Combat took precedence, deferring the fetch; when the M/H phase resumed, a
+  // routine `pass` was routed to the deferred fetch and silently skipped it —
+  // the player never got to bring a card into the deck. The event card went to
+  // discard with no effect. The fix resolves the pending fetch (higher chain
+  // entry, LIFO) BEFORE combat actions become legal.
+  test('fetch is presented before combat when a creature attack collapses on the same chain', () => {
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [SMOKE_RINGS], siteDeck: [MINAS_TIRITH], sideboard: [GLAMDRING] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CAVE_WORM], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [RegionType.Wilderness],
+        resolvedSitePathNames: ['Angmar'],
+        destinationSiteType: SiteType.RuinsAndLairs,
+        destinationSiteName: 'Some Lair',
+      }),
+    };
+
+    const wormId = handCardId(ready, HAZARD_PLAYER);
+    const smokeRingsId = handCardId(ready, RESOURCE_PLAYER);
+    const glamdringId = ready.players[0].sideboard[0].instanceId;
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+
+    // P2 declares the creature attack — the chain opens but does not resolve.
+    const afterCreature = dispatch(ready, {
+      type: 'play-hazard', player: PLAYER_2, cardInstanceId: wormId,
+      targetCompanyId: companyId, keyedBy: { method: 'region-name', value: 'Angmar' },
+    });
+    expect(afterCreature.chain).not.toBeNull();
+
+    // P1 responds with Smoke Rings on the same chain (declared above the creature).
+    const afterSmoke = dispatch(afterCreature, {
+      type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId,
+    });
+
+    // Both players pass priority → the chain collapses: Smoke Rings' fetch is
+    // queued AND the creature's combat begins in the same step.
+    const collapsed = resolveChain(afterSmoke);
+    expect(collapsed.combat).not.toBeNull();
+    expect(collapsed.pendingEffects).toHaveLength(1);
+    expect(collapsed.pendingEffects[0].effect.type).toBe('fetch-to-deck');
+
+    // Fix: P1's legal actions are the fetch (not combat) — the higher chain
+    // entry resolves first. Before the fix, combat actions were offered and the
+    // pending fetch was deferred and later lost.
+    const p1Actions = computeLegalActions(collapsed, PLAYER_1);
+    expect(p1Actions.some(ea => ea.action.type === 'fetch-from-pile')).toBe(true);
+    expect(p1Actions.every(ea => ea.action.type === 'fetch-from-pile' || ea.action.type === 'pass')).toBe(true);
+
+    // Resolving the fetch brings the chosen card into the deck; the fetch is
+    // NOT skipped, and combat then proceeds normally.
+    const afterFetch = dispatch(collapsed, {
+      type: 'fetch-from-pile', player: PLAYER_1, cardInstanceId: glamdringId, source: 'sideboard',
+    });
+    expect(afterFetch.players[0].playDeck.map(c => c.instanceId)).toContain(glamdringId);
+    expect(afterFetch.players[0].sideboard).toHaveLength(0);
+    expect(afterFetch.pendingEffects).toHaveLength(0);
+    expect(afterFetch.combat).not.toBeNull();
   });
 
   test('after fetch completes, normal long-event actions resume', () => {

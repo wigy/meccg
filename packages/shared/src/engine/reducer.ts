@@ -127,7 +127,13 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   // combat sub-phase and the discard-one-company-item resolution), so without
   // this guard such an action would be misrouted to the combat handler.
   const combatPendingTop = topResolutionFor(state, action.player);
-  if (state.combat != null && combatPendingTop === null && !isChainShortEvent && (COMBAT_ACTION_TYPES.has(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer')))) {
+  // A pending card effect (e.g. a resource event's fetch-to-deck queued as the
+  // chain collapsed alongside a creature entry that started combat) must resolve
+  // before combat routing — its `fetch-from-pile`/`pass` is dispatched by the
+  // pending-effects gate below. Without this guard the pending fetch was skipped
+  // by the combat `pass` branch and lost (Smoke Rings dm-159 "disappeared
+  // without effect", game mrs06zup-du4wde seq 128).
+  if (state.combat != null && state.pendingEffects.length === 0 && combatPendingTop === null && !isChainShortEvent && (COMBAT_ACTION_TYPES.has(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer')))) {
     logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
     const combatResult = handleCombatAction(state, action);
     if (!combatResult.error) {
