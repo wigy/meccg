@@ -2300,29 +2300,40 @@ Apply types:
   (`handleHavenJoinAttack`, `applyPostAttackEffects`,
   `restoreHavenJumpOrigins`). Used by *Alatar* (tw-117).
 
-- `offer-resource-play` -- under `on-event: self-enters-play`, enqueue
-  a `resource-play-offer` pending resolution for the active player.
-  The player may pair any resource card from their hand with the
-  in-play source card (Crown of Flowers), or pass. When paired, the
-  chosen resource is moved from hand directly into `cardsInPlay` with
-  three extra fields: `linkedInstanceId` (pointing to the source card),
-  `assumeInPlay: ['Gates of Morning']`, and `assumeNotInPlay: ['Doors of Night']`.
-  The source card's `cardsInPlay` entry is also updated with `linkedInstanceId`
-  pointing back to the paired resource. Both links enable a cascade discard:
-  when either linked card leaves `cardsInPlay`, the other is discarded too.
-  The `collectGlobalEffects` function in `resolver.ts` reads `assumeInPlay`
-  and `assumeNotInPlay` per card and adjusts the `inPlay` names list used
-  by `matchesCondition` so GoM-conditional effects on the paired resource
-  activate even without a real Gates of Morning on the table.
+- `offer-resource-play` -- under `on-event: self-enters-play`, marks the
+  source card (Crown of Flowers) as one that lets the active player play one
+  resource "with it". The source card simply enters play unlinked; the pairing
+  is a **non-blocking** organization-phase action (`pair-resource-with-cof`),
+  NOT a blocking pending resolution. This is important: enqueuing a blocking
+  resolution when the card enters play would collapse the legal-action menu to
+  "pair or pass" and prevent the player from playing/organizing characters for
+  the rest of the organization phase. Instead, while an *unpaired* Crown of
+  Flowers is in play, `cofPairResourceActions` (in `legal-actions/organization.ts`)
+  offers one `pair-resource-with-cof` action per resource card in hand, alongside
+  every other normal organization action.
+
+  When paired, the chosen resource is moved from hand directly into
+  `cardsInPlay` with three extra fields: `linkedInstanceId` (pointing to the
+  source card), `assumeInPlay: ['Gates of Morning']`, and
+  `assumeNotInPlay: ['Doors of Night']`. The source card's `cardsInPlay` entry
+  is also updated with `linkedInstanceId` pointing back to the paired resource
+  (which is also what marks the Crown as "paired" so no further pairing action
+  is offered). Both links enable a cascade discard: when either linked card
+  leaves `cardsInPlay`, the other is discarded too. The `collectGlobalEffects`
+  function in `resolver.ts` reads `assumeInPlay` and `assumeNotInPlay` per card
+  and adjusts the `inPlay` names list used by `matchesCondition` so
+  GoM-conditional effects on the paired resource activate even without a real
+  Gates of Morning on the table.
 
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "offer-resource-play" } }
   ```
 
-  Implemented in `chain-reducer.ts` (`resolvePermanentEvent`),
-  `legal-actions/pending.ts` (`resourcePlayOfferActions`),
-  `pending-reducers.ts` (`applyResourcePlayOfferResolution`),
+  Implemented in `chain-reducer.ts` (`resolvePermanentEvent` — enters play
+  unlinked, no resolution enqueued), `legal-actions/organization.ts`
+  (`cofPairResourceActions`), `reducer.ts` (dispatch of
+  `pair-resource-with-cof`), `pending-reducers.ts` (`applyPairResourceWithCof`),
   `engine/effects/resolver.ts` (`collectGlobalEffects` — per-card inPlay
   override), and `chain-reducer.ts` (`cascadeLinkedDiscards`).
   Used by *Crown of Flowers* (dm-121).

@@ -654,50 +654,6 @@ export function goldRingTestActions(
 }
 
 /**
- * Compute legal actions for a queued `resource-play-offer` resolution.
- *
- * Offered when Crown of Flowers enters play: the active player may pair
- * any resource card from their hand with the in-play Crown of Flowers,
- * or pass (leaving Crown of Flowers with no paired resource this turn).
- */
-export function resourcePlayOfferActions(
-  state: GameState,
-  actor: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  if (top.kind.type !== 'resource-play-offer') return [];
-
-  const actions: EvaluatedAction[] = [{ action: { type: 'pass', player: actor }, viable: true }];
-
-  const player = playerById(state, actor);
-  if (!player) return actions;
-  const cofInstanceId = top.kind.linkToInstanceId;
-
-  for (const card of player.hand) {
-    const def = defById(state, card.definitionId);
-    if (!def) continue;
-    if (
-      def.cardType !== 'hero-resource-event' &&
-      def.cardType !== 'hero-resource-item' &&
-      def.cardType !== 'hero-resource-ally' &&
-      def.cardType !== 'hero-resource-faction'
-    ) continue;
-    logDetail(`resource-play-offer: offering ${def.name} (${card.instanceId as string}) as pair for CoF ${cofInstanceId as string}`);
-    actions.push({
-      action: {
-        type: 'pair-resource-with-cof',
-        player: actor,
-        cardInstanceId: card.instanceId,
-        cofInstanceId,
-      },
-      viable: true,
-    });
-  }
-
-  return actions;
-}
-
-/**
  * Compute the legal actions for a queued `wizard-search-on-store` resolution
  * (The Windlord Found Me, dm-164).
  *

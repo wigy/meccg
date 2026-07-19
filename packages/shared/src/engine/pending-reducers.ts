@@ -1983,34 +1983,27 @@ export function applyRingPlayOfferResolution(
 }
 
 /**
- * Resolve a `resource-play-offer` pending resolution.
+ * Handle a `pair-resource-with-cof` organization-phase action.
  *
- * The actor either:
- *  - passes (Crown of Flowers stays in play with no paired resource), or
- *  - plays `pair-resource-with-cof` to pair a resource from hand with
- *    the in-play Crown of Flowers. The paired resource enters cardsInPlay
- *    with `linkedInstanceId`, `assumeInPlay: ['Gates of Morning']`, and
- *    `assumeNotInPlay: ['Doors of Night']`. Crown of Flowers is updated to
- *    record the link as well.
+ * Crown of Flowers (dm-121) sits in play as an environment with no effect
+ * until the active player plays one resource "with it". That pairing is a
+ * non-blocking organization-phase action (offered by
+ * `cofPairResourceActions` in `legal-actions/organization.ts`) rather than a
+ * blocking pending resolution — the player may organize freely and pair a
+ * resource at any point while an unlinked Crown of Flowers is in play.
+ *
+ * The paired resource is moved from hand into `cardsInPlay` with
+ * `linkedInstanceId`, `assumeInPlay: ['Gates of Morning']`, and
+ * `assumeNotInPlay: ['Doors of Night']`. Crown of Flowers is updated to record
+ * the reciprocal link so the cascade discard (either card leaving play discards
+ * the other) works in both directions.
  */
-export function applyResourcePlayOfferResolution(
+export function applyPairResourceWithCof(
   state: GameState,
   action: GameAction,
-  top: PendingResolution,
-): ReducerResult | null {
-  if (top.kind.type !== 'resource-play-offer') return null;
-
-  if (action.type === 'pass') {
-    logDetail(`resource-play-offer: player passes — CoF has no paired resource`);
-    return { state: dequeueResolution(state, top.id) };
-  }
-
+): ReducerResult {
   if (action.type !== 'pair-resource-with-cof') {
-    return { state, error: `Pending resource-play-offer requires pair-resource-with-cof or pass, got '${action.type}'` };
-  }
-
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for pending resource-play-offer' };
+    return { state, error: `Expected pair-resource-with-cof, got '${action.type}'` };
   }
 
   const { cardInstanceId, cofInstanceId } = action;
@@ -2036,7 +2029,7 @@ export function applyResourcePlayOfferResolution(
     return { state, error: `Crown of Flowers ${cofInstanceId as string} not found in play` };
   }
 
-  logDetail(`resource-play-offer: pairing ${handCard.definitionId as string} (${cardInstanceId as string}) with CoF (${cofInstanceId as string})`);
+  logDetail(`pair-resource-with-cof: pairing ${handCard.definitionId as string} (${cardInstanceId as string}) with CoF (${cofInstanceId as string})`);
 
   // Remove the card from hand
   const newHand = player.hand.filter((_, i) => i !== handIdx);
@@ -2068,7 +2061,7 @@ export function applyResourcePlayOfferResolution(
     ),
   }));
 
-  return { state: dequeueResolution(newState, top.id) };
+  return { state: newState };
 }
 
 /**

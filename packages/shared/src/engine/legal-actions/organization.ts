@@ -349,6 +349,60 @@ export function orgPhaseFetchActivations(state: GameState, playerId: PlayerId): 
   return actions;
 }
 
+/**
+ * Pair-resource-with-CoF actions (Crown of Flowers, dm-121).
+ *
+ * Crown of Flowers enters play as an environment with "no effect until you
+ * play a resource with it". That one-time pairing is a non-blocking
+ * organization-phase action — the player may organize freely and play one
+ * resource "with" an in-play Crown of Flowers at any point while the Crown is
+ * still unpaired. Emitting these here (rather than enqueuing a blocking pending
+ * resolution when the Crown enters play) is what lets the player continue to
+ * play/organize characters after playing Crown of Flowers.
+ *
+ * A Crown of Flowers is identified generically by its
+ * `on-event: self-enters-play → offer-resource-play` effect. Only Crowns with
+ * no `linkedInstanceId` (not yet paired) are offered, and one action is
+ * produced per resource card in hand.
+ */
+export function cofPairResourceActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const cof of player.cardsInPlay) {
+    if (cof.linkedInstanceId !== undefined) continue; // already paired with a resource
+    const cofDef = defById(state, cof.definitionId);
+    if (!cofDef) continue;
+    const offersResourcePlay = getCardEffects(cofDef).some(
+      eff => eff.type === 'on-event' && eff.event === 'self-enters-play' && eff.apply.type === 'offer-resource-play',
+    );
+    if (!offersResourcePlay) continue;
+
+    for (const card of player.hand) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      if (
+        def.cardType !== 'hero-resource-event' &&
+        def.cardType !== 'hero-resource-item' &&
+        def.cardType !== 'hero-resource-ally' &&
+        def.cardType !== 'hero-resource-faction'
+      ) continue;
+      logDetail(`${cofDef.name}: offering ${def.name} (${card.instanceId as string}) as pair`);
+      actions.push({
+        action: {
+          type: 'pair-resource-with-cof',
+          player: playerId,
+          cardInstanceId: card.instanceId,
+          cofInstanceId: cof.instanceId,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
 export function organizationActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId);
   if (!player) return [];
@@ -426,6 +480,16 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Org-phase fetch granted by an in-play permanent-event (A Strident Spawn wh-61)
   actions.push(...orgPhaseFetchActivations(state, playerId));
 
+  // Play one resource "with" an in-play Crown of Flowers (dm-121). Non-blocking:
+  // offered alongside the normal organization actions, never collapsing the menu.
+  const cofPairEvaluated = cofPairResourceActions(state, playerId);
+  actions.push(...cofPairEvaluated);
+  const cofPairInstances = new Set(
+    cofPairEvaluated.map(ea =>
+      (ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId as string,
+    ),
+  );
+
   // A More Evil Hour (ba-48): discard the tapped card to grant a company the
   // conditional region-movement bonus
   actions.push(...evilHourGrantMovementActions(state, playerId));
@@ -491,6 +555,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     if (shortEventInstances.has(handCard.instanceId as string)) continue;
     if (resourceShortEventInstances.has(handCard.instanceId as string)) continue;
     if (recruitViaEventInstances.has(handCard.instanceId as string)) continue;
+    if (cofPairInstances.has(handCard.instanceId as string)) continue;
     actions.push(notPlayable(playerId, handCard.instanceId, 'Not playable during the organization'));
   }
 
