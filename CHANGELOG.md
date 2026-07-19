@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.54.0 — 2026-07-19
+
+Challenge Deck S
+
+### Game Engine
+
+- Completed the card pool for challenge deck (S) "Await the Onset" — all 110 cards are now certified, making the deck playable end to end
+- Certified Await the Onset (wh-96), the Fallen-wizard permanent event the deck is built around: both of its marshalling-point clauses are modelled as pin-to-1 overrides (a `played-after-faction-mp-pin` and a `nonhaven-company-mp-pin`), carried per-instance via a new `mpPinned` tag. Factions are never stored on characters, so no faction-location model was needed
+- Certified Gandalf as a Fallen-wizard (wh-4) with a new `fw-char-mp-full` primitive (the Fallen-wizard avatar scores full character marshalling points), alongside Gandalf's Friend (wh-98), a Gandalf-specific stage companion
+- Certified Fireworks (dm-130) with a `roll-untap-site` primitive (a dice-check whose on-pass verb untaps a site) plus a skip-next-untap-on-play constraint reusing the ba-18 machinery
+- Certified Peril Returned (td-54) with an environment-override primitive that locks Doors of Night / Gates of Morning, and A Pack at the Door (tw-497) with a `grant-creature-keying` region-type primitive
+- Certified Grey Embassy (wh-100) and Give Welcome to the Unexpected (wh-99) with a `noncharacter-mp-override`, plus Chambers in the Royal Court (wh-97) as an "Any <site-type>" homesite
+- Certified Dol Amroth (le-366) and Pelargir (le-398) MELE free-hold guardian sites, mirroring the existing le-391 detainment/overt structure
+- Certified Mischief in a Mean Way (wh-77) — a site-phase Border-hold Wizardhaven conversion gated on 10+ stage points, reusing the wh-65/wh-70/wh-75 primitives
+
+### Card Data
+
+- 19 newly certified cards (896 → 915 of 1683), completing challenge deck (S) "Await the Onset" at 110/110
+- Certified The Great Eagles (tw-344) after repairing a truncated `playableAt` list (also affecting tw-258/369/370), No Strangers at this Time (as-51), Beornings (le-261), Bill the Pony (tw-198, a run-home-to-haven ally ability), Elwen (dm-8) and Herion (dm-16), and Freca (dm-182, +1 direct influence against Riders of Rohan and Dunlendings)
+
+### Testing & Infrastructure
+
+- Adjusted the le-303 test to reflect the newly certified guardian sites: Pelargir now allows a gold-ring play, Dol Amroth now offers a gold-ring, and Blue Mountain Dwarf-hold is used as the free-hold-without-gold-ring fixture
+- Cleaned up unused test imports flagged by lint across the dm-130, tw-497, wh-4, and wh-77 certifications
+
 ## 0.53.0 — 2026-07-17
 
 Challenge Deck R
