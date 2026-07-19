@@ -566,6 +566,36 @@ function collectFromZone(
       }
       return out;
     }
+    case 'hazards-on-target': {
+      // Collect hazard permanent-events attached to the target character. Used
+      // by "remove all hazard permanent-events on the character" (The Sun
+      // Unveiled as-56). A hazard on a hero character is owned by the opposing
+      // hazard player, so route each to its owner: resolve the owner from the
+      // instance-id prefix (`<playerId>-<counter>`), falling back to the
+      // holder's opponent (mirrors the `attached-to-character` locator).
+      const targetId = ctx.targetCharacterId;
+      if (!targetId) return out;
+      for (let pi = 0; pi < state.players.length; pi++) {
+        const char = state.players[pi].characters[targetId];
+        if (!char) continue;
+        for (const hazard of char.hazards) {
+          const inst: CardInstance = toCardInstance(hazard);
+          if (!matches(inst)) continue;
+          const hazardId = hazard.instanceId;
+          const prefixOwner = state.players.findIndex(
+            p => (p.id as string) === (hazardId as string).split('-')[0],
+          );
+          out.push({
+            instance: inst,
+            ownerIndex: prefixOwner >= 0 ? prefixOwner : 1 - pi,
+            zone: 'hazards-on-target',
+            remove: s => removeFromCharacterHazards(s, pi, targetId, hazardId),
+          });
+        }
+        break;
+      }
+      return out;
+    }
     default:
       // Contextual locators (items-on-wounded, attached-to-target-company)
       // are added by the phases that need them. Unsupported zones return no
