@@ -561,6 +561,8 @@ export function describeAction(
       return `${playerName(action.player)} activates org-phase fetch from ${instName(action.cardInstanceId)} (take one matching card to hand)`;
     case 'manifestation-swap':
       return `${playerName(action.player)} brings ${instName(action.cardInstanceId)} into play, replacing ${instName(action.characterId)} (removed from the game, cards transferred)`;
+    case 'discard-to-recruit':
+      return `${playerName(action.player)} discards ${instName(action.characterId)} to bring ${instName(action.cardInstanceId)} into play with his company`;
     case 'rescue-prisoner':
       return `${playerName(action.player)} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
     case 'tap-alt-permanent-event':

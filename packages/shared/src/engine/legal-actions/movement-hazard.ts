@@ -36,6 +36,7 @@ import { grantedActionActivations } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
+import { discardToRecruitActions } from './discard-to-recruit.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions } from '../mh-agents.js';
 import { extraMHMoveDestinations } from '../mh-hazard-play.js';
@@ -3375,6 +3376,9 @@ function playHazardsActions(
     // Manifestation swaps (Strider ba-1 → Aragorn II): playable whenever a
     // normal resource could be played (CRF 22), so offered here too.
     actions.push(...manifestationSwapActions(state, playerId));
+    // Discard-to-recruit (Folco Boffin dm-180): playable whenever a normal
+    // resource could be played (CRF 22).
+    actions.push(...discardToRecruitActions(state, playerId));
     // Granted-action constraints (Great Ship's cancel-chain-entry, etc.)
     const playerIndex = getPlayerIndex(state, playerId);
     const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];

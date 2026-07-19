@@ -26,7 +26,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
 import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
+import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
@@ -1779,6 +1779,12 @@ function handleSitePlayResources(
   // available whenever a normal resource could be played (CRF 22).
   if (action.type === 'manifestation-swap') {
     return handleManifestationSwap(state, action);
+  }
+
+  // Discard-to-recruit (Folco Boffin dm-180): a resource-style replacement
+  // play, available whenever a normal resource could be played (CRF 22).
+  if (action.type === 'discard-to-recruit') {
+    return handleDiscardToRecruit(state, action);
   }
 
   // Pass — check whether CvCC attack is possible before advancing

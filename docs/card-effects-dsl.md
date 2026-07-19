@@ -3657,6 +3657,39 @@ hazards, trophies) and control relationship (`controlledBy`, followers,
 leader-controlled in-play cards); the old manifestation's card goes to its
 owner's out-of-play pile ("removed from the game").
 
+#### `discard-to-recruit` — discard the bearer to play a character from hand
+
+A generalized cousin of `manifestation-swap` for abilities of the form
+"discard <bearer> to play a character from your hand with his company"
+(Folco Boffin dm-180: "You may discard Folco Boffin at a Haven to play any
+Hobbit from your hand with his company").
+
+```json
+{ "type": "discard-to-recruit", "requireHaven": true,
+  "filter": { "target.race": "hobbit" } }
+```
+
+- `requireHaven` (optional) — when `true`, the bearer's company must currently
+  be at a Haven for the action to be offered.
+- `filter` (optional) — a `Condition` matched against the **incoming hand
+  character's definition**, exposed as `target` (e.g. `{ "target.race":
+  "hobbit" }`). Only character cards satisfying it may be brought in.
+
+While the bearer is in a company (and, with `requireHaven`, at a Haven), the
+controller may play a matching character from hand as a `discard-to-recruit`
+action. Per CRF 22 (Folco Boffin) this replacement "can be done at any time
+that a normal resource could be played", so — like `manifestation-swap` — the
+emitter (`legal-actions/discard-to-recruit.ts`) is wired into the organization,
+movement/hazard, and site phase aggregators and never consumes the
+one-character-per-turn slot. The reducer (`handleDiscardToRecruit` in
+`reducer-organization.ts`, routed from all three phase reducers) brings the
+incoming character into the bearer's company at the same position untapped,
+transferring every attachment (items/allies/hazards/trophies) and control
+relationship exactly as a manifestation swap does — but the discarded bearer's
+card goes to its owner's **discard pile** (recyclable), not out-of-play. The
+discard is the cost, so the incoming character bypasses the usual play gates
+(influence, home-site, once-per-turn).
+
 ### 15. `reduce-attacks-to-one`
 
 Marker effect for *Forewarned Is Forearmed* (dm-132). When a card with this

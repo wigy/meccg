@@ -25,6 +25,7 @@ import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 import { directInfluenceControlAllowed } from './control-cost.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { wizardSpecificName } from './fallen-wizard-specific.js';
@@ -44,6 +45,7 @@ type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
 const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHandler>>> = {
   'play-character': handlePlayCharacter,
   'manifestation-swap': handleManifestationSwap,
+  'discard-to-recruit': handleDiscardToRecruit,
   'pass': handleOrganizationPass,
   'plan-movement': handlePlanMovement,
   'cancel-movement': handleCancelMovement,
@@ -738,6 +740,127 @@ export function handleManifestationSwap(state: GameState, action: GameAction): R
     effects: [{
       effect: 'text-notification',
       message: `${player.name} brings ${newDef.name} into play with ${oldDef.name}'s company — ${oldDef.name} is removed from the game and all cards on him transfer`,
+    }],
+  };
+}
+
+/**
+ * Handle a `discard-to-recruit` action (Folco Boffin dm-180: "You may discard
+ * Folco Boffin at a Haven to play any Hobbit from your hand with his
+ * company").
+ *
+ * A matching character from hand enters the bearer's company at the same
+ * position, untapped. Everything referencing the bearer transfers to the new
+ * instance: attached cards (items, allies, hazards, trophies), the follower
+ * list, the `controlledBy` of the bearer itself and of any character it
+ * controlled, plus any in-play card it controlled — identical to a
+ * manifestation swap, which keeps the no-card-disappears invariant. Unlike a
+ * manifestation swap, the discarded bearer's card lands in its owner's discard
+ * pile (recyclable), not the out-of-play pile.
+ *
+ * Per CRF 22 this is a resource-style play, not a character play: the
+ * one-character-per-turn bookkeeping is untouched and the action is routed
+ * from the organization, site, and M/H phase reducers alike.
+ */
+export function handleDiscardToRecruit(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'discard-to-recruit') return wrongActionType(state, action, 'discard-to-recruit');
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const oldId = action.characterId;
+
+  const oldChar = player.characters[oldId];
+  if (!oldChar) return { state, error: 'discard-to-recruit: character not in play' };
+  const oldDef = defById(state, oldChar.definitionId);
+  if (!oldDef || !isCharacterCard(oldDef)) return { state, error: 'discard-to-recruit: source is not a character' };
+  const recruit = getCardEffects(oldDef).find(
+    (e): e is import('../types/effects.js').DiscardToRecruitEffect => e.type === 'discard-to-recruit',
+  );
+  if (!recruit) return { state, error: `discard-to-recruit: ${oldDef.name} has no discard-to-recruit effect` };
+
+  const company = findCharacterCompany(player.companies, oldId);
+  if (!company) return { state, error: 'discard-to-recruit: bearer has no company' };
+  if (recruit.requireHaven) {
+    const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+    if (!siteDef || !isSiteCard(siteDef) || siteDef.siteType !== SiteType.Haven) {
+      return { state, error: 'discard-to-recruit: bearer\'s company is not at a Haven' };
+    }
+  }
+
+  const handCard = findById(player.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'discard-to-recruit: replacement not found in hand' };
+  const newDef = defById(state, handCard.definitionId);
+  if (!newDef || !isCharacterCard(newDef)) {
+    return { state, error: 'discard-to-recruit: replacement is not a character' };
+  }
+  if (recruit.filter && !matchesCondition(recruit.filter, { target: newDef })) {
+    return { state, error: `discard-to-recruit: ${newDef.name} does not match the recruit filter` };
+  }
+  const newId = handCard.instanceId;
+
+  logDetail(`Discard-to-recruit: ${newDef.name} enters play with ${oldDef.name}'s company; ${oldDef.name} is discarded and all cards on him transfer`);
+
+  // The replacement enters play untapped, inheriting every attachment and
+  // control relationship of the bearer. Tap/wound state does not transfer —
+  // only cards do ("play any Hobbit from your hand with his company").
+  const newChar: CharacterInPlay = {
+    instanceId: newId,
+    definitionId: handCard.definitionId,
+    status: CardStatus.Untapped,
+    items: oldChar.items,
+    allies: oldChar.allies,
+    hazards: oldChar.hazards,
+    followers: oldChar.followers,
+    controlledBy: oldChar.controlledBy,
+    effectiveStats: ZERO_EFFECTIVE_STATS,
+    ...(oldChar.trophies !== undefined ? { trophies: oldChar.trophies } : {}),
+  };
+
+  // Rebuild the characters map: drop the bearer, add the new one, repoint
+  // follower/controller references from bearer to new instance.
+  const newCharacters: Record<CardInstanceId, CharacterInPlay> = {};
+  for (const [cid, c] of Object.entries(player.characters)) {
+    if (cid === (oldId as string)) continue;
+    let updated = c;
+    if (updated.controlledBy === oldId) {
+      updated = { ...updated, controlledBy: newId };
+      logDetail(`  Follower ${defById(state, updated.definitionId)?.name ?? cid} now controlled by ${newDef.name}`);
+    }
+    if (updated.followers.includes(oldId)) {
+      updated = { ...updated, followers: updated.followers.map(f => (f === oldId ? newId : f)) };
+    }
+    newCharacters[cid as CardInstanceId] = updated;
+  }
+  newCharacters[newId] = newChar;
+
+  // Replace the bearer in its company at the same position.
+  const companies = player.companies.map(comp =>
+    comp.characters.includes(oldId)
+      ? { ...comp, characters: comp.characters.map(c => (c === oldId ? newId : c)) }
+      : comp,
+  );
+
+  // Leader-controlled in-play cards transfer with everything else.
+  const cardsInPlay = player.cardsInPlay.map(c =>
+    c.controlledBy === oldId ? { ...c, controlledBy: newId } : c,
+  );
+
+  // The bearer's own card is discarded (its attachments transferred above, so
+  // only the bare card instance goes to the discard pile).
+  const newState = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    hand: removeById(p.hand, newId),
+    characters: newCharacters,
+    companies,
+    cardsInPlay,
+    discardPile: [...p.discardPile, toCardInstance(oldChar)],
+  }));
+
+  return {
+    state: newState,
+    effects: [{
+      effect: 'text-notification',
+      message: `${player.name} discards ${oldDef.name} to bring ${newDef.name} into play with his company`,
     }],
   };
 }

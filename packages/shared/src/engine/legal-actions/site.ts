@@ -28,6 +28,7 @@ import { availableDI, grantedActionActivations, inPlayFactionGrantActions, playR
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
+import { discardToRecruitActions } from './discard-to-recruit.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { isUnderDeepsSurfaceSite } from './organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
@@ -2164,6 +2165,15 @@ function playResourcesActions(
   const manifestationSwapEvaluated = manifestationSwapActions(state, playerId);
   actions.push(...manifestationSwapEvaluated);
   for (const ea of manifestationSwapEvaluated) {
+    const a = ea.action as { cardInstanceId?: string };
+    if (a.cardInstanceId) evaluatedInstances.add(a.cardInstanceId);
+  }
+
+  // Discard-to-recruit (Folco Boffin dm-180): playable whenever a normal
+  // resource could be played (CRF 22).
+  const discardToRecruitEvaluated = discardToRecruitActions(state, playerId);
+  actions.push(...discardToRecruitEvaluated);
+  for (const ea of discardToRecruitEvaluated) {
     const a = ea.action as { cardInstanceId?: string };
     if (a.cardInstanceId) evaluatedInstances.add(a.cardInstanceId);
   }

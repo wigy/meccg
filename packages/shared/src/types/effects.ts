@@ -3192,6 +3192,34 @@ export interface ManifestationSwapEffect extends EffectBase {
 }
 
 /**
+ * "You may discard <bearer> at a Haven to play any Hobbit from your hand with
+ * his company." — Folco Boffin (dm-180).
+ *
+ * A resource-style replacement play: while the bearer is in a company, the
+ * controller may discard the bearer to bring a matching character from hand
+ * into the bearer's company at the bearer's position, untapped. The incoming
+ * character inherits every card and control relationship attached to the
+ * bearer (identical to {@link ManifestationSwapEffect}), preserving the
+ * no-card-disappears invariant. Unlike a manifestation swap the discarded
+ * bearer goes to its owner's discard pile (recyclable), not out-of-play.
+ *
+ * Per CRF 22 (Folco Boffin) the ability "can be done at any time that a normal
+ * resource could be played", so the emitter is wired into the organization,
+ * movement/hazard, and site phase aggregators.
+ */
+export interface DiscardToRecruitEffect extends EffectBase {
+  readonly type: 'discard-to-recruit';
+  /** If true, the bearer's company must currently be at a Haven. */
+  readonly requireHaven?: boolean;
+  /**
+   * Condition matched against the incoming hand character's definition
+   * (exposed as `target`, e.g. `{ "target.race": "hobbit" }`). Only character
+   * cards satisfying this filter may be brought into play.
+   */
+  readonly filter?: Condition;
+}
+
+/**
  * One alternative region treatment offered by a {@link RegionKeyingBoostEffect}:
  * for creature-keying purposes, a single region of type {@link from} in a
  * company's site path is treated as {@link count} regions of type {@link asType}
@@ -5657,6 +5685,7 @@ export type CardEffect =
   | NameAliasEffect
   | EnvironmentOverrideEffect
   | ManifestationSwapEffect
+  | DiscardToRecruitEffect
   | RegionKeyingBoostEffect
   | RegionTypeRemapEffect
   | RegionTypeConversionEffect
