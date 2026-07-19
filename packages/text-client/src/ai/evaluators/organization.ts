@@ -22,6 +22,7 @@ import {
   isHealingSite,
   hasHealingAvailable,
   storeItemMpGain,
+  hasDirectlyPlayableMovement,
 } from './common.js';
 
 export const organizationEvaluator: ActionEvaluator = {
@@ -147,9 +148,16 @@ export const organizationEvaluator: ActionEvaluator = {
         return 8;
 
       case 'pass':
-        // Pass at a moderate weight: lower than a good play (which scores
-        // 20+) but higher than mediocre busy-work, so the AI advances the
-        // phase rather than thrashing on low-value moves.
+        // Never idle a company that could move to a site where a hand
+        // resource becomes playable: declaring that movement always beats
+        // passing the phase. Suppressing pass here (weight 0) removes the
+        // residual sampling chance that left a healthy company holding a
+        // playable item sitting still — the reported "it has a playable
+        // item and healthy company but it does not move" bug.
+        if (hasDirectlyPlayableMovement(view, pool, context.legalActions)) return 0;
+        // Otherwise pass at a moderate weight: lower than a good play (which
+        // scores 20+) but higher than mediocre busy-work, so the AI advances
+        // the phase rather than thrashing on low-value moves.
         return 5;
 
       default:
