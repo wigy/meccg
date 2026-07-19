@@ -9,7 +9,7 @@
  * of missing data — the AI never throws on partial information.
  */
 
-import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, GameAction } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, GameAction, Condition } from '@meccg/shared';
 import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
@@ -399,70 +399,181 @@ export function isHealingSite(def: CardDefinition | undefined): boolean {
 }
 
 /**
- * Scan a card's `effects` array for an effect that heals a wounded
- * character (brings them back to well/untapped). Two patterns count:
- * - Any effect (including `play-option` / `grant-action` wrappers) whose
- *   `apply.type` is `set-character-status` with `status: 'untapped'`.
- * - A `grant-action` effect whose `action` is `heal-company-character`.
+ * Search a play-option / grant-action `when` condition for a `target.status`
+ * or `bearer.status` requirement, returning the required status string if
+ * present (else `undefined`). Recurses through `$and` / `$or` / `$not`.
+ *
+ * This lets the restore-source scan tell *which* status a card can act on:
+ * Halfling Strength's untap option is gated by `{ target.status: 'tapped' }`
+ * while its heal option is gated by `{ target.status: 'inverted' }`.
  */
-function effectsIncludeHeal(effects: readonly unknown[] | undefined): boolean {
+function extractRequiredStatus(when: unknown): string | undefined {
+  if (!when || typeof when !== 'object') return undefined;
+  const obj = when as Record<string, unknown>;
+  if (typeof obj['target.status'] === 'string') return obj['target.status'];
+  if (typeof obj['bearer.status'] === 'string') return obj['bearer.status'];
+  for (const key of ['$and', '$or'] as const) {
+    const arr = obj[key];
+    if (Array.isArray(arr)) {
+      for (const sub of arr) {
+        const found = extractRequiredStatus(sub);
+        if (found) return found;
+      }
+    }
+  }
+  if (obj['$not']) {
+    const found = extractRequiredStatus(obj['$not']);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/**
+ * Whether a card's `effects` array carries a restore option that can bring a
+ * character in `desiredStatus` back to `untapped`. Two patterns count:
+ * - An effect (or `play-option` / `grant-action` wrapper) whose `apply` is
+ *   `set-character-status` → `untapped`. If the option's `when` constrains the
+ *   target/bearer status, that status must equal `desiredStatus` — an
+ *   untap-only option (`{ status: 'tapped' }`) is not a heal for a wounded
+ *   character, and vice versa.
+ * - A `grant-action` → `heal-company-character` effect, which heals wounded
+ *   (`inverted`) characters only.
+ */
+function hasRestoreOptionForStatus(
+  effects: readonly unknown[] | undefined,
+  desiredStatus: CardStatus,
+): boolean {
   if (!effects) return false;
   for (const e of effects) {
     if (!e || typeof e !== 'object') continue;
     const eff = e as {
       type?: unknown;
       action?: unknown;
+      when?: unknown;
       apply?: { type?: unknown; status?: unknown };
     };
-    if (eff.type === 'grant-action' && eff.action === 'heal-company-character') return true;
+    if (eff.type === 'grant-action' && eff.action === 'heal-company-character') {
+      if (desiredStatus === CardStatus.Inverted) return true;
+      continue;
+    }
     const apply = eff.apply;
-    if (apply && apply.type === 'set-character-status' && apply.status === 'untapped') return true;
+    if (apply && apply.type === 'set-character-status' && apply.status === 'untapped') {
+      const required = extractRequiredStatus(eff.when);
+      if (required === undefined || required === desiredStatus) return true;
+    }
   }
   return false;
 }
 
 /**
- * Whether the company has a way to heal a wounded character without
- * traveling to a haven — an equipped healing item (e.g. Foul-smelling
- * Paste) or a healing event in hand (e.g. Halfling Strength).
+ * The character `play-target` filter of a card, if any — the restriction on
+ * which characters a hand card may target (e.g. Halfling Strength:
+ * `{ target.race: 'hobbit' }`). Returns `undefined` when the card targets a
+ * character with no restriction.
+ */
+function characterTargetFilter(effects: readonly unknown[] | undefined): Condition | undefined {
+  for (const e of effects ?? []) {
+    if (!e || typeof e !== 'object') continue;
+    const eff = e as { type?: unknown; target?: unknown; filter?: Condition };
+    if (eff.type === 'play-target' && eff.target === 'character' && eff.filter) {
+      return eff.filter;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Whether a hand card can restore a company character currently in
+ * `desiredStatus`. The card must both carry a restore option applicable to
+ * that status AND be able to target a company character in it — respecting the
+ * card's `play-target` filter. A card like Halfling Strength that only restores
+ * hobbits is no help to a company whose only tapped character is a Man.
+ */
+function handCardRestoresCharacter(
+  view: PlayerView,
+  pool: Readonly<Record<string, CardDefinition>>,
+  company: Company,
+  def: CardDefinition,
+  desiredStatus: CardStatus,
+): boolean {
+  const effects = (def as { effects?: readonly unknown[] }).effects;
+  if (!hasRestoreOptionForStatus(effects, desiredStatus)) return false;
+  const filter = characterTargetFilter(effects);
+  for (const charId of company.characters) {
+    const ch = view.self.characters[charId];
+    if (!ch || ch.status !== desiredStatus) continue;
+    if (!filter) return true;
+    const cdef = lookupDef(pool, ch.definitionId);
+    if (!cdef) continue;
+    const context = { target: { ...(cdef as unknown as Record<string, unknown>), status: ch.status } };
+    if (matchesCondition(filter, context)) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether the company has a way to restore a character currently in
+ * `desiredStatus` to `untapped` without traveling to a haven — an equipped
+ * item (e.g. Cram untaps its tapped bearer) or a hand card (e.g. Halfling
+ * Strength) whose restore option can actually target such a character.
+ *
+ * Crucially this rejects false positives: a restore card is only counted when
+ * an eligible company character in `desiredStatus` exists and matches the
+ * card's target restriction. Conflating "any card that could heal/untap
+ * something" with "a card that helps *this* company" caused the AI to enter
+ * sites it had nothing to play at (bug report: AI site phase).
+ */
+function hasRestoreSource(
+  view: PlayerView,
+  pool: Readonly<Record<string, CardDefinition>>,
+  company: Company,
+  desiredStatus: CardStatus,
+): boolean {
+  // Equipped item that restores its bearer (e.g. Cram / Strange Rations untap
+  // a tapped bearer). Only counts when the bearer itself is in `desiredStatus`.
+  for (const charId of company.characters) {
+    const ch = view.self.characters[charId];
+    if (!ch || ch.status !== desiredStatus) continue;
+    for (const item of ch.items) {
+      const def = lookupDef(pool, item.definitionId);
+      const effects = (def as { effects?: readonly unknown[] } | undefined)?.effects;
+      if (hasRestoreOptionForStatus(effects, desiredStatus)) return true;
+    }
+  }
+  // Hand card whose restore play-option can actually target a company
+  // character currently in `desiredStatus`.
+  for (const card of view.self.hand) {
+    const def = lookupDef(pool, card.definitionId);
+    if (!def) continue;
+    if (handCardRestoresCharacter(view, pool, company, def, desiredStatus)) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether the company has a way to heal a wounded (`inverted`) character
+ * without traveling to a haven — an equipped healing item or a healing card in
+ * hand (e.g. Halfling Strength for a wounded hobbit).
  */
 export function hasHealingAvailable(
   view: PlayerView,
   pool: Readonly<Record<string, CardDefinition>>,
   company: Company,
 ): boolean {
-  for (const charId of company.characters) {
-    const ch = view.self.characters[charId];
-    if (!ch) continue;
-    for (const item of ch.items) {
-      const def = lookupDef(pool, item.definitionId);
-      if (!def) continue;
-      const effects = (def as { effects?: readonly unknown[] }).effects;
-      if (effectsIncludeHeal(effects)) return true;
-    }
-  }
-  for (const card of view.self.hand) {
-    const def = lookupDef(pool, card.definitionId);
-    if (!def) continue;
-    const effects = (def as { effects?: readonly unknown[] }).effects;
-    if (effectsIncludeHeal(effects)) return true;
-  }
-  return false;
+  return hasRestoreSource(view, pool, company, CardStatus.Inverted);
 }
 
 /**
- * Whether the company has access to an untap effect for a character —
- * a hand card or item that toggles a character's status to `untapped`.
- * Structurally identical to healing (both use `set-character-status` →
- * `untapped`), which is fine: either outcome unblocks resource play at
- * a site when all characters are currently tapped.
+ * Whether the company has access to an untap effect for a currently-tapped
+ * character — a hand card or item that toggles a tapped character's status to
+ * `untapped`, unblocking a tap-to-play resource at a site.
  */
 export function hasUntapSource(
   view: PlayerView,
   pool: Readonly<Record<string, CardDefinition>>,
   company: Company,
 ): boolean {
-  return hasHealingAvailable(view, pool, company);
+  return hasRestoreSource(view, pool, company, CardStatus.Tapped);
 }
 
 /**
