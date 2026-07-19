@@ -1972,11 +1972,60 @@ export function itemSubtypesOf(state: GameState, items: readonly { readonly defi
 }
 
 /**
+ * Game-wide environment override contributed by in-play cards carrying an
+ * `environment-override` effect (Peril Returned td-54). Returns the union of
+ * every such card's `considerInPlay` names (treated as in play regardless of any
+ * actual card) and `considerNotInPlay` names (treated as out of play even while
+ * their card sits in `cardsInPlay`). Both sets are empty in the common case.
+ *
+ * The override is global — an environment card reshapes the interpretation for
+ * every player — so both players' `cardsInPlay` are scanned and the result is
+ * consulted by both the `inPlay`-context builder (`buildInPlayNames`) and the
+ * name-in-play predicates below, keeping every "is X in play?" query consistent.
+ */
+export function collectEnvironmentOverride(state: GameState): { add: Set<string>; remove: Set<string> } {
+  const add = new Set<string>();
+  const remove = new Set<string>();
+  for (const p of state.players) {
+    for (const card of p.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const eff of getCardEffects(def)) {
+        if (eff.type !== 'environment-override') continue;
+        for (const n of eff.considerInPlay ?? []) add.add(n);
+        for (const n of eff.considerNotInPlay ?? []) remove.add(n);
+      }
+    }
+  }
+  return { add, remove };
+}
+
+/**
+ * Applies the game-wide {@link collectEnvironmentOverride} to a single name
+ * query, returning `true`/`false` when the name is forced in/out of play, or
+ * `undefined` when no override touches it (caller falls back to a physical
+ * scan). Additions win over removals for a name in both lists.
+ */
+function overriddenInPlay(state: GameState, name: string): boolean | undefined {
+  const { add, remove } = collectEnvironmentOverride(state);
+  if (add.has(name)) return true;
+  if (remove.has(name)) return false;
+  return undefined;
+}
+
+/**
  * True if any player has a card with the given name among their characters or
  * cards in play. Used for "card-not-in-play" play conditions, where the named
  * blocker may be either a character or a permanent in play.
+ *
+ * Honors the game-wide environment override (Peril Returned td-54) so a name
+ * "considered in play" (Doors of Night) reads as in play with no actual card,
+ * and a name "considered out of play" (Gates of Morning) reads as absent even
+ * while its card remains in `cardsInPlay`.
  */
 export function isCardNameInPlayOrCharacters(state: GameState, name: string): boolean {
+  const override = overriddenInPlay(state, name);
+  if (override !== undefined) return override;
   return state.players.some(p =>
     Object.values(p.characters).some(ch => defById(state, ch.definitionId)?.name === name) ||
     p.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name),
@@ -2017,6 +2066,11 @@ export function isCardNameInPlayForPlayer(
   player: PlayerState,
   name: string,
 ): boolean {
+  // Environment overrides (Peril Returned td-54) are game-wide, so they resolve
+  // the query before the per-player scan (Doors of Night considered in play,
+  // Gates of Morning considered out, for every player).
+  const override = overriddenInPlay(state, name);
+  if (override !== undefined) return override;
   if (player.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name)) return true;
   for (const ch of Object.values(player.characters)) {
     if (defById(state, ch.definitionId)?.name === name) return true;
@@ -2050,7 +2104,15 @@ export function inPlayNamesForPlayerDeep(
     for (const i of ch.items) push(i.definitionId);
     for (const h of ch.hazards) push(h.definitionId);
   }
-  return names;
+  // Apply the game-wide environment override (Peril Returned td-54) so a
+  // `defender.inPlay` `$includes` gate sees the same considered-in/out set.
+  const { add, remove } = collectEnvironmentOverride(state);
+  if (add.size === 0 && remove.size === 0) return names;
+  const adjusted = names.filter(n => !remove.has(n) || add.has(n));
+  for (const n of add) {
+    if (!adjusted.includes(n)) adjusted.push(n);
+  }
+  return adjusted;
 }
 
 /**

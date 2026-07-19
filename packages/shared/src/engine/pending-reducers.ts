@@ -1107,6 +1107,44 @@ function applyDiceCheckBranch(
     logDetail('wound-or-eliminate: no target character/instance in context — no-op');
     return { state };
   }
+  if (branch.type === 'untap-site') {
+    // Fireworks (dm-130): the roll passed, so untap the site the target
+    // character's company occupies. Owner-agnostic — locate the character's
+    // actual owner rather than assuming the roller (the roller is always the
+    // owner here, but stay consistent with the other verbs).
+    if (!ctx.targetCharacterId) {
+      logDetail('untap-site: no target character in context — no-op');
+      return { state };
+    }
+    const targetId = ctx.targetCharacterId;
+    const ownerIndex = state.players.findIndex(p => !!p.characters[targetId]);
+    if (ownerIndex === -1) {
+      logDetail(`untap-site: character ${targetId as string} no longer in play — no-op`);
+      return { state };
+    }
+    const owner = state.players[ownerIndex];
+    const company = owner.companies.find(c => c.characters.includes(targetId));
+    const siteInstance = company?.currentSite;
+    if (!company || !siteInstance) {
+      logDetail(`untap-site: ${targetId as string} has no current site — no-op`);
+      return { state };
+    }
+    if (siteInstance.status === CardStatus.Untapped) {
+      logDetail(`untap-site: site ${siteInstance.definitionId as string} already untapped — no-op`);
+      return { state };
+    }
+    const siteName = defById(state, siteInstance.definitionId)?.name ?? '?';
+    logDetail(`untap-site: untapping site ${siteName} for company ${company.id as string}`);
+    return {
+      state: updatePlayer(state, ownerIndex, p => ({
+        ...p,
+        companies: p.companies.map(c =>
+          c.id === company.id
+            ? { ...c, currentSite: { ...siteInstance, status: CardStatus.Untapped } }
+            : c),
+      })),
+    };
+  }
   logDetail(`dice-check: branch verb "${branch.type}" not handled in resolution context — no-op`);
   return { state };
 }
