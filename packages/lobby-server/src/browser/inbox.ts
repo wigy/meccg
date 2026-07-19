@@ -38,6 +38,21 @@ export interface InboxMessage {
   readonly recipients?: readonly string[];
 }
 
+/** IDs of inbox rows currently in a read (deletable) state — not unread, not waiting. */
+function readRowIds(): string[] {
+  return [...document.querySelectorAll<HTMLElement>('.inbox-item')]
+    .filter(r => !r.classList.contains('inbox-item--unread')
+      && !r.classList.contains('inbox-item--waiting'))
+    .map(r => r.dataset.msgId ?? '')
+    .filter(Boolean);
+}
+
+/** Enable the Delete Read button only while at least one read message remains. */
+function refreshDeleteReadState(): void {
+  const btn = document.getElementById('delete-read-btn') as HTMLButtonElement | null;
+  if (btn) btn.disabled = readRowIds().length === 0;
+}
+
 /** Render a full message into the message panel. */
 function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
   messageEl.innerHTML = '';
@@ -195,6 +210,8 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
         deleteBtn.textContent = 'Deleted';
         const listRow = document.querySelector(`.inbox-item[data-msg-id="${full.id}"]`);
         if (listRow) listRow.remove();
+        // A row was removed — the last read message may now be gone.
+        refreshDeleteReadState();
         messageEl.innerHTML = '';
       } else {
         deleteBtn.textContent = 'Failed';
@@ -247,25 +264,21 @@ function renderMailList(
   });
   listEl.appendChild(featureBtn);
 
-  // Delete Read button — always shown on the inbox tab. Disabled until at least one
-  // message is read; reading a message (below) enables it.
-  const readMsgIds = new Set(
-    messages
-      .filter(m => m.status !== 'new' && m.status !== 'waiting')
-      .map(m => m.id),
-  );
-  let deleteReadBtn: HTMLButtonElement | undefined;
+  // Delete Read button — always shown on the inbox tab. Its enabled state is derived
+  // from the list rows (see refreshDeleteReadState), so it is disabled whenever there
+  // are no read messages and enabled as soon as one is read.
   if (appState.activeMailTab === 'inbox') {
-    deleteReadBtn = document.createElement('button');
+    const deleteReadBtn = document.createElement('button');
+    deleteReadBtn.id = 'delete-read-btn';
     deleteReadBtn.className = 'inbox-action-btn inbox-action-btn--danger';
     deleteReadBtn.textContent = 'Delete Read';
-    deleteReadBtn.disabled = readMsgIds.size === 0;
     deleteReadBtn.addEventListener('click', () => {
-      if (readMsgIds.size === 0) return;
+      const ids = readRowIds();
+      if (ids.length === 0) return;
       void (async () => {
-        deleteReadBtn!.disabled = true;
-        deleteReadBtn!.textContent = 'Deleting...';
-        await Promise.all([...readMsgIds].map(id =>
+        deleteReadBtn.disabled = true;
+        deleteReadBtn.textContent = 'Deleting...';
+        await Promise.all(ids.map(id =>
           fetch(`/api/mail/inbox/${id}`, { method: 'DELETE' }),
         ));
         void openInbox();
@@ -279,6 +292,7 @@ function renderMailList(
     empty.className = 'lobby-empty';
     empty.textContent = 'No messages';
     listEl.appendChild(empty);
+    refreshDeleteReadState();
     return;
   }
   for (const msg of messages) {
@@ -320,9 +334,8 @@ function renderMailList(
           const msgResp = await apiGet<InboxMessage>(`${options.fetchOnClick}/${msg.id}`);
           if (!msgResp.ok) return;
           row.classList.remove('inbox-item--unread');
-          // The message is now read — track it and enable the Delete Read button.
-          readMsgIds.add(msg.id);
-          if (deleteReadBtn) deleteReadBtn.disabled = false;
+          // The message is now read — re-derive the Delete Read enabled state.
+          refreshDeleteReadState();
           renderMessage(messageEl, msgResp.data);
         } else {
           renderMessage(messageEl, msg);
@@ -332,6 +345,9 @@ function renderMailList(
 
     listEl.appendChild(row);
   }
+
+  // Now that all rows exist, set the Delete Read button's initial enabled state.
+  refreshDeleteReadState();
 }
 
 /** Update the mail unread badge in the nav bar. */
