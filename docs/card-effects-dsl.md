@@ -858,6 +858,56 @@ under Await the Onset)."
 { "type": "played-after-faction-mp-pin", "value": 1 }
 ```
 
+### 3c-4. `faction-mp-bonus`
+
+Grants an **additional** marshalling point to a whole class of the controller's
+in-play factions while a race-diversity **gate** holds. `requireEachRace` is the
+gate: the controller must have at least one (non-set-aside) in-play faction of
+*each* listed race for the bonus to apply at all (omit/empty = no gate). `races`
+lists which controlled factions receive `bonus` MP — a faction gains the bonus
+iff its race is in this list. The two lists are independent, so a card may gate
+on one set of races while boosting another. Collected by `factionMpBonusEntries`
+and applied as a dedicated additive faction-MP pass in `recompute-derived.ts`
+(after the leader-control group bonus), scanning only the controller's own
+`cardsInPlay` factions — a *separate* pass so the bonus still lands on factions
+whose base MP was resolved by an override branch that `continue`d. "Man" is the
+literal faction race, so a Dúnadan faction is neither counted toward the gate nor
+boosted.
+
+Used by Alliance of Free Peoples (as-45): "If at least one hero Dwarf faction,
+one hero Elf faction, and one hero Man faction is in play, all hero Dwarf
+factions, hero Elf factions, and hero Man factions give an additional marshalling
+point."
+
+```json
+{ "type": "faction-mp-bonus", "bonus": 1,
+  "requireEachRace": ["dwarf", "elf", "man"],
+  "races": ["dwarf", "elf", "man"] }
+```
+
+### 3c-5. `discard-on-card-leaves-play`
+
+Discards the **carrying** in-play card the moment another card matching `filter`
+leaves its controller's play area (present in the controller's `cardsInPlay`
+before an action, absent after). Evaluated as a `postReduce` prev/next diff
+(`engine/discard-on-card-leaves.ts::applyDiscardOnCardLeaves`, wired into
+`reducer.ts` beside `applyEvilHourTaps`), the same reactive-diff pattern as A More
+Evil Hour — so it fires no matter *how* the tracked card left play, and even when
+a companion `faction-mp-bonus` gate would still hold afterwards. `filter` is
+matched against the leaving card's definition wrapped as `{ card: def }` (so
+`card.cardType`, `card.race`, `card.name`, … are available). Distinct from
+`discard-self-when` (a single-state player-state condition, Prophet of Doom
+wh-106) — this one needs the pre-action state to see which card *left*.
+
+Used by Alliance of Free Peoples (as-45): "Discard when any hero Dwarf faction,
+hero Elf faction, or hero Man faction is discarded from play."
+
+```json
+{ "type": "discard-on-card-leaves-play",
+  "filter": { "$and": [ { "card.cardType": "hero-resource-faction" },
+                        { "card.race": { "$in": ["dwarf", "elf", "man"] } } ] } }
+```
+
 ### 3d. `fw-kill-mp-full`
 
 Fallen-wizard kill marshalling-point exemption (MEWH §4 exception). MEWH §4 clamps
