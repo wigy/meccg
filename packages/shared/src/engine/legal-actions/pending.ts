@@ -42,7 +42,7 @@ import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions 
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, collectGlobalCheckModifier } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { asViable as viable } from './evaluated.js';
 
@@ -451,6 +451,15 @@ export function factionInfluenceRollActions(
       modifier += constraint.kind.value;
       parts.push(`player-wide ${formatSignedNumber(constraint.kind.value)}`);
     }
+  }
+
+  // Game-wide ongoing influence modifier from a bare in-play event owned by
+  // either player (Times Are Evil td-76: "All … influence attempts are modified
+  // by -3"). Applies to every influence attempt regardless of the influencer.
+  const globalInfluenceMod = collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
+  if (globalInfluenceMod !== 0) {
+    modifier += globalInfluenceMod;
+    parts.push(`game-wide ${formatSignedNumber(globalInfluenceMod)}`);
   }
 
   const influenceNumber = def.influenceNumber;

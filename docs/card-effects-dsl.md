@@ -372,6 +372,22 @@ and Troll factions."
   "when": { "reason": "faction-influence-check", "faction.race": { "$in": ["orc", "troll"] } } }
 ```
 
+A **game-wide, ongoing** `check-modifier` is expressed with
+`"target": "all-in-play"`, borne by a bare in-play event (permanent- or
+long-event) in *either* player's `cardsInPlay`. Unlike `player-in-play` (which
+benefits only its owner), an `all-in-play` modifier applies to **every** matching
+check by **either** player, for as long as the card stays in play. It is summed
+by `collectGlobalCheckModifier` (`reducer-utils.ts`) — a both-players scan that
+mirrors `collectFactionInfluenceRestriction` — and folded into the influence need
+at all three sites (`legal-actions/site.ts` display, `legal-actions/pending.ts`
+paused-roll display, `reducer-site.ts` roll resolver), gated by its own `when`
+against the check resolver context. Used by Times Are Evil (td-76), a hazard
+long-event: "All offering attempts and influence attempts are modified by -3."
+
+```json
+{ "type": "check-modifier", "check": ["influence", "offering"], "value": -3, "target": "all-in-play" }
+```
+
 A one-shot influence booster may instead be scoped to an **opponent-influence
 attempt** (influencing an opponent's in-play card — CoE rule 8, "Mine or No
 One's" ba-68) rather than a faction-influence roll. This uses the ordinary
