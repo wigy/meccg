@@ -71,6 +71,31 @@ function controlRestrictionCost(
 }
 
 /**
+ * True when the character bears an attached card (stored in its `items`, where a
+ * resource permanent-event played "on a character" is kept) carrying a
+ * `general-influence-exempt` effect — the continuous marker placed by *Await the
+ * Advent of Allies* (dm-117), whose CRF 22 erratum reads "Target character does
+ * not count against general influence." Mirrors the engine's
+ * `characterBearsAttachedEffect` (reducer-utils), which is what actually removes
+ * the bearer's mind from the GI pool; the tooltip must skip the same characters
+ * so its total matches the engine's GI calculation. Detected by effect type —
+ * not card id — so any future card carrying the marker works unchanged. Resolves
+ * item definitions from the card pool by `definitionId` so it works against the
+ * redacted player view (no game state required).
+ */
+function bearsGeneralInfluenceExempt(
+  char: CharacterInPlay,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): boolean {
+  for (const item of char.items) {
+    const def = cardPool[item.definitionId as string];
+    const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
+    if (effects?.some(e => e.type === 'general-influence-exempt')) return true;
+  }
+  return false;
+}
+
+/**
  * Build the HTML for the General Influence tooltip table.
  * Shows each character under general influence with the cost actually counted
  * against GI. A `control-restriction` override (e.g. Wizard's Myrmidon, which
@@ -79,7 +104,9 @@ function controlRestrictionCost(
  * used. When the counted cost differs from the printed mind (a stat-modifier or
  * a control-restriction override), it is shown with the printed mind in
  * parentheses — mirroring the MP breakdown's `adjusted (raw)` format — so the
- * tooltip total matches the engine's GI calculation.
+ * tooltip total matches the engine's GI calculation. A character bearing
+ * *Await the Advent of Allies* (dm-117) "does not count against general
+ * influence" (CRF 22) and is omitted entirely, matching the engine.
  */
 export function buildGITooltip(
   characters: Readonly<Record<string, CharacterInPlay>>,
@@ -88,6 +115,10 @@ export function buildGITooltip(
   const entries: { name: string; mind: number; raw: number }[] = [];
   for (const char of Object.values(characters)) {
     if (char.controlledBy !== 'general' || char.influenceUnsubtracted) continue;
+    // Await the Advent of Allies (dm-117): the bearer "does not count against
+    // general influence" (CRF 22), so the engine drops its mind from the pool.
+    // Skip it here too, or the tooltip total would exceed the engine's GI.
+    if (bearsGeneralInfluenceExempt(char, cardPool)) continue;
     const def = cardPool[char.definitionId as string];
     if (!def || !('mind' in def) || def.mind === null) continue;
     const mind = controlRestrictionCost(char, cardPool) ?? char.effectiveStats.mind ?? def.mind;
