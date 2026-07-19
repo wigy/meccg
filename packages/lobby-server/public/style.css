@@ -768,10 +768,17 @@ h2 {
   cursor: pointer;
 }
 
-.inbox-action-btn:hover {
+.inbox-action-btn:not(:disabled):hover {
   color: #e0d8c8;
   border-color: #888;
   background: rgba(255,255,255,0.05);
+}
+
+.inbox-action-btn:disabled {
+  color: #666;
+  border-color: #3a3a3a;
+  cursor: default;
+  opacity: 0.6;
 }
 
 .inbox-action-btn--danger {
@@ -779,7 +786,7 @@ h2 {
   border-color: rgba(244,67,54,0.4);
 }
 
-.inbox-action-btn--danger:hover {
+.inbox-action-btn--danger:not(:disabled):hover {
   color: #f44336;
   border-color: #f44336;
   background: rgba(244,67,54,0.1);
