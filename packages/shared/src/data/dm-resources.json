@@ -932,8 +932,23 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable only if your Wizard is not revealed. Your general influence is increased by 5. Your Wizard may only be brought into play at his home site. Discard when you bring your Wizard into play. Cannot be duplicated by a given player."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.avatarInPlay": false }
+      },
+      { "type": "stat-modifier", "stat": "general-influence", "value": 5 },
+      { "type": "avatar-home-site-restriction" },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      },
+      { "type": "duplication-limit", "scope": "player", "max": 1 }
+    ],
+    "text": "Playable only if your Wizard is not revealed. Your general influence is increased by 5. Your Wizard may only be brought into play at his home site. Discard when you bring your Wizard into play. Cannot be duplicated by a given player.",
+    "certified": "2026-07-19"
   },
   {
     "cardType": "hero-resource-event",

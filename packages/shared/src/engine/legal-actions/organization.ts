@@ -2089,6 +2089,11 @@ export function buildActiveCompanyContext(
  * - `player.avatar` — the name of the player's revealed avatar (e.g.
  *   `"Pallando"`, `"Saruman"`), or `undefined` if none is in play. Used by The
  *   Fortress of Isen/Towers (wh-68/69) and A Strident Spawn (wh-61).
+ * - `player.avatarInPlay` — `true` when the player has an avatar character in
+ *   play (in a company). Unlike `avatar` (the declared Fallen-wizard identity,
+ *   which persists in the deck/hand), this is the in-play signal. Used by Saw
+ *   Further and Deeper (dm-156): "Playable only if your Wizard is not revealed"
+ *   → `{ "player.avatarInPlay": false }`.
  * - `player.hasRingwraithInPlay` — `true` when the player has a Ringwraith-race
  *   avatar character in play. Used by Above the Abyss (as-77).
  * - `player.stagePoints` — the Fallen-wizard stage-point total. Used by
@@ -2135,10 +2140,18 @@ export function buildPlayerStateContext(
   // until the avatar is eliminated — the avatar need not be in play. Use the
   // identity helper rather than the in-play-only avatar lookup.
   const avatarName = findFallenWizardAvatarName(state, player);
+  // Whether the player's avatar is currently in play (in a company). Distinct
+  // from `avatar` above, which is the *declared* Fallen-wizard identity and
+  // persists even while the avatar sits in the deck/hand. `avatarInPlay` is the
+  // signal a Wizard needs for "your Wizard is not revealed" (Saw Further and
+  // Deeper dm-156): `findPlayerAvatar` returns the in-play avatar character or
+  // undefined, so `false` means no avatar has been brought into play yet.
+  const avatarInPlay = findPlayerAvatar(state, player) !== undefined;
   return {
     player: {
       alignment: player.alignment,
       avatar: avatarName,
+      avatarInPlay,
       hasRingwraithInPlay,
       stagePoints: player.stagePoints,
       factionCount,

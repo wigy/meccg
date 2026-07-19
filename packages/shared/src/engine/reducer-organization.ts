@@ -602,9 +602,51 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
     ).state;
   }
 
-  return {
-    state: applyCharacterSelfEntersPlayMoveEffects(stateAfterAvatarSweep, charDef, charInstId, playerIndex),
-  };
+  let finalState = applyCharacterSelfEntersPlayMoveEffects(stateAfterAvatarSweep, charDef, charInstId, playerIndex);
+
+  // Saw Further and Deeper (dm-156): "Discard when you bring your Wizard into
+  // play." A permanent event in the acting player's `cardsInPlay` carrying an
+  // `on-event: avatar-enters-play` effect fires the moment that player brings
+  // their avatar (mind === null) into play. Distinct from `self-enters-play`,
+  // which fires for the *entering card itself* — this observes another card's
+  // entry (the avatar's).
+  if (isAvatarCharacter(charDef)) {
+    finalState = applyAvatarEntersPlayEffects(finalState, playerIndex);
+  }
+
+  return { state: finalState };
+}
+
+/**
+ * Fire every `on-event: avatar-enters-play` effect on the acting player's
+ * in-play cards, the moment that player brings an avatar into play. Each such
+ * effect declares a `move` apply (self → discard); Saw Further and Deeper
+ * (dm-156) uses it to discard itself when the Wizard is revealed. Reuses the
+ * generic {@link applyMove} primitive, mirroring
+ * {@link applyCharacterSelfEntersPlayMoveEffects}.
+ */
+function applyAvatarEntersPlayEffects(state: GameState, playerIndex: number): GameState {
+  let newState = state;
+  // Snapshot the instance ids up front — the list is mutated as cards discard.
+  const inPlayIds = newState.players[playerIndex].cardsInPlay.map(c => c.instanceId);
+  for (const cardId of inPlayIds) {
+    const card = newState.players[playerIndex].cardsInPlay.find(c => c.instanceId === cardId);
+    if (!card) continue;
+    const def = defById(newState, card.definitionId);
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'on-event' || effect.event !== 'avatar-enters-play') continue;
+      if (effect.apply.type !== 'move') continue;
+      logDetail(`"${def?.name ?? (card.definitionId as string)}" fires on-event avatar-enters-play — running move apply`);
+      const ctx: MoveContext = { sourceCardId: card.instanceId, sourcePlayerIndex: playerIndex };
+      const r = applyMove(newState, effect.apply, ctx);
+      if ('error' in r) {
+        logDetail(`avatar-enters-play move apply failed: ${r.error}`);
+      } else {
+        newState = r.state;
+      }
+    }
+  }
+  return newState;
 }
 
 /**
