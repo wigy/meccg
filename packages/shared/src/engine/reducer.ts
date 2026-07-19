@@ -48,7 +48,11 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // card giving them 3+ marshalling points. Runs first, on the raw post-action
   // state, so the later sweeps/recompute see the tapped status.
   const tapped = prevState ? applyEvilHourTaps(prevState, state) : state;
-  return accrueRevealedInstances(recomputeDerived(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(tapped)))))))))))))));
+  // Alliance of Free Peoples (as-45): discard the card when a matching faction
+  // just left its controller's play area. Prev/next diff, so it runs on the raw
+  // post-action state before the single-state sweeps and recompute below.
+  const afterLeaves = prevState ? applyDiscardOnCardLeaves(prevState, tapped) : tapped;
+  return accrueRevealedInstances(recomputeDerived(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves)))))))))))))));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
@@ -56,6 +60,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedAgentAttachedEvents, discardOrphanedConvertedAllyEvents, discardOrphanedItemAttachedEvents, sweepProhibitedCompanyEvents } from './reducer-utils.js';
 import { topResolutionFor } from './pending.js';
 import { applyEvilHourTaps } from './evil-hour.js';
+import { applyDiscardOnCardLeaves } from './discard-on-card-leaves.js';
 import { applyResolution } from './pending-handlers.js';
 import { applyPairResourceWithCof } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';

@@ -5317,6 +5317,71 @@ export interface ConditionalMpEffect extends EffectBase {
 }
 
 /**
+ * A permanent-event that grants an **additional marshalling point** to a whole
+ * class of the controller's in-play factions while a race-diversity gate holds.
+ *
+ * Alliance of Free Peoples (as-45): "If at least one hero Dwarf faction, one
+ * hero Elf faction, and one hero Man faction is in play, all hero Dwarf
+ * factions, hero Elf factions, and hero Man factions give an additional
+ * marshalling point." Here `requireEachRace` is `["dwarf","elf","man"]` (the
+ * gate: the controller must have at least one in-play faction of *each* listed
+ * race) and `races` is `["dwarf","elf","man"]` (every controlled faction of one
+ * of these races gains `bonus` faction MP). The two lists are independent so a
+ * card can gate on one set of races while boosting another.
+ *
+ * Applied in `recompute-derived.ts` as a dedicated faction-MP pass (additive on
+ * top of each faction's printed / overridden MP), scanning only the controller's
+ * own non-set-aside `cardsInPlay` factions.
+ *
+ * ```json
+ * { "type": "faction-mp-bonus", "bonus": 1,
+ *   "requireEachRace": ["dwarf", "elf", "man"],
+ *   "races": ["dwarf", "elf", "man"] }
+ * ```
+ */
+export interface FactionMpBonusEffect extends EffectBase {
+  readonly type: 'faction-mp-bonus';
+  /** Marshalling points added to each qualifying faction while the gate holds. */
+  readonly bonus: number;
+  /**
+   * Gate: the controller must have at least one in-play faction of **each** race
+   * listed here for the bonus to apply at all. Empty/omitted means "no gate".
+   */
+  readonly requireEachRace?: readonly string[];
+  /** A controlled faction receives `bonus` MP iff its race is in this list. */
+  readonly races: readonly string[];
+}
+
+/**
+ * A card that discards **itself** the moment another card matching `filter`
+ * leaves its controller's play area (present in the controller's `cardsInPlay`
+ * before an action, absent after). Evaluated as a `postReduce` prev/next diff
+ * (the same reactive-diff pattern as A More Evil Hour's tap trigger), so it
+ * fires no matter how the tracked card left play.
+ *
+ * Alliance of Free Peoples (as-45): "Discard when any hero Dwarf faction, hero
+ * Elf faction, or hero Man faction is discarded from play." — `filter` matches a
+ * hero faction whose race is Dwarf, Elf, or Man. The trigger fires even when the
+ * race-diversity gate still holds afterwards (e.g. losing one of two Man
+ * factions), matching the printed "any … faction … discarded" wording.
+ *
+ * ```json
+ * { "type": "discard-on-card-leaves-play",
+ *   "filter": { "$and": [ { "card.cardType": "hero-resource-faction" },
+ *                         { "card.race": { "$in": ["dwarf", "elf", "man"] } } ] } }
+ * ```
+ */
+export interface DiscardOnCardLeavesPlayEffect extends EffectBase {
+  readonly type: 'discard-on-card-leaves-play';
+  /**
+   * Condition matched against a leaving card's definition, wrapped as
+   * `{ card: def }` (so `card.cardType`, `card.race`, `card.name`, etc. are
+   * available). A leaving card that matches triggers the self-discard.
+   */
+  readonly filter: Condition;
+}
+
+/**
  * Declares that, while the carrying card is in play, any hazard creature whose
  * card definition matches `creatureFilter` may be keyed to any site matching
  * `siteFilter` (its effective site type is one of `siteTypes` and it carries
@@ -5912,6 +5977,8 @@ export type CardEffect =
   | VoluntaryDiscardEffect
   | CvccAttackPermissionEffect
   | GrantAllyPlayEffect
+  | FactionMpBonusEffect
+  | DiscardOnCardLeavesPlayEffect
   | FactionInfluenceRestrictionEffect;
 
 /**

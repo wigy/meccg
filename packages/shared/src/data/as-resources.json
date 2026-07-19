@@ -903,8 +903,30 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "If at least one hero Dwarf faction, one hero Elf faction, and one hero Man faction is in play, all hero Dwarf factions, hero Elf factions, and hero Man factions give an additional marshalling point. Discard when any hero Dwarf faction, hero Elf faction, or hero Man faction is discarded from play. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "faction-mp-bonus",
+        "bonus": 1,
+        "requireEachRace": ["dwarf", "elf", "man"],
+        "races": ["dwarf", "elf", "man"]
+      },
+      {
+        "type": "discard-on-card-leaves-play",
+        "filter": {
+          "$and": [
+            { "card.cardType": "hero-resource-faction" },
+            { "card.race": { "$in": ["dwarf", "elf", "man"] } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "If at least one hero Dwarf faction, one hero Elf faction, and one hero Man faction is in play, all hero Dwarf factions, hero Elf factions, and hero Man factions give an additional marshalling point. Discard when any hero Dwarf faction, hero Elf faction, or hero Man faction is discarded from play. Cannot be duplicated.",
+    "certified": "2026-07-19"
   },
   {
     "cardType": "hero-resource-event",

@@ -184,6 +184,40 @@ function conditionalMpFactionCount(
   return count;
 }
 
+/** One active `faction-mp-bonus`: the bonus and the set of races it boosts. */
+type FactionMpBonus = { readonly bonus: number; readonly races: ReadonlySet<string> };
+
+/**
+ * Collects the `faction-mp-bonus` effects a player currently has in play whose
+ * race-diversity gate is satisfied, i.e. the controller has at least one
+ * (non-set-aside) in-play faction of *each* race listed in `requireEachRace`.
+ * Alliance of Free Peoples (as-45) is the sole precedent. Only the controller's
+ * own `cardsInPlay` factions are counted (their own hero factions), matching the
+ * card's "give an additional marshalling point" — MP always accrues to the
+ * faction's owner. Returns an empty array when no such card is in play (the
+ * common case) so unaffected recomputes cost nothing.
+ */
+function factionMpBonusEntries(state: GameState, player: PlayerState): FactionMpBonus[] {
+  const entries: FactionMpBonus[] = [];
+  // The races present among the controller's own non-set-aside in-play factions.
+  const racesInPlay = new Set<string>();
+  for (const card of player.cardsInPlay) {
+    if (card.setAsideHost !== undefined) continue;
+    const def = defById(state, card.definitionId);
+    if (def && isFactionCard(def)) racesInPlay.add(def.race);
+  }
+  for (const def of playerCardsInPlayDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'faction-mp-bonus') continue;
+      const gate = effect.requireEachRace ?? [];
+      if (gate.every(race => racesInPlay.has(race))) {
+        entries.push({ bonus: effect.bonus, races: new Set(effect.races) });
+      }
+    }
+  }
+  return entries;
+}
+
 function addMP(
   totals: MarshallingPointTotals,
   def: CardDefinition,
@@ -1620,6 +1654,23 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const effect = getLeaderControlEffect(def);
     if (effect && count >= effect.groupBonus.count) {
       mp = { ...mp, faction: mp.faction + effect.groupBonus.mp };
+    }
+  }
+
+  // Alliance of Free Peoples (as-45): while a `faction-mp-bonus` gate holds, each
+  // of the controller's in-play factions whose race the bonus lists gains extra
+  // faction MP. A separate pass (not folded into the per-card MP loop above) so
+  // the bonus still lands on factions whose base MP was handled by an override
+  // branch that `continue`d. Skips set-aside factions to match the gate.
+  const factionBonuses = factionMpBonusEntries(state, player);
+  if (factionBonuses.length > 0) {
+    for (const card of player.cardsInPlay) {
+      if (card.setAsideHost !== undefined) continue;
+      const def = resolveDef(state, card.instanceId);
+      if (!def || !isFactionCard(def)) continue;
+      for (const b of factionBonuses) {
+        if (b.races.has(def.race)) mp = { ...mp, faction: mp.faction + b.bonus };
+      }
     }
   }
 
