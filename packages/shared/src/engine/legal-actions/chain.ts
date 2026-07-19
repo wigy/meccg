@@ -27,6 +27,7 @@ import { playerById, getCardEffects, defById, companyById } from '../reducer-uti
 import { companyContainsBalrogAvatar } from '../../state-utils.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { heroResourceShortEventActions } from './long-event.js';
+import { playPermanentEventActions } from './organization-events.js';
 
 /**
  * Returns the legal actions available to the given player while a chain
@@ -510,18 +511,33 @@ function counterCancelAttackChainActions(state: GameState, playerId: PlayerId): 
 }
 
 /**
- * During M/H chain declaring, the resource (active) player may play any
- * resource short event they would normally be allowed to play during the
- * movement/hazard phase — e.g. Many Turns and Doublings to decrease the
- * hazard limit (CoE rule 2.IV.iii.1: active condition checked at resolution).
+ * During M/H (or organization) chain declaring, the resource (active) player
+ * may play resource events they would normally be allowed to play during that
+ * phase, as a response on the chain:
  *
- * Delegates to {@link heroResourceShortEventActions}, which already filters
- * out combat-only cards and evaluates play-option `when` conditions.
+ * - Resource short events — e.g. Many Turns and Doublings to decrease the
+ *   hazard limit (CoE rule 2.IV.iii.1: active condition checked at resolution).
+ *   Delegated to {@link heroResourceShortEventActions}.
+ * - Resource permanent events — e.g. Gates of Morning (tw-243). Rule 2.1.1
+ *   allows resource permanent-events to be played during *any* phase of the
+ *   player's turn, including as a chain response. This is the window in which
+ *   the moving player responds to a Twilight canceling their Gates of Morning
+ *   by replaying it (CRF 22 Annotation 11 — see
+ *   {@link countCopiesInPlayTargetedForDiscard}). Delegated to
+ *   {@link playPermanentEventActions}, whose reducer (`handlePlayPermanentEvent`)
+ *   already pushes the card onto the active chain.
  */
 function resourceEventChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   if (state.phaseState.phase === Phase.MovementHazard) {
     if (state.activePlayer !== playerId) return [];
-    return heroResourceShortEventActions(state, playerId, 'movement-hazard');
+    return [
+      ...playPermanentEventActions(state, playerId),
+      ...heroResourceShortEventActions(state, playerId, 'movement-hazard'),
+    ];
+  }
+  if (state.phaseState.phase === Phase.Organization) {
+    if (state.activePlayer !== playerId) return [];
+    return playPermanentEventActions(state, playerId);
   }
   if (state.phaseState.phase === Phase.Site) {
     return siteInfluenceChainResourceEventActions(state, playerId);

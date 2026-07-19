@@ -24,7 +24,7 @@ import {
   actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
-import type { CardInPlay, CardInstanceId, PlayShortEventAction } from '../../index.js';
+import type { CardInPlay, CardInstanceId, GameState, MovementHazardPhaseState, PlayPermanentEventAction, PlayShortEventAction } from '../../index.js';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -178,6 +178,93 @@ describe('Gates of Morning (tw-243)', () => {
 
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
     expect(actions).toHaveLength(0);
+  });
+
+  test('moving player may replay Gates of Morning in response to a Twilight canceling their existing one (CRF Annotation 11)', () => {
+    // Regression: game mrs06zup-du4wde, seq 137. The hazard player played
+    // Twilight targeting the moving player's in-play Gates of Morning; the
+    // moving player was wrongly denied replaying Gates of Morning in response.
+    // CRF 22 Annotation 11: a "cannot be duplicated" card may be played while a
+    // copy is in play if that copy is being targeted by an effect that will
+    // discard it (here, the Twilight on the chain). Rule 2.1.1 lets the resource
+    // player play resource permanent-events during any phase, including as a
+    // chain response.
+    const gomInPlay: CardInPlay = {
+      instanceId: 'gom-1' as CardInstanceId,
+      definitionId: GATES_OF_MORNING,
+      status: CardStatus.Untapped,
+    };
+
+    const base = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GATES_OF_MORNING], siteDeck: [MORIA], cardsInPlay: [gomInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TWILIGHT], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    // Override to the movement/hazard play-hazards step (the reported scenario).
+    const mhState: MovementHazardPhaseState = {
+      phase: Phase.MovementHazard,
+      step: 'play-hazards',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      movementType: null,
+      declaredRegionPath: [],
+      maxRegionDistance: 4,
+      hazardsPlayedThisCompany: 0,
+      hazardLimitAtReveal: 4,
+      preRevealHazardLimitConstraintIds: [],
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: null,
+      destinationSiteName: null,
+      resourceDrawMax: 0,
+      hazardDrawMax: 0,
+      resourceDrawCount: 0,
+      hazardDrawCount: 0,
+      resourcePlayerPassed: false,
+      hazardPlayerPassed: false,
+      onGuardPlacedThisCompany: false,
+      siteRevealed: false,
+      returnedToOrigin: false,
+      hazardsEncountered: [],
+      ahuntAttacksResolved: 0,
+      corruptionCardsPlayedPerChar: {},
+      nazgulSideboardDestination: null,
+      nazgulSideboardFetched: 0,
+    };
+    const state: GameState = { ...base, phaseState: mhState };
+
+    // Baseline: with no Twilight targeting it, the duplication-limit blocks the
+    // second Gates of Morning outright (no viable play-permanent-event).
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+
+    // P2 (hazard player) plays Twilight targeting P1's in-play Gates of Morning
+    // → chain starts and P1 gets priority.
+    const twilightId = handCardId(state, HAZARD_PLAYER);
+    let s = dispatch(state, { type: 'play-short-event', player: PLAYER_2, cardInstanceId: twilightId, targetInstanceId: 'gom-1' as CardInstanceId });
+    expect(s.chain).not.toBeNull();
+    expect(s.chain!.priority).toBe(PLAYER_1);
+
+    // P1 may now replay Gates of Morning in response (Annotation 11).
+    const gomId = handCardId(s, RESOURCE_PLAYER);
+    const replayActions = viableActions(s, PLAYER_1, 'play-permanent-event');
+    expect(replayActions).toHaveLength(1);
+    expect(actionAs<PlayPermanentEventAction>(replayActions[0].action).cardInstanceId).toBe(gomId);
+
+    // Resolve LIFO: the new Gates of Morning enters play first, then Twilight
+    // discards the old copy. Exactly one Gates of Morning (the new one) survives.
+    s = dispatch(s, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: gomId });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
+    expect(s.chain).toBeNull();
+
+    const gomCopies = s.players.flatMap(p => p.cardsInPlay).filter(c => c.definitionId === GATES_OF_MORNING);
+    expect(gomCopies.map(c => c.instanceId)).toEqual([gomId]);
+    // The old copy was discarded by the Twilight.
+    expect(s.players[0].discardPile.map(c => c.instanceId)).toContain('gom-1' as CardInstanceId);
   });
 
   test('no opposing environments to discard is a no-op', () => {

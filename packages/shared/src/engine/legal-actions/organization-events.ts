@@ -26,7 +26,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited } from '../reducer-utils.js';
+import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -161,7 +161,12 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // Check duplication-limit with scope "game": cannot play if a copy is already in play
     const dupLimit = findDuplicationLimitEffect(def, 'game');
     if (dupLimit) {
-      const copiesInPlay = countCopiesInPlay(state, def.name);
+      // CRF 22 Annotation 11: an in-play copy that is currently being targeted
+      // for discard by an unresolved chain entry (e.g. a Twilight canceling this
+      // player's Gates of Morning) does not count — the replacement copy may be
+      // played in response.
+      const copiesInPlay = countCopiesInPlay(state, def.name)
+        - countCopiesInPlayTargetedForDiscard(state, def.name);
       if (copiesInPlay >= dupLimit.max) {
         logDetail(`Permanent event ${def.name}: cannot be duplicated (${copiesInPlay}/${dupLimit.max} in play)`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} cannot be duplicated`));
