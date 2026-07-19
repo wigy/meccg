@@ -25,14 +25,14 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findAttachment, findById, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
@@ -222,18 +222,47 @@ export function handleCancelStrike(state: GameState, action: GameAction, combat:
       updateCharacter(p, action.cancellerInstanceId, c => ({ ...c, status: CardStatus.Tapped })),
     );
   } else {
-    // The canceller may be an item or ally attached to the struck character (e.g.
-    // Enruned Shield taps to cancel a strike against its Warrior bearer, or
-    // Noble Steed taps to cancel a non-auto-attack strike against its bearer).
-    const tap = <A extends { status: CardStatus }>(a: A): A => ({ ...a, status: CardStatus.Tapped });
-    const tapped = updateAttachment(defPlayer, 'items', action.cancellerInstanceId, tap)
-      ?? updateAttachment(defPlayer, 'allies', action.cancellerInstanceId, tap);
-    if (!tapped) {
+    // The canceller is an item or ally attached to the struck character. Locate
+    // it so its cancel-strike cost variant can be inspected before paying.
+    const located = findAttachment(defPlayer, 'items', action.cancellerInstanceId)
+      ?? findAttachment(defPlayer, 'allies', action.cancellerInstanceId);
+    if (!located) {
       return { state, error: 'Canceller not found as character, item, or ally' };
     }
-    const cancellerLabel = cardName(state, tapped.attachment.definitionId);
-    logDetail(`${cancellerLabel} taps to cancel strike against ${currentStrike.characterId as string}`);
-    nextState = updatePlayer(state, defPlayerIndex, () => tapped.player);
+    const cancellerLabel = cardName(state, located.attachment.definitionId);
+    const cancelEffect = getCardEffects(defById(state, located.attachment.definitionId))
+      .find((e): e is CancelStrikeEffect => e.type === 'cancel-strike');
+
+    if (cancelEffect?.cost?.check === 'corruption') {
+      // The One Ring (tw-347): instead of tapping, the bearer makes a corruption
+      // check (modified by the effect's `cost.modifier`, e.g. -2) to cancel the
+      // strike. The strike is canceled regardless of the check's outcome — the
+      // check is the cost/risk, not a condition. The check surfaces as a pending
+      // resolution (combat yields to it before further combat actions; see
+      // computeLegalActions' combat/pending ordering).
+      const modifier = cancelEffect.cost.modifier ?? 0;
+      logDetail(`${cancellerLabel}: bearer ${located.charId as string} makes a corruption check (${formatSignedNumber(modifier)}) to cancel strike against ${currentStrike.characterId as string}`);
+      nextState = enqueueCorruptionCheck(state, {
+        source: action.cancellerInstanceId,
+        actor: action.player,
+        scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+        characterId: located.charId,
+        reason: cancellerLabel,
+        modifier,
+      });
+    } else {
+      // Tap the item/ally to pay the cancel cost (e.g. Enruned Shield taps to
+      // cancel a strike against its Warrior bearer, or Noble Steed taps to
+      // cancel a non-auto-attack strike against its bearer).
+      const tap = <A extends { status: CardStatus }>(a: A): A => ({ ...a, status: CardStatus.Tapped });
+      const tapped = updateAttachment(defPlayer, 'items', action.cancellerInstanceId, tap)
+        ?? updateAttachment(defPlayer, 'allies', action.cancellerInstanceId, tap);
+      if (!tapped) {
+        return { state, error: 'Canceller not found as character, item, or ally' };
+      }
+      logDetail(`${cancellerLabel} taps to cancel strike against ${currentStrike.characterId as string}`);
+      nextState = updatePlayer(state, defPlayerIndex, () => tapped.player);
+    }
   }
 
   const newAssignments = [...combat.strikeAssignments];
