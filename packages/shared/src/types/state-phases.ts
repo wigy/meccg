@@ -806,6 +806,25 @@ export interface SitePhaseState {
    */
   readonly uniqueHeroFactionPlayedAtFreeHold?: boolean;
   /**
+   * Whether the active company has, this site phase, successfully played **any**
+   * faction (of any type) at its current site. Set when a faction resolves
+   * (`resolveInfluenceAttemptRoll`); consulted by the `company-context`
+   * play-condition via `company.playedFactionHere` so a card can gate on "if you
+   * have played a faction there" (No Strangers at this Time, as-51). Absent
+   * (undefined → false) until such a faction is played; reset to absent when a
+   * new company's site phase begins (a fresh {@link SitePhaseState} is built).
+   */
+  readonly factionPlayedThisSitePhase?: boolean;
+  /**
+   * Whether the site's minion-only additional automatic-attack (No Strangers at
+   * this Time, as-51 `duplicateFirstAutoAttackVsMinion`) has already been faced
+   * this site phase. Set once the copied first automatic-attack has been
+   * initiated in the `handleSiteAutomaticAttacks` done-branch, so it fires
+   * exactly once. Absent (undefined → false) until then; reset when a new
+   * company's site phase begins.
+   */
+  readonly siteLockMinionAttackDone?: boolean;
+  /**
    * Number of characters the active company has tapped this site phase to pay
    * the Eddy in Fate's Tide (ba-57) tax — "Before a company can play any ally or
    * item at any version of this site, it must tap two characters during the site

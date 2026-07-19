@@ -1082,7 +1082,7 @@ function playResourcesActions(
         // checked against the company's aggregate item names.
         const companyContextCond = findPlayConditionEffect(eventDef, 'company-context');
         if (companyContextCond?.condition
-          && !matchesCompanyContextCondition(state, player, company, companyContextCond.condition, siteState.uniqueHeroFactionPlayedAtFreeHold ?? false)) {
+          && !matchesCompanyContextCondition(state, player, company, companyContextCond.condition, siteState.uniqueHeroFactionPlayedAtFreeHold ?? false, siteState.factionPlayedThisSitePhase ?? false)) {
           logDetail(`Permanent event ${eventDef.name}: company-context play-condition not satisfied at ${siteName}`);
           actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
           continue;

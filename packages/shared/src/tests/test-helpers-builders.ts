@@ -595,6 +595,13 @@ export function buildFallenWizardSitePhaseState(opts: {
   site: CardDefinitionId;
   hand?: CardDefinitionId[];
   siteStatus?: CardStatus;
+  /**
+   * Pre-set the Fallen-wizard's stage-point total. Some site-phase Stage
+   * resources gate on it (Mischief in a Mean Way wh-77: "if you have 10 or
+   * more stage points"). Applied after the initial recompute, so it is not
+   * overwritten unless a subsequent reduce recomputes derived state.
+   */
+  stagePoints?: number;
 }): GameState {
   const state = buildTestState({
     activePlayer: PLAYER_1,
@@ -608,6 +615,12 @@ export function buildFallenWizardSitePhaseState(opts: {
 
   if (opts.siteStatus) {
     (state.players[0].companies[0].currentSite as { status: CardStatus }).status = opts.siteStatus;
+  }
+
+  // Set the FW's stage-point total after the initial recompute (which would
+  // otherwise reset it to the sum of in-play Stage cards, i.e. 0).
+  if (opts.stagePoints !== undefined) {
+    (state.players[0] as { stagePoints: number }).stagePoints = opts.stagePoints;
   }
 
   const sitePhaseState: SitePhaseState = {

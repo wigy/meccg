@@ -1248,9 +1248,79 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": {
+          "site.type": "border-hold"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.stagePoints": {
+            "$gte": 10
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": "border-hold"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "haven",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "wizardhaven-conversion",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "skip-automatic-attacks",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-nothing-playable",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "cancel-attacks-at-site",
+          "scope": "until-cleared"
+        }
       }
     ],
-    "text": "Playable during the site phase on a Border-hold [{B}] site if you have 10 or more stage points. This site becomes one of your Wizardhavens [{H}] and loses all automatic-attacks. Nothing is considered playable as written on the site. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise."
+    "text": "Playable during the site phase on a Border-hold [{B}] site if you have 10 or more stage points. This site becomes one of your Wizardhavens [{H}] and loses all automatic-attacks. Nothing is considered playable as written on the site. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "minion-resource-event",
@@ -1721,9 +1791,71 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "cardType": "hero-site" },
+            { "siteType": "free-hold" }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "haven",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "wizardhaven-conversion",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "skip-automatic-attacks",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-nothing-playable",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "cancel-attacks-at-site",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
       }
     ],
-    "text": "Gandalf specific. Playable on one of your hero Free-hold [{F}] sites in play. This site becomes a Wizardhaven [{H}] for your companies, loses all automatic-attacks against your companies, and is one of Gandalf’s home sites. Nothing is considered playable as written on the site card. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise. Cannot be duplicated on a given site."
+    "text": "Gandalf specific. Playable on one of your hero Free-hold [{F}] sites in play. This site becomes a Wizardhaven [{H}] for your companies, loses all automatic-attacks against your companies, and is one of Gandalf’s home sites. Nothing is considered playable as written on the site card. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise. Cannot be duplicated on a given site.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "minion-resource-event",
@@ -1793,8 +1925,19 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Gandalf" }
+      },
+      {
+        "type": "noncharacter-mp-override",
+        "when": { "card.unique": true, "card.normalMp": 1 },
+        "value": 2
       }
     ],
+    "certified": "2026-07-17",
     "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, your unique non-character cards normally worth 1 marshalling point are each worth 2 marshalling points."
   },
   {

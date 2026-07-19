@@ -2314,6 +2314,45 @@ export interface FleeFromStrikeEffect extends EffectBase {
 }
 
 /**
+ * On-play roll that untaps the target character's company's current site.
+ *
+ * Carried by a resource permanent-event played on a character at a site. When
+ * the card enters play (`resolvePermanentEvent`), a generic {@link
+ * PendingResolution} `dice-check` is enqueued: the card player rolls 2d6, adds
+ * the target character's effective mind, plus {@link wizardBonus} when the
+ * character is a Wizard. If the modified total is strictly greater than {@link
+ * threshold}, the `untap-site` onPass verb untaps the site the character's
+ * company occupies. The roll surfaces as its own explicit `resolve-dice-check`
+ * action so the die roll is a distinct, replayable step.
+ *
+ * Used by Fireworks (dm-130): "Make a roll and add the mind of the sage (+10 if
+ * a Wizard) — if the result is greater than 12, the site untaps."
+ */
+export interface RollUntapSiteEffect extends EffectBase {
+  readonly type: 'roll-untap-site';
+  /** The modified 2d6 total must be strictly greater than this to untap the site. */
+  readonly threshold: number;
+  /** Bonus added to the roll when the target character is a Wizard. */
+  readonly wizardBonus: number;
+}
+
+/**
+ * On-play marker that installs a one-shot `skip-next-untap` active constraint on
+ * the target character (the same constraint kind Fled into Darkness ba-18 uses):
+ * the next time the character would otherwise untap he stays tapped once, then
+ * the source card is discarded and the constraint is cleared (`performUntap` in
+ * `reducer-untap.ts`, which also scans character-borne cards). The source card
+ * may sit either in the owner's `cardsInPlay` (ba-18) or attached to the target
+ * character's items (a resource permanent-event, dm-130).
+ *
+ * Used by Fireworks (dm-130): "The next time the sage would otherwise become
+ * untapped make him tapped instead and discard this card."
+ */
+export interface SkipNextUntapOnPlayEffect extends EffectBase {
+  readonly type: 'skip-next-untap-on-play';
+}
+
+/**
  * An attached resource (currently an ally) that its controller "may return to
  * hand" under listed triggers, instead of being discarded.
  *
@@ -3041,6 +3080,34 @@ export interface NameAliasEffect extends EffectBase {
   readonly type: 'name-alias';
   /** The card name this card additionally counts as while in play. */
   readonly as: string;
+}
+
+/**
+ * A game-wide override of which named environment cards are *considered* in or
+ * out of play, applied while the bearer is itself in play. Unlike
+ * {@link NameAliasEffect} (which only *adds* the bearer's alias), this can both
+ * add names to the in-play set (`considerInPlay`) and remove names from it
+ * (`considerNotInPlay`), reshaping the global environment that every
+ * `{ "inPlay": "<name>" }` DSL condition reads.
+ *
+ * Used by Peril Returned (td-54): "If Gates of Morning is not in play, Doors of
+ * Night is considered to be in play. If Gates of Morning is in play, it is
+ * considered to be out of play while Peril Returned is in play." Both branches
+ * net to the same unconditional state — Doors of Night considered in, Gates of
+ * Morning considered out — so the card carries `considerInPlay: ["Doors of
+ * Night"]` and `considerNotInPlay: ["Gates of Morning"]`. The Gates of Morning
+ * *card* itself stays in `cardsInPlay` (it may still be removed normally by
+ * Twilight, Doors of Night, etc.); only its interpretation is suppressed.
+ *
+ * Removals are applied before additions, so a name in both lists ends up
+ * considered in play.
+ */
+export interface EnvironmentOverrideEffect extends EffectBase {
+  readonly type: 'environment-override';
+  /** Card names to treat as in play while the bearer is in play. */
+  readonly considerInPlay?: readonly string[];
+  /** Card names to treat as out of play while the bearer is in play. */
+  readonly considerNotInPlay?: readonly string[];
 }
 
 /**
@@ -4806,6 +4873,11 @@ export interface EddyLockEffect extends EffectBase {
  * Unlike {@link EddyLockEffect} this carries no per-company tax. Used by People
  * Diminished (ba-72): "This site is never discarded and never untaps for you.
  * -5 to each attempt against any faction at any version of this site."
+ *
+ * Also used by No Strangers at this Time (as-51), the hero counterpart, which
+ * carries the anti-minion `convertDetainmentVsMinion` /
+ * `duplicateFirstAutoAttackVsMinion` flags instead of a faction-influence
+ * modifier.
  */
 export interface SiteLockEffect extends EffectBase {
   readonly type: 'site-lock';
@@ -4815,6 +4887,23 @@ export interface SiteLockEffect extends EffectBase {
    * A negative value raises the influence number the attacker must roll.
    */
   readonly factionInfluenceModifier?: number;
+  /**
+   * When true, every detainment automatic-attack at any version of the bound
+   * site against a **minion** (Ringwraith) company resolves as a **normal**
+   * attack instead. No Strangers at this Time (as-51): "All detainment attacks
+   * at all versions of this site against minion companies instead attack
+   * normally." Folded into the `forcesNormalAttacks` gate in `reducer-site.ts`
+   * (via {@link import('../engine/reducer-utils.js').siteLockAntiMinion}).
+   */
+  readonly convertDetainmentVsMinion?: boolean;
+  /**
+   * When true, a **minion** (Ringwraith) company facing this site's automatic-
+   * attacks faces one additional attack: an exact copy of the first automatic-
+   * attack listed on the site card (its runtime modifications are re-applied at
+   * resolution, so "including all modifications" holds). No Strangers at this
+   * Time (as-51). Handled in the `handleSiteAutomaticAttacks` done-branch.
+   */
+  readonly duplicateFirstAutoAttackVsMinion?: boolean;
 }
 
 /**
@@ -5474,6 +5563,8 @@ export type CardEffect =
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect
   | FleeFromStrikeEffect
+  | RollUntapSiteEffect
+  | SkipNextUntapOnPlayEffect
   | ReturnToHandEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect
@@ -5486,6 +5577,7 @@ export type CardEffect =
   | PlayFlagEffect
   | DuplicationLimitEffect
   | NameAliasEffect
+  | EnvironmentOverrideEffect
   | ManifestationSwapEffect
   | RegionKeyingBoostEffect
   | RegionTypeRemapEffect
