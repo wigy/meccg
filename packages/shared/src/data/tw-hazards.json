@@ -1196,7 +1196,29 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Greed.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "item-play-corruption-check",
+        "exemptFilter": {
+          "target.race": {
+            "$in": [
+              "hobbit",
+              "wizard",
+              "ringwraith"
+            ]
+          }
+        }
+      }
+    ],
     "text": "Playable on a site. Until the end of the turn, each non-Hobbit, non-Wizard, non-Ringwraith character at the site must make a corruption check each time an item is played at the site. The character playing an item need not make a corruption check. When a character makes one of these checks, it is modified by subtracting the corruption points the item would normally give the character if he controlled it. Cannot be duplicated on a given site."
   },
   {
@@ -1662,7 +1684,34 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WearinessoftheHeart.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "keywords": [
+      "corruption"
+    ],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "play-option",
+        "id": "prowess",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "prowess",
+          "value": -1,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "corruption",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        }
+      }
+    ],
     "text": "Playable on a character. The prowess of target character is modified by -1 until the end of the turn. This use cannot be duplicated on a given character. Alternatively, target character makes a corruption check."
   },
   {
