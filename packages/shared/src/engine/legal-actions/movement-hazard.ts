@@ -1505,7 +1505,7 @@ function summonsFromLongSleepActions(
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
           || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
           || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-          || inPlayGrantsCreatureKeying(state, targetCompany, creatureDef);
+          || inPlayGrantsCreatureKeying(state, mhState, targetCompany, creatureDef);
 
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(creatureDef);
@@ -1632,7 +1632,7 @@ function playCreatureFromDiscardActions(
       const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
         || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
         || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-        || inPlayGrantsCreatureKeying(state, targetCompany, creatureDef);
+        || inPlayGrantsCreatureKeying(state, mhState, targetCompany, creatureDef);
 
       if (matches.length === 0 && !keyingBypassed) {
         logDetail(`${defName}: discard creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
@@ -2058,7 +2058,7 @@ function playHazardsActions(
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
           || siteAllowsCreatureByRace(state, targetCompany, def)
           || siteAllowsCreatureByKeying(state, targetCompany, def)
-          || inPlayGrantsCreatureKeying(state, targetCompany, def);
+          || inPlayGrantsCreatureKeying(state, mhState, targetCompany, def);
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
@@ -3927,9 +3927,18 @@ function siteAllowsCreatureByKeying(
  *
  * Used by Ungoliant's Foul Issue (ba-28): "non-unique Spider creatures can be
  * keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}]."
+ *
+ * `siteFilter.regionTypes` opens an additional region-type branch: the grant
+ * matches when the moving company's resolved site path contains a region of one
+ * of those types (OR'd with the site-type branch). `requiresNonCoastalKeying`
+ * restricts the grant to creatures whose own `keyedTo` offers a non-Coastal-Sea
+ * region — A Pack at the Door (tw-497), "may be played in Border-lands [{b}],
+ * Border-holds [{B}] or Ruins & Lairs [{R}] … must be playable in a non-Coastal
+ * Sea [{c}] region."
  */
 function inPlayGrantsCreatureKeying(
   state: GameState,
+  mhState: MovementHazardPhaseState,
   targetCompany: {
     readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
     readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
@@ -3946,6 +3955,7 @@ function inPlayGrantsCreatureKeying(
   if (!siteDef || !isSiteCard(siteDef)) return false;
   const effSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, effectiveSiteInstanceId);
   const siteKeywords = new Set<string>(siteDef.keywords ?? []);
+  const regionPath = mhState.resolvedSitePath;
 
   const creatureCtx = creatureDef as unknown as Record<string, unknown>;
   for (const player of state.players) {
@@ -3955,10 +3965,36 @@ function inPlayGrantsCreatureKeying(
       for (const e of getCardEffects(def)) {
         if (e.type !== 'grant-creature-keying') continue;
         if (!matchesCondition(e.creatureFilter, creatureCtx)) continue;
-        if (e.siteFilter.siteTypes && !e.siteFilter.siteTypes.includes(effSiteType)) continue;
-        if (e.siteFilter.siteKeywords && !e.siteFilter.siteKeywords.every(k => siteKeywords.has(k))) continue;
-        return true;
+        // The creature must be playable in a non-Coastal-Sea region (tw-497).
+        if (e.requiresNonCoastalKeying && creatureDef.cardType === 'hazard-creature'
+          && !creatureHasNonCoastalRegionKeying(creatureDef)) continue;
+        // Site-type branch: effective site type in siteTypes AND all keywords.
+        let siteBranch = false;
+        if (e.siteFilter.siteTypes) {
+          siteBranch = e.siteFilter.siteTypes.includes(effSiteType)
+            && (!e.siteFilter.siteKeywords || e.siteFilter.siteKeywords.every(k => siteKeywords.has(k)));
+        }
+        // Region-type branch: the company path holds a granted region type.
+        const regionBranch = !!e.siteFilter.regionTypes
+          && regionPath.some(rt => e.siteFilter.regionTypes!.includes(rt));
+        if (siteBranch || regionBranch) return true;
       }
+    }
+  }
+  return false;
+}
+
+/**
+ * True if the creature's printed `keyedTo` offers at least one non-Coastal-Sea
+ * region keying — a region type other than Coastal, or a named region. Used to
+ * evaluate A Pack at the Door's (tw-497) "must be playable in a non-Coastal Sea
+ * [{c}] region" clause, which excludes Coastal-Sea-only creatures (e.g. tw-34).
+ */
+function creatureHasNonCoastalRegionKeying(def: CreatureCard): boolean {
+  for (const key of def.keyedTo) {
+    if (key.regionNames && key.regionNames.length > 0) return true;
+    for (const rt of key.regionTypes ?? []) {
+      if (rt !== RegionType.Coastal && (rt as string) !== 'coastal-sea') return true;
     }
   }
   return false;
