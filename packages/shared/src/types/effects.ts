@@ -824,6 +824,64 @@ export interface NonCharacterMpOverrideEffect extends EffectBase {
 }
 
 /**
+ * Pins every MP-scoring card **held by a company that is not at one of the
+ * controller's Wizardhavens** to a flat {@link value} marshalling points,
+ * overriding all other MP computation for those cards ("regardless of other
+ * cards in play"). Applies to characters and the items / allies they bear;
+ * factions and other `cardsInPlay` entries are unaffected because they are not
+ * "in a company" (a Fallen-wizard never stores factions at a site). A company
+ * counts as being at a Wizardhaven via {@link isHavenForPlayer} for the
+ * controller's alignment (his own Wizardhaven sites plus any Hidden-Haven
+ * conversion); every other site — and a company with no current site — is
+ * treated as outside a Wizardhaven.
+ *
+ * The card's *"when the game ends"* qualifier is modelled as a continuous
+ * override of the running marshalling-point total (the engine has no separate
+ * end-of-game scoring pass). For a Fallen-wizard this is normally a no-op — the
+ * MEWH §4 clamp already values each company-held card at 1 — so the pin only
+ * changes a total when another card in play (Great Patron wh-72, a `*-mp-full`
+ * exemption, …) would otherwise value the card above {@link value}.
+ *
+ * Used by Await the Onset (wh-96): "Each of your marshalling point cards in a
+ * company not in one of your Wizardhavens [{H}] when the game ends is worth 1
+ * marshalling point regardless of other cards in play."
+ *
+ * ```json
+ * { "type": "nonhaven-company-mp-pin", "value": 1 }
+ * ```
+ */
+export interface NonHavenCompanyMpPinEffect extends EffectBase {
+  readonly type: 'nonhaven-company-mp-pin';
+  /** MP each qualifying company-held card is worth, overriding all other computation. */
+  readonly value: number;
+}
+
+/**
+ * Pins every faction the controller plays **after** this card comes into play to
+ * a flat {@link value} marshalling points, overriding its printed value, the MEWH
+ * §4 clamp, and every faction-MP modifier ("regardless of other cards in play").
+ * The pin is stamped on the faction instance ({@link CardInPlay.mpPinned}) when it
+ * is influenced into play, so factions played *before* the carrier keep their
+ * normal value — exactly the "place these factions under Await the Onset"
+ * bookkeeping the card describes. A Fallen-wizard never stores factions at a site,
+ * so no location is tracked; the tag alone records which factions the clause
+ * covers.
+ *
+ * Used by Await the Onset (wh-96): "Each faction you play after Await the Onset is
+ * worth 1 marshalling point regardless of other cards in play (place these
+ * factions under Await the Onset)."
+ *
+ * ```json
+ * { "type": "played-after-faction-mp-pin", "value": 1 }
+ * ```
+ */
+export interface PlayedAfterFactionMpPinEffect extends EffectBase {
+  readonly type: 'played-after-faction-mp-pin';
+  /** MP each faction played after this card comes into play is worth. */
+  readonly value: number;
+}
+
+/**
  * Recruitment-vehicle effect — Thrall of the Voice (wh-82).
  *
  * Marks a permanent resource-event as a "recruitment vehicle": during the
@@ -5680,6 +5738,8 @@ export type CardEffect =
   | FactionMpOverrideEffect
   | PermanentEventMpEffect
   | NonCharacterMpOverrideEffect
+  | NonHavenCompanyMpPinEffect
+  | PlayedAfterFactionMpPinEffect
   | RecruitmentVehicleEffect
   | RecruitCharacterEffect
   | AllowCharacterPlayEffect

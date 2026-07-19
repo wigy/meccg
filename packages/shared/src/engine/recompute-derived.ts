@@ -47,7 +47,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -237,6 +237,36 @@ function fwCharacterAllyMpCaps(
     }
   }
   return caps;
+}
+
+/**
+ * The marshalling-point pin a player's in-play `nonhaven-company-mp-pin` effect
+ * imposes on company-held cards outside a Wizardhaven (Await the Onset wh-96),
+ * or `undefined` when no such card is in play. At most one applies (the carrier
+ * is duplication-limited), so the first match wins.
+ */
+function nonHavenCompanyMpPin(state: GameState, player: PlayerState): number | undefined {
+  for (const def of playerCardsInPlayDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'nonhaven-company-mp-pin') return effect.value;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Adds a company-held card's pinned marshalling points (Await the Onset wh-96):
+ * a card with printed MP scores exactly `value`, overriding every other rule.
+ * Cards with no MP (or 0 printed MP) contribute nothing.
+ */
+function addPinnedCardMp(
+  totals: MarshallingPointTotals,
+  def: CardDefinition,
+  value: number,
+): MarshallingPointTotals {
+  if (!hasMarshallingPoints(def) || def.marshallingPoints <= 0) return totals;
+  const cat = def.marshallingCategory;
+  return { ...totals, [cat]: totals[cat] + value };
 }
 
 /**
@@ -1196,6 +1226,10 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // that match a per-card condition. Collected from `cardsInPlay` and the
   // avatar's `items` (the carrier is placed "on Gandalf"); empty otherwise.
   const ncMpOverrides = nonCharacterMpOverrideRules(state, player);
+  // Await the Onset (wh-96): pin every company-held MP card outside one of the
+  // player's Wizardhavens to this value, overriding all other MP rules.
+  // Undefined when the card is not in play (the common case).
+  const nonHavenMpPin = nonHavenCompanyMpPin(state, player);
   // "in Alatar's company": the id of the company holding the player's revealed
   // avatar, resolved only when some exemption is company-restricted (Join the
   // Hunt). Undefined when the avatar is not in play, so no character matches.
@@ -1310,6 +1344,16 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const atUnderDeeps = !!(charSiteDef && 'keywords' in charSiteDef
       && (charSiteDef as { keywords?: readonly string[] }).keywords?.includes('under-deeps'));
 
+    // Await the Onset (wh-96): when the pin is in play, this character's company
+    // (and thus the items/allies it bears) is "not in one of your Wizardhavens"
+    // unless its current site is a Wizardhaven for the player. A company with no
+    // current site counts as outside. `pinValue` is undefined otherwise, leaving
+    // normal MP scoring untouched.
+    const pinValue = nonHavenMpPin !== undefined
+      && !isHavenForPlayer(charSiteDef, player.alignment, { state, siteDefinitionId: charSiteDefId, playerId: player.id })
+      ? nonHavenMpPin
+      : undefined;
+
     // Is this character (and thus the items/allies it bears) in the player's
     // avatar company? Gates the "in Alatar's company" full-MP exemptions (Join
     // the Hunt wh-93). `avatarCompanyId` is undefined when no exemption is
@@ -1322,6 +1366,10 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       const cat = (charDef.marshallingCategory ?? 'character') as import('../index.js').MarshallingCategory;
       mp = { ...mp, [cat]: mp[cat] - charMp };
       if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] - charMp };
+    } else if (pinValue !== undefined) {
+      // wh-96: pin overrides the §4 clamp and every exemption (wh-4, Great Patron).
+      mp = addPinnedCardMp(mp, charDef, pinValue);
+      if (atUnderDeeps) underDeepsMp = addPinnedCardMp(underDeepsMp, charDef, pinValue);
     } else {
       // Fallen-wizard Gandalf (wh-4): a matching character scores full printed
       // MP instead of the §4 clamp (or a Great Patron cap).
@@ -1335,6 +1383,13 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const item of char.items) {
       const itemDef = resolveDef(state, item.instanceId);
       if (!itemDef) continue;
+      // Await the Onset (wh-96): a company-held item outside a Wizardhaven is
+      // pinned, overriding the ncOverride / cross-alignment / §4 / bonus logic.
+      if (pinValue !== undefined) {
+        mp = addPinnedCardMp(mp, itemDef, pinValue);
+        if (atUnderDeeps) underDeepsMp = addPinnedCardMp(underDeepsMp, itemDef, pinValue);
+        continue;
+      }
       // Give Welcome to the Unexpected (wh-99): a matching unique non-character
       // item scores the override value instead of its printed / §4-clamped MP.
       const ncOverride = nonCharacterMpOverride(itemDef, ncMpOverrides);
@@ -1383,6 +1438,13 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const ally of char.allies) {
       const allyDef = resolveDef(state, ally.instanceId);
       if (allyDef) {
+        // Await the Onset (wh-96): a company-held ally outside a Wizardhaven is
+        // pinned, overriding the ncOverride / §4 / full-MP exemption logic.
+        if (pinValue !== undefined) {
+          mp = addPinnedCardMp(mp, allyDef, pinValue);
+          if (atUnderDeeps) underDeepsMp = addPinnedCardMp(underDeepsMp, allyDef, pinValue);
+          continue;
+        }
         // Give Welcome to the Unexpected (wh-99): a matching unique ally scores
         // the override value instead of its printed / §4-clamped MP.
         const allyNcOverride = nonCharacterMpOverride(allyDef, ncMpOverrides);
@@ -1469,6 +1531,13 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);
     if (!def) continue;
+    // Await the Onset (wh-96) clause A: a faction stamped `mpPinned` (played after
+    // the card came into play) scores exactly that value, overriding every faction
+    // MP rule below ("regardless of other cards in play").
+    if (card.mpPinned !== undefined) {
+      mp = addPinnedCardMp(mp, def, card.mpPinned);
+      continue;
+    }
     // Give Welcome to the Unexpected (wh-99): a matching unique non-character
     // card in play (faction / misc permanent-event) scores the override value,
     // taking precedence over its printed / §4-clamped MP.

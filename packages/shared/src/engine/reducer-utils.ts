@@ -1186,6 +1186,25 @@ export function protectedWizardhavenCount(state: GameState, playerId: PlayerId):
  * the site's printed type is Ruins & Lairs and its alignment is not
  * `fallen-wizard`. See {@link isWizardhavenConversionFor}.
  */
+/**
+ * The marshalling-point value to which a newly-played faction should be pinned
+ * because the player has a `played-after-faction-mp-pin` card in play (Await the
+ * Onset wh-96, "each faction you play after … is worth 1 MP"), or `undefined`
+ * when no such card is in play. The value is stamped on the faction instance
+ * ({@link CardInPlay.mpPinned}) at influence time so it persists independently of
+ * the carrier. At most one such card applies (the carrier is duplication-limited).
+ */
+export function playedAfterFactionMpPin(state: GameState, player: PlayerState): number | undefined {
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'played-after-faction-mp-pin') return effect.value;
+    }
+  }
+  return undefined;
+}
+
 export function isHavenForPlayer(
   siteDef: CardDefinition | undefined,
   alignment: Alignment,

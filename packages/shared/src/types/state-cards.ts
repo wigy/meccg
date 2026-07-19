@@ -220,6 +220,16 @@ export interface CardInPlay {
    */
   readonly controlledBy?: CardInstanceId;
   /**
+   * Marshalling-point pin: this card is worth exactly this many marshalling
+   * points, overriding its printed value, the MEWH §4 clamp, and every MP
+   * modifier ("regardless of other cards in play"). Recorded per instance
+   * because it depends on *when* the card was played, not on its definition.
+   * Set on a faction influenced into play while Await the Onset (wh-96) is in
+   * play — the card's "place these factions under Await the Onset" clause, which
+   * pins each such faction to 1 MP.
+   */
+  readonly mpPinned?: number;
+  /**
    * Set on a `trigger-attack-on-play` permanent event (e.g. Descent through
    * Fire ba-56) while its self-inflicted attacks are still resolving. Such a
    * card enters `cardsInPlay` *before* the attacks it triggers, but its own

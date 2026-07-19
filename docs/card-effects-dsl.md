@@ -791,6 +791,57 @@ and `value` are 2.
 { "type": "fw-character-ally-mp", "threshold": 2, "value": 2 }
 ```
 
+### 3c-2. `nonhaven-company-mp-pin`
+
+Pins every MP-scoring card **held by a company that is not at one of the
+controller's Wizardhavens** to a flat `value` marshalling points, overriding all
+other MP computation for those cards ("regardless of other cards in play").
+Applies to characters and the items / allies they bear; factions and other
+`cardsInPlay` entries are unaffected because they are not "in a company" (a
+Fallen-wizard never stores factions at a site). A company counts as at a
+Wizardhaven via `isHavenForPlayer` for the controller's alignment (his own
+Wizardhaven sites plus any Hidden-Haven conversion); every other site — and a
+company with no current site — is treated as outside. Collected per player from
+in-play cards (`nonHavenCompanyMpPin`) and applied in the company-scoring loop of
+`recompute-derived.ts` (`addPinnedCardMp`), taking precedence over the §4 clamp,
+`fw-character-ally-mp`, the `*-mp-full` exemptions, and `noncharacter-mp-override`.
+
+The card's *"when the game ends"* qualifier is modelled as a continuous override
+of the running MP total (the engine keeps no separate end-of-game scoring pass).
+For a Fallen-wizard this is normally a no-op — the §4 clamp already values each
+company-held card at 1 — so the pin only changes a total when another card in
+play would otherwise value the card above `value`.
+
+Used by Await the Onset (wh-96): "Each of your marshalling point cards in a
+company not in one of your Wizardhavens [{H}] when the game ends is worth 1
+marshalling point regardless of other cards in play."
+
+```json
+{ "type": "nonhaven-company-mp-pin", "value": 1 }
+```
+
+### 3c-3. `played-after-faction-mp-pin`
+
+Pins every faction the controller plays **after** this card comes into play to a
+flat `value` marshalling points, overriding its printed value, the §4 clamp, and
+every faction-MP modifier ("regardless of other cards in play"). The pin is stamped
+on the faction instance (`CardInPlay.mpPinned`) when it is influenced into play
+(`reducer-site.ts`, via `playedAfterFactionMpPin`), so factions played *before* the
+carrier keep their normal value — the "place these factions under Await the Onset"
+bookkeeping. A stamped faction is scored at its pinned value at the top of the
+`cardsInPlay` loop in `recompute-derived.ts` (`addPinnedCardMp`), ahead of
+`noncharacter-mp-override` / `faction-mp-override` / the §4 clamp. A Fallen-wizard
+never stores factions at a site, so no location is tracked — the per-instance tag
+alone records which factions the clause covers.
+
+Used by Await the Onset (wh-96): "Each faction you play after Await the Onset is
+worth 1 marshalling point regardless of other cards in play (place these factions
+under Await the Onset)."
+
+```json
+{ "type": "played-after-faction-mp-pin", "value": 1 }
+```
+
 ### 3d. `fw-kill-mp-full`
 
 Fallen-wizard kill marshalling-point exemption (MEWH §4 exception). MEWH §4 clamps
