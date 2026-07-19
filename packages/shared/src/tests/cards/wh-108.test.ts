@@ -178,6 +178,34 @@ describe('Truths of Doom (wh-108)', () => {
     expect(plays).toHaveLength(0);
   });
 
+  test('playable before Pallando is brought into play — the avatar still sits in the play deck (CoE 2.2.F2)', () => {
+    // Regression (game mrriy0um-avfhh1, seq 60): the Fallen-wizard declared
+    // Pallando but has not yet brought the avatar into play, so Pallando still
+    // sits in the play deck rather than a company. Truths of Doom must remain
+    // playable: only an *eliminated* avatar (in the removed-from-play pile)
+    // blocks its avatar-specific Stage resources (CoE 2.2.F2) — merely being not
+    // yet in play does not. The engine previously required the avatar to be in
+    // play and wrongly marked the card unplayable.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [HALDIR] }],
+          hand: [TRUTHS_OF_DOOM],
+          playDeck: [PALLANDO_FW],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [] }], hand: [], siteDeck: [LORIEN] },
+      ],
+    });
+    const plays = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(plays).toHaveLength(1);
+  });
+
   // ─── Rule: Unique ─────────────────────────────────────────────────────────
 
   test('a second copy is not playable while one is already in play (unique)', () => {

@@ -26,7 +26,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited } from '../reducer-utils.js';
+import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -140,15 +140,19 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       }
     }
 
-    // Wizard-specific cards (e.g. The Forge-master wh-117 "Saruman specific")
-    // are playable only by the player whose revealed avatar is that wizard.
+    // Wizard-specific Stage resources (e.g. Truths of Doom wh-108 "Pallando
+    // specific", The Forge-master wh-117 "Saruman specific") are bound to one
+    // Fallen-wizard avatar (CoE 1.3.4). Per CoE 2.2.F2 they remain playable for
+    // as long as that avatar has NOT been eliminated — the avatar need NOT be in
+    // play, so the card can be played even before the Fallen-wizard is first
+    // brought into play from the deck. `findFallenWizardAvatarName` resolves the
+    // player's declared avatar whether it is in play or still in the
+    // deck/hand/discard/sideboard, and returns undefined once it is eliminated.
     const requiredWizard = wizardSpecificName(def);
     if (requiredWizard) {
-      const avatar = findPlayerAvatar(state, player);
-      const avatarDef = avatar ? defById(state, avatar.definitionId) : undefined;
-      const avatarName = avatarDef?.name;
+      const avatarName = findFallenWizardAvatarName(state, player);
       if (avatarName !== requiredWizard) {
-        logDetail(`Permanent event ${def.name}: ${requiredWizard}-specific, but player's avatar is ${avatarName ?? 'none'}`);
+        logDetail(`Permanent event ${def.name}: ${requiredWizard}-specific, but player's Fallen-wizard is ${avatarName ?? 'none / eliminated'}`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} is ${requiredWizard}-specific`));
         continue;
       }
