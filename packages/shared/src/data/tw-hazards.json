@@ -1692,7 +1692,36 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/APackattheDoor.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
-    "text": "Playable if Doors of Night is in play. Each non-unique Animal, Spider and Wolf creature may be played in Border-lands [{b}], Border-holds [{B}] or Ruins & Lairs [{R}]. The creature must be playable in a non-Coastal Sea [{c}] region."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Doors of Night"
+      },
+      {
+        "type": "grant-creature-keying",
+        "creatureFilter": {
+          "$and": [
+            {
+              "race": {
+                "$in": ["animal", "animals", "spider", "spiders", "wolf", "wolves"]
+              }
+            },
+            {
+              "unique": {
+                "$ne": true
+              }
+            }
+          ]
+        },
+        "siteFilter": {
+          "regionTypes": ["border"],
+          "siteTypes": ["border-hold", "ruins-and-lairs"]
+        },
+        "requiresNonCoastalKeying": true
+      }
+    ],
+    "text": "Playable if Doors of Night is in play. Each non-unique Animal, Spider and Wolf creature may be played in Border-lands [{b}], Border-holds [{B}] or Ruins & Lairs [{R}]. The creature must be playable in a non-Coastal Sea [{c}] region.",
+    "certified": "2026-07-17"
   }
 ]

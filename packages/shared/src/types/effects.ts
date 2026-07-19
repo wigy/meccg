@@ -5167,18 +5167,38 @@ export interface ConditionalMpEffect extends EffectBase {
  *   "creatureFilter": { "race": { "$in": ["spider", "spiders"] }, "unique": { "$ne": true } },
  *   "siteFilter": { "siteTypes": ["ruins-and-lairs", "shadow-hold"], "siteKeywords": ["under-deeps"] } }
  * ```
+ *
+ * The grant may also open **region-type** keying: `siteFilter.regionTypes` lets
+ * the creature key to any of those region types present in the moving company's
+ * resolved site path (OR'd with the site-type / keyword branch). A Pack at the
+ * Door (tw-497) grants non-unique Animal/Spider/Wolf creatures keying to
+ * Border-lands [{b}] (region type) or Border-holds [{B}] / Ruins & Lairs [{R}]
+ * (site types), gated by `requiresNonCoastalKeying` (see below).
  */
 export interface GrantCreatureKeyingEffect extends EffectBase {
   readonly type: 'grant-creature-keying';
   /** DSL condition on the hazard-creature's card definition (dot-path keys). */
   readonly creatureFilter: Condition;
-  /** The site(s) matching creatures may be keyed to while this card is in play. */
+  /** The site(s) / region(s) matching creatures may be keyed to while this card is in play. */
   readonly siteFilter: {
-    /** Effective site type must be one of these (omit = any type). */
+    /** Effective site type must be one of these (omit = no site-type branch). */
     readonly siteTypes?: readonly SiteType[];
-    /** Site must carry every keyword listed here (omit = no keyword requirement). */
+    /** Site must carry every keyword listed here (applies to the site-type branch). */
     readonly siteKeywords?: readonly string[];
+    /**
+     * The moving company's resolved site path must contain a region of one of
+     * these types (omit = no region-type branch). OR'd with the site-type
+     * branch — a match on either grants the keying.
+     */
+    readonly regionTypes?: readonly RegionType[];
   };
+  /**
+   * When true, the grant applies only to creatures whose own printed `keyedTo`
+   * offers at least one non-Coastal-Sea region keying — i.e. the creature "must
+   * be playable in a non-Coastal Sea [{c}] region" (A Pack at the Door tw-497).
+   * Excludes Coastal-Sea-only creatures (e.g. tw-34) from the broadened keying.
+   */
+  readonly requiresNonCoastalKeying?: boolean;
 }
 
 /**
