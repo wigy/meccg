@@ -5390,6 +5390,10 @@ Named piles: `hand`, `deck`, `discard`, `sideboard`, `out-of-play`,
 `kill-pile`. Contextual locators: `self-location` (wherever the source
 card lives), `in-play` (any player's `cardsInPlay`),
 `items-on-target` (items on the action's target character),
+`allies-on-target` (allies borne by the action's target character),
+`hazards-on-target` (hazard permanent-events attached to the action's
+target character; each routes to its owner — the opposing hazard player —
+resolved from the instance-id prefix),
 `items-on-wounded` (items on the combat-wounded character),
 `attached-to-target-company` (items + hazards attached to any character
 in the target company).
