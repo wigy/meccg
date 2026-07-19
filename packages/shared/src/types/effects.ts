@@ -4531,6 +4531,21 @@ export interface CallOfHomeCheckEffect extends EffectBase {
 }
 
 /**
+ * Tookish Blood (tw-104), resource mode: played as a resource on the
+ * controller's own Hobbit, it protects that character from being discarded or
+ * returned to hand "for the rest of the turn … for any reason." Resolution
+ * installs a turn-scoped `character-removal-protected` constraint on the target
+ * (see `engine/removal-protection.ts`); the central return/discard helpers
+ * consult it. The eligible target is expressed by the companion `play-target`
+ * effect's `filter` (Hobbit), reused across both the hazard and resource modes.
+ */
+export interface ProtectFromRemovalEffect extends EffectBase {
+  readonly type: 'protect-from-removal';
+  /** How long the protection lasts. Currently only `'turn'` (rest of the turn). */
+  readonly duration: 'turn';
+}
+
+/**
  * Forces a body or corruption check on every character in the active company
  * when this hazard short event resolves.
  *
@@ -5749,6 +5764,7 @@ export type CardEffect =
   | ItemPlaySiteEffect
   | StorableAtEffect
   | CallOfHomeCheckEffect
+  | ProtectFromRemovalEffect
   | ForceCheckAllCompanyTopEffect
   | CompanyStrikeEffect
   | CompanyTapCharactersEffect

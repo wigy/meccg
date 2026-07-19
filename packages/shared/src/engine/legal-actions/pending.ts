@@ -1216,6 +1216,11 @@ function applyOneConstraint(
       // initiation in `reducer-site.ts` (adds prowess / marks the attack
       // uncancelable) — no broad legal-action filtering needed here.
       return base;
+    case 'character-removal-protected':
+      // Tookish Blood (tw-104) resource mode: consulted directly by the
+      // central return/discard helpers in `pending-reducers.ts` via
+      // `isCharacterRemovalProtected` — no broad legal-action filtering here.
+      return base;
   }
 }
 

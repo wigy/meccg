@@ -26,7 +26,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited } from '../reducer-utils.js';
+import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -519,6 +519,50 @@ export function playShortEventActions(state: GameState, playerId: PlayerId): Eva
 
     // Only cards with the playable-as-resource flag
     if (!hasPlayFlag(def, 'playable-as-resource')) continue;
+
+    // Tookish Blood (tw-104) resource mode: "played as a resource card" on one
+    // of the controller's own Hobbit characters, protecting it from discard /
+    // return-to-hand for the rest of the turn. Offer one action per own
+    // character matching the companion `play-target` filter (Hobbit).
+    const protectEffect = getCardEffects(def).find(e => e.type === 'protect-from-removal');
+    if (protectEffect) {
+      const playTarget = getCardEffects(def).find(
+        (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+      );
+      let anyTarget = false;
+      for (const [charId, charData] of Object.entries(player.characters)) {
+        const charDef = defById(state, charData.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (playTarget?.filter) {
+          const ctx = {
+            target: {
+              race: charDef.race,
+              skills: charDef.skills,
+              name: charDef.name,
+              possessions: defNamesOf(state, charData.items),
+              itemKeywords: itemKeywordsOf(state, charData.items),
+              itemSubtypes: itemSubtypesOf(state, charData.items),
+            },
+          };
+          if (!matchesCondition(playTarget.filter, ctx)) continue;
+        }
+        anyTarget = true;
+        logDetail(`Resource short event ${def.name}: can protect ${charDef.name} from removal this turn`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId,
+            targetCharacterId: charId as CardInstanceId,
+          },
+          viable: true,
+        });
+      }
+      if (!anyTarget) {
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: no eligible character to protect`));
+      }
+      continue;
+    }
 
     // Find environment cards — in a player's cardsInPlay (permanent events
     // like Doors of Night / Gates of Morning), or declared earlier in the

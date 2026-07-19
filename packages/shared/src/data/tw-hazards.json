@@ -1664,8 +1664,29 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TookishBlood.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a Hobbit character. The Hobbit’s player makes a roll; return the Hobbit to the player’s hand if the result plus his unused general influence is less than 11. If the Hobbit is removed from play, one of his items may be transferred to another character in his company; any other cards under his control are discarded.Alternatively, this card can be played as a resource card. For the rest of the turn, the target Hobbit cannot be discarded or returned to its owner's hand for any reason."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-resource"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "hobbit"
+        }
+      },
+      {
+        "type": "call-of-home-check",
+        "threshold": 11
+      },
+      {
+        "type": "protect-from-removal",
+        "duration": "turn"
+      }
+    ],
+    "text": "Playable on a Hobbit character. The Hobbit’s player makes a roll; return the Hobbit to the player’s hand if the result plus his unused general influence is less than 11. If the Hobbit is removed from play, one of his items may be transferred to another character in his company; any other cards under his control are discarded.Alternatively, this card can be played as a resource card. For the rest of the turn, the target Hobbit cannot be discarded or returned to its owner's hand for any reason.",
+    "certified": "2026-07-19"
   },
   {
     "cardType": "hazard-event",
