@@ -156,6 +156,8 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
               listStatus.textContent = newStatus;
             }
           }
+          // The row is no longer waiting — it is now bulk-deletable.
+          refreshDeleteReadState();
         }
       })();
     };
