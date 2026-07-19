@@ -23,6 +23,7 @@ import type { CompanyId, CardInPlay, CharacterInPlay, Company, PlayerState, Mars
 import { CardStatus, ZERO_EFFECTIVE_STATS, ZERO_MARSHALLING_POINTS } from '../index.js';
 import { recomputeDerived } from '../engine/recompute-derived.js';
 import { accrueRevealedInstances } from '../engine/visibility.js';
+import { addConstraint } from '../engine/pending.js';
 
 let nextInstanceCounter = 1;
 
@@ -377,6 +378,30 @@ export function addCardInPlay(state: GameState, ownerIdx: 0 | 1, defId: CardDefi
   const updated = { ...state.players[ownerIdx], cardsInPlay: [...state.players[ownerIdx].cardsInPlay, card] };
   const players = ownerIdx === 0 ? [updated, state.players[1]] : [state.players[0], updated];
   return { ...state, players: players as unknown as typeof state.players };
+}
+
+/**
+ * Mark a site as **protected** for a player via an `until-cleared`
+ * `site-protected` constraint — the effect The Fortress of Isen (wh-68),
+ * Fortress of the Towers (wh-69), and Guarded Haven (wh-74) apply to a
+ * Fallen-wizard's Wizardhaven. Combined with the site being a Fallen-wizard
+ * haven, this makes it count toward `playerHasProtectedWizardhaven` /
+ * `protectedWizardhavenCount`. `tag` disambiguates the synthetic source
+ * instance id when protecting more than one site in the same test.
+ */
+export function protectSiteForPlayer(
+  state: GameState,
+  playerId: PlayerId,
+  siteDefId: CardDefinitionId,
+  tag = 'x',
+): GameState {
+  return addConstraint(state, {
+    source: `protect-${tag}` as CardInstanceId,
+    sourceDefinitionId: 'wh-74' as CardDefinitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'player', playerId },
+    kind: { type: 'site-flag', flag: 'site-protected', siteDefinitionId: siteDefId },
+  });
 }
 
 /** Attach an item (or permanent resource event) to a character and return the updated GameState. */

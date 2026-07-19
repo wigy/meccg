@@ -1766,14 +1766,40 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/AwaittheOnset.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 5,
     "marshallingCategory": "misc",
     "effects": [
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "player.stagePoints": { "$gte": 12 } },
+            { "player.protectedWizardhavenCount": { "$gte": 2 } },
+            { "player.factionCount": { "$gte": 4 } },
+            { "player.characterCount": { "$gte": 6 } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "nonhaven-company-mp-pin",
+        "value": 1
+      },
+      {
+        "type": "played-after-faction-mp-pin",
+        "value": 1
       }
     ],
+    "certified": "2026-07-19",
     "text": "Gandalf specific. Playable if you are Gandalf and have at least: 12 stage points, two protected Wizardhavens [{H}], 4 factions, and 6 characters. Each faction you play after Await the Onset is worth 1 marshalling point regardless of other cards in play (place these factions under Await the Onset). Each of your marshalling point cards in a company not in one of your Wizardhavens [{H}] when the game ends is worth 1 marshalling point regardless of other cards in play. Cannot be duplicated."
   },
   {
