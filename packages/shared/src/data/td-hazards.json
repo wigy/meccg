@@ -1163,7 +1163,14 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/PerilReturned.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
+    "certified": "2026-07-17",
+    "effects": [
+      {
+        "type": "environment-override",
+        "considerInPlay": ["Doors of Night"],
+        "considerNotInPlay": ["Gates of Morning"]
+      }
+    ],
     "text": "If Gates of Morning is not in play, Doors of Night is considered to be in play.If Gates of Morning is in play, it is considered to be out of play while Peril Returned is in play. Gates of Morning may still be removed normally (e. g., through the use of Twlight, Doors of Night, etc.)."
   },
   {

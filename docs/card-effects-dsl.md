@@ -3535,6 +3535,36 @@ halve-strikes, hand-card attack modifiers, region-keying / movement
 play-conditions) fires while Skies of Fire is in play, with no engine code
 naming Skies of Fire.
 
+### 14a-ii. `environment-override`
+
+Reshapes, game-wide, which named environment cards are *considered* in or out of
+play while the bearer is itself in play. Where `name-alias` only *adds* the
+bearer's alias, this can both add names (`considerInPlay`) and remove names
+(`considerNotInPlay`) from every "is X in play?" query — the `inPlay` context
+built by `buildInPlayNames` **and** the name-in-play predicates that back
+`card-in-play` / `card-not-in-play` play-conditions
+(`isCardNameInPlayOrCharacters`, `isCardNameInPlayForPlayer`,
+`inPlayNamesForPlayerDeep`). Removals are applied before additions, so a name in
+both lists ends up considered in play.
+
+```json
+{
+  "type": "environment-override",
+  "considerInPlay": ["Doors of Night"],
+  "considerNotInPlay": ["Gates of Morning"]
+}
+```
+
+Used by Peril Returned (td-54): "If Gates of Morning is not in play, Doors of
+Night is considered to be in play. If Gates of Morning is in play, it is
+considered to be out of play while Peril Returned is in play." Both branches net
+to the same unconditional state (Doors of Night in, Gates of Morning out), so
+the card carries the fixed override above. The Gates of Morning *card* is not
+removed — it stays in `cardsInPlay` and may still be removed normally (Twilight,
+Doors of Night, etc.); only its interpretation is suppressed. Because the
+override touches only the named environments (not `countCopiesInPlay`), it never
+blocks playing an actual Doors of Night or duplicates.
+
 ### 14b. `manifestation-swap` (and character manifestation chains)
 
 A character that is a *manifestation* of another character (e.g. Strider
@@ -9766,6 +9796,50 @@ Implemented in `reducer-events.ts` (`handlePlayResourceShortEvent` — discard /
 tap / enqueue rolls), `pending-reducers.ts` (`applyDiceCheckBranch` —
 `wound-or-eliminate`), and `legal-actions/combat.ts` (`siteStormAtSiteActions`,
 wired into the CvCC combat action windows). Used by *Crowned with Storm* (ba-54).
+
+### 67. `roll-untap-site` + `skip-next-untap-on-play`
+
+A pair of on-play effects on a resource permanent-event played on a character at
+a site during the site phase. Used by **Fireworks** (dm-130): "Ritual. Playable
+on an untapped sage at a tapped Border-hold [{B}] or Free-hold [{F}]. Tap sage.
+Make a roll and add the mind of the sage (+10 if a Wizard) — if the result is
+greater than 12, the site untaps. The next time the sage would otherwise become
+untapped make him tapped instead and discard this card."
+
+```json
+{ "type": "roll-untap-site", "threshold": 12, "wizardBonus": 10 },
+{ "type": "skip-next-untap-on-play" }
+```
+
+**`roll-untap-site`** — when the card enters play (`resolvePermanentEvent`,
+`chain-reducer.ts`) on the target character, a generic `dice-check` is enqueued:
+the card player rolls 2d6, adds the target character's **effective mind**
+(`effectiveStats.mind`, falling back to the printed mind — a Wizard's printed
+mind is `null` → `0`), plus `wizardBonus` when the character's race is `wizard`.
+If the modified total is strictly greater than `threshold`, the onPass verb
+`untap-site` untaps the site the character's company currently occupies (new
+branch in `applyDiceCheckBranch`, `pending-reducers.ts`, locating the company by
+the target character). The roll surfaces as its own explicit `resolve-dice-check`
+action.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `threshold` | yes | The modified 2d6 total must be strictly greater than this to untap the site. |
+| `wizardBonus` | yes | Bonus added to the roll when the target character is a Wizard. |
+
+**`skip-next-untap-on-play`** — a marker installed on play that adds a one-shot
+`skip-next-untap` active constraint on the target character (the same constraint
+kind Fled into Darkness ba-18 uses). The next time the character would otherwise
+untap he stays tapped once, then `performUntap` (`reducer-untap.ts`) removes the
+constraint and discards the source card. `performUntap`'s discard sweep was
+generalized to find the source card whether it sits in the owner's `cardsInPlay`
+(ba-18) or attached to a character's `items` (a resource permanent-event,
+dm-130). The sage is tapped as the play cost (`play-flag: tap-character-on-play`)
+so the constraint holds him tapped for one extra untap before discarding.
+
+Playability rides the existing site-phase permanent-event path (`legal-actions/
+site.ts`): `play-target character` (sage skill + untapped status), `play-target
+site` (siteType Border-hold/Free-hold), and `play-flag: tapped-site-only`.
 
 ### 22. Radagast Shapeshifter primitives
 

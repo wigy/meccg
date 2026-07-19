@@ -1842,16 +1842,40 @@
     ],
     "nearestHaven": "Minas Morgul",
     "region": "Belfalas",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring",
+      "information"
+    ],
     "automaticAttacks": [
       {
-        "creatureType": "(2nd) Dúnedain",
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 8,
+        "combatRules": [
+          "each-character"
+        ]
+      },
+      {
+        "creatureType": "Dúnedain",
         "strikes": 3,
-        "prowess": 10
+        "prowess": 10,
+        "appliesTo": "overt"
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "resourceDraws": 2,
     "hazardDraws": 4,
+    "unique": true,
+    "certified": "2026-07-17",
     "text": "Nearest Darkhaven: Minas MorgulPlayable: Information, Items (minor, major, gold ring)Automatic-attacks (2): (1st) Men — each character faces 1 strike with 8 prowess (detainment against covert company) (2nd) Dúnedain — 3 strikes with 10 prowess (against overt company only)"
   },
   {
@@ -2279,16 +2303,39 @@
     ],
     "nearestHaven": "Minas Morgul",
     "region": "Lebennin",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
-        "creatureType": "(2nd) Dúnedain",
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 7,
+        "combatRules": [
+          "each-character"
+        ]
+      },
+      {
+        "creatureType": "Dúnedain",
         "strikes": 3,
-        "prowess": 10
+        "prowess": 10,
+        "appliesTo": "overt"
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "resourceDraws": 2,
     "hazardDraws": 3,
+    "unique": true,
+    "certified": "2026-07-17",
     "text": "Nearest Darkhaven: Minas MorgulPlayable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Men — each character faces 1 strike with 7 prowess (detainment against covert company)(2nd) Dúnedain — 3 strikes with 10 prowess (against overt company only)"
   },
   {
