@@ -496,12 +496,13 @@
       {
         "regionTypes": [
           "shadow",
-          "coastal-sea"
+          "coastal"
         ]
       }
     ],
     "effects": [],
-    "text": "Drake. Two strikes."
+    "text": "Drake. Two strikes.",
+    "certified": "2026-07-19"
   },
   {
     "cardType": "hazard-creature",
