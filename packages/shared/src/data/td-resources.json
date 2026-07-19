@@ -802,7 +802,67 @@
         "site": "Dol Amroth"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-attack"
+      },
+      {
+        "type": "grant-action",
+        "action": "nenselde-fetch-environment",
+        "cost": {
+          "tap": "self"
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": [
+            "discard-pile"
+          ],
+          "fetchCount": 1,
+          "fetchShuffle": false,
+          "fetchTo": "hand",
+          "filter": {
+            "$and": [
+              {
+                "keywords": {
+                  "$includes": "environment"
+                }
+              },
+              {
+                "eventType": {
+                  "$in": [
+                    "long",
+                    "short"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "$not": {
+            "destination.region": {
+              "$in": [
+                "Belfalas",
+                "Bay of Belfalas",
+                "Anfalas",
+                "Mouths of the Anduin"
+              ]
+            }
+          }
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "to": "discard"
+        }
+      }
+    ],
+    "certified": "2026-07-19",
     "text": "Unique. Playable at Dol Amroth.May not be attacked.Tap Nenseldë to return one environment resource long-event or short-event from your discard pile to your hand. Discard Nenseldë if her company moves to a site that is not in: Belfalas, Bay of Belfalas, Anfalas, or Mouths of the Anduin."
   },
   {
