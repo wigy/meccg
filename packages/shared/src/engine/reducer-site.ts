@@ -6,7 +6,7 @@
  * influence attempts, and site phase advancement.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company, AutomaticAttack } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company, AutomaticAttack, TwoDiceSix } from '../index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
@@ -14,7 +14,7 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard } fr
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
+import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -2499,6 +2499,9 @@ export function resolveInfluenceAttemptRoll(
 
   // Calculate influence modifier using current state (post-on-guard effects)
   let modifier = 0;
+  // Red Arrow (tw-312): an `auto-influence-faction` grant on the influencer (or
+  // an item they bear) lets this faction be influenced with no 2d6 check.
+  let autoInfluence = false;
   if (charInPlay && charDef && isCharacterCard(charDef)) {
     // Use free DI (total DI minus mind cost of followers), not the raw card stat
     modifier += availableDI(state, charId, player);
@@ -2543,6 +2546,11 @@ export function resolveInfluenceAttemptRoll(
       logDetail(`DSL direct-influence modifiers: ${formatSignedNumber(dslDI)}`);
     }
     modifier += dslDI;
+
+    autoInfluence = resolveAutoInfluenceFaction(charEffects, def.name);
+    if (autoInfluence) {
+      logDetail(`Auto-influence grant applies to ${def.name} — attempt succeeds with no check`);
+    }
 
     // Faction-influence-restriction environment (e.g. Mordor in Arms dm-72):
     // a hazard permanent-event in play penalises faction influence at sites in
@@ -2648,16 +2656,30 @@ export function resolveInfluenceAttemptRoll(
     logDetail(`Influence paid-modification bonus ${formatSignedNumber(paidBonus)} (item discarded on declare)`);
   }
 
-  // Roll 2d6 + modifier vs influence number
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const d1 = roll.die1;
-  const d2 = roll.die2;
-  const total = d1 + d2 + modifier;
   const influenceNumber = def.influenceNumber;
-  const modStr = modifier !== 0 ? ` + ${modifier}` : '';
-  logDetail(`Influence attempt: ${charName} rolls ${d1} + ${d2}${modStr} = ${total} vs influence # ${influenceNumber}`);
 
-  const rollEffect = diceRollEffect(player.name, roll, `Influence: ${def.name}`);
+  // Auto-influence (Red Arrow tw-312) skips the 2d6 check entirely: the attempt
+  // succeeds guaranteed and consumes no dice. Otherwise roll 2d6 + modifier.
+  let roll: TwoDiceSix | undefined;
+  let rng = state.rng;
+  let cheatRollTotal: number | null = null;
+  let total: number;
+  let rollEffect: GameEffect | undefined;
+  if (autoInfluence) {
+    total = influenceNumber; // guaranteed success (total >= influence #)
+    logDetail(`Influence attempt: ${charName} automatically influences ${def.name} (no check)`);
+  } else {
+    const rolled = roll2d6(state);
+    roll = rolled.roll;
+    rng = rolled.rng;
+    cheatRollTotal = rolled.cheatRollTotal;
+    const d1 = roll.die1;
+    const d2 = roll.die2;
+    total = d1 + d2 + modifier;
+    const modStr = modifier !== 0 ? ` + ${modifier}` : '';
+    logDetail(`Influence attempt: ${charName} rolls ${d1} + ${d2}${modStr} = ${total} vs influence # ${influenceNumber}`);
+    rollEffect = diceRollEffect(player.name, roll, `Influence: ${def.name}`);
+  }
 
   const company = player.companies[siteState.activeCompanyIndex];
   const siteInPlay = company.currentSite;
@@ -2690,7 +2712,7 @@ export function resolveInfluenceAttemptRoll(
     currentSite: siteInPlay && !skipSiteTap ? { ...siteInPlay, status: CardStatus.Tapped } : siteInPlay,
   };
 
-  newPlayers[playerIndex] = { ...player, ...newPlayers[playerIndex], companies: newCompanies, lastDiceRoll: roll };
+  newPlayers[playerIndex] = { ...player, ...newPlayers[playerIndex], companies: newCompanies, ...(roll ? { lastDiceRoll: roll } : {}) };
 
   if (total >= influenceNumber) {
     logDetail(`Influence attempt succeeded (${total} >= ${influenceNumber})`);
@@ -2741,7 +2763,7 @@ export function resolveInfluenceAttemptRoll(
         ...(factionAtFreeHold ? { uniqueHeroFactionPlayedAtFreeHold: true } : {}),
       },
     }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);
-    return { state: successState, effects: [rollEffect] };
+    return { state: successState, effects: rollEffect ? [rollEffect] : [] };
   }
 
   logDetail(`Influence attempt failed (${total} < ${influenceNumber})`);
@@ -2754,7 +2776,7 @@ export function resolveInfluenceAttemptRoll(
     rng, cheatRollTotal,
     phaseState: { ...siteState, resourcePlayed: true },
   }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);
-  return { state: failureState, effects: [rollEffect] };
+  return { state: failureState, effects: rollEffect ? [rollEffect] : [] };
 }
 
 /**

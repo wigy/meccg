@@ -750,6 +750,27 @@ export interface GeneralInfluenceExemptEffect extends EffectBase {
 }
 
 /**
+ * Marker granting automatic influence of a specific named faction: an influence
+ * attempt against that faction by the character carrying this effect succeeds
+ * with no 2d6 check (guaranteed success). The site still taps as usual.
+ *
+ * Carried by an item on the influencing character (or printed on the character
+ * itself); it flows to the influencer through `collectCharacterEffects` in the
+ * `faction-influence-check` context, so an item's grant reaches its bearer. The
+ * faction-influence legal-action generator surfaces the attempt with `need: 0`,
+ * and `resolveInfluenceAttemptRoll` skips the roll when the grant matches the
+ * faction being influenced.
+ *
+ * Used by Red Arrow (tw-312): "Bearer may automatically influence the Riders of
+ * Rohan."
+ */
+export interface AutoInfluenceFactionEffect extends EffectBase {
+  readonly type: 'auto-influence-faction';
+  /** Exact name of the faction that may be influenced automatically. */
+  readonly faction: string;
+}
+
+/**
  * Marker carried by a permanent-event attached to a character (stored in the
  * host character's `items`). While it is attached, the host character's own
  * printed marshalling points do not count toward the controller's MP tally
@@ -5857,6 +5878,7 @@ export type CardEffect =
   | StagePointsEffect
   | ControlRestrictionEffect
   | GeneralInfluenceExemptEffect
+  | AutoInfluenceFactionEffect
   | OwnMpNotCountedEffect
   | FactionMpOverrideEffect
   | PermanentEventMpEffect

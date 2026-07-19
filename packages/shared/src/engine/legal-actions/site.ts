@@ -20,7 +20,7 @@ import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride } from '../reducer-utils.js';
-import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
+import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -1849,6 +1849,8 @@ function playResourcesActions(
 
         // Compute modifier for this influencer
         let infModifier = 0;
+        // Red Arrow (tw-312): auto-influence grant → no check needed for this faction.
+        let autoInf = false;
         const infParts: string[] = [`influence # ${factionDef.influenceNumber}`];
         const fullCharacter = player.characters[ch.instanceId];
         if (fullCharacter && charDef && isCharacterCard(charDef)) {
@@ -1903,6 +1905,12 @@ function playResourcesActions(
           if (dslDI !== 0) {
             infModifier += dslDI;
             infParts.push(`DI bonus ${formatSignedNumber(dslDI)}`);
+          }
+
+          // Auto-influence grant (Red Arrow tw-312): no 2d6 check for this faction.
+          autoInf = resolveAutoInfluenceFaction(charEffects, factionDef.name);
+          if (autoInf) {
+            infParts.push('automatic');
           }
 
           // Faction-influence-restriction environment (e.g. Mordor in Arms
@@ -2005,9 +2013,9 @@ function playResourcesActions(
           infParts.push(`game-wide ${formatSignedNumber(globalInfMod)}`);
         }
 
-        const infNeed = factionDef.influenceNumber - infModifier;
+        const infNeed = autoInf ? 0 : factionDef.influenceNumber - infModifier;
 
-        logDetail(`Faction ${factionDef.name}: influenceable by ${charName} (need ${infNeed})`);
+        logDetail(`Faction ${factionDef.name}: influenceable by ${charName} (${autoInf ? 'automatic' : `need ${infNeed}`})`);
         actions.push({
           action: {
             type: 'influence-attempt',
@@ -2015,7 +2023,9 @@ function playResourcesActions(
             factionInstanceId: cardInstanceId,
             influencingCharacterId: ch.instanceId,
             need: infNeed,
-            explanation: `Need roll >= ${infNeed} (${infParts.join(', ')})`,
+            explanation: autoInf
+              ? `Automatic influence (${infParts.join(', ')})`
+              : `Need roll >= ${infNeed} (${infParts.join(', ')})`,
           },
           viable: true,
         });
