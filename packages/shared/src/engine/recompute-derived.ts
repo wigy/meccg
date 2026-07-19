@@ -47,7 +47,7 @@ import {
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -1329,7 +1329,11 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // control outside an organization phase (e.g. by Rebel-talk); per CoE 2.II.2.2.3
     // its mind is not subtracted from general influence until the player's next
     // organization phase clears the flag.
-    if (!isPrisoner && char.controlledBy === 'general' && !char.influenceUnsubtracted && charDef.mind !== null) {
+    // Await the Advent of Allies (dm-117): a character bearing this attached
+    // event "does not count against general influence" — its mind is not
+    // subtracted from the pool while the card is attached.
+    const giExempt = characterBearsAttachedEffect(state, char, 'general-influence-exempt');
+    if (!isPrisoner && char.controlledBy === 'general' && !char.influenceUnsubtracted && charDef.mind !== null && !giExempt) {
       // A `control-restriction` (e.g. Wizard's Myrmidon) overrides the GI cost
       // to keep the character; otherwise the effective/printed mind is used.
       const mindCost = controlCostOf(state, char, newStats.mind ?? charDef.mind) ?? 0;
@@ -1360,12 +1364,20 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // company-restricted, so this stays false for every other card.
     const bearerInAvatarCompany = avatarCompanyId !== undefined && charCompany?.id === avatarCompanyId;
 
+    // Await the Advent of Allies (dm-117): a character bearing this attached
+    // event has its own printed marshalling points nullified ("its marshalling
+    // points do not count"). Only the character's own MP is dropped — the items
+    // and allies it bears still score normally below.
+    const ownMpNotCounted = characterBearsAttachedEffect(state, char, 'own-mp-not-counted');
+
     // Character MPs: prisoners contribute negative MPs
     if (isPrisoner) {
       const charMp = charDef.marshallingPoints ?? 0;
       const cat = (charDef.marshallingCategory ?? 'character') as import('../index.js').MarshallingCategory;
       mp = { ...mp, [cat]: mp[cat] - charMp };
       if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] - charMp };
+    } else if (ownMpNotCounted) {
+      // Character's own MP contributes nothing; items/allies handled below.
     } else if (pinValue !== undefined) {
       // wh-96: pin overrides the §4 clamp and every exemption (wh-4, Great Patron).
       mp = addPinnedCardMp(mp, charDef, pinValue);

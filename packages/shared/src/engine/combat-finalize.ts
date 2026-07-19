@@ -426,10 +426,14 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     }
   }
 
-  // Check for on-event: bearer-wounded effects on allies attached to wounded characters.
+  // Check for on-event: bearer-wounded effects on cards attached to wounded characters.
   // When any characters are wounded (not eliminated), scan each wounded character's
-  // allies for this event. If an ally has bearer-wounded → self-discard move, discard it.
-  // Used by Regiment of Black Crows (as-76) and Great Bats (as-74).
+  // attached allies AND items/permanent-events for this event. If a card has
+  // bearer-wounded → self-discard move, discard it to the defending player's pile.
+  // Used by Regiment of Black Crows (as-76) and Great Bats (as-74) — attached allies;
+  // and Await the Advent of Allies (dm-117) — an attached permanent-event stored in
+  // the host character's `items` ("Discard this card when the character … becomes
+  // wounded").
   if (woundedCharIds.length > 0) {
     const defPlayerIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
     let defPlayer = stateAfterCombat.players[defPlayerIdx];
@@ -448,14 +452,30 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           anyDiscarded = true;
         }
       }
-      if (alliesToDiscard.length > 0) {
+      const itemsToDiscard: (typeof charData.items)[number][] = [];
+      for (const item of charData.items) {
+        const itemDef = defById(stateAfterCombat, item.definitionId);
+        const bearerWoundedEvents = getOnEventEffects(itemDef, 'bearer-wounded');
+        if (bearerWoundedEvents.some(e => isSelfDiscardMove(e.apply))) {
+          const itemName = itemDef?.name ?? (item.definitionId as string);
+          logDetail(`bearer-wounded: discarding attached card "${itemName}" from wounded character ${charId as string}`);
+          itemsToDiscard.push(item);
+          anyDiscarded = true;
+        }
+      }
+      if (alliesToDiscard.length > 0 || itemsToDiscard.length > 0) {
         const remainingAllies = charData.allies.filter(a => !alliesToDiscard.some(d => d.instanceId === a.instanceId));
-        const newDiscard = [...defPlayer.discardPile, ...alliesToDiscard.map(a => toCardInstance(a))];
+        const remainingItems = charData.items.filter(i => !itemsToDiscard.some(d => d.instanceId === i.instanceId));
+        const newDiscard = [
+          ...defPlayer.discardPile,
+          ...alliesToDiscard.map(a => toCardInstance(a)),
+          ...itemsToDiscard.map(i => toCardInstance(i)),
+        ];
         defPlayer = {
           ...defPlayer,
           characters: {
             ...defPlayer.characters,
-            [charId as string]: { ...charData, allies: remainingAllies },
+            [charId as string]: { ...charData, allies: remainingAllies, items: remainingItems },
           },
           discardPile: newDiscard,
         };

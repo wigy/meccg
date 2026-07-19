@@ -726,6 +726,35 @@ export interface ControlRestrictionEffect extends EffectBase {
 }
 
 /**
+ * Marker carried by a permanent-event attached to a character (stored in the
+ * host character's `items`). While it is attached, the host character's mind is
+ * **not** subtracted from the controller's general influence — the character
+ * "does not count against general influence". Collected in `recompute-derived.ts`
+ * (the general-influence-used accumulator skips a character bearing this effect).
+ *
+ * Used by *Await the Advent of Allies* (dm-117): a low-mind non-Wizard character
+ * parked at a non-Haven site costs no general influence while it awaits the
+ * play of an ally/faction there.
+ */
+export interface GeneralInfluenceExemptEffect extends EffectBase {
+  readonly type: 'general-influence-exempt';
+}
+
+/**
+ * Marker carried by a permanent-event attached to a character (stored in the
+ * host character's `items`). While it is attached, the host character's own
+ * printed marshalling points do not count toward the controller's MP tally
+ * ("its marshalling points do not count"). Only the character's *own* MP is
+ * nullified — items/allies it bears still score normally. Collected in the
+ * character-MP branch of `recompute-derived.ts`.
+ *
+ * Used by *Await the Advent of Allies* (dm-117).
+ */
+export interface OwnMpNotCountedEffect extends EffectBase {
+  readonly type: 'own-mp-not-counted';
+}
+
+/**
  * Overrides the marshalling-point value of the controlling player's factions
  * (MEWH Fallen-wizard stage cards). Carried by a stage resource permanent-event;
  * while it is in play, each faction the player controls is re-valued according
@@ -5755,6 +5784,8 @@ export type CardEffect =
   | LeaderControlEffect
   | StagePointsEffect
   | ControlRestrictionEffect
+  | GeneralInfluenceExemptEffect
+  | OwnMpNotCountedEffect
   | FactionMpOverrideEffect
   | PermanentEventMpEffect
   | NonCharacterMpOverrideEffect

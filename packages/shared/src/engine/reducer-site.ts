@@ -24,7 +24,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
+import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -2129,6 +2129,11 @@ function handleSitePlayHeroResource(
     },
   };
 
+  // Await the Advent of Allies (dm-117): if this resource play tapped the
+  // company's site, discard any attached event on a company character that
+  // self-discards "when you play a resource that taps or requires the site".
+  afterAttach = fireResourceTapsSiteDiscards(afterAttach, playerIndex, siteState.activeCompanyIndex, !leavesSiteUntapped);
+
   // Apply ward-bearer effects declared by the incoming card: any hazard
   // on the bearer that matches the ward filter is immediately discarded
   // (e.g. Adamant Helmet cancelling dark enchantments on its wearer).
@@ -2251,6 +2256,59 @@ function fireCharacterGainsItemChecks(
     }
   }
   return newState;
+}
+
+/**
+ * Await the Advent of Allies (dm-117): "Discard this card … when you play a
+ * resource that taps or requires the site (as an active condition of playing
+ * the resource itself)." When a resource play in `companyIndex` taps the
+ * company's current site (`siteTapped` — false for never-taps sites, Thorough
+ * Search, a leader taking a faction under control, etc.), scan every character
+ * in that company for an attached permanent-event carrying
+ * `on-event: resource-taps-or-requires-site` with a self-discard `move` apply,
+ * and move each such card to its owner's (the active player's) discard pile.
+ *
+ * Discarding the card removes its `general-influence-exempt`, `own-mp-not-counted`,
+ * and `bearer-cannot-move` markers from the host character, so the character
+ * becomes an ordinary company member again the instant the awaited resource
+ * lands. Detected by effect — not card id — so any future card that self-discards
+ * on a site-tapping play works unchanged.
+ */
+function fireResourceTapsSiteDiscards(
+  state: GameState,
+  playerIndex: number,
+  companyIndex: number,
+  siteTapped: boolean,
+): GameState {
+  if (!siteTapped) return state;
+  const player = state.players[playerIndex];
+  const company = player.companies[companyIndex];
+  if (!company) return state;
+
+  let newCharacters = player.characters;
+  const discarded: CardInstance[] = [];
+  for (const charId of company.characters) {
+    const char = newCharacters[charId];
+    if (!char) continue;
+    const toDiscard = char.items.filter(item => {
+      const def = defById(state, item.definitionId);
+      return getOnEventEffects(def, 'resource-taps-or-requires-site').some(e => isSelfDiscardMove(e.apply));
+    });
+    if (toDiscard.length === 0) continue;
+    for (const item of toDiscard) {
+      const def = defById(state, item.definitionId);
+      logDetail(`resource-taps-or-requires-site: discarding "${def?.name ?? (item.definitionId as string)}" from ${charId as string} (site tapped by resource play)`);
+      discarded.push(toCardInstance(item));
+    }
+    const remaining = char.items.filter(i => !toDiscard.some(d => d.instanceId === i.instanceId));
+    newCharacters = { ...newCharacters, [charId as string]: { ...char, items: remaining } };
+  }
+  if (discarded.length === 0) return state;
+  return updatePlayer(state, playerIndex, p => ({
+    ...p,
+    characters: newCharacters,
+    discardPile: [...p.discardPile, ...discarded],
+  }));
 }
 
 /**
@@ -2653,36 +2711,35 @@ export function resolveInfluenceAttemptRoll(
       logDetail(`Site: ${def.name} is a unique hero faction played at Free-hold ${siteDefForFaction.name} — opening To Fealty Sworn window`);
     }
 
-    return {
-      state: {
-        ...state,
-        players: newPlayers,
-        rng, cheatRollTotal,
-        phaseState: {
-          ...siteState,
-          resourcePlayed: true,
-          minorItemAvailable: openMinorItemBonus ? true : siteState.minorItemAvailable,
-          factionPlayedThisSitePhase: true,
-          ...(factionAtFreeHold ? { uniqueHeroFactionPlayedAtFreeHold: true } : {}),
-        },
+    // Await the Advent of Allies (dm-117): a faction played (influenced) at the
+    // company's site taps and requires that site — discard any attached event
+    // that self-discards on such a play.
+    const successState = fireResourceTapsSiteDiscards({
+      ...state,
+      players: newPlayers,
+      rng, cheatRollTotal,
+      phaseState: {
+        ...siteState,
+        resourcePlayed: true,
+        minorItemAvailable: openMinorItemBonus ? true : siteState.minorItemAvailable,
+        factionPlayedThisSitePhase: true,
+        ...(factionAtFreeHold ? { uniqueHeroFactionPlayedAtFreeHold: true } : {}),
       },
-      effects: [rollEffect],
-    };
+    }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);
+    return { state: successState, effects: [rollEffect] };
   }
 
   logDetail(`Influence attempt failed (${total} < ${influenceNumber})`);
   const newDiscard = [...player.discardPile, entry.card];
   newPlayers[playerIndex] = { ...newPlayers[playerIndex], discardPile: newDiscard };
 
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      rng, cheatRollTotal,
-      phaseState: { ...siteState, resourcePlayed: true },
-    },
-    effects: [rollEffect],
-  };
+  const failureState = fireResourceTapsSiteDiscards({
+    ...state,
+    players: newPlayers,
+    rng, cheatRollTotal,
+    phaseState: { ...siteState, resourcePlayed: true },
+  }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);
+  return { state: failureState, effects: [rollEffect] };
 }
 
 /**
