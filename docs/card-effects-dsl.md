@@ -3565,6 +3565,47 @@ Supported scopes:
 { "type": "duplication-limit", "scope": "company", "max": 1 }
 ```
 
+### 14a-iii. `avatar-home-site-restriction`
+
+Marker effect on an in-play permanent-event. While the carrying card is in its
+controller's `cardsInPlay`, that player's own **avatar** may only be *brought
+into play* at its home site — the extra-haven reveal option (a Wizard avatar's
+Rivendell, a Ringwraith avatar's Minas Morgul / Dol Guldur; see
+`avatarExtraHavenNames`, rule 2.II.2.1.W1/R1) is suppressed. Consulted by the
+play-character legal action (`legal-actions/organization-characters.ts`, via
+`playerHasAvatarHomeSiteRestriction` → `findPlayableSites`'s new
+`avatarHomeSiteOnly` flag) only when the character being played is the acting
+player's avatar; non-avatar character play is unaffected.
+
+```json
+{ "type": "avatar-home-site-restriction" }
+```
+
+Paired with the `avatar-enters-play` on-event (below), the `general-influence`
+`stat-modifier`, the `player.avatarInPlay` play-condition, and a `player`-scope
+`duplication-limit` on Saw Further and Deeper (dm-156): "Your Wizard may only be
+brought into play at his home site."
+
+The companion **`on-event: avatar-enters-play`** trigger fires the moment the
+controller brings *their own* avatar (mind === null) into play — distinct from
+`self-enters-play`, which fires for the entering card itself. It runs a `move`
+apply (self → discard) in `handlePlayCharacter` (`reducer-organization.ts`,
+`applyAvatarEntersPlayEffects`), used for dm-156's "Discard when you bring your
+Wizard into play."
+
+```json
+{ "type": "on-event", "event": "avatar-enters-play",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+```
+
+The "not revealed" gate is the standard `play-condition` `player-state` against
+the new `player.avatarInPlay` context field (`false` while no avatar is in play):
+
+```json
+{ "type": "play-condition", "requires": "player-state",
+  "condition": { "player.avatarInPlay": false } }
+```
+
 ### 14a. `name-alias`
 
 Makes the card count as another named card for the purpose of `inPlay`

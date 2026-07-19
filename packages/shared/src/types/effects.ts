@@ -5765,6 +5765,7 @@ export type CardEffect =
   | ItemSlotModifierEffect
   | CompanyOvertEffect
   | AssignStrikeWhenTappedEffect
+  | AvatarHomeSiteRestrictionEffect
   | CombatTapCompanyBoostEffect
   | RingwraithModeEffect
   | RingwraithFollowerSlotsEffect
@@ -6653,6 +6654,25 @@ export interface CompanyOvertEffect extends EffectBase {
  */
 export interface AssignStrikeWhenTappedEffect extends EffectBase {
   readonly type: 'assign-strike-when-tapped';
+}
+
+/**
+ * Marker effect on an in-play permanent-event: while the carrying card is in its
+ * controller's `cardsInPlay`, that player's own avatar may only be *brought into
+ * play* at its home site — the extra-haven reveal option (a Wizard avatar's
+ * Rivendell, a Ringwraith avatar's Minas Morgul / Dol Guldur; see
+ * `avatarExtraHavenNames`) is suppressed. Consulted by the play-character legal
+ * action (`legal-actions/organization-characters.ts`) when the character being
+ * played is the acting player's avatar. Non-avatar character play is unaffected.
+ *
+ * Used by Saw Further and Deeper (dm-156): "Your Wizard may only be brought into
+ * play at his home site." (Its companion clauses are a `general-influence`
+ * `stat-modifier` +5, a `player-state` play-condition gated on
+ * `player.avatarInPlay: false`, an `on-event: avatar-enters-play` self-discard,
+ * and a `duplication-limit` scope `player`.)
+ */
+export interface AvatarHomeSiteRestrictionEffect extends EffectBase {
+  readonly type: 'avatar-home-site-restriction';
 }
 
 /**

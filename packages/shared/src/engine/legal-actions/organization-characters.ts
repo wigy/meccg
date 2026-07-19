@@ -170,6 +170,23 @@ function avatarExtraHavenNames(charDef: CharacterCard): readonly string[] | null
 }
 
 /**
+ * True when the player has an in-play permanent-event carrying an
+ * `avatar-home-site-restriction` effect (Saw Further and Deeper dm-156). While
+ * such a card is in play, the player's avatar may only be brought into play at
+ * its home site — the extra-haven reveal option (Rivendell for a Wizard, Minas
+ * Morgul / Dol Guldur for a Ringwraith) is suppressed.
+ */
+function playerHasAvatarHomeSiteRestriction(
+  state: GameState,
+  player: PlayerState,
+): boolean {
+  return player.cardsInPlay.some(card => {
+    const def = defById(state, card.definitionId);
+    return getCardEffects(def).some(e => e.type === 'avatar-home-site-restriction');
+  });
+}
+
+/**
  * Returns true if the player has an eliminated avatar (a character with
  * `mind === null` in their outOfPlayPile). CoE rule 2.05 forbids revealing
  * a replacement avatar in this case.
@@ -215,11 +232,18 @@ function findPlayableSites(
    * the agent may be summoned there via the vehicle.
    */
   includeDarkhavensForAgent = false,
+  /**
+   * Saw Further and Deeper (dm-156): when true and `charDef` is an avatar, the
+   * avatar's extra-haven reveal option (Rivendell / Minas Morgul / Dol Guldur)
+   * is suppressed, confining the avatar to its home site.
+   */
+  avatarHomeSiteOnly = false,
 ): { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string; directInfluenceOnly: boolean }[] {
   const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string; directInfluenceOnly: boolean }[] = [];
   const seenInstances = new Set<string>();
   const seenSiteNames = new Set<string>();
-  const homeSiteOnly = hasHomeSiteOnlyRestriction(charDef);
+  const homeSiteOnly = hasHomeSiteOnlyRestriction(charDef)
+    || (avatarHomeSiteOnly && isAvatarCharacter(charDef));
   const extraHavenNames = avatarExtraHavenNames(charDef);
   const allowAgentDarkhaven = includeDarkhavensForAgent && isAgentCharacter(charDef);
 
@@ -692,9 +716,13 @@ export function playCharacterActions(
       && isAgentCharacter(cardDef)
       && (player.alignment === Alignment.Ringwraith || player.alignment === Alignment.FallenWizard);
 
+    // Saw Further and Deeper (dm-156): while it is in play, the player's avatar
+    // may only be brought into play at its home site (no Rivendell reveal).
+    const avatarHomeSiteOnly = isAvatar && playerHasAvatarHomeSiteRestriction(state, player);
+
     // Find valid sites (homesite or haven — from companies or site deck)
     // Note: findPlayableSites already handles home-site-only and avatar restrictions
-    const playableSites = findPlayableSites(state, player, cardDef, avatarInPlay && !isAvatar, isAgentSummonsCandidate);
+    const playableSites = findPlayableSites(state, player, cardDef, avatarInPlay && !isAvatar, isAgentSummonsCandidate, avatarHomeSiteOnly);
 
     if (playableSites.length === 0) {
       const reason = hasHomeSiteOnlyRestriction(cardDef)
