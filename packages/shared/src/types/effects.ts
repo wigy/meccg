@@ -235,8 +235,17 @@ export interface CheckModifierEffect extends EffectBase {
    * faction-influence resolver context). Used by Great Army of the North
    * (ba-38): "As a permanent-event, +1 to your influence attempts against Orc
    * and Troll factions."
+   *
+   * `'all-in-play'` is a **game-wide, ongoing** modifier carried by a bare
+   * in-play event (permanent- or long-event) in *either* player's `cardsInPlay`
+   * (not attached to any character/item/site/company). Unlike `'player-in-play'`
+   * (which benefits only its owner), an `'all-in-play'` modifier applies to
+   * **every** matching check by **either** player, for as long as the card stays
+   * in play (gated by the effect's `when` against the check resolver context).
+   * Used by Times Are Evil (td-76), a hazard long-event: "All offering attempts
+   * and influence attempts are modified by -3."
    */
-  readonly target?: 'company' | 'player-in-play';
+  readonly target?: 'company' | 'player-in-play' | 'all-in-play';
 }
 
 /**

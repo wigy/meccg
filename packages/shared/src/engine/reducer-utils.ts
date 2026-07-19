@@ -20,7 +20,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
-import { resolveDef, normalizeCreatureRace } from './effects/index.js';
+import { resolveDef, normalizeCreatureRace, resolveCheckModifier } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import { revealInstances } from './visibility.js';
 
@@ -895,6 +895,49 @@ export function collectPlayerInPlayInfluenceEffects(
     }
   }
   return collected;
+}
+
+/**
+ * Sums the **game-wide, ongoing** `check-modifier` effects (`target:
+ * "all-in-play"`) carried by bare in-play events in *either* player's
+ * `cardsInPlay`, for a given {@link CheckKind}. Unlike
+ * {@link collectPlayerInPlayInfluenceEffects} (which is scoped to the
+ * influencing player's own cards and only benefits that player), an
+ * `all-in-play` modifier applies to **every** matching check by **either**
+ * player — the reading of a hazard long-event whose text says "*All* … attempts
+ * are modified by -3" (Times Are Evil td-76).
+ *
+ * Only bare, unattached events contribute (a card attached to a
+ * character/item/site/agent, or bound to a company, is collected through its
+ * own attachment path). Each effect's `when` is evaluated against the check
+ * resolver context. Shared by the influence-attempt legal-action generator (for
+ * the displayed `need`) and the roll resolver (for the actual modifier) so both
+ * agree, mirroring {@link collectFactionInfluenceRestriction}.
+ */
+export function collectGlobalCheckModifier(
+  state: GameState,
+  check: import('../types/common.js').CheckKind,
+  ctx: import('./effects/resolver.js').ResolverContext,
+): number {
+  const collected: import('./effects/resolver.js').CollectedEffect[] = [];
+  const ctxRecord = ctx as unknown as Record<string, unknown>;
+  for (const pl of state.players) {
+    for (const cip of pl.cardsInPlay) {
+      if (cip.attachedTo !== undefined || cip.attachedToItem !== undefined
+        || cip.attachedToSite !== undefined || cip.attachedToAgentId !== undefined
+        || cip.companyId !== undefined || cip.setAsideHost !== undefined
+        || cip.pendingTriggerAttack) continue;
+      const def = defById(state, cip.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'check-modifier') continue;
+        if (effect.target !== 'all-in-play') continue;
+        if (effect.when && !matchesContext(effect.when, ctxRecord)) continue;
+        collected.push({ effect, sourceDef: def, sourceInstance: cip.instanceId });
+      }
+    }
+  }
+  return resolveCheckModifier(collected, check, ctxRecord);
 }
 
 /**

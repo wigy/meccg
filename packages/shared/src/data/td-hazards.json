@@ -1339,8 +1339,16 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/TimesAreEvil.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
-    "text": "All offering attempts and influence attempts are modified by -3."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": ["influence", "offering"],
+        "value": -3,
+        "target": "all-in-play"
+      }
+    ],
+    "text": "All offering attempts and influence attempts are modified by -3.",
+    "certified": "2026-07-19"
   },
   {
     "cardType": "hazard-event",
