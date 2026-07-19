@@ -1574,8 +1574,25 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Bearer may automatically influence the Riders of Rohan. +5 to the bearer’s direct influence against any character with Edoras as a home site."
+    "effects": [
+      {
+        "type": "auto-influence-faction",
+        "faction": "Riders of Rohan"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5,
+        "when": {
+          "reason": "influence-check",
+          "target.homesite": {
+            "$includes": "Edoras"
+          }
+        }
+      }
+    ],
+    "text": "Unique. Bearer may automatically influence the Riders of Rohan. +5 to the bearer’s direct influence against any character with Edoras as a home site.",
+    "certified": "2026-07-20"
   },
   {
     "cardType": "hero-resource-item",

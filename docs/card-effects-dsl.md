@@ -388,6 +388,23 @@ long-event: "All offering attempts and influence attempts are modified by -3."
 { "type": "check-modifier", "check": ["influence", "offering"], "value": -3, "target": "all-in-play" }
 ```
 
+### `auto-influence-faction` — no-check influence of a named faction
+
+`{ "type": "auto-influence-faction", "faction": "<Faction Name>" }` grants the
+carrier the ability to influence a specific named faction with **no 2d6 check** —
+the attempt succeeds automatically. It flows to the influencer through
+`collectCharacterEffects` in the `faction-influence-check` context, so an item's
+grant reaches its bearer. `resolveAutoInfluenceFaction` (`resolver.ts`) tests the
+collected effects against the faction being influenced; when it matches, both the
+`legal-actions/site.ts` display (`need: 0`, "Automatic influence") and the
+`reducer-site.ts` roll resolver skip the roll and treat the attempt as a
+guaranteed success (the site still taps as usual). Used by Red Arrow (tw-312):
+"Bearer may automatically influence the Riders of Rohan."
+
+```json
+{ "type": "auto-influence-faction", "faction": "Riders of Rohan" }
+```
+
 A one-shot influence booster may instead be scoped to an **opponent-influence
 attempt** (influencing an opponent's in-play card — CoE rule 8, "Mine or No
 One's" ba-68) rather than a faction-influence roll. This uses the ordinary

@@ -15,6 +15,7 @@ export {
   collectPlayerInPlayEffects,
   resolveStatModifiers,
   resolveCheckModifier,
+  resolveAutoInfluenceFaction,
   resolveDrawModifier,
   resolveAttackProwess,
   resolveAttackStrikes,

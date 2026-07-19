@@ -924,6 +924,27 @@ export function resolveCheckModifier(
 }
 
 /**
+ * Returns `true` if the collected effects include an `auto-influence-faction`
+ * grant matching the given faction name — i.e. the influencer may bring that
+ * faction into play with no 2d6 influence check (Red Arrow tw-312: "Bearer may
+ * automatically influence the Riders of Rohan").
+ *
+ * Names are compared exactly, matching the faction-name gating used elsewhere
+ * (e.g. the `faction.name` condition path).
+ */
+export function resolveAutoInfluenceFaction(
+  effects: readonly CollectedEffect[],
+  factionName: string,
+): boolean {
+  for (const { effect } of effects) {
+    if (effect.type === 'auto-influence-faction' && effect.faction === factionName) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Resolves draw-modifier effects for a given draw pool (hazard or resource).
  *
  * Collects all `draw-modifier` effects matching the pool and sums their
