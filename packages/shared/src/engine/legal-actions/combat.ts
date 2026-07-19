@@ -955,13 +955,21 @@ function selfCancelStrikeActions(
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
   for (const c of candidates) {
-    if (c.status !== CardStatus.Untapped) continue;
     const def = defById(state, c.definitionId);
     if (!def) continue;
     for (const eff of getCardEffects(def)) {
       if (eff.type !== 'cancel-strike') continue;
-      if (eff.cost?.tap !== 'self') continue;
       if (eff.target && eff.target !== 'self') continue;
+      // Two cost variants pay for a self-protecting cancel:
+      //  • tap cost (Enruned Shield, Noble Steed): the source taps, so it must
+      //    be untapped to be available.
+      //  • corruption-check cost (The One Ring tw-347): the bearer makes a
+      //    corruption check instead of tapping, so the source's tapped status
+      //    is irrelevant to availability.
+      const isTapCost = eff.cost?.tap === 'self';
+      const isCorruptionCost = eff.cost?.check === 'corruption';
+      if (!isTapCost && !isCorruptionCost) continue;
+      if (isTapCost && c.status !== CardStatus.Untapped) continue;
 
       const name = (def as { name?: string }).name ?? (c.definitionId as string);
       if (eff.when && !matchesCondition(eff.when, buildCtx())) {
@@ -969,7 +977,8 @@ function selfCancelStrikeActions(
         continue;
       }
 
-      logDetail(`Cancel-strike available: ${name} can tap to cancel strike against ${targetName}`);
+      const how = isCorruptionCost ? 'make a corruption check to cancel' : 'tap to cancel';
+      logDetail(`Cancel-strike available: ${name} can ${how} strike against ${targetName}`);
       actions.push({
         action: {
           type: 'cancel-strike',

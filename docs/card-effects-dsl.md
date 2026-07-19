@@ -3241,8 +3241,23 @@ creature was keyed (e.g. Shadow-cloak le-344 — a strike from a creature
 keyed to a Shadow-land [{s}], Shadow-hold [{S}], Dark-domain [{d}], or
 Dark-hold [{D}]). The keying fields mirror the ones already exposed to
 `cancel-attack` conditions; automatic attacks leave them empty, so a
-keying-gated cancel-strike never fires against a site auto-attack. The
-item must be untapped when activated.
+keying-gated cancel-strike never fires against a site auto-attack. A
+tap-cost (`cost: { "tap": "self" }`) item must be untapped when activated.
+
+Alternatively the cost may be a **corruption check** on the bearer
+(`cost: { "check": "corruption", "modifier": <n> }`) rather than a tap —
+The One Ring (tw-347): "Bearer may make a corruption check modified by -2
+to cancel a strike against himself; this does not work against Undead and
+Nazgûl strikes." Nothing taps; instead `handleCancelStrike`
+(`combat-actions.ts`) cancels the strike and enqueues a `corruption-check`
+{@link PendingResolution} for the bearer carrying the effect's `modifier`.
+The strike is canceled regardless of the check's outcome — the check is the
+cost/risk, not a condition — and it surfaces as the bearer's next legal
+action (combat yields to the pending resolution before further combat
+actions; see `computeLegalActions`' combat/pending ordering). Because the
+source's tapped status is irrelevant to this variant, it is offered even
+when the ring is tapped. The `when` clause gates the exclusions (Undead /
+Nazgûl above).
 
 ```json
 { "type": "cancel-strike",
