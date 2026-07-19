@@ -1860,6 +1860,43 @@ export function countCopiesInPlay(state: GameState, name: string): number {
 }
 
 /**
+ * Count in-play copies of `name` that are currently being targeted for discard
+ * by an unresolved chain entry.
+ *
+ * CRF 22 Annotation 11 ("Cannot be Duplicated"): a card that cannot be
+ * duplicated may still be played while a copy is already in play, *provided
+ * that copy is currently being targeted by an effect that will discard it*. The
+ * canonical case is a Twilight (tw-106) on the chain canceling an in-play Gates
+ * of Morning (tw-243): the moving player may respond with a fresh Gates of
+ * Morning because the existing one is about to be discarded.
+ *
+ * An in-play environment card is "targeted for discard" when an unresolved,
+ * un-negated short-event chain entry names its instance id as its target — such
+ * an entry cancels and discards the target on resolution (see
+ * `resolveEnvironmentCancel` in `chain-reducer.ts`). The count returned here is
+ * subtracted from {@link countCopiesInPlay} in the game-scope duplication-limit
+ * check so the replacement copy becomes playable.
+ */
+export function countCopiesInPlayTargetedForDiscard(state: GameState, name: string): number {
+  const chain = state.chain;
+  if (!chain) return 0;
+  const targetedForDiscard = (instanceId: CardInstanceId): boolean =>
+    chain.entries.some(
+      e => !e.resolved && !e.negated
+        && e.payload.type === 'short-event'
+        && e.payload.targetInstanceId === instanceId,
+    );
+  let count = 0;
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (defById(state, c.definitionId)?.name !== name) continue;
+      if (targetedForDiscard(c.instanceId)) count += 1;
+    }
+  }
+  return count;
+}
+
+/**
  * True when the card definition `defId` carries the given (lowercased) keyword.
  * Keyword matching is case-insensitive so `"Spawn"` in card data matches
  * `"spawn"`.
