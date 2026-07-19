@@ -6710,6 +6710,14 @@ normal M/H hazard-creature play path via the shared
 in `legal-actions/movement-hazard.ts`). Omit `siteTypes` to match any type;
 omit `siteKeywords` to impose no keyword requirement.
 
+`siteFilter.regionTypes` opens an additional **region-type** branch, OR'd with
+the site-type branch: the grant matches when the moving company's resolved site
+path contains a region of one of those types (Border-lands [{b}] etc.). The
+optional `requiresNonCoastalKeying` restricts the grant to creatures whose own
+printed `keyedTo` offers at least one non-Coastal-Sea region — "the creature
+must be playable in a non-Coastal Sea [{c}] region" — excluding Coastal-Sea-only
+creatures (e.g. Fell Turtle tw-34).
+
 Used by Ungoliant's Foul Issue (ba-28): "non-unique Spider creatures can be
 keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}]."
 
@@ -6726,6 +6734,27 @@ keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}]."
     "siteTypes": ["ruins-and-lairs", "shadow-hold"],
     "siteKeywords": ["under-deeps"]
   }
+}
+```
+
+Used by A Pack at the Door (tw-497): "Each non-unique Animal, Spider and Wolf
+creature may be played in Border-lands [{b}], Border-holds [{B}] or Ruins &
+Lairs [{R}]. The creature must be playable in a non-Coastal Sea [{c}] region."
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": {
+    "$and": [
+      { "race": { "$in": ["animal", "animals", "spider", "spiders", "wolf", "wolves"] } },
+      { "unique": { "$ne": true } }
+    ]
+  },
+  "siteFilter": {
+    "regionTypes": ["border"],
+    "siteTypes": ["border-hold", "ruins-and-lairs"]
+  },
+  "requiresNonCoastalKeying": true
 }
 ```
 
