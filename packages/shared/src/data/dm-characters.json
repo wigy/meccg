@@ -898,8 +898,31 @@
     "marshallingPoints": 1,
     "marshallingCategory": "character",
     "homesite": "Bag End",
-    "effects": [],
-    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2. You may discard Folco Boffin at a Haven to play any Hobbit from your hand with his company."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "home-site-only",
+        "when": {
+          "$not": {
+            "reason": "starting-character"
+          }
+        }
+      },
+      {
+        "type": "discard-to-recruit",
+        "requireHaven": true,
+        "filter": {
+          "target.race": "hobbit"
+        }
+      }
+    ],
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2. You may discard Folco Boffin at a Haven to play any Hobbit from your hand with his company.",
+    "certified": "2026-07-19"
   },
   {
     "cardType": "minion-character",

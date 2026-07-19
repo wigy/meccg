@@ -44,7 +44,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
-import { handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
+import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
@@ -175,6 +175,13 @@ export function handlePlayHazards(
   //     play, available whenever a normal resource could be played (CRF 22). ---
   else if (action.type === 'manifestation-swap') {
     result = handleManifestationSwap(state, action);
+  }
+
+  // --- Discard-to-recruit (Folco Boffin dm-180): a resource-style
+  //     replacement play, available whenever a normal resource could be
+  //     played (CRF 22). ---
+  else if (action.type === 'discard-to-recruit') {
+    result = handleDiscardToRecruit(state, action);
   }
 
   // --- Resource permanent event (e.g. Gates of Morning, rule 2.1.1) ---

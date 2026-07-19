@@ -47,6 +47,7 @@ import { viableWithRegress } from '../reverse-actions.js';
 import { playCharacterActions, discardCharacterActions } from './organization-characters.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
+import { discardToRecruitActions } from './discard-to-recruit.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import {
   planMovementActions,
@@ -470,6 +471,15 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   const manifestationSwapEvaluated = manifestationSwapActions(state, playerId);
   actions.push(...manifestationSwapEvaluated);
   for (const ea of manifestationSwapEvaluated) {
+    const a = ea.action as { cardInstanceId?: CardInstanceId };
+    if (a.cardInstanceId) recruitViaEventInstances.add(a.cardInstanceId as string);
+  }
+
+  // Discard-to-recruit (Folco Boffin dm-180): likewise playable whenever a
+  // normal resource could be played (CRF 22).
+  const discardToRecruitEvaluated = discardToRecruitActions(state, playerId);
+  actions.push(...discardToRecruitEvaluated);
+  for (const ea of discardToRecruitEvaluated) {
     const a = ea.action as { cardInstanceId?: CardInstanceId };
     if (a.cardInstanceId) recruitViaEventInstances.add(a.cardInstanceId as string);
   }

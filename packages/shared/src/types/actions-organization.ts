@@ -403,6 +403,29 @@ export interface ManifestationSwapAction {
 }
 
 /**
+ * Discard an in-play character carrying a `discard-to-recruit` effect to bring
+ * a matching character from hand into that character's company (e.g. Folco
+ * Boffin dm-180: "You may discard Folco Boffin at a Haven to play any Hobbit
+ * from your hand with his company").
+ *
+ * The incoming character enters the bearer's company untapped at the same
+ * position; every card attached to the bearer (items, allies, hazards,
+ * trophies) and every control relationship transfers to the new instance. The
+ * discarded bearer's card goes to its owner's discard pile. Per CRF 22 (Folco
+ * Boffin), the replacement may be performed at any time a normal resource
+ * could be played.
+ */
+export interface DiscardToRecruitAction {
+  readonly type: 'discard-to-recruit';
+  /** The player performing the replacement. */
+  readonly player: PlayerId;
+  /** The in-play character carrying the `discard-to-recruit` effect (discarded). */
+  readonly characterId: CardInstanceId;
+  /** The hand card (matching character) brought into play in its place. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Tap a sage to test a gold-ring item at a site whose `sage-tap-ring-test`
  * site-rule grants the ability (e.g. Mount Doom, le-393). The named sage
  * taps; the gold-ring item's owner then rolls a ring test with the site's
