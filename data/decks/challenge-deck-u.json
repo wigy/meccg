@@ -1,0 +1,400 @@
+{
+  "id": "challenge-deck-u",
+  "name": "(U) Come by Night upon them",
+  "alignment": "minion",
+  "notes": "Play factions and items at Border-holds around Mordor. Use Secret Books to untap these sites and Come by night upon them to play an item without tapping the site. After playing successful an item you can burn the site.\n\n### Starting Companies (2) at Minas Morgul\n\n- Eradan with Blazon of the Eye, Raisha with Open to the Summons and Nevido Smod are going to the Border-holds.\n- Orc Captain and Orc Veteran are going to Mount Doom.\n\n### Resource Play\n\nThe Orc-Captain and the Orc-Veteran are going to Mount Doom and playing all of the allies there. If the site is too dangerous then they can go to Nurniag Camp to play the Great Bats. The other company (Eradan, Raisha and Nevido Smod) is going for items and factions. When the Lidless Eye is in play you can use your direct influence to play more characters.\n\n### Hazard Play\n\nThe goal of the hazard deck is to have The Doors of Night in play. So the Come by night upon them reduces the prowess of the automatic attack by 2. Then you can also change Wilderness, Shadow-Land and Border-land to a double Wilderness to play True Fire-drake or play the Rain-drake at Ruins & Lairs.",
+  "pool": [
+    {
+      "name": "Eradan",
+      "card": "le-10",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Nevido Smod",
+      "card": "le-27",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Orc Captain",
+      "card": "le-31",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Orc Veteran",
+      "card": "le-35",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Raisha",
+      "card": "dm-23",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Blazon of the Eye",
+      "card": "le-302",
+      "qty": 1
+    },
+    {
+      "name": "Open to the Summons",
+      "card": "wh-46",
+      "qty": 1
+    },
+    {
+      "name": "Asternak",
+      "card": "le-1",
+      "qty": 1
+    },
+    {
+      "name": "Dasakun",
+      "card": "dm-4",
+      "qty": 1
+    },
+    {
+      "name": "Dorelas",
+      "card": "le-8",
+      "qty": 1
+    },
+    {
+      "name": "Mîonid",
+      "card": "as-3",
+      "qty": 1
+    },
+    {
+      "name": "Pon Opar",
+      "card": "le-37",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "Tros Hesnef",
+        "card": "le-46",
+        "qty": 1
+      },
+      {
+        "name": "Woffung",
+        "card": "dm-26",
+        "qty": 1
+      }
+    ],
+    "hazards": [
+      {
+        "name": "Ambusher",
+        "card": "le-59",
+        "qty": 2
+      },
+      {
+        "name": "Barrow-wight",
+        "card": "le-61",
+        "qty": 1
+      },
+      {
+        "name": "Chill Douser",
+        "card": "dm-106",
+        "qty": 3
+      },
+      {
+        "name": "Nameless Thing",
+        "card": "dm-109",
+        "qty": 1
+      },
+      {
+        "name": "Rain-drake",
+        "card": "td-57",
+        "qty": 3
+      },
+      {
+        "name": "True Fire-drake",
+        "card": "le-95",
+        "qty": 3
+      },
+      {
+        "name": "An Unexpected Outpost",
+        "card": "dm-45",
+        "qty": 3
+      },
+      {
+        "name": "Bairanax Ahunt",
+        "card": "td-4",
+        "qty": 1
+      },
+      {
+        "name": "Doors of Night",
+        "card": "le-110",
+        "qty": 3
+      },
+      {
+        "name": "Eärcaraxë Ahunt",
+        "card": "td-21",
+        "qty": 1
+      },
+      {
+        "name": "Nobody's Friend",
+        "card": "dm-76",
+        "qty": 1
+      },
+      {
+        "name": "Peril Returned",
+        "card": "td-54",
+        "qty": 2
+      },
+      {
+        "name": "Twilight",
+        "card": "le-145",
+        "qty": 3
+      },
+      {
+        "name": "Withered Lands",
+        "card": "td-85",
+        "qty": 3
+      }
+    ],
+    "resources": [
+      {
+        "name": "Broad-headed Spear",
+        "card": "le-304",
+        "qty": 3
+      },
+      {
+        "name": "Easterlings",
+        "card": "le-264",
+        "qty": 1
+      },
+      {
+        "name": "Faithless Steward",
+        "card": "as-83",
+        "qty": 1
+      },
+      {
+        "name": "Great Bats",
+        "card": "as-74",
+        "qty": 1
+      },
+      {
+        "name": "High Helm",
+        "card": "le-313",
+        "qty": 1
+      },
+      {
+        "name": "Sable Shield",
+        "card": "le-341",
+        "qty": 1
+      },
+      {
+        "name": "Southrons",
+        "card": "le-287",
+        "qty": 1
+      },
+      {
+        "name": "Variags of Khand",
+        "card": "le-292",
+        "qty": 1
+      },
+      {
+        "name": "War-wolf",
+        "card": "le-157",
+        "qty": 3
+      },
+      {
+        "name": "Come By Night Upon Them",
+        "card": "le-176",
+        "qty": 1
+      },
+      {
+        "name": "Dark Tryst",
+        "card": "as-80",
+        "qty": 3
+      },
+      {
+        "name": "Gifts as Given of Old",
+        "card": "le-188",
+        "qty": 2
+      },
+      {
+        "name": "Not Slay Needlessly",
+        "card": "le-212",
+        "qty": 3
+      },
+      {
+        "name": "Secret Book",
+        "card": "as-131",
+        "qty": 3
+      },
+      {
+        "name": "The Lidless Eye",
+        "card": "le-203",
+        "qty": 1
+      },
+      {
+        "name": "Voices of Malice",
+        "card": "le-250",
+        "qty": 1
+      },
+      {
+        "name": "Weigh All Things to a Nicety",
+        "card": "le-253",
+        "qty": 3
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Barad-dûr",
+      "card": "le-352",
+      "qty": 1
+    },
+    {
+      "name": "Buhr Widu",
+      "card": "le-357",
+      "qty": 1
+    },
+    {
+      "name": "Dol Guldur",
+      "card": "le-367",
+      "qty": 1
+    },
+    {
+      "name": "Easterling Camp",
+      "card": "le-371",
+      "qty": 1
+    },
+    {
+      "name": "Gobel Mirlond",
+      "card": "le-377",
+      "qty": 1
+    },
+    {
+      "name": "Minas Morgul",
+      "card": "le-390",
+      "qty": 1
+    },
+    {
+      "name": "Mount Doom",
+      "card": "le-393",
+      "qty": 1
+    },
+    {
+      "name": "Nurniag Camp",
+      "card": "le-396",
+      "qty": 1
+    },
+    {
+      "name": "Raider-hold",
+      "card": "le-399",
+      "qty": 1
+    },
+    {
+      "name": "Sarn Goriwing",
+      "card": "le-401",
+      "qty": 1
+    },
+    {
+      "name": "Shrel-Kain",
+      "card": "le-403",
+      "qty": 1
+    },
+    {
+      "name": "Southron Oasis",
+      "card": "le-404",
+      "qty": 1
+    },
+    {
+      "name": "Variag Camp",
+      "card": "le-411",
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Burning Rick, Cot, and Tree",
+      "card": "le-173",
+      "qty": 3
+    },
+    {
+      "name": "Crept Along Cleverly",
+      "card": "wh-43",
+      "qty": 1
+    },
+    {
+      "name": "Eye Never Sleeping",
+      "card": "as-82",
+      "qty": 3
+    },
+    {
+      "name": "Haradrim",
+      "card": "as-63",
+      "qty": 1
+    },
+    {
+      "name": "Nûriags",
+      "card": "as-120",
+      "qty": 1
+    },
+    {
+      "name": "Orc Quarrels",
+      "card": "le-216",
+      "qty": 1
+    },
+    {
+      "name": "Sudden Call",
+      "card": "le-235",
+      "qty": 1
+    },
+    {
+      "name": "The Dark Power",
+      "card": "as-79",
+      "qty": 3
+    },
+    {
+      "name": "Voices of Malice",
+      "card": "le-250",
+      "qty": 1
+    },
+    {
+      "name": "Wain-easterlings",
+      "card": "as-66",
+      "qty": 1
+    },
+    {
+      "name": "Alone and Unadvised",
+      "card": "as-24",
+      "qty": 1
+    },
+    {
+      "name": "Fell Winter",
+      "card": "le-111",
+      "qty": 1
+    },
+    {
+      "name": "Foolish Words",
+      "card": "le-112",
+      "qty": 1
+    },
+    {
+      "name": "Lure of Nature",
+      "card": "le-123",
+      "qty": 1
+    },
+    {
+      "name": "Long Winter",
+      "card": "le-117",
+      "qty": 1
+    },
+    {
+      "name": "Lost in Free-domains",
+      "card": "le-119",
+      "qty": 1
+    },
+    {
+      "name": "New Moon",
+      "card": "tw-68",
+      "qty": 1
+    }
+  ]
+}

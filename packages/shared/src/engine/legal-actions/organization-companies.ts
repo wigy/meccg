@@ -14,8 +14,12 @@ import type {
   GameAction,
   SiteCard,
   PlayerState,
+  Company,
   CardEffect,
   CompanyId,
+  CardDefinition,
+  CardDefinitionId,
+  Alignment as AlignmentType,
 } from '../../index.js';
 import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission } from '../../effects/play-flags.js';
 import { buildMovementMap, getReachableSites } from '../../movement-map.js';
@@ -24,11 +28,15 @@ import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../.
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, isHavenForPlayer, effectiveGeneralInfluence } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep } from '../reducer-utils.js';
+import { siteHasOpponentCompany } from '../evil-hour.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
+import { companyMovementRestrictions, companyMovementTax, isMovementTaxSatisfied } from '../effects/company-restrictions.js';
+import { CardStatus } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import { viableWithRegress } from '../reverse-actions.js';
-import { isBalrogAvatarDef } from '../../state-utils.js';
+import { isBalrogAvatarDef, companyContainsBalrogAvatar, totalMarshallingPoints } from '../../state-utils.js';
 import { availableDI } from './organization.js';
 import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
 
@@ -85,17 +93,326 @@ export function resolveAdjacency(state: GameState, site: SiteCard, targetName: s
   return undefined;
 }
 
+/** Printed site types that Caverns Unchoked (ba-51) may bridge to. */
+const CAVERNS_UNCHOKED_DEFAULT_SITE_TYPES: readonly SiteType[] = [
+  SiteType.ShadowHold,
+  SiteType.RuinsAndLairs,
+  SiteType.BorderHold,
+];
+
+/**
+ * True when `player` owns the site definition `siteDefId` — it sits in their
+ * location deck or is one of their companies' current sites. Backs the "each
+ * other site (of yours)" clause of Caverns Unchoked (ba-51).
+ */
+function playerOwnsSiteDef(player: PlayerState, siteDefId: CardDefinitionId): boolean {
+  if (player.siteDeck.some(s => s.definitionId === siteDefId)) return true;
+  return player.companies.some(
+    c => c.currentSite?.definitionId === siteDefId || c.destinationSite?.definitionId === siteDefId,
+  );
+}
+
+/**
+ * Dynamic Under-deeps adjacency granted by Caverns Unchoked (ba-51). While the
+ * card is in `forPlayer`'s `cardsInPlay` bound to an Under-deeps site U
+ * (`attachedToSite`), each *other* site of theirs that is normally a Shadow-hold
+ * / Ruins & Lairs / Border-hold and lies in U's region is adjacent to U at a
+ * required roll of 0 (an Under-deeps site and its surface site always share a
+ * region, so U's own `region` names the surface region).
+ *
+ * Returns 0 when one of `siteA`/`siteB` is such a bound Under-deeps site and the
+ * other is a qualifying same-region site of `forPlayer`; otherwise `undefined`.
+ * `forPlayer` is required — only the card owner's companies benefit ("of
+ * yours"), so player-agnostic callers (e.g. hazard-creature keying) pass
+ * `undefined` and see no dynamic adjacency.
+ */
+export function cavernsUnchokedAdjacencyRoll(
+  state: GameState,
+  siteA: SiteCard,
+  siteB: SiteCard,
+  forPlayer: PlayerId | undefined,
+): number | undefined {
+  if (!forPlayer) return undefined;
+  const player = playerById(state, forPlayer);
+  if (!player) return undefined;
+
+  for (const card of player.cardsInPlay) {
+    if (card.attachedToSite === undefined) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const effect = getCardEffects(def).find(
+      (e): e is import('../../index.js').SurfaceRegionAdjacencyEffect => e.type === 'surface-region-adjacency',
+    );
+    if (!effect) continue;
+
+    const udDefId = card.attachedToSite;
+    const udDef = defById(state, udDefId);
+    if (!udDef || !isSiteCard(udDef)) continue;
+
+    // Identify which side is the bound Under-deeps site and which is the "other"
+    // same-region site X.
+    let other: SiteCard;
+    if (siteA.id === udDefId) other = siteB;
+    else if (siteB.id === udDefId) other = siteA;
+    else continue;
+    if (other.id === udDefId) continue; // the UD site paired with itself — no adjacency
+
+    if (other.region !== udDef.region) continue;
+    const siteTypes = effect.siteTypes.length > 0 ? effect.siteTypes : CAVERNS_UNCHOKED_DEFAULT_SITE_TYPES;
+    if (!siteTypes.includes(other.siteType)) continue;
+    if (!playerOwnsSiteDef(player, other.id)) continue;
+
+    logDetail(`Caverns Unchoked: ${udDef.name} ↔ ${other.name} adjacent (roll 0) for ${forPlayer as string}`);
+    return 0;
+  }
+  return undefined;
+}
+
+/**
+ * Surface-site roll reduction granted by Breach the Hold (ba-50). While the
+ * card is in `forPlayer`'s `cardsInPlay` bound to an Under-deeps site U
+ * (`attachedToSite`) via a `surface-site-roll-zero` effect, the Under-deeps
+ * movement roll required for one of `forPlayer`'s companies to ascend from U to
+ * U's **surface site** — the non-Under-deeps site listed in U's `adjacentSites`
+ * — is reduced to 0.
+ *
+ * Returns 0 when `origin` is the bound Under-deeps site U and `dest` is a
+ * surface (non-Under-deeps) site adjacent to U; otherwise `undefined`.
+ * `forPlayer` is required — only the card owner's companies benefit, so
+ * player-agnostic callers pass `undefined` and see no reduction.
+ */
+export function breachTheHoldSurfaceRoll(
+  state: GameState,
+  origin: SiteCard,
+  dest: SiteCard,
+  forPlayer: PlayerId | undefined,
+): number | undefined {
+  if (!forPlayer) return undefined;
+  const player = playerById(state, forPlayer);
+  if (!player) return undefined;
+  // The surface site is never itself an Under-deeps site.
+  if (dest.keywords?.includes('under-deeps')) return undefined;
+
+  for (const card of player.cardsInPlay) {
+    if (card.attachedToSite === undefined) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    if (!getCardEffects(def).some(e => e.type === 'surface-site-roll-zero')) continue;
+
+    // `origin` must be the bound Under-deeps site, and `dest` must be listed as
+    // adjacent to it (its surface entrance).
+    if (origin.id !== card.attachedToSite) continue;
+    if (resolveAdjacency(state, origin, dest.name) === undefined) continue;
+
+    logDetail(`Breach the Hold: ${origin.name} → ${dest.name} surface ascent roll reduced to 0 for ${forPlayer as string}`);
+    return 0;
+  }
+  return undefined;
+}
+
+/**
+ * Dynamic Under-deeps adjacency granted by a `dynamic-under-deeps-adjacency`
+ * site-rule (Ancient Deep-hold ba-83). A site carrying the rule ("one Under-deeps
+ * <type> chosen by you when playing this card (N)") is Under-deeps-adjacent, at
+ * the rule's `roll`, to any **other** Under-deeps site whose effective type is
+ * one of the rule's `siteTypes`. Symmetric and player-agnostic, standing in for
+ * the printed `adjacentSites` entry the card leaves to be chosen at play time.
+ *
+ * Returns the required roll when one of `siteA`/`siteB` carries the rule and the
+ * other is a qualifying Under-deeps site; otherwise `undefined`.
+ */
+export function dynamicUnderDeepsAdjacencyRoll(
+  state: GameState,
+  siteA: SiteCard,
+  siteB: SiteCard,
+): number | undefined {
+  const check = (self: SiteCard, other: SiteCard): number | undefined => {
+    const eff = getCardEffects(self).find(
+      (e): e is import('../../types/effects/site-rules.js').DynamicUnderDeepsAdjacencySiteRule =>
+        e.type === 'site-rule' && e.rule === 'dynamic-under-deeps-adjacency',
+    );
+    if (!eff) return undefined;
+    if (other.id === self.id) return undefined;
+    // The connected site must itself be an Under-deeps site ("no surface site").
+    if (!other.keywords?.includes('under-deeps')) return undefined;
+    // …and of one of the required (printed) types (e.g. Ruins & Lairs). Adjacency
+    // operates on site definitions, and Under-deeps sites are type-immutable
+    // (MEAS §6(d)), so the printed type is the effective type here.
+    if (eff.siteTypes.length > 0 && !eff.siteTypes.includes(other.siteType)) return undefined;
+    logDetail(`Dynamic Under-deeps adjacency: ${self.name} ↔ ${other.name} (roll ${eff.roll})`);
+    return eff.roll;
+  };
+  return check(siteA, siteB) ?? check(siteB, siteA);
+}
+
 /**
  * Check whether two sites are Under-deeps-adjacent in either direction.
  *
  * Returns true when either site's `adjacentSites` lists the other (or
- * matches via a wildcard region key). At least one of the two sites must
+ * matches via a wildcard region key), when Caverns Unchoked (ba-51) bridges
+ * them for `forPlayer`, or when a `dynamic-under-deeps-adjacency` site-rule
+ * (Ancient Deep-hold ba-83) connects them. At least one of the two sites must
  * carry the `under-deeps` keyword for the result to be meaningful.
  */
-export function isUnderDeepsAdjacent(state: GameState, origin: SiteCard, dest: SiteCard): boolean {
+export function isUnderDeepsAdjacent(state: GameState, origin: SiteCard, dest: SiteCard, forPlayer?: PlayerId): boolean {
   if (resolveAdjacency(state, origin, dest.name) !== undefined) return true;
   if (resolveAdjacency(state, dest, origin.name) !== undefined) return true;
+  if (cavernsUnchokedAdjacencyRoll(state, origin, dest, forPlayer) !== undefined) return true;
+  if (dynamicUnderDeepsAdjacencyRoll(state, origin, dest) !== undefined) return true;
   return false;
+}
+
+/**
+ * True when `siteDef` is the **surface site** of an Under-deeps site — i.e. it
+ * is the roll-0 surface entrance named in some Under-deeps site's
+ * `adjacentSites` map (the entry whose required roll is 0 and whose key is a
+ * concrete site name, not a `*region:` wildcard). Under-deeps sites themselves
+ * are not surface sites. Used by Tempest of Fire (ba-77), which "cannot be
+ * played on an Under-deeps site or surface site thereof".
+ */
+export function isUnderDeepsSurfaceSite(state: GameState, siteDef: CardDefinition | null | undefined): boolean {
+  if (!siteDef || !isSiteCard(siteDef)) return false;
+  // A surface site is itself never an Under-deeps site.
+  if (siteDef.keywords?.includes('under-deeps')) return false;
+  const targetName = siteDef.name;
+  for (const def of Object.values(state.cardPool)) {
+    if (!isSiteCard(def)) continue;
+    if (!def.keywords?.includes('under-deeps')) continue;
+    const adj = def.adjacentSites;
+    if (!adj) continue;
+    for (const [key, roll] of Object.entries(adj)) {
+      if (roll === 0 && !key.startsWith('*region:') && key === targetName) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Out He Sprang (ba-71): while this permanent-event is in play for the given
+ * player (and Great Shadow is not), a company containing The Balrog avatar may
+ * use region movement — overriding his printed "may not use region or starter
+ * movement" lock — provided at least one endpoint (its current site or its
+ * planned destination) is an Under-deeps **surface site**. The number of
+ * regions the company may span is derived from the player's marshalling-point
+ * total via the card's ascending `[maxMp, regions]` bands (0–8 → 1, 9–16 → 2,
+ * 17–24 → 3, 25+ → 4). This allowance replaces every other region-distance
+ * effect and may not be modified (except by A More Evil Hour, not yet ported).
+ *
+ * Returns the region allowance (≥ 1) when the grant applies to this company, or
+ * `null` when it does not. Both endpoints are read from the company itself
+ * (`currentSite` / `destinationSite`), so the same result holds at the
+ * organization-phase movement plan, the M/H select-company region-cap step, and
+ * the M/H reveal-path (declare-path) step.
+ */
+export function balrogOutHeSprangRegionAllowance(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): number | null {
+  // Only a company containing The Balrog avatar benefits from the override.
+  if (!companyContainsBalrogAvatar(state, player, company)) return null;
+  const inPlay = inPlayNamesForPlayerDeep(state, player);
+  // Scan the player's in-play cards for the grant effect (name-independent).
+  let grant: import('../../types/effects.js').BalrogSurfaceRegionMovementEffect | undefined;
+  for (const c of player.cardsInPlay) {
+    const eff = getCardEffects(defById(state, c.definitionId))
+      .find((e): e is import('../../types/effects.js').BalrogSurfaceRegionMovementEffect => e.type === 'balrog-surface-region-movement');
+    if (eff) { grant = eff; break; }
+  }
+  if (!grant) return null;
+  // Suppressed while the named card (Great Shadow) is in play.
+  if (grant.suppressedByInPlay && inPlay.includes(grant.suppressedByInPlay)) {
+    logDetail(`Out He Sprang: suppressed — ${grant.suppressedByInPlay} is in play`);
+    return null;
+  }
+  // At least one endpoint (origin or destination) must be an Under-deeps surface site.
+  const originDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const destDef = company.destinationSite ? defById(state, company.destinationSite.definitionId) : undefined;
+  const originSurface = isUnderDeepsSurfaceSite(state, originDef);
+  const destSurface = isUnderDeepsSurfaceSite(state, destDef);
+  if (!originSurface && !destSurface) return null;
+  // Region allowance from The Balrog player's MP total, via the ascending bands.
+  const mp = totalMarshallingPoints(player);
+  let allowance = grant.regionAllowanceByMp.length > 0
+    ? grant.regionAllowanceByMp[grant.regionAllowanceByMp.length - 1][1]
+    : 1;
+  for (const [maxMp, regions] of grant.regionAllowanceByMp) {
+    if (mp <= maxMp) { allowance = regions; break; }
+  }
+  logDetail(`Out He Sprang: The Balrog's company may use region movement — MP total ${mp} → ${allowance} region(s) (origin surface=${originSurface}, dest surface=${destSurface})`);
+  return allowance;
+}
+
+/**
+ * True when a site definition carries the Deep Mines movement rule (wh-55):
+ * an Under-deeps-style site reachable only from a protected Wizardhaven.
+ */
+export function isDeepMinesSite(def: CardDefinition | null | undefined): boolean {
+  if (!def) return false;
+  return getCardEffects(def).some(e => e.type === 'site-rule' && e.rule === 'deep-mines-movement');
+}
+
+/**
+ * True when `siteDef` is a *protected Wizardhaven* of the given Fallen-wizard
+ * player — a Wizardhaven for that player ({@link isHavenForPlayer}, so a
+ * Fallen-wizard haven or a Hidden-Haven conversion) that also carries an active
+ * `site-protected` constraint owned by them (Guarded Haven wh-74 family, or an
+ * inherently protected Wizardhaven such as Rhosgobel). This is the surface site
+ * from which Deep Mines (wh-55) may be reached. Only Fallen-wizards qualify.
+ */
+export function isProtectedWizardhavenFor(
+  state: GameState,
+  siteDef: CardDefinition | undefined,
+  siteDefId: CardDefinitionId | undefined,
+  playerId: PlayerId,
+  alignment: AlignmentType,
+): boolean {
+  if (alignment !== 'fallen-wizard') return false;
+  if (!isHavenForPlayer(siteDef, alignment, { state, siteDefinitionId: siteDefId, playerId })) return false;
+  return isSiteProtectedForPlayer(state, siteDefId, playerId);
+}
+
+/** Minimum stage points a Fallen-wizard needs to descend to Deep Mines (>6). */
+export const DEEP_MINES_MIN_STAGE_POINTS = 6;
+
+/**
+ * True when the moving Fallen-wizard company at `origin` may descend to the Deep
+ * Mines site `dest`: `dest` is a Deep Mines site, `origin` is one of the
+ * player's protected Wizardhavens, and the player has more than six stage
+ * points. Consulted by both the plan-movement offer (organization phase) and
+ * the declare-path offer (movement/hazard phase).
+ */
+export function isDeepMinesDescentLegal(
+  state: GameState,
+  origin: SiteCard,
+  originDefId: CardDefinitionId | undefined,
+  dest: CardDefinition | undefined,
+  player: PlayerState,
+): boolean {
+  if (!isDeepMinesSite(dest)) return false;
+  if (player.stagePoints <= DEEP_MINES_MIN_STAGE_POINTS) return false;
+  return isProtectedWizardhavenFor(state, origin, originDefId, player.id, player.alignment);
+}
+
+/**
+ * True when a Fallen-wizard company **at** a Deep Mines site may ascend back to
+ * the surface — the card's "the sites are adjacent and the movement roll
+ * required to move between them is 0" runs both ways, so a company at Deep Mines
+ * may return to one of the player's protected Wizardhavens (roll 0). No stage
+ * point requirement applies to the ascent (only the descent is gated). Without
+ * this the site would be a movement dead-end (it carries no region/site path).
+ */
+export function isDeepMinesAscentLegal(
+  state: GameState,
+  origin: SiteCard,
+  dest: CardDefinition | undefined,
+  destDefId: CardDefinitionId | undefined,
+  player: PlayerState,
+): boolean {
+  if (!isDeepMinesSite(origin)) return false;
+  return isProtectedWizardhavenFor(state, dest, destDefId, player.id, player.alignment);
 }
 
 /**
@@ -103,7 +420,7 @@ export function isUnderDeepsAdjacent(state: GameState, origin: SiteCard, dest: S
  * current site. At least one side of each pair must carry the
  * `under-deeps` keyword; adjacency is checked bidirectionally.
  */
-function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, candidateSites: readonly SiteCard[]): SiteCard[] {
+function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, candidateSites: readonly SiteCard[], forPlayer: PlayerId): SiteCard[] {
   const currentIsUD = currentSiteDef.keywords?.includes('under-deeps') ?? false;
   const results: SiteCard[] = [];
 
@@ -114,7 +431,7 @@ function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, cand
     // At least one side must be Under-deeps
     if (!currentIsUD && !destIsUD) continue;
 
-    if (isUnderDeepsAdjacent(state, currentSiteDef, dest)) {
+    if (isUnderDeepsAdjacent(state, currentSiteDef, dest, forPlayer)) {
       results.push(dest);
     }
   }
@@ -193,6 +510,33 @@ function collectPassiveMovementBonus(
 }
 
 /**
+ * True when `company` is bound by an Enchanted Stream (as-27) movement tax that
+ * has not yet been satisfied this organization phase. While unpaid, the company
+ * may not voluntarily declare movement or split — the controlling player must
+ * first tap the required untapped characters via `pay-movement-tax`. Returns
+ * false when no tax is in play (the common case).
+ */
+export function companyMovementTaxUnpaid(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): boolean {
+  const tax = companyMovementTax(state, company);
+  if (!tax) return false;
+  const untappedCount = company.characters.filter(
+    cId => player.characters[cId]?.status === CardStatus.Untapped,
+  ).length;
+  const paid = (state.phaseState.phase === Phase.Organization
+    ? state.phaseState.movementTaxPaid?.[company.id as string]
+    : 0) ?? 0;
+  const satisfied = isMovementTaxSatisfied(tax, untappedCount, paid);
+  if (!satisfied) {
+    logDetail(`Company ${company.id as string}: Enchanted Stream movement tax unpaid (${paid}/${tax.taxTapCharacters}, ${untappedCount} untapped) — voluntary move/split blocked`);
+  }
+  return !satisfied;
+}
+
+/**
  * Computes plan-movement actions for each company.
  * For every company, emits one viable action per reachable site in the player's
  * site deck, determined by the movement map (starter and region movement),
@@ -219,6 +563,21 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         && c.target.companyId === company.id,
     )) {
       logDetail(`Company ${company.id as string} is locked stationary (company-cannot-move) — no movement offered`);
+      continue;
+    }
+
+    // A company containing a character who may not move (Shifter of Hues wh-115
+    // on Radagast) cannot move; splitting the others off is the way around it.
+    if (companyHasImmobileCharacter(state, player, company)) {
+      logDetail(`Company ${company.id as string} holds a character with bearer-cannot-move — no movement offered`);
+      continue;
+    }
+
+    // Enchanted Stream (as-27): the bound company may not voluntarily move to a
+    // new site until it has tapped its untapped characters (to a max of two)
+    // toward the movement tax this org phase. Until paid, offer no movement; the
+    // `pay-movement-tax` actions are emitted by `payMovementTaxActions`.
+    if (companyMovementTaxUnpaid(state, player, company)) {
       continue;
     }
 
@@ -330,16 +689,48 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     }
     // Environment hazards (e.g. No Way Forward) reduce the max region distance
     // game-wide, never below the environment's floor.
-    const effectiveMaxRegions = applyRegionMovementReduction(state, cappedMaxRegions);
+    let effectiveMaxRegions = applyRegionMovementReduction(state, cappedMaxRegions);
     if (effectiveMaxRegions < cappedMaxRegions) {
       logDetail(`Company ${company.id as string}: region distance reduced to ${effectiveMaxRegions} by an in-play environment (was ${cappedMaxRegions})`);
+    }
+    // A company-bound movement restriction (Going Ever Under Dark ba-37) hard-
+    // caps region distance ("limited in all cases to N regions maximum") and
+    // forbids starter movement.
+    const moveRestriction = companyMovementRestrictions(player, company, state);
+    if (moveRestriction?.regionMovementMax != null && moveRestriction.regionMovementMax < effectiveMaxRegions) {
+      logDetail(`Company ${company.id as string}: region distance capped at ${moveRestriction.regionMovementMax} by a movement-restriction card (was ${effectiveMaxRegions})`);
+      effectiveMaxRegions = moveRestriction.regionMovementMax;
     }
     const currentIsUD = currentSiteDef.keywords?.includes('under-deeps') ?? false;
     // Under-deeps sites are only reachable via under-deeps movement (handled below), never via
     // regular starter/region movement. When already at an under-deeps site, regular movement
     // does not apply at all.
-    const regularCandidates = currentIsUD ? [] : candidateSites.filter(s => !(s.keywords?.includes('under-deeps') ?? false));
-    let reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions);
+    // Deep Mines (wh-55) is reachable only via its own descent pass (below),
+    // never via ordinary starter/region movement — exclude it here too.
+    const regularCandidates = currentIsUD
+      ? []
+      : candidateSites.filter(s => !(s.keywords?.includes('under-deeps') ?? false) && !isDeepMinesSite(s));
+    // A More Evil Hour (ba-48): the targeted company may move up to two
+    // additional regions when moving to — or away from — a site holding an
+    // opponent's company. When its *origin* holds one, the +2 applies to the
+    // whole leaving move (any destination); otherwise the +2 applies only to
+    // destinations that themselves hold an opponent's company.
+    const evilHour = company.evilHourMovementBonus === true;
+    const originHasOpp = evilHour && siteHasOpponentCompany(state, playerId, currentSiteDef.name);
+    const planMax = originHasOpp ? effectiveMaxRegions + 2 : effectiveMaxRegions;
+    let reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, planMax);
+    if (evilHour && !originHasOpp) {
+      const extended = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions + 2);
+      const seenExt = new Set(reachable.map(r => `${r.site.name}:${r.movementType}`));
+      for (const r of extended) {
+        if (r.movementType !== 'region') continue;
+        if (seenExt.has(`${r.site.name}:${r.movementType}`)) continue;
+        if (siteHasOpponentCompany(state, playerId, r.site.name)) {
+          logDetail(`Company ${company.id as string}: A More Evil Hour extends region reach to opponent-occupied ${r.site.name}`);
+          reachable.push(r);
+        }
+      }
+    }
 
     // MEWH §7: a Fallen-wizard's companies must use region movement — they may
     // not use starter (printed-path) movement between adjacent sites/havens.
@@ -348,6 +739,16 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       reachable = reachable.filter(r => r.movementType === 'region');
       if (reachable.length !== beforeStarter) {
         logDetail(`Company ${company.id as string}: Fallen-wizard must use region movement — dropped ${beforeStarter - reachable.length} starter destination(s)`);
+      }
+    }
+
+    // A company-bound movement restriction (Going Ever Under Dark ba-37)
+    // forbids starter movement: drop every starter-only destination.
+    if (moveRestriction?.noStarterMovement) {
+      const beforeStarter = reachable.length;
+      reachable = reachable.filter(r => r.movementType !== 'starter');
+      if (reachable.length !== beforeStarter) {
+        logDetail(`Company ${company.id as string}: movement-restriction forbids starter movement — dropped ${beforeStarter - reachable.length} starter destination(s)`);
       }
     }
 
@@ -401,7 +802,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     }
 
     // --- Under-deeps movement pass ---
-    const udReachable = getUnderDeepsReachable(state, currentSiteDef, candidateSites);
+    const udReachable = getUnderDeepsReachable(state, currentSiteDef, candidateSites, playerId);
     logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: ${udReachable.length} Under-deeps destination(s)`);
     for (const dest of udReachable) {
       const destInstId = siteInstMap.get(dest.name);
@@ -413,6 +814,41 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         continue;
       }
       logDetail(`  Under-deeps destination: ${dest.name}`);
+      const candidate: GameAction = {
+        type: 'plan-movement',
+        player: playerId,
+        companyId: company.id,
+        destinationSite: destInstId,
+      };
+      actions.push(viableWithRegress(candidate, state.reverseActions));
+    }
+
+    // --- Deep Mines descent / ascent pass (wh-55) ---
+    // A company may descend to a Deep Mines site only from one of the moving
+    // Fallen-wizard's protected Wizardhavens and only while he has more than six
+    // stage points (roll 0, resolved as Under-deeps movement). Rule 2.II.7.1
+    // ("no two same-origin companies to the same new site definition") already
+    // enforces the card's "Cannot be duplicated on a given Wizardhaven" clause.
+    // The adjacency runs both ways ("the movement roll required to move between
+    // them is 0"), so a company already at Deep Mines may ascend back to a
+    // protected Wizardhaven (no stage-point gate on the way out).
+    const originIsDeepMines = isDeepMinesSite(currentSiteDef);
+    for (const dest of candidateSites) {
+      const legal = originIsDeepMines
+        ? isDeepMinesAscentLegal(state, currentSiteDef, dest, dest.id, player)
+        : isDeepMinesDescentLegal(state, currentSiteDef, company.currentSite.definitionId, dest, player);
+      if (!legal) continue;
+      const destInstId = siteInstMap.get(dest.name);
+      if (!destInstId) continue;
+      if (seen.has(destInstId as string)) continue;
+      seen.add(destInstId as string);
+      if (blockedByRule_2_II_7_1.has(dest.id)) {
+        logDetail(`  ${dest.name} blocked by rule 2.II.7.1 (sibling at same origin already targets Deep Mines)`);
+        continue;
+      }
+      logDetail(originIsDeepMines
+        ? `  Deep Mines ascent destination: ${dest.name} (from ${currentSiteDef.name})`
+        : `  Deep Mines descent destination: ${dest.name} (from protected Wizardhaven ${currentSiteDef.name}, ${player.stagePoints} stage points)`);
       const candidate: GameAction = {
         type: 'plan-movement',
         player: playerId,
@@ -512,7 +948,7 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
       } else if (char.controlledBy !== 'general') {
         // Rule 228: Move a follower to general influence if GI allows. A
         // `control-restriction` may override the influence-to-control cost.
-        const remainingGI = effectiveGeneralInfluence(state, playerId) - player.generalInfluenceUsed;
+        const remainingGI = generalInfluenceControlLimit(state, playerId) - player.generalInfluenceUsed;
         const controlCost = controlCostOf(state, char, charDef.mind);
         if (controlCost !== null && controlCost <= remainingGI) {
           logDetail(`  → viable: move ${charDef.name} (control cost ${controlCost}) to GI (remaining GI ${remainingGI})`);
@@ -632,6 +1068,13 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
       continue;
     }
 
+    // `no-storage` site-rule (Geann a-Lisch le-374): "Resources may never be
+    // stored at this site." Suppress every store-item offer for a company here.
+    if (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
+      logDetail(`Store-item: ${siteName} carries no-storage site-rule — skipping company`);
+      continue;
+    }
+
     for (const charInstId of company.characters) {
       const char = player.characters[charInstId];
       if (!char || char.items.length === 0) continue;
@@ -703,6 +1146,10 @@ export function splitCompanyActions(state: GameState, playerId: PlayerId): Evalu
 
     // Need at least 2 GI characters to split (one stays, one leaves)
     if (giChars.length < 2) continue;
+
+    // Enchanted Stream (as-27): a bound company may not voluntarily split until
+    // its movement tax has been paid this org phase.
+    if (companyMovementTaxUnpaid(state, player, company)) continue;
 
     for (const charInstId of giChars) {
       const char = player.characters[charInstId];

@@ -299,8 +299,43 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": [
+          "Withered Heath",
+          "Northern Rhovanion",
+          "Iron Hills",
+          "Grey Mountain Narrows"
+        ],
+        "strikes": 4,
+        "prowess": 11,
+        "body": 7,
+        "race": "dragon",
+        "combatRules": [
+          "attacker-chooses-defenders"
+        ],
+        "extended": {
+          "when": {
+            "inPlay": "Doors of Night"
+          },
+          "regionNames": [
+            "Brown Lands",
+            "Southern Rhovanion",
+            "Dorwinion",
+            "Dagorlad",
+            "Horse Plains"
+          ]
+        }
+      }
+    ],
     "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 4 strikes at 11/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Brown Lands, Southern Rhovanion, Dorwinion, Dagorlad, and Horse Plains.",
+    "certified": "2026-07-09",
     "manifestId": "tw-26"
   },
   {
@@ -418,8 +453,43 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": [
+          "Withered Heath",
+          "Northern Rhovanion",
+          "Iron Hills",
+          "Grey Mountain Narrows"
+        ],
+        "strikes": 3,
+        "prowess": 15,
+        "body": 7,
+        "race": "dragon",
+        "combatRules": [
+          "attacker-chooses-defenders"
+        ],
+        "extended": {
+          "when": {
+            "inPlay": "Doors of Night"
+          },
+          "regionNames": [
+            "Brown Lands",
+            "Southern Rhovanion",
+            "Dorwinion",
+            "Dagorlad",
+            "Horse Plains"
+          ]
+        }
+      }
+    ],
     "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 15/7 (attacker chooses defending characters). If Doors of Night is in play, this attack also affects: Brown Lands, Southern Rhovanion, Dorwinion, Dagorlad, and Horse Plains.",
+    "certified": "2026-07-06",
     "manifestId": "tw-90"
   },
   {
@@ -486,10 +556,15 @@
           "strikes": 3,
           "prowess": 14
         }
+      },
+      {
+        "type": "discard-for-hazard-limit",
+        "value": 2
       }
     ],
     "text": "Unique. Unless Daelomin Ahunt is in play, Dancing Spire has an additional automatic-attack: Dragon — 3 strikes at 14/8. In addition, you may discard this card from play during opponent’s movement/hazard phase (not counting against the hazard limit) to increase the hazard limit against one company by two.",
-    "manifestId": "tw-26"
+    "manifestId": "tw-26",
+    "certified": "2026-07-05"
   },
   {
     "cardType": "hazard-event",
@@ -1014,8 +1089,12 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/LeftBehind.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a non-Wizard character whose company is facing an attack of five strikes or more. Following the attack, character splits off into a different company with the same site path as the company in which he was. He faces a separate movement/hazard phase this turn with a hazard limit of one. He may rejoin his original company following all movement/hazard phases."
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.race": { "$ne": "wizard" } } },
+      { "type": "left-behind-split", "minStrikes": 5 }
+    ],
+    "text": "Playable on a non-Wizard character whose company is facing an attack of five strikes or more. Following the attack, character splits off into a different company with the same site path as the company in which he was. He faces a separate movement/hazard phase this turn with a hazard limit of one. He may rejoin his original company following all movement/hazard phases.",
+    "certified": "2026-07-12"
   },
   {
     "cardType": "hazard-event",
@@ -1084,7 +1163,14 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/PerilReturned.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
+    "certified": "2026-07-17",
+    "effects": [
+      {
+        "type": "environment-override",
+        "considerInPlay": ["Doors of Night"],
+        "considerNotInPlay": ["Gates of Morning"]
+      }
+    ],
     "text": "If Gates of Morning is not in play, Doors of Night is considered to be in play.If Gates of Morning is in play, it is considered to be out of play while Peril Returned is in play. Gates of Morning may still be removed normally (e. g., through the use of Twlight, Doors of Night, etc.)."
   },
   {
@@ -1124,8 +1210,28 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/SearchingEye.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Cancel and discard any card requiring scout skill before it is resolved or cancel any ongoing effect of a card that required scout skill to play. If this card is played as an on-guard card, it can be revealed during the opponent’s site phase to cancel and discard a card requiring scout skill before it is resolved."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "cancel-chain-entry",
+          "select": "target",
+          "requiredSkill": "scout"
+        }
+      },
+      {
+        "type": "on-guard-reveal",
+        "trigger": "resource-short-event",
+        "apply": {
+          "type": "cancel-chain-entry",
+          "select": "target",
+          "requiredSkill": "scout"
+        }
+      }
+    ],
+    "text": "Cancel and discard any card requiring scout skill before it is resolved or cancel any ongoing effect of a card that required scout skill to play. If this card is played as an on-guard card, it can be revealed during the opponent’s site phase to cancel and discard a card requiring scout skill before it is resolved.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "hazard-event",
@@ -1167,8 +1273,54 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Stormcrow.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "The direct influence of each Wizard is reduced by 2 (by 4 if Doors of Night is in play). Discard all resource permanent-events that have been played on each company with a Wizard (i. e., on the company as a whole, not individual characters, e. g., Fellowship). No such cards may be played on each Wizard’s company.Discard this card when any play deck is exhausted. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2,
+        "target": "all-characters",
+        "when": {
+          "target.race": "wizard"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2,
+        "target": "all-characters",
+        "when": {
+          "$and": [
+            {
+              "target.race": "wizard"
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
+      },
+      {
+        "type": "prohibit-company-events",
+        "companyHasRace": "wizard"
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "The direct influence of each Wizard is reduced by 2 (by 4 if Doors of Night is in play). Discard all resource permanent-events that have been played on each company with a Wizard (i. e., on the company as a whole, not individual characters, e. g., Fellowship). No such cards may be played on each Wizard’s company.Discard this card when any play deck is exhausted. Cannot be duplicated.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "hazard-event",

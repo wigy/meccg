@@ -4,11 +4,11 @@ The title argument is: $ARGUMENTS
 
 Follow these steps exactly:
 
-1. **Run checks:** Execute all four in parallel and verify they pass. If any fail, stop and report the failures.
+1. **Run checks:** Execute both in parallel and verify they pass. If any fail, stop and report the failures.
    - `npm run build` — type-check
-   - `npm test` — rules tests
-   - `npm run test:nightly` — card tests
    - `npm run lint` — linting
+
+   Do NOT run `npm test` or `npm run test:nightly` — full test suites are run during PR review (reviewer + branch CI) before changes reach master, not at release time.
 
 2. **Build API docs:** Execute `npm run docs` and verify it completes without errors. Warnings are acceptable.
 

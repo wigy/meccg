@@ -195,6 +195,42 @@ describe('Flatter a Foe (td-116)', () => {
     expect(cancels).toHaveLength(0);
   });
 
+  test('NOT playable outside combat (end-of-turn phase, no attack)', () => {
+    // Regression: Flatter a Foe is a combat-only short-event ("Playable on a
+    // character whose company is facing an attack …"). Its lone
+    // flattery-cancel-attack effect must be recognised as combat-only so the
+    // card is never offered as a generic resource short-event when no attack
+    // is underway (game mrj9s8tr-ytkfvr, seq 91 — offered during end-of-turn).
+    const state = buildTestState({
+      phase: Phase.EndOfTurn,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [FLATTER_A_FOE], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const flatCard = handCardId(state, RESOURCE_PLAYER);
+    const actions = computeLegalActions(state, PLAYER_1);
+
+    // The card may still be voluntarily discarded, but it must not be
+    // offered as a playable event (play-short-event / cancel-attack).
+    const playForCard = actions.filter(
+      ea => ea.viable
+        && (ea.action.type === 'play-short-event' || ea.action.type === 'cancel-attack')
+        && (ea.action as { cardInstanceId?: unknown }).cardInstanceId === flatCard,
+    );
+    expect(playForCard).toHaveLength(0);
+
+    // It is instead annotated not-playable for being combat-only.
+    const notPlayable = actions.find(
+      ea => ea.action.type === 'not-playable'
+        && (ea.action as { cardInstanceId?: unknown }).cardInstanceId === flatCard,
+    );
+    expect(notPlayable).toBeDefined();
+    expect((notPlayable as { reason?: string }).reason).toContain('combat');
+  });
+
   // ── Chain resolution → flattery-attempt pending ───────────────────────────
 
   test('declaring Flatter a Foe creates a flattery-attempt pending resolution after chain resolves', () => {

@@ -117,6 +117,12 @@ export interface PlayHazardAction {
    */
   readonly targetFactionInstanceId?: CardInstanceId;
   /**
+   * For hazards played on an opponent's stored item (e.g. Neither so Ancient
+   * Nor so Potent dm-73), the stored item instance (in the opponent's
+   * marshalling-point pile) being targeted.
+   */
+  readonly targetStoredItemInstanceId?: CardInstanceId;
+  /**
    * For hazard short-events with a creature-race-choice effect (e.g. Two
    * or Three Tribes Present), the race the player announced when playing.
    */
@@ -127,6 +133,13 @@ export interface PlayHazardAction {
    * character instance being tapped. The agent must be at the destination site.
    */
   readonly agentInstanceId?: CardInstanceId;
+  /**
+   * For a hazard permanent-event played on one of the hazard player's own
+   * face-down agents (Inner Cunning dm-68, mode 1), the agent's virtual-company
+   * id. The card enters play in the hazard player's `cardsInPlay` with
+   * `attachedToAgentId` set to this value.
+   */
+  readonly targetAgentId?: CompanyId;
   /**
    * For tap-agent-at-site effects where the agent is face-down: a home
    * site instance from the hazard player's location deck to place with the
@@ -146,6 +159,62 @@ export interface PlayHazardAction {
    * the chain resolver dispatches the selected option's `apply` clause.
    */
   readonly optionId?: string;
+  /**
+   * For dual-mode hazard-creature cards (`creature-alt-event`, e.g. Mouth of
+   * Sauron tw-65), selects the alternative event mode instead of normal
+   * keyed-creature combat. When set, the card is played as an event of this
+   * kind against the target company (counting against the hazard limit); its
+   * top-level effects resolve through the corresponding event chain path.
+   */
+  readonly altEventMode?: 'short-event' | 'permanent-event';
+  /**
+   * For hazard short-events carrying a {@link PlayDiscardCostEffect} (e.g. Faces
+   * of the Dead dm-57: "discard any Undead hazard creature from your hand"), the
+   * hand card the playing player discards to pay the play cost. The legal-action
+   * generator emits one action per (target × matching cost card) so the player
+   * chooses which card to sacrifice; the reducer moves it to the discard pile.
+   */
+  readonly costDiscardInstanceId?: CardInstanceId;
+}
+
+/**
+ * Tap an in-play dual-mode creature that was played as a permanent-event
+ * (`creature-alt-event` mode `permanent-event`, e.g. Adûnaphel tw-2, Ûvatha
+ * tw-107) during the opponent's movement/hazard phase. Per the card text, when
+ * tapped the permanent-event "becomes a short-event": it is removed from play,
+ * discarded, counts one against the hazard limit, and its on-tap effects
+ * resolve through the ordinary short-event chain path (e.g. tw-107 fetches a
+ * hazard creature from discard to hand; tw-2 taps a chosen character).
+ */
+export interface TapAltPermanentEventAction {
+  readonly type: 'tap-alt-permanent-event';
+  /** The hazard player tapping their in-play creature-permanent-event. */
+  readonly player: PlayerId;
+  /** The creature-permanent-event instance in `cardsInPlay`. */
+  readonly cardInstanceId: CardInstanceId;
+  /**
+   * For a `tap-character` on-tap effect (tw-2), the character to tap. The
+   * legal-action generator emits one action per eligible target character.
+   */
+  readonly targetCharacterId?: CardInstanceId;
+}
+
+/**
+ * My Precious (dm-29): resolving an `agent-play-manifestation-offer` — the
+ * defender taps one character in the target company and plays the agent's other
+ * manifestation (Gollum) from hand; the attacking agent is then discarded. (The
+ * defender may instead `pass`, leaving the agent in play.)
+ */
+export interface PlayAgentManifestationAction {
+  readonly type: 'play-agent-manifestation';
+  /** The defending (resource) player. */
+  readonly player: PlayerId;
+  /** The attacking agent to discard. */
+  readonly agentId: CompanyId;
+  /** The character in the target company to tap. */
+  readonly characterId: CardInstanceId;
+  /** The manifestation card (Gollum) in the defender's hand to play. */
+  readonly manifestationCardInstanceId: CardInstanceId;
 }
 
 /**
@@ -307,9 +376,13 @@ export interface CancelAttackAction {
    * default when absent) cancels the attack outright; `"reduce-prowess"`
    * instead lowers the attack's prowess by the effect's `prowessPenalty`. Set
    * only for cards that declare a `prowessPenalty` (e.g. The Tormented Earth,
-   * as-102).
+   * as-102). `"free-later-cancel"` is the deferred free cancellation granted by
+   * a `free-attack-cancel` constraint (Darkness Wielded ba-55): no card is
+   * played from hand — `cardInstanceId` names the granting card (now in discard)
+   * only for logging; the constraint is consumed and the attack cancelled
+   * immediately.
    */
-  readonly mode?: 'cancel' | 'reduce-prowess';
+  readonly mode?: 'cancel' | 'reduce-prowess' | 'free-later-cancel';
 }
 
 /**
@@ -351,6 +424,23 @@ export interface ModifyAttackAction {
 }
 
 /**
+ * Apply an in-play card's optional `attacker-attack-option` to the current
+ * combat: the attacking (hazard) player chooses to modify a matching-race
+ * attack their opponent faces (e.g. Ungoliant's Progeny ba-27 — a Spider
+ * attack gains +1 prowess and becomes detainment). Legal only in the
+ * attacking player's `resolve-strike` Step 1 window before any strike has
+ * resolved, and only once per attack.
+ */
+export interface ApplyAttackerAttackOptionAction {
+  /** Action discriminant. */
+  readonly type: 'apply-attacker-attack-option';
+  /** The attacking (hazard) player applying the option. */
+  readonly player: PlayerId;
+  /** The in-play card whose `attacker-attack-option` effect is applied. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Tap an in-play item to boost the bearer's prowess for the single
  * strike currently being resolved. Legal during `resolve-strike` when
  * the item is untapped and belongs to the character currently assigned
@@ -376,6 +466,47 @@ export interface TapItemForStrikeAction {
 }
 
 /**
+ * Tap an in-play `face-strike-on-tap` item (e.g. Bow of Alatar wh-90) during
+ * the `assign-strikes` defender phase to let its bearer face one of the
+ * attack's strikes regardless of the attack's normal capabilities and the
+ * bearer's status. Legal while the item is untapped, its bearer is in the
+ * defending company, and an unassigned strike remains. Taps the item and adds a
+ * strike assignment to the bearer flagged to reduce the attack's body if the
+ * bearer parries it.
+ */
+export interface FaceStrikeOnTapAction {
+  /** Action discriminant. */
+  readonly type: 'face-strike-on-tap';
+  /** The defending player tapping the item. */
+  readonly player: PlayerId;
+  /** The in-play `face-strike-on-tap` item being tapped. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character bearing the item (must be in the defending company). */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
+ * Tap an in-play `combat-cancel-weapon` item (Whip of Many Thongs ba-82) during
+ * a company-vs-company combat to cancel all effects of one chosen weapon in the
+ * opponent's company until the end of the combat. Legal while the combat is
+ * CvCC, the item is untapped and borne by The Balrog in a participating
+ * company, and the target is an un-suppressed `weapon`-keyword item on a
+ * character in the opposing company. Taps the item and adds the target weapon
+ * to {@link CombatState.suppressedWeaponInstanceIds}; the weapon is not
+ * discarded.
+ */
+export interface CancelWeaponEffectsAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-weapon-effects';
+  /** The player tapping the item (the controller of The Balrog). */
+  readonly player: PlayerId;
+  /** The in-play `combat-cancel-weapon` item being tapped (the Whip). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The opponent-company weapon item whose effects are cancelled. */
+  readonly weaponInstanceId: CardInstanceId;
+}
+
+/**
  * Tap an in-play ally during combat to grant an attack-scoped stat boost to
  * matching characters in the ally's own company (e.g. Great Lord of
  * Goblin-gate as-75: "Tap to give +2 prowess to all Orcs in its company").
@@ -385,6 +516,22 @@ export interface TapItemForStrikeAction {
 export interface TapAllyCombatBoostAction {
   /** Action discriminant. */
   readonly type: 'tap-ally-combat-boost';
+  /** The player who owns the ally being tapped. */
+  readonly player: PlayerId;
+  /** The in-play ally being tapped. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * Tap an in-play ally during the `body-check` combat phase to add its
+ * `ally-body-check-boost` value to its controlling character's effective
+ * body for the pending body check (e.g. War-warg le-156: "tap War-warg to
+ * give +2 body to its controlling character"). Offered only when the ally
+ * and its controlling character were both struck by the same attack.
+ */
+export interface TapAllyBodyCheckBoostAction {
+  /** Action discriminant. */
+  readonly type: 'tap-ally-body-check-boost';
   /** The player who owns the ally being tapped. */
   readonly player: PlayerId;
   /** The in-play ally being tapped. */
@@ -417,6 +564,13 @@ export interface CancelByTapAction {
   readonly player: PlayerId;
   /** The character being tapped to cancel one attack. */
   readonly characterId: CardInstanceId;
+  /**
+   * In the "cancel a strike against a wounded character" variant (Carrion
+   * Feeders ba-11, `cancelStrikeAgainstWounded`), the wounded character whose
+   * pre-assigned strike is removed. Absent for the single-target Assassin
+   * variant, which pops the last assignment.
+   */
+  readonly strikeCharacterId?: CardInstanceId;
 }
 
 /**
@@ -488,6 +642,21 @@ export interface DiscardItemFromCompanyAction {
 }
 
 /**
+ * Resolve a `force-discard-card` pending resolution: the actor picks one
+ * candidate card (a ring) to discard. Used by *Rolled down to the Sea*
+ * (wh-29), where the card-player's opponent must discard one ring from their
+ * hand or from one of their characters.
+ */
+export interface ForceDiscardCardAction {
+  /** Action discriminant. */
+  readonly type: 'force-discard-card';
+  /** The player forced to discard (the card-player's opponent). */
+  readonly player: PlayerId;
+  /** The chosen ring instance to discard (from hand or a character). */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Cancel a strike against a character by having another character in
  * the same company pay a cost (e.g. Fatty Bolger taps to cancel a
  * strike against another hobbit).
@@ -501,6 +670,21 @@ export interface CancelStrikeAction {
   readonly cancellerInstanceId: CardInstanceId;
   /** The character whose strike is being canceled. */
   readonly targetCharacterId: CardInstanceId;
+}
+
+/**
+ * Play a `flee-from-strike` permanent-event (e.g. Fled into Darkness ba-18)
+ * from hand during the resolve-strike sub-phase. The current strike against
+ * the named character (The Balrog) is canceled, the character taps if untapped,
+ * and the card enters play with a one-shot skip-next-untap constraint.
+ */
+export interface FleeFromStrikeAction {
+  /** Action discriminant. */
+  readonly type: 'flee-from-strike';
+  /** The defending player playing the card. */
+  readonly player: PlayerId;
+  /** The `flee-from-strike` card being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
 }
 
 /**
@@ -608,6 +792,42 @@ export interface UnderDeepsRollAction {
 }
 
 /**
+ * Gangways over the Fire (ba-60): during the `gangways-offer` step the active
+ * player selects a new Under-deeps destination for the company that just
+ * finished its movement/hazard phase, triggering another Under-deeps
+ * movement/hazard phase (with a cumulative roll penalty). Passing instead
+ * finishes the company.
+ */
+export interface GangwaysExtraMoveAction {
+  /** Action discriminant. */
+  readonly type: 'gangways-extra-move';
+  /** The active (resource) player. */
+  readonly player: PlayerId;
+  /** The company taking another Under-deeps movement/hazard phase. */
+  readonly companyId: CompanyId;
+  /** The chosen Under-deeps destination site (an instance in the site deck). */
+  readonly destinationSite: CardInstanceId;
+}
+
+/**
+ * `grant-extra-mh-phase` resources (Forced March le-185, Bridge tw-202, Leg It
+ * Double Quick le-202, Ûvatha Unleashed le-248): during the `extra-mh-move-offer`
+ * step the active player chooses a new destination for the company that just
+ * completed its movement/hazard phase, sending it on another movement (a fresh
+ * movement/hazard phase). Passing instead finishes the company.
+ */
+export interface ExtraMHMoveAction {
+  /** Action discriminant. */
+  readonly type: 'extra-mh-move';
+  /** The active (resource) player. */
+  readonly player: PlayerId;
+  /** The company taking another movement/hazard phase. */
+  readonly companyId: CompanyId;
+  /** The chosen destination site (an instance in the site deck). */
+  readonly destinationSite: CardInstanceId;
+}
+
+/**
  * Tap an in-play ally (Goldberry) to negate a `force-return-to-origin`
  * chain entry before it resolves. Legal during M/H chain declaring when
  * the ally is untapped and the chain contains an unresolved entry tagged
@@ -621,6 +841,43 @@ export interface CancelReturnToOriginAction {
   /** The ally instance being tapped (e.g. Goldberry). */
   readonly allyInstanceId: CardInstanceId;
   /** The chain entry's card instance to negate. */
+  readonly targetInstanceId: CardInstanceId;
+}
+
+/**
+ * Play a hazard short-event (Black Vapour ba-14) from hand — or reveal it from
+ * on-guard — during a combat chain to counter an opponent's chain entry that
+ * would cancel a creature attack of a matching race. The card is pushed onto
+ * the chain as a short-event entry carrying {@link targetInstanceId}; when it
+ * resolves it enqueues a roll (2d6 + the attack's prowess) that, on success,
+ * negates the target cancel and boosts the surviving attack.
+ */
+export interface PlayCounterCancelRollAction {
+  /** Action discriminant. */
+  readonly type: 'counter-cancel-roll';
+  /** The attacking (hazard) player playing the counter-cancel card. */
+  readonly player: PlayerId;
+  /** The Black Vapour card being played (in hand or on-guard on the defender). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The chain entry's card instance to counter (the opponent's cancel-attack). */
+  readonly targetInstanceId: CardInstanceId;
+}
+
+/**
+ * Play a Balrog resource short-event (Great Fissure ba-61) from hand during a
+ * chain to negate an unresolved chain entry that would cancel an attack by The
+ * Balrog's company against an opponent's company. The counter-cancel counterpart
+ * to {@link CancelReturnToOriginAction}: sourced from a discarded hand card
+ * rather than a tapped ally.
+ */
+export interface CounterCancelAttackAction {
+  /** Action discriminant. */
+  readonly type: 'counter-cancel-attack';
+  /** The Balrog player playing the counter-cancel card. */
+  readonly player: PlayerId;
+  /** The hand card being played and discarded (e.g. Great Fissure). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The chain entry's card instance to negate (the opponent's cancel-attack). */
   readonly targetInstanceId: CardInstanceId;
 }
 
@@ -894,6 +1151,24 @@ export interface AgentTapAttackAction {
 }
 
 /**
+ * The hazard player discards an agent at the moving company's new site to
+ * force the company to return to its site of origin (the
+ * `agent-discard-return-to-origin` effect, e.g. Baduila dm-2).
+ *
+ * This does NOT count as an agent action and does NOT count against the
+ * hazard limit. Per CoE rule 2.IV.4 the company's movement/hazard phase
+ * immediately ends and its site phase is blocked.
+ */
+export interface AgentDiscardReturnToOriginAction {
+  /** Action discriminant. */
+  readonly type: 'agent-discard-return-to-origin';
+  /** The hazard player discarding the agent. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent being discarded. */
+  readonly agentId: CompanyId;
+}
+
+/**
  * Power Built by Waiting (as-34): the hazard player taps this card from
  * their cardsInPlay to increase the hazard limit against the current target
  * company by the card's {@link TapForHazardLimitEffect.value}.
@@ -924,6 +1199,26 @@ export interface PayHazardLimitToUntapCardAction {
   /** The instance ID of the cardsInPlay card to untap. */
   readonly cardInstanceId: CardInstanceId;
   /** The company whose hazard limit is being spent. */
+  readonly targetCompanyId: CompanyId;
+}
+
+/**
+ * Dragon "At Home" permanent-events (METD §4): the hazard player discards this
+ * card from play during the opponent's movement/hazard phase (not counting
+ * against the hazard limit) to increase the hazard limit against one company
+ * by the card's {@link DiscardForHazardLimitEffect.value}.
+ *
+ * The card moves from cardsInPlay to the owner's discard pile; the boost is
+ * applied as a `hazard-limit-modifier` constraint scoped to the target
+ * company's current M/H phase.
+ */
+export interface DiscardCardForHazardLimitAction {
+  readonly type: 'discard-card-for-hazard-limit';
+  /** The hazard player activating the ability. */
+  readonly player: PlayerId;
+  /** The instance ID of the cardsInPlay card to discard. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The company whose hazard limit is increased. */
   readonly targetCompanyId: CompanyId;
 }
 
@@ -1004,6 +1299,32 @@ export interface PlayCreatureFromDiscardAction {
 }
 
 /**
+ * Replay a hazard creature from the hazard player's own discard pile as an
+ * immediate attack, granted by an in-play permanent-event carrying a
+ * `grant-replay-attacked-creature` effect (Monstrosity of Diverse Shape,
+ * ba-21).
+ *
+ * The creature must have already attacked the target company earlier this
+ * movement/hazard phase. Unlike {@link PlayCreatureFromDiscardAction}, this
+ * play DOES count against the hazard limit and may be used only once per
+ * company's movement/hazard phase per source permanent-event.
+ */
+export interface SpawnReplayCreatureAction {
+  /** Action discriminant. */
+  readonly type: 'spawn-replay-creature';
+  /** The hazard player replaying the creature. */
+  readonly player: PlayerId;
+  /** The in-play permanent-event instance granting the ability. */
+  readonly sourceInstanceId: CardInstanceId;
+  /** The hazard-creature instance in the discard pile being brought into play. */
+  readonly creatureInstanceId: CardInstanceId;
+  /** The company the creature is targeting. */
+  readonly targetCompanyId: CompanyId;
+  /** Keying match (same as a play-hazard creature). */
+  readonly keyedBy?: CreatureKeyingMatch;
+}
+
+/**
  * Roll 2d6 to resolve a Stay Her Appetite (le-140) condition check.
  * Resolves the queued `stay-her-appetite-roll` pending resolution.
  */
@@ -1012,4 +1333,21 @@ export interface StayHerAppetiteRollAction {
   readonly type: 'stay-her-appetite-roll';
   /** The hazard player making the roll. */
   readonly player: PlayerId;
+}
+
+/**
+ * Resolve a queued `transfer-returned-item` pending resolution (Pilfer Anything
+ * Unwatched as-33). The returned character's owner either transfers one item to
+ * a company-mate (both fields present) or declines (both omitted); the rest of
+ * the items stay in the discard pile.
+ */
+export interface TransferReturnedItemAction {
+  /** Action discriminant. */
+  readonly type: 'transfer-returned-item';
+  /** The returned character's owner (resolves the pending resolution). */
+  readonly player: PlayerId;
+  /** The item to transfer (from the owner's discard pile); omitted to decline. */
+  readonly itemInstanceId?: CardInstanceId;
+  /** The company-mate that receives the item; omitted to decline. */
+  readonly targetCharacterId?: CardInstanceId;
 }

@@ -37,7 +37,19 @@
     "automaticAttacks": [],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "A company may move to this site only from one of your protected Wizardhavens [{H}] and only if you have more than 6 stage points. The protected Wizardhaven is the surface site for Deep Mines (i. e., the sites are adjacent and the movement roll required to move between them is 0). You receive the three stage points if any of your companies are at the site. May be duplicated in location deck. Cannot be duplicated on a given Wizardhaven."
+    "text": "A company may move to this site only from one of your protected Wizardhavens [{H}] and only if you have more than 6 stage points. The protected Wizardhaven is the surface site for Deep Mines (i. e., the sites are adjacent and the movement roll required to move between them is 0). You receive the three stage points if any of your companies are at the site. May be duplicated in location deck. Cannot be duplicated on a given Wizardhaven.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "deep-mines-movement"
+      },
+      {
+        "type": "stage-points",
+        "value": 3,
+        "whileCompanyAtSite": true
+      }
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "fallen-wizard-site",
@@ -78,6 +90,23 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Special: Only Radagast’s companies may use this card. This site is a protected Wizardhaven [{H}]. If one of your companies is at this site, all attacks against it are canceled. You receive the stage point if any of your companies are at this site.",
-    "havenPaths": {}
+    "havenPaths": {},
+    "keywords": ["radagast-specific"],
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "protected-wizardhaven"
+      },
+      {
+        "type": "site-rule",
+        "rule": "cancel-attacks"
+      },
+      {
+        "type": "stage-points",
+        "value": 1,
+        "whileCompanyAtSite": true
+      }
+    ],
+    "certified": "2026-07-17"
   }
 ]

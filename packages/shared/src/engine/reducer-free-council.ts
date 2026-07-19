@@ -13,14 +13,14 @@
 import type { GameState, CardInstance, FreeCouncilPhaseState, PlayerId, GameAction, WinReason, CardDefinitionId } from '../index.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex, computeTournamentScore, requirePhaseState } from '../state-utils.js';
-import { isCharacterCard } from '../types/cards.js';
-import { Race, CardStatus, Alignment } from '../types/common.js';
+import { CardStatus, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef } from './effects/index.js';
+import { isCharacterCard } from '../types/cards.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { removeConstraint } from './pending.js';
 
@@ -221,6 +221,28 @@ function resolveCorruptionCheck(
     }
   }
 
+  // Company-scoped corruption check-modifier constraints (Ren the Ringwraith
+  // le-56: "modify all corruption checks made this turn by minions in any one
+  // of your companies by +2"): applied to every corruption check by a minion
+  // character in the *targeted* company, and NOT consumed (they persist for
+  // their turn scope).
+  const fcCompany = findCharacterCompany(
+    state.players[playerIndex].companies, pending.characterId,
+  );
+  const fcCharDef = resolveDef(state, pending.characterId);
+  const fcIsMinion = isCharacterCard(fcCharDef) && fcCharDef.cardType === 'minion-character';
+  if (fcCompany && fcIsMinion) {
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type === 'check-modifier'
+          && constraint.kind.check === 'corruption'
+          && constraint.target.kind === 'company'
+          && constraint.target.companyId === fcCompany.id) {
+        effectModifier += constraint.kind.value;
+        logDetail(`Free Council: company-wide corruption check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id as string}`);
+      }
+    }
+  }
+
   const player = state.players[playerIndex];
   const char = player.characters[pending.characterId];
   const charDef = resolveDef(state, pending.characterId);
@@ -377,20 +399,15 @@ function computeFinalScores(state: GameState): { score0: number; score1: number 
   const p0 = state.players[0];
   const p1 = state.players[1];
 
+  // Step 6: the -5 misc MP penalty for an eliminated avatar (CoE rule 2.2 /
+  // 10.3.vi) is already folded into each player's running misc tally by
+  // recomputeDerived (see hasEliminatedAvatar), so it flows through
+  // computeTournamentScore here without a separate subtraction. Keeping it in a
+  // single place means the live MP display and the final score never diverge.
   let score0 = computeTournamentScore(p0.marshallingPoints, p1.marshallingPoints);
   let score1 = computeTournamentScore(p1.marshallingPoints, p0.marshallingPoints);
-
-  // Step 6: -5 misc MP penalty if avatar is eliminated
-  // Avatar is the first character in the eliminated pile that matches the player's avatar type
-  // For simplicity, check if any character in outOfPlayPile was an avatar (wizard/ringwraith)
-  if (hasEliminatedAvatar(state, 0)) {
-    logDetail(`Player ${p0.name} has eliminated avatar — applying -5 penalty`);
-    score0 -= 5;
-  }
-  if (hasEliminatedAvatar(state, 1)) {
-    logDetail(`Player ${p1.name} has eliminated avatar — applying -5 penalty`);
-    score1 -= 5;
-  }
+  if (hasEliminatedAvatar(state, 0)) logDetail(`Player ${p0.name} has an eliminated avatar — -5 misc penalty already in running total`);
+  if (hasEliminatedAvatar(state, 1)) logDetail(`Player ${p1.name} has an eliminated avatar — -5 misc penalty already in running total`);
 
   // MELE §6 step 5: Unique card reveal — scan each player's hand for unique
   // resource cards whose name matches a unique card the *opponent* has in play.
@@ -506,21 +523,6 @@ export function oneRingWin(
   const player = playerById(state, winner);
   const alignment = player?.alignment ?? Alignment.Wizard;
   return endGame(state, { kind: 'one-ring', alignment, card }, winner);
-}
-
-/**
- * Checks whether a player's avatar (wizard or ringwraith) has been eliminated.
- * Looks through the eliminated pile for any character with the avatar flag.
- */
-function hasEliminatedAvatar(state: GameState, playerIndex: 0 | 1): boolean {
-  const player = state.players[playerIndex];
-  for (const card of player.outOfPlayPile) {
-    const def = defById(state, card.definitionId);
-    if (def && isCharacterCard(def) && (def.race === Race.Wizard || def.race === Race.Ringwraith)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 // ---- Combat sub-state handlers ----

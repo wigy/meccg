@@ -21,16 +21,18 @@ For player information, see the [Player Guide](docs/player-guide.md).
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 216 | 329 | 65.7% |
-| Card tests | 588 | 598 | 98.3% |
+| Rule tests | 269 | 332 | 81.0% |
+| Card tests | 859 | 867 | 99.1% |
 | Cards created | 1683 | 1683 | 100.0% |
-| Cards certified | 643 | 1683 | 38.2% |
-| **Total** | **3130** | **4293** | **72.9%** |
+| Cards certified | 915 | 1683 | 54.4% |
+| **Total** | **3726** | **4565** | **81.6%** |
 
 ### Deck Catalog
 
 | Deck | Alignment | Cards | Data Available | Certified |
 |:-----|:----------|------:|---------------:|----------:|
+| (#1) The Shadow-deeps | balrog | 129 | 129 (100.0%) | 129 (100.0%) |
+| (#2) Balrog's Host | balrog | 121 | 121 (100.0%) | 121 (100.0%) |
 | (A) Stewards of Gondor | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (B) Release the Prisoners | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (C) Dwarven Quest | hero | 110 | 110 (100.0%) | 110 (100.0%) |
@@ -41,18 +43,18 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (J) Seducing Nations of Men | minion | 110 | 110 (100.0%) | 110 (100.0%) |
+| (K) Lord of Rings | minion | 110 | 110 (100.0%) | 110 (100.0%) |
+| (L) Wolves! | minion | 110 | 110 (100.0%) | 110 (100.0%) |
+| (M) It's magic! | minion | 110 | 110 (100.0%) | 110 (100.0%) |
+| (N) Smoke on the Water | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
-| (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 79 (71.8%) |
-| (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 80 (72.7%) |
-| (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 75 (68.2%) |
-| (S) Await the Onset | fallen-wizard | 110 | 110 (100.0%) | 76 (69.1%) |
-| Agents (Development only) | hero | 139 | 139 (100.0%) | 139 (100.0%) |
-| The Balrog (Development only) | balrog | 24 | 24 (100.0%) | 20 (83.3%) |
-| Dragons (Development only) | hero | 52 | 52 (100.0%) | 52 (100.0%) |
-| Fallen Wizard (Development only) | fallen-wizard | 32 | 32 (100.0%) | 32 (100.0%) |
-| Hero (Development only) | hero | 57 | 57 (100.0%) | 57 (100.0%) |
-| Minion (Development only) | minion | 45 | 45 (100.0%) | 45 (100.0%) |
-| All Hero Sites (Sample) | hero | 97 | 97 (100.0%) | 97 (100.0%) |
+| (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
+| (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
+| (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
+| (S) Await the Onset | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
+| (T) Feel Free | hero | 110 | 110 (100.0%) | 93 (84.5%) |
+| (U) Come by Night upon them | minion | 110 | 110 (100.0%) | 100 (90.9%) |
+| (V) Great Shadow | balrog | 110 | 110 (100.0%) | 110 (100.0%) |
 
 ## Getting Started
 

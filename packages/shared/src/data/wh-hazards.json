@@ -156,7 +156,15 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/RolleddowntotheSea.jpg",
     "unique": true,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-07-04",
+    "effects": [
+      {
+        "type": "force-opponent-discard",
+        "match": "ring",
+        "sources": ["hand", "carried"],
+        "fallbackRevealHand": true
+      }
+    ],
     "text": "Unique. Opponent must discard a ring from his hand or from one of his companies if available. If no rings are available as such, he must reveal his hand to you."
   },
   {

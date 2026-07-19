@@ -30,7 +30,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveProwess } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
-import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, roll2d6, toCardInstance, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, partitionLeavingAllies, roll2d6, toCardInstance, wrongActionType } from './reducer-utils.js';
 import { defenderAlignmentLabel } from './detainment.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
 import { findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
@@ -185,7 +185,10 @@ export function resolveStrikeCore(
   } else if (allyMatch) {
     prowess = allyEffectiveProwess(state, allyMatch.ally);
   } else if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
-    prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace);
+    // Thread the resolution mode so "when tapping to face a strike" prowess
+    // modifiers (Stabbing Tongue of Fire ba-81, Whip of Many Thongs ba-82)
+    // apply only in `tap` mode and not when the character stays untapped.
+    prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace, mode);
   } else {
     prowess = charData.effectiveStats.prowess;
   }
@@ -333,6 +336,7 @@ export function resolveStrikeCore(
           resolved: true,
           result: assignmentResult,
           wasAlreadyWounded,
+          strikeMode: mode,
           ...(mode === 'dodge' ? { dodged: true, dodgeBodyPenalty } : {}),
         }
       : a,
@@ -359,21 +363,29 @@ export function resolveStrikeCore(
   const newCharacters = { ...workingDefender.characters };
 
   if (allyMatch) {
-    const hostChar = newCharacters[allyMatch.hostCharId];
-    if (hostChar) {
-      let newAllyStatus = allyMatch.ally.status;
-      if (tapOnNonWounded && newAllyStatus === CardStatus.Untapped) {
-        newAllyStatus = CardStatus.Tapped;
+    // Rule 8.36: allies cannot be taken prisoner, but they may face strikes
+    // from untargeted attacks that would normally take a character prisoner
+    // (e.g. a re-faced Troll-purse automatic-attack) — in that case the ally
+    // is left entirely untouched: neither tapped nor wounded.
+    if (!combat.trollPursePrisoner) {
+      const hostChar = newCharacters[allyMatch.hostCharId];
+      if (hostChar) {
+        let newAllyStatus = allyMatch.ally.status;
+        if (tapOnNonWounded && newAllyStatus === CardStatus.Untapped) {
+          newAllyStatus = CardStatus.Tapped;
+        }
+        if (result === 'wounded' && !combat.detainment) {
+          newAllyStatus = CardStatus.Inverted;
+        } else if (result === 'wounded' && combat.detainment) {
+          newAllyStatus = CardStatus.Tapped;
+        }
+        const newAllies = hostChar.allies.map(a =>
+          a.instanceId === strike.characterId ? { ...a, status: newAllyStatus } : a,
+        );
+        newCharacters[allyMatch.hostCharId] = { ...hostChar, allies: newAllies };
       }
-      if (result === 'wounded' && !combat.detainment) {
-        newAllyStatus = CardStatus.Inverted;
-      } else if (result === 'wounded' && combat.detainment) {
-        newAllyStatus = CardStatus.Tapped;
-      }
-      const newAllies = hostChar.allies.map(a =>
-        a.instanceId === strike.characterId ? { ...a, status: newAllyStatus } : a,
-      );
-      newCharacters[allyMatch.hostCharId] = { ...hostChar, allies: newAllies };
+    } else {
+      logDetail(`take-prisoner: ${strike.characterId as string} is an ally — untargeted prisoner-taking attack leaves it neither tapped nor wounded (rule 8.36)`);
     }
   } else {
     if (takePrisonerResult || trollPursePrisoner) {
@@ -449,13 +461,30 @@ export function resolveStrikeCore(
     return { state: { ...postPrisonerState, combat: combatWithShieldRoll }, effects };
   }
 
+  // face-strike-on-tap (Bow of Alatar wh-90): when the facing character parries
+  // the strike he took via the item — the strike fails to wound him
+  // (characterTotal >= effectiveProwess) — the attack's body is reduced for the
+  // rest of the combat, making the creature easier to defeat via its body
+  // checks. The reduction applies immediately, including to this strike's own
+  // creature body check.
+  const faceStrikeReduction = strike.reduceAttackBodyOnParry ?? 0;
+  const strikeParried = characterTotal >= effectiveProwess;
+  const combatBase: CombatState =
+    faceStrikeReduction > 0 && strikeParried && combat.creatureBody !== null
+      ? (() => {
+          const reduced = Math.max(0, combat.creatureBody - faceStrikeReduction);
+          logDetail(`Bow of Alatar: parried strike — attack body reduced ${combat.creatureBody} → ${reduced}`);
+          return { ...combat, creatureBody: reduced };
+        })()
+      : combat;
+
   // Advance combat: body check, next strike, or finalize
   let newCombat: CombatState;
   if (bodyCheckTarget) {
-    newCombat = { ...combat, strikeAssignments: newAssignments, phase: 'body-check', bodyCheckTarget };
+    newCombat = { ...combatBase, strikeAssignments: newAssignments, phase: 'body-check', bodyCheckTarget };
     return { state: { ...postPrisonerState, combat: newCombat }, effects };
   } else {
-    const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
+    const combatWithAssignments = { ...combatBase, strikeAssignments: newAssignments };
 
     // An Article Missing: enter discard-item-from-company phase so the defender
     // must choose one item to discard before combat continues.
@@ -567,10 +596,14 @@ export function eliminateCombatantFromStrike(
   const elimCharDefId = resolveInstanceId(state, strike.characterId);
   newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
 
-  // Discard allies on the eliminated character immediately; hazards go to opposing (hazard) player
-  for (const ally of charData.allies) {
-    logDetail(`Discarding ally ${ally.instanceId as string} from eliminated character`);
-    newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
+  // Discard allies on the eliminated character immediately (an ally that returns
+  // to hand when its controller leaves play — Radagast's Black Bird wh-114 —
+  // goes to the owner's hand instead); hazards go to opposing (hazard) player.
+  {
+    const { toHand, toDiscard } = partitionLeavingAllies(state, charData.allies);
+    if (toHand.length > 0) logDetail(`${toHand.length} ally(ies) return to hand from eliminated character`);
+    newPlayerData.hand = [...newPlayerData.hand, ...toHand];
+    newPlayerData.discardPile = [...newPlayerData.discardPile, ...toDiscard];
   }
   newPlayers2[defPlayerIndex] = newPlayerData;
   const hazardPlayerElim = newPlayers2[1 - defPlayerIndex];
@@ -582,7 +615,19 @@ export function eliminateCombatantFromStrike(
   newPlayers2[1 - defPlayerIndex] = { ...hazardPlayerElim, discardPile: hazardDiscardElim };
 
   const { [strike.characterId]: _, ...remainingChars } = newPlayers2[defPlayerIndex].characters;
-  const prunedChars = pruneLeaderFollowers(remainingChars, strike.characterId, charData.controlledBy);
+  // Followers of the eliminated character lose their controller — revert to
+  // general influence with the mind subtraction deferred to the player's next
+  // organization phase (CoE rule 3.13 — combat never happens during the
+  // controller's organization phase).
+  const charsWithFreedFollowers = { ...remainingChars };
+  for (const followerId of charData.followers) {
+    const follower = charsWithFreedFollowers[followerId];
+    if (follower) {
+      logDetail(`Follower ${followerId as string} of eliminated character reverts to general influence (subtraction deferred, CoE 3.13)`);
+      charsWithFreedFollowers[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
+    }
+  }
+  const prunedChars = pruneLeaderFollowers(charsWithFreedFollowers, strike.characterId, charData.controlledBy);
   newPlayers2[defPlayerIndex] = { ...newPlayers2[defPlayerIndex], characters: prunedChars };
 
   // Per CoE rule 3.I.2: for each unwounded character in the same company,

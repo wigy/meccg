@@ -200,6 +200,59 @@ function checkBannedCards(
 }
 
 /**
+ * The creature-equivalent value a single hazard copy contributes toward the
+ * 12-creature minimum (CoE rule 1.5.1 / CRF 22 "Deck Construction"). An
+ * ordinary hazard-creature is worth 1; the following count as half a creature
+ * ("count as half of a creature, rounded down"):
+ *
+ * - An agent that counts as a hazard. An agent *character card* (e.g. Baduila)
+ *   is ½ a creature in every deck except a Ringwraith (minion) deck, where it
+ *   is a character (worth 0). An agent modelled as a hazard event — a
+ *   "manifestation" agent such as My Precious (dm-29) or Lobelia (dm-28) — is
+ *   always a hazard, so it is ½ a creature for every player.
+ * - A hazard that may be played as either a creature or an event — the Nazgûl,
+ *   the "manifestation" hunter creatures, Mouth of Sauron, … — flagged with the
+ *   `playable-as-event` play-flag.
+ * - An "Ahunt" or "At Home" Dragon manifestation, identified by its
+ *   `ahunt-attack` / `dragon-at-home` effect.
+ * - A "Spawn" permanent-event.
+ *
+ * Everything else (ordinary hazard events, environments, resources placed in
+ * the hazard section, …) contributes 0.
+ */
+function creatureEquivalent(
+  def: CardDefinition | undefined,
+  alignment: DeckList['alignment'],
+): number {
+  if (!def) return 0;
+  // An agent counts as ½ a creature for every player except a Ringwraith
+  // (minion) player, for whom an agent *character card* is a character, not a
+  // creature (rule 1.3.R2).
+  if (isCharacterCard(def) && def.keywords?.includes('agent')) {
+    return alignment === 'minion' ? 0 : 0.5;
+  }
+  // An agent modelled as a hazard event (a "manifestation" agent such as My
+  // Precious or Lobelia) is always a hazard for every player, so ½ a creature.
+  if (def.cardType === 'hazard-event' && def.keywords?.includes('agent')) return 0.5;
+  // A creature that is also playable as an event.
+  if (defHasPlayFlag(def, 'playable-as-event')) return 0.5;
+  // An "Ahunt" or "At Home" Dragon manifestation (a hazard). A "Roused" Dragon
+  // faction (Smaug Roused le-285) also carries an `ahunt-attack`, but it is a
+  // *resource* faction, not a hazard, so it must not be counted here.
+  if (def.cardType === 'hazard-event'
+    && 'effects' in def && def.effects?.some(e => e.type === 'ahunt-attack' || e.type === 'dragon-at-home')) {
+    return 0.5;
+  }
+  // A "Spawn" permanent-event.
+  if (def.cardType === 'hazard-event' && def.eventType === 'permanent' && def.keywords?.includes('spawn')) {
+    return 0.5;
+  }
+  // An ordinary hazard creature.
+  if (def.cardType === 'hazard-creature') return 1;
+  return 0;
+}
+
+/**
  * Validate a deck against CoE deck-construction rules.
  *
  * @param deck  The deck to validate.
@@ -434,6 +487,10 @@ export function validateDeck(
       [poolCards, 'pool'],
       [sideboard, 'sideboard'],
       [antiFwSideboard, 'anti-fw-sideboard'],
+      // The location deck too: a `<wizard>-specific` site (Rhosgobel wh-57,
+      // `radagast-specific`: "Only Radagast's companies may use this card") may
+      // only be included when that wizard is the declared avatar.
+      [sites, 'sites'],
     ];
     for (const [section, sectionKey] of allSections) {
       for (const entry of section) {
@@ -483,6 +540,32 @@ export function validateDeck(
         section: 'characters',
         message: `balrog deck: avatar "${def.name}" must be a Balrog avatar (alignment is "${def.alignment}")`,
         card: entry.card,
+      });
+    }
+  }
+
+  // Rule 1.37 — a Fallen-wizard player must declare one specific
+  // Fallen-wizard avatar, at least one copy of which must be in the deck.
+  // The declaration is implicit in deck construction: the deck must contain
+  // exactly one distinct Fallen-wizard avatar name (in any number of copies).
+  if (deck.alignment === 'fallen-wizard') {
+    const fwAvatarNames = new Set<string>();
+    for (const entry of [...characters, ...poolCards, ...sideboard]) {
+      if (entry.card === null) continue;
+      const def = cardPool[entry.card];
+      if (isCharacterCard(def) && isAvatarCharacter(def) && def.alignment === 'fallen-wizard') {
+        fwAvatarNames.add(def.name);
+      }
+    }
+    if (fwAvatarNames.size === 0) {
+      errors.push({
+        section: 'characters',
+        message: 'fallen-wizard deck: must include at least one copy of the declared Fallen-wizard avatar (rule 1.37)',
+      });
+    } else if (fwAvatarNames.size > 1) {
+      errors.push({
+        section: 'characters',
+        message: `fallen-wizard deck: must declare a single specific Fallen-wizard avatar — found ${[...fwAvatarNames].join(', ')} (rule 1.37)`,
       });
     }
   }
@@ -715,21 +798,20 @@ export function validateDeck(
     });
   }
 
+  // Rule 1.5.1 / CRF 22 — the hazard portion must include at least 12 creatures.
+  // Agents that count as hazards, dual creature/event hazards, Dragon "Ahunt"/
+  // "At Home" manifestations, and Spawn permanent-events each count as half a
+  // creature; the total is rounded down for the purpose of the requirement.
   let creatureCount = 0;
   for (const entry of hazards) {
     if (entry.card === null) continue;
-    const def = cardPool[entry.card];
-    if (def?.cardType === 'hazard-creature') {
-      creatureCount += entry.qty;
-    } else if (deck.alignment === 'balrog' && isCharacterCard(def) && def.keywords?.includes('agent')) {
-      // Rule 1.20: Balrog agents in the hazards section count as half a creature each
-      creatureCount += entry.qty * 0.5;
-    }
+    creatureCount += creatureEquivalent(cardPool[entry.card], deck.alignment) * entry.qty;
   }
-  if (creatureCount < 12) {
+  const effectiveCreatures = Math.floor(creatureCount);
+  if (effectiveCreatures < 12) {
     errors.push({
       section: 'hazards',
-      message: `play deck: only ${creatureCount} creatures in hazards (min 12)`,
+      message: `play deck: only ${effectiveCreatures} creatures in hazards (min 12)`,
     });
   }
 
@@ -896,6 +978,31 @@ export function validateDeck(
       section: 'pool',
       message: `pool: ${poolMinorItemCount} non-unique minor items (max 2)`,
     });
+  }
+
+  // Rule 1.7 — the pool exists solely to set up the starting company: its
+  // characters are drafted into the company (rule 1.9) and its minor items are
+  // placed on those characters. A card whose text forbids it from a starting
+  // company therefore has no legal use in the pool and must live in the play
+  // deck instead. Such cards carry a play-flag: characters flagged
+  // `not-starting-character` (e.g. the manifestation Trolls Bûrat/Tûma/Wûluag,
+  // Fram Framson) and minor items flagged `no-starting-company` (e.g. Records
+  // Unread, Secret Book). The draft/item-draft steps already refuse to place
+  // them; this check keeps them out of the pool at deck-construction time.
+  for (const entry of poolCards) {
+    if (entry.card === null) continue;
+    const def = cardPool[entry.card];
+    if (!def) continue;
+    const cannotStart =
+      (isCharacterCard(def) && defHasPlayFlag(def, 'not-starting-character')) ||
+      (isItemCard(def) && defHasPlayFlag(def, 'no-starting-company'));
+    if (cannotStart) {
+      errors.push({
+        section: 'pool',
+        message: `pool: "${(def as { name: string }).name}" may not be included with a starting company — it belongs in the play deck, not the pool (rule 1.7)`,
+        card: entry.card,
+      });
+    }
   }
 
   // Rule 1.33 — fallen-wizard pool Stage resources (CoE 1.7.F1): a combined

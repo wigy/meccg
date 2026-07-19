@@ -15,6 +15,16 @@
 
 import { describe, test } from 'vitest';
 
+// Rule 10.11's reveal variant records `revealedCardInstanceId` on the
+// declared action, but the influence-attempt resolver (reducer-site.ts,
+// ~line 2085) never reads it back on success: a successful attempt just
+// brings the target under control/into play, and a failed one discards the
+// revealed card is not specially handled either. Offering the immediate
+// "play the revealed card via the influencing character, no site tap, no
+// second roll" follow-up needs a new pending-resolution step wired into
+// that success path — a real feature, not something a test alone can
+// surface, and it depends on rule 10.11's own item-targeting gap above for
+// full coverage.
 describe('Rule 10.13 — Playing Card After Successful Influence', () => {
   test.todo('After successful influence with revealed card, may play identical card with influencing character; character playability rules relaxed');
 });

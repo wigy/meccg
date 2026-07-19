@@ -91,6 +91,14 @@ export interface PlayerState {
    */
   readonly bonusMiscMarshallingPoints?: number;
   /**
+   * One-time *kill* marshalling points awarded to this player for eliminating an
+   * opposing hero outside the normal defeated-creature kill-pile flow — used by
+   * A Malady Without Healing (le-159): "If target character is a hero and is
+   * eliminated by these checks, you receive his kill marshalling points." Folded
+   * into the `kill` category by `recompute-derived`. Defaults to 0/undefined.
+   */
+  readonly bonusKillMarshallingPoints?: number;
+  /**
    * MEBA: set true once Challenge the Power (ba-52) resolves on its 9–10 band
    * ("The One Ring affects The Balrog"). Marks that the One Ring borne by the
    * Balrog now affects him; consumed wherever the Balrog's item/corruption
@@ -124,6 +132,28 @@ export interface PlayerState {
    * Recomputed by recomputeDerived. Effective GI pool = GENERAL_INFLUENCE + generalInfluenceBonus.
    */
   readonly generalInfluenceBonus: number;
+  /**
+   * Portion of `generalInfluenceBonus` that may NOT be used to control
+   * characters (`Σ max(0, value - controlLimit)` over in-play general-influence
+   * modifiers). The full bonus still counts toward the player's unused general
+   * influence for defensive hazard subtraction, but the character-control cap
+   * is `effectiveGeneralInfluence - generalInfluenceControlPenalty`. Non-zero
+   * only for cards like Truths of Doom (wh-108, +6 GI / control-limit 2).
+   * Recomputed by recomputeDerived.
+   */
+  readonly generalInfluenceControlPenalty: number;
+  /**
+   * Absolute replacement for the base general-influence pool, set by an in-play
+   * `stat-modifier` with `stat: "general-influence"` and `op: "set"`. When
+   * present it substitutes for the number the pool would otherwise start from
+   * (a Fallen-wizard avatar's printed white-hand number, or the base 20);
+   * `generalInfluenceBonus` still applies on top of it.
+   *
+   * Non-undefined only while a Radagast Shapeshifter form (wh-112/115/116) is
+   * on Radagast — "adopting the given attributes" replaces his printed general
+   * influence rather than adjusting it. Recomputed by recomputeDerived.
+   */
+  readonly generalInfluenceOverride?: number;
   /**
    * Number of times this player's play deck has been exhausted (reshuffled from discard).
    * The game ends via Free Council when a player exhausts their deck twice.

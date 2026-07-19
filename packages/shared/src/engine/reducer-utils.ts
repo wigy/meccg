@@ -6,21 +6,23 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
-import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect } from '../types/effects.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
+import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect } from '../types/effects.js';
+import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle, nextInt } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
-import { CardStatus, Race, Skill } from '../types/common.js';
+import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
+import { CardStatus, Race, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
-import { matchesCondition } from '../effects/index.js';
-import { resolveDef } from './effects/index.js';
+import { matchesCondition, matchesContext } from '../effects/index.js';
+import { resolveDef, normalizeCreatureRace } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
+import { revealInstances } from './visibility.js';
 
 /**
  * Result of applying a {@link GameAction} to a {@link GameState}.
@@ -66,6 +68,81 @@ export function isStageResourceCard(def: CardDefinition | undefined): boolean {
 export function hasRecruitmentVehicleEffect(def: CardDefinition | undefined): boolean {
   const effects = (def as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [];
   return effects.some(e => e.type === 'recruitment-vehicle');
+}
+
+/**
+ * True if `def` carries an **agent-summons** recruitment-vehicle effect
+ * (`agentRecruit: true`) — Open to the Summons (wh-46). Such a card lets a
+ * Ringwraith/Fallen-wizard player bring one agent into a company at a Darkhaven
+ * and, sitting in the play deck during the character draft, lifts the agent
+ * draft-gate for one agent (rules 1.41/1.42). Detected by effect, not card id,
+ * so future enablers work unchanged.
+ */
+export function hasAgentSummonsEffect(def: CardDefinition | undefined): boolean {
+  const effects = (def as { effects?: readonly { type: string; agentRecruit?: boolean }[] } | undefined)?.effects ?? [];
+  return effects.some(e => e.type === 'recruitment-vehicle' && e.agentRecruit === true);
+}
+
+/**
+ * Counts the agent-summons enablers (Open to the Summons, wh-46) sitting in a
+ * player's play deck. During the character draft each such enabler lets the
+ * player draft **one** agent as a starting character — the play-deck copy is
+ * later placed with that agent "in lieu of a minor item" during the item draft.
+ * Used to lift the Ringwraith/Fallen-wizard agent draft-gate for that many agents.
+ */
+export function countAgentSummonsEnablersInDeck(
+  state: GameState,
+  player: { readonly playDeck: readonly { readonly definitionId: CardDefinitionId }[] },
+): number {
+  return player.playDeck.reduce(
+    (n, card) => (hasAgentSummonsEffect(defById(state, card.definitionId)) ? n + 1 : n),
+    0,
+  );
+}
+
+/**
+ * Counts how many agent characters a player has already drafted into their
+ * starting company (rules 1.41/1.42 — each requires an enabler). Used together
+ * with {@link countAgentSummonsEnablersInDeck} to decide whether one more agent
+ * may be drafted via an Open-to-the-Summons enabler.
+ */
+export function countDraftedAgents(
+  state: GameState,
+  drafted: readonly { readonly definitionId: CardDefinitionId }[],
+): number {
+  return drafted.reduce(
+    (n, card) => (isAgentCharacter(defById(state, card.definitionId)) ? n + 1 : n),
+    0,
+  );
+}
+
+/**
+ * True if the player holds any card that "may be played with a starting company
+ * in lieu of a minor item" — a `starting-company-placement` effect (Open to the
+ * Summons wh-46, Orders from Lugbúrz as-94, Thrall of the Voice wh-82…). Such a
+ * card keeps the item-draft step reachable even when the player drafted no minor
+ * items, so the placement can still be offered.
+ *
+ * Both the play deck and the sideboard are scanned: Balrog-specific starting
+ * resources (Gangways over the Fire ba-60, Orders from the Great Demon ba-70)
+ * are resource-events carrying the `starting-item` keyword, so
+ * {@link isStageResourceCard} sinks any that were left in the starting-company
+ * pool to the sideboard during {@link applyDraftResults}. They must still be
+ * offered for placement from there — otherwise they silently vanish from the
+ * starting company.
+ */
+export function hasStartingCompanyPlacementInDeck(
+  state: GameState,
+  player: {
+    readonly playDeck: readonly { readonly definitionId: CardDefinitionId }[];
+    readonly sideboard: readonly { readonly definitionId: CardDefinitionId }[];
+  },
+): boolean {
+  const hasPlacement = (card: { readonly definitionId: CardDefinitionId }): boolean => {
+    const effects = (defById(state, card.definitionId) as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [];
+    return effects.some(e => e.type === 'starting-company-placement');
+  };
+  return player.playDeck.some(hasPlacement) || player.sideboard.some(hasPlacement);
 }
 
 /**
@@ -314,6 +391,33 @@ export function removeAttachment(
 }
 
 /**
+ * Partition a leaving character's allies into those that return to their
+ * owner's hand and those that go to the discard pile.
+ *
+ * An ally carrying a `return-to-hand` effect whose triggers include
+ * `controller-leaves-play` (Radagast's Black Bird wh-114: "You may return … to
+ * your hand … if its controlling character leaves active play") is preserved to
+ * hand instead of discarded. Every "controlling character leaves active play"
+ * site (combat elimination, body-check discard, dice-check eliminate, hazard
+ * discard) routes its allies through this helper so the rule fires uniformly.
+ */
+export function partitionLeavingAllies(
+  state: GameState,
+  allies: readonly AllyInPlay[],
+): { toHand: CardInstance[]; toDiscard: CardInstance[] } {
+  const toHand: CardInstance[] = [];
+  const toDiscard: CardInstance[] = [];
+  for (const ally of allies) {
+    const def = defById(state, ally.definitionId);
+    const returnsToHand = getCardEffects(def).some(
+      e => e.type === 'return-to-hand' && e.during.includes('controller-leaves-play'),
+    );
+    (returnsToHand ? toHand : toDiscard).push(toCardInstance(ally));
+  }
+  return { toHand, toDiscard };
+}
+
+/**
  * Produce a {@link ReducerResult} rejecting an action whose `type` did not
  * match the expected value. When `context` is supplied the message names the
  * step the rejection happened in (e.g. `during draw-cards step`).
@@ -351,6 +455,26 @@ export function toCardInstance(c: { readonly instanceId: CardInstance['instanceI
  */
 export function defById(state: GameState, definitionId: CardDefinitionId): CardDefinition | undefined {
   return state.cardPool[definitionId];
+}
+
+/**
+ * True if the given player's avatar (wizard, ringwraith, fallen-wizard, or
+ * Balrog) has been eliminated during the game.
+ *
+ * Per CoE rule 2.2 an eliminated avatar is placed in its player's
+ * removed-from-play pile (`outOfPlayPile`) and applies a standing -5
+ * miscellaneous marshalling-point penalty to that player — a penalty that is in
+ * effect for the running MP total throughout the game (reflected in the MP
+ * display), not merely at final scoring. Avatars are the only characters with
+ * `mind === null` (see {@link isAvatarCharacter}), so scanning the pile for such
+ * a character is the canonical check. Shared by {@link recomputeDerived} (which
+ * folds the -5 into the running misc tally) and the Free Council end-game scorer
+ * so both agree on when the penalty applies.
+ */
+export function hasEliminatedAvatar(state: GameState, playerIndex: number): boolean {
+  const player = state.players[playerIndex];
+  if (!player) return false;
+  return player.outOfPlayPile.some(card => isAvatarCharacter(defById(state, card.definitionId)));
 }
 
 /**
@@ -465,6 +589,77 @@ export function matchesDefinition(def: CardDefinition, condition: Condition): bo
 }
 
 /**
+ * Returns `true` when the given site definition carries an
+ * `allow-creature-by-race` site-rule that grants the given creature definition a
+ * keying bypass at the site: the rule's `race` matches the creature's race and,
+ * if the rule carries an optional `except` condition, the creature does **not**
+ * match it. Shared by the normal hazard-creature keying path
+ * (`legal-actions/movement-hazard.ts`) and the `dynamic-auto-attack` eligibility
+ * check (`legal-actions/site.ts`) so both honour the same "any <race> (except …)
+ * may be keyed to this site" rule (Geann a-Lisch as-138, The Iron-deeps ba-91).
+ */
+export function siteRuleAllowsCreatureByRace(
+  siteDef: CardDefinition | undefined,
+  creatureDef: CardDefinition,
+): boolean {
+  if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return false;
+  const race = (creatureDef as unknown as { race?: string }).race;
+  if (!race) return false;
+  return siteDef.effects.some(
+    e => e.type === 'site-rule' && e.rule === 'allow-creature-by-race'
+      && 'race' in e && e.race === race
+      && (!('except' in e) || !e.except || !matchesDefinition(creatureDef, e.except)),
+  );
+}
+
+/**
+ * Build the DSL condition context for a "target company" — the active
+ * movement/hazard company a hazard is being evaluated against. Exposes under
+ * `company`:
+ *
+ * - `alignment` — the defending company's alignment label (or null).
+ * - `homeSites` — home-site names of the company's characters.
+ * - `characterNames` — names of the characters in the company (for
+ *   "unless the company contains <named character>" clauses).
+ * - `maxUntappedWarriorProwess` — the highest effective prowess among the
+ *   company's *untapped Warriors* (0 if none), for "unless the company contains
+ *   an untapped warrior with prowess greater than N" clauses.
+ *
+ * Shared by the creature/short-event targeting checks (`legal-actions/
+ * movement-hazard.ts`) and short-event resolution (`chain-reducer.ts`) so both
+ * evaluate identical company predicates. `owner` is the player whose company
+ * this is — needed for per-character tap status and effective stats.
+ */
+export function buildTargetCompanyConditionContext(
+  state: GameState,
+  owner: PlayerState,
+  company: { readonly characters: readonly CardInstanceId[] },
+  alignment?: string,
+): Record<string, unknown> {
+  const homeSites: string[] = [];
+  const characterNames: string[] = [];
+  let maxUntappedWarriorProwess = 0;
+  for (const charInstId of company.characters) {
+    const inPlay = owner.characters[charInstId];
+    const defId = inPlay?.definitionId ?? resolveInstanceId(state, charInstId);
+    if (!defId) continue;
+    const charDef = defById(state, defId);
+    if (!charDef || !isCharacterCard(charDef)) continue;
+    characterNames.push(charDef.name);
+    if (charDef.homesite) {
+      homeSites.push(...charDef.homesite.split(',').map(s => s.trim()));
+    }
+    if (inPlay && inPlay.status === CardStatus.Untapped && charDef.skills.includes(Skill.Warrior)) {
+      const prowess = inPlay.effectiveStats.prowess;
+      if (prowess > maxUntappedWarriorProwess) maxUntappedWarriorProwess = prowess;
+    }
+  }
+  return {
+    company: { homeSites, characterNames, maxUntappedWarriorProwess, alignment: alignment ?? null },
+  };
+}
+
+/**
  * Resolve the {@link RegionType} of the region a site sits in.
  *
  * A site definition records its containing region only by name (`region`);
@@ -557,6 +752,131 @@ export function getCardEffects(
 }
 
 /**
+ * True when the player at `playerIndex` has any card in play carrying an
+ * `extra-under-deeps-mh-phase` effect (Gangways over the Fire, ba-60). Such a
+ * card lets each of the player's moving companies take repeated Under-deeps
+ * movement/hazard phases. Detected by effect, not card id, so future enablers
+ * work unchanged.
+ */
+export function playerHasExtraUnderDeepsMH(state: GameState, playerIndex: number): boolean {
+  const player = state.players[playerIndex];
+  if (!player) return false;
+  return player.cardsInPlay.some(cip =>
+    getCardEffects(defById(state, cip.definitionId)).some(e => e.type === 'extra-under-deeps-mh-phase'),
+  );
+}
+
+/**
+ * Collect any `faction-influence-restriction` environment (e.g. Mordor in Arms
+ * dm-72) that applies to a faction influence attempt at a site in
+ * `siteRegionName`. Returns the summed check modifier and the set of card names
+ * whose one-shot influence boosts are suppressed ("cannot be done with Muster").
+ *
+ * Restrictions flagged `noEffectOnMinion` are ignored when the influencing
+ * (resource) player is a Ringwraith/Sauron (minion) player. Shared by the
+ * influence-attempt legal-action generator (for the displayed `need`) and the
+ * roll resolver (for the actual modifier) so both agree.
+ */
+export function collectFactionInfluenceRestriction(
+  state: GameState,
+  siteRegionName: string | undefined,
+  influencerIsMinion: boolean,
+): { modifier: number; blockedCardNames: Set<string> } {
+  const blockedCardNames = new Set<string>();
+  let modifier = 0;
+  if (!siteRegionName) return { modifier, blockedCardNames };
+  for (const pl of state.players) {
+    for (const cip of pl.cardsInPlay) {
+      const cdef = defById(state, cip.definitionId);
+      for (const eff of getCardEffects(cdef)) {
+        if (eff.type !== 'faction-influence-restriction') continue;
+        if (eff.noEffectOnMinion && influencerIsMinion) continue;
+        if (!eff.regionNames.includes(siteRegionName)) continue;
+        modifier += eff.modifier;
+        for (const bc of (eff.blockCards ?? [])) blockedCardNames.add(bc);
+      }
+    }
+  }
+  return { modifier, blockedCardNames };
+}
+
+/**
+ * If `def` is a permanent resource event carrying a `reshuffle-from-discard`
+ * effect flagged as its **alternative short-event mode** (Great Army of the
+ * North ba-38), returns that effect; otherwise `undefined`. Such a card is a
+ * "Permanent-event/Short-event" card: it may be played either as a
+ * permanent-event (its ongoing effects) or as a resource short-event that
+ * resolves the reshuffle and discards the card.
+ */
+export function altShortEventReshuffleEffect(
+  def: CardDefinition | null | undefined,
+): import('../types/effects.js').ReshuffleFromDiscardEffect | undefined {
+  const rdef = def ?? undefined;
+  if (!isResourceEventCard(rdef) || rdef.eventType !== 'permanent') return undefined;
+  return getCardEffects(rdef).find(
+    (e): e is import('../types/effects.js').ReshuffleFromDiscardEffect =>
+      e.type === 'reshuffle-from-discard' && e.altShortEventMode === true,
+  );
+}
+
+/**
+ * True when the playing player has at least one card in their discard pile that
+ * matches a `reshuffle-from-discard` effect's `filter` — i.e. the reshuffle
+ * short-event mode would actually recycle something (Great Army of the North
+ * ba-38: an Orc/Troll faction in the discard).
+ */
+export function playerHasReshuffleMatch(
+  state: GameState,
+  player: PlayerState,
+  effect: import('../types/effects.js').ReshuffleFromDiscardEffect,
+): boolean {
+  return player.discardPile.some(c => {
+    const def = defById(state, c.definitionId);
+    return !!def && matchesDefinition(def, effect.filter);
+  });
+}
+
+/**
+ * Collects the **player-scoped, ongoing** faction-influence `check-modifier`
+ * effects (`target: "player-in-play"`) carried by bare permanent resource
+ * events in the influencing player's `cardsInPlay` — cards not attached to any
+ * character/item/site/agent/company. Each effect's `when` is pre-filtered
+ * against the faction-influence resolver context here (mirroring how a faction
+ * card's own effects are pre-filtered), so the returned entries can be folded
+ * straight into the `resolveCheckModifier` pass at both the display and the
+ * roll site. Used by Great Army of the North (ba-38): "+1 to your influence
+ * attempts against Orc and Troll factions."
+ */
+export function collectPlayerInPlayInfluenceEffects(
+  state: GameState,
+  playerId: PlayerId,
+  ctx: import('./effects/resolver.js').ResolverContext,
+): import('./effects/resolver.js').CollectedEffect[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const collected: import('./effects/resolver.js').CollectedEffect[] = [];
+  for (const cip of player.cardsInPlay) {
+    // Only bare permanent-events in the player's own play area contribute — a
+    // card attached to a character/item/site/agent, or bound to a company, is
+    // collected through its own attachment path (or is a faction whose
+    // "Standard Modifications" are scoped to influencing that faction).
+    if (cip.attachedTo !== undefined || cip.attachedToItem !== undefined
+      || cip.attachedToSite !== undefined || cip.attachedToAgentId !== undefined
+      || cip.companyId !== undefined || cip.setAsideHost !== undefined
+      || cip.pendingTriggerAttack) continue;
+    const def = defById(state, cip.definitionId);
+    if (!isResourceEventCard(def) || def.eventType !== 'permanent') continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'check-modifier') continue;
+      if (effect.target !== 'player-in-play') continue;
+      if (effect.when && !matchesContext(effect.when, ctx)) continue;
+      collected.push({ effect, sourceDef: def, sourceInstance: cip.instanceId });
+    }
+  }
+  return collected;
+}
+
+/**
  * Total stage points a single card definition contributes (MEWH §1): the sum of
  * its `stage-points` effect values (usually one, may be zero). Used both by the
  * derived per-player total and by the discard-stage-resource legality check.
@@ -564,7 +884,24 @@ export function getCardEffects(
 export function stagePointsOfCard(def: CardDefinition | null | undefined): number {
   let total = 0;
   for (const effect of getCardEffects(def)) {
-    if (effect.type === 'stage-points') total += effect.value;
+    // `whileCompanyAtSite` stage points (Deep Mines wh-55, Rhosgobel wh-57) are
+    // granted by *occupying the site*, not by the card being in play, so they
+    // are tallied separately from the player's companies — never here.
+    if (effect.type === 'stage-points' && !effect.whileCompanyAtSite) total += effect.value;
+  }
+  return total;
+}
+
+/**
+ * Stage points a **site** definition grants while a company occupies it (the
+ * `whileCompanyAtSite` variant of the `stage-points` effect). Returns 0 for
+ * ordinary cards and for stage cards whose points come from being in play.
+ * Summed once per distinct occupied site instance in `recompute-derived.ts`.
+ */
+export function siteOccupancyStagePointsOfCard(def: CardDefinition | null | undefined): number {
+  let total = 0;
+  for (const effect of getCardEffects(def)) {
+    if (effect.type === 'stage-points' && effect.whileCompanyAtSite) total += effect.value;
   }
   return total;
 }
@@ -630,13 +967,150 @@ export function isWizardhavenConversionFor(
 }
 
 /**
+ * True when `player` has an in-play character carrying a `fw-kill-mp-full`
+ * effect (Alatar wh-1) — the MEWH §4 kill-MP exemption. Consulted by both the
+ * marshalling-point tally (`recompute-derived.ts`, full printed kill MP instead
+ * of the flat 1) and combat finalization (`combat-finalize.ts`, routing a
+ * defeated **detainment** creature to the kill pile so it scores at all — the
+ * "even with *" clause). Only Fallen-wizard players are ever subject to the §4
+ * clamp, so this returns `false` for any other alignment.
+ */
+export function playerHasKillMpExemption(state: GameState, player: PlayerState): boolean {
+  if (player.alignment !== 'fallen-wizard') return false;
+  for (const char of Object.values(player.characters)) {
+    const def = resolveDef(state, char.instanceId);
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-kill-mp-full') return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True when `player` has an in-play character carrying a
+ * `detainment-attacks-normal` effect (Alatar wh-1) whose stage-point gate is
+ * satisfied — the player's `stagePoints` total is strictly greater than the
+ * effect's `stagePointsAbove` (default 0). While true, every attack the engine
+ * would treat as detainment against the player's companies is resolved as a
+ * normal attack instead (see {@link isDetainmentAttack} / its call sites).
+ */
+export function playerConvertsDetainmentToNormal(state: GameState, player: PlayerState): boolean {
+  for (const char of Object.values(player.characters)) {
+    const def = resolveDef(state, char.instanceId);
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'detainment-attacks-normal') continue;
+      const threshold = effect.stagePointsAbove ?? 0;
+      if (player.stagePoints > threshold) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True when some in-play long hazard-event (either player's `cardsInPlay`)
+ * carries an `auto-attacks-normal` effect whose `siteTypes` include
+ * `effectiveSiteType` — Awaken Defenders (le-103): "each detainment
+ * automatic-attack at a Free-hold or Border-hold becomes a normal
+ * automatic-attack." When true, the site's automatic-attacks are resolved as
+ * normal attacks (threaded into `isDetainmentAttack` via
+ * `defenderForcesNormalAttacks`, mirroring
+ * {@link playerConvertsDetainmentToNormal}). Site-type-scoped and global, so it
+ * applies to any company entering a matching site regardless of alignment.
+ */
+export function siteTypeForcesAutoAttacksNormal(
+  state: GameState,
+  effectiveSiteType: SiteType,
+): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'auto-attacks-normal') continue;
+        if (effect.siteTypes.includes(effectiveSiteType)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * The `<wizard>-specific` avatar name a site definition binds to (e.g.
+ * "Radagast" for Rhosgobel's `radagast-specific` keyword), or `null` when the
+ * site carries no such keyword. Kept local to avoid a module cycle with
+ * `fallen-wizard-specific.ts` (which depends on this module).
+ */
+function siteWizardSpecificName(def: CardDefinition | undefined): string | null {
+  if (!def || !('keywords' in def)) return null;
+  for (const k of (def as { keywords?: readonly string[] }).keywords ?? []) {
+    if (k in WIZARD_SPECIFIC_KEYWORD_NAMES) return WIZARD_SPECIFIC_KEYWORD_NAMES[k];
+  }
+  return null;
+}
+
+/**
+ * The Fallen-wizard player who **inherently protects** the site with
+ * `siteDefinitionId`, or `null` when the site is not an inherently protected
+ * Wizardhaven (Rhosgobel wh-57: `site-rule protected-wizardhaven`). The owner is
+ * the Fallen-wizard for whom this is a Wizardhaven ({@link isHavenForPlayer}, so
+ * a Fallen-wizard haven or a Hidden-Haven conversion) and who counts as the
+ * avatar named by the site's `<wizard>-specific` keyword, if any — so only the
+ * Radagast player owns Rhosgobel even in the rare Fallen-wizard-vs-Fallen-wizard
+ * matchup where both players nominally treat it as a haven.
+ */
+export function inherentProtectedWizardhavenOwner(
+  state: GameState,
+  siteDefinitionId: CardDefinitionId | undefined,
+): PlayerId | null {
+  if (!siteDefinitionId) return null;
+  const siteDef = defById(state, siteDefinitionId);
+  if (!isSiteCard(siteDef)) return null;
+  const isInherentlyProtected = getCardEffects(siteDef).some(
+    e => e.type === 'site-rule' && e.rule === 'protected-wizardhaven',
+  );
+  if (!isInherentlyProtected) return null;
+  const requiredWizard = siteWizardSpecificName(siteDef);
+  for (const player of state.players) {
+    if (!isHavenForPlayer(siteDef, player.alignment, { state, siteDefinitionId, playerId: player.id })) continue;
+    if (requiredWizard && findFallenWizardAvatarName(state, player) !== requiredWizard) continue;
+    return player.id;
+  }
+  return null;
+}
+
+/**
+ * True when the site with `siteDefinitionId` is a **protected site** for the
+ * given player — either an active `site-protected` constraint binds it (The
+ * Fortress of Isen wh-68 / Guarded Haven wh-74 family) or it is an inherently
+ * protected Wizardhaven ({@link inherentProtectedWizardhavenOwner}, Rhosgobel
+ * wh-57). `match` selects the protector relationship, mirroring
+ * {@link hasSiteFlagForPlayer}: `'self'` (default) tests protection *owned by*
+ * `playerId`; `'opponent'` tests protection owned by someone *other than*
+ * `playerId` (the marshalling-point block a protected site imposes on the
+ * opponent).
+ */
+export function isSiteProtectedForPlayer(
+  state: GameState,
+  siteDefinitionId: CardDefinitionId | undefined,
+  playerId: PlayerId,
+  match: 'self' | 'opponent' = 'self',
+): boolean {
+  if (hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefinitionId, playerId, match)) {
+    return true;
+  }
+  const owner = inherentProtectedWizardhavenOwner(state, siteDefinitionId);
+  if (owner === null) return false;
+  return match === 'self' ? owner === playerId : owner !== playerId;
+}
+
+/**
  * True when the given player controls a **protected Wizardhaven** — a site that
  * is both (a) one of their Wizardhavens (a Fallen-wizard haven, or a site
- * converted into one via `wizardhaven-conversion`) and (b) protected for them
- * by a `site-protected` constraint (e.g. The Fortress of Isen wh-68, Fortress
- * of the Towers wh-69, Guarded Haven wh-74). Used by play-conditions such as A
- * Strident Spawn (wh-61) / An Untimely Brood (wh-62), which require "a protected
- * Wizardhaven".
+ * converted into one via `wizardhaven-conversion`) and (b) protected for them,
+ * either by a `site-protected` constraint (e.g. The Fortress of Isen wh-68,
+ * Fortress of the Towers wh-69, Guarded Haven wh-74) or because the site is an
+ * inherently protected Wizardhaven one of their companies occupies (Rhosgobel
+ * wh-57). Used by play-conditions such as A Strident Spawn (wh-61) / An Untimely
+ * Brood (wh-62), which require "a protected Wizardhaven".
  */
 export function playerHasProtectedWizardhaven(state: GameState, playerId: PlayerId): boolean {
   for (const c of state.activeConstraints) {
@@ -648,7 +1122,45 @@ export function playerHasProtectedWizardhaven(state: GameState, playerId: Player
     const isFwHaven = siteDef.siteType === 'haven' && siteDef.alignment === 'fallen-wizard';
     if (isFwHaven || isWizardhavenConversionFor(state, siteDefId, playerId)) return true;
   }
+  // Inherently protected Wizardhaven (Rhosgobel): the player controls it while
+  // one of their companies occupies it.
+  const player = playerById(state, playerId);
+  if (player) {
+    for (const company of player.companies) {
+      if (inherentProtectedWizardhavenOwner(state, company.currentSite?.definitionId) === playerId) return true;
+    }
+  }
   return false;
+}
+
+/**
+ * Counts the **distinct** protected Wizardhaven sites the given player controls
+ * — the same predicate as {@link playerHasProtectedWizardhaven}, but returning
+ * how many separate sites qualify rather than a boolean. Distinctness is by
+ * site {@link CardDefinitionId} so a single site protected by both a constraint
+ * and inherent status (or occupied by two companies) is counted once. Used by
+ * play-conditions that require *more than one* protected Wizardhaven, e.g. Await
+ * the Onset (wh-96): "two protected Wizardhavens [{H}]".
+ */
+export function protectedWizardhavenCount(state: GameState, playerId: PlayerId): number {
+  const sites = new Set<CardDefinitionId>();
+  for (const c of state.activeConstraints) {
+    if (!(c.kind.type === 'site-flag' && c.kind.flag === 'site-protected')) continue;
+    if (c.target.kind !== 'player' || c.target.playerId !== playerId) continue;
+    const siteDefId = c.kind.siteDefinitionId;
+    const siteDef = state.cardPool[siteDefId];
+    if (!isSiteCard(siteDef)) continue;
+    const isFwHaven = siteDef.siteType === 'haven' && siteDef.alignment === 'fallen-wizard';
+    if (isFwHaven || isWizardhavenConversionFor(state, siteDefId, playerId)) sites.add(siteDefId);
+  }
+  const player = playerById(state, playerId);
+  if (player) {
+    for (const company of player.companies) {
+      const siteDefId = company.currentSite?.definitionId;
+      if (siteDefId && inherentProtectedWizardhavenOwner(state, siteDefId) === playerId) sites.add(siteDefId);
+    }
+  }
+  return sites.size;
 }
 
 /**
@@ -674,6 +1186,25 @@ export function playerHasProtectedWizardhaven(state: GameState, playerId: Player
  * the site's printed type is Ruins & Lairs and its alignment is not
  * `fallen-wizard`. See {@link isWizardhavenConversionFor}.
  */
+/**
+ * The marshalling-point value to which a newly-played faction should be pinned
+ * because the player has a `played-after-faction-mp-pin` card in play (Await the
+ * Onset wh-96, "each faction you play after … is worth 1 MP"), or `undefined`
+ * when no such card is in play. The value is stamped on the faction instance
+ * ({@link CardInPlay.mpPinned}) at influence time so it persists independently of
+ * the carrier. At most one such card applies (the carrier is duplication-limited).
+ */
+export function playedAfterFactionMpPin(state: GameState, player: PlayerState): number | undefined {
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'played-after-faction-mp-pin') return effect.value;
+    }
+  }
+  return undefined;
+}
+
 export function isHavenForPlayer(
   siteDef: CardDefinition | undefined,
   alignment: Alignment,
@@ -732,6 +1263,72 @@ export function canAttackAlignment(
     default:
       return false;
   }
+}
+
+/** True for the two minion player alignments (Ringwraith/Sauron and Balrog). */
+function isMinionAlignment(alignment: Alignment): boolean {
+  return alignment === 'ringwraith' || alignment === 'balrog';
+}
+
+/**
+ * True when any character in `company` has the Ringwraith race — i.e. the
+ * company "contains a Ringwraith" (a Ringwraith avatar or a Ringwraith follower
+ * played under another's control, both of which carry `race: ringwraith`).
+ */
+export function companyHasRingwraith(state: GameState, owner: PlayerState, company: Company): boolean {
+  for (const charInstId of company.characters) {
+    const defId = owner.characters[charInstId]?.definitionId ?? resolveInstanceId(state, charInstId);
+    if (!defId) continue;
+    const charDef = defById(state, defId);
+    if (charDef && isCharacterCard(charDef) && charDef.race === Race.Ringwraith) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether an in-play permanent-event grants an *extra* CvCC attack permission
+ * (beyond {@link canAttackAlignment}) for this specific attacker→defender pair.
+ *
+ * Scans every in-play permanent-event on both players' `cardsInPlay` for a
+ * `cvcc-attack-permission` effect and, for each, matches its optional `when`
+ * against a context describing both companies:
+ * `{ attacker: { alignment, isMinion, hasRingwraith }, defender: { … } }`.
+ * Returns true as soon as one permission matches. Backs Prone to Violence
+ * (ba-42): "Any minion company without a Ringwraith may attack another minion
+ * company without a Ringwraith."
+ */
+export function cvccAttackPermitted(
+  state: GameState,
+  attacker: PlayerState,
+  attackerCompany: Company,
+  defender: PlayerState,
+  defenderCompany: Company,
+): boolean {
+  const ctx = {
+    attacker: {
+      alignment: attacker.alignment,
+      isMinion: isMinionAlignment(attacker.alignment),
+      hasRingwraith: companyHasRingwraith(state, attacker, attackerCompany),
+    },
+    defender: {
+      alignment: defender.alignment,
+      isMinion: isMinionAlignment(defender.alignment),
+      hasRingwraith: companyHasRingwraith(state, defender, defenderCompany),
+    },
+  };
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'cvcc-attack-permission') continue;
+        if (effect.when && !matchesCondition(effect.when, ctx)) continue;
+        logDetail(`CvCC attack permitted by ${(def as { name?: string }).name ?? (card.definitionId as string)}: ${attacker.alignment} ${attackerCompany.id} → ${defender.alignment} ${defenderCompany.id}`);
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /**
@@ -899,6 +1496,92 @@ export function findPlayerAvatar(
 }
 
 /**
+ * Keywords that mark a card as a *magic card* (a spell). Any of these on a
+ * card's `keywords` list qualifies: the generic `spell` tag plus the three
+ * casting classes. Backs Akhôrahil the Ringwraith's (le-51) magic-recycling
+ * passive ({@link MagicDiscardToDeckEffect}).
+ */
+const MAGIC_CARD_KEYWORDS = ['spell', 'sorcery', 'spirit-magic', 'shadow-magic'] as const;
+
+/**
+ * True when `def` is a magic card — it carries any {@link MAGIC_CARD_KEYWORDS}.
+ */
+export function isMagicCard(def: CardDefinition | undefined): boolean {
+  if (!def || !('keywords' in def) || !Array.isArray((def as { keywords?: readonly string[] }).keywords)) {
+    return false;
+  }
+  const keywords = (def as { keywords: readonly string[] }).keywords;
+  return MAGIC_CARD_KEYWORDS.some(k => keywords.includes(k));
+}
+
+/**
+ * True when `playerIndex`'s revealed avatar in play carries a
+ * `magic-discard-to-deck` passive (Akhôrahil the Ringwraith le-51). Such a
+ * player recycles the magic cards they cast back into their play deck instead
+ * of discarding them.
+ */
+export function playerRecyclesMagicToDeck(state: GameState, playerIndex: number): boolean {
+  const avatar = findPlayerAvatar(state, state.players[playerIndex]);
+  if (!avatar) return false;
+  const def = resolveDef(state, avatar.instanceId);
+  return getCardEffects(def).some(e => e.type === 'magic-discard-to-deck');
+}
+
+/**
+ * Dispose of a just-played event `card` for the player at `playerIndex`. By
+ * default the card goes to that player's discard pile. But when the card is a
+ * magic card ({@link isMagicCard}) and the player's revealed avatar carries the
+ * `magic-discard-to-deck` passive ({@link playerRecyclesMagicToDeck}) — i.e.
+ * Akhôrahil the Ringwraith (le-51) is their Ringwraith — the card is instead
+ * shuffled back into their play deck and the deck reshuffled: "As your
+ * Ringwraith, when a magic card used by him has to be discarded, return it to
+ * the play deck and reshuffle."
+ *
+ * Callers pass the already-removed-from-hand event instance; this helper only
+ * decides its destination (no card instance disappears: it lands in exactly one
+ * of playDeck or discardPile).
+ */
+export function discardOrRecyclePlayedEvent(
+  state: GameState,
+  playerIndex: number,
+  card: CardInstance,
+): GameState {
+  const def = defById(state, card.definitionId);
+  if (isMagicCard(def) && playerRecyclesMagicToDeck(state, playerIndex)) {
+    const player = state.players[playerIndex];
+    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, card], state.rng);
+    logDetail(
+      `${def && 'name' in def ? def.name : (card.definitionId as string)}: magic card returned to ${player.id as string}'s ` +
+      `play deck and reshuffled (Akhôrahil the Ringwraith) instead of discarding`,
+    );
+    return {
+      ...updatePlayer(state, playerIndex, p => ({ ...p, playDeck: shuffledDeck })),
+      rng: nextRng,
+    };
+  }
+  return updatePlayer(state, playerIndex, p => ({ ...p, discardPile: [...p.discardPile, card] }));
+}
+
+/**
+ * The name of a player's Wizard avatar in play (e.g. "Radagast", "Gandalf"),
+ * or `undefined` when no avatar is in play. Backs faction "Standard
+ * Modifications: if <Wizard> is your Wizard (+N)" clauses — exposed on the
+ * faction-influence resolver context as `controller.wizard` so a
+ * `check-modifier` can gate on `{ "controller.wizard": "Radagast" }`
+ * (Wild Hounds wh-40). The avatar is a company character, not a `cardsInPlay`
+ * entry, so it is not reachable via `controller.inPlay`.
+ */
+export function playerWizardName(
+  state: GameState,
+  player: { readonly characters: Readonly<Record<string, CharacterInPlay>> },
+): string | undefined {
+  const avatar = findPlayerAvatar(state, player);
+  if (!avatar) return undefined;
+  const def = resolveDef(state, avatar.instanceId);
+  return def && 'name' in def ? (def as { name: string }).name : undefined;
+}
+
+/**
  * Returns the name of the Fallen-wizard a player counts "as" for the play of
  * Stage resources (CoE 2.2.F2), or `undefined` if the player has no such
  * identity. Used to evaluate the `player.avatar` predicate of "Playable if you
@@ -1056,11 +1739,17 @@ export function filterSideboardByDef(
  * base 20 for as long as it stays in play. Before the avatar is revealed (and
  * for every other alignment) the pool is the base 20. On top of either base,
  * permanent events (e.g. Bade to Rule: +5) contribute `generalInfluenceBonus`.
+ *
+ * `generalInfluenceOverride` displaces whichever base would otherwise apply: a
+ * Radagast Shapeshifter form (wh-112/115/116) adopts a whole attribute line,
+ * so its printed general influence *is* the pool while the form is on him.
+ * Ordinary bonuses still stack on top of the adopted number.
  */
 export function effectiveGeneralInfluence(state: GameState, playerId: PlayerId): number {
   const player = playerById(state, playerId);
   if (!player) return GENERAL_INFLUENCE;
   const bonus = player.generalInfluenceBonus ?? 0;
+  if (player.generalInfluenceOverride !== undefined) return player.generalInfluenceOverride + bonus;
   const avatar = findPlayerAvatar(state, player);
   if (avatar) {
     const def = resolveDef(state, avatar.instanceId);
@@ -1072,10 +1761,83 @@ export function effectiveGeneralInfluence(state: GameState, playerId: PlayerId):
   return GENERAL_INFLUENCE + bonus;
 }
 
+/**
+ * The portion of a player's general influence that may be spent to control
+ * characters (subtract `generalInfluenceUsed` for the remaining capacity).
+ * This is the full pool ({@link effectiveGeneralInfluence}) minus any
+ * `generalInfluenceControlPenalty` — the part of an in-play GI bonus that is
+ * restricted to defensive/unused use only (e.g. Truths of Doom wh-108: +6 to
+ * the pool but only +2 usable to control characters). For the common case
+ * (no control-restricted bonus) this equals {@link effectiveGeneralInfluence}.
+ */
+export function generalInfluenceControlLimit(state: GameState, playerId: PlayerId): number {
+  const player = playerById(state, playerId);
+  const penalty = player?.generalInfluenceControlPenalty ?? 0;
+  return effectiveGeneralInfluence(state, playerId) - penalty;
+}
+
 export function countCopiesInPlay(state: GameState, name: string): number {
-  return state.players.reduce((count, p) =>
-    count + p.cardsInPlay.filter(c => defById(state, c.definitionId)?.name === name).length,
-  0);
+  let count = 0;
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (defById(state, c.definitionId)?.name === name) count += 1;
+    }
+    // Stage permanent-events "placed on the avatar" (Give Welcome to the
+    // Unexpected wh-99, Pallando's Hood wh-105, Wizard's Myrmidon wh-84) live in
+    // a character's `items`, not `cardsInPlay`; count them there too so a unique
+    // such card cannot be played a second time while one is already attached.
+    for (const char of Object.values(p.characters)) {
+      for (const item of char.items) {
+        if (defById(state, item.definitionId)?.name === name) count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+/**
+ * True when the card definition `defId` carries the given (lowercased) keyword.
+ * Keyword matching is case-insensitive so `"Spawn"` in card data matches
+ * `"spawn"`.
+ */
+function defHasKeyword(state: GameState, defId: CardDefinitionId, keyword: string): boolean {
+  const def = defById(state, defId);
+  const kws = (def as { keywords?: readonly string[] } | undefined)?.keywords;
+  return kws ? kws.some(k => k.toLowerCase() === keyword) : false;
+}
+
+/**
+ * Count all `spawn`-keyword cards currently in play across both players, backing
+ * "the number of Spawn cards in play" (The Reek ba-23, Darkness Made by Malice
+ * ba-15, Desire All for Thy Belly ba-16). "Eliminated Spawn do not count" is
+ * satisfied automatically: eliminated cards leave the in-play zones for a
+ * discard/out-of-play pile, so they are not scanned here.
+ *
+ * Spawn cards may be in play as characters (The Balrog ba-3), allies (Evil
+ * Things Lingering ba-45), attached hazards, or bare permanent-events in
+ * `cardsInPlay` (Spawn of Ungoliant ba-24 and its kin). All of these zones are
+ * counted.
+ */
+export function countSpawnCardsInPlay(state: GameState): number {
+  let count = 0;
+  for (const p of state.players) {
+    for (const cip of p.cardsInPlay) {
+      if (defHasKeyword(state, cip.definitionId, 'spawn')) count += 1;
+    }
+    for (const ch of Object.values(p.characters)) {
+      if (defHasKeyword(state, ch.definitionId, 'spawn')) count += 1;
+      for (const ally of ch.allies) {
+        if (defHasKeyword(state, ally.definitionId, 'spawn')) count += 1;
+      }
+      for (const hazard of ch.hazards) {
+        if (defHasKeyword(state, hazard.definitionId, 'spawn')) count += 1;
+      }
+      for (const item of ch.items) {
+        if (defHasKeyword(state, item.definitionId, 'spawn')) count += 1;
+      }
+    }
+  }
+  return count;
 }
 
 /**
@@ -1151,6 +1913,18 @@ export function countPermanentEventCopiesAtSite(state: GameState, name: string, 
 }
 
 /**
+ * Count copies of the permanent event named `name` currently attached to the
+ * item instance `itemInstanceId` (an `attachedToItem` binding in any player's
+ * `cardsInPlay`). Backs `duplication-limit` checks with `scope: "item"` (e.g.
+ * Barrow-blade dm-119: "Cannot be duplicated on a given Dagger").
+ */
+export function countItemAttachedCopies(state: GameState, itemInstanceId: CardInstanceId, name: string): number {
+  return state.players.reduce((count, p) =>
+    count + p.cardsInPlay.filter(c => c.attachedToItem === itemInstanceId && defById(state, c.definitionId)?.name === name).length,
+  0);
+}
+
+/**
  * Resolve a list of card instances (items, allies, possessions, …) to their
  * definition names, dropping any that fail to resolve. Centralizes the
  * `instances.map(defById(...)?.name).filter(defined)` pattern used to build
@@ -1160,6 +1934,65 @@ export function defNamesOf(state: GameState, instances: readonly { readonly defi
   return instances
     .map(i => defById(state, i.definitionId)?.name)
     .filter((n): n is string => n != null);
+}
+
+/**
+ * Evaluate a `play-condition` `requires: 'company-context'` DSL condition
+ * against a specific company (the play-target character's company for a
+ * character-targeting permanent event).
+ *
+ * Exposes `{ site: { name, type, isOwnWizardhaven }, company: { characterNames,
+ * itemNames, allyNames, playedUniqueHeroFactionAtFreeHold } }`. `itemNames`
+ * aggregates every item / attached permanent event borne by any character in
+ * the company, so a card can gate on "in the same company as <named card>" (the
+ * named card being attached to a company-mate). `playedUniqueHeroFactionAtFreeHold`
+ * is the caller-supplied site-phase flag (true only when this company has, this
+ * site phase, played a unique hero faction at a Free-hold that is not Bag End).
+ * `site.isOwnWizardhaven` is `true` when the company's current site is one of the
+ * player's own Wizardhavens (a Fallen-wizard haven, or a site converted into one
+ * via Hidden Haven wh-75) — this is what "at one of your Wizardhavens [{H}]"
+ * means, distinguishing a Fallen-wizard's own havens from generic METW
+ * Havens/MELE Darkhavens that merely share `type: "haven"`.
+ *
+ * Used by To Fealty Sworn (ba-33) and the Fallen-wizard "squire" companions
+ * (Squire of the Hunt wh-95, Gandalf's Friend wh-98, Pallando's Apprentice
+ * wh-104).
+ */
+export function matchesCompanyContextCondition(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  condition: Condition,
+  playedUniqueHeroFactionAtFreeHold: boolean,
+  playedFactionHere = false,
+): boolean {
+  const siteDefId = company.currentSite?.definitionId;
+  const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
+  const siteName = siteDef?.name;
+  const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : undefined;
+  const isOwnWizardhaven = isHavenForPlayer(
+    siteDef,
+    player.alignment,
+    siteDefId ? { state, siteDefinitionId: siteDefId, playerId: player.id } : undefined,
+  );
+
+  const characterNames: string[] = [];
+  const itemNames: string[] = [];
+  const allyNames: string[] = [];
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char) continue;
+    const cn = defById(state, char.definitionId)?.name;
+    if (cn != null) characterNames.push(cn);
+    itemNames.push(...defNamesOf(state, char.items));
+    allyNames.push(...defNamesOf(state, char.allies));
+  }
+
+  const context: Record<string, unknown> = {
+    site: { name: siteName, type: siteType, isOwnWizardhaven },
+    company: { characterNames, itemNames, allyNames, playedUniqueHeroFactionAtFreeHold, playedFactionHere },
+  };
+  return matchesCondition(condition, context);
 }
 
 /**
@@ -1188,15 +2021,147 @@ export function itemSubtypesOf(state: GameState, items: readonly { readonly defi
 }
 
 /**
+ * Game-wide environment override contributed by in-play cards carrying an
+ * `environment-override` effect (Peril Returned td-54). Returns the union of
+ * every such card's `considerInPlay` names (treated as in play regardless of any
+ * actual card) and `considerNotInPlay` names (treated as out of play even while
+ * their card sits in `cardsInPlay`). Both sets are empty in the common case.
+ *
+ * The override is global — an environment card reshapes the interpretation for
+ * every player — so both players' `cardsInPlay` are scanned and the result is
+ * consulted by both the `inPlay`-context builder (`buildInPlayNames`) and the
+ * name-in-play predicates below, keeping every "is X in play?" query consistent.
+ */
+export function collectEnvironmentOverride(state: GameState): { add: Set<string>; remove: Set<string> } {
+  const add = new Set<string>();
+  const remove = new Set<string>();
+  for (const p of state.players) {
+    for (const card of p.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const eff of getCardEffects(def)) {
+        if (eff.type !== 'environment-override') continue;
+        for (const n of eff.considerInPlay ?? []) add.add(n);
+        for (const n of eff.considerNotInPlay ?? []) remove.add(n);
+      }
+    }
+  }
+  return { add, remove };
+}
+
+/**
+ * Applies the game-wide {@link collectEnvironmentOverride} to a single name
+ * query, returning `true`/`false` when the name is forced in/out of play, or
+ * `undefined` when no override touches it (caller falls back to a physical
+ * scan). Additions win over removals for a name in both lists.
+ */
+function overriddenInPlay(state: GameState, name: string): boolean | undefined {
+  const { add, remove } = collectEnvironmentOverride(state);
+  if (add.has(name)) return true;
+  if (remove.has(name)) return false;
+  return undefined;
+}
+
+/**
  * True if any player has a card with the given name among their characters or
  * cards in play. Used for "card-not-in-play" play conditions, where the named
  * blocker may be either a character or a permanent in play.
+ *
+ * Honors the game-wide environment override (Peril Returned td-54) so a name
+ * "considered in play" (Doors of Night) reads as in play with no actual card,
+ * and a name "considered out of play" (Gates of Morning) reads as absent even
+ * while its card remains in `cardsInPlay`.
  */
 export function isCardNameInPlayOrCharacters(state: GameState, name: string): boolean {
+  const override = overriddenInPlay(state, name);
+  if (override !== undefined) return override;
   return state.players.some(p =>
     Object.values(p.characters).some(ch => defById(state, ch.definitionId)?.name === name) ||
     p.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name),
   );
+}
+
+/**
+ * The `move` effect by which a card relocates *itself* from the sideboard into
+ * the play deck — the Balrog sideboard family's "You may bring this card from
+ * your sideboard into your play deck and reshuffle during your organization
+ * phase" (Terror Heralds Doom ba-78 et al.). Returns undefined when the card
+ * declares no such effect. Shared by the organization-phase legal-action
+ * generator and its reducer.
+ */
+export function selfSideboardToDeckMove(
+  def: CardDefinition | undefined,
+): import('../types/effects.js').MoveEffect | undefined {
+  if (!def) return undefined;
+  return getCardEffects(def).find((e): e is import('../types/effects.js').MoveEffect => {
+    if (e.type !== 'move' || e.select !== 'self' || e.to !== 'deck') return false;
+    const from = Array.isArray(e.from) ? e.from : [e.from];
+    return from.includes('sideboard');
+  });
+}
+
+/**
+ * True if a named card is in play for the given player, checking every in-play
+ * zone the player controls: `cardsInPlay` (permanent/long events, factions,
+ * stage cards), the player's characters, and cards attached to those characters
+ * (items and hazards). Attachment-aware because some "in play" cards live only
+ * as character-attached permanent events — e.g. Flame of Udûn (ba-58), a Demon
+ * fána played on The Balrog and held in his `items`. Backs the resource
+ * short-event `card-in-play` play-condition (Terror Heralds Doom ba-78:
+ * "Playable ... if Flame of Udûn is in play").
+ */
+export function isCardNameInPlayForPlayer(
+  state: GameState,
+  player: PlayerState,
+  name: string,
+): boolean {
+  // Environment overrides (Peril Returned td-54) are game-wide, so they resolve
+  // the query before the per-player scan (Doors of Night considered in play,
+  // Gates of Morning considered out, for every player).
+  const override = overriddenInPlay(state, name);
+  if (override !== undefined) return override;
+  if (player.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name)) return true;
+  for (const ch of Object.values(player.characters)) {
+    if (defById(state, ch.definitionId)?.name === name) return true;
+    if (ch.items.some(i => defById(state, i.definitionId)?.name === name)) return true;
+    if (ch.hazards.some(h => defById(state, h.definitionId)?.name === name)) return true;
+  }
+  return false;
+}
+
+/**
+ * All card names in play for the given player, attachment-aware: `cardsInPlay`
+ * plus every character, the items and hazards attached to them. The list form
+ * of {@link isCardNameInPlayForPlayer}; used to populate a `defender.inPlay`
+ * combat context so a `when` gate can test `{ $includes: "<name>" }` for a card
+ * that lives only as a character-attached permanent event (e.g. Great Shadow
+ * ba-62, a Demon fána on The Balrog). Backs Darkness Wielded (ba-55):
+ * "Playable on an attack against The Balrog's company if Great Shadow is in play."
+ */
+export function inPlayNamesForPlayerDeep(
+  state: GameState,
+  player: PlayerState,
+): readonly string[] {
+  const names: string[] = [];
+  const push = (id: import('../types/common.js').CardDefinitionId): void => {
+    const n = defById(state, id)?.name;
+    if (n) names.push(n);
+  };
+  for (const c of player.cardsInPlay) push(c.definitionId);
+  for (const ch of Object.values(player.characters)) {
+    push(ch.definitionId);
+    for (const i of ch.items) push(i.definitionId);
+    for (const h of ch.hazards) push(h.definitionId);
+  }
+  // Apply the game-wide environment override (Peril Returned td-54) so a
+  // `defender.inPlay` `$includes` gate sees the same considered-in/out set.
+  const { add, remove } = collectEnvironmentOverride(state);
+  if (add.size === 0 && remove.size === 0) return names;
+  const adjusted = names.filter(n => !remove.has(n) || add.has(n));
+  for (const n of add) {
+    if (!adjusted.includes(n)) adjusted.push(n);
+  }
+  return adjusted;
 }
 
 /**
@@ -1207,6 +2172,40 @@ export function isCardNameInPlayOrCharacters(state: GameState, name: string): bo
  */
 export function parseHomesiteNames(homesite: string): string[] {
   return homesite.split(',').map(s => s.trim()).filter(s => s.length > 0);
+}
+
+/**
+ * True if a character definition is an agent whose *printed* home site is a
+ * site of one of the given {@link SiteType}s.
+ *
+ * The `homesite` field is a comma-separated list of site *names*; this resolves
+ * each name against the card pool and checks whether any matching site's type
+ * is in `types`. A single site name can exist in more than one alignment's map
+ * with *different* types (e.g. Dol Guldur is a minion haven but a hero
+ * dark-hold), so when the character definition carries an alignment the lookup
+ * is restricted to sites of that same alignment (falling back to any-alignment
+ * site of that name only when no alignment-matched site exists). This keys the
+ * classification off the map the agent actually uses. Used by Inner Cunning
+ * (dm-68) — both mode 1's reveal broadening ("if his home site is a Shadow-hold
+ * or Dark-hold") and mode 2's fetch filter ("any agent whose home site is a
+ * Shadow-hold or Dark-hold").
+ */
+export function agentHomeSiteMatchesTypes(
+  state: GameState,
+  def: { homesite?: string; alignment?: Alignment } | undefined,
+  types: readonly SiteType[],
+): boolean {
+  if (!def?.homesite) return false;
+  const names = new Set(parseHomesiteNames(def.homesite));
+  if (names.size === 0) return false;
+  const align = def.alignment;
+  // Collect same-named sites, preferring those matching the agent's alignment.
+  const named = Object.values(state.cardPool).filter(
+    (d): d is SiteCard => isSiteCard(d) && names.has(d.name),
+  );
+  const aligned = align !== undefined ? named.filter(s => s.alignment === align) : [];
+  const candidates = aligned.length > 0 ? aligned : named;
+  return candidates.some(s => types.includes(s.siteType));
 }
 
 /**
@@ -1222,6 +2221,171 @@ export function isUniqueCharacterInPlay(state: GameState, charName: string): boo
       const def = resolveDef(state, char.instanceId);
       if (isCharacterCard(def) && def.name === charName) return true;
     }
+  }
+  return false;
+}
+
+// ─── Opponent-influence override (Prophet of Doom wh-106) ────────────────────
+
+/** Sentinel penalty when the target region is unreachable in the region graph. */
+const UNREACHABLE_REGION_PENALTY = 99;
+
+/**
+ * The active player's in-play `opponent-influence-override` effect (Prophet of
+ * Doom wh-106), or `undefined` if none is in play. The effect is carried by a
+ * stage permanent-event in the player's `cardsInPlay`.
+ */
+export function getOpponentInfluenceOverride(
+  state: GameState,
+  player: PlayerState,
+): OpponentInfluenceOverrideEffect | undefined {
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    const eff = getCardEffects(def).find(e => e.type === 'opponent-influence-override');
+    if (eff) return eff;
+  }
+  return undefined;
+}
+
+/**
+ * The value an `opponent-influence-override` contributes to the influence check
+ * in place of the influencer's unused direct influence: the player's unused
+ * general influence divided by `divisor` (rounded per `roundUp`), clamped to
+ * `[0, max]`. Prophet of Doom: half of unused GI, rounded up, capped at 10.
+ */
+export function generalInfluenceSubstitutionValue(
+  unusedGeneralInfluence: number,
+  sub: NonNullable<OpponentInfluenceOverrideEffect['generalInfluenceSubstitution']>,
+): number {
+  const quotient = unusedGeneralInfluence / sub.divisor;
+  const rounded = sub.roundUp ? Math.ceil(quotient) : Math.floor(quotient);
+  return Math.max(0, Math.min(sub.max, rounded));
+}
+
+/** Region name of the site a company currently occupies, or undefined. */
+export function companySiteRegion(state: GameState, company: Company | undefined): string | undefined {
+  const siteId = company?.currentSite?.instanceId;
+  if (!siteId) return undefined;
+  const def = resolveDef(state, siteId);
+  return def && isSiteCard(def) ? def.region : undefined;
+}
+
+/**
+ * The set of region names where a faction may be played, resolved from its
+ * `playableAt` entries: named-site entries map to that site's region and
+ * named-region entries contribute directly. Site-type / any entries have no
+ * single region and are skipped. Used to approximate "the region the faction is
+ * played in" for Prophet of Doom's region-distance penalty when re-influencing
+ * an opponent's in-play faction (the game does not record the exact site a
+ * faction was played at).
+ */
+export function factionPlayableSiteRegions(state: GameState, factionDef: CardDefinition): readonly string[] {
+  if (!isFactionCard(factionDef)) return [];
+  const regions = new Set<string>();
+  for (const entry of factionDef.playableAt) {
+    if ('region' in entry) {
+      regions.add(entry.region);
+    } else if ('site' in entry) {
+      for (const d of Object.values(state.cardPool)) {
+        if (isSiteCard(d) && d.name === entry.site && d.region) regions.add(d.region);
+      }
+    }
+  }
+  return [...regions];
+}
+
+/**
+ * The inclusive region-distance penalty (CRF 22: both endpoint regions count)
+ * for a Prophet-of-Doom influence attempt: the minimum distance from the
+ * influencer's region to any of the candidate target regions. Returns 0 when
+ * either side is undeterminable (no penalty) and a large sentinel when a
+ * determinable target is unreachable in the region graph.
+ */
+export function influenceRegionPenalty(
+  state: GameState,
+  influencerRegion: string | undefined,
+  targetRegions: readonly string[],
+): number {
+  if (!influencerRegion || targetRegions.length === 0) return 0;
+  const map = buildMovementMap(state.cardPool);
+  let best: number | null = null;
+  for (const target of targetRegions) {
+    const d = regionDistanceInclusive(map, influencerRegion, target);
+    if (d === null) continue;
+    if (best === null || d < best) best = d;
+  }
+  return best ?? UNREACHABLE_REGION_PENALTY;
+}
+
+/**
+ * One `playableAt` entry of an ally/faction card matched against a site
+ * definition: a named site, a site type, or a region (non-haven sites only),
+ * with the entry's optional `when` condition evaluated against the site
+ * (mirrors `siteMatchesEntry` in `legal-actions/site.ts`, on printed types).
+ */
+function playableAtEntryMatchesSite(
+  entry: import('../types/cards-resources.js').PlayableAtEntry,
+  siteDef: SiteCard,
+): boolean {
+  if ('region' in entry) {
+    if (siteDef.siteType === 'haven') return false;
+    return siteDef.region === entry.region;
+  }
+  // `any` entries match every site subject to the optional `when` condition.
+  // NOTE: this path (backing `isCardPlayableAtSiteDef`, e.g. Strider's
+  // discard-pile fetch) has no `state`, so `site.regionType` is not populated
+  // here — a `when` gating on region type under-approximates (safe: never a
+  // false positive). The primary faction-play path (`siteMatchesEntry` in
+  // `legal-actions/site.ts`) supplies `regionType` and evaluates it fully.
+  const baseMatches = 'any' in entry
+    ? true
+    : 'site' in entry
+      ? siteDef.name === entry.site
+      : siteDef.siteType === entry.siteType;
+  if (!baseMatches) return false;
+  if (!entry.when) return true;
+  const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
+  return matchesCondition(entry.when, {
+    site: {
+      name: siteDef.name,
+      siteType: siteDef.siteType,
+      region: siteDef.region,
+      autoAttack: { race: autoAttackRaces },
+    },
+  });
+}
+
+/**
+ * True when `def` — an item, ally, or faction — is playable at the site
+ * described by `siteDef`, per each card type's own playability rule:
+ *
+ * - **Items**: the item's subtype must appear in the site's printed
+ *   `playableResources` list, or an `item-play-site` effect on the item
+ *   must name the site (`sites`) / match it (`filter`).
+ * - **Allies / factions**: some `playableAt` entry must match the site.
+ *
+ * Other card types return false. Backs the `playableAtSite` restriction of
+ * `fetch-to-deck` pending effects (Strider ba-1: "search your discard pile
+ * for any one item, ally, or faction playable at his current site").
+ */
+export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard): boolean {
+  if (isItemCard(def)) {
+    if ((siteDef.playableResources as readonly string[]).includes(def.subtype as string)) return true;
+    const playSite = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').ItemPlaySiteEffect => e.type === 'item-play-site',
+    );
+    if (playSite?.sites?.includes(siteDef.name)) return true;
+    if (playSite?.filter) {
+      const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
+      return matchesContext(playSite.filter, { site: { ...siteDef, autoAttackRaces } });
+    }
+    return false;
+  }
+  if (isAllyCard(def)) {
+    return def.playableAt.some(entry => playableAtEntryMatchesSite(entry, siteDef));
+  }
+  if (isFactionCard(def)) {
+    return def.playableAt.some(entry => playableAtEntryMatchesSite(entry, siteDef));
   }
   return false;
 }
@@ -1366,6 +2530,11 @@ export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number
   for (let i = 0; i < player.companies.length; i++) {
     const c = player.companies[i];
     if (!c.currentSite) continue;
+    // Left Behind (td-41): a "left behind" company only rejoins its original
+    // company by explicit choice ("may rejoin"), so it is exempt from the
+    // automatic same-site merge (rule 2.IV.6). The optional rejoin is offered
+    // as a `left-behind-rejoin` resolution at the M/H→Site transition.
+    if (c.leftBehind) continue;
     const key = c.currentSite.instanceId as string;
     const existing = groups.get(key);
     if (existing) {
@@ -1666,6 +2835,100 @@ export function discardCardsInPlayWhere(
 }
 
 /**
+ * Whether `company` (owned by `player`) contains a character whose printed
+ * `race` equals `race`. Shared by the {@link ProhibitCompanyEventsEffect}
+ * machinery (Stormcrow td-73) to detect "a company with a Wizard".
+ */
+export function companyContainsRace(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  race: string,
+): boolean {
+  return company.characters.some(cId => {
+    const ch = player.characters[cId];
+    if (!ch) return false;
+    const def = defById(state, ch.definitionId);
+    return !!def && isCharacterCard(def) && def.race === race;
+  });
+}
+
+/**
+ * Collects the races prohibited by every in-play
+ * {@link ProhibitCompanyEventsEffect} (Stormcrow td-73), across both players'
+ * `cardsInPlay`. A card still resolving a `trigger-attack-on-play` keep is
+ * skipped (its ongoing effects are suppressed until the keep is confirmed).
+ */
+function collectProhibitedCompanyEventRaces(state: GameState): string[] {
+  const races: string[] = [];
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.pendingTriggerAttack) continue;
+      for (const e of getCardEffects(defById(state, c.definitionId))) {
+        if (e.type === 'prohibit-company-events') {
+          races.push(e.companyHasRace);
+        }
+      }
+    }
+  }
+  return races;
+}
+
+/**
+ * Whether a resource permanent-event played on the company as a whole (e.g.
+ * Fellowship tw-240) may **not** be played on `company` (owned by `player`)
+ * because an in-play {@link ProhibitCompanyEventsEffect} (Stormcrow td-73)
+ * targets a race present in the company. Consulted by the organization-phase
+ * `play-target: company` emitter.
+ */
+export function isCompanyEventPlayProhibited(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): boolean {
+  const races = collectProhibitedCompanyEventRaces(state);
+  return races.some(race => companyContainsRace(state, player, company, race));
+}
+
+/**
+ * `postReduce` sweep: while a {@link ProhibitCompanyEventsEffect} (Stormcrow
+ * td-73) is in play, discard every resource permanent-event bound to a
+ * matching company (a company containing a prohibited race) to its owner's
+ * discard pile. Runs continuously so it also catches a matching character
+ * joining a company that already carries such an event. Company-bound
+ * resource permanent-events are exactly the "played on the company as a whole"
+ * cards (Fellowship); character-attached permanent-events (which set
+ * `attachedTo`, not `companyId`) are untouched.
+ */
+export function sweepProhibitedCompanyEvents(state: GameState): GameState {
+  const races = collectProhibitedCompanyEventRaces(state);
+  if (races.length === 0) return state;
+  const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+    state,
+    (card, player) => {
+      if (card.companyId === undefined) return false;
+      const def = defById(state, card.definitionId);
+      if (!def) return false;
+      if (def.cardType !== 'hero-resource-event' && def.cardType !== 'minion-resource-event') return false;
+      if ((def as { eventType?: string }).eventType !== 'permanent') return false;
+      const company = player.companies.find(c => c.id === card.companyId);
+      if (!company) return false;
+      return races.some(race => companyContainsRace(state, player, company, race));
+    },
+    card => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`Stormcrow: discarding company-bound resource event "${def?.name ?? card.definitionId}" — company has a prohibited race`);
+    },
+  );
+  if (removedInstanceIds.length === 0) return state;
+  const removedSources = new Set(removedInstanceIds.map(id => id as string));
+  return {
+    ...next,
+    activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+  };
+}
+
+/**
  * Fires the `company-membership-changes` event against every company-targeted
  * permanent event (cardsInPlay with a matching `companyId`) that carries an
  * `on-event: company-membership-changes` + self-discard `move` effect. Used by
@@ -1749,6 +3012,145 @@ export function discardOrphanedControlledFactions(state: GameState): GameState {
 }
 
 /**
+ * True when a site-bound permanent event's card text keeps its bound site
+ * permanent — "This site is never discarded or returned to its location deck."
+ * Such a card is exempt from the site-attached orphan sweep (it persists while
+ * its site is unoccupied) and its bound origin site is always returned to the
+ * owner's location deck rather than discarded when a company leaves it. Shared
+ * by Caverns Unchoked (ba-51, `surface-region-adjacency`), Breach the Hold
+ * (ba-50, `surface-site-roll-zero`), Roots of the Earth (ba-74,
+ * `site-instance-transform`), and Eddy in Fate's Tide (ba-57, `eddy-lock`,
+ * "This site is never discarded").
+ *
+ * Also true for Girdle of Radagast (wh-110, `region-type-conversion`): a
+ * permanent Fallen-wizard **stage** resource bound to a Wizardhaven purely to
+ * anchor its region-conversion effect. It contributes stage points for the rest
+ * of the game and must persist when the company leaves the haven, so it is
+ * exempt from the orphan sweep (the haven itself is never discarded regardless).
+ */
+export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefined): boolean {
+  return getCardEffects(def).some(
+    e => e.type === 'surface-region-adjacency'
+      || e.type === 'surface-site-roll-zero'
+      || e.type === 'site-instance-transform'
+      || e.type === 'eddy-lock'
+      || e.type === 'site-lock'
+      || e.type === 'region-type-conversion',
+  );
+}
+
+/**
+ * Whether the given site *definition* never untaps for `forPlayer` — i.e. that
+ * player's `cardsInPlay` holds a bound (`attachedToSite === siteDefId`),
+ * non-`pendingTriggerAttack` card carrying an `eddy-lock` (ba-57) or `site-lock`
+ * (ba-72) effect. Used at re-placement (mh-hazard-play step 8) so the owner's
+ * company arrives at a version of the locked site **tapped** ("never untaps for
+ * you"). The engine never untaps a stationary site, so re-placement is the only
+ * refresh point.
+ */
+export function siteNeverUntapsForOwner(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+  forPlayer: PlayerId,
+): boolean {
+  if (!siteDefId) return false;
+  const owner = state.players.find(p => p.id === forPlayer);
+  if (!owner) return false;
+  return owner.cardsInPlay.some(c => {
+    if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) return false;
+    return getCardEffects(defById(state, c.definitionId)).some(
+      e => e.type === 'eddy-lock' || e.type === 'site-lock',
+    );
+  });
+}
+
+/**
+ * Sum of the `factionInfluenceModifier` of every in-play `site-lock` card (of
+ * either player) bound to the given site *definition* and not still
+ * `pendingTriggerAttack`. People Diminished (ba-72): "-5 to each attempt against
+ * any faction at any version of this site." Applied to the faction-influence
+ * need computed in the site-phase legal-action path.
+ */
+export function siteFactionInfluenceModifier(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+): number {
+  if (!siteDefId) return 0;
+  let total = 0;
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
+      for (const e of getCardEffects(defById(state, c.definitionId))) {
+        if (e.type === 'site-lock' && typeof e.factionInfluenceModifier === 'number') {
+          total += e.factionInfluenceModifier;
+        }
+      }
+    }
+  }
+  return total;
+}
+
+/**
+ * Aggregated anti-minion flags of every in-play `site-lock` card (of either
+ * player) bound to the given site *definition* (and not still
+ * `pendingTriggerAttack`). No Strangers at this Time (as-51) sets both flags:
+ * against a minion (Ringwraith) company at any version of the bound site,
+ * `convertDetainment` makes the site's detainment automatic-attacks resolve as
+ * normal attacks, and `duplicateFirstAutoAttack` adds one exact copy of the
+ * site's first automatic-attack. Both are gated on the defending company's
+ * alignment by the caller (`reducer-site.ts`).
+ */
+export function siteLockAntiMinion(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+): { convertDetainment: boolean; duplicateFirstAutoAttack: boolean } {
+  const result = { convertDetainment: false, duplicateFirstAutoAttack: false };
+  if (!siteDefId) return result;
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
+      for (const e of getCardEffects(defById(state, c.definitionId))) {
+        if (e.type !== 'site-lock') continue;
+        if (e.convertDetainmentVsMinion) result.convertDetainment = true;
+        if (e.duplicateFirstAutoAttackVsMinion) result.duplicateFirstAutoAttack = true;
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * The `eddy-lock` effect of an Eddy in Fate's Tide (ba-57) permanent-event that
+ * is in play and bound to the given site *definition* — i.e. some player's
+ * `cardsInPlay` holds a card whose `attachedToSite` equals `siteDefId` and which
+ * carries an `eddy-lock` effect (and is not still `pendingTriggerAttack`).
+ * Returns the effect (for its `taxTapCharacters`) or `undefined`.
+ *
+ * Scans **both** players so the tax applies to any company at any version of the
+ * bound site definition, regardless of which player owns the Eddy. When
+ * `forPlayer` is given, only that player's copies are considered — used for the
+ * owner-only "never untaps for you" placement check.
+ */
+export function siteEddyLock(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+  forPlayer?: PlayerId,
+): import('../types/effects.js').EddyLockEffect | undefined {
+  if (!siteDefId) return undefined;
+  for (const p of state.players) {
+    if (forPlayer !== undefined && p.id !== forPlayer) continue;
+    for (const c of p.cardsInPlay) {
+      if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
+      const eff = getCardEffects(defById(state, c.definitionId)).find(
+        (e): e is import('../types/effects.js').EddyLockEffect => e.type === 'eddy-lock',
+      );
+      if (eff) return eff;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Discards site-bound permanent events whose site has left play. A card with
  * `attachedToSite` set models a permanent event that transforms a specific
  * site (Hold Rebuilt and Repaired, as-88 — "Discard this card when the site
@@ -1812,10 +3214,80 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
     state,
     card => card.attachedToSite !== undefined
       && !occupied.has(card.attachedToSite as string)
-      && !activeHosts.has(card.instanceId as string),
+      && !activeHosts.has(card.instanceId as string)
+      // Caverns Unchoked (ba-51) / Breach the Hold (ba-50) / Roots of the Earth
+      // (ba-74): "This site is never discarded or returned to its location
+      // deck." The card is permanent and keeps its bound Under-deeps site in
+      // play even while unoccupied — exempt it from the orphan sweep.
+      && !cardKeepsBoundSitePermanent(defById(state, card.definitionId)),
     card => {
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`site-attached event: discarding "${def?.name ?? card.definitionId}" — bound site ${card.attachedToSite as string} left play`);
+    },
+  );
+
+  if (removedInstanceIds.length === 0) return state;
+  const removedSources = new Set(removedInstanceIds.map(id => id as string));
+  return {
+    ...next,
+    activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+  };
+}
+
+/**
+ * Inner Cunning (dm-68) mode 1: discard any permanent event bound to a
+ * face-down agent ({@link CardInPlay.attachedToAgentId}) once that agent is no
+ * longer a face-down agent in the same player's `agents` list — i.e. it was
+ * revealed ("Discard when the agent is revealed.") or otherwise left play.
+ * Runs as part of the post-reduce sweep, mirroring
+ * {@link discardOrphanedSiteAttachedEvents}.
+ */
+export function discardOrphanedAgentAttachedEvents(state: GameState): GameState {
+  const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+    state,
+    (card, player) => {
+      if (card.attachedToAgentId === undefined) return false;
+      const agent = player.agents.find(a => a.id === card.attachedToAgentId);
+      return !agent || agent.revealed;
+    },
+    (card, player) => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const agent = player.agents.find(a => a.id === card.attachedToAgentId);
+      logDetail(`agent-attached event: discarding "${def?.name ?? card.definitionId}" — bound agent ${card.attachedToAgentId as string} ${agent ? 'was revealed' : 'left play'}`);
+    },
+  );
+
+  if (removedInstanceIds.length === 0) return state;
+  const removedSources = new Set(removedInstanceIds.map(id => id as string));
+  return {
+    ...next,
+    activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+  };
+}
+
+/**
+ * Discard item-attached permanent events whose host item has left play. A card
+ * with `attachedToItem` set (Barrow-blade dm-119, "play this with the Dagger")
+ * is kept in cards-in-play bound to a specific item instance. When that item is
+ * no longer borne by any character on either side (discarded, stored, returned
+ * to hand, …) the event is orphaned and must be discarded. Mirrors
+ * {@link discardOrphanedSiteAttachedEvents}.
+ */
+export function discardOrphanedItemAttachedEvents(state: GameState): GameState {
+  // Collect every item instance currently borne by a character in play.
+  const itemIds = new Set<string>();
+  for (const p of state.players) {
+    for (const ch of Object.values(p.characters)) {
+      for (const it of ch.items) itemIds.add(it.instanceId as string);
+    }
+  }
+
+  const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+    state,
+    card => card.attachedToItem !== undefined && !itemIds.has(card.attachedToItem as string),
+    card => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`item-attached event: discarding "${def?.name ?? card.definitionId}" — host item ${card.attachedToItem as string} left play`);
     },
   );
 
@@ -1966,6 +3438,184 @@ export function companyBlocksJoins(state: GameState, companyId: CompanyId): bool
 }
 
 /**
+ * True when any character in the given company bears an item / attached
+ * permanent-event carrying the `no-allies-in-company` play-flag — while such a
+ * card is on a company member, no ally may be played to the company. Allies are
+ * only ever played during the site phase, so this realizes "no allies in his
+ * company outside the organization phase" without a phase gate. Used by Flame of
+ * Udûn (ba-58).
+ */
+export function companyHasNoAllyRestriction(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): boolean {
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char) continue;
+    for (const item of char.items) {
+      const def = defById(state, item.definitionId);
+      if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-allies-in-company')) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True when any character in the given company bears a card carrying the
+ * `bearer-cannot-move` play-flag — "Radagast may not move" (Shifter of Hues
+ * wh-115).
+ *
+ * A company moves as a unit, so a character who may not move keeps their whole
+ * company stationary for as long as they are in it; the player's escape hatch
+ * is the ordinary organization-phase split, which re-forms the rest of the
+ * characters into a company the immobile one is not part of. That makes this a
+ * company-level movement gate derived from a character-level flag, checked
+ * alongside the `company-cannot-move` constraint (Hide in Dark Places le-192)
+ * at both movement-planning sites.
+ */
+export function companyHasImmobileCharacter(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): boolean {
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char) continue;
+    const charDef = defById(state, char.definitionId);
+    if (charDef && hasPlayFlag(charDef as { effects?: readonly CardEffect[] }, 'bearer-cannot-move')) return true;
+    for (const attached of char.items) {
+      const def = defById(state, attached.definitionId);
+      if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'bearer-cannot-move')) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * An in-play `grant-ally-play` permission (Glove of Radagast wh-111) plus the
+ * instance id of the character bearing it. Returned by
+ * {@link findAllyPlayGrant}.
+ */
+export interface AllyPlayGrant {
+  readonly effect: import('../types/effects.js').GrantAllyPlayEffect;
+  /** The character bearing the granting permanent-event (Radagast). */
+  readonly bearerId: CardInstanceId;
+}
+
+/**
+ * Finds a `grant-ally-play` permission active for the given company: an attached
+ * permanent-event (stored among a company member's `items`) whose definition
+ * carries a `grant-ally-play` effect. Returns the effect and the bearer's
+ * instance id, or `undefined` when the company has no such grant. Backs Glove of
+ * Radagast (wh-111): "Any non-unique ally with 1 mind … is considered playable
+ * with Radagast at his site."
+ */
+export function findAllyPlayGrant(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): AllyPlayGrant | undefined {
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char) continue;
+    for (const item of char.items) {
+      const def = defById(state, item.definitionId);
+      if (!def) continue;
+      const eff = getCardEffects(def).find(
+        (e): e is import('../types/effects.js').GrantAllyPlayEffect => e.type === 'grant-ally-play',
+      );
+      if (eff) return { effect: eff, bearerId: charId };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * True when a `grant-ally-play` permission active for `company` extends
+ * playability to the given ally definition: the ally matches the grant's
+ * `filter` and — when `excludeBearerControlsCopy` is set — the bearer does not
+ * already control a copy of it (same card name in the bearer's `allies`). Used
+ * both to relax the site-match check for a hand ally and to source granted
+ * allies from the discard pile (Glove of Radagast wh-111).
+ */
+export function allyPlayGrantAllowsAlly(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  allyDef: CardDefinition,
+): boolean {
+  const grant = findAllyPlayGrant(state, player, company);
+  if (!grant) return false;
+  if (grant.effect.filter && !matchesCondition(grant.effect.filter, { target: allyDef as unknown as Record<string, unknown> })) {
+    return false;
+  }
+  if (grant.effect.excludeBearerControlsCopy) {
+    const bearer = player.characters[grant.bearerId];
+    const allyName = (allyDef as { name?: string }).name;
+    if (bearer && bearer.allies.some(a => defById(state, a.definitionId)?.name === allyName)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * A player-scoped, Wizardhaven-keyed `grant-ally-play` permission (An Untimely
+ * Brood wh-62) plus the instance id of the granting permanent-event. Unlike the
+ * bearer-scoped grant located by {@link findAllyPlayGrant}, this permission is a
+ * free-standing permanent-event in the player's `cardsInPlay`.
+ */
+export interface WizardhavenAllyPlayGrant {
+  readonly effect: import('../types/effects.js').GrantAllyPlayEffect;
+  /** The permanent-event card instance carrying the grant (wh-62). */
+  readonly sourceId: CardInstanceId;
+}
+
+/**
+ * Finds a `grant-ally-play` permission with `atProtectedWizardhavens` among the
+ * player's in-play permanent-events. Returns the effect and the granting card's
+ * instance id, or `undefined` when the player has no such grant. Backs An
+ * Untimely Brood (wh-62): "One non-unique ally with a mind of 1 is playable at
+ * one of your … protected Wizardhavens each of your site phases."
+ */
+export function findWizardhavenAllyPlayGrant(
+  state: GameState,
+  player: PlayerState,
+): WizardhavenAllyPlayGrant | undefined {
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const eff = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').GrantAllyPlayEffect =>
+        e.type === 'grant-ally-play' && e.atProtectedWizardhavens === true,
+    );
+    if (eff) return { effect: eff, sourceId: card.instanceId };
+  }
+  return undefined;
+}
+
+/**
+ * True when a turn-scoped `granted-action-used` lock is active for the given
+ * source card instance and action id — i.e. a once-per-turn / once-per-phase
+ * ability has already been used this turn. The lock is added by the reducer on
+ * first use and cleared at turn-end. Shared by the grant-action scanner
+ * (Strangling Coils ba-76) and the Wizardhaven ally grant (An Untimely Brood
+ * wh-62, action id `grant-ally-play`).
+ */
+export function grantedActionUsedThisTurn(
+  state: GameState,
+  sourceInstanceId: CardInstanceId,
+  actionId: string,
+): boolean {
+  return state.activeConstraints.some(c =>
+    c.kind.type === 'granted-action-used'
+    && c.kind.sourceInstanceId === sourceInstanceId
+    && c.kind.actionId === actionId,
+  );
+}
+
+/**
  * Discards every ally and every direct-influence follower character in the
  * given company (Fell Rider le-183: "Discard all allies and Ringwraith
  * followers in the company"). Allies and follower items go to the controlling
@@ -2044,6 +3694,81 @@ export function purgeCompanyAlliesAndFollowers(
   return sweepCompanyMembershipChangedEvents(result, [companyId]);
 }
 
+/**
+ * Discards every follower character in a company, leaving the general-influence
+ * members (and their allies) in place. A follower's own attached allies and
+ * items go to the owner's discard; its hazards go to the opponent's discard.
+ *
+ * Backs Black Rider (le-170): "Discard this card and any other Ringwraith
+ * followers in the company …" — evaluated at a following organization phase
+ * when the mode card self-discards. Unlike {@link purgeCompanyAlliesAndFollowers}
+ * (Fell Rider's on-play purge) this does NOT discard the non-follower members'
+ * own allies, since Black Rider's text targets followers only.
+ */
+export function purgeCompanyFollowers(
+  state: GameState,
+  playerIndex: number,
+  companyId: CompanyId,
+): GameState {
+  const player = state.players[playerIndex];
+  const company = player.companies.find(c => c.id === companyId);
+  if (!company) return state;
+  const opponentIndex = playerIndex === 0 ? 1 : 0;
+
+  const newChars: Record<string, CharacterInPlay> = { ...player.characters };
+  const discard: CardInstance[] = [...player.discardPile];
+  const oppDiscard: CardInstance[] = [...state.players[opponentIndex].discardPile];
+
+  // Followers in the company = characters controlled by another character.
+  const followerSet = new Set<string>();
+  for (const id of company.characters) {
+    const c = newChars[id as string];
+    if (c && c.controlledBy !== 'general') followerSet.add(id as string);
+  }
+  if (followerSet.size === 0) return state;
+
+  // Discard each follower character entirely, together with its own attached
+  // allies (→ owner), items (→ owner) and hazards (→ opponent).
+  for (const id of followerSet) {
+    const f = newChars[id];
+    if (!f) continue;
+    for (const ally of f.allies) discard.push(toCardInstance(ally));
+    for (const item of f.items) discard.push(toCardInstance(item));
+    for (const hz of f.hazards) oppDiscard.push(toCardInstance(hz));
+    discard.push(toCardInstance(f));
+    delete newChars[id];
+  }
+
+  // Remaining (non-follower) members drop any discarded follower from their
+  // `followers` list but keep their own allies.
+  for (const id of company.characters) {
+    if (followerSet.has(id as string)) continue;
+    const c = newChars[id as string];
+    if (!c) continue;
+    newChars[id as string] = {
+      ...c,
+      followers: c.followers.filter(fid => !followerSet.has(fid as string)),
+    };
+  }
+
+  const newCompanies = player.companies.map(co =>
+    co.id === companyId
+      ? { ...co, characters: co.characters.filter(id => !followerSet.has(id as string)) }
+      : co,
+  );
+
+  const updatedPlayers = state.players.map((p, i) =>
+    i === playerIndex
+      ? { ...player, characters: newChars, companies: newCompanies, discardPile: discard }
+      : i === opponentIndex
+        ? { ...p, discardPile: oppDiscard }
+        : p,
+  ) as unknown as readonly [PlayerState, PlayerState];
+
+  const result: GameState = { ...state, players: updatedPlayers };
+  return sweepCompanyMembershipChangedEvents(result, [companyId]);
+}
+
 export function discardEventCard(state: GameState, cardInstanceId: CardInstanceId, playerIndex: number): GameState {
   const player = state.players[playerIndex];
   const eventCard = findById(player.cardsInPlay, cardInstanceId);
@@ -2053,6 +3778,29 @@ export function discardEventCard(state: GameState, cardInstanceId: CardInstanceI
     ...newPlayers[playerIndex],
     cardsInPlay: removeById(player.cardsInPlay, cardInstanceId),
     discardPile: [...player.discardPile, toCardInstance(eventCard)],
+  };
+  return {
+    ...state,
+    players: newPlayers,
+  };
+}
+
+/**
+ * Removes a played event card from the game entirely, routing it from
+ * `cardsInPlay` to the owner's out-of-play pile instead of the discard pile.
+ * Backs "Remove this card from the game." on fetch short-events such as
+ * Longbottom Leaf (ba-30) — the no-card-disappears invariant is preserved
+ * (the instance lands in `outOfPlayPile`, never dropped).
+ */
+export function removeEventCardFromGame(state: GameState, cardInstanceId: CardInstanceId, playerIndex: number): GameState {
+  const player = state.players[playerIndex];
+  const eventCard = findById(player.cardsInPlay, cardInstanceId);
+  if (!eventCard) return state;
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    cardsInPlay: removeById(player.cardsInPlay, cardInstanceId),
+    outOfPlayPile: [...player.outOfPlayPile, toCardInstance(eventCard)],
   };
   return {
     ...state,
@@ -2075,7 +3823,12 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
   let newState: GameState = { ...state, pendingEffects: remaining };
   if (remaining.length === 0 && current.type === 'card-effect') {
     if (!current.skipDiscard) {
-      newState = discardEventCard(newState, current.cardInstanceId, ownerIndex);
+      // Fetch short-events flagged `removeFromGame` (Longbottom Leaf ba-30) are
+      // removed from the game even when the player passes / takes fewer than the
+      // maximum number of cards.
+      newState = current.effect.type === 'fetch-to-deck' && current.effect.removeFromGame
+        ? removeEventCardFromGame(newState, current.cardInstanceId, ownerIndex)
+        : discardEventCard(newState, current.cardInstanceId, ownerIndex);
     }
     // Enqueue post-fetch corruption check when all picks are resolved (including
     // the pass/skip case). Applies whether skipDiscard is true (grant-action items
@@ -2145,6 +3898,23 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     return { state, error: 'Card does not match fetch filter' };
   }
 
+  // Home-site-type restriction (Inner Cunning dm-68 mode 2): the fetched agent's
+  // printed home site must be a site of one of the listed types.
+  if (current.effect.homeSiteTypes && current.effect.homeSiteTypes.length > 0) {
+    if (!agentHomeSiteMatchesTypes(state, def as { homesite?: string }, current.effect.homeSiteTypes)) {
+      return { state, error: 'Card does not match fetch home-site-type restriction' };
+    }
+  }
+
+  // Site-playability restriction (Strider ba-1: "playable at his current
+  // site") — the qualifying site was captured when the fetch was enqueued.
+  if (current.effect.playableAtSite !== undefined) {
+    const requiredSite = defById(state, current.effect.playableAtSite);
+    if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite)) {
+      return { state, error: `Card is not playable at ${requiredSite && 'name' in requiredSite ? requiredSite.name : 'the required site'}` };
+    }
+  }
+
   const fetchTo = current.effect.to ?? 'deck';
   logDetail(`Fetching ${def?.name ?? '?'} from ${action.source as string} → ${fetchTo}${fetchTo === 'deck' ? ', shuffling' : ''}`);
 
@@ -2186,6 +3956,12 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     ? [{ ...current, effect: { ...current.effect, count: newCount } } as import('../types/state-combat.js').PendingEffect, ...state.pendingEffects.slice(1)]
     : state.pendingEffects.slice(1);
   let newState: GameState = { ...state, players: newPlayers, rng: nextRng, pendingEffects: remaining };
+  // Reveal-to-opponent (Inner Cunning dm-68 mode 2): the fetched card's identity
+  // becomes public as it is taken to hand.
+  if (current.effect.type === 'fetch-to-deck' && current.effect.revealToOpponent) {
+    logDetail(`Fetch: revealing ${def?.name ?? '?'} (${fetchedCard.instanceId as string}) to opponent`);
+    newState = revealInstances(newState, [fetchedCard]);
+  }
   if (remaining.length === 0) {
     if (current.skipDiscard) {
       if (current.postCorruptionCheck) {
@@ -2199,7 +3975,12 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
         });
       }
     } else {
-      newState = discardEventCard(newState, current.cardInstanceId, playerIndex);
+      // Longbottom Leaf (ba-30) and any fetch short-event flagged
+      // `removeFromGame` route the spent card to the out-of-play pile instead
+      // of the discard pile once the last pick resolves.
+      newState = current.effect.type === 'fetch-to-deck' && current.effect.removeFromGame
+        ? removeEventCardFromGame(newState, current.cardInstanceId, playerIndex)
+        : discardEventCard(newState, current.cardInstanceId, playerIndex);
       // For short events that have a postCorruptionCheck (e.g. Vilya), enqueue
       // the corruption check after the card is discarded.
       if (current.postCorruptionCheck) {

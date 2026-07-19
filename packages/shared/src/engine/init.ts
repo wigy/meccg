@@ -47,7 +47,7 @@ import { ZERO_MARSHALLING_POINTS, ZERO_EFFECTIVE_STATS } from '../types/state-ca
 import { Phase, SetupStep } from '../types/state-phases.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { logDetail } from './legal-actions/log.js';
-import { defById, findById, isStageResourceCard, hasRecruitmentVehicleEffect } from './reducer-utils.js';
+import { defById, findById, isStageResourceCard, hasRecruitmentVehicleEffect, hasStartingCompanyPlacementInDeck } from './reducer-utils.js';
 import { stageResourceNeedsSite } from './stage-resource-sites.js';
 import { applyStageResourceSiteConstraints } from './chain-reducer.js';
 
@@ -240,6 +240,7 @@ function makeInitialPlayerState(opts: {
     stagePoints: 0,
     generalInfluenceUsed: 0,
     generalInfluenceBonus: 0,
+    generalInfluenceControlPenalty: 0,
     deckExhaustionCount: 0,
     freeCouncilCalled: false,
     lastDiceRoll: null,
@@ -523,9 +524,13 @@ export function applyDraftResults(
     [...draftState[0].pool.filter(carriesToDeckDraft), ...setAside[0]],
     [...draftState[1].pool.filter(carriesToDeckDraft), ...setAside[1]],
   ];
+  // A player is auto-done in the item draft only if they have neither a minor
+  // item to assign nor a play-deck card that "may be played with a starting
+  // company in lieu of a minor item" (Open to the Summons wh-46, Orders from
+  // Lugbúrz as-94…). Otherwise the step stays open so the placement is offered.
   const itemDraftState: readonly [ItemDraftPlayerState, ItemDraftPlayerState] = [
-    { unassignedItems: results[0].unassignedItems, done: results[0].unassignedItems.length === 0 },
-    { unassignedItems: results[1].unassignedItems, done: results[1].unassignedItems.length === 0 },
+    { unassignedItems: results[0].unassignedItems, done: results[0].unassignedItems.length === 0 && !hasStartingCompanyPlacementInDeck(workState, newPlayers[0]) },
+    { unassignedItems: results[1].unassignedItems, done: results[1].unassignedItems.length === 0 && !hasStartingCompanyPlacementInDeck(workState, newPlayers[1]) },
   ];
 
   // If neither player has items to assign, skip to character deck draft (or Untap)

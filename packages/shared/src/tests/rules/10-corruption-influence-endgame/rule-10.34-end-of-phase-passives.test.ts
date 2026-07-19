@@ -15,6 +15,13 @@
 
 import { describe, test } from 'vitest';
 
+// Mirrors rule 10.33 at the other end of a phase: specific "end of phase"
+// discards/checks (e.g. the End-of-Turn phase's own discard/reset-hand
+// steps) are hardcoded phase-transition logic, not a generic "collect all
+// end-of-phase passives into a chain with a restricted response window"
+// mechanism. There's no reachable scenario with competing end-of-phase
+// passives to prove the specific response-action restrictions this rule
+// describes.
 describe('Rule 10.34 — End-of-Phase Passive Conditions', () => {
   test.todo('Passive conditions at end of phase/turn declared after both players done; limited response actions allowed');
 });

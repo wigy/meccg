@@ -207,6 +207,17 @@ export function companyContainsBalrogAvatar(state: GameState, player: PlayerStat
 }
 
 /**
+ * Sum of all six marshalling-point categories in a player's running total —
+ * the player's raw "MP total". Used where a card keys off the whole total
+ * rather than a single category (e.g. Out He Sprang ba-71's MP-based region
+ * allowance).
+ */
+export function totalMarshallingPoints(player: PlayerState): number {
+  const mp = player.marshallingPoints;
+  return mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
+}
+
+/**
  * True if the player's alignment is Wizard (Hero) or Fallen-wizard.
  *
  * Both are immune to having Sudden Call played as a hazard against them

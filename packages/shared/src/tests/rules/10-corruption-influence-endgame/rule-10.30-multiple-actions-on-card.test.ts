@@ -16,6 +16,14 @@
 
 import { describe, test } from 'vitest';
 
+// The DSL models a card's resolution as a single ordered `effects` array
+// applied in array order, not as multiple independently-declared actions
+// with their own reverse-declaration/print-order semantics — see rule
+// 10.29.4's identical conclusion for the general "multiple separate
+// actions" case. "Negated between declaration and resolution ⇒ immediately
+// discarded" is exercised throughout the chain-of-effects tests (cancelling
+// a chain entry routes to discard), but the reverse-declared/print-ordered
+// multi-action semantics specifically have no matching card or code path.
 describe('Rule 10.30 — Multiple Actions on a Card', () => {
   test.todo('If card specifies multiple separate actions, considered declared in reverse print order and resolve in print order');
 });

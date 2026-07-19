@@ -17,10 +17,10 @@ import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { ownerOf, resolveInstanceId } from '../types/state.js';
-import { resolveDef } from './effects/index.js';
+import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, defById, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
@@ -28,7 +28,8 @@ import { findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.
 import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { isCharacterCard } from '../types/cards.js';
+import { isCharacterCard, isItemCard, isAllyCard } from '../types/cards.js';
+import { allyEffectiveBody } from './ally-stats.js';
 import type { CardDefinition } from '../types/cards.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
@@ -97,6 +98,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
     ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
     ...(action.targetSiteDefinitionId ? { targetSiteDefinitionId: action.targetSiteDefinitionId } : {}),
     ...(action.targetCompanyId ? { targetCompanyId: action.targetCompanyId } : {}),
+    ...(action.targetItemInstanceId ? { targetItemInstanceId: action.targetItemInstanceId } : {}),
   };
   newState = initiateOrPushChain(newState, action.player, handCard, payload);
 
@@ -252,6 +254,7 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
           onGuardPlacedThisCompany: false,
           returnedToOrigin: false,
           hazardsEncountered: [],
+          spawnReplayUsedSources: [],
           ahuntAttacksResolved: 0,
           corruptionCardsPlayedPerChar: {},
           nazgulSideboardDestination: null,
@@ -261,6 +264,54 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
     };
   }
   return { state, error: `Unexpected action '${action.type}' in long-event phase` };
+}
+
+/**
+ * Resolve The Ring Leaves Its Mark (le-223) mode 2: "playable on your tapped
+ * Ringwraith. Make a roll—if the result is greater than 6, untap your
+ * Ringwraith." Rolls 2d6 (honouring `cheatRollTotal` for deterministic tests);
+ * on a total at or above the apply's `threshold` (7) the `onSuccess` branch —
+ * a `set-character-status untapped` on the targeted character — is applied.
+ * The event card is then discarded to its owner's discard pile. Generic in the
+ * `roll-then-apply`/`set-character-status` shape so any future "roll to change a
+ * targeted character's status" short event can reuse it.
+ */
+function resolveShortEventRollUntap(
+  state: GameState,
+  targetId: CardInstanceId,
+  def: CardDefinition,
+  handCard: CardInstance,
+  playerIndex: number,
+  newHand: readonly CardInstance[],
+  apply: import('../types/effects.js').RollThenApplyAction,
+): ReducerResult {
+  const player = state.players[playerIndex];
+  const targetChar = player.characters[targetId];
+  if (!targetChar) return { state, error: `${def.name}: target character ${targetId as string} not found` };
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2;
+  const targetDef = defById(state, targetChar.definitionId);
+  const targetName = targetDef?.name ?? String(targetId);
+  const success = total >= apply.threshold;
+  logDetail(`${def.name}: ${player.name} rolls ${roll.die1} + ${roll.die2} = ${total} vs threshold ${apply.threshold} — ${success ? 'success' : 'failure'} (untap ${targetName})`);
+  const rollEffect = diceRollEffect(player.name, roll, `${def.name}: untap ${targetName}`);
+
+  let newCharacters = player.characters;
+  const branch = success ? apply.onSuccess : apply.onFailure;
+  if (branch && branch.type === 'set-character-status' && branch.status !== undefined) {
+    const statusEnum = cardStatusFromName(branch.status);
+    logDetail(`${def.name}: ${targetName} → status ${branch.status}`);
+    newCharacters = { ...newCharacters, [targetId as string]: { ...targetChar, status: statusEnum } };
+  }
+
+  const finalState = updatePlayer({ ...state, rng, cheatRollTotal }, playerIndex, p => ({
+    ...p,
+    hand: newHand,
+    characters: newCharacters,
+    discardPile: [...p.discardPile, handCard],
+  }));
+  return { state: finalState, effects: [rollEffect] };
 }
 
 /**
@@ -335,6 +386,44 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: chained };
   }
 
+  // Influence-check-boost short events (e.g. Tempering Friendship tw-337,
+  // Muster tw-288, A Friend or Three tw-189, Gifts as Given of Old le-188):
+  // a `play-option` whose `apply` adds a `check-modifier` for the influence
+  // check must be declared on the chain of effects (CoE 9.4/9.5) — like every
+  // other short event — so the opponent gets a chance to respond before the
+  // boost, and the influence roll it feeds, resolves. Historically this option
+  // was applied inline (constraint added immediately, card discarded, no chain
+  // entry), which silently skipped the opponent's response window. Route it
+  // through the chain instead: the card rides the chain entry (carrying the
+  // chosen target character and option id), and `resolveEntry` applies the
+  // constraint + discards the spent card once both players pass priority.
+  const influenceBoostOption = action.optionId
+    ? (def.effects?.find(
+        e => e.type === 'play-option' && e.id === action.optionId,
+      ) as import('../types/effects.js').PlayOptionEffect | undefined)
+    : undefined;
+  if (
+    influenceBoostOption
+    && action.targetCharacterId
+    && influenceBoostOption.apply.type === 'add-constraint'
+    && influenceBoostOption.apply.constraint === 'check-modifier'
+    && influenceBoostOption.apply.check === 'influence'
+  ) {
+    const revealed = revealInstances(state, [handCard]);
+    const afterReveal = updatePlayer(revealed, playerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+    }));
+    logDetail(`${def.name} → chain of effects (influence boost resolves on chain resolution)`);
+    const payload: ChainEntryPayload = {
+      type: 'short-event',
+      targetCharacterId: action.targetCharacterId,
+      optionId: action.optionId,
+    };
+    const chained = initiateOrPushChain(afterReveal, action.player, handCard, payload);
+    return { state: chained };
+  }
+
   // Resource short events skip the chain today — the played card goes
   // straight to the owner's face-down discard pile (see TODO in
   // `visibility.ts`). Announce the identity explicitly so the opponent
@@ -342,6 +431,25 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   state = revealInstances(state, [handCard]);
 
   const newHand = removeById(player.hand, handCard.instanceId);
+
+  // The Ring Leaves Its Mark (le-223) mode 2: "playable on your tapped
+  // Ringwraith. Make a roll—if the result is greater than 6, untap your
+  // Ringwraith." The legal-action emitter targets the player's own tapped
+  // revealed Ringwraith avatar via `targetCharacterId`; a self-enters-play
+  // `roll-then-apply` carries the threshold (7 = "greater than 6") and the
+  // untap (`set-character-status untapped`) branch. Mode 1 (the fetch) has no
+  // `targetCharacterId` and falls through to the generic resolution below.
+  const rollUntapOnEnter = action.type === 'play-short-event' && action.targetCharacterId
+    ? getOnEventEffects(def, 'self-enters-play').find(
+        (e): e is import('../types/effects.js').OnEventEffect & { apply: import('../types/effects.js').RollThenApplyAction } =>
+          e.apply.type === 'roll-then-apply',
+      )
+    : undefined;
+  if (action.type === 'play-short-event' && action.targetCharacterId && rollUntapOnEnter) {
+    return resolveShortEventRollUntap(
+      state, action.targetCharacterId, def, handCard, playerIndex, newHand, rollUntapOnEnter.apply,
+    );
+  }
 
   // Resource-side `call-council` (e.g. Sudden Call, le-235): the card
   // triggers the endgame — discard the card, bypass normal short-event
@@ -358,6 +466,27 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       discardPile: [...p.discardPile, handCard],
     }));
     return { state: triggerCouncilCall(afterDiscard, action.player, 'opponent') };
+  }
+
+  // grant-extra-mh-phase (Forced March le-185, Bridge tw-202, Leg It Double
+  // Quick le-202): flag the active company so that once its current move
+  // commits, `advanceAfterCompanyMH` offers it another movement/hazard phase.
+  // The legal-action emitter has already verified the M/H window and the
+  // destination requirement, so resolution simply sets the flag and discards
+  // the spent event.
+  const grantExtraMHPhase = def.effects?.find(
+    (e): e is import('../types/effects.js').GrantExtraMHPhaseEffect => e.type === 'grant-extra-mh-phase',
+  );
+  if (grantExtraMHPhase && state.phaseState.phase === Phase.MovementHazard) {
+    const companyIndex = state.phaseState.activeCompanyIndex;
+    logDetail(`${def.name}: granting company (index ${companyIndex}) an extra movement/hazard phase this turn`);
+    const afterFlag = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      hand: newHand,
+      discardPile: [...p.discardPile, handCard],
+      companies: p.companies.map((c, idx) => idx === companyIndex ? { ...c, extraMHPhasePending: true } : c),
+    }));
+    return { state: afterFlag };
   }
 
   // Apply play-target tap cost (e.g. Stealth taps the chosen scout). The
@@ -472,9 +601,16 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       )
     : undefined;
 
+  // A dual-mode card whose alternative is a discard-in-play (Ancient Secrets
+  // ba-36): mode 1 chooses a `discardTargetInstanceId` and must NOT also run
+  // the sideboard fetch. When a discard target is present, skip all fetch
+  // effects so only the discard resolves. Mode 2 (no discard target) enqueues
+  // the fetch as normal.
+  const choseDiscardMode = action.type === 'play-short-event' && !!action.discardTargetInstanceId;
   const interactiveEffects: PendingEffect[] = (def.effects ?? [])
     .flatMap(effect => {
       if (effect.type !== 'move') return [];
+      if (choseDiscardMode) return [];
       const payload = moveToFetchToDeckPayload(effect);
       if (!payload) return [];
       if (effect.when) {
@@ -531,9 +667,13 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // general cards-in-play list (Eye of Sauron long-events, free-standing
   // permanent-events) or attached to one of their characters as a hazard
   // (Foolish Words, Lure of the Senses, etc.).
+  // Resolve discard-in-play only when a discard target was actually chosen.
+  // Dual-mode cards (ba-36) may carry a discard-in-play move but be played in
+  // their alternative (sideboard-fetch) mode, in which case no discard target
+  // is set and this block must be skipped.
   const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
-  if (discardInPlay) {
-    const targetId = action.discardTargetInstanceId!;
+  if (discardInPlay && action.discardTargetInstanceId) {
+    const targetId = action.discardTargetInstanceId;
     let foundOwnerIndex = -1;
     let foundCardsInPlayIdx = -1;
     let foundCharId: string | null = null;
@@ -726,21 +866,36 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       const defPlayer = newState.players[defPlayerIndex];
       const company = companyById(defPlayer.companies, combat.companyId);
       if (company) {
+        const charCtx = (charCardDef: CardDefinition) => ({
+          target: {
+            race: ('race' in charCardDef ? (charCardDef as { race?: string }).race : undefined) ?? '',
+            name: (charCardDef?.name) ?? '',
+            skills: ('skills' in charCardDef ? (charCardDef as { skills?: readonly string[] }).skills : undefined) ?? [],
+            keywords: ('keywords' in charCardDef ? (charCardDef as { keywords?: readonly string[] }).keywords : undefined) ?? [],
+          },
+        });
         for (const boostEffect of companyCombatBoosts) {
+          // A `companyFilter` gates the whole company: only apply the boost (to
+          // every character) if at least one member satisfies it (Foe Dismayed's
+          // leader-or-Balrog gate). A `filter` restricts which members receive it.
+          if (boostEffect.companyFilter) {
+            const companyQualifies = company.characters.some(charId => {
+              const char = defPlayer.characters[charId];
+              const cDef = char ? defById(newState, char.definitionId) : undefined;
+              return cDef ? matchesCondition(boostEffect.companyFilter!, charCtx(cDef)) : false;
+            });
+            if (!companyQualifies) {
+              logDetail(`${def.name}: company does not satisfy companyFilter — no boost applied`);
+              continue;
+            }
+          }
           for (const charId of company.characters) {
             const char = defPlayer.characters[charId];
             if (!char) continue;
             const charCardDef = defById(newState, char.definitionId);
             if (!charCardDef) continue;
             if (boostEffect.filter) {
-              const ctx = {
-                target: {
-                  race: ('race' in charCardDef ? (charCardDef as { race?: string }).race : undefined) ?? '',
-                  name: (charCardDef?.name) ?? '',
-                  skills: ('skills' in charCardDef ? (charCardDef as { skills?: readonly string[] }).skills : undefined) ?? [],
-                },
-              };
-              if (!matchesCondition(boostEffect.filter, ctx)) continue;
+              if (!matchesCondition(boostEffect.filter, charCtx(charCardDef))) continue;
             }
             logDetail(`${def.name}: adding attack-scoped +${boostEffect.value} ${boostEffect.stat} to ${charId as string}`);
             newState = addConstraint(newState, {
@@ -759,6 +914,288 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         }
       }
     }
+  }
+
+  // Handle join-combat-force-strike (Vanguard of Might ba-79): bring the named
+  // character into the defending company if absent (movement — only the company
+  // membership arrays change), force it to face a strike from the current attack
+  // (combat.forcedStrikeTargets), and schedule a post-attack tap if configured.
+  const joinForceStrike = (def.effects ?? []).find(
+    (e): e is import('../types/effects.js').JoinCombatForceStrikeEffect => e.type === 'join-combat-force-strike',
+  );
+  if (joinForceStrike && newState.combat) {
+    const combat = newState.combat;
+    const defPlayerIndex = newState.players.findIndex(p => p.id === combat.defendingPlayerId);
+    if (defPlayerIndex >= 0) {
+      const defPlayer = newState.players[defPlayerIndex];
+      // Locate the named character among the defending player's characters.
+      const namedEntry = Object.entries(defPlayer.characters).find(([, ch]) => {
+        const chDef = defById(newState, ch.definitionId) as { name?: string } | undefined;
+        return chDef?.name === joinForceStrike.characterName;
+      });
+      if (namedEntry) {
+        const namedId = namedEntry[0] as CardInstanceId;
+        const inTargetCompany = defPlayer.companies.some(
+          c => c.id === combat.companyId && c.characters.includes(namedId),
+        );
+        // Move the character into the attacked company if it is elsewhere.
+        // "Considered movement with no movement/hazard phase" — only membership
+        // arrays change; the CharacterInPlay entry is untouched.
+        if (!inTargetCompany) {
+          const newCompanies = defPlayer.companies.map(c => {
+            if (c.characters.includes(namedId) && c.id !== combat.companyId) {
+              return { ...c, characters: c.characters.filter(id => id !== namedId) };
+            }
+            if (c.id === combat.companyId && !c.characters.includes(namedId)) {
+              return { ...c, characters: [...c.characters, namedId] };
+            }
+            return c;
+          });
+          const nps: [import('../types/state-player.js').PlayerState, import('../types/state-player.js').PlayerState] =
+            [newState.players[0], newState.players[1]];
+          nps[defPlayerIndex] = { ...defPlayer, companies: newCompanies };
+          newState = { ...newState, players: nps };
+          logDetail(`${def.name}: ${joinForceStrike.characterName} joins the attacked company ${combat.companyId as string}`);
+        }
+        // Force the character to face a strike and schedule the post-attack tap.
+        const forced = [...(combat.forcedStrikeTargets ?? []), namedId];
+        const postAttack = joinForceStrike.tapAfterAttack
+          ? [...(combat.postAttackEffects ?? []), { targetCharacterId: namedId, tapIfUntapped: true }]
+          : combat.postAttackEffects;
+        newState = {
+          ...newState,
+          combat: {
+            ...newState.combat!,
+            forcedStrikeTargets: forced,
+            ...(postAttack ? { postAttackEffects: postAttack } : {}),
+          },
+        };
+        logDetail(`${def.name}: ${joinForceStrike.characterName} must face a strike${joinForceStrike.tapAfterAttack ? ' and taps after the attack' : ''}`);
+      } else {
+        logDetail(`${def.name}: ${joinForceStrike.characterName} not found in play — no join/force-strike applied`);
+      }
+    }
+  }
+
+  // Scourge of Fire (ba-75): a Balrog CvCC resource short-event. If The Balrog
+  // is untapped and in the current company-vs-company combat on the player's
+  // side, the player chooses and discards one item borne by the *opposing*
+  // company (a discard-one-company-item pending resolution on that company). The
+  // legal-action emitter (combatDiscardOpponentItemActions) already gated on the
+  // Balrog being untapped in the acting company and the opponent bearing an
+  // item, so here we resolve against the current CvCC state directly.
+  const discardOppItemEffect = (def.effects ?? []).find(
+    (e): e is import('../types/effects.js').CombatDiscardOpponentItemEffect =>
+      e.type === 'combat-discard-opponent-item',
+  );
+  if (discardOppItemEffect && newState.combat?.isCvCC) {
+    const combat = newState.combat;
+    // Identify the opposing company relative to the acting player.
+    let oppCompanyId: import('../types/common.js').CompanyId | undefined;
+    if (action.player === combat.defendingPlayerId) {
+      oppCompanyId = combat.attackSource.type === 'company-attack'
+        ? combat.attackSource.attackingCompanyId
+        : undefined;
+    } else if (action.player === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
+      oppCompanyId = combat.companyId;
+    }
+
+    // Discard the spent short-event to the player's discard pile first.
+    let working = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    }));
+
+    // Record the turn-scoped duplication marker ("cannot be duplicated on a
+    // given turn"): each play leaves a turn-scoped constraint from this
+    // definition, which the legal-action scanner counts to block a second copy.
+    if (findDuplicationLimitEffect(def, 'turn')) {
+      working = addConstraint(working, {
+        source: handCard.instanceId,
+        sourceDefinitionId: handCard.definitionId,
+        scope: { kind: 'turn' },
+        target: { kind: 'player', playerId: action.player },
+        kind: { type: 'attack-card-played' },
+      });
+      logDetail(`${def.name}: added turn-scoped duplication marker (cannot be duplicated on a given turn)`);
+    }
+
+    // Enqueue the item-discard choice on the opposing company (actor = the
+    // ba-75 player). Skips silently if the opposing company can't be resolved
+    // or bears no items (the emitter should have prevented the latter).
+    if (oppCompanyId) {
+      const oppPlayer = working.players.find(p => p.companies.some(co => co.id === oppCompanyId));
+      const oppCompany = oppPlayer ? companyById(oppPlayer.companies, oppCompanyId) : undefined;
+      const hasItem = (oppCompany?.characters ?? []).some(charId => {
+        const ch = oppPlayer!.characters[charId];
+        return !!ch && ch.items.some(it => isItemCard(defById(working, it.definitionId)));
+      });
+      if (hasItem) {
+        logDetail(`${def.name}: opponent must discard one item from company ${oppCompanyId as string}`);
+        working = enqueueResolution(working, {
+          source: handCard.instanceId,
+          actor: action.player,
+          scope: companySubphaseScope(working.phaseState.phase, oppCompanyId),
+          kind: { type: 'discard-one-company-item', companyId: oppCompanyId },
+        });
+      } else {
+        logDetail(`${def.name}: opposing company bears no items — nothing to discard`);
+      }
+    } else {
+      logDetail(`${def.name}: no opposing CvCC company resolved — nothing to discard`);
+    }
+    return { state: working };
+  }
+
+  // Crowned with Storm (ba-54): a Balrog CvCC resource short-event that
+  // devastates *everyone at the site* — both companies participating in the
+  // company-vs-company combat. On resolution, in order: (1) discard all no-body
+  // allies at the site; (2) tap every untapped ally and every untapped
+  // character with a mind stat; (3) enqueue one wound-or-eliminate roll per
+  // character with a mind stat < characterMindBelow and per ally normally worth
+  // < allyMpBelow MP. The emitter (siteStormAtSiteActions) already gated on the
+  // combat being CvCC, the Balrog's company being present and not at an
+  // Under-deeps site, and the opposing company containing a Wizard.
+  const stormEffect = (def.effects ?? []).find(
+    (e): e is import('../types/effects.js').SiteStormDevastationEffect =>
+      e.type === 'site-storm-devastation',
+  );
+  if (stormEffect && newState.combat?.isCvCC) {
+    const combat = newState.combat;
+    // Resolve the two participating companies (owner index + company id).
+    let myCompanyId: import('../types/common.js').CompanyId | undefined;
+    let oppPlayerId: import('../index.js').PlayerId | undefined;
+    let oppCompanyId: import('../types/common.js').CompanyId | undefined;
+    if (action.player === combat.defendingPlayerId) {
+      myCompanyId = combat.companyId;
+      oppPlayerId = combat.attackingPlayerId;
+      oppCompanyId = combat.attackSource.type === 'company-attack' ? combat.attackSource.attackingCompanyId : undefined;
+    } else if (action.player === combat.attackingPlayerId && combat.attackSource.type === 'company-attack') {
+      myCompanyId = combat.attackSource.attackingCompanyId;
+      oppPlayerId = combat.defendingPlayerId;
+      oppCompanyId = combat.companyId;
+    }
+
+    // Discard the spent short-event to the Balrog player's discard pile first.
+    let working = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    }));
+
+    // The set of companies "at the site" = the two CvCC participants.
+    const participants: Array<{ ownerIndex: number; companyId: import('../types/common.js').CompanyId }> = [];
+    if (myCompanyId) participants.push({ ownerIndex: playerIndex, companyId: myCompanyId });
+    if (oppPlayerId !== undefined && oppCompanyId) {
+      const oi = getPlayerIndex(working, oppPlayerId);
+      if (oi >= 0) participants.push({ ownerIndex: oi, companyId: oppCompanyId });
+    }
+
+    // (1) Discard all no-body allies (effective body 0/absent) at the site.
+    for (const { ownerIndex, companyId } of participants) {
+      const company = companyById(working.players[ownerIndex].companies, companyId);
+      if (!company) continue;
+      for (const charId of company.characters) {
+        const host = working.players[ownerIndex].characters[charId];
+        if (!host) continue;
+        const noBodyAllies = host.allies.filter(a => {
+          const b = allyEffectiveBody(working, a);
+          return b === undefined || b === 0;
+        });
+        if (noBodyAllies.length === 0) continue;
+        for (const a of noBodyAllies) {
+          logDetail(`${def.name}: discarding no-body ally ${a.instanceId as string} at the site`);
+        }
+        working = updatePlayer(working, ownerIndex, p => {
+          const withRemoved = updateCharacter(p, charId, c => ({
+            ...c,
+            allies: c.allies.filter(a => !noBodyAllies.some(n => n.instanceId === a.instanceId)),
+          }));
+          return { ...withRemoved, discardPile: [...withRemoved.discardPile, ...noBodyAllies.map(a => toCardInstance(a))] };
+        });
+      }
+    }
+
+    // (2) Tap every untapped ally and every untapped character with a mind stat.
+    for (const { ownerIndex, companyId } of participants) {
+      const company = companyById(working.players[ownerIndex].companies, companyId);
+      if (!company) continue;
+      for (const charId of company.characters) {
+        const host = working.players[ownerIndex].characters[charId];
+        if (!host) continue;
+        const charDef = defById(working, host.definitionId);
+        const hasMind = !!charDef && isCharacterCard(charDef) && charDef.mind !== null;
+        const tapChar = hasMind && host.status === CardStatus.Untapped;
+        const anyUntappedAlly = host.allies.some(a => a.status === CardStatus.Untapped);
+        if (!tapChar && !anyUntappedAlly) continue;
+        working = updatePlayer(working, ownerIndex, p =>
+          updateCharacter(p, charId, c => ({
+            ...c,
+            status: tapChar && c.status === CardStatus.Untapped ? CardStatus.Tapped : c.status,
+            allies: c.allies.map(a => (a.status === CardStatus.Untapped ? { ...a, status: CardStatus.Tapped } : a)),
+          })));
+        if (tapChar) logDetail(`${def.name}: tapping character ${charId as string} (has a mind stat)`);
+      }
+    }
+
+    // (3) Enqueue one wound-or-eliminate roll per qualifying character/ally.
+    // The Balrog's controller rolls 2d6 per target; on roll - 1 > body (i.e.
+    // roll > body + 1) the target is wounded, or eliminated if already wounded.
+    const scope = companySubphaseScope(working.phaseState.phase, myCompanyId ?? (participants[0]?.companyId));
+    for (const { ownerIndex, companyId } of participants) {
+      const company = companyById(working.players[ownerIndex].companies, companyId);
+      if (!company) continue;
+      for (const charId of company.characters) {
+        const host = working.players[ownerIndex].characters[charId];
+        if (!host) continue;
+        const charDef = defById(working, host.definitionId);
+        if (charDef && isCharacterCard(charDef) && charDef.mind !== null && charDef.mind < stormEffect.characterMindBelow) {
+          const body = charDef.body ?? 0;
+          logDetail(`${def.name}: enqueueing storm roll for character ${charDef.name} (mind ${charDef.mind} < ${stormEffect.characterMindBelow}, body ${body})`);
+          working = enqueueResolution(working, {
+            source: handCard.instanceId,
+            actor: action.player,
+            scope,
+            kind: {
+              type: 'dice-check',
+              label: `${def.name}: ${charDef.name} (roll - 1 > body ${body} → wound/eliminate)`,
+              modifiers: [{ kind: 'constant', value: -1 }],
+              threshold: body,
+              comparison: 'gt',
+              onPass: { type: 'wound-or-eliminate' },
+              continuation: { kind: 'dequeue-only' },
+              requireTargetPresent: true,
+              targetCharacterId: charId,
+            },
+          });
+        }
+        for (const ally of host.allies) {
+          const allyDef = defById(working, ally.definitionId);
+          const allyMp = isAllyCard(allyDef) ? allyDef.marshallingPoints : 0;
+          if (allyMp < stormEffect.allyMpBelow) {
+            const body = allyEffectiveBody(working, ally) ?? 0;
+            logDetail(`${def.name}: enqueueing storm roll for ally ${ally.instanceId as string} (MP ${allyMp} < ${stormEffect.allyMpBelow}, body ${body})`);
+            working = enqueueResolution(working, {
+              source: handCard.instanceId,
+              actor: action.player,
+              scope,
+              kind: {
+                type: 'dice-check',
+                label: `${def.name}: ally (roll - 1 > body ${body} → wound/eliminate)`,
+                modifiers: [{ kind: 'constant', value: -1 }],
+                threshold: body,
+                comparison: 'gt',
+                onPass: { type: 'wound-or-eliminate' },
+                continuation: { kind: 'dequeue-only' },
+                requireTargetPresent: true,
+                targetInstanceId: ally.instanceId,
+              },
+            });
+          }
+        }
+      }
+    }
+
+    return { state: working };
   }
 
   if (interactiveEffects.length > 0) {
@@ -929,14 +1366,173 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     };
   }
 
-  // Discard the card and return. If dice-check (glamour) resolutions were
-  // enqueued, the legal-action system will automatically surface only roll
-  // actions until all resolutions are cleared.
-  return {
-    state: updatePlayer(newState, playerIndex, p => ({
+  // reveal-choose-shuffle (Eyes of Mandos dm-126): reveal the top up-to-`count`
+  // cards of the play deck, then let the player choose one to put into hand and
+  // shuffle the remaining ones back into the deck. The revealed cards stay
+  // physically on top of the play deck while a `reveal-choose-to-hand` pending
+  // resolution collects the choice (no instance floats). The event card itself
+  // goes to the discard pile immediately (before the choice resolves).
+  const revealChooseEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').RevealChooseShuffleEffect =>
+      e.type === 'reveal-choose-shuffle',
+  );
+  if (revealChooseEffect) {
+    // Discard the spent event card first (the reveal is a separate action).
+    let working = updatePlayer(newState, playerIndex, p => ({
       ...p,
       discardPile: [...p.discardPile, handCard],
-    })),
+    }));
+    const deck = working.players[playerIndex].playDeck;
+    const revealCount = Math.min(revealChooseEffect.count, deck.length);
+    if (revealCount === 0) {
+      logDetail(`${def.name}: play deck empty — nothing to reveal, event fizzles`);
+      return { state: working };
+    }
+    const revealedCards = deck.slice(0, revealCount);
+    // Reveal the top cards to the opponent (recorded in revealedInstances).
+    working = revealInstances(working, revealedCards);
+    logDetail(
+      `${def.name}: revealed ${revealCount}/${revealChooseEffect.count} top card(s) of play deck ` +
+      `(deck size ${deck.length}) — awaiting choice`,
+    );
+    working = enqueueResolution(working, {
+      source: handCard.instanceId,
+      actor: action.player,
+      scope: { kind: 'phase', phase: working.phaseState.phase },
+      kind: {
+        type: 'reveal-choose-to-hand',
+        revealedInstanceIds: revealedCards.map(c => c.instanceId),
+        sourceDefinitionId: handCard.definitionId,
+      },
+    });
+    return { state: working };
+  }
+
+  // Withdrawn to Mordor (dm-165): a `withdraw-agent` short event either
+  // removes an opponent's face-up agent (agent mode, `targetAgentId`) or
+  // discards one of the opponent's unrevealed on-guard cards (on-guard mode,
+  // `discardTargetInstanceId`). The event card itself always goes to the
+  // playing player's discard pile.
+  const withdrawAgentEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').WithdrawAgentEffect => e.type === 'withdraw-agent',
+  );
+  if (withdrawAgentEffect) {
+    // The card is "playable on a face-up agent" (agent mode) or, alternatively,
+    // on an unrevealed on-guard card (on-guard mode). Both modes require a
+    // target; with neither a face-up agent nor an on-guard card present the
+    // card has no legal target and must not be played (CoE 9.2.2 / CRF 22).
+    // The legal-action layer already withholds a play action in that case, so
+    // reaching here with no target is an illegal action — reject it and leave
+    // the card in hand rather than silently discarding (wasting) it.
+    if (!action.targetAgentId && !action.discardTargetInstanceId) {
+      logDetail(`${def.name}: play attempted with no face-up agent or on-guard target — rejected`);
+      return { state, error: `${def.name} has no valid target` };
+    }
+
+    let working = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    }));
+
+    // On-guard mode: discard the named unrevealed on-guard card to its owner's
+    // discard pile (CRF 22: this must happen before the card is revealed).
+    if (action.discardTargetInstanceId) {
+      const ogId = action.discardTargetInstanceId;
+      let removed: import('../types/state-cards.js').OnGuardCard | undefined;
+      let holderIndex = -1;
+      let holderCompanyId: import('../types/common.js').CompanyId | undefined;
+      for (let pi = 0; pi < working.players.length && !removed; pi++) {
+        for (const company of working.players[pi].companies) {
+          const og = company.onGuardCards.find(o => o.instanceId === ogId);
+          if (og) {
+            removed = og;
+            holderIndex = pi;
+            holderCompanyId = company.id;
+            break;
+          }
+        }
+      }
+      if (!removed) return { state, error: 'Target on-guard card not found' };
+      working = updatePlayer(working, holderIndex, p => ({
+        ...p,
+        companies: p.companies.map(c =>
+          c.id === holderCompanyId
+            ? { ...c, onGuardCards: c.onGuardCards.filter(o => o.instanceId !== ogId) }
+            : c,
+        ),
+      }));
+      // On-guard cards are always the opponent's hazards placed on the holder's
+      // company, so the card returns to the other player's discard pile.
+      const ownerIndex = holderIndex === 0 ? 1 : 0;
+      logDetail(`${def.name}: discarding on-guard card ${removed.definitionId as string} (${ogId as string}) to owner ${working.players[ownerIndex].id as string}`);
+      working = updatePlayer(working, ownerIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, toCardInstance(removed)],
+      }));
+      return { state: working };
+    }
+
+    // Agent mode: locate the targeted agent, then judge it by printed mind.
+    if (action.targetAgentId) {
+      let agentOwnerIdx = -1;
+      let agentIdx = -1;
+      for (let i = 0; i < working.players.length && agentOwnerIdx === -1; i++) {
+        const idx = working.players[i].agents.findIndex(a => a.id === action.targetAgentId);
+        if (idx !== -1) {
+          agentOwnerIdx = i;
+          agentIdx = idx;
+        }
+      }
+      if (agentOwnerIdx === -1) return { state, error: 'Target agent not found' };
+      const agent = working.players[agentOwnerIdx].agents[agentIdx];
+      const agentDef = defById(working, agent.character.definitionId);
+      const mind = (agentDef && isCharacterCard(agentDef) ? agentDef.mind : 0) ?? 0;
+      const returnToHand = mind >= withdrawAgentEffect.returnMindThreshold;
+      logDetail(
+        `${def.name}: agent ${agentDef?.name ?? (agent.character.definitionId as string)} mind ${mind} ` +
+        `${returnToHand ? `≥ ${withdrawAgentEffect.returnMindThreshold} → returned to owner's hand` : `< ${withdrawAgentEffect.returnMindThreshold} → discarded`}`,
+      );
+
+      // Preserve the "no card disappears" invariant: any cards attached to the
+      // agent (agents normally carry none) go to their owners' discard piles,
+      // and the agent's face-down site stack returns to the location deck.
+      const attachments = [
+        ...agent.character.items,
+        ...agent.character.allies,
+        ...agent.character.hazards,
+        ...(agent.character.trophies ?? []),
+      ];
+      const agentInstance = toCardInstance(agent.character);
+      working = updatePlayer(working, agentOwnerIdx, p => ({
+        ...p,
+        agents: p.agents.filter((_, i) => i !== agentIdx),
+        siteDeck: [...p.siteDeck, ...agent.siteStack],
+        ...(returnToHand
+          ? { hand: [...p.hand, agentInstance] }
+          : { discardPile: [...p.discardPile, agentInstance] }),
+      }));
+      for (const att of attachments) {
+        const ownerIdx = getPlayerIndex(working, ownerOf(att.instanceId));
+        working = updatePlayer(working, ownerIdx, p => ({
+          ...p,
+          discardPile: [...p.discardPile, toCardInstance(att)],
+        }));
+      }
+      return { state: working };
+    }
+
+    // Unreachable: the no-target case is rejected at the top of this block, and
+    // the two supported modes each return above. Kept as a defensive fallback.
+    return { state: working };
+  }
+
+  // Discard the card and return. If dice-check (glamour) resolutions were
+  // enqueued, the legal-action system will automatically surface only roll
+  // actions until all resolutions are cleared. A magic card cast by a player
+  // whose Ringwraith is Akhôrahil (le-51) is instead shuffled back into their
+  // play deck (see `discardOrRecyclePlayedEvent`).
+  return {
+    state: discardOrRecyclePlayedEvent(newState, playerIndex, handCard),
   };
 }
 
@@ -1181,6 +1777,84 @@ function applyShortEventOnEntersPlay(
       continue;
     }
 
+    // A Malady Without Healing (le-159): the target (possibly an opponent's
+    // character) makes a corruption check (-1) then, if it survives, a body
+    // check (+1 if tapped); a hero eliminated by either credits the caster his
+    // kill MP. Separately, unless the caster's shadow-magic user at the target's
+    // site is a Ringwraith, that user makes a corruption check (-5).
+    if (onEvent.apply.type === 'malady-without-healing') {
+      const targetId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+      if (!targetId) {
+        logDetail(`"${def.name}": malady-without-healing — no target character — fizzle`);
+        continue;
+      }
+      const ownerIdx = state.players.findIndex(p => !!p.characters[targetId]);
+      if (ownerIdx < 0) {
+        logDetail(`"${def.name}": malady-without-healing — target ${targetId as string} not in play — fizzle`);
+        continue;
+      }
+      const casterId = state.players[playerIndex].id;
+      const targetOwnerId = state.players[ownerIdx].id;
+      const targetCompany = findCharacterCompany(state.players[ownerIdx].companies, targetId);
+      const targetSiteDefId = targetCompany?.currentSite?.definitionId;
+
+      // Collect the caster's shadow-magic users co-located with the target
+      // (excluding the target itself). A Ringwraith among them lets the caster
+      // avoid the -5 check; otherwise the first non-Ringwraith user makes it.
+      const caster = state.players[playerIndex];
+      const enablers: { id: CardInstanceId; isRingwraith: boolean }[] = [];
+      for (const co of caster.companies) {
+        if (!targetSiteDefId || co.currentSite?.definitionId !== targetSiteDefId) continue;
+        for (const cid of co.characters) {
+          if (cid === targetId) continue;
+          const ch = caster.characters[cid];
+          if (!ch) continue;
+          const cDef = defById(state, ch.definitionId);
+          if (!cDef || !isCharacterCard(cDef)) continue;
+          const isRingwraith = cDef.race === 'ringwraith';
+          const usesShadowMagic = isRingwraith
+            || getEffectiveSkills(state, ch, cDef).includes('shadow-magic');
+          if (usesShadowMagic) enablers.push({ id: cid, isRingwraith });
+        }
+      }
+
+      const targetMod = onEvent.apply.targetCorruptionModifier;
+      logDetail(`"${def.name}" played on ${targetId as string} (owner ${targetOwnerId as string}) — enqueuing corruption check (modifier ${targetMod}) + follow-up body check`);
+      state = enqueueCorruptionCheck(state, {
+        source: handCard.instanceId,
+        actor: targetOwnerId,
+        scope: { kind: 'phase', phase: state.phaseState.phase },
+        characterId: targetId,
+        modifier: targetMod,
+        reason: def.name,
+        awardKillMpTo: casterId,
+        onSuccess: {
+          type: 'enqueue-body-check',
+          rollerPlayerId: casterId,
+          plusOneIfTapped: true,
+          awardKillMpTo: casterId,
+          reason: `${def.name} (body)`,
+        },
+      });
+
+      const ringwraithEnabler = enablers.find(e => e.isRingwraith);
+      if (!ringwraithEnabler && enablers.length > 0) {
+        const casterMod = onEvent.apply.casterCorruptionModifier;
+        logDetail(`"${def.name}": shadow-magic user ${enablers[0].id as string} is not a Ringwraith — enqueuing corruption check (modifier ${casterMod})`);
+        state = enqueueCorruptionCheck(state, {
+          source: handCard.instanceId,
+          actor: casterId,
+          scope: { kind: 'phase', phase: state.phaseState.phase },
+          characterId: enablers[0].id,
+          modifier: casterMod,
+          reason: `${def.name} (shadow-magic user)`,
+        });
+      } else if (ringwraithEnabler) {
+        logDetail(`"${def.name}": shadow-magic user is a Ringwraith — no corruption check for the caster`);
+      }
+      continue;
+    }
+
     if (onEvent.apply.type === 'set-site-phase-flag') {
       const flagName = onEvent.apply.flag;
       if (!flagName) {
@@ -1238,13 +1912,75 @@ function applyShortEventOnEntersPlay(
           logDetail(`add-constraint(character-stat-modifier): missing stat or value — fizzle`);
           continue;
         }
-        logDetail(`"${def.name}" played — adding character-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} on ${characterId as string} (scope ${scopeName})`);
+        // Optional "while <card> is in play" gate (Heart of Dark Fire ba-63):
+        // the bonus is re-checked by the resolver and lapses if the named card
+        // leaves play mid-turn.
+        const requiresCardInPlay = onEvent.apply.requiresCardInPlay;
+        const gateSuffix = requiresCardInPlay ? ` while ${requiresCardInPlay} in play` : '';
+        logDetail(`"${def.name}" played — adding character-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} on ${characterId as string} (scope ${scopeName})${gateSuffix}`);
         state = addConstraint(state, {
           source: handCard.instanceId,
           sourceDefinitionId: handCard.definitionId,
           scope: { kind: 'turn' },
           target: { kind: 'character', characterId },
-          kind: { type: 'character-stat-modifier', stat, value, characterId },
+          kind: { type: 'character-stat-modifier', stat, value, characterId, ...(requiresCardInPlay ? { requiresCardInPlay } : {}) },
+        });
+        continue;
+      }
+
+      // Player-scoped check-modifier (e.g. Terror Heralds Doom ba-78: "+2 to all
+      // influence attempts this turn by any of your characters"). Unlike the
+      // one-shot character-targeted check-modifier (Muster), a `target: 'player'`
+      // modifier applies to *every* influence check the player's characters make
+      // for the constraint's scope and is never consumed. Read by the faction
+      // influence resolution (reducer-site.ts / legal-actions/site.ts).
+      if (constraintKind === 'check-modifier' && onEvent.apply.target === 'player') {
+        const check = onEvent.apply.check;
+        const value = onEvent.apply.value;
+        if (!check || typeof value !== 'number') {
+          logDetail(`add-constraint(check-modifier, player): missing check or value — fizzle`);
+          continue;
+        }
+        const scope = parseConstraintScope(scopeName, null);
+        if (!scope) {
+          logDetail(`add-constraint(check-modifier, player): unknown scope "${scopeName}" — fizzle`);
+          continue;
+        }
+        const playerId = state.players[playerIndex].id;
+        logDetail(`"${def.name}" played — adding player-scoped check-modifier ${check} ${value > 0 ? '+' : ''}${value} for ${playerId as string} (scope ${scopeName})`);
+        state = addConstraint(state, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope,
+          target: { kind: 'player', playerId },
+          kind: { type: 'check-modifier', check, value },
+        });
+        continue;
+      }
+
+      // Player-scoped site-path-reduction (Roam the Waste ba-73: "Each of your
+      // companies this turn is considered to have one fewer Wilderness and one
+      // fewer Shadow-land in its site path"). Turn-scoped, player-targeted; read
+      // when each moving company's resolved site path is built.
+      if (constraintKind === 'site-path-reduction' && onEvent.apply.target === 'player') {
+        const reductions = onEvent.apply.regionReductions;
+        if (!reductions || Object.keys(reductions).length === 0) {
+          logDetail(`add-constraint(site-path-reduction): missing regionReductions — fizzle`);
+          continue;
+        }
+        const scope = parseConstraintScope(scopeName, null);
+        if (!scope) {
+          logDetail(`add-constraint(site-path-reduction): unknown scope "${scopeName}" — fizzle`);
+          continue;
+        }
+        const playerId = state.players[playerIndex].id;
+        logDetail(`"${def.name}" played — adding player-scoped site-path-reduction ${JSON.stringify(reductions)} for ${playerId as string} (scope ${scopeName})`);
+        state = addConstraint(state, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope,
+          target: { kind: 'player', playerId },
+          kind: { type: 'site-path-reduction', reductions: reductions as Partial<Record<import('../types/common.js').RegionType, number>> },
         });
         continue;
       }
@@ -1287,6 +2023,12 @@ function applyShortEventOnEntersPlay(
       switch (constraintKind) {
         case 'no-creature-hazards-on-company':
           kind = { type: 'no-creature-hazards-on-company' };
+          break;
+        case 'only-creatures-keyed-to-site':
+          kind = { type: 'only-creatures-keyed-to-site' };
+          break;
+        case 'only-creatures-keyed-to-site-at-ruins-lairs':
+          kind = { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
           break;
         case 'company-cannot-move':
           kind = { type: 'company-cannot-move' };
@@ -1442,6 +2184,51 @@ function applyShortEventOnEntersPlay(
           eligibleCategories,
           rollTotal: 999,
           storedPlacement: false,
+        },
+      });
+    }
+
+    if (onEvent.apply.type === 'enqueue-gold-ring-test') {
+      // "Test of Fire" path (le-239): run the full Rule 6.2 gold-ring test on
+      // the chosen gold ring borne by a character in a sage's company. The
+      // action carries the gold ring as `targetGoldRingInstanceId`; the shared
+      // `gold-ring-test` pending resolution rolls 2d6 (plus this rollModifier),
+      // consults the ring's own `ring-test-table`, discards the ring, and
+      // offers a matching special ring to replace it.
+      const goldRingInstanceId = action.type === 'play-short-event'
+        ? action.targetGoldRingInstanceId
+        : undefined;
+      if (!goldRingInstanceId) {
+        logDetail(`"${def.name}": enqueue-gold-ring-test — no gold ring instance — fizzle`);
+        continue;
+      }
+
+      // Locate the bearer of the gold ring. The ring stays in the character's
+      // items; the pending resolution finds and discards it on resolution.
+      const actor = state.players[playerIndex];
+      let bearerId: CardInstanceId | undefined;
+      for (const [charIdStr, char] of Object.entries(actor.characters)) {
+        if (char.items.some(i => i.instanceId === goldRingInstanceId)) {
+          bearerId = charIdStr as CardInstanceId;
+          break;
+        }
+      }
+      if (!bearerId) {
+        logDetail(`"${def.name}": enqueue-gold-ring-test — gold ring ${goldRingInstanceId as string} not borne by any character — fizzle`);
+        continue;
+      }
+
+      const rollModifier = (onEvent.apply as { rollModifier?: number }).rollModifier ?? 0;
+      logDetail(`"${def.name}": enqueue-gold-ring-test on ring ${goldRingInstanceId as string} (bearer ${bearerId as string}, roll modifier ${rollModifier})`);
+      state = enqueueResolution(state, {
+        source: handCard.instanceId,
+        actor: actor.id,
+        scope: { kind: 'phase', phase: state.phaseState.phase },
+        kind: {
+          type: 'gold-ring-test',
+          goldRingInstanceId,
+          rollModifier,
+          characterInstanceId: bearerId,
         },
       });
     }

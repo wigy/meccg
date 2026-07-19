@@ -9,7 +9,7 @@
  * of missing data — the AI never throws on partial information.
  */
 
-import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, GameAction } from '@meccg/shared';
 import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
@@ -239,7 +239,7 @@ export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): bool
  * Whether any hand resource card can be played at the given site definition.
  * Used for the intermediate-movement check in {@link scoreDestinationSite}.
  */
-function anyCardPlayableAt(
+export function anyCardPlayableAt(
   view: PlayerView,
   pool: Readonly<Record<string, CardDefinition>>,
   site: AnySiteCard,
@@ -543,4 +543,29 @@ export function findSiteDef(
     }
   }
   return undefined;
+}
+
+/**
+ * Whether any offered `plan-movement` action targets a site where a hand
+ * resource can be played directly (i.e. moving there this turn unlocks a
+ * resource play).
+ *
+ * Used by the Organization pass scorer to guarantee the AI never idles a
+ * healthy company that could move to a site enabling a resource play. The
+ * weighted-sampling dispatcher otherwise leaves a small residual chance of
+ * passing even when a dominant productive move exists — which surfaced as a
+ * bug report ("healthy company with a playable item but it does not move").
+ */
+export function hasDirectlyPlayableMovement(
+  view: PlayerView,
+  pool: Readonly<Record<string, CardDefinition>>,
+  legalActions: readonly GameAction[],
+): boolean {
+  for (const action of legalActions) {
+    if (action.type !== 'plan-movement') continue;
+    const destDef = findSiteDef(view, pool, action.destinationSite);
+    if (!destDef) continue;
+    if (anyCardPlayableAt(view, pool, destDef)) return true;
+  }
+  return false;
 }

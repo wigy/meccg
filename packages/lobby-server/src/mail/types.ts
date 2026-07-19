@@ -6,8 +6,25 @@
  * asynchronous communication between the server/AI and players.
  */
 
-/** Message status lifecycle: new → read → deleted, or new → processing → processed → waiting → approved/declined. */
-export type MailStatus = 'new' | 'read' | 'deleted' | 'processing' | 'processed' | 'waiting' | 'approved' | 'declined';
+/**
+ * Message status lifecycle.
+ *
+ * Human-facing:  new → read → deleted
+ * AI request:    new → processing → processed → success | failed
+ *
+ * `processed` is an INTERMEDIATE state for AI work that opened a pull request:
+ * the handler finished and the PR is awaiting a merge/close decision. The
+ * run-ai loop sweeps `processed` messages, inspects their PR, and resolves them
+ * to the terminal `success` (PR merged) or `failed` (PR closed unmerged, or no
+ * PR link at all). AI work with no PR (e.g. a card added straight to master, a
+ * planning reply) goes directly to `success`/`failed`. `approved`/`declined`
+ * remain the reviewer's lobby-inbox verdict on a review-request.
+ */
+export type MailStatus =
+  | 'new' | 'read' | 'deleted'
+  | 'processing' | 'processed'
+  | 'success' | 'failed'
+  | 'waiting' | 'approved' | 'declined';
 
 /** Who originated the message. */
 export type MailSender = 'ai' | 'server' | 'player';

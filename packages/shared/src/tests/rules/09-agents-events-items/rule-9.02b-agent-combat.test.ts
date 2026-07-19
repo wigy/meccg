@@ -27,8 +27,8 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, viableActions, makeSitePhase,
-  PLAYER_1, PLAYER_2, HAZARD_PLAYER,
+  buildTestState, resetMint, dispatch, viableActions, makeSitePhase, charIdAt,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LEGOLAS,
   MORIA, LORIEN,
 } from '../../test-helpers.js';
@@ -247,6 +247,69 @@ describe('Rule 2.V.iii — Agent Hazard Attack at Site', () => {
       expect(withPass.combat).toBeNull();
       const after = dispatch(withPass, viableActions(withPass, PLAYER_1, 'pass')[0].action);
       expect((after.phaseState as { step: string }).step).toBe('play-resources');
+    });
+  });
+
+  // Rule 3.v (Agent Hazard Attacks): "Each time one of its strikes fails, the
+  // agent hazard is wounded and must make a body check. If all strikes are
+  // defeated and all body checks fail, a defending hero or Fallen-Wizard
+  // player may place the agent in their own marshalling point pile to be
+  // counted as kill MPs; otherwise the agent is removed from play."
+  //
+  // Regression: an agent whose strike was defeated used to remain untapped and
+  // unwounded, and a defeated agent was never removed. The character defeats
+  // the strike and rolls a body check against the agent (Anarin, body 8 +1 at
+  // home = 9); the roll decides whether the agent survives-but-wounded or is
+  // removed.
+  describe('Rule 3.v — agent wounded / removed when its strike is defeated', () => {
+    // Face-down at home: Anarin at Moria (empty siteStack), company at Moria.
+    // strikeProwess 9 (4+5), creatureBody 9 (8+1), attacker assigns.
+    function driveToBodyCheck() {
+      const base = buildAgentSiteState({ agentRevealed: false, agentSiteStack: [] });
+      let s = dispatch(base, viableActions(base, PLAYER_2, 'declare-agent-attack')[0].action);
+      expect(s.combat?.creatureBody).toBe(9);
+
+      // Attacker assigns the agent's strike to Aragorn (prowess 6).
+      const aragornId = charIdAt(s, RESOURCE_PLAYER);
+      s = dispatch(s, { type: 'assign-strike', player: PLAYER_2, characterId: aragornId });
+
+      // Agent rolls low (dice 2 → agentRollTotal 2 + 9 = 11).
+      s = dispatch({ ...s, cheatRollTotal: 2 }, { type: 'agent-strike-roll', player: PLAYER_2 });
+      expect(s.combat?.agentRollTotal).toBe(11);
+
+      // Defender rolls high (dice 12 → 12 + 6 = 18 > 11) → defeats the strike.
+      const resolve = viableActions({ ...s, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike')
+        .find(a => a.action.type === 'resolve-strike');
+      s = dispatch({ ...s, cheatRollTotal: 12 }, resolve!.action);
+
+      // Character defeated the strike → body check against the agent.
+      expect(s.combat?.bodyCheckTarget).toBe('creature');
+      return s;
+    }
+
+    test('agent survives its body check → left in play but wounded', () => {
+      let s = driveToBodyCheck();
+      // Body check passes (dice 2 ≤ body 9) → agent survives, but is wounded.
+      const roll = viableActions({ ...s, cheatRollTotal: 2 }, PLAYER_2, 'body-check-roll')[0];
+      s = dispatch({ ...s, cheatRollTotal: 2 }, roll.action);
+
+      expect(s.combat).toBeNull();
+      const agents = s.players[HAZARD_PLAYER].agents;
+      expect(agents).toHaveLength(1);
+      expect(agents[0].character.status).toBe(CardStatus.Inverted);
+    });
+
+    test('agent fails its body check → removed from play (defender claims kill MPs)', () => {
+      let s = driveToBodyCheck();
+      const agentInstId = s.players[HAZARD_PLAYER].agents[0].character.instanceId;
+      // Body check fails (dice 12 > body 9) → strike defeated → agent removed.
+      const roll = viableActions({ ...s, cheatRollTotal: 12 }, PLAYER_2, 'body-check-roll')[0];
+      s = dispatch({ ...s, cheatRollTotal: 12 }, roll.action);
+
+      expect(s.combat).toBeNull();
+      expect(s.players[HAZARD_PLAYER].agents).toHaveLength(0);
+      // Defender (Wizard/hero) claims the defeated agent as kill MPs.
+      expect(s.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === agentInstId)).toBe(true);
     });
   });
 });

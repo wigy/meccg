@@ -304,4 +304,68 @@ describe('Orders from the Great Demon (ba-70)', () => {
     )).toBe(true);
     expect(state.players[0].playDeck.some(c => c.definitionId === ORDERS_FROM_THE_GREAT_DEMON)).toBe(false);
   });
+
+  // ── Regression: a starting-company-placement resource left in the starting
+  //    company pool is a resource-event with the `starting-item` keyword, so
+  //    setup sinks it to the sideboard. It must still be offered (and placeable)
+  //    during item-draft rather than silently vanishing from the starting
+  //    company (bug report game mrhx2tb7-9vcj4g). ──
+
+  test('Balrog starting resource left in the draft pool is offered and placeable from the sideboard', () => {
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.Balrog,
+          // Placement card is part of the starting company (draft pool), not the
+          // play deck — the real-game scenario. It never gets drafted (it is an
+          // event, not a character) so setup sinks it to the sideboard.
+          draftPool: [PERCHEN, ORDERS_FROM_THE_GREAT_DEMON],
+          playDeck: [],
+          siteDeck: [MORIA_MINION, DOL_GULDUR, VARIAG_CAMP],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Ringwraith,
+          draftPool: [ASTERNAK],
+          playDeck: [],
+          siteDeck: [DOL_GULDUR, MORIA_MINION, VARIAG_CAMP],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, PERCHEN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, ASTERNAK) },
+      { type: 'draft-stop', player: PLAYER_1 },
+    ]);
+
+    // The card was sunk to the sideboard during setup.
+    expect(state.players[0].sideboard.some(c => c.definitionId === ORDERS_FROM_THE_GREAT_DEMON)).toBe(true);
+
+    // Item-draft must stay open for P1 so the placement can be offered.
+    expect(state.phaseState.phase).toBe('setup');
+    if (state.phaseState.phase !== 'setup') return;
+    expect(state.phaseState.setupStep.step).toBe(SetupStep.ItemDraft);
+
+    const placeActions = computeLegalActions(state, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'place-starting-company-event',
+    );
+    expect(placeActions.length).toBeGreaterThanOrEqual(1);
+    expect((placeActions[0].action as { cardDefId: CardDefinitionId }).cardDefId).toBe(ORDERS_FROM_THE_GREAT_DEMON);
+
+    const companyId = state.players[0].companies[0].id;
+    state = dispatch(state, placeActions[0].action);
+
+    // Placed into play, bound to the company, and removed from the sideboard.
+    expect(state.players[0].cardsInPlay.some(
+      c => c.definitionId === ORDERS_FROM_THE_GREAT_DEMON && c.companyId === companyId,
+    )).toBe(true);
+    expect(state.players[0].sideboard.some(c => c.definitionId === ORDERS_FROM_THE_GREAT_DEMON)).toBe(false);
+  });
 });

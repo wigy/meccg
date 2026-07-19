@@ -24,7 +24,9 @@
           "from": "in-play",
           "to": "discard",
           "filter": {
-            "cardType": "hero-resource-event",
+            "cardType": {
+              "$in": ["hero-resource-event", "minion-resource-event"]
+            },
             "keywords": {
               "$includes": "environment"
             }
@@ -900,22 +902,46 @@
           "body": 12
         },
         "discardAfterUse": true
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
       }
     ],
     "text": "Unique. Nazgûl (1st). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Angmar, Gundabad, Gorgoroth, and Imlad Morgul; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Witch-king becomes a short-event: one character must make a corruption check."
   },
   {
-    "cardType": "hazard-event",
+    "cardType": "hazard-creature",
     "id": "tw-47",
     "name": "Khamûl the Easterling",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/KhamultheEasterling.jpg",
     "unique": true,
-    "eventType": "permanent",
+    "strikes": 1,
+    "prowess": 18,
+    "body": 8,
+    "killMarshallingPoints": 6,
+    "race": "nazgûl",
     "keywords": [
       "Nazgûl"
     ],
-    "marshallingPoints": 6,
-    "marshallingPointsType": "kill",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      },
+      {
+        "regionNames": [
+          "Brown Lands",
+          "Heart of Mirkwood",
+          "Gorgoroth",
+          "Southern Mirkwood"
+        ]
+      }
+    ],
     "effects": [
       {
         "type": "permanent-event-auto-attack",
@@ -930,22 +956,63 @@
           "body": 8
         },
         "discardAfterUse": true
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event"
+      },
+      {
+        "type": "force-opponent-discard",
+        "match": "any",
+        "sources": [
+          "hand"
+        ],
+        "count": {
+          "countCardsInPlay": {
+            "keyword": "Nazgûl"
+          }
+        }
       }
     ],
-    "text": "Unique. Nazgûl (2nd). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Brown Lands, Heart of Mirkwood, Gorgoroth, and Southern Mirkwood; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Khamûl becomes a short-event: target character makes a corruption check."
+    "text": "Unique. Nazgûl (2nd). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Brown Lands, Heart of Mirkwood, Gorgoroth, and Southern Mirkwood; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Khamûl the Easterling becomes a short-event and forces opponent to discard one card of his choice for every Nazgûl permanent-event in play (including this one) at the time of declaration.",
+    "certified": "2026-07-07"
   },
   {
-    "cardType": "hazard-event",
+    "cardType": "hazard-creature",
     "id": "tw-2",
     "name": "Adûnaphel",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Adunaphel.jpg",
     "unique": true,
-    "eventType": "permanent",
+    "strikes": 1,
+    "prowess": 15,
+    "body": 10,
+    "killMarshallingPoints": 5,
+    "race": "nazgûl",
     "keywords": [
       "Nazgûl"
     ],
-    "marshallingPoints": 5,
-    "marshallingPointsType": "kill",
+    "keyedTo": [
+      {
+        "regionTypes": [
+          "dark"
+        ],
+        "siteTypes": [
+          "dark-hold"
+        ]
+      },
+      {
+        "regionNames": [
+          "Brown Lands",
+          "Dagorlad",
+          "Gorgoroth",
+          "Western Mirkwood"
+        ]
+      }
+    ],
     "effects": [
       {
         "type": "permanent-event-auto-attack",
@@ -960,9 +1027,21 @@
           "body": 10
         },
         "discardAfterUse": true
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event"
+      },
+      {
+        "type": "tap-character"
       }
     ],
-    "text": "Unique. Nazgûl (7th). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Brown Lands, Dagorlad, Gorgoroth, and Western Mirkwood; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Adûnaphel becomes a short-event and causes any one character to tap."
+    "text": "Unique. Nazgûl (7th). May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may also be played keyed to Brown Lands, Dagorlad, Gorgoroth, and Western Mirkwood; and may also be played at sites in these regions. If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Adûnaphel becomes a short-event and causes any one character to tap.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-event",
@@ -1001,7 +1080,18 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/AwakenMinions.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "op": "multiply",
+        "value": 2,
+        "target": "all-automatic-attacks",
+        "when": { "site.siteType": { "$in": ["shadow-hold", "dark-hold"] } }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "certified": "2026-07-15",
     "text": "The number of strikes for each automatic-attack at a Shadow-hold [{S}] site or at a Dark-hold [{D}] site is doubled.Cannot be duplicated."
   },
   {
@@ -1129,8 +1219,33 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostatSea.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a company that is moving this turn. If the company has a Coastal Sea [{c}] in its site path, it may do nothing at the site during its site phase."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "sitePath.coastalCount": {
+            "$gte": 1
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-phase-do-nothing",
+          "scope": "company-site-phase"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable on a company that is moving this turn. If the company has a Coastal Sea [{c}] in its site path, it may do nothing at the site during its site phase.",
+    "certified": "2026-07-07"
   },
   {
     "cardType": "hazard-event",
@@ -1189,7 +1304,58 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureofExpedience.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": ["corruption"],
+    "removalNumber": 5,
+    "certified": "2026-07-16",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$not": {
+            "target.race": {
+              "$in": ["ringwraith", "wizard", "hobbit"]
+            }
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "character-gains-item",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "bearer"
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 6,
+          "onSuccess": {
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
+          }
+        }
+      }
+    ],
     "text": "Corruption. Playable on a non-Ringwraith, non-Wizard, non-Hobbit character. Target character receives 2 corruption points and makes a corruption check each time a character in his company gains an item (including a ring special item). During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 5, discard this card. Cannot be duplicated on a given character."
   },
   {
@@ -1199,7 +1365,42 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureofNature.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": ["corruption"],
+    "removalNumber": 4,
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "hobbit" } },
+            { "target.race": { "$ne": "dwarf" } },
+            { "target.race": { "$ne": "orc" } },
+            { "target.race": { "$ne": "ringwraith" } }
+          ]
+        }
+      },
+      { "type": "duplication-limit", "scope": "character", "max": 1 },
+      { "type": "stat-modifier", "stat": "corruption-points", "value": 2 },
+      {
+        "type": "on-event",
+        "event": "end-of-company-mh",
+        "apply": { "type": "force-check", "check": "corruption" },
+        "target": "bearer",
+        "regionTypeFilter": ["wilderness"]
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 5,
+          "onSuccess": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+        }
+      }
+    ],
+    "certified": "2026-07-16",
     "text": "Corruption. Playable on a non-Hobbit, non-Dwarf, non-Orc, non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check at the end of his movement/hazard phase for each Wilderness [{w}] in his company’s site path. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 4, discard this card. Cannot be duplicated on a given character."
   },
   {
@@ -1255,8 +1456,62 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Tap one Elf character.Alternatively, if Doors of Night is in play, treat one Free-domain [{f}] as a Border-land [{b}] or one Free-hold [{F}] as a Border-hold [{B}] until the end of the turn.Cannot be duplicated."
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
+      {
+        "type": "tap-character",
+        "filter": {
+          "race": "elf"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationSiteType": "free-hold"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "border-hold",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationRegionType": "free"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-type-override",
+          "overrideType": "border",
+          "regionName": "destination",
+          "scope": "turn"
+        }
+      }
+    ],
+    "text": "Environment. Tap one Elf character.Alternatively, if Doors of Night is in play, treat one Free-domain [{f}] as a Border-land [{b}] or one Free-hold [{F}] as a Border-hold [{B}] until the end of the turn.Cannot be duplicated.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "hazard-event",
@@ -1311,7 +1566,13 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheBalanceofThings.jpg",
     "unique": true,
     "eventType": "long",
-    "effects": [],
+    "certified": "2026-07-15",
+    "effects": [
+      {
+        "type": "corruption-source-multiplier",
+        "multiplier": 2
+      }
+    ],
     "text": "Unique. Each character has the corruption points doubled for one of his sources of corruption (the player controlling the character chooses)."
   },
   {
@@ -1431,7 +1692,36 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/APackattheDoor.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
-    "text": "Playable if Doors of Night is in play. Each non-unique Animal, Spider and Wolf creature may be played in Border-lands [{b}], Border-holds [{B}] or Ruins & Lairs [{R}]. The creature must be playable in a non-Coastal Sea [{c}] region."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Doors of Night"
+      },
+      {
+        "type": "grant-creature-keying",
+        "creatureFilter": {
+          "$and": [
+            {
+              "race": {
+                "$in": ["animal", "animals", "spider", "spiders", "wolf", "wolves"]
+              }
+            },
+            {
+              "unique": {
+                "$ne": true
+              }
+            }
+          ]
+        },
+        "siteFilter": {
+          "regionTypes": ["border"],
+          "siteTypes": ["border-hold", "ruins-and-lairs"]
+        },
+        "requiresNonCoastalKeying": true
+      }
+    ],
+    "text": "Playable if Doors of Night is in play. Each non-unique Animal, Spider and Wolf creature may be played in Border-lands [{b}], Border-holds [{B}] or Ruins & Lairs [{R}]. The creature must be playable in a non-Coastal Sea [{c}] region.",
+    "certified": "2026-07-17"
   }
 ]

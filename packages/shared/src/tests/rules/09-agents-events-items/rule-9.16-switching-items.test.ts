@@ -16,6 +16,13 @@
 
 import { describe, test } from 'vitest';
 
+// `pickActiveItemsForCharacter` (item-slots.ts) picks which borne items are
+// "in use" purely by carrying order — one per weapon/armor/shield/helmet
+// slot, first-carried-wins. There is no `inUse` flag on `ItemInPlay` (state-cards.ts)
+// and no action type to declare a switch; item-slots.ts even carries an
+// explicit note that "the active player's right to switch which item is in
+// use (rule 9.16) is not yet modeled." Implementing this needs new state
+// (per-character active-item selection) and a new action, not just a test.
 describe('Rule 9.16 — Switching Items', () => {
   test.todo('Resource player may declare character begins using a non-active item; previous same-type item effects cease');
 });

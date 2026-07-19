@@ -31,6 +31,7 @@ import {
   findCharInstanceId, getCharacter,
   RESOURCE_PLAYER, makeMHState, makeSitePhase,
 } from '../test-helpers.js';
+import { Alignment } from '../../index.js';
 import type { ActivateGrantedAction, CardDefinitionId } from '../../index.js';
 
 const ORC_DRAUGHTS = 'le-328' as CardDefinitionId;
@@ -52,7 +53,7 @@ describe('Orc-draughts (le-328)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -67,7 +68,7 @@ describe('Orc-draughts (le-328)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [GORBAG] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [GORBAG] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -84,7 +85,7 @@ describe('Orc-draughts (le-328)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -102,7 +103,7 @@ describe('Orc-draughts (le-328)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }, GRISHNAKH] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }, GRISHNAKH] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -130,7 +131,7 @@ describe('Orc-draughts (le-328)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }, GRISHNAKH] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }, GRISHNAKH] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -157,6 +158,7 @@ describe('Orc-draughts (le-328)', () => {
       players: [
         {
           id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
           companies: [
             { site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] },
             { site: MORIA_MINION, characters: [GRISHNAKH] },
@@ -183,7 +185,7 @@ describe('Orc-draughts (le-328)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [GRISHNAKH] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -204,7 +206,7 @@ describe('Orc-draughts (le-328)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.LongEvent,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -219,7 +221,7 @@ describe('Orc-draughts (le-328)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -235,7 +237,7 @@ describe('Orc-draughts (le-328)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Site,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -254,7 +256,7 @@ describe('Orc-draughts (le-328)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS, ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS, ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });
@@ -276,7 +278,7 @@ describe('Orc-draughts (le-328)', () => {
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
       ],
     });

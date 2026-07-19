@@ -26,12 +26,13 @@ import type { DeckList, CardDefinitionId } from '../../../index.js';
 
 // tw-120 = Aragorn II (hero-character) — valid in FW deck
 // le-4   = Calendal (minion-character) — also valid in FW deck
+// wh-9   = Saruman (Fallen-wizard avatar) — the declared avatar rule 1.37 requires
 
 const baseFwDeck: DeckList = {
   id: 'test-fw-characters',
   name: 'FW Characters Test',
   alignment: 'fallen-wizard',
-  pool: [],
+  pool: [{ name: 'Saruman', card: 'wh-9' as CardDefinitionId, qty: 1 }],
   sideboard: [],
   sites: [{ name: 'The White Towers', card: 'wh-58' as CardDefinitionId, qty: 1 }],
   deck: {

@@ -295,6 +295,8 @@ export interface PlayPermanentEventAction {
   readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
   /** For company-targeting permanent events (e.g. Fellowship), the target company ID. */
   readonly targetCompanyId?: import('./common.js').CompanyId;
+  /** For item-targeting permanent events (e.g. Barrow-blade dm-119), the target item instance. */
+  readonly targetItemInstanceId?: CardInstanceId;
   /** Card instance to discard as a play cost (e.g. Sapling of the White Tree for The White Tree). */
   readonly discardCardInstanceId?: CardInstanceId;
 }
@@ -376,6 +378,31 @@ export interface ActivateGrantedAction {
 }
 
 /**
+ * Replace an in-play character with another manifestation of the same
+ * entity from hand (a `manifestation-swap` card effect — e.g. Strider
+ * ba-1: "You may bring Aragorn II into play with Strider's company,
+ * removing Strider from the game and automatically transferring all
+ * cards on Strider to Aragorn II").
+ *
+ * The new manifestation enters the old one's company untapped at the
+ * same position; every card attached to the old manifestation (items,
+ * allies, hazards, trophies) and every control relationship (its
+ * controller, its followers) transfers to the new instance. The old
+ * manifestation's card is removed from the game (out-of-play pile).
+ * Per CRF 22 (Strider), the swap may be performed at any time a normal
+ * resource could be played.
+ */
+export interface ManifestationSwapAction {
+  readonly type: 'manifestation-swap';
+  /** The player performing the swap. */
+  readonly player: PlayerId;
+  /** The in-play character carrying the `manifestation-swap` effect (removed from the game). */
+  readonly characterId: CardInstanceId;
+  /** The hand card (the named manifestation) brought into play in its place. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Tap a sage to test a gold-ring item at a site whose `sage-tap-ring-test`
  * site-rule grants the ability (e.g. Mount Doom, le-393). The named sage
  * taps; the gold-ring item's owner then rolls a ring test with the site's
@@ -438,6 +465,19 @@ export interface SelectCardBearerAction {
 }
 
 /**
+ * Discards one of the player's own characters while organizing (CoE rule
+ * 3.22). Only a non-avatar character whose company is at a haven or at the
+ * character's home site may be discarded. The character's items and allies
+ * are discarded with it; its followers revert to general influence.
+ */
+export interface DiscardCharacterOrgAction {
+  readonly type: 'discard-character';
+  readonly player: PlayerId;
+  /** The in-play character instance to discard. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * A Fallen-wizard discards one of their in-play stage resource permanent-events
  * during the organization phase (MEWH "The Player Turn"). Only offered when the
  * resulting stage-point total stays at 3 or more.
@@ -446,6 +486,32 @@ export interface DiscardStageResourceAction {
   readonly type: 'discard-stage-resource';
   readonly player: PlayerId;
   /** The in-play stage permanent-event card instance to discard. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * The controller voluntarily discards one of their in-play permanent-events
+ * carrying a `voluntary-discard` effect during their organization phase
+ * ("Discard during your organization phase if you choose" — Going Ever Under
+ * Dark ba-37).
+ */
+export interface VoluntaryDiscardInPlayAction {
+  readonly type: 'voluntary-discard-in-play';
+  readonly player: PlayerId;
+  /** The in-play permanent-event card instance to discard. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * Returns an attached resource (an ally carrying a `return-to-hand` effect whose
+ * triggers include `organization`) from play to its owner's hand during that
+ * player's organization phase. Used by Radagast's Black Bird (wh-114): "You may
+ * return … to your hand: during your organization phase …".
+ */
+export interface ReturnAttachedToHandAction {
+  readonly type: 'return-attached-to-hand';
+  readonly player: PlayerId;
+  /** The attached ally instance to return to hand. */
   readonly cardInstanceId: CardInstanceId;
 }
 
@@ -462,4 +528,38 @@ export interface ActivateOrgFetchAction {
   readonly player: PlayerId;
   /** The in-play permanent-event card instance granting the fetch. */
   readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * Discards an in-play permanent-event carrying an `evil-hour-grant-movement`
+ * effect during the organization phase (while the card is tapped) to grant the
+ * targeted company a persistent conditional region-movement bonus (A More Evil
+ * Hour, ba-48). See {@link Company.evilHourMovementBonus}.
+ */
+export interface DiscardForEvilHourMovementAction {
+  readonly type: 'discard-for-evil-hour-movement';
+  readonly player: PlayerId;
+  /** The tapped in-play permanent-event card instance to discard. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The controller's company that gains the movement bonus. */
+  readonly companyId: CompanyId;
+}
+
+/**
+ * Tap one untapped character in a company toward its Enchanted Stream (as-27)
+ * movement tax during the organization phase. The company is bound by a
+ * `company-movement-tax` permanent event and may not voluntarily declare
+ * movement or split until the tax is paid; each `pay-movement-tax` taps one
+ * character and increments {@link OrganizationPhaseState.movementTaxPaid} for
+ * that company. ("Tap all of its untapped characters to a maximum of two.")
+ */
+export interface PayMovementTaxAction {
+  /** Action discriminant. */
+  readonly type: 'pay-movement-tax';
+  /** The active player paying the tax. */
+  readonly player: PlayerId;
+  /** The company whose movement tax is being paid. */
+  readonly companyId: CompanyId;
+  /** The untapped character in that company to tap. */
+  readonly characterId: CardInstanceId;
 }

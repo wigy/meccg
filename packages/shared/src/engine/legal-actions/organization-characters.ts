@@ -12,10 +12,11 @@ import { requirePhaseState, isBalrogAvatarDef } from '../../state-utils.js';
 import { isCharacterCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
 import { SiteType, Alignment, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
+import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RingwraithSelfFollowerEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, effectiveGeneralInfluence, isUniqueCharacterInPlay } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay } from '../reducer-utils.js';
+import { manifestationOfEntityInPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 
@@ -51,6 +52,18 @@ function isCharacterDeniedBySiteRule(charDef: CharacterCard, siteDef: SiteCard):
  */
 function isAgentCharacter(charDef: CharacterCard): boolean {
   return (charDef.keywords ?? []).includes('agent');
+}
+
+/**
+ * Returns true if the site carries an `allow-agent-play` site-rule, which lets
+ * agent characters be brought into play there under direct influence even
+ * though the site is not the agent's home site (Bree le-356). The permission
+ * is direct-influence-only; the general-influence branch below skips such sites.
+ */
+function siteAllowsAgentPlay(siteDef: SiteCard): boolean {
+  return (siteDef.effects ?? []).some(
+    eff => eff.type === 'site-rule' && eff.rule === 'allow-agent-play',
+  );
 }
 
 /**
@@ -94,14 +107,25 @@ function orcTrollPlayPermission(
 function recruitmentVehicleInHand(
   state: GameState,
   player: { readonly hand: readonly { readonly instanceId: CardInstanceId; readonly definitionId: import('../../index.js').CardDefinitionId }[] },
-): { instanceId: CardInstanceId; maxMind: number } | undefined {
+): { instanceId: CardInstanceId; maxMind: number; agentRecruit: boolean } | undefined {
   for (const card of player.hand) {
     const def = defById(state, card.definitionId);
     const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects ?? [];
     const eff = effects.find((e): e is RecruitmentVehicleEffect => e.type === 'recruitment-vehicle');
-    if (eff) return { instanceId: card.instanceId, maxMind: eff.maxMind };
+    if (eff) return { instanceId: card.instanceId, maxMind: eff.maxMind, agentRecruit: eff.agentRecruit === true };
   }
   return undefined;
+}
+
+/**
+ * True if the site is a Darkhaven [{DH}] — a dark-side haven (a minion or Balrog
+ * site of type `haven`, e.g. Minas Morgul, Dol Guldur, Carn Dûm), as opposed to
+ * a hero haven. Open to the Summons (wh-46) lets an agent be summoned into a
+ * company "at a Darkhaven".
+ */
+function isDarkhavenSite(siteDef: SiteCard): boolean {
+  return siteDef.siteType === SiteType.Haven
+    && (siteDef.cardType === 'minion-site' || siteDef.cardType === 'balrog-site');
 }
 
 /**
@@ -185,12 +209,19 @@ function findPlayableSites(
   },
   charDef: CharacterCard,
   avatarInPlay: boolean,
-): { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] {
-  const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string }[] = [];
+  /**
+   * Open to the Summons (wh-46): when true and `charDef` is an agent, Darkhavens
+   * are added to the agent's playable sites (in addition to its home site), so
+   * the agent may be summoned there via the vehicle.
+   */
+  includeDarkhavensForAgent = false,
+): { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string; directInfluenceOnly: boolean }[] {
+  const results: { instanceId: CardInstanceId; siteDef: SiteCard; siteName: string; directInfluenceOnly: boolean }[] = [];
   const seenInstances = new Set<string>();
   const seenSiteNames = new Set<string>();
   const homeSiteOnly = hasHomeSiteOnlyRestriction(charDef);
   const extraHavenNames = avatarExtraHavenNames(charDef);
+  const allowAgentDarkhaven = includeDarkhavensForAgent && isAgentCharacter(charDef);
 
   if (homeSiteOnly) {
     logDetail(`  play-restriction: ${charDef.name} has home-site-only — havens excluded`);
@@ -212,16 +243,24 @@ function findPlayableSites(
     // Fallen-wizard bring characters into play there, just like a printed
     // haven. The conversion installs a `site.type` → haven override, so the
     // effective type already reads as a haven.
-    let isHaven = getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType) === SiteType.Haven;
+    let isHaven = getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId) === SiteType.Haven;
     if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
     const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
+    const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSite(siteDef);
+    // Bree (le-356) `allow-agent-play`: an agent may join a company already at
+    // this site under direct influence, even though it is not the agent's home
+    // site. General-influence play is not granted (directInfluenceOnly below).
+    const agentPlayHere = isAgentCharacter(charDef) && siteAllowsAgentPlay(siteDef);
 
-    if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
+    if ((homeSiteOnly ? (isHomesite || agentPlayHere) : (isHaven || isHomesite)) || agentDarkhaven) {
       if (isCharacterDeniedBySiteRule(charDef, siteDef)) {
         logDetail(`  play-restriction: ${charDef.name} denied at ${siteDef.name} by site rule`);
         continue;
       }
-      results.push({ instanceId: siteId, siteDef, siteName: siteDef.name });
+      if (agentPlayHere && !isHomesite) {
+        logDetail(`  play-permission: ${charDef.name} (agent) may be played at ${siteDef.name} under direct influence (allow-agent-play)`);
+      }
+      results.push({ instanceId: siteId, siteDef, siteName: siteDef.name, directInfluenceOnly: agentPlayHere && !isHomesite });
       seenSiteNames.add(siteDef.name);
     }
   }
@@ -242,13 +281,14 @@ function findPlayableSites(
     let isHaven = siteDef.siteType === SiteType.Haven;
     if (isHaven && extraHavenNames && !extraHavenNames.includes(siteDef.name)) isHaven = false;
     const isHomesite = homesiteMatchesSite(charDef, siteDef, player.alignment);
+    const agentDarkhaven = allowAgentDarkhaven && isDarkhavenSite(siteDef);
 
-    if (homeSiteOnly ? isHomesite : (isHaven || isHomesite)) {
+    if ((homeSiteOnly ? isHomesite : (isHaven || isHomesite)) || agentDarkhaven) {
       if (isCharacterDeniedBySiteRule(charDef, siteDef)) {
         logDetail(`  play-restriction: ${charDef.name} denied at ${siteDef.name} by site rule`);
         continue;
       }
-      results.push({ instanceId: siteCard.instanceId, siteDef, siteName: siteDef.name });
+      results.push({ instanceId: siteCard.instanceId, siteDef, siteName: siteDef.name, directInfluenceOnly: false });
       seenSiteNames.add(siteDef.name);
     }
   }
@@ -270,6 +310,13 @@ function findPlayableSites(
  *   home site of 'Any non-Dark-hold Under-deeps site' instead"); for every
  *   other alignment it keeps its literal meaning (matched via Dark-hold
  *   Darkhavens through the haven path, not here).
+ *
+ * The **site-type home-site form** `"Any <site-type>"` (Gandalf wh-4:
+ * `"Any Free-hold"`) matches any site whose *printed* type is that type — using
+ * `siteDef.siteType`, not the effective type, so a Free-hold converted into a
+ * Wizardhaven by Chambers in the Royal Court (wh-97) remains one of Gandalf's
+ * home sites even though its effective type now reads `haven`. Dark-hold is
+ * excluded from this form: "Any Dark-hold" keeps the special meaning above.
  */
 function homesiteMatchesSite(charDef: CharacterCard, siteDef: SiteCard, playerAlignment?: Alignment): boolean {
   let homesite = charDef.homesite;
@@ -282,16 +329,36 @@ function homesiteMatchesSite(charDef: CharacterCard, siteDef: SiteCard, playerAl
     const isUnderDeeps = siteDef.keywords?.includes('under-deeps') ?? false;
     return isUnderDeeps && siteDef.siteType !== SiteType.DarkHold;
   }
+  const anySiteType = SITE_TYPE_HOMESITE_LABELS[homesite];
+  if (anySiteType !== undefined) return siteDef.siteType === anySiteType;
   return false;
 }
+
+/**
+ * `"Any <site-type>"` home-site labels → the printed {@link SiteType} they match
+ * (see {@link homesiteMatchesSite}). Dark-hold is intentionally absent: its
+ * "Any Dark-hold" form has bespoke (Balrog-remap / Darkhaven) handling.
+ */
+const SITE_TYPE_HOMESITE_LABELS: Readonly<Record<string, SiteType>> = {
+  'Any Free-hold': SiteType.FreeHold,
+  'Any Border-hold': SiteType.BorderHold,
+  'Any Ruins & Lairs': SiteType.RuinsAndLairs,
+  'Any Shadow-hold': SiteType.ShadowHold,
+  'Any Haven': SiteType.Haven,
+};
 
 /**
  * Evaluates playing an avatar card from hand as a "Ringwraith follower" of the
  * player's revealed Ringwraith (CoE 2.II.2.1.R4–R5).
  *
- * Follower play requires an enabling ability — a `ringwraith-follower-slots`
+ * Follower play requires an enabling ability — either a `ringwraith-follower-slots`
  * effect on the revealed avatar (e.g. The Witch-king le-58: "up to two
- * Ringwraith followers in his company may be controlled with no influence").
+ * Ringwraith followers in his company may be controlled with no influence"),
+ * OR a `ringwraith-self-follower` effect on the card being played, which grants
+ * its own slot (e.g. Ûvatha the Ringwraith le-57: "He may join another
+ * Ringwraith's company … requires no influence to control"). A self-granting
+ * follower is admitted regardless of the revealed avatar's slot ability and
+ * does not consume that avatar's slot budget.
  * The follower enters the controlling Ringwraith's company at its current
  * site, which must be a Darkhaven or the follower's home site. Because the
  * follower's `mind` is null it consumes none of the avatar's direct
@@ -327,22 +394,32 @@ function ringwraithFollowerPlayAction(
   const slots = (avatarDef.effects ?? []).find(
     (e): e is RingwraithFollowerSlotsEffect => e.type === 'ringwraith-follower-slots',
   );
-  if (!slots) {
+  // A self-granting follower (Ûvatha le-57) brings its own slot: it may be
+  // played as a follower even when the revealed avatar has no slot ability, and
+  // it does not draw from that avatar's slot budget.
+  const selfFollower = (cardDef.effects ?? []).find(
+    (e): e is RingwraithSelfFollowerEffect => e.type === 'ringwraith-self-follower',
+  );
+  if (!slots && !selfFollower) {
     return blocked(`${cardDef.name}: ${avatarDef.name} is already revealed and has no ability allowing a Ringwraith follower to be played (rule 2.II.2.1.1)`);
   }
   if (cardDef.race !== Race.Ringwraith) {
     return blocked(`${cardDef.name}: only Ringwraith avatars may be played as Ringwraith followers`);
   }
 
-  // Count the Ringwraith followers (avatar cards) the avatar already controls.
-  const ringwraithFollowers = avatar.followers.filter(fid => {
-    const follower = player.characters[fid as string];
-    if (!follower) return false;
-    const fDef = resolveDef(state, follower.instanceId);
-    return isCharacterCard(fDef) && fDef.mind === null;
-  }).length;
-  if (ringwraithFollowers >= slots.count) {
-    return blocked(`${cardDef.name}: ${avatarDef.name} already controls ${ringwraithFollowers} Ringwraith follower(s) (max ${slots.count})`);
+  // Slot-budget check only applies when relying on the host avatar's slots. A
+  // self-granting follower is exempt (it grants its own slot).
+  if (slots && !selfFollower) {
+    // Count the Ringwraith followers (avatar cards) the avatar already controls.
+    const ringwraithFollowers = avatar.followers.filter(fid => {
+      const follower = player.characters[fid as string];
+      if (!follower) return false;
+      const fDef = resolveDef(state, follower.instanceId);
+      return isCharacterCard(fDef) && fDef.mind === null;
+    }).length;
+    if (ringwraithFollowers >= slots.count) {
+      return blocked(`${cardDef.name}: ${avatarDef.name} already controls ${ringwraithFollowers} Ringwraith follower(s) (max ${slots.count})`);
+    }
   }
 
   // CoE 2.II.2.1.R4: the controlling Ringwraith must be at a Darkhaven or
@@ -362,7 +439,7 @@ function ringwraithFollowerPlayAction(
     return blocked(`${cardDef.name}: ${avatarDef.name}'s company is closed to new joins`);
   }
 
-  logDetail(`  → viable: play ${cardDef.name} as Ringwraith follower of ${avatarDef.name} at ${siteDef.name} (${ringwraithFollowers}/${slots.count} slots used, no influence)`);
+  logDetail(`  → viable: play ${cardDef.name} as Ringwraith follower of ${avatarDef.name} at ${siteDef.name} (${selfFollower ? 'self-granted slot' : `via ${avatarDef.name}'s ${slots?.count ?? 0} slot(s)`}, no influence)`);
   return {
     action: {
       type: 'play-character',
@@ -439,6 +516,20 @@ export function playCharacterActions(
 
     logDetail(`Evaluating play-character: ${charName} (mind ${cardDef.mind ?? 'avatar'}, DI ${cardDef.directInfluence})`);
 
+    // Pure "Hazard Agent" cards (Lobelia dm-28, My Precious dm-29) are deploy-only:
+    // played only as agent hazards, never recruited/played as company characters
+    // by any player. (Distinct from dual-use agents like Baduila dm-2, which a
+    // Ringwraith/Fallen-wizard player may play as characters at the home site.)
+    if (hasPlayFlag(cardDef, 'hazard-agent-only')) {
+      logDetail(`  → blocked: ${charName} is a hazard-only agent — cannot be played as a character`);
+      results.push({
+        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+        viable: false,
+        reason: `${charName}: a hazard agent — can only be deployed as an agent, not played as a character`,
+      });
+      continue;
+    }
+
     // Rule 1.3.W2 / 1.3.B2: For Wizard and Balrog players, agent cards are
     // treated as hazard cards in all areas — they cannot be played as characters.
     // Rule 2.II.2.2.5: Only Ringwraith and Fallen-wizard players may play agents
@@ -501,6 +592,22 @@ export function playCharacterActions(
         action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
         viable: false,
         reason: `${charName}: unique character already in play`,
+      });
+      continue;
+    }
+
+    // Glossary g.man.1: only one manifestation of an entity may be in play,
+    // regardless of alignment — e.g. Aragorn II (tw-120) cannot be played
+    // normally while Strider (ba-1) is in play, and vice versa. The
+    // `manifestation-swap` action is the sanctioned path (there the current
+    // manifestation leaves play as part of the play).
+    const blockingManifestation = manifestationOfEntityInPlay(state, cardDef);
+    if (blockingManifestation !== null) {
+      logDetail(`  → blocked: ${blockingManifestation}, a manifestation of the same entity as ${charName}, is in play (g.man.1)`);
+      results.push({
+        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+        viable: false,
+        reason: `${charName}: ${blockingManifestation}, a manifestation of the same entity, is already in play`,
       });
       continue;
     }
@@ -574,9 +681,20 @@ export function playCharacterActions(
       logDetail(`  → Orc/Troll play permitted${orcTrollAtWizardhavens ? ' (and at own Wizardhavens regardless of avatar location)' : ''}`);
     }
 
+    // Recruitment vehicle in hand (Thrall of the Voice wh-82; Open to the
+    // Summons wh-46). Detected before site selection because the agent-summons
+    // variant (wh-46) widens an agent's playable sites to include Darkhavens.
+    const vehicle = recruitmentVehicleInHand(state, player);
+    // Open to the Summons (wh-46): a Ringwraith or Fallen-wizard may summon one
+    // agent into a company at a Darkhaven, placing the card with the agent.
+    const isAgentSummonsCandidate = !isAvatar
+      && vehicle?.agentRecruit === true
+      && isAgentCharacter(cardDef)
+      && (player.alignment === Alignment.Ringwraith || player.alignment === Alignment.FallenWizard);
+
     // Find valid sites (homesite or haven — from companies or site deck)
     // Note: findPlayableSites already handles home-site-only and avatar restrictions
-    const playableSites = findPlayableSites(state, player, cardDef, avatarInPlay && !isAvatar);
+    const playableSites = findPlayableSites(state, player, cardDef, avatarInPlay && !isAvatar, isAgentSummonsCandidate);
 
     if (playableSites.length === 0) {
       const reason = hasHomeSiteOnlyRestriction(cardDef)
@@ -616,17 +734,27 @@ export function playCharacterActions(
       // by placing the vehicle with it. Per the CRF this cannot bring an Orc or
       // Troll into play. The recruit may be a minion agent. When recruiting, the
       // vehicle's "-1 to his mind" reduces the influence cost (min 1).
-      const vehicle = recruitmentVehicleInHand(state, player);
       const recruitViaVehicle = vehicle !== undefined
+        && vehicle.agentRecruit === false
         && player.alignment === Alignment.FallenWizard
         && charMind > 5
         && charMind <= vehicle.maxMind
         && cardDef.race !== Race.Orc
         && cardDef.race !== Race.Troll;
+      // Open to the Summons (wh-46): the reduced cost applies only at Darkhavens
+      // (computed per-site below). Thrall's reduction is site-independent.
+      const summonsCostMind = Math.max(1, charMind - 1);
       const costMind = recruitViaVehicle ? Math.max(1, charMind - 1) : charMind;
       const recruitField = recruitViaVehicle && vehicle ? { viaRecruitmentInstanceId: vehicle.instanceId } : {};
+      // Affordability gate below must use the *lowest* achievable cost so an
+      // agent affordable only at its Darkhaven (mind − 1) is not filtered out by
+      // the home-site cost (full mind).
+      const minCostMind = isAgentSummonsCandidate ? Math.min(costMind, summonsCostMind) : costMind;
       if (recruitViaVehicle) {
         logDetail(`  → recruitment vehicle available: ${charName} (mind ${charMind} → cost ${costMind}) may be brought in via Thrall of the Voice`);
+      }
+      if (isAgentSummonsCandidate) {
+        logDetail(`  → agent-summons vehicle available: ${charName} (mind ${charMind}) may be summoned at a Darkhaven for cost ${summonsCostMind}`);
       }
 
       // MEWH §11 / Characters: a Fallen-wizard may not start or bring into play
@@ -647,8 +775,11 @@ export function playCharacterActions(
         continue;
       }
 
-      const remainingGI = effectiveGeneralInfluence(state, playerId) - player.generalInfluenceUsed;
-      const canPlayUnderGI = costMind <= remainingGI;
+      const remainingGI = generalInfluenceControlLimit(state, playerId) - player.generalInfluenceUsed;
+      // Gate on the lowest achievable cost (an agent summonable at a Darkhaven
+      // pays mind − 1 there even if the full mind is unaffordable). Per-site
+      // affordability is re-checked in the loop below.
+      const canPlayUnderGI = minCostMind <= remainingGI;
 
       // Find characters with enough DI to control this character as a follower.
       // Only characters under general influence can take followers. The Balrog
@@ -664,17 +795,17 @@ export function playCharacterActions(
         if (!isCharacterCard(ctrlDef)) continue;
         if (isBalrogAvatarDef(ctrlDef) && !hasFollowerGrantPermission(char.items, state.cardPool)) continue;
         const avail = availableDI(state, char.instanceId, player, cardDef);
-        if (avail >= costMind) {
+        if (avail >= minCostMind) {
           diControllers.push({ instanceId: key, name: ctrlDef.name, availDI: avail });
         }
       }
 
       if (!canPlayUnderGI && diControllers.length === 0) {
-        logDetail(`  → blocked: mind cost ${costMind} exceeds remaining GI (${remainingGI}) and no character has enough DI`);
+        logDetail(`  → blocked: mind cost ${minCostMind} exceeds remaining GI (${remainingGI}) and no character has enough DI`);
         results.push({
           action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
           viable: false,
-          reason: `${charName}: mind ${costMind} exceeds remaining general influence (${remainingGI}) and no character has sufficient direct influence`,
+          reason: `${charName}: mind ${minCostMind} exceeds remaining general influence (${remainingGI}) and no character has sufficient direct influence`,
         });
         continue;
       }
@@ -687,8 +818,19 @@ export function playCharacterActions(
         const isOwnWizardhaven = orcTrollAtWizardhavens
           && isHavenForPlayer(site.siteDef, player.alignment, { state, siteDefinitionId: site.siteDef.id, playerId });
         const giAllowedAtSite = !avatarInPlay || site.instanceId === avatarSiteId || isOwnWizardhaven;
-        if (canPlayUnderGI && giAllowedAtSite) {
-          logDetail(`  → viable: play under GI at ${site.siteName} (mind cost ${costMind}, remaining GI ${remainingGI})${recruitViaVehicle ? ' via recruitment vehicle' : ''}`);
+        // Open to the Summons (wh-46): the agent is summoned *via the vehicle*
+        // (card placed with it, mind − 1) only at a Darkhaven; at its home site
+        // it is played normally at full mind with no vehicle attached.
+        const summonHere = isAgentSummonsCandidate && isDarkhavenSite(site.siteDef);
+        const costHere = summonHere ? summonsCostMind : costMind;
+        const recruitFieldHere = summonHere && vehicle ? { viaRecruitmentInstanceId: vehicle.instanceId } : recruitField;
+        // Bree (le-356) `allow-agent-play` grants direct-influence play only;
+        // never offer the agent under general influence at such a site.
+        if (site.directInfluenceOnly) {
+          logDetail(`  → GI play skipped at ${site.siteName}: agent may only be played under direct influence here (allow-agent-play)`);
+        }
+        if (costHere <= remainingGI && giAllowedAtSite && !site.directInfluenceOnly) {
+          logDetail(`  → viable: play under GI at ${site.siteName} (mind cost ${costHere}, remaining GI ${remainingGI})${recruitViaVehicle ? ' via recruitment vehicle' : ''}${summonHere ? ' via agent-summons at Darkhaven' : ''}`);
           results.push({
             action: {
               type: 'play-character',
@@ -696,7 +838,7 @@ export function playCharacterActions(
               characterInstanceId: cardInstanceId,
               atSite: site.instanceId,
               controlledBy: 'general',
-              ...recruitField,
+              ...recruitFieldHere,
             },
             viable: true,
           });
@@ -704,6 +846,7 @@ export function playCharacterActions(
 
         // DI followers must be played into the same company as the controller
         for (const ctrl of diControllers) {
+          if (ctrl.availDI < costHere) continue;
           // Check the controller is in a company at this site
           const companyAtSite = player.companies.find(
             c => c.currentSite?.instanceId === site.instanceId && c.characters.includes(ctrl.instanceId),
@@ -717,7 +860,7 @@ export function playCharacterActions(
             continue;
           }
 
-          logDetail(`  → viable: play under DI of ${ctrl.name} (avail DI ${ctrl.availDI}) at ${site.siteName}`);
+          logDetail(`  → viable: play under DI of ${ctrl.name} (avail DI ${ctrl.availDI}, cost ${costHere}) at ${site.siteName}${summonHere ? ' via agent-summons at Darkhaven' : ''}`);
           results.push({
             action: {
               type: 'play-character',
@@ -725,7 +868,7 @@ export function playCharacterActions(
               characterInstanceId: cardInstanceId,
               atSite: site.instanceId,
               controlledBy: ctrl.instanceId,
-              ...recruitField,
+              ...recruitFieldHere,
             },
             viable: true,
           });
@@ -735,4 +878,52 @@ export function playCharacterActions(
   }
 
   return results;
+}
+
+/**
+ * Computes discard-character actions during the organization phase.
+ *
+ * CoE rule 3.22: the resource player can only discard a character while
+ * organizing if that character is not an avatar and is at a haven or its
+ * home site. Offered for every qualifying character in every company of the
+ * player; the discard itself (possessions, followers, influence release) is
+ * handled by the reducer.
+ */
+export function discardCharacterActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId)!;
+  const actions: EvaluatedAction[] = [];
+
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const siteDef = resolveDef(state, company.currentSite.instanceId);
+    if (!isSiteCard(siteDef)) continue;
+
+    // A site converted into a Wizardhaven (Hidden Haven, wh-75) counts as a
+    // haven for the converting Fallen-wizard, same as in playCharacterActions.
+    const isHaven = isHavenForPlayer(siteDef, player.alignment, {
+      state, siteDefinitionId: company.currentSite.definitionId, playerId,
+    });
+
+    for (const charInstId of company.characters) {
+      const char = player.characters[charInstId];
+      if (!char) continue;
+      const charDef = resolveDef(state, char.instanceId);
+      if (!isCharacterCard(charDef)) continue;
+      if (isAvatarCharacter(charDef)) {
+        logDetail(`  discard-character: ${charDef.name} is an avatar — cannot be discarded (rule 3.22)`);
+        continue;
+      }
+      if (!isHaven && !homesiteMatchesSite(charDef, siteDef, player.alignment)) {
+        logDetail(`  discard-character: ${charDef.name} at ${siteDef.name} — neither a haven nor its home site (rule 3.22)`);
+        continue;
+      }
+      logDetail(`  → viable: discard ${charDef.name} at ${siteDef.name} (${isHaven ? 'haven' : 'home site'})`);
+      actions.push({
+        action: { type: 'discard-character', player: playerId, characterInstanceId: charInstId },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
 }

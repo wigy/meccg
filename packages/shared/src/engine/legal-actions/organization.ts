@@ -22,28 +22,31 @@ import type {
   MovementHazardPhaseState,
   GameAction,
   PlayerState,
+  SiteCard,
+  Company,
 } from '../../index.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard } from '../../types/cards.js';
-import { requirePhaseState } from '../../state-utils.js';
+import { requirePhaseState, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { CardStatus, cardStatusToName } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { PlayTargetEffect, PlayOptionEffect, Condition } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, parseHomesiteNames } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
-import { findMoveEffectByShape } from '../reducer-move.js';
+import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { viableWithRegress } from '../reverse-actions.js';
-import { playCharacterActions } from './organization-characters.js';
+import { playCharacterActions, discardCharacterActions } from './organization-characters.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
+import { manifestationSwapActions } from './manifestation-swap.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import {
   planMovementActions,
@@ -53,8 +56,9 @@ import {
   splitCompanyActions,
   moveToCompanyActions,
   mergeCompaniesActions,
+  companyMovementTaxUnpaid,
 } from './organization-companies.js';
-import { fetchFromSideboardActions } from './organization-sideboard.js';
+import { fetchFromSideboardActions, cardSideboardToDeckActions } from './organization-sideboard.js';
 import { canPayCost } from '../cost-evaluator.js';
 
 /**
@@ -95,6 +99,24 @@ function matchesPhaseFilter(
   if (filter === 'freeCouncil') return effect.freeCouncil === true;
   if (filter === 'activeSitePhase') return effect.activeSitePhase === true;
   return false;
+}
+
+/**
+ * Whether a `oncePerTurn` grant-action has already been used this turn — i.e.
+ * an active `granted-action-used` constraint matches this source instance and
+ * action id. The reducer adds the (turn-scoped) constraint on first use; it is
+ * cleared at turn-end. Used by Strangling Coils (ba-76).
+ */
+function grantActionUsedThisTurn(
+  state: GameState,
+  sourceInstanceId: CardInstanceId,
+  actionId: string,
+): boolean {
+  return state.activeConstraints.some(c =>
+    c.kind.type === 'granted-action-used'
+    && c.kind.sourceInstanceId === sourceInstanceId
+    && c.kind.actionId === actionId,
+  );
 }
 
 /**
@@ -192,6 +214,93 @@ export function discardStageResourceActions(state: GameState, playerId: PlayerId
       action: { type: 'discard-stage-resource', player: playerId, cardInstanceId: card.instanceId },
       viable: true,
     });
+  }
+  return actions;
+}
+
+/**
+ * Voluntary-discard actions ("Discard during your organization phase if you
+ * choose" — Going Ever Under Dark ba-37). One action per in-play permanent-event
+ * the player controls that carries a `voluntary-discard` effect with
+ * `phase: "organization"`.
+ */
+export function voluntaryDiscardInPlayActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    const eff = getCardEffects(def).find(e => e.type === 'voluntary-discard');
+    if (!eff || (eff as { phase?: string }).phase !== 'organization') continue;
+    logDetail(`Voluntary-discard: ${cardName(state, card.definitionId)} can be discarded during the organization phase`);
+    actions.push({
+      action: { type: 'voluntary-discard-in-play', player: playerId, cardInstanceId: card.instanceId },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
+ * Enchanted Stream (as-27) movement-tax payment actions. For each of the
+ * player's companies bound by a `company-movement-tax` permanent event whose
+ * tax is not yet satisfied this org phase, offer one `pay-movement-tax` action
+ * per untapped character in that company. Paying taps the chosen character and
+ * counts toward the tax, unlocking `plan-movement` / `split-company` once the
+ * required number ("to a maximum of two") have been tapped.
+ */
+export function payMovementTaxActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    if (!companyMovementTaxUnpaid(state, player, company)) continue;
+    for (const charId of company.characters) {
+      const char = player.characters[charId];
+      if (!char || char.status !== CardStatus.Untapped) continue;
+      logDetail(`Enchanted Stream: offering to tap ${cardName(state, char.definitionId)} toward company ${company.id as string}'s movement tax`);
+      actions.push({
+        action: { type: 'pay-movement-tax', player: playerId, companyId: company.id, characterId: charId },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
+ * A More Evil Hour (ba-48) discard-to-grant-movement activations. While the
+ * card is in play **and tapped** ("If tapped, you may discard this card during
+ * your organization phase"), the controller may discard it to target one of
+ * their companies "allowed to move with region movement" — i.e. any company not
+ * locked to Under-deeps-only movement by containing the Balrog avatar. One
+ * `discard-for-evil-hour-movement` action is offered per (tapped source card ×
+ * eligible non-empty company).
+ */
+export function evilHourGrantMovementActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const card of player.cardsInPlay) {
+    if (card.status !== CardStatus.Tapped) continue;
+    const def = defById(state, card.definitionId);
+    const eff = getCardEffects(def).find(e => e.type === 'evil-hour-grant-movement');
+    if (!eff) continue;
+    for (const company of player.companies) {
+      if (company.characters.length === 0) continue;
+      if (companyContainsBalrogAvatar(state, player, company)) {
+        logDetail(`A More Evil Hour: company ${company.id as string} contains the Balrog avatar — cannot use region movement, not a valid target`);
+        continue;
+      }
+      logDetail(`A More Evil Hour: ${cardName(state, card.definitionId)} may be discarded to grant company ${company.id as string} the region-movement bonus`);
+      actions.push({
+        action: { type: 'discard-for-evil-hour-movement', player: playerId, cardInstanceId: card.instanceId, companyId: company.id },
+        viable: true,
+      });
+    }
   }
   return actions;
 }
@@ -310,8 +419,15 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // MEWH: a Fallen-wizard may discard an in-play stage resource (keeping ≥3 stage points)
   actions.push(...discardStageResourceActions(state, playerId));
 
+  // "Discard during your organization phase if you choose" (Going Ever Under Dark ba-37)
+  actions.push(...voluntaryDiscardInPlayActions(state, playerId));
+
   // Org-phase fetch granted by an in-play permanent-event (A Strident Spawn wh-61)
   actions.push(...orgPhaseFetchActivations(state, playerId));
+
+  // A More Evil Hour (ba-48): discard the tapped card to grant a company the
+  // conditional region-movement bonus
+  actions.push(...evilHourGrantMovementActions(state, playerId));
 
   // Play short-event cards as resource (e.g. Twilight cancels an environment)
   const shortEventActions = playShortEventActions(state, playerId);
@@ -349,6 +465,15 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     if (a.viaEventInstanceId) recruitViaEventInstances.add(a.viaEventInstanceId as string);
   }
 
+  // Manifestation swaps (Strider ba-1 → Aragorn II): playable whenever a
+  // normal resource could be played (CRF 22), so offered here too.
+  const manifestationSwapEvaluated = manifestationSwapActions(state, playerId);
+  actions.push(...manifestationSwapEvaluated);
+  for (const ea of manifestationSwapEvaluated) {
+    const a = ea.action as { cardInstanceId?: CardInstanceId };
+    if (a.cardInstanceId) recruitViaEventInstances.add(a.cardInstanceId as string);
+  }
+
   // Mark remaining hand cards as not playable during organization
   for (const handCard of player.hand) {
     if (evaluatedInstances.has(handCard.instanceId as string)) continue;
@@ -362,8 +487,15 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Move-to-influence actions (reassign characters between GI and DI)
   actions.push(...moveToInfluenceActions(state, playerId));
 
+  // Discard-character actions (rule 3.22: non-avatar at a haven or home site)
+  actions.push(...discardCharacterActions(state, playerId));
+
   // Plan-movement actions for each company
   actions.push(...planMovementActions(state, playerId));
+
+  // Enchanted Stream (as-27): tap untapped characters toward a company's
+  // movement tax so it may voluntarily move/split this org phase.
+  actions.push(...payMovementTaxActions(state, playerId));
 
   // Transfer-item actions (move items between characters at the same site)
   actions.push(...transferItemActions(state, playerId));
@@ -383,13 +515,56 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Fetch-from-sideboard actions (tap avatar to bring cards from sideboard)
   actions.push(...fetchFromSideboardActions(state, playerId));
 
+  // Card-granted sideboard self-relocation (Terror Heralds Doom ba-78 et al.):
+  // a card in the sideboard may bring itself into the play deck.
+  actions.push(...cardSideboardToDeckActions(state, playerId));
+
   // Grant-action activations from attached hazards (e.g. Foolish Words removal)
   actions.push(...grantedActionActivations(state, playerId));
+
+  // Discard-to-effect abilities on the player's in-play factions
+  // (e.g. A Panoply of Wings wh-37)
+  actions.push(...inPlayFactionGrantActions(state, playerId));
 
   // Sage-tap ring tests granted by the company's current site (e.g. Mount Doom)
   actions.push(...siteSageRingTestActivations(state, playerId));
 
+  // Voluntary return-to-hand of an attached ally (Radagast's Black Bird wh-114)
+  actions.push(...returnAttachedToHandActions(state, playerId));
+
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  return actions;
+}
+
+/**
+ * Emit `return-attached-to-hand` actions for cards attached to the active
+ * player's characters that carry a `return-to-hand` effect whose triggers
+ * include `organization` — "You may return this to your hand during your
+ * organization phase".
+ *
+ * Covers both attachment zones: `allies` (Radagast's Black Bird wh-114) and
+ * `items`, which is also where a permanent-event placed on a character lives
+ * (the Radagast Shapeshifter forms wh-112/115/116). One action per matching
+ * attachment.
+ */
+export function returnAttachedToHandActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const char of Object.values(player.characters)) {
+    for (const attached of [...char.allies, ...char.items]) {
+      const def = defById(state, attached.definitionId);
+      const canReturn = getCardEffects(def).some(
+        e => e.type === 'return-to-hand' && e.during.includes('organization'),
+      );
+      if (!canReturn) continue;
+      logDetail(`Return-to-hand available: ${def?.name ?? (attached.definitionId as string)} may return to hand`);
+      actions.push({
+        action: { type: 'return-attached-to-hand', player: playerId, cardInstanceId: attached.instanceId },
+        viable: true,
+      });
+    }
+  }
   return actions;
 }
 
@@ -444,7 +619,7 @@ export function siteSageRingTestActivations(state: GameState, playerId: PlayerId
       if (!sage || sage.status !== CardStatus.Untapped) continue;
       const sageDef = defById(state, sage.definitionId);
       if (!sageDef || !isCharacterCard(sageDef)) continue;
-      const skills = [...(sageDef.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, sage)];
+      const skills = getEffectiveSkills(state, sage, sageDef as { skills?: readonly string[] });
       if (!skills.includes('sage')) continue;
       for (const ringInstanceId of ringInstanceIds) {
         logDetail(`sage-tap-ring-test at ${siteDef.name}: ${sageDef.name} may tap to test a gold ring (modifier ${formatSignedNumber((rule as { rollModifier: number }).rollModifier)})`);
@@ -494,6 +669,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       const grantActions = extractGrantActions(state, hazard.definitionId);
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+        if (effect.oncePerTurn && grantActionUsedThisTurn(state, hazard.instanceId, effect.action)) continue;
         const hazardDef = defById(state, hazard.definitionId);
         // Rule 10.08: only cards that carry the 'corruption' game keyword
         // (or have cardType 'hazard-corruption') qualify for the no-tap −3
@@ -538,7 +714,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             if (companion.status !== CardStatus.Untapped) continue;
             const companionDef = defById(state, companion.definitionId);
             if (!companionDef || !isCharacterCard(companionDef)) continue;
-            if (![...(companionDef.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, companion)].includes('sage')) continue;
+            if (!getEffectiveSkills(state, companion, companionDef as { skills?: readonly string[] }).includes('sage')) continue;
             logDetail(`Grant-action ${effect.action} available: ${companionDef.name} (sage) can tap to activate (source: ${hazardDef?.name ?? '?'})`);
             actions.push({
               action: {
@@ -560,26 +736,35 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           continue;
         }
 
+        // Evaluate the grant-action's `when` gate (if any) against the
+        // bearer / company / site context. A failed gate suppresses the
+        // standard tap-and-roll variant, but the corruption no-tap variant
+        // below is offered regardless (removal is always available at -3).
+        // Used by Diminish and Depart (ba-17): the removal is offered only
+        // while the target character is at a Haven (`bearer.atHaven`).
+        let whenSatisfied = true;
+        if (effect.when) {
+          const charDefForCtx = defById(state, char.definitionId);
+          const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
+          const company = findCharacterCompany(player.companies, charId);
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+          whenSatisfied = matchesCondition(effect.when, ctx);
+          if (!whenSatisfied) {
+            logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'}`);
+          }
+        }
+
         // Check cost: if tap is "bearer", character must be untapped
         if (!canPayCost(effect.cost, char)) {
           const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action} on ${hazardDef?.name ?? '?'}: ${charDef?.name ?? '?'} is tapped, cannot activate`);
           // Fall through to consider the no-tap variant below — the
           // character being tapped doesn't block it.
-        } else if (effect.when) {
-          const charDefForCtx = defById(state, char.definitionId);
-          const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
-          const company = findCharacterCompany(player.companies, charId);
-          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
-          if (!matchesCondition(effect.when, ctx)) {
-            logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'}`);
-            // Skip the standard variant below; do still consider no-tap.
-          }
         }
 
         // Standard tap-and-roll variant — emitted only if the bearer
-        // is untapped (cost.tap=bearer satisfied).
-        if (canPayCost(effect.cost, char)) {
+        // is untapped (cost.tap=bearer satisfied) and the when gate holds.
+        if (canPayCost(effect.cost, char) && whenSatisfied) {
           const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${hazardDef?.name ?? '?'})`);
           actions.push({
@@ -627,6 +812,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         for (const effect of charEffects) {
           if (effect.type !== 'grant-action') continue;
           if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+          if (effect.oncePerTurn && grantActionUsedThisTurn(state, char.instanceId, effect.action)) continue;
 
           // Check cost: if tap is "self", the character must be untapped
           if (!canPayCost(effect.cost, char)) {
@@ -690,9 +876,9 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           if (effect.targets) {
             // Player-companies scope: enumerate all companies and emit one activation per company.
             if (effect.targets.scope === 'player-companies') {
-              const companies = player.companies;
+              const companies = grantActionTargetCompanies(state, player, effect.targets);
               if (companies.length === 0) {
-                logDetail(`Grant-action ${effect.action} on ${charDef.name}: player has no companies`);
+                logDetail(`Grant-action ${effect.action} on ${charDef.name}: no eligible target companies`);
                 continue;
               }
               for (const company of companies) {
@@ -762,6 +948,15 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       const grantActions = extractGrantActions(state, ally.definitionId);
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+        if (effect.oncePerTurn && grantActionUsedThisTurn(state, ally.instanceId, effect.action)) continue;
+        // A `tap: self` cost (e.g. Mistress Lobelia dm-178) requires the ally
+        // itself to be untapped; `discard: self` and cost-free abilities are
+        // always payable (canPayCost returns true when there is no tap cost).
+        if (!canPayCost(effect.cost, char, ally)) {
+          const def = defById(state, ally.definitionId);
+          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: cost not payable (ally tapped)`);
+          continue;
+        }
         const charDefForCtx = defById(state, char.definitionId);
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
         const company = findCharacterCompany(player.companies, charId);
@@ -798,6 +993,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
       const grantActions = extractGrantActions(state, item.definitionId);
       for (const effect of grantActions) {
         if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+        if (effect.oncePerTurn && grantActionUsedThisTurn(state, item.instanceId, effect.action)) continue;
         if (!canPayCost(effect.cost, char, item)) {
           const def = defById(state, item.definitionId);
           logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: cost not payable (item or bearer tapped)`);
@@ -1063,6 +1259,36 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           continue;
         }
 
+        // Per-company enumeration for an item-borne grant: one activation per
+        // eligible company, carrying it on `targetCompanyId` (Shifter of Hues
+        // wh-115, a permanent-event attached to Radagast — such cards live in
+        // `char.items` and so come through this loop rather than the
+        // character-definition one above).
+        if (effect.targets?.scope === 'player-companies') {
+          const companies = grantActionTargetCompanies(state, player, effect.targets);
+          if (companies.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no eligible target companies`);
+            continue;
+          }
+          for (const targetCompany of companies) {
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} targeting company ${targetCompany.id as string}`);
+            actions.push({
+              action: {
+                type: 'activate-granted-action',
+                player: playerId,
+                characterId: charId,
+                sourceCardId: item.instanceId,
+                sourceCardDefinitionId: item.definitionId,
+                actionId: effect.action,
+                rollThreshold: rollThresholdFor(effect),
+                targetCompanyId: targetCompany.id,
+              },
+              viable: true,
+            });
+          }
+          continue;
+        }
+
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to activate`);
 
         actions.push({
@@ -1081,6 +1307,71 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
     }
   }
 
+  return actions;
+}
+
+/**
+ * The companies a `targets.scope: "player-companies"` grant-action may target.
+ *
+ * Defaults to every company the player owns (Ren the Ringwraith le-56: "any one
+ * of your companies"). When `movingThroughRegionType` is set, only companies
+ * that have declared movement whose declared destination's printed site path
+ * crosses a region of that type qualify — Shifter of Hues (wh-115) aids a
+ * company that "must be moving with at least one Wilderness [{w}] in their site
+ * path". Movement is planned during the organization phase, so the destination
+ * is already known when the ability is offered.
+ */
+function grantActionTargetCompanies(
+  state: GameState,
+  player: PlayerState,
+  targets: NonNullable<GrantActionEffect['targets']>,
+): readonly Company[] {
+  const regionType = targets.movingThroughRegionType;
+  if (regionType === undefined) return player.companies;
+  return player.companies.filter(co => {
+    const dest = co.destinationSite;
+    if (!dest) return false;
+    const destDef = defById(state, dest.definitionId);
+    if (!destDef || !isSiteCard(destDef)) return false;
+    return destDef.sitePath.some(r => (r as string) === regionType);
+  });
+}
+
+/**
+ * Grant-actions carried by the player's *in-play factions* (cards sitting in
+ * `cardsInPlay`, not attached to any character). Currently only the
+ * discard-self / add-constraint shape is emitted — A Panoply of Wings (wh-37):
+ * "Discard this faction to make information playable at such a site". Offered
+ * during the active player's organization and site phases; there is no
+ * activating character, so `characterId` self-references the faction instance
+ * (the reducer routes bearer-less sources to `handleInPlayCardGrantAction`).
+ */
+export function inPlayFactionGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const cip of player.cardsInPlay) {
+    const def = defById(state, cip.definitionId);
+    if (!def || !isFactionCard(def)) continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'grant-action') continue;
+      if (effect.cost.discard !== 'self') continue;
+      if (effect.apply?.type !== 'add-constraint') continue;
+      logDetail(`In-play faction grant-action ${effect.action} available: discard ${def.name} in play`);
+      actions.push({
+        action: {
+          type: 'activate-granted-action',
+          player: playerId,
+          characterId: cip.instanceId,
+          sourceCardId: cip.instanceId,
+          sourceCardDefinitionId: cip.definitionId,
+          actionId: effect.action,
+          rollThreshold: 0,
+        },
+        viable: true,
+      });
+    }
+  }
   return actions;
 }
 
@@ -1117,6 +1408,18 @@ export function buildGrantActionContext(
     ? (siteDef as { siteType: string }).siteType
     : '';
   const atHaven = siteType === 'haven';
+  // A **Darkhaven** is a Haven controlled by a minion side (Ringwraith:
+  // Minas Morgul / Dol Guldur / Carn Dûm / Geann a-Lisch; Balrog: Moria /
+  // The Under-gates). Every minion Haven site carries a minion alignment
+  // (`ringwraith` / `balrog`), so a Darkhaven is a `haven` site whose
+  // alignment is a minion alignment — distinct from the METW hero Havens
+  // (Rivendell etc.) a Ringwraith could only reach with a mode card. Used
+  // by "if at a Darkhaven" gates (e.g. Ren the Ringwraith le-56).
+  const siteAlignment = siteDef && 'alignment' in siteDef
+    ? (siteDef as { alignment?: string }).alignment
+    : undefined;
+  const atDarkhaven = atHaven
+    && (siteAlignment === 'ringwraith' || siteAlignment === 'balrog');
 
   // `As your Ringwraith` gating: true only when this character is the player's
   // own revealed avatar (a Ringwraith follower controlled by another avatar is
@@ -1133,6 +1436,7 @@ export function buildGrantActionContext(
     canUsePalantir: !!canUsePalantir,
     siteType,
     atHaven,
+    atDarkhaven,
     isRevealedAvatar,
   };
 
@@ -1152,11 +1456,17 @@ export function buildGrantActionContext(
     : false;
   const siteCtx = siteName ? {
     type: siteType,
+    region: (siteDef as { region?: string } | undefined)?.region ?? '',
     hasOneRing: siteHasItemWithKeyword(state, siteName, 'the-one-ring'),
     isTapped: siteIsTapped,
     hasDragonAutoAttack,
   } : null;
-  return { bearer, company: companyCtx, player: playerCtx, site: siteCtx };
+  // Current phase, exposed so a grant-action `when` clause can restrict an
+  // ability to a specific phase (e.g. Strangling Coils ba-76's company untap
+  // is legal only during the movement/hazard phase). Combine with
+  // `anyPhase: true` so the M/H scanner offers the ability at all.
+  const phase = state.phaseState.phase;
+  return { bearer, company: companyCtx, player: playerCtx, site: siteCtx, phase };
 }
 
 /**
@@ -1196,23 +1506,36 @@ function siteHasItemWithKeyword(
 /**
  * Returns true when an active `site-resource-unlocked` constraint owned by
  * `playerId` makes resource category `subtype` (e.g. `"information"`)
- * playable at sites of type `siteType` (e.g. `"shadow-hold"`). Backs
- * Records Unread (as-130) mode B, which discards the item to "make
- * Information playable at any Shadow-hold" for the rest of the turn.
+ * playable at `siteDef`. A constraint may select matching sites either by a
+ * fixed site type (Records Unread as-130 mode B: "Information at any
+ * Shadow-hold") or by a compound `siteCondition` evaluated against the site
+ * context (A Panoply of Wings wh-37: "Information at any non-Haven,
+ * non-Shadow-hold, non-Dark-hold site in a Wilderness"). Lasts for the turn.
  */
 function isSiteResourceUnlocked(
   state: GameState,
   playerId: PlayerId,
-  siteType: string,
+  siteDef: SiteCard,
   subtype: string,
 ): boolean {
-  return state.activeConstraints.some(c =>
-    c.kind.type === 'site-resource-unlocked'
-    && c.kind.siteType === siteType
-    && c.kind.subtype === subtype
-    && c.target.kind === 'player'
-    && c.target.playerId === playerId,
-  );
+  const regionType = siteRegionTypeOf(state, siteDef);
+  return state.activeConstraints.some(c => {
+    if (c.kind.type !== 'site-resource-unlocked') return false;
+    if (c.kind.subtype !== subtype) return false;
+    if (c.target.kind !== 'player' || c.target.playerId !== playerId) return false;
+    if (c.kind.siteType) return c.kind.siteType === siteDef.siteType;
+    if (c.kind.siteCondition) {
+      return matchesCondition(c.kind.siteCondition, {
+        site: {
+          name: siteDef.name,
+          siteType: siteDef.siteType,
+          regionType,
+          region: siteDef.region,
+        },
+      });
+    }
+    return false;
+  });
 }
 
 /**
@@ -1293,7 +1616,12 @@ function extractGrantActions(state: GameState, definitionId: import('../../index
       // the dedicated end-of-turn discard-pile fetch scanner
       // (`legal-actions/end-of-turn.ts`) — never here, so they don't leak
       // into the organization-phase default scan below.
-      e.type === 'grant-action' && e.corruptionCheckWindow !== true && e.endOfTurnOnly !== true,
+      // Ally chain-cancel abilities (Tom Bombadil tw-350, Leaflock tw-265) are
+      // emitted only by the dedicated M/H `emitAllyCancelChainActions` emitter —
+      // a chain cancellation is meaningless outside an active chain, so keep it
+      // out of the generic per-phase (including organization) scan.
+      e.type === 'grant-action' && e.corruptionCheckWindow !== true && e.endOfTurnOnly !== true
+        && e.apply?.type !== 'cancel-chain-entry',
   );
 }
 
@@ -1421,7 +1749,14 @@ export function endOfOrgEligibility(
         const siteType = siteDef && 'siteType' in siteDef
           ? (siteDef as { siteType: string }).siteType
           : '';
-        const companyFilterCtx = { company: { atHaven: siteType === 'haven' } };
+        const companyFilterCtx = {
+          company: {
+            atHaven: siteType === 'haven',
+            // "on a moving company" (Down Down to Goblin-town le-181): a company
+            // that has planned a destination (or special movement) this org phase.
+            moving: company.destinationSite !== null || !!company.specialMovement,
+          },
+        };
         if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;
       }
       if (playTarget.cost?.tap === 'character') {
@@ -1552,8 +1887,11 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
  * `filter` or a {@link PlayOptionEffect}'s `when` against a candidate
  * target character. The context exposes:
  *
- *  - `target.race`, `target.status`, `target.skills`, `target.name` —
- *    per-character attributes for filtering.
+ *  - `target.race`, `target.status`, `target.skills`, `target.keywords`,
+ *    `target.name` — per-character attributes for filtering. `target.keywords`
+ *    exposes the character's card keywords (e.g. `"leader"`), used by Foe
+ *    Dismayed (ba-59) to gate its +3 influence boost on "a leader or The
+ *    Balrog".
  *  - `target.inAvatarCompany` — `true` iff the character belongs to the
  *    same company as the player's avatar (wizard/ringwraith/etc.).
  *    Requires the `player` parameter to be passed.
@@ -1586,6 +1924,7 @@ export function buildPlayOptionContext(
     r => r.kind.type === 'corruption-check' && r.kind.characterId === char.instanceId,
   );
   let inAvatarCompany = false;
+  let isRevealedAvatar = false;
   let hasFactionInHand = false;
   let companySiteType: string | null = null;
   let containsDiplomat = false;
@@ -1593,6 +1932,12 @@ export function buildPlayOptionContext(
   if (player) {
     const avatar = findPlayerAvatar(state, player);
     if (avatar) {
+      // `isRevealedAvatar` gates "your Ringwraith"/"your Wizard" self-targeting
+      // (e.g. Ancient Secrets ba-36 taps the player's own revealed Ringwraith):
+      // true only for the player's own revealed avatar, never a Ringwraith
+      // follower controlled by that avatar (findPlayerAvatar returns the
+      // revealed avatar specifically).
+      if (avatar.instanceId === char.instanceId) isRevealedAvatar = true;
       const co = findCharacterCompany(player.companies, avatar.instanceId);
       if (co && co.characters.includes(char.instanceId)) {
         inAvatarCompany = true;
@@ -1618,9 +1963,7 @@ export function buildPlayOptionContext(
         if (!memberChar) return false;
         const memberDef = defById(state, memberChar.definitionId);
         if (!isCharacterCard(memberDef)) return false;
-        const naturalSkills = memberDef.skills as readonly string[] ?? [];
-        const grantedSkills = getItemGrantedSkills(state, memberChar);
-        return naturalSkills.includes('diplomat') || grantedSkills.includes('diplomat');
+        return getEffectiveSkills(state, memberChar, memberDef).includes('diplomat');
       });
     }
     // A character is "moving" when it belongs to the active company during the
@@ -1663,10 +2006,12 @@ export function buildPlayOptionContext(
     target: {
       race: def.race,
       status: statusToken(char.status),
-      skills: [...(def.skills as readonly string[]), ...getItemGrantedSkills(state, char)],
+      skills: getEffectiveSkills(state, char, def as { skills?: readonly string[] }),
+      keywords: (def.keywords as readonly string[] | undefined) ?? [],
       name: def.name,
       mind: def.mind,
       inAvatarCompany,
+      isRevealedAvatar,
       itemNames,
       allyNames,
     },
@@ -1696,7 +2041,7 @@ export function buildPlayOptionContext(
  * prerequisites (e.g. The One Ring and Gollum at Mount Doom) without a
  * per-card keyword.
  */
-function buildActiveCompanyContext(
+export function buildActiveCompanyContext(
   state: GameState,
   player: PlayerState,
   company: import('../../types/state-cards.js').Company,
@@ -1740,8 +2085,13 @@ function buildActiveCompanyContext(
  *   Gatherer of Loyalties (wh-70) and A Strident Spawn (wh-61).
  * - `player.factionCount` — the number of factions the player controls in play.
  *   Used by The White Hand (wh-122).
+ * - `player.characterCount` — the number of characters the player controls in
+ *   play. Used by Await the Onset (wh-96): "6 characters".
  * - `player.hasProtectedWizardhaven` — `true` when the player controls a
  *   protected Wizardhaven. Used by A Strident Spawn (wh-61).
+ * - `player.protectedWizardhavenCount` — how many *distinct* protected
+ *   Wizardhavens the player controls. Used by Await the Onset (wh-96): "two
+ *   protected Wizardhavens [{H}]".
  * - `inPlay` — the names of cards the player has in play, for
  *   `{ "inPlay": "<name>" }` prerequisites (e.g. The White Hand wh-122).
  */
@@ -1763,6 +2113,13 @@ export function buildPlayerStateContext(
     const def = defById(state, c.definitionId);
     return def && isFactionCard(def);
   }).length;
+  // Number of (non-prisoner) characters the player controls in play — companies
+  // hold the player's characters keyed by instance. Used by Await the Onset
+  // (wh-96): "6 characters".
+  const characterCount = Object.values(player.characters).filter(char => {
+    const def = defById(state, char.definitionId);
+    return def && isCharacterCard(def);
+  }).length;
   // "Playable if you are X" Stage cards test the Fallen-wizard the player
   // counts *as* (CoE 2.2.F2), which persists from declaration (CoE 1.8.F1)
   // until the avatar is eliminated — the avatar need not be in play. Use the
@@ -1775,7 +2132,9 @@ export function buildPlayerStateContext(
       hasRingwraithInPlay,
       stagePoints: player.stagePoints,
       factionCount,
+      characterCount,
       hasProtectedWizardhaven: playerHasProtectedWizardhaven(state, playerId),
+      protectedWizardhavenCount: protectedWizardhavenCount(state, playerId),
     },
     opponent: { alignment: opponent?.alignment },
     inPlay: buildControllerInPlayNames(state, playerId),
@@ -1837,6 +2196,49 @@ function eligiblePlayOptionTargets(
       }
     }
     out.push(charId);
+  }
+  return out;
+}
+
+/**
+ * Candidate targets for A Malady Without Healing (le-159): a `play-target`
+ * with `requiresControlledShadowMagicUserAtSite`. Unlike
+ * {@link eligiblePlayOptionTargets}, candidates are drawn from **both** players'
+ * characters ("May target an opponent's character"). A candidate qualifies when
+ * it passes the play-target `filter` (non-Ringwraith, non-Wizard) **and** the
+ * acting player controls a shadow-magic user (a Ringwraith, or a character with
+ * the `shadow-magic` skill incl. item-granted) in a company at the candidate's
+ * current site — a different character than the candidate itself.
+ */
+function eligibleMaladyTargets(
+  state: GameState,
+  caster: PlayerState,
+  playTarget: PlayTargetEffect,
+): CardInstanceId[] {
+  const out: CardInstanceId[] = [];
+  for (const owner of state.players) {
+    for (const [charId, char] of characterEntries(owner)) {
+      const charDef = defById(state, char.definitionId);
+      if (!charDef || !isCharacterCard(charDef)) continue;
+      if (playTarget.filter && !matchesCondition(playTarget.filter, buildTargetContext(state, char, owner))) continue;
+      const targetCompany = findCharacterCompany(owner.companies, charId);
+      const siteDefId = targetCompany?.currentSite?.definitionId;
+      if (!siteDefId) continue;
+      const hasUserAtSite = caster.companies.some(co =>
+        co.currentSite?.definitionId === siteDefId
+        && co.characters.some(cid => {
+          if (cid === charId) return false;
+          const ch = caster.characters[cid];
+          if (!ch) return false;
+          const cDef = defById(state, ch.definitionId);
+          if (!cDef || !isCharacterCard(cDef)) return false;
+          if (cDef.race === 'ringwraith') return true;
+          return getEffectiveSkills(state, ch, cDef).includes('shadow-magic');
+        }),
+      );
+      if (!hasUserAtSite) continue;
+      out.push(charId);
+    }
   }
   return out;
 }
@@ -1911,6 +2313,56 @@ function playOptionActionsForCard(
 }
 
 /**
+ * Enumerates the concrete play actions for a {@link WithdrawAgentEffect} card
+ * (Withdrawn to Mordor, dm-165) held by `playerId`:
+ *
+ * - one `play-short-event` carrying `targetAgentId` per **face-up** agent the
+ *   opponent has in play (agent mode); and
+ * - when the effect allows the alternative, one carrying `discardTargetInstanceId`
+ *   per **unrevealed** on-guard card sitting on the player's own companies
+ *   (on-guard mode — the CRF 22 "before it is revealed" window).
+ *
+ * Returns an empty array when neither target exists, so the caller can mark
+ * the card not-playable with a reason.
+ */
+function withdrawAgentTargetActions(
+  state: GameState,
+  playerId: PlayerId,
+  player: PlayerState,
+  cardInstanceId: CardInstanceId,
+  effect: WithdrawAgentEffect,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+
+  const opponent = state.players.find(p => p.id !== playerId);
+  for (const agent of opponent?.agents ?? []) {
+    if (!agent.revealed) continue;
+    const agentDef = defById(state, agent.character.definitionId);
+    const agentName = agentDef?.name ?? (agent.character.definitionId as string);
+    logDetail(`Withdrawn to Mordor: can target face-up agent ${agentName} (${agent.id as string})`);
+    actions.push({
+      action: { type: 'play-short-event', player: playerId, cardInstanceId, targetAgentId: agent.id },
+      viable: true,
+    });
+  }
+
+  if (effect.alternativeDiscardOnGuard) {
+    for (const company of player.companies) {
+      for (const og of company.onGuardCards) {
+        if (og.revealed) continue;
+        logDetail(`Withdrawn to Mordor: can discard unrevealed on-guard card (${og.instanceId as string}) at company ${company.id as string}`);
+        actions.push({
+          action: { type: 'play-short-event', player: playerId, cardInstanceId, discardTargetInstanceId: og.instanceId },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Evaluates hero-resource short-event cards in the active player's hand for
  * play in the given phase (CoE rule 2.1.1: resource short-events are legal
  * during any phase of the resource player's turn unless restricted by a
@@ -1941,8 +2393,26 @@ export function playResourceShortEventActions(
 
   for (const handCard of player.hand) {
     const def = defById(state, handCard.definitionId);
-    if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
+    if (!isResourceEventCard(def)) continue;
     if (alreadyEvaluated.has(handCard.instanceId as string)) continue;
+    // "Permanent-event/Short-event" card (Great Army of the North ba-38): admit
+    // its alternative short-event reshuffle mode during the organization phase
+    // (its permanent-event mode is offered separately by playPermanentEventActions).
+    const altReshuffle = altShortEventReshuffleEffect(def);
+    if (def.eventType !== 'short' && !altReshuffle) continue;
+    if (def.eventType !== 'short' && altReshuffle) {
+      if (!playerHasReshuffleMatch(state, player, altReshuffle)) {
+        logDetail(`${def.name}: short-event mode has no matching card in discard — not playable`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: nothing to shuffle from your discard pile`));
+        continue;
+      }
+      logDetail(`${def.name}: playable as alternative short-event (reshuffle from discard)`);
+      actions.push({
+        action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+        viable: true,
+      });
+      continue;
+    }
     const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string; siteTypes?: readonly string[] } | undefined;
     // Cards with a play-window restricting them to a different phase
     // are skipped — they'll be marked not-playable by the caller's
@@ -1968,6 +2438,26 @@ export function playResourceShortEventActions(
         }
       }
     }
+    // Withdrawn to Mordor (dm-165): a `withdraw-agent` short event targets an
+    // opponent's face-up agent (removed by mind) or, in its alternative mode,
+    // discards one of the player's unrevealed on-guard cards. Enumerate one
+    // action per eligible target; mark not-playable when neither exists.
+    const withdrawAgentEffect = def.effects?.find(
+      (e): e is WithdrawAgentEffect => e.type === 'withdraw-agent',
+    );
+    if (withdrawAgentEffect) {
+      const targeted = withdrawAgentTargetActions(
+        state, playerId, player, handCard.instanceId, withdrawAgentEffect,
+      );
+      if (targeted.length === 0) {
+        logDetail(`${def.name}: no face-up agent${withdrawAgentEffect.alternativeDiscardOnGuard ? ' or on-guard card' : ''} to target — not playable`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no valid target`));
+      } else {
+        actions.push(...targeted);
+      }
+      continue;
+    }
+
     // End-of-org cards (e.g. Stealth) are playable during the organization
     // phase alongside the player's other organization actions. Playing one
     // does not end the phase or lock out further movement/organization (CoE
@@ -1975,6 +2465,20 @@ export function playResourceShortEventActions(
     // not-playable with a reason if their play-target constraints aren't met
     // so the UI can explain why.
     if (playWindow?.step === 'end-of-org') {
+      // play-condition requires: "card-in-play" — a named card must be in play
+      // for the playing player (any in-play zone, including character-attached
+      // permanent events). Enforced here for end-of-org cards because this
+      // branch `continue`s before the generic card-in-play check further down.
+      // Used by Cloaked by Darkness (ba-53): "Playable on a company if Great
+      // Shadow is in play."
+      const endOfOrgCardInPlay = findPlayConditionEffect(def, 'card-in-play');
+      if (endOfOrgCardInPlay?.cardName
+          && !isCardNameInPlayForPlayer(state, player, endOfOrgCardInPlay.cardName)) {
+        logDetail(`${def.name}: end-of-org play-condition card-in-play requires ${endOfOrgCardInPlay.cardName} in play`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires ${endOfOrgCardInPlay.cardName} in play`));
+        continue;
+      }
+
       const eligibility = endOfOrgEligibility(state, player, def);
       if (!eligibility.eligible) {
         logDetail(`${def.name}: end-of-org card not eligible — ${eligibility.reason}`);
@@ -2105,7 +2609,7 @@ export function playResourceShortEventActions(
             // constraint (e.g. Information at any Shadow-hold) makes the
             // category playable at matching site types even when the site
             // does not list it natively.
-            if (!siteHasResource && isSiteResourceUnlocked(state, playerId, siteDef.siteType, siteHasResourceCondition.subtype)) {
+            if (!siteHasResource && isSiteResourceUnlocked(state, playerId, siteDef, siteHasResourceCondition.subtype)) {
               logDetail(`${def.name}: ${siteHasResourceCondition.subtype} unlocked at ${siteDef.siteType} via site-resource-unlocked constraint`);
               siteHasResource = true;
             }
@@ -2186,11 +2690,83 @@ export function playResourceShortEventActions(
       }
     }
 
+    // play-condition requires: "card-in-play" — a named card must be in play for
+    // the playing player (any in-play zone, including character-attached
+    // permanent events). Used by Terror Heralds Doom (ba-78): "Playable during
+    // the organization phase if Flame of Udûn is in play."
+    const cardInPlayCondition = findPlayConditionEffect(def, 'card-in-play');
+    if (cardInPlayCondition?.cardName) {
+      const requiredName = cardInPlayCondition.cardName;
+      if (!isCardNameInPlayForPlayer(state, player, requiredName)) {
+        logDetail(`${def.name}: play-condition card-in-play requires ${requiredName} in play`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires ${requiredName} in play`));
+        continue;
+      }
+    }
+
     // Cards declaring `play-option` DSL effects (e.g. Halfling Strength):
     // enumerate (target, option) pairs, emitting one legal action per
     // combination whose option `when` matches the target's context.
     const playTarget = getPlayTargetEffect(def);
     const playOptions = getPlayOptionEffects(def);
+
+    // The Ring Leaves Its Mark (le-223): a dual-mode short event. Mode 1 fetches
+    // one named Ringwraith mode card (Black Rider / Fell Rider / Heralded Lord)
+    // from the sideboard or discard pile into the play deck and reshuffles;
+    // mode 2 is "playable on your tapped Ringwraith" — a self-enters-play
+    // `roll-then-apply` makes a roll and, on success, untaps it. Emit both:
+    // mode 1 is a no-target play action (offered only when a matching card is
+    // in the sideboard/discard), mode 2 one action per eligible tapped revealed
+    // avatar (carried as `targetCharacterId`). The reducer discriminates the two
+    // by the presence of `targetCharacterId`.
+    const rollUntapOnEnter = def.effects?.find(
+      (e): e is import('../../types/effects.js').OnEventEffect =>
+        e.type === 'on-event'
+        && e.event === 'self-enters-play'
+        && e.apply?.type === 'roll-then-apply',
+    );
+    if (playTarget && playTarget.target === 'character' && rollUntapOnEnter) {
+      let anyMode = false;
+      // Mode 1: fetch — offered when the sideboard or discard holds a match.
+      const fetchMove = (def.effects ?? []).find(
+        (e): e is import('../../types/effects.js').MoveEffect =>
+          e.type === 'move' && !!moveToFetchToDeckPayload(e),
+      );
+      if (fetchMove) {
+        const fetchFilter = fetchMove.filter;
+        const pileHasMatch = [...player.sideboard, ...player.discardPile].some(c => {
+          const cd = defById(state, c.definitionId);
+          return cd ? (fetchFilter ? matchesDefinition(cd, fetchFilter) : true) : false;
+        });
+        if (pileHasMatch) {
+          logDetail(`Resource short-event playable (mode 1 fetch-to-deck): ${def.name}`);
+          actions.push({
+            action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+            viable: true,
+          });
+          anyMode = true;
+        }
+      }
+      // Mode 2: roll to untap the player's own tapped revealed Ringwraith avatar.
+      for (const targetId of eligiblePlayOptionTargets(state, player, playTarget)) {
+        logDetail(`Resource short-event playable (mode 2 roll-to-untap, target ${String(targetId)}): ${def.name}`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            targetCharacterId: targetId,
+          },
+          viable: true,
+        });
+        anyMode = true;
+      }
+      if (!anyMode) {
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: no Black Rider, Fell Rider, or Heralded Lord to retrieve and no tapped Ringwraith to untap`));
+      }
+      continue;
+    }
+
     if (playOptions.length > 0 && playTarget) {
       const optionActions = playOptionActionsForCard(
         state, player, playerId, handCard.instanceId, def, playTarget, playOptions, currentPhase,
@@ -2204,18 +2780,37 @@ export function playResourceShortEventActions(
       continue;
     }
 
+    // A dual-mode "tap your avatar to fetch resources from your sideboard"
+    // mode (Ancient Secrets ba-36 mode 2): a second `move` fetching up to N
+    // resources sideboard → play deck. Only available during the organization
+    // phase (per the card text) and only when at least one sideboard card
+    // matches the fetch filter. Modelled as an alternative to the discard-in-
+    // play mode below, discriminated at the reducer by the presence of a
+    // `discardTargetInstanceId` on the play action (mode 1) vs its absence
+    // (mode 2, which enqueues the fetch sub-flow).
+    const sideboardFetch = findMoveEffectByShape(def, 'target', 'sideboard', 'deck');
+    const sideboardModeAvailable = !!sideboardFetch
+      && currentPhase === 'organization'
+      && player.sideboard.some(c => {
+        const cd = defById(state, c.definitionId);
+        if (!cd) return false;
+        return sideboardFetch.filter ? matchesDefinition(cd, sideboardFetch.filter) : true;
+      });
+
     // Collect eligible discard-in-play targets (e.g. Marvels Told forces
     // discard of a hazard non-environment permanent/long event). If the
     // card has a discard-in-play move effect but no valid targets exist,
-    // it cannot be played. A `when` gate on the effect is also evaluated
-    // (e.g. The Cock Crows requires Gates of Morning in play).
+    // it cannot be played — UNLESS an alternative sideboard-fetch mode is
+    // available (ba-36), in which case the card is still playable (mode 2
+    // only) and simply offers no discard actions. A `when` gate on the effect
+    // is also evaluated (e.g. The Cock Crows requires Gates of Morning in play).
     const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
     const discardWhenMet = !discardInPlay?.when
       || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
     let discardTargetIds: CardInstanceId[] | null = null;
     if (discardWhenMet && discardInPlay && discardInPlay.filter) {
       discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
-      if (discardTargetIds.length === 0) {
+      if (discardTargetIds.length === 0 && !sideboardModeAvailable) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no valid target to discard`));
         continue;
@@ -2234,12 +2829,17 @@ export function playResourceShortEventActions(
       }
     }
 
-    // Detect enqueue-ring-play-offer apply: requires per-(sage × gold ring) emission.
-    const hasRingPlayOffer = def.effects?.some(
-      e => e.type === 'on-event'
-        && (e as { event?: string; apply?: { type?: string } }).event === 'self-enters-play'
-        && (e as { event?: string; apply?: { type?: string } }).apply?.type === 'enqueue-ring-play-offer',
-    ) ?? false;
+    // Detect enqueue-ring-play-offer / enqueue-gold-ring-test applies: both
+    // require per-(sage × gold ring) emission so the player picks the sage's
+    // company AND which gold ring to test/replace via targetGoldRingInstanceId.
+    const selfEntersApplyType = (e: { type: string }): string | undefined =>
+      e.type === 'on-event'
+        && (e as { event?: string }).event === 'self-enters-play'
+        ? (e as { apply?: { type?: string } }).apply?.type
+        : undefined;
+    const hasRingPlayOffer = def.effects?.some(e => selfEntersApplyType(e) === 'enqueue-ring-play-offer') ?? false;
+    const hasGoldRingTest = def.effects?.some(e => selfEntersApplyType(e) === 'enqueue-gold-ring-test') ?? false;
+    const crossesGoldRing = hasRingPlayOffer || hasGoldRingTest;
 
     // Emit one play action per eligible target combination. When the card
     // has a play-target with tap cost AND discard-in-play, emit the cross-
@@ -2275,12 +2875,33 @@ export function playResourceShortEventActions(
       }
     };
 
-    if (playTarget && playTarget.cost?.tap === 'character') {
+    if (playTarget && playTarget.target === 'character' && playTarget.requiresControlledShadowMagicUserAtSite) {
+      // A Malady Without Healing (le-159): cross-player targets gated on the
+      // acting player controlling a shadow-magic user at the target's site.
+      const maladyTargets = eligibleMaladyTargets(state, player, playTarget);
+      if (maladyTargets.length === 0) {
+        logDetail(`${def.name}: no eligible target (non-Ringwraith/Wizard character co-located with a controlled shadow-magic user) — not playable`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: no valid target character at a site with a shadow-magic user you control`));
+      } else {
+        for (const targetId of maladyTargets) {
+          logDetail(`Resource short-event playable (malady target ${String(targetId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              targetCharacterId: targetId,
+            },
+            viable: true,
+          });
+        }
+      }
+    } else if (playTarget && playTarget.cost?.tap === 'character') {
       const tapTargets = eligiblePlayOptionTargets(state, player, playTarget);
       if (tapTargets.length === 0) {
         logDetail(`${def.name}: no eligible targets — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
-      } else if (hasRingPlayOffer) {
+      } else if (crossesGoldRing) {
         // Cross sage targets with gold rings in each sage's company.
         let anyOffered = false;
         for (const targetId of tapTargets) {
@@ -2310,6 +2931,24 @@ export function playResourceShortEventActions(
       } else {
         for (const targetId of tapTargets) emitPlay(targetId);
       }
+      // Alternative sideboard-fetch mode (ba-36 mode 2): one action per tap
+      // target, carrying no discard target. The reducer routes it to the fetch
+      // sub-flow precisely because `discardTargetInstanceId` is absent.
+      if (sideboardModeAvailable) {
+        for (const targetId of tapTargets) {
+          logDetail(`Resource short-event playable (sideboard-fetch, target ${String(targetId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              targetScoutInstanceId: targetId,
+              optionId: 'sideboard-fetch',
+            },
+            viable: true,
+          });
+        }
+      }
     } else if (playTarget && playTarget.target === 'character' && playTarget.filter) {
       // Filter-only character target (no tap cost): emit one action per eligible
       // character so the reducer knows which character to apply effects to.
@@ -2317,8 +2956,55 @@ export function playResourceShortEventActions(
       if (filterTargets.length === 0) {
         logDetail(`${def.name}: no eligible character targets — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
+      } else if (crossesGoldRing) {
+        // Test of Fire (le-239): sage filter with no tap cost. Cross each
+        // eligible sage with the gold rings borne by characters in that sage's
+        // company; emit targetGoldRingInstanceId so the reducer tests the chosen
+        // ring. This enforces "test a gold ring in a sage's company".
+        // A company may hold several sages; emit each gold ring once regardless
+        // of how many sages could authorize its test.
+        const offeredRings = new Set<CardInstanceId>();
+        for (const sageId of filterTargets) {
+          const sageCompany = findCharacterCompany(player.companies, sageId);
+          if (!sageCompany) continue;
+          for (const charId of sageCompany.characters) {
+            const char = player.characters[charId];
+            if (!char) continue;
+            for (const item of char.items) {
+              if (offeredRings.has(item.instanceId)) continue;
+              const itemDef = defById(state, item.definitionId);
+              if (itemDef && 'subtype' in itemDef && (itemDef as { subtype?: string }).subtype === 'gold-ring') {
+                emitPlay(undefined, item.instanceId);
+                offeredRings.add(item.instanceId);
+              }
+            }
+          }
+        }
+        if (offeredRings.size === 0) {
+          logDetail(`${def.name}: no eligible (sage × gold ring) pair — not playable`);
+          actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires a sage and a gold ring in the same company`));
+        }
       } else {
+        // duplication-limit: scope "character" — "Cannot be duplicated on a
+        // given character." A short event does not attach, but its rest-of-turn
+        // effect leaves a character-targeted active constraint (e.g. Words of
+        // Menace and Deceit le-258's +5 direct-influence character-stat-modifier)
+        // whose `sourceDefinitionId` marks the card. Skip any target that already
+        // bears the limit's worth of such constraints from this definition.
+        const charDupLimit = findDuplicationLimitEffect(def, 'character');
         for (const targetId of filterTargets) {
+          if (charDupLimit) {
+            const copiesOnChar = state.activeConstraints.filter(
+              c =>
+                c.sourceDefinitionId === def.id &&
+                c.target.kind === 'character' &&
+                c.target.characterId === targetId,
+            ).length;
+            if (copiesOnChar >= charDupLimit.max) {
+              logDetail(`${def.name}: cannot be duplicated on character ${String(targetId)} (${copiesOnChar} active constraint(s))`);
+              continue;
+            }
+          }
           logDetail(`Resource short-event playable (filter-target ${String(targetId)}): ${def.name}`);
           actions.push({
             action: {

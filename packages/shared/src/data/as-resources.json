@@ -9,8 +9,36 @@
     "eventType": "permanent",
     "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the site phase on a Free-hold or Border-hold if you have played a faction there. This site is never discarded and never untaps."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": {
+            "$in": ["free-hold", "border-hold"]
+          }
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "company.playedFactionHere": true
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "site-lock",
+        "convertDetainmentVsMinion": true,
+        "duplicateFirstAutoAttackVsMinion": true
+      }
+    ],
+    "text": "Playable during the site phase on a Free-hold [{F}] or Border-hold [{B}] if you have played a faction there. This site is never discarded and never untaps for you. All detainment attacks at all versions of this site against minion companies instead attack normally. Against minion companies, each version of this site has an additional automatic-attack: an exact copy including all modifications of the first automatic-attack listed on its card. Cannot be duplicated on a given site.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "minion-resource-event",
@@ -1429,8 +1457,21 @@
     "eventType": "long",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "The roll required for minions to move between adjacent Under-deeps sites is decreased by 3. Discards and prohibits the subsequent play of The Way is Shut."
+    "effects": [
+      {
+        "type": "under-deeps-roll-modifier",
+        "value": 3,
+        "scope": "minion-companies"
+      },
+      {
+        "type": "prohibit-card-play",
+        "cardNames": [
+          "The Way is Shut"
+        ]
+      }
+    ],
+    "text": "The roll required for minions to move between adjacent Under-deeps sites is decreased by 3. Discards and prohibits the subsequent play of The Way is Shut.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
@@ -1585,10 +1626,14 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 10,
     "race": "man",
-    "playableAt": [],
-    "effects": [],
-    "text": "Unique. Playable at Variag Camp  if the influence check is greater than 9. Standard Modifications: Haradrim (+2), Southrons (-2)."
+    "playableAt": [{ "site": "Variag Camp" }],
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 2, "when": { "controller.inPlay": "Haradrim" } },
+      { "type": "check-modifier", "check": "influence", "value": -2, "when": { "controller.inPlay": "Southrons" } }
+    ],
+    "text": "Unique. Playable at Variag Camp  if the influence check is greater than 9. Standard Modifications: Haradrim (+2), Southrons (-2).",
+    "certified": "2026-07-09"
   }
 ]

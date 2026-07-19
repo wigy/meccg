@@ -27,6 +27,7 @@ import {
   charIdAt, pool, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeCombatProwess, recomputeDerived } from '../../engine/recompute-derived.js';
+import { Alignment } from '../../index.js';
 import type { CardDefinitionId, CharacterCard } from '../../index.js';
 
 const BLACK_MACE = 'le-299' as CardDefinitionId;
@@ -52,7 +53,7 @@ describe('Black Mace (le-299)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
@@ -72,7 +73,7 @@ describe('Black Mace (le-299)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [LIEUTENANT_OF_MORGUL] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [LIEUTENANT_OF_MORGUL] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
@@ -94,7 +95,7 @@ describe('Black Mace (le-299)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
@@ -115,7 +116,7 @@ describe('Black Mace (le-299)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
@@ -135,7 +136,7 @@ describe('Black Mace (le-299)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [LIEUTENANT_OF_MORGUL] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [LIEUTENANT_OF_MORGUL] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
@@ -158,7 +159,7 @@ describe('Black Mace (le-299)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [LAYOS] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [LAYOS] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
@@ -178,7 +179,7 @@ describe('Black Mace (le-299)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [LAYOS] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [LAYOS] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });

@@ -23,10 +23,23 @@
           "strikes": 2,
           "prowess": 15,
           "body": 9
+        },
+        "onDefeat": "remove-from-play"
+      },
+      {
+        "type": "grant-replay-attacked-creature",
+        "filter": {
+          "race": {
+            "$in": [
+              "wolves",
+              "animals"
+            ]
+          }
         }
       }
     ],
-    "text": "Unique. Spawn. The Drowning-deeps and Remains of Thangorodrim each have an additional automatic-attack: Spawn — 2 strikes with 15/9."
+    "certified": "2026-07-11",
+    "text": "Unique. Spawn. The Drowning-deeps and Remains of Thangorodrim each have an additional automatic-attack: Spawn — 2 strikes with 15/9. In addition, once per turn the hazard player may use one against the hazard limit to play a Wolf or Animal hazard creature from his discard pile. This card must have already attacked the company this turn."
   },
   {
     "cardType": "hazard-event",
@@ -54,10 +67,23 @@
           "strikes": 3,
           "prowess": 15,
           "body": 8
+        },
+        "onDefeat": "remove-from-play"
+      },
+      {
+        "type": "body-check-modifier",
+        "value": 1,
+        "scope": "all-attacks",
+        "when": {
+          "$and": [
+            { "attack.creatureRace": "spider" },
+            { "target.race": { "$in": ["elf", "dwarf", "hobbit", "dunadan", "man"] } }
+          ]
         }
       }
     ],
-    "text": "Unique. Spawn. The Pûkel-deeps and The Gem-deeps each have an additional automatic-attack: Spawn — 3 strikes with 15/8 prowess/body."
+    "text": "Unique. Spawn. The Pûkel-deeps and The Gem-deeps each have an additional automatic-attack: Spawn — 3 strikes with 15/8 prowess/body. In addition, +1 to all body checks for Elves, Dwarves, Hobbits, Dúnedain, and Men resulting from Spider attacks.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",
@@ -83,10 +109,18 @@
           "strikes": 2,
           "prowess": 16,
           "body": 8
-        }
+        },
+        "onDefeat": "remove-from-play"
+      },
+      {
+        "type": "attacker-attack-option",
+        "creatureRace": "spider",
+        "prowessModifier": 1,
+        "detainment": true
       }
     ],
-    "text": "Unique. Spawn. The Wind-deeps and The Rusted-deeps each have an additional automatic-attack: Spawn — 2 strikes with 16/8 prowess/body."
+    "certified": "2026-07-11",
+    "text": "Unique. Spawn. The Wind-deeps and The Rusted-deeps each have an additional automatic-attack: Spawn — 2 strikes with 16/8 prowess/body. In addition, for each Spider attack your opponent faces, you can choose for it to be at +1 prowess and detainment."
   },
   {
     "cardType": "hazard-event",
@@ -111,10 +145,25 @@
           "strikes": 2,
           "prowess": 17,
           "body": 7
+        },
+        "onDefeat": "remove-from-play"
+      },
+      {
+        "type": "grant-creature-keying",
+        "creatureFilter": {
+          "$and": [
+            { "race": { "$in": ["spider", "spiders"] } },
+            { "unique": { "$ne": true } }
+          ]
+        },
+        "siteFilter": {
+          "siteTypes": ["ruins-and-lairs", "shadow-hold"],
+          "siteKeywords": ["under-deeps"]
         }
       }
     ],
-    "text": "Unique. Spawn. Ancient Deep-hold has an additional automatic-attack: Spawn — 2 strikes with 17/7 prowess/body."
+    "text": "Unique. Spawn. Ancient Deep-hold has an additional automatic-attack: Spawn — 2 strikes with 17/7 prowess/body. In addition, non-unique Spider creatures can be keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}].",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",
@@ -123,7 +172,22 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/BlackVapour.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-07-11",
+    "effects": [
+      {
+        "type": "counter-cancel-attack-roll",
+        "race": ["spider", "spiders"],
+        "threshold": 14,
+        "prowessBonus": 1
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "prowessModifier": 1,
+        "when": { "enemy.race": { "$in": ["spider", "spiders"] } }
+      }
+    ],
     "text": "Target any effect (declared earlier in the same chain of effects) that would cancel a Spider attack. Make a roll and add the attack’s prowess. If the result is greater than 14, the effect is canceled and the attack receives +1 prowess. Alternatively, +1 prowess to a Spider attack. This card may be revealed as an on-guard card for either effect."
   },
   {
@@ -133,8 +197,28 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DarknessMadebyMalice.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a company at or moving to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn cards in play than characters in the company. Eliminated Spawn do not count. The company must do nothing during its site phase this turn."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$and": [
+            {
+              "$or": [
+                { "target.siteType": "ruins-and-lairs" },
+                { "target.siteKeywords": { "$includes": "under-deeps" } }
+              ]
+            },
+            { "target.moreSpawnThanCompany": true }
+          ]
+        }
+      },
+      {
+        "type": "company-site-phase-do-nothing"
+      }
+    ],
+    "text": "Playable on a company at or moving to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn cards in play than characters in the company. Eliminated Spawn do not count. The company must do nothing during its site phase this turn.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",
@@ -143,8 +227,19 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DesireAllforThyBelly.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "To play this card, you must discard a Spawn card from your hand. Reveal to yourself a number of cards from the top of opponent’s play deck equal to the number of Spawn cards in play. Eliminated spawn do not count. Choose one card and show it to your opponent. He must choose to either: remove the card from the game or decrease the number of cards he may hold in his hand by one for the rest of the game. Shuffle and replace all remaining cards back on top of his play deck. Remove this card from the game."
+    "effects": [
+      {
+        "type": "play-discard-cost",
+        "source": "hand",
+        "filter": { "keywords": { "$includes": "spawn" } }
+      },
+      {
+        "type": "reveal-deck-choose-penalty",
+        "countInPlayMatching": { "keywords": { "$includes": "spawn" } }
+      }
+    ],
+    "text": "To play this card, you must discard a Spawn card from your hand. Reveal to yourself a number of cards from the top of opponent’s play deck equal to the number of Spawn cards in play. Eliminated spawn do not count. Choose one card and show it to your opponent. He must choose to either: remove the card from the game or decrease the number of cards he may hold in his hand by one for the rest of the game. Shuffle and replace all remaining cards back on top of his play deck. Remove this card from the game.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",
@@ -153,7 +248,45 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/DiminishandDepart.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": { "$in": ["elf", "hobbit", "wizard"] } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": 1,
+        "target": "company",
+        "when": { "bearer.race": { "$in": ["elf", "hobbit"] } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -1,
+        "target": "company",
+        "when": { "bearer.race": "wizard" }
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-at-haven",
+        "cost": { "tap": "bearer" },
+        "when": { "bearer.atHaven": true },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
+    "certified": "2026-07-14",
     "text": "Playable on an Elf, Hobbit, or Wizard. All Elves and Hobbits in the target’s company have +1 mind, and a Wizard in the company has -1 direct influence. Tap target character at a Haven [{H}] during the organization phase to discard this card. Cannot be duplicated in a given company."
   },
   {
@@ -163,8 +296,19 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/FledintoDarkness.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable before the strike sequence on The Balrog facing a strike with a prowess higher than his. The strike is canceled and The Balrog taps, if untapped. The next time The Balrog would otherwise untap, make him tapped instead and discard this card. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "flee-from-strike",
+        "characterName": "The Balrog"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Playable before the strike sequence on The Balrog facing a strike with a prowess higher than his. The strike is canceled and The Balrog taps, if untapped. The next time The Balrog would otherwise untap, make him tapped instead and discard this card. Cannot be duplicated.",
+    "certified": "2026-07-14"
   },
   {
     "cardType": "hazard-event",
@@ -176,7 +320,16 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.name": "The Balrog" } },
+      { "type": "play-condition", "requires": "company-site", "condition": { "$not": { "site.keywords": { "$includes": "under-deeps" } } } },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 },
+      { "type": "on-event", "event": "self-enters-play", "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "prowess", "value": -2, "scope": "turn" } },
+      { "type": "on-event", "event": "self-enters-play", "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "body", "value": -1, "scope": "turn" } },
+      { "type": "on-event", "event": "self-enters-play", "when": { "inPlay": "Gates of Morning" }, "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "prowess", "value": -2, "scope": "turn" } },
+      { "type": "on-event", "event": "self-enters-play", "when": { "inPlay": "Gates of Morning" }, "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "body", "value": -1, "scope": "turn" } }
+    ],
+    "certified": "2026-07-11",
     "text": "Environment. Playable on The Balrog at or moving to a non-Under-deeps site. -2/-1 to his prowess/body until the end of the turn. This modification is -4/-2 if Gates of Morning is in play. Cannot be duplicated on a given turn."
   },
   {
@@ -196,7 +349,11 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Pressgang.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      { "type": "press-gang-capture" },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "certified": "2026-07-14",
     "text": "When a character would otherwise be discarded from play, discard all cards on him, place him “off to the side” with this card, and return any character already with this card to its owner’s hand. A character with this card gives his player negative character marshalling points. Cannot be duplicated."
   },
   {
@@ -206,7 +363,37 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TheReek.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-07-11",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$or": [
+            { "target.siteType": "ruins-and-lairs" },
+            { "target.siteKeywords": { "$includes": "under-deeps" } }
+          ]
+        }
+      },
+      {
+        "type": "play-discard-cost",
+        "source": "hand",
+        "filter": {
+          "cardType": "hazard-creature",
+          "race": { "$in": ["animal", "animals", "spider", "spiders"] }
+        }
+      },
+      {
+        "type": "company-tap-characters",
+        "mindBelow": "2 + spawnCardsInPlay",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "wizard" } },
+            { "target.race": { "$ne": "ringwraith" } }
+          ]
+        }
+      }
+    ],
     "text": "Playable on a company at or moving to a Ruins & Lairs [{R}] or Under-deeps site if you discard an Animal or Spider creature from your hand. Tap all untapped characters in the company with a mind less than 2 plus the number of Spawn cards in play. Eliminated Spawn do not count. Does not affect Wizards or Ringwraiths."
   },
   {
@@ -219,8 +406,40 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. -1 prowess to all Orc, Troll, Dwarf, and Ringwraith characters not at, nor moving to or from, an Under-deeps site. This modification is -2 if Doors of Night is not in play. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -2,
+        "target": "all-characters",
+        "when": {
+          "$and": [
+            { "target.race": { "$in": ["orc", "troll", "dwarf", "ringwraith"] } },
+            { "bearer.atOrMovingUnderDeeps": { "$ne": true } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-characters",
+        "when": {
+          "$and": [
+            { "inPlay": "Doors of Night" },
+            { "target.race": { "$in": ["orc", "troll", "dwarf", "ringwraith"] } },
+            { "bearer.atOrMovingUnderDeeps": { "$ne": true } }
+          ]
+        }
+      }
+    ],
+    "text": "Environment. -1 prowess to all Orc, Troll, Dwarf, and Ringwraith characters not at, nor moving to or from, an Under-deeps site. This modification is -2 if Doors of Night is not in play. Cannot be duplicated.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",
@@ -229,7 +448,26 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/UnabatedinMalice.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      { "type": "play-flag", "flag": "no-hazard-limit" },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "strikesModifier": 1,
+        "prowessModifier": 1,
+        "bodyModifier": -2,
+        "firstCancelRemovesEffect": true,
+        "when": {
+          "$or": [
+            { "attack.automatic": true },
+            { "enemy.name": "Shelob" }
+          ]
+        }
+      },
+      { "type": "duplication-limit", "scope": "attack", "max": 1 }
+    ],
+    "certified": "2026-07-04",
     "text": "Playable on an automatic-attack or an attack from Shelob; does not count against the hazard limit. The attack receives +1 strike, +1 prowess, and -2 body. The first attempt to cancel this attack instead cancels the effects of this card. Cannot be duplicated on a given attack."
   }
 ]

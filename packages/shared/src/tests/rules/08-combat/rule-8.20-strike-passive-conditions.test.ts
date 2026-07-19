@@ -17,6 +17,17 @@
 
 import { describe, test } from 'vitest';
 
+// "Wounded then un-wounded still counts as wounded" is implemented via the
+// `wasAlreadyWounded` strike-assignment field (state-combat.ts), consumed
+// e.g. by the body-check `woundedBonus` in combat-actions.ts. The remaining,
+// untested claim is the more general one: that actions cannot be taken in
+// response to a strike-result-triggered passive condition unless that
+// passive condition itself initiates a dice roll. The chain-of-effects
+// system doesn't tag passive-condition-initiated entries with a
+// "response-eligible only if dice-rolling" marker distinct from ordinary
+// chain entries, and no card in the pool pairs a non-dice-rolling strike
+// passive condition with a plausible illegal response to prove the
+// restriction holds.
 describe('Rule 8.20 — Strike Passive Condition Actions', () => {
   test.todo('Cannot respond to passive conditions from strike result, except dice-rolling actions');
 });

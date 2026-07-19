@@ -34,11 +34,12 @@ import type {
   PlayShortEventAction,
   SelectCardBearerAction,
   DeclareAgentAttackAction,
+  TapAltPermanentEventAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId } from './render-utils.js';
-import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection } from './render.js';
+import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection, getSelectedTapAltPermanentEvent, setSelectedTapAltPermanentEvent, clearTapAltPermanentEventSelection } from './render.js';
 import {
   getCachedInstanceLookup,
   getInfluenceMoveSourceId, setInfluenceMoveSourceId,
@@ -668,6 +669,28 @@ export function renderCompanyBlock(
       return undefined;
     }
 
+    // Tap-alt-permanent-event character targeting: after clicking an in-play
+    // creature-permanent-event (e.g. Adûnaphel tw-2), click any eligible
+    // character — of either player — to tap it. The target character may belong
+    // to the opponent, so this branch runs for both self and opponent columns.
+    const selectedTapAltPE = getSelectedTapAltPermanentEvent();
+    if (selectedTapAltPE) {
+      const tapAltAction = findTapAltPermanentEventTarget(
+        viableActions(view.legalActions), selectedTapAltPE, charInstId,
+      );
+      if (tapAltAction) {
+        return {
+          cls: 'company-card--influence-target',
+          handler: (e) => {
+            e.stopPropagation();
+            clearTapAltPermanentEventSelection();
+            options?.onAction?.(tapAltAction);
+          },
+        };
+      }
+      return undefined;
+    }
+
     // Hazard character targeting: click a character to play hazard on them
     const selectedHazard = getSelectedHazardForPlay();
     if (selectedHazard) {
@@ -966,6 +989,72 @@ export function findCardsInPlayTapAction(
   );
 }
 
+/**
+ * Find a viable `discard-card-for-hazard-limit` activation for the given
+ * card-in-play instance (the Dragon "At Home" permanent events, e.g. Daelomin
+ * at Home td-11).
+ *
+ * During the opponent's movement/hazard phase the hazard player may discard the
+ * card from play — not against the hazard limit — to increase the hazard limit
+ * against the active company. The action is fully specified (it targets the
+ * active company), so the board can fire it immediately on click.
+ *
+ * Exported so the cards-in-play renderer can wire a board click handler and the
+ * behaviour can be regression-tested without a full DOM render.
+ */
+export function findDiscardForHazardLimitAction(
+  actions: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+): GameAction | null {
+  return (
+    actions.find(
+      a => a.type === 'discard-card-for-hazard-limit' && a.cardInstanceId === cardInstanceId,
+    ) ?? null
+  );
+}
+
+/**
+ * Find the viable `tap-alt-permanent-event` activations for an in-play
+ * dual-mode creature-permanent-event (Adûnaphel tw-2, Ûvatha tw-107).
+ *
+ * Tapping the card during the opponent's movement/hazard phase turns it into a
+ * short-event. The engine emits one action per eligible target for a
+ * `tap-character` on-tap effect (tw-2 — one per untapped character of either
+ * player) or a single targetless action otherwise (tw-107). Returns all such
+ * actions for the card so the renderer can decide between an immediate fire and
+ * a two-step character-target selection.
+ *
+ * Exported so the cards-in-play renderer can wire a board click handler and the
+ * behaviour can be regression-tested without a full DOM render.
+ */
+export function findTapAltPermanentEventActions(
+  actions: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+): TapAltPermanentEventAction[] {
+  return actions.filter(
+    (a): a is TapAltPermanentEventAction =>
+      a.type === 'tap-alt-permanent-event' && a.cardInstanceId === cardInstanceId,
+  );
+}
+
+/**
+ * Resolve the `tap-alt-permanent-event` action that taps `targetCharacterId`
+ * using the already-selected in-play permanent-event `cardInstanceId`, or
+ * `null` if no such target is offered. Backs the second click of the two-step
+ * targeting flow (e.g. Adûnaphel tw-2 tapping any one character).
+ */
+export function findTapAltPermanentEventTarget(
+  actions: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+  targetCharacterId: CardInstanceId,
+): TapAltPermanentEventAction | null {
+  return (
+    findTapAltPermanentEventActions(actions, cardInstanceId).find(
+      a => a.targetCharacterId === targetCharacterId,
+    ) ?? null
+  );
+}
+
 export function renderCardsInPlayRow(
   container: HTMLElement,
   view: PlayerView,
@@ -1021,17 +1110,54 @@ export function renderCardsInPlayRow(
           });
         }
       }
-      // Power Built by Waiting (as-34) and similar hazard-limit-swap permanents:
-      // clicking the card-in-play taps it for +hazard limit, or (when tapped)
-      // spends hazard limit to untap it. Without this the only way to activate
-      // the card was the debug action panel — it was invisible on the board.
       else if (onAction) {
+        // Dual-mode creature-permanent-events (Adûnaphel tw-2, Ûvatha tw-107):
+        // clicking the in-play card taps it ("becomes a short-event"). For a
+        // tap-character on-tap effect (tw-2) the tap needs a target character, so
+        // clicking selects the card and highlights eligible characters for a
+        // second click; otherwise (tw-107, whose follow-up is a pending flow) the
+        // single action fires immediately. Without this the only way to tap was
+        // the debug action panel — the card was untappable from the board.
+        const tapAltActions = findTapAltPermanentEventActions(viableActions(view.legalActions), card.instanceId);
+        // Power Built by Waiting (as-34) and similar hazard-limit-swap permanents:
+        // clicking the card-in-play taps it for +hazard limit, or (when tapped)
+        // spends hazard limit to untap it. Without this the only way to activate
+        // the card was the debug action panel — it was invisible on the board.
         const tapAction = findCardsInPlayTapAction(viableActions(view.legalActions), card.instanceId);
-        if (tapAction) {
+        // Dragon "At Home" permanents (Daelomin at Home td-11): clicking the
+        // in-play card discards it for +hazard limit against the active company.
+        // Without this the only way to trigger the discard was the debug action
+        // panel — the card had no board affordance.
+        const discardForLimitAction = findDiscardForHazardLimitAction(viableActions(view.legalActions), card.instanceId);
+        if (tapAltActions.length > 0) {
+          const isSelected = getSelectedTapAltPermanentEvent() === card.instanceId;
+          img.classList.add('company-card--movable');
+          if (isSelected) img.classList.add('company-card--influence-source');
+          img.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const withTarget = tapAltActions.filter(a => a.targetCharacterId);
+            if (withTarget.length === 0) {
+              // No character to choose (e.g. tw-107): fire the single action.
+              clearTapAltPermanentEventSelection();
+              onAction(tapAltActions[0]);
+              return;
+            }
+            // Toggle the two-step character-targeting selection.
+            setSelectedTapAltPermanentEvent(isSelected ? null : card.instanceId);
+            setTargetingInstruction(isSelected ? null : 'Click a character to tap');
+            rerender();
+          });
+        } else if (tapAction) {
           img.classList.add('company-card--movable');
           img.addEventListener('click', (e) => {
             e.stopPropagation();
             onAction(tapAction);
+          });
+        } else if (discardForLimitAction) {
+          img.classList.add('company-card--movable');
+          img.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onAction(discardForLimitAction);
           });
         }
       }

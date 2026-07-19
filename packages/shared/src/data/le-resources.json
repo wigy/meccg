@@ -1346,10 +1346,37 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-07-15",
     "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "target.siteType": "haven"
+        }
+      },
       {
         "type": "ringwraith-mode",
         "mode": "black-rider"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "when": {
+          "company.atHaven": true
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard",
+          "alsoDiscardCompanyFollowers": true
+        }
       }
     ]
   },
@@ -2298,7 +2325,26 @@
         "site": "Mount Gram"
       }
     ],
-    "text": "Unique. Playable at Mount Gram if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. Standard Modifications: Morgul-orcs (+2), Orcs of Gundabad (-2)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Morgul-orcs"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of Gundabad"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Mount Gram if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. Standard Modifications: Morgul-orcs (+2), Orcs of Gundabad (-2).",
+    "certified": "2026-07-13"
   },
   {
     "cardType": "minion-resource-faction",
@@ -2711,7 +2757,22 @@
       {
         "site": "Variag Camp"
       }
-    ]
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": { "controller.inPlay": "Nûrniags" }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": { "controller.inPlay": "Haradrim" }
+      }
+    ],
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-faction",
@@ -2748,7 +2809,9 @@
       {
         "site": "Woodmen-town"
       }
-    ]
+    ],
+    "effects": [],
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-faction",
@@ -2779,15 +2842,28 @@
     "unique": true,
     "prowess": 5,
     "body": 9,
+    "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "any site in Western Mirkwood, Heart of Mirkwood, or Southern Mirkwood (except Dol Guldur)"
+        "any": true,
+        "when": {
+          "$and": [
+            { "site.region": { "$in": ["Western Mirkwood", "Heart of Mirkwood", "Southern Mirkwood"] } },
+            { "site.name": { "$ne": "Dol Guldur" } }
+          ]
+        }
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at any site in Western Mirkwood, Heart of Mirkwood, or Southern Mirkwood (except Dol Guldur). May not face any strike at a site or from an automatic-attack."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-attack-site-keyed"
+      }
+    ],
+    "text": "Unique. Playable at any site in Western Mirkwood, Heart of Mirkwood, or Southern Mirkwood (except Dol Guldur). May not face any strike at a site or from an automatic-attack.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-ally",
@@ -2821,11 +2897,23 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "any tapped or untapped Ruins & Lairs [{R}] with a Wolf automatic-attack"
+        "siteType": "ruins-and-lairs",
+        "when": { "site.autoAttack.race": "wolf" }
       }
     ],
-    "effects": [],
-    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] with a Wolf automatic-attack. If the War-warg and its controlling character are both targets of strikes from the same attack, you may tap War-warg to give +2 body to its controlling character."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "ally-body-check-boost",
+        "value": 2,
+        "cost": { "tap": "self" }
+      }
+    ],
+    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] with a Wolf automatic-attack. If the War-warg and its controlling character are both targets of strikes from the same attack, you may tap War-warg to give +2 body to its controlling character.",
+    "certified": "2026-07-02"
   },
   {
     "cardType": "minion-resource-event",
@@ -2835,10 +2923,41 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AMaladyWithoutHealing.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "shadow-magic"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Shadow-magic. Playable during the site phase on a non-Ringwraith, non-Wizard character at the same site as a shadow-magic-using character you control. Target character must make a corruption check modified by -1 followed by a body check (modified by +1 if tapped). If target character is a hero and is eliminated by these checks, you receive his kill marshalling points. Unless the shadow-magic-user is a Ringwraith, he makes a corruption check modified by -5.May target an opponent’s character."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "targetScope": "any-player",
+        "requiresControlledShadowMagicUserAtSite": true,
+        "filter": {
+          "$not": {
+            "target.race": {
+              "$in": ["ringwraith", "wizard"]
+            }
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "malady-without-healing",
+          "targetCorruptionModifier": -1,
+          "casterCorruptionModifier": -5
+        }
+      }
+    ],
+    "text": "Magic. Shadow-magic. Playable during the site phase on a non-Ringwraith, non-Wizard character at the same site as a shadow-magic-using character you control. Target character must make a corruption check modified by -1 followed by a body check (modified by +1 if tapped). If target character is a hero and is eliminated by these checks, you receive his kill marshalling points. Unless the shadow-magic-user is a Ringwraith, he makes a corruption check modified by -5.May target an opponent’s character.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-event",
@@ -2863,8 +2982,36 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on Akhôrahil the Ringwraith (as your Ringwraith). You may take a magic card from your play deck or discard pile to your hand (reshuffle play deck if searched)."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.name": "Akhôrahil the Ringwraith" },
+            { "target.isRevealedAvatar": true }
+          ]
+        }
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": ["deck", "discard"],
+        "to": "hand",
+        "shuffleAfter": true,
+        "count": 1,
+        "filter": {
+          "$or": [
+            { "keywords": { "$includes": "spell" } },
+            { "keywords": { "$includes": "sorcery" } },
+            { "keywords": { "$includes": "spirit-magic" } },
+            { "keywords": { "$includes": "shadow-magic" } }
+          ]
+        }
+      }
+    ],
+    "text": "Playable on Akhôrahil the Ringwraith (as your Ringwraith). You may take a magic card from your play deck or discard pile to your hand (reshuffle play deck if searched).",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-event",
@@ -3019,7 +3166,31 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "company.moving": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "only-creatures-keyed-to-site-at-ruins-lairs",
+          "scope": "turn"
+        },
+        "target": "target-company"
+      }
+    ],
+    "certified": "2026-07-12",
     "text": "Playable during the organization phase on a moving company. If the company moves to a Ruins & Lairs [{R}], no hazard creatures may be played (by type or name) keyed to regions against his company."
   },
   {
@@ -3045,7 +3216,10 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "grant-extra-mh-phase", "requiresDestinationSiteType": "haven", "requiresDestinationAlignment": "ringwraith" }
+    ],
+    "certified": "2026-07-15",
     "text": "Playable at the end of the movement/hazard phase on a company that moved to a Darkhaven [{DH}]. The company may move to an additional site this turn. Another site card may be played and another movement/hazard phase immediately follows for that company."
   },
   {
@@ -3193,7 +3367,59 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "keywords": [
+      "Command"
+    ],
+    "certified": "2026-07-11",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.keywords": {
+            "$includes": "leader"
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": "items-on-target",
+          "to": "hand",
+          "filter": {
+            "keywords": {
+              "$includes": "Command"
+            }
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2,
+        "min": 0
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 1,
+        "target": "company"
+      },
+      {
+        "type": "grant-action",
+        "action": "return-self-to-hand",
+        "cost": {},
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "hand"
+        }
+      }
+    ],
     "text": "Command. Playable on a leader during the organization phase. Return all other command cards on target leader to your hand when this card is played. -2 to leader’s direct influence (to a minimum of 0) and +1 to all corruption checks by characters in his company. You may return this card to your hand during any organization phase."
   },
   {
@@ -3492,8 +3718,42 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Bring one Black Rider, Fell Rider, or Heralded Lord card from your sideboard or discard pile into your play deck and reshuffle. Alternatively, playable on your tapped Ringwraith. Make a roll—if the result is greater than 6, untap your Ringwraith.Cannot be included in a Balrog's deck."
+    "effects": [
+      {
+        "type": "move",
+        "select": "target",
+        "from": ["sideboard", "discard"],
+        "to": "deck",
+        "shuffleAfter": true,
+        "count": 1,
+        "filter": { "name": { "$in": ["Black Rider", "Fell Rider", "Heralded Lord"] } }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isRevealedAvatar": true },
+            { "target.status": "tapped" }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": {
+            "type": "set-character-status",
+            "status": "untapped",
+            "target": "target-character"
+          }
+        }
+      }
+    ],
+    "text": "Bring one Black Rider, Fell Rider, or Heralded Lord card from your sideboard or discard pile into your play deck and reshuffle. Alternatively, playable on your tapped Ringwraith. Make a roll—if the result is greater than 6, untap your Ringwraith.Cannot be included in a Balrog's deck.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-event",
@@ -3505,7 +3765,21 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "in-play-item-modifier",
+        "itemFilter": { "item.keywords": { "$includes": "ring" } },
+        "corruptionPoints": 1,
+        "marshallingPoints": 1
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "certified": "2026-07-15",
     "text": "+1 to the corruption points and the marshalling points for all ring items. Discard when any play deck is exhausted. Cannot be duplicated."
   },
   {
@@ -3539,12 +3813,51 @@
     "alignment": "ringwraith",
     "id": "le-230",
     "name": "Smoke on the Wind",
+    "certified": "2026-07-16",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SmokeontheWind.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 3,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": "free-hold"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tapped-site-only"
+      },
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          {
+            "creatureType": "Men",
+            "strikes": 5,
+            "prowess": 8
+          },
+          {
+            "creatureType": "Men",
+            "strikes": 1,
+            "prowess": 10
+          }
+        ],
+        "afterAttack": "move-to-mp-pile",
+        "discardFactionsAtSite": true
+      }
+    ],
     "text": "Playable at an already tapped Free-hold [{F}] during the site phase. The company faces two attacks (Men — 5 strikes with 8 prowess, 1 strike with 10 prowess). If no characters are untapped following the attack, discard this card. Otherwise, you may tap one character in the company and put this card in your marshalling point pile. Discard any factions you have in play that are playable at this site. Cannot be duplicated at a given site."
   },
   {
@@ -3609,7 +3922,12 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "organization" },
+      { "type": "play-target", "target": "character", "filter": { "target.skills": { "$includes": "sage" } } },
+      { "type": "on-event", "event": "self-enters-play", "apply": { "type": "enqueue-gold-ring-test", "rollModifier": 0 } }
+    ],
+    "certified": "2026-07-15",
     "text": "Sage only. Play to test a gold ring in a sage’s company."
   },
   {
@@ -3776,10 +4094,53 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WordsofMenaceandDeceit.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spirit-magic"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character. +5 to the character’s direct influence for the rest of the turn. Unless he is a Ringwraith, he makes a corruption check modified by -4. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "spirit-magic"
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "direct-influence",
+          "value": 5,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": {
+          "$not": {
+            "target.race": "ringwraith"
+          }
+        },
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -4
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character. +5 to the character’s direct influence for the rest of the turn. Unless he is a Ringwraith, he makes a corruption check modified by -4. Cannot be duplicated on a given character.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-faction",
@@ -3811,9 +4172,10 @@
     "marshallingCategory": "faction",
     "influenceNumber": 10,
     "race": "man",
+    "certified": "2026-07-17",
     "playableAt": [
       {
-        "site": "Beorn's"
+        "site": "Beorn’s House"
       }
     ],
     "effects": [],
@@ -3842,38 +4204,87 @@
     "cardType": "minion-resource-faction",
     "alignment": "ringwraith",
     "id": "le-267",
+    "certified": "2026-07-15",
     "name": "Half-trolls",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Halftrolls.jpg",
     "unique": true,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
     "influenceNumber": 10,
+    "inPlayInfluenceNumber": 0,
     "race": "troll",
     "playableAt": [
       {
-        "site": "Cirith"
+        "site": "Cirith Ungol"
+      },
+      {
+        "site": "Barad-dûr"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Variags of Khand"
+        }
+      }
+    ],
     "text": "Unique. Playable at Cirith Ungol or Barad-dûr if the influence check is greater than 9. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra faction marshalling points. Standard Modifications: Variags of Khand (+2)."
   },
   {
     "cardType": "minion-resource-faction",
     "alignment": "ringwraith",
     "id": "le-268",
+    "certified": "2026-07-10",
     "name": "Hill Trolls",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HillTrolls.jpg",
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
     "influenceNumber": 10,
+    "inPlayInfluenceNumber": 0,
     "race": "troll",
     "playableAt": [
       {
         "site": "Ettenmoors"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Stone Trolls"
+        }
+      }
+    ],
     "text": "Unique. Playable at Ettenmoors if the influence check is greater than 9. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Stone-trolls (+2)."
   },
   {
@@ -3889,7 +4300,7 @@
     "race": "man",
     "playableAt": [
       {
-        "site": "Cameth"
+        "site": "Cameth Brin"
       }
     ],
     "effects": [],
@@ -4012,13 +4423,36 @@
     "marshallingCategory": "faction",
     "influenceNumber": 13,
     "race": "dragon",
+    "manifestId": "tw-90",
     "playableAt": [
       {
-        "site": "The"
+        "site": "The Lonely Mountain"
       }
     ],
-    "effects": [],
-    "text": "Unique. Manifestation of Smaug. Playable at The Lonely Mountain if the influence check is greater than 12. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Smaug against any of your companies are canceled. Any company moving in Withered Heath, Northern Rhovanion, Grey Mountain Narrows, and/or Iron Hills faces one attack: Dragon — 2 strikes at 17/8 (attacker chooses defending characters)."
+    "effects": [
+      {
+        "type": "influence-modification",
+        "options": [
+          { "discardItemSubtype": "major", "value": 3 },
+          { "discardItemSubtype": "greater", "value": 6 }
+        ]
+      },
+      {
+        "type": "cancel-manifestation-attacks",
+        "manifestId": "tw-90"
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": ["Withered Heath", "Northern Rhovanion", "Grey Mountain Narrows", "Iron Hills"],
+        "strikes": 2,
+        "prowess": 17,
+        "body": 8,
+        "race": "dragon",
+        "combatRules": ["attacker-chooses-defenders"]
+      }
+    ],
+    "text": "Unique. Manifestation of Smaug. Playable at The Lonely Mountain if the influence check is greater than 12. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Smaug against any of your companies are canceled. Any company moving in Withered Heath, Northern Rhovanion, Grey Mountain Narrows, and/or Iron Hills faces one attack: Dragon — 2 strikes at 17/8 (attacker chooses defending characters).",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-faction",

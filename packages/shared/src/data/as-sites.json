@@ -1122,10 +1122,16 @@
         "creatureType": "Awakened Plant",
         "strikes": 2,
         "prowess": 10
+      },
+      {
+        "creatureType": "Awakened Plant",
+        "strikes": 2,
+        "prowess": 10
       }
     ],
     "resourceDraws": 2,
     "hazardDraws": 3,
+    "certified": "2026-07-14",
     "effects": [],
     "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor, major)Automatic-attacks (2):(1st) Awakened Plant – 2 strikes with 10 prowess(2nd) Awakened Plant – 2 strikes with 10 prowess"
   }

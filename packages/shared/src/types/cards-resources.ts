@@ -13,6 +13,7 @@ import type {
   Alignment,
   CardDefinitionId,
   Keyword,
+  ManifestId,
   Race,
   Skill,
   SiteType,
@@ -42,6 +43,21 @@ export interface PlayableAtRegion {
 }
 
 /**
+ * Any site satisfying an explicit `when` condition, rather than a fixed
+ * site type / name / region. The condition is evaluated against the site
+ * context (`site.siteType`, `site.regionType`, `site.name`, `site.region`,
+ * `site.autoAttack.race`), letting a card express a compound playability
+ * rule such as "any non-Haven, non-Shadow-hold, non-Dark-hold site in a
+ * Wilderness" (A Panoply of Wings wh-37). With no `when`, matches every site.
+ */
+export interface PlayableAtAny {
+  /** Discriminant: matches any site (subject to `when`). */
+  readonly any: true;
+  /** Optional constraint the site must satisfy. */
+  readonly when?: Condition;
+}
+
+/**
  * Describes a location where an ally or faction can be played.
  *
  * Most allies and factions are playable at a single named site, but
@@ -50,7 +66,7 @@ export interface PlayableAtRegion {
  * Entries may carry an optional `when` condition for extra constraints
  * (e.g. "Ruins & Lairs with a Wolf automatic-attack").
  */
-export type PlayableAtEntry = PlayableAtSite | PlayableAtSiteType | PlayableAtRegion;
+export type PlayableAtEntry = PlayableAtSite | PlayableAtSiteType | PlayableAtRegion | PlayableAtAny;
 
 // ---- Item subtype ----
 
@@ -190,6 +206,13 @@ export interface HeroAllyCard {
   readonly body: number;
   /** The ally's mind value, used as the comparison value in opponent influence attempts. */
   readonly mind: number;
+  /**
+   * The ally's direct influence, relevant only when the ally can "attempt to
+   * influence factions as if he were a character" (the `influences-factions`
+   * play-flag, e.g. Radagast's Black Bird wh-114). Optional: most allies do not
+   * influence factions and have no printed direct-influence value.
+   */
+  readonly directInfluence?: number;
   /**
    * Skills the ally possesses (e.g. Sage). Per CoE rule 2.V.2.2, allies are
    * treated as characters when fulfilling "skill only" active conditions, so
@@ -336,6 +359,16 @@ export interface MinionFactionCard {
   readonly inPlayInfluenceNumber?: number;
   /** The faction's race. */
   readonly race: Race;
+  /**
+   * Manifestation-chain tag (Dragons expansion). A "Roused" faction such as
+   * Smaug Roused (le-285) is one in-game form of a unique Dragon; every card in
+   * the chain — the basic creature, the Ahunt long-event, the At-Home
+   * permanent-event, and this faction — carries the same `manifestId` (by
+   * convention the basic form's id). Wires the faction into manifestation
+   * uniqueness (g.man.1), the defeat cascade, and "manifestations of <Dragon>"
+   * references such as this card's own attack-cancellation.
+   */
+  readonly manifestId?: ManifestId;
   /** Locations where this faction can be played (typically a single named site). */
   readonly playableAt: readonly PlayableAtEntry[];
   /** Declarative effects describing this faction's abilities. */
@@ -372,6 +405,13 @@ export interface MinionAllyCard {
   readonly body: number;
   /** The ally's mind value, used as the comparison value in opponent influence attempts. */
   readonly mind: number;
+  /**
+   * The ally's direct influence, relevant only when the ally can "attempt to
+   * influence factions as if he were a character" (the `influences-factions`
+   * play-flag, e.g. Radagast's Black Bird wh-114). Optional: most allies do not
+   * influence factions and have no printed direct-influence value.
+   */
+  readonly directInfluence?: number;
   /**
    * Skills the ally possesses. Per CoE rule 2.V.2.2, allies are treated as
    * characters when fulfilling "skill only" active conditions. Optional:

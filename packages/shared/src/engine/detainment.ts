@@ -99,6 +99,16 @@ export interface DetainmentContext {
    * creature attack) when omitted.
    */
   readonly isAutomaticAttack?: boolean;
+  /**
+   * When `true`, the defending player converts every detainment attack against
+   * his companies into a normal attack (Alatar wh-1's `detainment-attacks-normal`
+   * effect, active above 7 stage points). Short-circuits the entire computation:
+   * {@link isDetainmentAttack} returns `false` regardless of any
+   * `combat-detainment` effect, site-forced detainment rule, or alignment-based
+   * §3.II keying. Call sites compute it via
+   * `playerConvertsDetainmentToNormal(state, defendingPlayer)`.
+   */
+  readonly defenderForcesNormalAttacks?: boolean;
 }
 
 /** Races covered by rule 3.II.2.R2/B2 when keyed to a Shadow-land. */
@@ -150,6 +160,11 @@ function detainmentAlignmentLabel(a: Alignment): string {
 }
 
 export function isDetainmentAttack(ctx: DetainmentContext): boolean {
+  if (ctx.defenderForcesNormalAttacks) {
+    logDetail('Detainment: overridden — defender converts all detainment attacks to normal (e.g. Alatar wh-1)');
+    return false;
+  }
+
   const forcedDetainmentRule = (ctx.defendingSiteEffects ?? []).find(
     e => e.type === 'site-rule' && e.rule === 'attacks-are-detainment',
   );

@@ -37,7 +37,7 @@ import { isCharacterCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { evaluateExpr } from './expression-eval.js';
 import { pickActiveItemsForCharacter } from '../item-slots.js';
-import { getCardEffects, findPlayerAndCompany } from '../reducer-utils.js';
+import { getCardEffects, findPlayerAndCompany, isCardNameInPlayForPlayer } from '../reducer-utils.js';
 
 /**
  * Context object passed to conditions and expressions when resolving effects.
@@ -85,6 +85,30 @@ export interface ResolverContext {
      * `{ "bearer.ringwraithMode": "heralded-lord" }` (Hoarmûrath le-53).
      */
     readonly ringwraithMode?: 'black-rider' | 'fell-rider' | 'heralded-lord';
+    /**
+     * True when this character is a follower — controlled by another
+     * character's direct influence (`controlledBy` is a character instance ID,
+     * not `"general"`). Exposed so effects can exclude followers, e.g.
+     * So You've Come Back (le-138) raises the mind of "each other
+     * **non-follower** … character" via `{ "bearer.isFollower": { "$ne": true } }`.
+     */
+    readonly isFollower?: boolean;
+    /**
+     * True when the character's company is currently at a Haven/Darkhaven
+     * (`siteType === "haven"`). Populated only in the effective-stats context.
+     * Used by organization-phase self-discard conditions, e.g.
+     * So You've Come Back (le-138).
+     */
+    readonly atHaven?: boolean;
+    /**
+     * True when the character's company is at, moving to, or moving from an
+     * Under-deeps site (its `currentSite`, planned `destinationSite`, or
+     * `siteOfOrigin` carries the `under-deeps` keyword). Populated only in the
+     * effective-stats context. Used by environments that spare characters near
+     * the Under-deeps, e.g. The Sun Shone Fiercely (ba-25):
+     * `{ "bearer.atOrMovingUnderDeeps": { "$ne": true } }`.
+     */
+    readonly atOrMovingUnderDeeps?: boolean;
   };
   /** The enemy creature/hazard (in combat contexts). */
   readonly enemy?: {
@@ -105,11 +129,27 @@ export interface ResolverContext {
      * grants +3 DI against any faction playable at Dunnish Clan-hold).
      */
     readonly playableAt: readonly string[];
+    /**
+     * Geographic regions in which the faction can be played, resolved from its
+     * named `playableAt` sites (each site's `region`) plus explicit `region:`
+     * entries. Used by DSL conditions like
+     * `{ "faction.playableRegions": { "$includes": "Lamedon" } }` to target
+     * bonuses at factions tied to a set of regions (e.g. Firiel dm-10 grants
+     * +2 DI against factions playable in five Southern-Gondor regions).
+     */
+    readonly playableRegions?: readonly string[];
   };
   /** The target of an influence check (character being controlled). */
   readonly target?: {
     readonly name: string;
     readonly race: string;
+    /**
+     * The kind of card being influenced in an opponent-influence attempt:
+     * `"character"`, `"ally"`, `"faction"`, or `"item"`. Exposed so an
+     * opponent-influence booster can gate on the target type, e.g. Mine or No
+     * One's (ba-68) applies only to an item/ally/faction target.
+     */
+    readonly kind?: string;
     /** Home site names parsed from the character's `homesite` string, for conditions like `{ "target.homesite": { "$includes": "Edoras" } }`. */
     readonly homesite?: readonly string[];
     /** The target character's keyword tags, for conditions like `{ "target.keywords": { "$includes": "balrog-specific" } }`. */
@@ -216,6 +256,11 @@ export function collectGlobalEffects(
     // reduces only *your* Half-orcs' control cost). Skip other players' cards.
     if (targetScope === 'own-characters' && ownerPlayerId !== undefined && player.id !== ownerPlayerId) continue;
     for (const card of player.cardsInPlay) {
+      // A `trigger-attack-on-play` card in play whose self-inflicted attacks
+      // are still resolving (Descent through Fire ba-56) must not yet apply its
+      // ongoing effects — the "+1 prowess" bonus only takes hold once the card
+      // is kept after the attacks (see CardInPlay.pendingTriggerAttack).
+      if (card.pendingTriggerAttack) continue;
       // Company-bound cards: only include when the defending company matches.
       // Without a defender context, skip company-bound cards entirely to
       // prevent their targeted effects from applying globally.
@@ -314,15 +359,59 @@ export function collectCharacterEffects(
     collectFromDef(itemDef, item.instanceId, context, itemResults);
     for (const r of itemResults) {
       if (r.effect.type === 'stat-modifier' && r.effect.target === 'company') continue;
+      // Company-scoped check-modifiers are re-collected for every company
+      // member (including the bearer) by collectCompanyItemEffects below;
+      // skip here to avoid double-counting on the bearer.
+      if (r.effect.type === 'check-modifier' && r.effect.target === 'company') continue;
+      results.push(r);
+    }
+
+    // Item-attached permanent events (Barrow-blade dm-119, "play this with the
+    // Dagger"): a CardInPlay in either player's cardsInPlay bound to this active
+    // item via `attachedToItem`. Its effects flow to the item's bearer, exactly
+    // as if they were printed on the item itself.
+    for (const p of state.players) {
+      for (const cip of p.cardsInPlay) {
+        if (cip.attachedToItem !== item.instanceId) continue;
+        const evDef = resolveDef(state, cip.instanceId);
+        if (evDef) collectFromDef(evDef, cip.instanceId, context, results);
+      }
+    }
+  }
+
+  // Hazard card effects. Company-scoped stat/check modifiers on an attached
+  // hazard (Diminish and Depart ba-17: "All Elves and Hobbits in the target's
+  // company have +1 mind, and a Wizard in the company has -1 direct influence")
+  // are skipped here and re-collected for every company member — including the
+  // bearer — by collectCompanyItemEffects below, exactly as item company-target
+  // modifiers are handled above (avoids double-counting on the bearer).
+  for (const hazard of char.hazards) {
+    const hDef = resolveDef(state, hazard.instanceId);
+    if (!hDef) continue;
+    const hazardResults: CollectedEffect[] = [];
+    collectFromDef(hDef, hazard.instanceId, context, hazardResults);
+    for (const r of hazardResults) {
+      if (r.effect.type === 'stat-modifier' && r.effect.target === 'company') continue;
+      if (r.effect.type === 'check-modifier' && r.effect.target === 'company') continue;
       results.push(r);
     }
   }
 
-  // Hazard card effects
-  for (const hazard of char.hazards) {
-    const hDef = resolveDef(state, hazard.instanceId);
-    if (hDef) collectFromDef(hDef, hazard.instanceId, context, results);
+  // `company-others` stat-modifiers never apply to their own bearer ("each
+  // *other* character in his company"). Strip any that leaked in from this
+  // character's own card / items / hazards; they are re-collected from every
+  // *other* company member below.
+  for (let i = results.length - 1; i >= 0; i--) {
+    const eff = results[i].effect;
+    if (eff.type === 'stat-modifier' && eff.target === 'company-others') results.splice(i, 1);
   }
+
+  // `company-others` stat-modifiers carried by *other* characters' attached
+  // hazards/items in the same company (So You've Come Back le-138: an attached
+  // hazard raises the mind of every other company member). Filtered by each
+  // effect's `when` against this character's own context.
+  const companyOthersEffects = collectCompanyOthersEffects(state, char, context);
+  results.push(...companyOthersEffects);
 
   // Company-scoped stat-modifier effects from items on all characters in
   // the same company (e.g. The One Ring adds +1 CP to every company member).
@@ -349,6 +438,50 @@ export function collectCharacterEffects(
   const charConstraints = collectCharacterStatModifierEffects(state, char);
   results.push(...charConstraints);
 
+  // Whip of Many Thongs (ba-82): a weapon whose effects have been cancelled for
+  // the current company-vs-company combat contributes nothing "until the end of
+  // the combat". Drop every effect sourced from a suppressed weapon instance so
+  // its bearer's derived prowess/body (and the CvCC values that read them, plus
+  // the creature-combat `computeCombatProwess`/`resolveEnemyBody` paths) reflect
+  // the cancellation. The suppression list lives on `state.combat` and so clears
+  // automatically when combat finalizes.
+  const suppressed = state.combat?.suppressedWeaponInstanceIds;
+  if (suppressed && suppressed.length > 0) {
+    const suppressedSet = new Set(suppressed.map(i => i as string));
+    return results.filter(r => !suppressedSet.has(r.sourceInstance as string));
+  }
+
+  return results;
+}
+
+/**
+ * Collects effects from a single player's own `cardsInPlay`, filtering by each
+ * effect's `when` condition against the given context.
+ *
+ * Unlike {@link collectGlobalEffects} (which walks both players and filters by
+ * a target scope), this gathers *all* effects — of any type — from one player's
+ * in-play events/environments so a downstream resolver can pick the type it
+ * cares about. Used by the movement/hazard draw step: a resource long-event
+ * such as A Short Rest (td-95) sits in the moving player's `cardsInPlay` and
+ * contributes a `draw-modifier` to that player's own moving companies.
+ *
+ * Scoping to a single player is what keeps the effect from ever benefiting the
+ * opponent: the draw step collects from the *active* (moving) player only, so a
+ * long-event lingering in one player's `cardsInPlay` across the opponent's turn
+ * never touches the opponent's draws.
+ */
+export function collectPlayerInPlayEffects(
+  state: GameState,
+  playerIndex: number,
+  context: ResolverContext,
+): CollectedEffect[] {
+  const results: CollectedEffect[] = [];
+  const player = state.players[playerIndex];
+  if (!player) return results;
+  for (const card of player.cardsInPlay) {
+    const def = resolveDef(state, card.instanceId);
+    if (def) collectFromDef(def, card.instanceId, context, results);
+  }
   return results;
 }
 
@@ -408,12 +541,59 @@ function collectCompanyPermanentEventEffects(
 }
 
 /**
- * Collects `stat-modifier` effects with `target: "company"` from items on
- * every character in the same company as `char`.
+ * Collects `stat-modifier` effects with `target: "company-others"` from the
+ * attached hazards and items of **every other** character in the same company
+ * as `char`.
  *
- * This ensures that a company-scoped item bonus (e.g. The One Ring's +1
- * corruption) applies uniformly to all company members regardless of who
- * bears the item.
+ * Unlike {@link collectCompanyItemEffects} (`target: "company"`, which applies
+ * to the bearer too), a `company-others` modifier explicitly excludes its own
+ * bearer — so when computing character X's stats we look at the hazards/items
+ * on companions Y ≠ X. Each effect's `when` is evaluated against X's context
+ * (`bearer.*`), letting the source card exclude e.g. followers or avatars.
+ *
+ * Used by So You've Come Back (le-138): the attached hazard raises the mind of
+ * "each other non-follower, non-Ringwraith, non-Wizard character in his
+ * company" by one.
+ */
+function collectCompanyOthersEffects(
+  state: GameState,
+  char: CharacterInPlay,
+  context: ResolverContext,
+): CollectedEffect[] {
+  const results: CollectedEffect[] = [];
+  const baseCtx = context as unknown as Record<string, unknown>;
+  const found = findPlayerAndCompany(state, char.instanceId);
+  if (!found) return results;
+  const { player, company } = found;
+  for (const companyCharId of company.characters) {
+    if (companyCharId === char.instanceId) continue; // "each *other* character"
+    const other = player.characters[companyCharId];
+    if (!other) continue;
+    const attached = [...other.hazards, ...other.items];
+    for (const card of attached) {
+      const def = resolveDef(state, card.instanceId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'stat-modifier' || effect.target !== 'company-others') continue;
+        if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
+        results.push({ effect, sourceDef: def, sourceInstance: card.instanceId });
+      }
+    }
+  }
+  return results;
+}
+
+/**
+ * Collects company-scoped effects (`stat-modifier` and `check-modifier` with
+ * `target: "company"`) from the items **and attached hazards** of every
+ * character in the same company as `char`.
+ *
+ * This ensures that a company-scoped bonus/penalty applies uniformly to all
+ * company members regardless of who bears the source card: a company-scoped
+ * item bonus (e.g. The One Ring's +1 corruption, or I'll Be At Your Heels' +1
+ * to company corruption checks), or a company-scoped hazard penalty (Diminish
+ * and Depart ba-17: +1 mind to Elves/Hobbits, -1 direct influence to a Wizard).
+ * Each effect's `when` is evaluated against the modified character's context.
  */
 function collectCompanyItemEffects(
   state: GameState,
@@ -429,14 +609,31 @@ function collectCompanyItemEffects(
     const companyChar = player.characters[companyCharId];
     if (!companyChar) continue;
     const active = pickActiveItemsForCharacter(state, companyChar);
+    // Company-scoped item modifiers (The One Ring, I'll Be At Your Heels).
     for (const item of companyChar.items) {
       if (!active.has(item.instanceId as string)) continue;
       const itemDef = resolveDef(state, item.instanceId);
       if (!itemDef) continue;
       for (const effect of getCardEffects(itemDef)) {
-        if (effect.type !== 'stat-modifier' || effect.target !== 'company') continue;
+        const isCompanyStat = effect.type === 'stat-modifier' && effect.target === 'company';
+        const isCompanyCheck = effect.type === 'check-modifier' && effect.target === 'company';
+        if (!isCompanyStat && !isCompanyCheck) continue;
         if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
         results.push({ effect, sourceDef: itemDef, sourceInstance: item.instanceId });
+      }
+    }
+    // Company-scoped modifiers on an attached hazard (Diminish and Depart
+    // ba-17): the hazard raises the mind of every Elf/Hobbit and lowers a
+    // Wizard's direct influence throughout the target's whole company.
+    for (const hazard of companyChar.hazards) {
+      const hazardDef = resolveDef(state, hazard.instanceId);
+      if (!hazardDef) continue;
+      for (const effect of getCardEffects(hazardDef)) {
+        const isCompanyStat = effect.type === 'stat-modifier' && effect.target === 'company';
+        const isCompanyCheck = effect.type === 'check-modifier' && effect.target === 'company';
+        if (!isCompanyStat && !isCompanyCheck) continue;
+        if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
+        results.push({ effect, sourceDef: hazardDef, sourceInstance: hazard.instanceId });
       }
     }
   }
@@ -522,6 +719,13 @@ function collectCharacterStatModifierEffects(
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'character-stat-modifier') continue;
     if (constraint.kind.characterId !== char.instanceId) continue;
+    // "while <card> is in play" gate (Heart of Dark Fire ba-63): the bonus only
+    // applies while the named card remains in play for the character's owner.
+    const requiresCardInPlay = constraint.kind.requiresCardInPlay;
+    if (requiresCardInPlay) {
+      const owner = findPlayerAndCompany(state, char.instanceId)?.player;
+      if (!owner || !isCardNameInPlayForPlayer(state, owner, requiresCardInPlay)) continue;
+    }
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];
     if (!sourceDef) continue;
     const synthesized: StatModifierEffect = {
@@ -654,19 +858,26 @@ export function resolveStatModifiers(
     activeEffects.push(override ?? base);
   }
 
-  // Apply modifiers. Additive (`op` absent or `"add"`) effects are applied
-  // first; multiplicative (`op: "multiply"`) effects are applied afterwards so
-  // that "doubled"-style modifiers (e.g. Plague of Wights doubling Undead
-  // strikes) act on the already-modified total rather than the raw base.
+  // Apply modifiers in three passes. `op: "set"` effects run first: they
+  // replace the printed base outright (Radagast's Shapeshifter forms adopting
+  // a new attribute line), so ordinary bonuses stack on the adopted value
+  // rather than the printed one. Additive (`op` absent or `"add"`) effects run
+  // next; multiplicative (`op: "multiply"`) effects run last so that
+  // "doubled"-style modifiers (e.g. Plague of Wights doubling Undead strikes)
+  // act on the already-modified total rather than the raw base.
   const exprContext = context as unknown as Record<string, unknown>;
+  const setEffects = activeEffects.filter((e) => e.op === 'set');
   const orderedEffects = [
-    ...activeEffects.filter((e) => e.op !== 'multiply'),
+    ...setEffects,
+    ...activeEffects.filter((e) => e.op !== 'multiply' && e.op !== 'set'),
     ...activeEffects.filter((e) => e.op === 'multiply'),
   ];
   let result = baseValue;
   for (const effect of orderedEffects) {
     const value = evaluateExpr(effect.value, exprContext);
-    result = effect.op === 'multiply' ? result * value : result + value;
+    if (effect.op === 'set') result = value;
+    else if (effect.op === 'multiply') result = result * value;
+    else result = result + value;
     if (effect.max !== undefined) {
       const maxVal = evaluateExpr(effect.max, exprContext);
       result = Math.min(result, maxVal);
@@ -810,12 +1021,18 @@ export interface CreatureSelfContext {
  * @param inPlayNames - Names of all cards currently in play.
  * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
  * @param companyFacedRaces - Creature races the defending company has already faced.
+ * @param defenderAlignment - Alignment of the defending player, for self-effect conditions.
+ * @param siteType - Effective site type of the site whose automatic-attack is being
+ *   resolved, exposed as `site.siteType`. Populated only for site automatic-attacks,
+ *   so global effects can gate on the site type (e.g. Awaken Minions tw-10 doubles
+ *   automatic-attack strikes at Shadow-hold / Dark-hold sites).
  */
 function buildAttackContext(
   inPlayNames: readonly string[],
   creatureRace?: string,
   companyFacedRaces?: readonly string[],
   defenderAlignment?: string,
+  siteType?: string,
 ): ResolverContext {
   const context: ResolverContext = {
     reason: 'combat',
@@ -827,10 +1044,18 @@ function buildAttackContext(
   const withDefender = defenderAlignment
     ? { ...withCompany, defender: { alignment: defenderAlignment } }
     : withCompany;
+  // Expose the defending company's effective site type so global
+  // `all-automatic-attacks` modifiers can gate on it (Awaken Minions tw-10 /
+  // Awaken Defenders le-103: "strikes … at a Shadow-hold / Free-hold …
+  // doubled"). Populated only for automatic-attacks (the only attacks keyed to
+  // a site), via the effective site type threaded in by the caller.
+  const withSite = siteType
+    ? { ...withDefender, site: { siteType } }
+    : withDefender;
   if (creatureRace) {
-    return { ...withDefender, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
+    return { ...withSite, enemy: { race: creatureRace, name: '', prowess: 0, body: null } };
   }
-  return withDefender;
+  return withSite;
 }
 
 /**
@@ -901,6 +1126,10 @@ export function resolveAttackProwess(
  * @param creatureRace - The lowercase singular race of the attacking creature (e.g. "wolf", "orc").
  * @param isAutomaticAttack - Whether this is a site automatic-attack (not a hazard creature).
  * @param attackBoostCtx - Optional company/creature context for constraint-based boosts.
+ * @param siteType - Effective site type of the site whose automatic-attack is being
+ *   resolved (only for site automatic-attacks), exposed as `site.siteType` so global
+ *   effects can gate on it (e.g. Awaken Minions tw-10 doubles strikes at Shadow-hold /
+ *   Dark-hold sites).
  * @returns The modified strikes value after applying all-attacks effects.
  */
 export function resolveAttackStrikes(
@@ -910,8 +1139,9 @@ export function resolveAttackStrikes(
   creatureRace?: string,
   isAutomaticAttack = false,
   attackBoostCtx?: CreatureAttackBoostContext,
+  siteType?: string,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace);
+  const context = buildAttackContext(inPlayNames, creatureRace, undefined, undefined, siteType);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
@@ -959,12 +1189,17 @@ function buildCombatContext(
   char: { race: string; skills: readonly string[]; baseProwess: number; baseBody: number; baseDirectInfluence: number; name: string },
   enemy: { race: string; name: string; prowess: number; body: number | null },
   inPlayNames: readonly string[],
+  strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
 ): ResolverContext {
   return {
     reason: 'combat',
     bearer: char,
     enemy,
     inPlay: inPlayNames,
+    // Exposed only when the caller knows how the character faced the strike, so
+    // an `enemy-modifier` can gate on "when tapping to face a strike"
+    // (Mechanical Bow wh-53). Absent otherwise — the condition then never matches.
+    ...(strikeMode ? { combat: { strikeMode } } : {}),
   };
 }
 
@@ -1024,6 +1259,10 @@ export function resolveCombatProwessBonus(
  * @param enemy - The enemy creature info.
  * @param baseBody - The enemy's base body value.
  * @param inPlayNames - Names of all cards currently in play.
+ * @param strikeMode - How the character faced the strike, exposed as
+ *   `combat.strikeMode` so a modifier can gate on "if he taps to face the
+ *   strike" (Mechanical Bow wh-53). Omit for contexts with no strike-facing
+ *   mode (e.g. the CvCC attacker path) — the gate then never matches.
  * @returns The modified enemy body value.
  */
 export function resolveEnemyBody(
@@ -1032,11 +1271,12 @@ export function resolveEnemyBody(
   enemy: { race: string; name: string; prowess: number; body: number | null },
   baseBody: number,
   inPlayNames: readonly string[],
+  strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
 ): number {
   const charDef = resolveDef(state, char.instanceId);
   if (!charDef || !isCharacterCard(charDef)) return baseBody;
   const charInfo = buildBearerContext(charDef);
-  const context = buildCombatContext(charInfo, enemy, inPlayNames);
+  const context = buildCombatContext(charInfo, enemy, inPlayNames, strikeMode);
   const effects = collectCharacterEffects(state, char, context);
 
   let body = baseBody;
@@ -1146,4 +1386,36 @@ export function getItemGrantedSkills(
     }
   }
   return granted;
+}
+
+/**
+ * Returns the skills a character actually has right now: their printed skills
+ * (or the replacement set imposed by an {@link OverrideSkillsEffect} borne on
+ * them) plus every skill granted by an attached card via {@link GrantSkillEffect}.
+ *
+ * This is the single place the two skill primitives compose, and it is what
+ * every consumer should ask rather than spreading `charDef.skills` with
+ * {@link getItemGrantedSkills} by hand:
+ *
+ * - `grant-skill` **adds** (Magic Ring of Stealth tw-274 makes any bearer a scout).
+ * - `override-skills` **replaces** the printed set (Shifter of Hues wh-115:
+ *   "Radagast's skills become Warrior/Diplomat" — his printed Scout and Ranger
+ *   are gone while the form is on him).
+ *
+ * Grants still stack on top of an override: the override speaks for the
+ * character card, not for other cards' contributions.
+ */
+export function getEffectiveSkills(
+  state: GameState,
+  charData: CharacterInPlay,
+  charDef: { readonly skills?: readonly string[] } | undefined,
+): readonly string[] {
+  let base: readonly string[] = charDef?.skills ?? [];
+  for (const attached of charData.items) {
+    const def = state.cardPool[attached.definitionId];
+    for (const eff of getCardEffects(def)) {
+      if (eff.type === 'override-skills') base = eff.skills;
+    }
+  }
+  return [...base, ...getItemGrantedSkills(state, charData)];
 }

@@ -156,7 +156,7 @@ export function buildCardAttributes(el: HTMLElement, def: CardDefinition): void 
       addAttr(el, 'Race', formatLabel(def.race));
       addAttr(el, 'Influence #', def.influenceNumber);
       addAttr(el, 'MP', def.marshallingPoints);
-      addAttr(el, 'Playable At', def.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'site' in e ? e.site : formatLabel(e.siteType)).join(', '));
+      addAttr(el, 'Playable At', def.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'any' in e ? 'any qualifying site' : 'site' in e ? e.site : formatLabel(e.siteType)).join(', '));
       break;
     }
     case 'hero-resource-ally':

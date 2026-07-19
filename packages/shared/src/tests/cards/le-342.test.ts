@@ -24,6 +24,7 @@ import {
   charIdAt, pool, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
+import { Alignment } from '../../index.js';
 import type { CardDefinitionId, CharacterCard } from '../../index.js';
 
 const SAW_TOOTHED_BLADE = 'le-342' as CardDefinitionId;
@@ -47,7 +48,7 @@ describe('Saw-toothed Blade (le-342)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
@@ -67,7 +68,7 @@ describe('Saw-toothed Blade (le-342)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [LIEUTENANT_OF_DOL_GULDUR] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [LIEUTENANT_OF_DOL_GULDUR] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
@@ -86,7 +87,7 @@ describe('Saw-toothed Blade (le-342)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [LIEUTENANT_OF_MORGUL] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [LIEUTENANT_OF_MORGUL] }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });

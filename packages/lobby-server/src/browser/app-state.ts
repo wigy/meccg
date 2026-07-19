@@ -24,6 +24,8 @@ export interface DeckListEntry { name: string; card: string | null; qty: number;
 
 /** Full deck definition including all sections. */
 export interface FullDeck extends DeckSummary {
+  /** Free-form notes about the deck in Markdown (strategy, play tips). */
+  notes?: string;
   pool: DeckListEntry[];
   deck: { characters: DeckListEntry[]; hazards: DeckListEntry[]; resources: DeckListEntry[] };
   sites: DeckListEntry[];
@@ -70,6 +72,8 @@ function createDefaultAppState() {
   lastInstanceLookup: (() => undefined) as (instId: CardInstanceId) => CardDefinitionId | undefined,
   /** Company name lookup for the current game state. */
   lastCompanyNames: {} as Readonly<Record<string, string>>,
+  /** Player id to display name lookup for the current game state. */
+  lastPlayerNames: {} as Readonly<Record<string, string>>,
   /** Phase from the last state update, for detecting phase transitions. */
   lastPhase: null as string | null,
   /** Dice rolls from the previous state update, for detecting new rolls. */

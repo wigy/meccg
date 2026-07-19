@@ -20,6 +20,10 @@ import {
   buildTestState,
   effectiveGeneralInfluence,
   viablePlayCharacterActions,
+  addP2CardsInPlay,
+  dispatch,
+  mint,
+  CardStatus,
   Phase,
   Alignment,
   PLAYER_1,
@@ -37,6 +41,8 @@ import type { CardDefinitionId } from '../../test-helpers.js';
 const SARUMAN_FW = 'wh-9' as CardDefinitionId; // home Isengard, white-hand GI 15
 const ALATAR_FW = 'wh-1' as CardDefinitionId; //  white-hand GI 17
 const RADAGAST_FW = 'wh-8' as CardDefinitionId; // white-hand GI 22
+const THE_WHITE_HAND_STAGE = 'wh-122' as CardDefinitionId; // saruman-specific stage resource
+const BOW_OF_ALATAR = 'wh-90' as CardDefinitionId; // alatar-specific stage resource
 
 /** Build a state with a single Fallen-wizard company holding `chars` at Isengard. */
 function fwState(chars: CardDefinitionId[]) {
@@ -134,5 +140,49 @@ describe('Rule 3.09 — Fallen-Wizard Avatar Play', () => {
     expect(sarumanPlays).toHaveLength(1);
   });
 
-  test.todo('[FALLEN-WIZARD] Playing the avatar discards opponent Stage resources specific to that avatar');
+  test('[FALLEN-WIZARD] playing the avatar discards the opponent\'s Stage resources specific to that avatar', () => {
+    // The opponent (here a Wizard player, who can hold Stage resources via
+    // the MEWH anti-FW sideboard) has one Saruman-specific and one
+    // Alatar-specific stage card in play. When the Fallen-wizard plays
+    // Saruman, only the Saruman-specific card is discarded.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [ARAGORN] }],
+          hand: [SARUMAN_FW],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const sarumanSpecificId = mint();
+    const alatarSpecificId = mint();
+    const state = addP2CardsInPlay(base, [
+      { instanceId: sarumanSpecificId, definitionId: THE_WHITE_HAND_STAGE, status: CardStatus.Untapped },
+      { instanceId: alatarSpecificId, definitionId: BOW_OF_ALATAR, status: CardStatus.Untapped },
+    ]);
+
+    const sarumanInst = state.players[0].hand.find(c => c.definitionId === SARUMAN_FW)!.instanceId;
+    const playSaruman = viablePlayCharacterActions(state, PLAYER_1)
+      .find(a => a.characterInstanceId === sarumanInst);
+    expect(playSaruman).toBeDefined();
+    const after = dispatch(state, playSaruman!);
+
+    // The Saruman-specific stage card left play into its owner's discard pile…
+    expect(after.players[1].cardsInPlay.some(c => c.instanceId === sarumanSpecificId)).toBe(false);
+    expect(after.players[1].discardPile.some(c => c.instanceId === sarumanSpecificId)).toBe(true);
+    // …while the Alatar-specific one is untouched.
+    expect(after.players[1].cardsInPlay.some(c => c.instanceId === alatarSpecificId)).toBe(true);
+  });
 });

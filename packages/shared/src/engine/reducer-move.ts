@@ -276,6 +276,19 @@ function locateSelf(state: GameState, ctx: MoveContext): LocatedInstance | null 
         remove: s => removeFromDiscard(s, pi, sourceId),
       };
     }
+    // sideboard — a card in the sideboard may relocate itself into the play
+    // deck (Terror Heralds Doom ba-78 and the Balrog sideboard family:
+    // "You may bring this card from your sideboard into your play deck").
+    const sideboardIdx = player.sideboard.findIndex(c => c.instanceId === sourceId);
+    if (sideboardIdx >= 0) {
+      const inst = player.sideboard[sideboardIdx];
+      return {
+        instance: inst,
+        ownerIndex: pi,
+        zone: 'sideboard',
+        remove: s => removeFromNamedPile(s, pi, 'sideboard', sourceId),
+      };
+    }
     // cardsInPlay
     const cipIdx = player.cardsInPlay.findIndex(c => c.instanceId === sourceId);
     if (cipIdx >= 0) {
@@ -524,6 +537,29 @@ function collectFromZone(
             ownerIndex: pi,
             zone: 'items-on-target',
             remove: s => removeFromCharacterItems(s, pi, targetId, itemId),
+          });
+        }
+        break;
+      }
+      return out;
+    }
+    case 'allies-on-target': {
+      // Collect allies borne by the target character. Used by "discard his
+      // allies" on-play effects (e.g. Flame of Udûn ba-58).
+      const targetId = ctx.targetCharacterId;
+      if (!targetId) return out;
+      for (let pi = 0; pi < state.players.length; pi++) {
+        const char = state.players[pi].characters[targetId];
+        if (!char) continue;
+        for (const ally of char.allies) {
+          const inst: CardInstance = toCardInstance(ally);
+          if (!matches(inst)) continue;
+          const allyId = ally.instanceId;
+          out.push({
+            instance: inst,
+            ownerIndex: pi,
+            zone: 'allies-on-target',
+            remove: s => removeFromCharacterAllies(s, pi, targetId, allyId),
           });
         }
         break;
@@ -779,8 +815,12 @@ export function findMoveEffectByShape(
 /**
  * Translate a `move`-shape "fetch into deck or hand" effect into the
  * {@link FetchToDeckEffect} shape used by the pending-effects queue.
- * The move's `from` zones (`'sideboard' | 'discard'`) map to the
- * legacy pile names (`'sideboard' | 'discard-pile'`).
+ * The move's `from` zones (`'sideboard' | 'discard' | 'deck'`) map to the
+ * legacy pile names (`'sideboard' | 'discard-pile' | 'deck'`). A `'deck'`
+ * source lets a card search (tutor) its own play deck; when a card is
+ * fetched from the deck the reducer reshuffles it (Akhôrahil Unleashed
+ * le-162: "take a magic card from your play deck or discard pile to your
+ * hand — reshuffle play deck if searched").
  *
  * Handles both `to: 'deck'` (shuffle into play deck) and `to: 'hand'`
  * (return directly to hand). Returns null for non-fetch move shapes.
@@ -792,8 +832,8 @@ export function moveToFetchToDeckPayload(
   if (move.to !== 'deck' && move.to !== 'hand') return null;
   const fromArr = Array.isArray(move.from) ? move.from : [move.from];
   const source = fromArr.map(z =>
-    z === 'discard' ? 'discard-pile' : z === 'sideboard' ? 'sideboard' : null,
-  ).filter((s): s is 'sideboard' | 'discard-pile' => s !== null);
+    z === 'discard' ? 'discard-pile' : z === 'sideboard' ? 'sideboard' : z === 'deck' ? 'deck' : null,
+  ).filter((s): s is 'sideboard' | 'discard-pile' | 'deck' => s !== null);
   return {
     type: 'fetch-to-deck',
     source,
@@ -801,5 +841,6 @@ export function moveToFetchToDeckPayload(
     count: move.count ?? 1,
     shuffle: move.shuffleAfter ?? true,
     to: move.to === 'hand' ? 'hand' : 'deck',
+    ...(move.removeFromGame ? { removeFromGame: true } : {}),
   };
 }

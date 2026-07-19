@@ -780,10 +780,55 @@
     "prowess": 10,
     "body": 6,
     "killMarshallingPoints": 2,
+    "starredKillMarshallingPoints": true,
     "race": "dúnedain",
-    "keyedTo": [],
-    "effects": [],
-    "text": "Dúnedain. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Arthedain, Rhudaur, Cardolan, Hollin, and The Shire; and may also be played at sites in these regions. May not be played against a company containing a character with Bree as a home site."
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Arthedain",
+          "Rhudaur",
+          "Cardolan",
+          "Hollin",
+          "The Shire"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-one-strike-per-character"
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "target-company",
+        "condition": {
+          "$not": {
+            "company.homeSites": "Bree"
+          }
+        }
+      }
+    ],
+    "text": "Dúnedain. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Arthedain, Rhudaur, Cardolan, Hollin, and The Shire; and may also be played at sites in these regions. May not be played against a company containing a character with Bree as a home site.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "hazard-creature",
@@ -900,6 +945,7 @@
     "keyedTo": [
       {
         "regionTypes": [
+          "wilderness",
           "wilderness"
         ],
         "siteTypes": [
@@ -907,7 +953,12 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
+    "certified": "2026-07-15",
     "text": "Dragon. Two strikes. Attacker chooses defending characters."
   },
   {
@@ -1060,6 +1111,7 @@
       }
     ],
     "effects": [],
+    "certified": "2026-07-12",
     "text": "Spiders. Four strikes."
   },
   {

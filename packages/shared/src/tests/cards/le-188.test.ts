@@ -126,13 +126,15 @@ describe('Gifts as Given of Old (le-188)', () => {
     const asternak = findCharInstanceId(state, RESOURCE_PLAYER, ASTERNAK);
     const cardInstance = findHandCardId(state, RESOURCE_PLAYER, GIFTS_AS_GIVEN_OF_OLD);
 
-    const after = dispatch(state, {
+    // The boost rides the chain of effects; resolve it (both players pass) so
+    // the constraint is applied on resolution — see tw-337 for the regression.
+    const after = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: cardInstance,
       targetCharacterId: asternak,
       optionId: 'influence-boost',
-    });
+    }));
 
     const constraints = after.activeConstraints.filter(
       c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',

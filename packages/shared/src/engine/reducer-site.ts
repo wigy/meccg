@@ -17,18 +17,19 @@ import { logDetail } from './legal-actions/log.js';
 import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
 import { matchesContext } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
 import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { hasSiteFlag, makeCombatState, canAttackAlignment, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
-import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter } from './reducer-organization.js';
+import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from './recompute-derived.js';
+import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
@@ -230,6 +231,17 @@ function handleSiteSelectCompany(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // Rule 2.1.1: the resource player may play resource short-events during any
+  // phase of their turn, including the select-company step (before any company
+  // has been selected). `siteActions` offers these plays here, so the reducer
+  // must accept them — otherwise the engine rejects an action it advertised as
+  // legal, leaving a client (or AI) with no state update and stuck. The event
+  // resolves without changing the site step, so the player then selects a
+  // company as normal.
+  if (action.type === 'play-short-event') {
+    return handlePlayResourceShortEvent(state, action);
+  }
+
   if (action.type !== 'select-company') {
     return wrongActionType(state, action, 'select-company', 'select-company step');
   }
@@ -292,6 +304,14 @@ function handleSiteEnterOrSkip(
     return handleGrantActionApply(state, action);
   }
 
+  // Rule 2.1.1: resource short-events remain playable at the enter-or-skip
+  // decision window (`siteActions` offers them here too). Accept them so the
+  // engine never rejects an action it advertised as legal; the event resolves
+  // without changing the step, leaving the enter-or-skip choice pending.
+  if (action.type === 'play-short-event') {
+    return handlePlayResourceShortEvent(state, action);
+  }
+
   if (action.type !== 'enter-site' && action.type !== 'pass') {
     return { state, error: `Expected 'enter-site' or 'pass' during enter-or-skip step, got '${action.type}'` };
   }
@@ -314,7 +334,7 @@ function handleSiteEnterOrSkip(
   const siteDef = siteInPlay ? defById(state, siteInPlay.definitionId) : undefined;
   const enterCovert = isCovertCompany(company, player, state);
   const autoAttackCount = siteDef && isSiteCard(siteDef)
-    ? getActiveAutoAttacks(state, siteDef).filter(aa => autoAttackAppliesToCompany(aa, enterCovert)).length
+    ? getActiveAutoAttacks(state, siteDef, siteInPlay?.instanceId).filter(aa => autoAttackAppliesToCompany(aa, enterCovert)).length
     : 0;
 
   const skipAutoAttacks = hasSiteFlag(
@@ -397,7 +417,7 @@ function handleRevealOnGuardAttacks(
       && siteDef && isSiteCard(siteDef)
       && !(siteDef as { lairOf?: unknown }).lairOf
       && isReduceAttacksToOneInPlay(state)
-      && getActiveAutoAttacks(state, siteDef).filter(aa =>
+      && getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId).filter(aa =>
         autoAttackAppliesToCompany(aa, isCovertCompany(company, state.players[activePlayerIndex], state)),
       ).length > 1
     ) {
@@ -489,7 +509,7 @@ function handleForewarnedSelectAttack(
     ? defById(state, company.currentSite.definitionId)
     : undefined;
   const autoAttacks = siteDef && isSiteCard(siteDef)
-    ? getActiveAutoAttacks(state, siteDef)
+    ? getActiveAutoAttacks(state, siteDef, company?.currentSite?.instanceId)
     : [];
   if (action.attackIndex < 0 || action.attackIndex >= autoAttacks.length) {
     return { state, error: `Invalid attackIndex ${action.attackIndex} for forewarned-select-attack` };
@@ -548,7 +568,7 @@ function handleSiteAutomaticAttacks(
   const siteDef = state.cardPool[company.currentSite!.definitionId] as import('../types/cards.js').SiteCard;
 
   const attackIndex = siteState.automaticAttacksResolved;
-  const autoAttacks = getActiveAutoAttacks(state, siteDef);
+  const autoAttacks = getActiveAutoAttacks(state, siteDef, company.currentSite!.instanceId);
 
   // Covert/overt status of the defending company (MELE site guardians). It
   // selects which auto-attacks apply (see autoAttackAppliesToCompany) and is
@@ -563,8 +583,21 @@ function handleSiteAutomaticAttacks(
   // standard detainment keying (§3.II.2.R1/B1); the forced flag overrides
   // detainment unconditionally for every alignment.
   const siteDefIdForAttacks = company.currentSite!.definitionId;
-  const effectiveSiteType = getEffectiveSiteType(state, siteDefIdForAttacks, siteDef.siteType);
+  const effectiveSiteType = getEffectiveSiteType(state, siteDefIdForAttacks, siteDef.siteType, company.currentSite!.instanceId);
   const forcedDetainment = siteAutoAttacksForcedDetainment(state, siteDefIdForAttacks);
+  // Alatar wh-1: above 7 stage points, all detainment attacks against this
+  // player's companies become normal — overriding even site-forced detainment.
+  // Awaken Defenders le-103: an in-play long-event makes every automatic-attack
+  // at this site type (Free-hold / Border-hold) resolve as a normal attack.
+  // No Strangers at this Time (as-51): a bound `site-lock` with
+  // `convertDetainmentVsMinion` makes the site's detainment attacks resolve
+  // normally against a minion (Ringwraith) company.
+  // Any source forces the site's automatic-attacks to be non-detainment.
+  const antiMinionLock = siteLockAntiMinion(state, siteDefIdForAttacks);
+  const defenderIsMinion = state.players[activePlayerIndex].alignment === Alignment.Ringwraith;
+  const forcesNormalAttacks = playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
+    || siteTypeForcesAutoAttacksNormal(state, effectiveSiteType)
+    || (defenderIsMinion && antiMinionLock.convertDetainment);
 
   // Advance past attacks that do not apply to this company's covert/overt
   // status (e.g. Minas Tirith's Dúnedain attack, "against overt company
@@ -647,16 +680,17 @@ function handleSiteAutomaticAttacks(
         const inPlayNamesR = buildInPlayNames(state);
         const dupBoostCtxR = { companyId: company.id };
         const dupProwessR = resolveAttackProwess(state, aa.prowess, inPlayNamesR, dupRace, true, undefined, dupBoostCtxR);
-        const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR);
+        const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR, effectiveSiteType);
         const dupBodyR = resolveAttackBody(state, aa.body ?? null, inPlayNamesR, dupRace, dupBoostCtxR);
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
-        const dupDetainmentR = forcedDetainment || isDetainmentAttack({
+        const dupDetainmentR = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
           attackEffects: siteDef.effects,
           attackRace: dupRace as Race | null,
           defendingAlignment: state.players[activePlayerIndex].alignment,
           defendingCovert,
           defendingSiteEffects: siteDef.effects,
           isAutomaticAttack: true,
+          defenderForcesNormalAttacks: forcesNormalAttacks,
         });
         const dupCombatR: CombatState = makeCombatState({
           attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
@@ -695,17 +729,18 @@ function handleSiteAutomaticAttacks(
       const creatureRace2 = normalizeCreatureRace(aa.creatureType);
       const dupBoostCtx = { companyId: company.id };
       const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true, undefined, dupBoostCtx);
-      const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, true, dupBoostCtx);
+      const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, true, dupBoostCtx, effectiveSiteType);
       const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
       const dupState = removeConstraint(state, dupConstraint.id);
-      const dupDetainment = forcedDetainment || isDetainmentAttack({
+      const dupDetainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
         attackEffects: siteDef.effects,
         attackRace: creatureRace2 as Race | null,
         defendingAlignment: state.players[activePlayerIndex].alignment,
         defendingCovert,
         defendingSiteEffects: siteDef.effects,
         isAutomaticAttack: true,
+        defenderForcesNormalAttacks: forcesNormalAttacks,
       });
       const dupCombat: CombatState = makeCombatState({
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
@@ -725,6 +760,61 @@ function handleSiteAutomaticAttacks(
           ...dupState,
           combat: dupCombat,
           phaseState: { ...siteState, automaticAttacksResolved: effectiveResolved + 1 },
+        },
+      };
+    }
+
+    // No Strangers at this Time (as-51): a bound `site-lock` with
+    // `duplicateFirstAutoAttackVsMinion` gives every version of the site one
+    // additional automatic-attack against a minion (Ringwraith) company — an
+    // exact copy of the first automatic-attack listed on the site card. The
+    // copy re-resolves through `resolveAttack*`, so its runtime modifications
+    // ("including all modifications") are re-applied. Faced exactly once
+    // (guarded by `siteLockMinionAttackDone`), after every printed attack and
+    // any race/incite duplicates.
+    if (!siteState.siteLockMinionAttackDone
+      && defenderIsMinion
+      && antiMinionLock.duplicateFirstAutoAttack
+      && autoAttacks.length > 0) {
+      const aa = autoAttacks[0];
+      const inPlayNamesM = buildInPlayNames(state);
+      const creatureRaceM = normalizeCreatureRace(aa.creatureType);
+      const dupBoostCtxM = { companyId: company.id };
+      const dupProwessM = resolveAttackProwess(state, aa.prowess, inPlayNamesM, creatureRaceM, true, undefined, dupBoostCtxM);
+      const dupStrikesM = resolveAttackStrikes(state, aa.strikes, inPlayNamesM, creatureRaceM, true, dupBoostCtxM, effectiveSiteType);
+      const dupBodyM = resolveAttackBody(state, aa.body ?? null, inPlayNamesM, creatureRaceM, dupBoostCtxM);
+      logDetail(`Site: initiating minion-only additional automatic-attack (No Strangers at this Time): ${aa.creatureType} (${dupStrikesM} strikes, ${dupProwessM} prowess)`);
+      const dupDetainmentM = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
+        attackEffects: siteDef.effects,
+        attackRace: creatureRaceM as Race | null,
+        attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
+        defendingAlignment: state.players[activePlayerIndex].alignment,
+        defendingCovert,
+        defendingSiteEffects: siteDef.effects,
+        isAutomaticAttack: true,
+        defenderForcesNormalAttacks: forcesNormalAttacks,
+      });
+      const dupCombatM: CombatState = makeCombatState({
+        attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
+        companyId: company.id,
+        defendingPlayerId: state.activePlayer!,
+        attackingPlayerId: hazardPlayer(state).id,
+        strikesTotal: dupStrikesM,
+        strikeProwess: dupProwessM,
+        creatureBody: dupBodyM,
+        creatureRace: creatureRaceM,
+        assignmentPhase: 'defender',
+        detainment: dupDetainmentM,
+        ...(aa.combatRules?.includes('attacker-chooses-defenders') ? { attackerChoosesDefenders: true } : {}),
+        ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
+        ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
+        ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
+      });
+      return {
+        state: {
+          ...state,
+          combat: dupCombatM,
+          phaseState: { ...siteState, automaticAttacksResolved: effectiveResolved + 1, siteLockMinionAttackDone: true },
         },
       };
     }
@@ -750,7 +840,7 @@ function handleSiteAutomaticAttacks(
   const creatureRace = normalizeCreatureRace(aa.creatureType);
   const aaBoostCtx = { companyId: company.id };
   const baseEffective = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, aaBoostCtx);
-  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, aaBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, aaBoostCtx, effectiveSiteType);
   const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, aaBoostCtx);
 
   // One-shot prowess boost from short-event environments like Choking
@@ -765,13 +855,29 @@ function handleSiteAutomaticAttacks(
     baseEffective,
     { site: { type: siteDef.siteType } },
   );
-  const effectiveProwess = boost.value;
+  let effectiveProwess = boost.value;
   if (boost.consumedIds.length > 0) {
     for (const id of boost.consumedIds) {
       const src = state.activeConstraints.find(c => c.id === id);
       if (src) logDetail(`Site: consuming attribute-modifier (auto-attack.prowess +${boost.value - baseEffective}) from "${cardName(state, src.sourceDefinitionId, '?')}"`);
       boostedState = removeConstraint(boostedState, id);
     }
+  }
+
+  // Arouse Defenders (le-101): a single-use `auto-attack-boost` constraint on
+  // this company boosts the prowess of one automatic-attack (the first faced)
+  // and can make it uncancelable. Consume the first matching constraint.
+  let arouseUncancelable = false;
+  const arouseBoost = boostedState.activeConstraints.find(
+    c => c.target.kind === 'company'
+      && c.target.companyId === company.id
+      && c.kind.type === 'auto-attack-boost',
+  );
+  if (arouseBoost && arouseBoost.kind.type === 'auto-attack-boost') {
+    effectiveProwess += arouseBoost.kind.prowessBonus;
+    arouseUncancelable = arouseBoost.kind.uncancelable;
+    logDetail(`Site: consuming auto-attack-boost (+${arouseBoost.kind.prowessBonus} prowess${arouseBoost.kind.uncancelable ? ', cannot be canceled' : ''}) from "${cardName(state, arouseBoost.sourceDefinitionId, '?')}"`);
+    boostedState = removeConstraint(boostedState, arouseBoost.id);
   }
 
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
@@ -800,7 +906,10 @@ function handleSiteAutomaticAttacks(
     phase: isEachCharacter ? 'resolve-strike' : 'assign-strikes',
     assignmentPhase: isEachCharacter ? 'done' : (aaAttackerChooses ? 'cancel-window' : 'defender'),
     bodyCheckTarget: null,
-    detainment: forcedDetainment || isDetainmentAttack({
+    // `aa.forceDetainment` is set on runtime-injected attacks with no race/keying
+    // (FEAR! FIRE! FOES! as-29 Mode A), for which the §3.II derivation cannot
+    // apply — still overridden to normal when the defender forces normal attacks.
+    detainment: (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
       attackEffects: siteDef.effects,
       attackRace: creatureRace as Race | null,
       // Site auto-attacks are implicitly "keyed to" the site's type (§3.II.2.R1/B1).
@@ -812,13 +921,16 @@ function handleSiteAutomaticAttacks(
       defendingCovert,
       defendingSiteEffects: siteDef.effects,
       isAutomaticAttack: true,
+      defenderForcesNormalAttacks: forcesNormalAttacks,
     }),
     ...(forewarnedIdx !== undefined ? { isolated: true, uncancelable: true } : {}),
     // "cannot be canceled" (Vile Fumes' Gas wh-54, Shelob's Lair le-402)
     // suppresses cancel-attack actions; "wound-eliminates" upgrades any wound
-    // dealt by this attack into immediate elimination.
-    ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
+    // dealt by this attack into immediate elimination. Arouse Defenders
+    // (le-101) makes its boosted attack uncancelable via `arouseUncancelable`.
+    ...((aa.combatRules?.includes('cannot-be-canceled') || arouseUncancelable) ? { uncancelable: true } : {}),
     ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
+    ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
   };
@@ -869,14 +981,16 @@ function buildSiteRepeatedAttackCombat(
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const defendingCovert = isCovertCompany(company, state.players[activePlayerIndex], state);
   const siteDefId = company.currentSite!.definitionId;
-  const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType);
+  const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, company.currentSite!.instanceId);
   const forcedDetainment = siteAutoAttacksForcedDetainment(state, siteDefId);
+  const forcesNormalAttacks = playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
+    || siteTypeForcesAutoAttacksNormal(state, effectiveSiteType);
   const inPlayNames = buildInPlayNames(state);
   const creatureRace = normalizeCreatureRace(aa.creatureType);
   const boostCtx = { companyId: company.id };
   const baseProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, boostCtx);
   const effectiveProwess = baseProwess + opts.prowessBonus;
-  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, boostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, boostCtx, effectiveSiteType);
   const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, boostCtx);
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
   const aaAttackerChooses = aa.combatRules?.includes('attacker-chooses-defenders') ?? false;
@@ -887,7 +1001,7 @@ function buildSiteRepeatedAttackCombat(
     ? facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
     : [];
   const strikesTotalValue = isEachCharacter ? facingChars.length : effectiveStrikes;
-  const detainment = forcedDetainment || isDetainmentAttack({
+  const detainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
     attackEffects: siteDef.effects,
     attackRace: creatureRace as Race | null,
     attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
@@ -895,6 +1009,7 @@ function buildSiteRepeatedAttackCombat(
     defendingCovert,
     defendingSiteEffects: siteDef.effects,
     isAutomaticAttack: true,
+    defenderForcesNormalAttacks: forcesNormalAttacks,
   });
   const base: CombatState = {
     attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex },
@@ -916,6 +1031,7 @@ function buildSiteRepeatedAttackCombat(
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
     ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
+    ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
   };
   if (isEachCharacter && preAssignedStrikes.length > 1) {
@@ -946,7 +1062,7 @@ function maybeTriggerSiteItemTrap(
   const siteDefId = company.currentSite.definitionId;
   const siteDef = defById(state, siteDefId);
   if (!siteDef || !isSiteCard(siteDef)) return null;
-  const autoAttacks = getActiveAutoAttacks(state, siteDef);
+  const autoAttacks = getActiveAutoAttacks(state, siteDef, company.currentSite.instanceId);
   if (autoAttacks.length === 0) return null;
 
   // Find an opponent's Troll-purse attached to this site's location.
@@ -1003,7 +1119,7 @@ function handleSiteTrollPurseAttacks(
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
   const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef) : [];
+  const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId) : [];
 
   if (!reface || reface.resolved >= autoAttacks.length) {
     logDetail('Troll-purse: all re-faced automatic-attacks resolved → play-resources');
@@ -1398,15 +1514,23 @@ function handleSitePlaySiteAutoAttack(
     creatureBody: effectiveSiteDynBody,
     creatureRace,
     assignmentPhase: 'defender',
-    detainment: (company.currentSite ? siteAutoAttacksForcedDetainment(state, company.currentSite.definitionId) : false) || isDetainmentAttack({
-      attackEffects: creatureDef.effects,
-      attackRace: creatureRace as Race | null,
-      attackKeyedTo: creatureDef.keyedTo,
-      inPlayNames,
-      defendingAlignment: state.players[activePlayerIndex].alignment,
-      defendingSiteEffects: siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined,
-      isAutomaticAttack: true,
-    }),
+    detainment: (() => {
+      const dynSiteType = company.currentSite && siteDef && isSiteCard(siteDef)
+        ? getEffectiveSiteType(state, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId)
+        : undefined;
+      const dynForcesNormal = playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
+        || (dynSiteType !== undefined && siteTypeForcesAutoAttacksNormal(state, dynSiteType));
+      return (!dynForcesNormal && (company.currentSite ? siteAutoAttacksForcedDetainment(state, company.currentSite.definitionId) : false)) || isDetainmentAttack({
+        attackEffects: creatureDef.effects,
+        attackRace: creatureRace as Race | null,
+        attackKeyedTo: creatureDef.keyedTo,
+        inPlayNames,
+        defendingAlignment: state.players[activePlayerIndex].alignment,
+        defendingSiteEffects: siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined,
+        isAutomaticAttack: true,
+        defenderForcesNormalAttacks: dynForcesNormal,
+      });
+    })(),
   });
 
   return {
@@ -1651,6 +1775,12 @@ function handleSitePlayResources(
     return handlePlayCharacter(state, action);
   }
 
+  // Manifestation swap (Strider ba-1 → Aragorn II): a resource-style play,
+  // available whenever a normal resource could be played (CRF 22).
+  if (action.type === 'manifestation-swap') {
+    return handleManifestationSwap(state, action);
+  }
+
   // Pass — check whether CvCC attack is possible before advancing
   if (action.type === 'pass') {
     // If the company has entered the site and no opponent interaction has
@@ -1675,6 +1805,32 @@ function handleSitePlayResources(
   // Permanent events — reuse the existing handler (phase-independent)
   if (action.type === 'play-permanent-event') {
     return handlePlayPermanentEvent(state, action);
+  }
+
+  // Eddy in Fate's Tide (ba-57): tap one character toward the two-character tax
+  // that gates ally/item play at any version of the bound site this site phase.
+  if (action.type === 'pay-site-tax') {
+    const char = player.characters[action.characterId];
+    if (!char || char.status === CardStatus.Tapped) {
+      return { state, error: 'pay-site-tax: character is not an untapped member' };
+    }
+    if (!company.characters.includes(action.characterId)) {
+      return { state, error: 'pay-site-tax: character is not in the active company' };
+    }
+    const tappedSoFar = (siteState.eddyTaxTapped ?? 0) + 1;
+    const charName = defById(state, char.definitionId)?.name ?? action.characterId;
+    logDetail(`Site: paying Eddy in Fate's Tide tax — tapping ${charName} (${tappedSoFar} tapped this site phase)`);
+    const taxPlayerIndex = getPlayerIndex(state, action.player);
+    const afterTap = updatePlayer(state, taxPlayerIndex, p => ({
+      ...p,
+      characters: { ...p.characters, [action.characterId]: { ...char, status: CardStatus.Tapped } },
+    }));
+    return {
+      state: {
+        ...afterTap,
+        phaseState: { ...siteState, eddyTaxTapped: tappedSoFar },
+      },
+    };
   }
 
   // Resource short-events (e.g. Marvels Told) — per CoE 2.1.1 they are
@@ -1842,8 +1998,13 @@ function handleSitePlayHeroResource(
   const player = state.players[playerIndex];
   const company = player.companies[siteState.activeCompanyIndex];
 
-  const handCard = findById(player.hand, action.cardInstanceId);
-  if (!handCard) return { state, error: 'Card not found in hand' };
+  // Glove of Radagast (wh-111): a granted ally may be sourced from the discard
+  // pile instead of the hand (`fromDiscard`). Otherwise the card is in hand.
+  const fromDiscard = action.fromDiscard === true;
+  const handCard = fromDiscard
+    ? findById(player.discardPile, action.cardInstanceId)
+    : findById(player.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: fromDiscard ? 'Card not found in discard pile' : 'Card not found in hand' };
   const def = defById(state, handCard.definitionId)!;
   const isItem = isItemCard(def);
   const isAlly = !isItem && isAllyCard(def);
@@ -1854,15 +2015,24 @@ function handleSitePlayHeroResource(
   const charInPlay = player.characters[targetCharId];
   const charDef = defById(state, charInPlay.definitionId);
   const charName = charDef?.name ?? targetCharId;
-  logDetail(`Site: playing ${def.name} on ${charName} — tapping character and site`);
 
-  // Remove card from hand
-  const newHand = removeById(player.hand, handCard.instanceId);
+  // no-tap-on-play (Radagast's Black Bird wh-114): playing this ally taps
+  // neither the controlling character nor the site ("need not tap himself or
+  // the site to do so"). The controller keeps its current status.
+  const noTapOnPlay = isAlly && hasPlayFlag(def, 'no-tap-on-play');
+  logDetail(`Site: playing ${def.name} on ${charName}${fromDiscard ? ' (from discard pile)' : ''}${noTapOnPlay ? ' — no-tap-on-play (leaving character and site untapped)' : ' — tapping character and site'}`);
 
-  // Tap the character and attach the item or ally
+  // Remove card from its source zone (hand, or the discard pile for a granted
+  // discard-sourced ally).
+  const newHand = fromDiscard ? player.hand : removeById(player.hand, handCard.instanceId);
+  const newDiscardPile = fromDiscard
+    ? removeById(player.discardPile, handCard.instanceId)
+    : player.discardPile;
+
+  // Tap the character and attach the item or ally (unless no-tap-on-play)
   const updatedChar: CharacterInPlay = {
     ...charInPlay,
-    status: CardStatus.Tapped,
+    status: noTapOnPlay ? charInPlay.status : CardStatus.Tapped,
     items: isItem
       ? [...charInPlay.items, { instanceId: action.cardInstanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }]
       : charInPlay.items,
@@ -1930,17 +2100,17 @@ function handleSitePlayHeroResource(
     && (itemSubtypeForBounty === 'minor' || itemSubtypeForBounty === 'major' || itemSubtypeForBounty === 'gold-ring');
   const nextThoroughSearchAvailable = usingThoroughSearch ? false : siteState.thoroughSearchAvailable;
 
-  // Thorough Search (and the Saruman's Machinery Technology bonus) prevent site
-  // tap and do not count as the "first resource played" (so the opening
-  // minor-item bonus does not fire for them).
-  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus;
+  // Thorough Search (and the Saruman's Machinery Technology bonus, and a
+  // no-tap-on-play ally) prevent site tap and do not count as the "first
+  // resource played" (so the opening minor-item bonus does not fire for them).
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus && !noTapOnPlay;
   const nextMinorItemAvailableActual = openingBonusActual
     ? true
     : consumingBonus
       ? false
       : siteState.minorItemAvailable;
 
-  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus;
+  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || noTapOnPlay;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
     ...company,
@@ -1948,10 +2118,10 @@ function handleSitePlayHeroResource(
   };
 
   let afterAttach: GameState = {
-    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters, companies: newCompaniesActual })),
+    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscardPile, characters: newCharacters, companies: newCompaniesActual })),
     phaseState: {
       ...siteState,
-      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus) ? siteState.resourcePlayed : true,
+      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || noTapOnPlay) ? siteState.resourcePlayed : true,
       minorItemAvailable: nextMinorItemAvailableActual,
       hoardBountyAvailable: nextHoardBountyAvailable,
       thoroughSearchAvailable: nextThoroughSearchAvailable,
@@ -1965,6 +2135,11 @@ function handleSitePlayHeroResource(
   if (isItem) {
     afterAttach = applyWardToBearer(afterAttach, playerIndex, targetCharId, def, action.cardInstanceId);
     afterAttach = fireCharacterGainsItemChecks(afterAttach, playerIndex, siteState.activeCompanyIndex);
+    // Greed (le-113 / tw-42): if a turn-scoped item-play-corruption-check
+    // constraint is bound to this site, every non-exempt character at the
+    // site (other than the item-player) makes a corruption check modified by
+    // subtracting the item's corruption points.
+    afterAttach = fireItemPlayCorruptionChecks(afterAttach, playerIndex, siteState.activeCompanyIndex, targetCharId, def);
   }
 
   // auto-test-gold-ring site-rule (Rule 9.21): playing a gold-ring item at a
@@ -2002,6 +2177,23 @@ function handleSitePlayHeroResource(
   // When an ally joins, company membership changes — sweep any Fellowship-like events
   if (isAlly) {
     afterAttach = sweepCompanyMembershipChangedEvents(afterAttach, [company.id]);
+  }
+
+  // An Untimely Brood (wh-62): an ally played through the player's Wizardhaven
+  // `grant-ally-play` permission consumes its once-per-site-phase allowance —
+  // record a turn-scoped lock keyed by the granting permanent-event so the
+  // legal-action scanner suppresses a second grant-enabled play this phase.
+  if (isAlly && action.viaWizardhavenAllyGrant) {
+    const grantId = action.viaWizardhavenAllyGrant;
+    const grantCard = afterAttach.players[playerIndex].cardsInPlay.find(c => c.instanceId === grantId);
+    afterAttach = addConstraint(afterAttach, {
+      source: grantId,
+      sourceDefinitionId: grantCard?.definitionId ?? handCard.definitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'player', playerId: action.player },
+      kind: { type: 'granted-action-used', sourceInstanceId: grantId, actionId: 'grant-ally-play' },
+    });
+    logDetail(`An Untimely Brood: recorded once-per-site-phase Wizardhaven ally lock on ${grantId as string}`);
   }
 
   // Troll-purse (dm-95): playing an item at a site bearing an opponent's
@@ -2062,6 +2254,79 @@ function fireCharacterGainsItemChecks(
 }
 
 /**
+ * Greed (le-113 / tw-42): fire the item-play corruption checks. When an item
+ * is played at a site carrying a turn-scoped `item-play-corruption-check`
+ * constraint, every character at the site — except the character who played
+ * the item and any character matching the constraint's `exemptFilter`
+ * (Hobbits, Wizards, Ringwraiths for Greed) — makes a corruption check. Each
+ * check is modified by subtracting the item's printed corruption points.
+ *
+ * Multiple Greed constraints at the same site each fire their own check per
+ * eligible character (the card is `duplication-limit` scope `site` max 1, so
+ * in practice only one is ever bound to a given site — but the loop is written
+ * generally).
+ */
+function fireItemPlayCorruptionChecks(
+  state: GameState,
+  playerIndex: number,
+  companyIndex: number,
+  itemPlayerCharId: CardInstanceId,
+  itemDef: ReturnType<typeof defById>,
+): GameState {
+  const player = state.players[playerIndex];
+  const company = player.companies[companyIndex];
+  const siteDefId = company.currentSite ? resolveInstanceId(state, company.currentSite.instanceId) : undefined;
+  if (!siteDefId) return state;
+
+  const constraints = state.activeConstraints.filter(
+    c => c.kind.type === 'item-play-corruption-check' && c.kind.siteDefinitionId === siteDefId,
+  );
+  if (constraints.length === 0) return state;
+
+  const cp = isItemCard(itemDef) ? itemDef.corruptionPoints : 0;
+  const modifier = cp > 0 ? -cp : 0;
+  const itemName = (itemDef as { name?: string } | undefined)?.name ?? 'item';
+
+  let newState = state;
+  for (const constraint of constraints) {
+    if (constraint.kind.type !== 'item-play-corruption-check') continue;
+    const exemptFilter = constraint.kind.exemptFilter;
+    for (const charId of company.characters) {
+      // The character playing the item need not make a corruption check.
+      if (charId === itemPlayerCharId) continue;
+      const char = player.characters[charId];
+      if (!char) continue;
+      const charDef = defById(newState, char.definitionId);
+      if (!charDef || !isCharacterCard(charDef)) continue;
+      // Exempt characters (Hobbits, Wizards, Ringwraiths) make no check.
+      if (exemptFilter) {
+        const ctx = { target: { race: charDef.race, skills: charDef.skills, name: charDef.name } };
+        if (matchesCondition(exemptFilter, ctx)) {
+          logDetail(`Greed: ${charDef.name} is exempt (matches exempt filter) — no corruption check`);
+          continue;
+        }
+      }
+      logDetail(`Greed: item "${itemName}" (cp ${cp}) played at site — ${charDef.name} makes a corruption check (modifier ${formatSignedNumber(modifier)})`);
+      const possessions = [
+        ...char.items.map(i => i.instanceId),
+        ...char.allies.map(a => a.instanceId),
+        ...char.hazards.map(h => h.instanceId),
+      ];
+      newState = enqueueCorruptionCheck(newState, {
+        source: constraint.source,
+        actor: player.id,
+        scope: { kind: 'phase', phase: Phase.Site },
+        characterId: charId,
+        modifier,
+        reason: `Greed (${itemName})`,
+        possessions,
+      });
+    }
+  }
+  return newState;
+}
+
+/**
  * Handle the declaration of a faction influence attempt.
  *
  * Validates the action, removes the faction card from hand, taps the
@@ -2085,7 +2350,11 @@ function handleInfluenceAttemptDeclare(
 
   const charId = action.influencingCharacterId;
   const charInPlay = player.characters[charId];
-  if (!charInPlay) return { state, error: 'Influencing character not found' };
+  // The influencer may be a character or an ally that "influences factions as
+  // if a character" (Radagast's Black Bird wh-114); the latter lives in some
+  // character's `allies` list rather than in `player.characters`.
+  const influencerAlly = charInPlay ? null : findAttachment(player, 'allies', charId);
+  if (!charInPlay && !influencerAlly) return { state, error: 'Influencing character not found' };
 
   logDetail(`Site: ${def.name} influence attempt declared by ${player.name} — initiating chain`);
 
@@ -2093,15 +2362,33 @@ function handleInfluenceAttemptDeclare(
   const newHand = [...player.hand];
   newHand.splice(cardIdx, 1);
 
-  // Tap the influencing character
-  const updatedChar: CharacterInPlay = {
-    ...charInPlay,
-    status: CardStatus.Tapped,
-  };
+  // Tap the influencer (character or influencing ally)
+  let newState: GameState = updatePlayer(state, playerIndex, p => {
+    const withHand = { ...p, hand: newHand };
+    if (charInPlay) {
+      return { ...withHand, characters: { ...withHand.characters, [charId as string]: { ...withHand.characters[charId], status: CardStatus.Tapped } } };
+    }
+    const tapped = updateAttachment(withHand, 'allies', charId, a => ({ ...a, status: CardStatus.Tapped }));
+    return tapped ? tapped.player : withHand;
+  });
 
-  const newCharacters = { ...player.characters, [charId as string]: updatedChar };
-
-  const newState: GameState = updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
+  // Paid `influence-modification` (Dragons "Roused" factions, e.g. Smaug Roused
+  // le-285): the influencer discards the chosen carried item now, as the cost.
+  // The gained modifier is threaded onto the chain payload → faction-influence
+  // roll (applied whether or not the check then succeeds).
+  let bonusModifier: number | undefined;
+  if (action.discardForBonus) {
+    const discardForBonus = action.discardForBonus;
+    const removed = removeAttachment(newState.players[playerIndex], 'items', discardForBonus.itemInstanceId);
+    if (!removed) return { state, error: 'Item to discard for influence bonus not found' };
+    const discardedItem = toCardInstance(removed.attachment);
+    newState = updatePlayer(newState, playerIndex, () => ({
+      ...removed.player,
+      discardPile: [...removed.player.discardPile, discardedItem],
+    }));
+    bonusModifier = discardForBonus.value;
+    logDetail(`Site: ${def.name} paid influence modification — discarding ${cardName(state, removed.attachment.definitionId, '?')} for ${formatSignedNumber(bonusModifier)}`);
+  }
 
   // Initiate chain — faction card is held by the chain entry, opponent gets priority
   const cardInstance: CardInstance = toCardInstance(handCard);
@@ -2109,6 +2396,7 @@ function handleInfluenceAttemptDeclare(
     type: 'influence-attempt',
     influencingCharacterId: charId,
     placeUnderLeaderControl: action.placeUnderLeaderControl,
+    bonusModifier,
   });
 
   return { state: chainState };
@@ -2124,7 +2412,7 @@ function handleInfluenceAttemptDeclare(
  */
 export function resolveInfluenceAttemptRoll(
   state: GameState,
-  entry: { readonly card: CardInstance | null; readonly declaredBy: import('../index.js').PlayerId; readonly payload: { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId; readonly placeUnderLeaderControl?: boolean } },
+  entry: { readonly card: CardInstance | null; readonly declaredBy: import('../index.js').PlayerId; readonly payload: { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId; readonly placeUnderLeaderControl?: boolean; readonly bonusModifier?: number } },
 ): { state: GameState; effects: GameEffect[] } {
   const siteState = requirePhaseState(state, Phase.Site);
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
@@ -2137,14 +2425,17 @@ export function resolveInfluenceAttemptRoll(
 
   const charId = entry.payload.influencingCharacterId;
   const charInPlay = player.characters[charId];
-  if (!charInPlay) return { state, effects: [] };
+  // The influencer may be a character or an ally that "influences factions as
+  // if a character" (Radagast's Black Bird wh-114).
+  const influencerAlly = charInPlay ? null : findAttachment(player, 'allies', charId);
+  if (!charInPlay && !influencerAlly) return { state, effects: [] };
 
-  const charDef = defById(state, charInPlay.definitionId);
+  const charDef = defById(state, (charInPlay ?? influencerAlly!.attachment).definitionId);
   const charName = charDef?.name ?? charId;
 
   // Calculate influence modifier using current state (post-on-guard effects)
   let modifier = 0;
-  if (charDef && isCharacterCard(charDef)) {
+  if (charInPlay && charDef && isCharacterCard(charDef)) {
     // Use free DI (total DI minus mind cost of followers), not the raw card stat
     modifier += availableDI(state, charId, player);
 
@@ -2155,15 +2446,20 @@ export function resolveInfluenceAttemptRoll(
         name: def.name,
         race: def.race,
         playableAt: buildFactionPlayableAt(def),
+        playableRegions: buildFactionPlayableRegions(state, def),
       },
       controller: {
         inPlay: buildControllerInPlayNames(state, entry.declaredBy),
         factionRaces: buildControllerFactionRaces(state, entry.declaredBy),
+        wizard: playerWizardName(state, player),
       },
     };
 
     const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
     charEffects.push(...collectCompanyAllyEffects(state, charInPlay, resolverCtx));
+    // Player-scoped ongoing influence bonuses from bare in-play permanent-events
+    // (Great Army of the North ba-38: +1 vs Orc/Troll factions while in play).
+    charEffects.push(...collectPlayerInPlayInfluenceEffects(state, entry.declaredBy, resolverCtx));
 
     if (def.effects) {
       for (const effect of def.effects) {
@@ -2184,6 +2480,23 @@ export function resolveInfluenceAttemptRoll(
     }
     modifier += dslDI;
 
+    // Faction-influence-restriction environment (e.g. Mordor in Arms dm-72):
+    // a hazard permanent-event in play penalises faction influence at sites in
+    // named regions and may suppress specific card boosts ("cannot be done with
+    // Muster"). Has no effect on a minion (Ringwraith) influencer when so flagged.
+    const influencingCompanyForRegion = player.companies[siteState.activeCompanyIndex];
+    const currentSiteDef = influencingCompanyForRegion?.currentSite
+      ? defById(state, influencingCompanyForRegion.currentSite.definitionId)
+      : undefined;
+    const siteRegionName = (currentSiteDef as { region?: string } | undefined)?.region;
+    const influencerIsMinion = player.alignment === Alignment.Ringwraith;
+    const { modifier: restrictionModifier, blockedCardNames: blockedBoostCardNames } =
+      collectFactionInfluenceRestriction(state, siteRegionName, influencerIsMinion);
+    if (restrictionModifier !== 0) {
+      logDetail(`Faction-influence-restriction at ${siteRegionName}: ${formatSignedNumber(restrictionModifier)}${blockedBoostCardNames.size > 0 ? `, blocks [${[...blockedBoostCardNames].join(', ')}]` : ''}`);
+      modifier += restrictionModifier;
+    }
+
     // One-shot check-modifier constraints for influence (e.g. Muster): consume after use
     const consumedConstraintIds: string[] = [];
     for (const constraint of state.activeConstraints) {
@@ -2191,6 +2504,17 @@ export function resolveInfluenceAttemptRoll(
       if (constraint.kind.check !== 'influence') continue;
       if (constraint.target.kind !== 'character') continue;
       if (constraint.target.characterId !== charId) continue;
+      // A constraint that opted into a specific influence flavour via `when`
+      // (e.g. Mine or No One's ba-68 → opponent-influence only) is left for that
+      // path; only consume it here if its condition matches this faction check.
+      if (constraint.kind.when && !matchesContext(constraint.kind.when, resolverCtx)) continue;
+      const boostSourceName = (defById(state, constraint.sourceDefinitionId) as { name?: string } | undefined)?.name;
+      if (boostSourceName && blockedBoostCardNames.has(boostSourceName)) {
+        // "cannot be done with <named card>": the boost is suppressed (still consumed).
+        consumedConstraintIds.push(constraint.id as string);
+        logDetail(`Influence boost from "${boostSourceName}" suppressed by faction-influence-restriction (consumed, no effect)`);
+        continue;
+      }
       modifier += constraint.kind.value;
       consumedConstraintIds.push(constraint.id as string);
       logDetail(`Influence one-shot constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);
@@ -2198,6 +2522,57 @@ export function resolveInfluenceAttemptRoll(
     if (consumedConstraintIds.length > 0) {
       state = { ...state, activeConstraints: state.activeConstraints.filter(c => !consumedConstraintIds.includes(c.id as string)) };
     }
+
+    // Player-scoped influence check-modifier constraints (Terror Heralds Doom
+    // ba-78: "+2 to all influence attempts this turn by any of your
+    // characters"): applied to every influence check by any character of the
+    // targeted player, and NOT consumed (persist for the constraint's scope).
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'influence') continue;
+      if (constraint.target.kind !== 'player') continue;
+      if (constraint.target.playerId !== player.id) continue;
+      modifier += constraint.kind.value;
+      logDetail(`Influence player-wide constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string}`);
+    }
+  } else if (influencerAlly && charDef && isAllyCard(charDef)) {
+    // Ally influencing "as if a character" (Radagast's Black Bird wh-114): its
+    // printed direct influence plus the player-scoped/region influence
+    // modifiers that apply to any influencer.
+    const allyDI = charDef.directInfluence ?? 0;
+    modifier += allyDI;
+    logDetail(`Influence attempt by ally ${charName}: DI ${allyDI}`);
+
+    const influencingCompanyForRegion = player.companies[siteState.activeCompanyIndex];
+    const currentSiteDef = influencingCompanyForRegion?.currentSite
+      ? defById(state, influencingCompanyForRegion.currentSite.definitionId)
+      : undefined;
+    const siteRegionName = (currentSiteDef as { region?: string } | undefined)?.region;
+    const influencerIsMinion = player.alignment === Alignment.Ringwraith;
+    const { modifier: restrictionModifier } = collectFactionInfluenceRestriction(state, siteRegionName, influencerIsMinion);
+    if (restrictionModifier !== 0) {
+      modifier += restrictionModifier;
+      logDetail(`Faction-influence-restriction at ${siteRegionName}: ${formatSignedNumber(restrictionModifier)}`);
+    }
+
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'influence') continue;
+      if (constraint.target.kind !== 'player') continue;
+      if (constraint.target.playerId !== player.id) continue;
+      modifier += constraint.kind.value;
+      logDetail(`Influence player-wide constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string}`);
+    }
+  }
+
+  // Paid `influence-modification` bonus (Dragons "Roused" factions, e.g. Smaug
+  // Roused le-285): the influencer discarded an item on declare to gain this
+  // modifier. The item is already in the discard pile; the modifier applies
+  // whether or not the check now succeeds.
+  const paidBonus = entry.payload.bonusModifier ?? 0;
+  if (paidBonus !== 0) {
+    modifier += paidBonus;
+    logDetail(`Influence paid-modification bonus ${formatSignedNumber(paidBonus)} (item discarded on declare)`);
   }
 
   // Roll 2d6 + modifier vs influence number
@@ -2246,9 +2621,16 @@ export function resolveInfluenceAttemptRoll(
 
   if (total >= influenceNumber) {
     logDetail(`Influence attempt succeeded (${total} >= ${influenceNumber})`);
+    // Await the Onset (wh-96): a faction influenced into play while it is in play
+    // is "placed under Await the Onset" — pinned to 1 MP regardless of other
+    // cards. The pin is stamped on the instance so it persists per faction.
+    const mpPin = playedAfterFactionMpPin(state, player);
+    if (mpPin !== undefined) {
+      logDetail(`Site: ${def.name} placed under Await the Onset — pinned to ${mpPin} marshalling point(s)`);
+    }
     const factionEntry = willPlaceUnderControl
-      ? { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped, controlledBy: charId }
-      : { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped };
+      ? { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped, controlledBy: charId, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}) }
+      : { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}) };
     const newCardsInPlay = [...player.cardsInPlay, factionEntry];
     newPlayers[playerIndex] = { ...newPlayers[playerIndex], cardsInPlay: newCardsInPlay };
 
@@ -2256,6 +2638,20 @@ export function resolveInfluenceAttemptRoll(
     // additional-minor-item window. Taking the faction under control leaves
     // the site untapped, so it does not open that window.
     const openMinorItemBonus = !siteState.resourcePlayed && !skipSiteTap;
+
+    // To Fealty Sworn (ba-33): record when the active company successfully plays
+    // a unique hero faction at a Free-hold that is not Bag End, so the
+    // `company-context` play-condition can open the window to attach it to a
+    // Hobbit in the company during this same site phase.
+    const siteDefForFaction = siteInPlay ? defById(state, siteInPlay.definitionId) : undefined;
+    const factionAtFreeHold = def.unique
+      && def.cardType === 'hero-resource-faction'
+      && !!siteDefForFaction && isSiteCard(siteDefForFaction)
+      && siteDefForFaction.siteType === 'free-hold'
+      && siteDefForFaction.name !== 'Bag End';
+    if (factionAtFreeHold) {
+      logDetail(`Site: ${def.name} is a unique hero faction played at Free-hold ${siteDefForFaction.name} — opening To Fealty Sworn window`);
+    }
 
     return {
       state: {
@@ -2266,6 +2662,8 @@ export function resolveInfluenceAttemptRoll(
           ...siteState,
           resourcePlayed: true,
           minorItemAvailable: openMinorItemBonus ? true : siteState.minorItemAvailable,
+          factionPlayedThisSitePhase: true,
+          ...(factionAtFreeHold ? { uniqueHeroFactionPlayedAtFreeHold: true } : {}),
         },
       },
       effects: [rollEffect],
@@ -2315,6 +2713,9 @@ function handleOpponentInfluenceAttempt(
 
   let targetMind = 0;
   let controllerDI = 0;
+  // Target identity for the opponent-influence resolver context (booster gating).
+  let targetRace = '';
+  let targetName = '';
 
   if (action.targetKind === 'character') {
     const targetChar = opponent.characters[action.targetInstanceId];
@@ -2325,6 +2726,8 @@ function handleOpponentInfluenceAttempt(
     // A `control-restriction` (e.g. Wizard's Myrmidon) overrides the
     // influence-to-control threshold the opponent must beat.
     targetMind = controlCostOf(state, targetChar, targetDef.mind) ?? targetDef.mind;
+    targetRace = targetDef.race;
+    targetName = targetDef.name;
 
     // Controller DI (rule 10.12 step 5) — only if under DI, not GI
     if (targetChar.controlledBy !== 'general') {
@@ -2342,6 +2745,8 @@ function handleOpponentInfluenceAttempt(
         if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) return { state, error: 'Target is not an ally' };
         targetMind = allyEffectiveMind(state, allyInst);
         controllerDI = availableDI(state, oppCharId, opponent);
+        // Allies carry no race field; only kind matters for booster gating.
+        targetName = allyDef?.name ?? '';
         allyFound = true;
         break;
       }
@@ -2357,6 +2762,28 @@ function handleOpponentInfluenceAttempt(
     // not a character).
     targetMind = factionDef.inPlayInfluenceNumber ?? factionDef.influenceNumber;
     controllerDI = 0;
+    targetRace = factionDef.race;
+    targetName = factionDef.name;
+  } else if (action.targetKind === 'item') {
+    // CoE rule 8.3: influencing an item — the comparison value is the mind of
+    // the character controlling the item, and its controller's unused DI is
+    // subtracted (rule 10.12 step 5 / 8.3 step 5). The identical-item reveal is
+    // enforced at legal-action time and required to declare the attempt.
+    let itemFound = false;
+    for (const [oppCharId, oppChar] of characterEntries(opponent)) {
+      const itemInst = oppChar.items.find(i => i.instanceId === action.targetInstanceId);
+      if (itemInst) {
+        const itemDef = defById(state, itemInst.definitionId);
+        const ctrlDef = defById(state, oppChar.definitionId);
+        targetMind = ctrlDef && isCharacterCard(ctrlDef) && ctrlDef.mind !== null ? ctrlDef.mind : 0;
+        controllerDI = availableDI(state, oppCharId, opponent);
+        // Items carry no race field; only kind matters for booster gating.
+        targetName = itemDef?.name ?? '';
+        itemFound = true;
+        break;
+      }
+    }
+    if (!itemFound) return { state, error: 'Target item not found' };
   }
 
   const charDef = defById(state, charInPlay.definitionId);
@@ -2373,33 +2800,23 @@ function handleOpponentInfluenceAttempt(
     const revealedHandCard = newHand[revealIdx];
     const revealedDef = defById(state, revealedHandCard.definitionId);
 
-    // Validate: must be same name as target
-    let targetName: string | undefined;
-    if (action.targetKind === 'character') {
-      const tDef = state.cardPool[opponent.characters[action.targetInstanceId]?.definitionId];
-      targetName = tDef?.name;
-    } else if (action.targetKind === 'faction') {
-      const targetFaction = findById(opponent.cardsInPlay, action.targetInstanceId);
-      const tDef = targetFaction ? defById(state, targetFaction.definitionId) : undefined;
-      targetName = tDef?.name;
-    } else {
-      for (const ch of Object.values(opponent.characters)) {
-        const ally = ch.allies.find(a => a.instanceId === action.targetInstanceId);
-        if (ally) {
-          const aDef = defById(state, ally.definitionId);
-          targetName = aDef?.name;
-          break;
-        }
-      }
-    }
+    // Validate: must be same name as the target (computed above for every kind).
     if (!revealedDef || revealedDef.name !== targetName) {
       return { state, error: 'Revealed card does not match target name' };
     }
 
     revealedCard = toCardInstance(revealedHandCard);
     newHand.splice(revealIdx, 1);
-    effectiveTargetMind = 0;
-    logDetail(`Opponent influence: revealing identical ${revealedDef.name} from hand — target mind treated as 0`);
+    // CoE rule 8.3: the comparison value is treated as zero only when an
+    // identical *non-item* card was revealed. Influencing an item requires
+    // revealing an identical item (rule 8.1) but the value — the controlling
+    // character's mind — is NOT zeroed.
+    if (action.targetKind !== 'item') {
+      effectiveTargetMind = 0;
+      logDetail(`Opponent influence: revealing identical ${revealedDef.name} from hand — target mind treated as 0`);
+    } else {
+      logDetail(`Opponent influence: revealing identical item ${revealedDef.name} from hand (required; mind not zeroed)`);
+    }
   }
 
   // Tap the influencing character
@@ -2422,7 +2839,83 @@ function handleOpponentInfluenceAttempt(
   // CoE rules 8.W1, 8.R1, 8.F1, 8.B1: cross-alignment influence penalty.
   const crossAlignmentPenalty = crossAlignmentInfluencePenalty(player.alignment, opponent.alignment);
 
-  logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${effectiveTargetMind}${revealedCard ? ' [revealed]' : ''}, controller DI: ${controllerDI}, cross-alignment penalty: ${crossAlignmentPenalty})`);
+  // Prophet of Doom (wh-106): when the named influencer (Pallando) makes this
+  // attempt while the override is in play, substitute half (rounded up) of the
+  // player's unused general influence — capped — for the influencer's unused
+  // direct influence, and subtract the inclusive region distance to the target.
+  const override = getOpponentInfluenceOverride(state, player);
+  const overrideActive = override !== undefined && override.influencer === charName;
+  let influencerContribution = influencerDI;
+  let regionPenalty = 0;
+  if (overrideActive && override) {
+    if (override.generalInfluenceSubstitution) {
+      const unusedGI = effectiveGeneralInfluence(state, player.id) - player.generalInfluenceUsed;
+      influencerContribution = generalInfluenceSubstitutionValue(unusedGI, override.generalInfluenceSubstitution);
+      logDetail(`Prophet of Doom: substituting general influence — unused GI ${unusedGI} → contribution ${influencerContribution} (was DI ${influencerDI})`);
+    }
+    if (override.regionDistancePenalty) {
+      const influencerRegion = companySiteRegion(state, findCharacterCompany(player.companies, charId));
+      let targetRegions: readonly string[];
+      if (action.targetKind === 'faction') {
+        const tf = findById(opponent.cardsInPlay, action.targetInstanceId);
+        const fdef = tf ? defById(state, tf.definitionId) : undefined;
+        targetRegions = fdef ? factionPlayableSiteRegions(state, fdef) : [];
+      } else {
+        let holderId = action.targetInstanceId;
+        if (action.targetKind === 'ally') {
+          for (const [cid, ch] of characterEntries(opponent)) {
+            if (ch.allies.some(a => a.instanceId === action.targetInstanceId)) { holderId = cid; break; }
+          }
+        }
+        const r = companySiteRegion(state, findCharacterCompany(opponent.companies, holderId));
+        targetRegions = r ? [r] : [];
+      }
+      regionPenalty = influenceRegionPenalty(state, influencerRegion, targetRegions);
+      logDetail(`Prophet of Doom: region penalty ${regionPenalty} (from ${influencerRegion ?? '?'} to [${targetRegions.join(', ')}])`);
+    }
+  }
+
+  // Fold in (and consume) one-shot influence `check-modifier` constraints that
+  // target the influencer and opt into this opponent-influence attempt via
+  // their `when` (e.g. Mine or No One's ba-68: +10 against an item/ally/Orc or
+  // Troll faction). Constraints with no `when` belong to the faction-influence
+  // roll and are left untouched here. The context exposes the target's kind and
+  // race so the booster can gate on the printed target list.
+  let boostModifier = 0;
+  const consumedBoostIds: string[] = [];
+  const oppInfluenceCtx: ResolverContext = {
+    reason: 'opponent-influence-check',
+    ...(charDef && isCharacterCard(charDef) ? { bearer: buildBearerContext(charDef) } : {}),
+    target: { kind: action.targetKind, race: targetRace, name: targetName },
+  };
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'check-modifier') continue;
+    if (constraint.kind.check !== 'influence') continue;
+    if (constraint.target.kind !== 'character' || constraint.target.characterId !== charId) continue;
+    if (!constraint.kind.when) continue; // no `when` → faction-influence booster, not for this path
+    if (!matchesContext(constraint.kind.when, oppInfluenceCtx)) continue;
+    boostModifier += constraint.kind.value;
+    consumedBoostIds.push(constraint.id as string);
+    logDetail(`Opponent influence boost ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);
+  }
+
+  // Fold in conditional direct-influence stat-modifiers borne by the influencer
+  // that gate on the opponent-influence target context — e.g. Trifling Ring
+  // (le-346): "+3 to direct influence against characters" applies only when the
+  // target is a character, not a faction/ally/item. Only `when`-gated modifiers
+  // are considered here: unconditional DI is already baked into effective stats
+  // and folded into `influencerContribution` via availableDI above, so including
+  // it again would double-count. Conditional modifiers are excluded from
+  // effective DI (no target context at effective-stats time) and applied here.
+  const conditionalInfluencerEffects = collectCharacterEffects(state, charInPlay, oppInfluenceCtx)
+    .filter(e => e.effect.when !== undefined);
+  const conditionalInfluencerDI = resolveStatModifiers(conditionalInfluencerEffects, 'direct-influence', 0, oppInfluenceCtx);
+  if (conditionalInfluencerDI !== 0) {
+    influencerContribution += conditionalInfluencerDI;
+    logDetail(`Opponent influence: conditional influencer DI ${formatSignedNumber(conditionalInfluencerDI)} (target ${action.targetKind}) → contribution ${influencerContribution}`);
+  }
+
+  logDetail(`Opponent influence attempt: ${charName} rolls ${roll.die1} + ${roll.die2} = ${attackerRoll} (contribution: ${influencerContribution}, opponent GI: ${opponentGI}, target mind: ${effectiveTargetMind}${revealedCard ? ' [revealed]' : ''}, controller DI: ${controllerDI}, cross-alignment penalty: ${crossAlignmentPenalty}, region penalty: ${regionPenalty}, boost: ${formatSignedNumber(boostModifier)})`);
 
   // Enqueue a pending opponent-influence-defend resolution for the
   // hazard player. The unified pending system replaces the old
@@ -2430,6 +2923,7 @@ function handleOpponentInfluenceAttempt(
   const stateAfterAttempt: GameState = {
     ...stateAfterTap,
     rng, cheatRollTotal,
+    activeConstraints: stateAfterTap.activeConstraints.filter(c => !consumedBoostIds.includes(c.id as string)),
     phaseState: {
       ...siteState,
       opponentInteractionThisTurn: 'influence',
@@ -2449,11 +2943,13 @@ function handleOpponentInfluenceAttempt(
           targetKind: action.targetKind,
           targetPlayer: action.targetPlayer,
           attackerRoll,
-          influencerDI,
+          influencerDI: influencerContribution,
           opponentGI,
           targetMind: effectiveTargetMind,
           controllerDI,
           crossAlignmentPenalty,
+          regionPenalty,
+          boostModifier,
           revealedCard,
         },
       },
@@ -2493,9 +2989,12 @@ export function resolveOpponentInfluenceDefend(
   // Calculate final result:
   // attacker roll + influencer DI - opponent GI - defender roll
   //   - controller DI + cross-alignment penalty (non-positive; 0 or -5)
-  const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI + attempt.crossAlignmentPenalty;
+  //   - region penalty (Prophet of Doom wh-106; 0 for normal same-site attempts)
+  const regionPenalty = attempt.regionPenalty ?? 0;
+  const boostModifier = attempt.boostModifier ?? 0;
+  const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI + attempt.crossAlignmentPenalty - regionPenalty + boostModifier;
 
-  logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) = ${finalResult} vs mind ${attempt.targetMind}`);
+  logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) - ${regionPenalty} (region) + ${boostModifier} (boost) = ${finalResult} vs mind ${attempt.targetMind}`);
 
   const newPlayers = clonePlayers(state);
 
@@ -2505,9 +3004,13 @@ export function resolveOpponentInfluenceDefend(
     // Find the company of the influenced target (for membership-change sweep)
     const opponent2 = state.players[opponentIndex];
     let influencedCompanyId: import('../index.js').CompanyId | undefined;
-    if (attempt.targetKind === 'ally') {
+    if (attempt.targetKind === 'ally' || attempt.targetKind === 'item') {
+      // Allies and items sit on a controlling character — locate that character's company.
       for (const [charId, ch] of characterEntries(opponent2)) {
-        if (ch.allies.some(a => a.instanceId === attempt.targetInstanceId)) {
+        const holds = attempt.targetKind === 'ally'
+          ? ch.allies.some(a => a.instanceId === attempt.targetInstanceId)
+          : ch.items.some(i => i.instanceId === attempt.targetInstanceId);
+        if (holds) {
           influencedCompanyId = findCharacterCompany(opponent2.companies, charId)?.id;
           break;
         }
@@ -2518,7 +3021,7 @@ export function resolveOpponentInfluenceDefend(
 
     // Check if the influenced target is a leader (for leader-leaves-company sweep)
     let influencedIsLeader = false;
-    if (attempt.targetKind !== 'ally') {
+    if (attempt.targetKind === 'character') {
       const targetChar = opponent2.characters[attempt.targetInstanceId];
       if (targetChar) {
         const targetDef = defById(state, targetChar.definitionId);
@@ -2527,6 +3030,22 @@ export function resolveOpponentInfluenceDefend(
     }
 
     discardInfluencedCard(newPlayers, opponentIndex, attempt, state);
+
+    // The revealed identical card was removed from the attacker's hand when the
+    // attempt was declared. On success the attacker MAY immediately play it
+    // (CoE rule 8.4) — that optional play is not automated, so the un-played
+    // card simply returns to hand rather than vanishing (preserving the
+    // no-card-disappears invariant). For an item attempt the reveal is
+    // mandatory, so this always runs when influencing an item.
+    if (attempt.revealedCard) {
+      const attackerIndex = playerIndex;
+      const attacker = newPlayers[attackerIndex];
+      newPlayers[attackerIndex] = {
+        ...attacker,
+        hand: [...attacker.hand, { instanceId: attempt.revealedCard.instanceId, definitionId: attempt.revealedCard.definitionId }],
+      };
+      logDetail(`Revealed card ${attempt.revealedCard.instanceId as string} returns to hand after successful influence (rule 8.4 play not automated)`);
+    }
 
     const afterInfluence = cleanupEmptyCompanies({ ...state, players: newPlayers, rng, cheatRollTotal });
     let afterSweep = influencedCompanyId
@@ -2594,6 +3113,26 @@ function discardInfluencedCard(
         const newDiscard = [...opponent.discardPile, toCardInstance(ally)];
         players[opponentIndex] = { ...opponent, characters: newChars, discardPile: newDiscard };
         logDetail(`Discarded ally ${ally.instanceId}`);
+        return;
+      }
+    }
+    return;
+  }
+
+  if (pending.targetKind === 'item') {
+    // Find and remove the item from its bearing character, discarding it to the
+    // opponent's discard pile (CoE 8.3: the influenced card is discarded).
+    for (const [charId, charInPlay] of characterEntries(opponent)) {
+      const itemIdx = charInPlay.items.findIndex(i => i.instanceId === pending.targetInstanceId);
+      if (itemIdx !== -1) {
+        const item = charInPlay.items[itemIdx];
+        const newItems = [...charInPlay.items];
+        newItems.splice(itemIdx, 1);
+        const updatedChar = { ...charInPlay, items: newItems };
+        const newChars = { ...opponent.characters, [charId]: updatedChar };
+        const newDiscard = [...opponent.discardPile, toCardInstance(item)];
+        players[opponentIndex] = { ...opponent, characters: newChars, discardPile: newDiscard };
+        logDetail(`Discarded item ${item.instanceId as string}`);
         return;
       }
     }
@@ -2671,7 +3210,7 @@ function discardInfluencedCard(
         return sum + (def && isCharacterCard(def) && def.mind !== null ? def.mind : 0);
       }, 0);
 
-    if (currentGIUsed + followerMind <= effectiveGeneralInfluence(state, opponent.id)) {
+    if (currentGIUsed + followerMind <= generalInfluenceControlLimit(state, opponent.id)) {
       // Move to GI
       newCharacters[followerId] = { ...follower, controlledBy: 'general' };
       logDetail(`Follower ${followerId} falls to GI (mind ${followerMind}, GI used ${currentGIUsed})`);
@@ -2981,7 +3520,8 @@ function hasCvCCAttackTargets(
     if (!sameSite) continue;
     const attackerCovert = isCovertCompany(attackingCompany, attackingPlayer, state);
     const defenderCovert = isCovertCompany(opponentCompany, opponent, state);
-    if (!canAttackAlignment(attackingPlayer.alignment, opponent.alignment, attackerCovert, defenderCovert)) continue;
+    if (!canAttackAlignment(attackingPlayer.alignment, opponent.alignment, attackerCovert, defenderCovert)
+      && !cvccAttackPermitted(state, attackingPlayer, attackingCompany, opponent, opponentCompany)) continue;
     return true;
   }
   return false;
@@ -3048,7 +3588,8 @@ function handleDeclareCompanyAttack(
 
   const attackerCovert = isCovertCompany(company, player, state);
   const defenderCovert = isCovertCompany(targetCompany, hazardPlayerState, state);
-  if (!canAttackAlignment(player.alignment, hazardPlayerState.alignment, attackerCovert, defenderCovert)) {
+  if (!canAttackAlignment(player.alignment, hazardPlayerState.alignment, attackerCovert, defenderCovert)
+    && !cvccAttackPermitted(state, player, company, hazardPlayerState, targetCompany)) {
     return { state, error: 'Alignment restrictions prevent this CvCC attack' };
   }
 

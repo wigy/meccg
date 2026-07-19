@@ -1,0 +1,401 @@
+{
+  "id": "challenge-deck-l",
+  "name": "(L) Wolves!",
+  "alignment": "minion",
+  "notes": "Go to Ruins & Lairs to play all of the wolves-allies with the covert company. In the first turn you should go to Ost-in-Edhil to play the first allies (you have to use Strange Rations to go five regions). With the second company you go to Sarn Goriwing and Mount Gundabad to play the factions and the major items. Later in the game Uvatha will move to the Lonely Mountain to influence Smaug.\n\n### Starting Companies (2) at Dol Guldur\n\n- Dunlending Spy, Jerrek with Foul-smelling Paste, Uchel, Pon Opar with Strange Rations, Pon Opar controls Uchel.\n- Orc Captain, Orc Tracker, Orc Captain controls Orc Tracker.\n\n### Resource Play\n\nYour characters are not so strong. So you have to use wisely Down Down to Goblin-town to reduce the number of creatures playable against you. The automatic attacks are not so strong, so you should defeat them. Otherwise you can use Crept Along Cleverly or A Nice Place to Hide to cancel these attacks.\n\n### Uvatha\n\nUvatha is waiting for Black Rider, Smaug Roused and Words of Menace and Deceit. To make him useful in the meantime you should sideboard resources or use his special ability to bring one card from the discard pile into your play deck.\n\n### Hazard Play\n\nUse the creatures to generate an attack of at least five strikes. Then play Left Behind to form a separate company with that character and after that you can play Alone and Unadvised. The corruption checks can hurt.",
+  "pool": [
+    {
+      "name": "Dunlending Spy",
+      "card": "le-9",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Jerrek",
+      "card": "le-17",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Uchel",
+      "card": "le-47",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Orc Captain",
+      "card": "le-31",
+      "qty": 2,
+      "favourite": true
+    },
+    {
+      "name": "Orc Tracker",
+      "card": "le-34",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Pon Opar",
+      "card": "le-37",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Foul-smelling Paste",
+      "card": "le-310",
+      "qty": 1
+    },
+    {
+      "name": "Strange Rations",
+      "card": "le-345",
+      "qty": 1
+    },
+    {
+      "name": "Eradan",
+      "card": "le-10",
+      "qty": 1
+    },
+    {
+      "name": "Gorbag",
+      "card": "le-11",
+      "qty": 1
+    },
+    {
+      "name": "Grishnakh",
+      "card": "le-12",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "Uvatha the Ringwraith",
+        "card": "le-57",
+        "qty": 3
+      },
+      {
+        "name": "Lagduf",
+        "card": "le-18",
+        "qty": 1
+      },
+      {
+        "name": "Nevido Smod",
+        "card": "le-27",
+        "qty": 1
+      },
+      {
+        "name": "Odoacer",
+        "card": "le-28",
+        "qty": 1
+      }
+    ],
+    "hazards": [
+      {
+        "name": "Chill Douser",
+        "card": "dm-106",
+        "qty": 3
+      },
+      {
+        "name": "Corsairs of Umbar",
+        "card": "tw-24",
+        "qty": 2
+      },
+      {
+        "name": "Dunlending Raiders",
+        "card": "td-19",
+        "qty": 2
+      },
+      {
+        "name": "Durin's Folk",
+        "card": "as-8",
+        "qty": 3
+      },
+      {
+        "name": "Ghouls",
+        "card": "le-73",
+        "qty": 3
+      },
+      {
+        "name": "Alone and Unadvised",
+        "card": "as-24",
+        "qty": 3
+      },
+      {
+        "name": "Call of Home",
+        "card": "le-105",
+        "qty": 1
+      },
+      {
+        "name": "Faces of the Dead",
+        "card": "dm-57",
+        "qty": 2
+      },
+      {
+        "name": "Left Behind",
+        "card": "td-41",
+        "qty": 3
+      },
+      {
+        "name": "Lure of Expedience",
+        "card": "le-122",
+        "qty": 2
+      },
+      {
+        "name": "Lure of the Senses",
+        "card": "le-124",
+        "qty": 3
+      },
+      {
+        "name": "Muster Disperses",
+        "card": "le-126",
+        "qty": 1
+      },
+      {
+        "name": "Seized by Terror",
+        "card": "dm-88",
+        "qty": 2
+      }
+    ],
+    "resources": [
+      {
+        "name": "High Helm",
+        "card": "le-313",
+        "qty": 1
+      },
+      {
+        "name": "Orcs of Gundabad",
+        "card": "le-276",
+        "qty": 1
+      },
+      {
+        "name": "Orcs of Mirkwood",
+        "card": "le-277",
+        "qty": 1
+      },
+      {
+        "name": "Palantír of Orthanc",
+        "card": "le-334",
+        "qty": 1
+      },
+      {
+        "name": "Regiment of Black Crows",
+        "card": "as-76",
+        "qty": 1
+      },
+      {
+        "name": "Sable Shield",
+        "card": "le-341",
+        "qty": 1
+      },
+      {
+        "name": "The Arkenstone",
+        "card": "le-418",
+        "qty": 1
+      },
+      {
+        "name": "The Warg-king",
+        "card": "le-158",
+        "qty": 1
+      },
+      {
+        "name": "War-warg",
+        "card": "le-156",
+        "qty": 3
+      },
+      {
+        "name": "War-wolf",
+        "card": "le-157",
+        "qty": 3
+      },
+      {
+        "name": "A Nice Place to Hide",
+        "card": "le-160",
+        "qty": 3
+      },
+      {
+        "name": "Crept Along Cleverly",
+        "card": "wh-43",
+        "qty": 3
+      },
+      {
+        "name": "Dark Tryst",
+        "card": "as-80",
+        "qty": 2
+      },
+      {
+        "name": "Down Down to Goblin-town",
+        "card": "le-181",
+        "qty": 3
+      },
+      {
+        "name": "Voices of Malice",
+        "card": "le-250",
+        "qty": 2
+      },
+      {
+        "name": "Weigh All Things to a Nicety",
+        "card": "le-253",
+        "qty": 3
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Barrow-downs",
+      "card": "le-353",
+      "qty": 1
+    },
+    {
+      "name": "Carn Dûm",
+      "card": "le-359",
+      "qty": 1
+    },
+    {
+      "name": "Dol Guldur",
+      "card": "le-367",
+      "qty": 1
+    },
+    {
+      "name": "Goblin-gate",
+      "card": "le-378",
+      "qty": 1
+    },
+    {
+      "name": "Isengard",
+      "card": "le-384",
+      "qty": 1
+    },
+    {
+      "name": "Moria",
+      "card": "le-392",
+      "qty": 1
+    },
+    {
+      "name": "Mount Gundabad",
+      "card": "le-395",
+      "qty": 1
+    },
+    {
+      "name": "Ost-in-Edhil",
+      "card": "le-397",
+      "qty": 1
+    },
+    {
+      "name": "Sarn Goriwing",
+      "card": "le-401",
+      "qty": 1
+    },
+    {
+      "name": "The Lonely Mountain",
+      "card": "le-387",
+      "qty": 1
+    },
+    {
+      "name": "The White Towers",
+      "card": "le-412",
+      "qty": 1
+    },
+    {
+      "name": "Weathertop",
+      "card": "as-169",
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Black Rider",
+      "card": "le-170",
+      "qty": 2
+    },
+    {
+      "name": "Gifts as Given of Old",
+      "card": "le-188",
+      "qty": 1
+    },
+    {
+      "name": "Goblins of Goblin-gate",
+      "card": "le-265",
+      "qty": 1
+    },
+    {
+      "name": "Orc Quarrels",
+      "card": "le-216",
+      "qty": 1
+    },
+    {
+      "name": "Orcs of Moria",
+      "card": "le-278",
+      "qty": 1
+    },
+    {
+      "name": "Piercing All Shadows",
+      "card": "wh-47",
+      "qty": 1
+    },
+    {
+      "name": "Smaug Roused",
+      "card": "le-285",
+      "qty": 1
+    },
+    {
+      "name": "Sudden Call",
+      "card": "le-235",
+      "qty": 1
+    },
+    {
+      "name": "Words of Menace and Deceit",
+      "card": "le-258",
+      "qty": 1
+    },
+    {
+      "name": "Ambusher",
+      "card": "le-59",
+      "qty": 1
+    },
+    {
+      "name": "Arthadan Rangers",
+      "card": "le-60",
+      "qty": 1
+    },
+    {
+      "name": "Bairanax Ahunt",
+      "card": "td-4",
+      "qty": 1
+    },
+    {
+      "name": "Barrow-wight",
+      "card": "le-61",
+      "qty": 1
+    },
+    {
+      "name": "Cave Worm",
+      "card": "le-65",
+      "qty": 1
+    },
+    {
+      "name": "Corpse-candle",
+      "card": "le-67",
+      "qty": 1
+    },
+    {
+      "name": "Covetous Thoughts",
+      "card": "le-107",
+      "qty": 1
+    },
+    {
+      "name": "Exhalation of Decay",
+      "card": "dm-55",
+      "qty": 1
+    },
+    {
+      "name": "Foolish Words",
+      "card": "le-112",
+      "qty": 1
+    },
+    {
+      "name": "Itangast Ahunt",
+      "card": "td-37",
+      "qty": 1
+    }
+  ]
+}

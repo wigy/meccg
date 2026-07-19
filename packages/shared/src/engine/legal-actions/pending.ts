@@ -30,19 +30,20 @@ import type {
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard } from '../../types/cards.js';
-import { CardStatus, Skill, cardStatusToName } from '../../types/common.js';
+import { CardStatus, Skill, SiteType, cardStatusToName } from '../../types/common.js';
 import type { CardDefinitionId } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getItemGrantedSkills } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions } from './organization.js';
-import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt } from '../recompute-derived.js';
+import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf } from '../reducer-utils.js';
+import { isBalrogAvatarDef } from '../../state-utils.js';
 import { asViable as viable } from './evaluated.js';
 
 
@@ -59,6 +60,46 @@ export function stayHerAppetiteRollActions(
   const isHazardPlayer = state.activePlayer !== actor;
   if (!isHazardPlayer) return [];
   return viable([{ type: 'stay-her-appetite-roll', player: actor }]);
+}
+
+/**
+ * Legal actions while a `transfer-returned-item` resolution is at the head of
+ * the queue (Pilfer Anything Unwatched as-33). The returned character's owner
+ * may transfer one of the discarded items to a company-mate, or decline. Emits
+ * one action per `(item, mate)` pair plus a single decline action.
+ */
+export function transferReturnedItemActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'transfer-returned-item') return [];
+  const kind = top.kind;
+  const owner = state.players[kind.ownerPlayerIndex];
+  if (!owner || owner.id !== actor) return [];
+
+  const actions: EvaluatedAction[] = [];
+  // Always allow declining ("may be transferred").
+  actions.push({ action: { type: 'transfer-returned-item', player: actor }, viable: true });
+
+  const company = owner.companies.find(c => c.id === kind.companyId);
+  if (!company) return actions;
+
+  for (const itemId of kind.itemInstanceIds) {
+    const inst = owner.discardPile.find(c => c.instanceId === itemId);
+    if (!inst) continue;
+    const itemDef = defById(state, inst.definitionId);
+    if (!isItemCard(itemDef)) continue;
+    const itemName = itemDef?.name ?? (itemId as string);
+    for (const mateId of company.characters) {
+      logDetail(`transfer-returned-item: offering ${itemName} → ${mateId as string}`);
+      actions.push({
+        action: { type: 'transfer-returned-item', player: actor, itemInstanceId: itemId, targetCharacterId: mateId },
+        viable: true,
+      });
+    }
+  }
+  return actions;
 }
 
 /**
@@ -217,6 +258,9 @@ export function opponentInfluenceDefendActions(
   if (attempt.crossAlignmentPenalty !== 0) {
     parts.push(`Cross-alignment penalty: ${attempt.crossAlignmentPenalty}`);
   }
+  if (attempt.regionPenalty && attempt.regionPenalty !== 0) {
+    parts.push(`Region penalty: -${attempt.regionPenalty}`);
+  }
 
   const explanation = `${influencerName} influences ${targetName}: ${parts.join(', ')}`;
 
@@ -280,7 +324,7 @@ function cancelInfluenceActions(
 
             // Check skill restriction (character's innate skills + item-granted skills)
             if (cancelEffect.requiredSkill) {
-              const allSkills = [...charDef.skills, ...getItemGrantedSkills(state, charData)];
+              const allSkills = getEffectiveSkills(state, charData, charDef);
               if (!allSkills.includes(cancelEffect.requiredSkill)) continue;
             }
 
@@ -328,17 +372,20 @@ export function factionInfluenceRollActions(
   if (!def || !isFactionCard(def)) return [];
 
   const charInPlay = player.characters[influencingCharacterId];
-  if (!charInPlay) return [];
+  // The influencer may be a character or an ally that "influences factions as
+  // if a character" (Radagast's Black Bird wh-114).
+  const influencerAlly = charInPlay ? null : findAttachment(player, 'allies', influencingCharacterId);
+  if (!charInPlay && !influencerAlly) return [];
 
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : '?';
+  const charDef = defById(state, (charInPlay ?? influencerAlly!.attachment).definitionId);
+  const charName = (isCharacterCard(charDef) || isAllyCard(charDef)) ? charDef.name : '?';
   const factionName = def.name;
 
   // Calculate influence modifier using current state (post-chain effects)
   let modifier = 0;
   const parts: string[] = [];
 
-  if (charDef && isCharacterCard(charDef)) {
+  if (charInPlay && charDef && isCharacterCard(charDef)) {
     const freeDI = availableDI(state, influencingCharacterId, player);
     modifier += freeDI;
     parts.push(`DI ${freeDI}`);
@@ -350,6 +397,7 @@ export function factionInfluenceRollActions(
         name: def.name,
         race: def.race,
         playableAt: buildFactionPlayableAt(def),
+        playableRegions: buildFactionPlayableRegions(state, def),
       },
       controller: {
         inPlay: buildControllerInPlayNames(state, playerId),
@@ -387,6 +435,21 @@ export function factionInfluenceRollActions(
       if (constraint.target.characterId !== influencingCharacterId) continue;
       modifier += constraint.kind.value;
       parts.push(`constraint ${formatSignedNumber(constraint.kind.value)}`);
+    }
+  } else if (influencerAlly && charDef && isAllyCard(charDef)) {
+    // Ally influencing "as if a character" (Radagast's Black Bird wh-114): its
+    // printed direct influence plus any player-scoped influence bonuses.
+    const allyDI = charDef.directInfluence ?? 0;
+    modifier += allyDI;
+    parts.push(`DI ${allyDI}`);
+
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'influence') continue;
+      if (constraint.target.kind !== 'player') continue;
+      if (constraint.target.playerId !== playerId) continue;
+      modifier += constraint.kind.value;
+      parts.push(`player-wide ${formatSignedNumber(constraint.kind.value)}`);
     }
   }
 
@@ -742,6 +805,39 @@ export function corruptionCheckActions(
     logDetail(`One-shot check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id}`);
   }
 
+  // Company-scoped corruption check-modifier constraints: applied to every
+  // matching corruption check by a character in the *targeted* company, and
+  // NOT consumed — they persist for the constraint's scope. The checked
+  // character's own company must match the constraint's companyId.
+  //
+  // The constraint's optional `when` narrows which of the company's characters
+  // benefit, evaluated against the checking character. Ren the Ringwraith
+  // (le-56) modifies checks "by minions in any one of your companies" and so
+  // carries a `minion-character` gate; Shifter of Hues (wh-115) aids "the
+  // characters in one company" wholesale and carries none.
+  const checkCompany = findCharacterCompany(player.companies, characterId);
+  if (checkCompany && isCharacterCard(charDef)) {
+    const targetCtx = {
+      target: {
+        cardType: charDef.cardType,
+        race: charDef.race,
+        name: charDef.name,
+      },
+    } as Record<string, unknown>;
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'corruption') continue;
+      if (constraint.target.kind !== 'company') continue;
+      if (constraint.target.companyId !== checkCompany.id) continue;
+      if (constraint.kind.when && !matchesCondition(constraint.kind.when, targetCtx)) {
+        logDetail(`Company-wide corruption check-modifier from constraint ${constraint.id} does not apply to ${charDef.name}`);
+        continue;
+      }
+      totalModifier += constraint.kind.value;
+      logDetail(`Company-wide corruption check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id}`);
+    }
+  }
+
   // Build the source-card keyword list so item check-modifiers can gate
   // on what produced the check (e.g. Wizard's Staff keys off source.keywords
   // $includes 'spell'). The source is the PendingResolution's source card.
@@ -758,6 +854,19 @@ export function corruptionCheckActions(
     const def = resolveDef(state, compChar.instanceId);
     return isCharacterCard(def) && def.race === 'troll' && (def.keywords ?? []).includes('leader');
   }) ?? false;
+
+  // Rule 10.05: a character in the same company as a Ringwraith or the
+  // Balrog receives an additional +2 modifier to corruption checks.
+  const hasCorruptingAvatar = company?.characters.some(cid => {
+    const compChar = player.characters[cid];
+    if (!compChar) return false;
+    const def = resolveDef(state, compChar.instanceId);
+    return isCharacterCard(def) && (def.race === 'ringwraith' || isBalrogAvatarDef(def));
+  }) ?? false;
+  if (hasCorruptingAvatar) {
+    totalModifier += 2;
+    logDetail(`Corruption check +2 (rule 10.05): company includes a Ringwraith/Balrog avatar`);
+  }
 
   const checkContext = { reason: 'corruption-check', source: { keywords: sourceKeywords }, company: { hasTrollLeader, characterCount: companyCharCount } };
 
@@ -932,17 +1041,29 @@ function applyOneConstraint(
   base: EvaluatedAction[],
   constraint: ActiveConstraint,
 ): EvaluatedAction[] {
+  // A card in play may cancel the effects of specific named cards (The Way is
+  // Shut, dm-98): while suppressed, the constraint imposes nothing.
+  if (constraintSuppressedByCancelEffect(state, constraint)) return base;
   switch (constraint.kind.type) {
     case 'site-phase-do-nothing':
       return applySitePhaseDoNothing(state, playerId, base, constraint);
     case 'no-creature-hazards-on-company':
       return applyNoCreatureHazardsOnCompany(state, playerId, base, constraint);
+    case 'only-creatures-keyed-to-site':
+      return applyOnlyCreaturesKeyedToSite(state, playerId, base, constraint);
+    case 'only-creatures-keyed-to-site-at-ruins-lairs':
+      return applyOnlyCreaturesKeyedToSiteAtRuinsLairs(state, playerId, base, constraint);
     case 'company-cannot-move':
       // Enforced directly by the org-phase `plan-movement` emitter
       // (`planMovementActions`) and reducer (`handlePlanMovement`) — no broad
       // legal-action filtering needed here. Used by Hide in Dark Places (le-192).
       return base;
     case 'check-modifier':
+      return base;
+    case 'site-path-reduction':
+      // Roam the Waste (ba-73): consulted directly when a moving company's
+      // resolved site path is built (`applySitePathReduction` in mh-steps.ts) —
+      // no broad legal-action filtering needed here.
       return base;
     case 'deny-scout-resources':
       return applyDenyScoutResources(state, playerId, base, constraint);
@@ -995,6 +1116,10 @@ function applyOneConstraint(
       // Consumed directly by `manifestations.ts` `getActiveAutoAttacks` —
       // no broad legal-action filtering needed here.
       return base;
+    case 'extra-automatic-attack':
+      // FEAR! FIRE! FOES! (as-29) Mode A — consumed directly by
+      // `manifestations.ts` `getActiveAutoAttacks`; no filtering needed here.
+      return base;
     case 'influence-at-site-modifier':
       // Consulted directly by the faction-influence emitter in
       // `legal-actions/site.ts` — no broad legal-action filtering needed.
@@ -1003,6 +1128,11 @@ function applyOneConstraint(
       // Consulted directly by the corruption-removal action emitter
       // (see legal-actions/site.ts / organization.ts) — no broad
       // legal-action filtering needed here.
+      return base;
+    case 'granted-action-used':
+      // Once-per-turn grant-action lock, consulted directly by the
+      // grant-action scanner (grantedActionActivations) — no broad
+      // legal-action filtering needed here. Used by Strangling Coils (ba-76).
       return base;
     case 'company-stat-modifier':
       // Consumed directly by the effects resolver via
@@ -1022,6 +1152,11 @@ function applyOneConstraint(
     case 'bearer-cannot-untap':
       // Enforced directly by `reducer-untap.ts` `performUntap` —
       // no legal-action filtering needed here.
+      return base;
+    case 'skip-next-untap':
+      // Fled into Darkness (ba-18): consumed directly by `reducer-untap.ts`
+      // `performUntap` (character stays tapped once, then the card is
+      // discarded) — no broad legal-action filtering needed here.
       return base;
     case 'attack-card-played':
       // Pure marker for the duplication-limit mechanism; consulted directly
@@ -1049,10 +1184,37 @@ function applyOneConstraint(
       // (negative MP, 0 GI), and checked by any action computer that requires
       // the acting character to be free — no broad legal-action filtering here.
       return base;
+    case 'character-pressed':
+      // Press-gang (ba-22): the held character is off to the side in no company,
+      // so it never surfaces in company-driven action menus. Its negative MP / 0
+      // GI / no-untap are enforced in `recompute-derived.ts` / `reducer-untap.ts`.
+      return base;
     case 'tidings-attacks-queue':
       // Consumed directly by `finalizeCombat` in `reducer-combat.ts` to
       // chain successive Tidings of Bold Spies attacks — no broad legal-action
       // filtering needed here.
+      return base;
+    case 'great-hunt-reveal':
+    case 'great-hunt-active':
+      // The Great Hunt (wh-91) state holders: the reveal queue is consumed by
+      // combat finalization and the discard tracker by the post-reduce sweep —
+      // neither restricts legal actions here.
+      return base;
+    case 'item-play-corruption-check':
+      // Greed (le-113 / tw-42): consumed directly by the site-phase item-play
+      // handler (`fireItemPlayCorruptionChecks` in `reducer-site.ts`), which
+      // enqueues the corruption checks when an item is played at the bound
+      // site — no broad legal-action filtering needed here.
+      return base;
+    case 'free-attack-cancel':
+      // Darkness Wielded (ba-55): the deferred free-cancel grant is offered
+      // directly by `cancelAttackActions` (combat.ts) and consumed by
+      // `handleCancelAttack` — no broad legal-action filtering needed here.
+      return base;
+    case 'auto-attack-boost':
+      // Arouse Defenders (le-101): consumed directly by the site auto-attack
+      // initiation in `reducer-site.ts` (adds prowess / marks the attack
+      // uncancelable) — no broad legal-action filtering needed here.
       return base;
   }
 }
@@ -1231,6 +1393,135 @@ function applyNoCreatureHazardsOnCompany(
 }
 
 /**
+ * Secret Passage (tw-325): drop every play-hazard action whose target company
+ * matches the constraint *and* whose card is a hazard creature that is NOT
+ * keyed to the company's destination site (by site-type or site-name). Only
+ * site-keyed creatures survive; region-keyed creatures are blocked. Other
+ * hazard categories and plays against other companies are unaffected.
+ */
+function applyOnlyCreaturesKeyedToSite(
+  state: GameState,
+  _playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.target.kind !== 'company') return base;
+  const protectedCompany = constraint.target.companyId;
+
+  return base.filter(ea => {
+    if (ea.action.type !== 'play-hazard') return true;
+    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
+    if (targetCompanyId !== protectedCompany) return true;
+    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
+    if (!cardInstId) return true;
+    const def = resolveDef(state, cardInstId);
+    if (!def || def.cardType !== 'hazard-creature') return true;
+    if (isCreatureKeyedToDestinationSite(state, def)) {
+      logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site): "${def.name}" is site-keyed — allowed`);
+      return true;
+    }
+    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site): dropping non-site-keyed creature "${def.name}" against company ${protectedCompany as string}`);
+    return false;
+  });
+}
+
+/**
+ * Down Down to Goblin-town (le-181): like `applyOnlyCreaturesKeyedToSite`, but
+ * the restriction is gated on the target company moving to a Ruins & Lairs
+ * [{R}]. When the company's destination is a Ruins & Lairs, drop every
+ * hazard-creature play against it that is not keyed to that site (region-keyed
+ * creatures, "by type or name"); site-keyed creatures survive. When the company
+ * moves anywhere else the card is inert and every hazard is allowed. The
+ * destination type is read from the M/H phase state (the same source the
+ * creature-keying matchers use), which reflects the active moving company — the
+ * only company for which `play-hazard` actions are generated.
+ */
+function applyOnlyCreaturesKeyedToSiteAtRuinsLairs(
+  state: GameState,
+  _playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.target.kind !== 'company') return base;
+  const protectedCompany = constraint.target.companyId;
+
+  // R&L gate: the restriction only bites if the company moves to a Ruins &
+  // Lairs. Otherwise the card imposes nothing.
+  const ps = state.phaseState;
+  if (ps.phase !== Phase.MovementHazard || ps.destinationSiteType !== SiteType.RuinsAndLairs) {
+    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-at-ruins-lairs): destination is not a Ruins & Lairs — no restriction`);
+    return base;
+  }
+
+  return base.filter(ea => {
+    if (ea.action.type !== 'play-hazard') return true;
+    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
+    if (targetCompanyId !== protectedCompany) return true;
+    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
+    if (!cardInstId) return true;
+    const def = resolveDef(state, cardInstId);
+    if (!def || def.cardType !== 'hazard-creature') return true;
+    if (isCreatureKeyedToDestinationSite(state, def)) {
+      logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-at-ruins-lairs): "${def.name}" is site-keyed — allowed`);
+      return true;
+    }
+    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-at-ruins-lairs): dropping region-keyed creature "${def.name}" against company ${protectedCompany as string}`);
+    return false;
+  });
+}
+
+/**
+ * Whether the given creature is keyed to the target company's destination site
+ * by site-type or site-name. Reads the M/H phase state's `destinationSiteType`
+ * / `destinationSiteName` — the same source the creature-keying matchers use —
+ * so the whitelist agrees with normal keying. Used to decide which creatures
+ * survive Secret Passage's `only-creatures-keyed-to-site` restriction.
+ */
+function isCreatureKeyedToDestinationSite(
+  state: GameState,
+  def: import('../../types/cards-hazards.js').CreatureCard,
+): boolean {
+  const ps = state.phaseState;
+  if (ps.phase !== Phase.MovementHazard) return false;
+  const destType = ps.destinationSiteType;
+  const destName = ps.destinationSiteName;
+  return def.keyedTo.some(k =>
+    (k.siteTypes && destType !== null && k.siteTypes.includes(destType))
+    || (k.siteNames && destName !== null && k.siteNames.includes(destName)),
+  );
+}
+
+/**
+ * Whether an active constraint is currently suppressed by an in-play card
+ * carrying a `cancel-card-effects` effect that names the constraint's source
+ * card. This is the generic "cancels the effects of X" mechanism: while The
+ * Way is Shut (dm-98) is in play it lists "Secret Passage" and "Secret
+ * Entrance", so the creature-play restrictions those cards placed on a company
+ * are treated as absent. Matching is by source card name, so an unrelated card
+ * sharing the same constraint kind (e.g. Stealth's `no-creature-hazards-on-company`)
+ * is never affected.
+ */
+function constraintSuppressedByCancelEffect(
+  state: GameState,
+  constraint: ActiveConstraint,
+): boolean {
+  const sourceName = defById(state, constraint.sourceDefinitionId)?.name;
+  if (!sourceName) return false;
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      for (const eff of getCardEffects(def)) {
+        if (eff.type === 'cancel-card-effects' && eff.cardNames.includes(sourceName)) {
+          logDetail(`Constraint ${constraint.id as string} suppressed: "${defById(state, card.definitionId)?.name}" cancels the effects of "${sourceName}"`);
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Check whether the target company's destination site carries the
  * `creatures-always-keyed-to-site` rule and the given creature is
  * keyed to the site's original type or name. Used to bypass the
@@ -1337,9 +1628,39 @@ export function selectCardBearerActions(
   const cardDefId = resolveInstanceId(state, cardInstanceId);
   const cardLabel = cardName(state, cardDefId!, '?');
 
+  // Honour the source card's `play-target: character` filter, if any: the
+  // bearer that taps to keep the card must satisfy the same filter used at play
+  // time. Descent through Fire (ba-56) restricts the bearer to The Balrog
+  // ("tap The Balrog or discard this card"); cards with no filter (Burning
+  // Rick le-173, The Windlord Found Me dm-164) offer every untapped character.
+  const sourceDef = cardDefId ? defById(state, cardDefId) : undefined;
+  const bearerFilter = sourceDef
+    ? getCardEffects(sourceDef).find(
+        (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+      )?.filter
+    : undefined;
+
   for (const charId of company.characters) {
     const ch = defPlayer.characters[charId];
     if (!ch || ch.status !== CardStatus.Untapped) continue;
+    if (bearerFilter) {
+      const chDef = defById(state, ch.definitionId);
+      if (!chDef || !isCharacterCard(chDef)) continue;
+      const ctx: Record<string, unknown> = {
+        target: {
+          race: chDef.race,
+          skills: getEffectiveSkills(state, ch, chDef),
+          status: ch.status,
+          name: chDef.name,
+          itemNames: defNamesOf(state, ch.items),
+          isAvatar: isAvatarCharacter(chDef),
+        },
+      };
+      if (!matchesCondition(bearerFilter, ctx)) {
+        logDetail(`select-card-bearer: ${charId as string} does not match "${cardLabel}" bearer filter — skipping`);
+        continue;
+      }
+    }
     logDetail(`select-card-bearer: offering ${charId as string} as bearer for "${cardLabel}"`);
     actions.push({
       action: {
@@ -1405,6 +1726,61 @@ export function discardOneCompanyItemActions(
     }
   }
 
+  return actions;
+}
+
+/**
+ * Legal actions for a `force-discard-card` pending resolution. The actor (the
+ * card-player's opponent) must discard a card:
+ *
+ * - Fixed-candidate mode (Rolled down to the Sea wh-29): one action per
+ *   pre-computed candidate ring instance.
+ * - Any-from-hand mode (Khamûl the Easterling tw-47): one action per card
+ *   currently in the actor's hand (candidates are recomputed each step as the
+ *   hand shrinks).
+ */
+export function forceDiscardCardActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'force-discard-card') return [];
+  const actions: EvaluatedAction[] = [];
+
+  if (top.kind.anyFromHand) {
+    const actorIdx = state.players.findIndex(p => p.id === actor);
+    const hand = actorIdx >= 0 ? state.players[actorIdx].hand : [];
+    const remaining = top.kind.remaining ?? 1;
+    for (const c of hand) {
+      const cardDef = defById(state, c.definitionId);
+      const cardName = cardDef?.name ?? (c.instanceId as string);
+      logDetail(`force-discard-card: offering hand card "${cardName}" (${c.instanceId as string}) — ${remaining} left to discard`);
+      actions.push({
+        action: {
+          type: 'force-discard-card' as const,
+          player: actor,
+          cardInstanceId: c.instanceId,
+        },
+        viable: true,
+      });
+    }
+    return actions;
+  }
+
+  for (const instanceId of top.kind.candidateInstanceIds) {
+    const defId = resolveInstanceId(state, instanceId);
+    const cardDef = defId ? defById(state, defId) : undefined;
+    const cardName = cardDef?.name ?? (instanceId as string);
+    logDetail(`force-discard-card: offering ring "${cardName}" (${instanceId as string})`);
+    actions.push({
+      action: {
+        type: 'force-discard-card' as const,
+        player: actor,
+        cardInstanceId: instanceId,
+      },
+      viable: true,
+    });
+  }
   return actions;
 }
 
@@ -1674,4 +2050,297 @@ export function havenRestoreCharacterActions(
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
 
   return actions;
+}
+
+/**
+ * Legal actions while a `left-behind-rejoin` resolution is pending (Left Behind,
+ * td-41): the controlling player may fold the separate "left behind" company
+ * back into its original company (`left-behind-rejoin`) or keep it separate
+ * (`pass`).
+ */
+export function leftBehindRejoinActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'left-behind-rejoin') return [];
+  const { companyId, originCompanyId } = top.kind;
+
+  const ownerPlayer = state.players.find(p => p.id === actor);
+  if (!ownerPlayer) return [];
+  const company = companyById(ownerPlayer.companies, companyId);
+  const origin = companyById(ownerPlayer.companies, originCompanyId);
+  const actions: EvaluatedAction[] = [];
+  // Only offer the merge if both companies still exist at the same site.
+  if (company && origin && company.currentSite && origin.currentSite
+    && company.currentSite.instanceId === origin.currentSite.instanceId) {
+    logDetail(`left-behind-rejoin: offering to rejoin ${companyId as string} into ${originCompanyId as string}`);
+    actions.push({
+      action: { type: 'left-behind-rejoin' as const, player: actor, companyId },
+      viable: true,
+    });
+  }
+
+  // "may rejoin" — pass is always available (keeps the company separate).
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+
+  return actions;
+}
+
+/**
+ * Legal actions while an `arrange-deck-top` resolution is pending (Revealed to
+ * all Watchers, dm-85): the player orders the set-aside cards sitting on top of
+ * their play deck, picking the next-highest card each step. One
+ * `arrange-deck-top-card` action per top-of-deck card not yet chosen; the order
+ * is mandatory (no pass).
+ */
+export function arrangeDeckTopActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'arrange-deck-top') return [];
+  const { count, orderedInstanceIds } = top.kind;
+  const player = playerById(state, actor);
+  if (!player) return [];
+
+  const chosen = new Set(orderedInstanceIds);
+  const topCards = player.playDeck.slice(0, count);
+  const actions: EvaluatedAction[] = [];
+  for (const c of topCards) {
+    if (chosen.has(c.instanceId)) continue;
+    const name = cardName(state, c.definitionId);
+    logDetail(`arrange-deck-top: offering to place "${name}" next (position ${orderedInstanceIds.length + 1}/${count})`);
+    actions.push({
+      action: {
+        type: 'arrange-deck-top-card' as const,
+        player: actor,
+        cardInstanceId: c.instanceId,
+      },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
+ * Legal actions while a `reveal-choose-to-hand` resolution is pending (Eyes of
+ * Mandos, dm-126): the player must choose exactly one of the revealed
+ * top-of-deck cards to put into their hand. One `choose-revealed-card` action
+ * per revealed card; the choice is mandatory (no pass).
+ */
+export function revealChooseToHandActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'reveal-choose-to-hand') return [];
+  const { revealedInstanceIds } = top.kind;
+  const player = playerById(state, actor);
+  if (!player) return [];
+
+  // The revealed cards are still on top of the play deck; offer each as a pick.
+  const onDeck = new Set(player.playDeck.map(c => c.instanceId as string));
+  const actions: EvaluatedAction[] = [];
+  for (const id of revealedInstanceIds) {
+    if (!onDeck.has(id as string)) continue;
+    const card = player.playDeck.find(c => c.instanceId === id)!;
+    const name = cardName(state, card.definitionId);
+    logDetail(`reveal-choose-to-hand: offering to take "${name}" into hand`);
+    actions.push({
+      action: {
+        type: 'choose-revealed-card' as const,
+        player: actor,
+        cardInstanceId: id,
+      },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
+ * Legal actions while a `reveal-remove-from-discard` resolution is pending
+ * (Aware of their Ways, dm-46): the card-player may choose one of the revealed
+ * non-unique cards in the opponent's discard pile to remove from the game, or
+ * `pass` to remove none ("You may choose…"). One `remove-revealed-card` action
+ * per removable card, plus a pass.
+ */
+export function revealRemoveFromDiscardActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'reveal-remove-from-discard') return [];
+  const { removableInstanceIds, opponentId } = top.kind;
+  const opponent = playerById(state, opponentId);
+  if (!opponent) return [];
+
+  // The removable cards are still in the opponent's discard pile; offer each.
+  const inPile = new Set(opponent.discardPile.map(c => c.instanceId as string));
+  const actions: EvaluatedAction[] = [];
+  for (const id of removableInstanceIds) {
+    if (!inPile.has(id as string)) continue;
+    const card = opponent.discardPile.find(c => c.instanceId === id)!;
+    const name = cardName(state, card.definitionId);
+    logDetail(`reveal-remove-from-discard: offering to remove "${name}" from play`);
+    actions.push({
+      action: {
+        type: 'remove-revealed-card' as const,
+        player: actor,
+        cardInstanceId: id,
+      },
+      viable: true,
+    });
+  }
+  // "You may" — declining is always allowed.
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  return actions;
+}
+
+/**
+ * Legal actions while a `desire-belly-choose-card` resolution is pending
+ * (Desire All for Thy Belly, ba-16, step 1): the card-player must choose one of
+ * the revealed top-of-deck cards to show to the opponent. One
+ * `desire-choose-shown-card` action per revealed card; the choice is mandatory
+ * (no pass).
+ */
+export function desireBellyChooseCardActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'desire-belly-choose-card') return [];
+  const { revealedInstanceIds, opponentId } = top.kind;
+  const opponent = playerById(state, opponentId);
+  if (!opponent) return [];
+  const inDeck = new Set(opponent.playDeck.map(c => c.instanceId as string));
+  const actions: EvaluatedAction[] = [];
+  for (const id of revealedInstanceIds) {
+    if (!inDeck.has(id as string)) continue;
+    const card = opponent.playDeck.find(c => c.instanceId === id)!;
+    logDetail(`Desire All for Thy Belly: offering to show "${cardName(state, card.definitionId)}"`);
+    actions.push({
+      action: { type: 'desire-choose-shown-card' as const, player: actor, cardInstanceId: id },
+      viable: true,
+    });
+  }
+  return actions;
+}
+
+/**
+ * Legal actions while a `desire-belly-choose-penalty` resolution is pending
+ * (Desire All for Thy Belly, ba-16, step 2): the opponent must choose to either
+ * remove the shown card from the game or permanently reduce his hand size by
+ * one. Both options are offered; the choice is mandatory (no pass).
+ */
+export function desireBellyChoosePenaltyActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'desire-belly-choose-penalty') return [];
+  void state;
+  return [
+    {
+      action: { type: 'desire-choose-penalty' as const, player: actor, penalty: 'remove-from-game' as const },
+      viable: true,
+    },
+    {
+      action: { type: 'desire-choose-penalty' as const, player: actor, penalty: 'reduce-hand-size' as const },
+      viable: true,
+    },
+  ];
+}
+
+/**
+ * Legal actions while an `agent-play-manifestation-offer` resolution is pending
+ * (My Precious dm-29): the defender may tap one untapped character in the target
+ * company to play Gollum from hand (discarding My Precious), or pass. One
+ * `play-agent-manifestation` action per eligible character; pass always offered.
+ */
+export function agentPlayManifestationActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'agent-play-manifestation-offer') return [];
+  const { companyId, agentId, manifestationCardName } = top.kind;
+  const actorPlayer = playerById(state, actor);
+  const actions: EvaluatedAction[] = [];
+  if (actorPlayer) {
+    const company = companyById(actorPlayer.companies, companyId);
+    const gollum = actorPlayer.hand.find(c => (defById(state, c.definitionId) as { name?: string })?.name === manifestationCardName);
+    if (company && gollum) {
+      for (const charId of company.characters) {
+        const ch = actorPlayer.characters[charId];
+        if (!ch || ch.status !== CardStatus.Untapped) continue;
+        actions.push({
+          action: {
+            type: 'play-agent-manifestation' as const,
+            player: actor,
+            agentId,
+            characterId: ch.instanceId,
+            manifestationCardInstanceId: gollum.instanceId,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  return actions;
+}
+
+/**
+ * Legal actions while a `great-hunt-source` resolution is pending (The Great
+ * Hunt wh-91): the controller chooses whether the opponent reveals from their
+ * play deck or discard pile. The choice is mandatory (no pass) — the card is
+ * already in play and the process must run.
+ */
+export function greatHuntSourceActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'great-hunt-source') return [];
+  const { opponentId } = top.kind;
+  const opponent = playerById(state, opponentId);
+  if (!opponent) return [];
+  const actions: EvaluatedAction[] = [];
+  // Only offer piles that actually have cards to reveal.
+  if (opponent.playDeck.length > 0) {
+    logDetail(`great-hunt-source: offering to reveal ${opponentId as string}'s play deck`);
+    actions.push({ action: { type: 'choose-great-hunt-source' as const, player: actor, source: 'deck' }, viable: true });
+  }
+  if (opponent.discardPile.length > 0) {
+    logDetail(`great-hunt-source: offering to reveal ${opponentId as string}'s discard pile`);
+    actions.push({ action: { type: 'choose-great-hunt-source' as const, player: actor, source: 'discard' }, viable: true });
+  }
+  // If both piles are empty there is nothing to reveal — allow a pass so the
+  // resolution can clear.
+  if (actions.length === 0) {
+    actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  }
+  return actions;
+}
+
+/**
+ * Legal actions while a `great-hunt-discard-attack` resolution is pending (The
+ * Great Hunt wh-91 ongoing trigger): the controller may have the discarded
+ * creature attack their Alatar company, or pass ("you may choose").
+ */
+export function greatHuntDiscardAttackActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'great-hunt-discard-attack') return [];
+  const { creatureInstanceId } = top.kind;
+  const defId = resolveInstanceId(state, creatureInstanceId);
+  logDetail(`great-hunt-discard-attack: offering to attack with ${defId ? cardName(state, defId, '?') : '?'}`);
+  return [
+    { action: { type: 'great-hunt-attack-with-creature' as const, player: actor, creatureInstanceId }, viable: true },
+    { action: { type: 'pass' as const, player: actor }, viable: true },
+  ];
 }

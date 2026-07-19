@@ -25,6 +25,7 @@ import {
   charIdAt, RESOURCE_PLAYER,
   viableActions,
 } from '../test-helpers.js';
+import { Alignment } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
 
 const HIGH_HELM = 'le-313' as CardDefinitionId;
@@ -52,7 +53,7 @@ describe('High Helm (le-313)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAGDUF, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAGDUF, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAYOS] }], hand: [], siteDeck: [BANDIT_LAIR_MINION] },
       ],
     });
@@ -67,7 +68,7 @@ describe('High Helm (le-313)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAYOS, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAYOS, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [BANDIT_LAIR_MINION] },
       ],
     });
@@ -84,7 +85,7 @@ describe('High Helm (le-313)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAGDUF, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAGDUF, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAYOS] }], hand: [], siteDeck: [BANDIT_LAIR_MINION] },
       ],
     });
@@ -99,7 +100,7 @@ describe('High Helm (le-313)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAYOS, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAYOS, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [BANDIT_LAIR_MINION] },
       ],
     });
@@ -114,7 +115,7 @@ describe('High Helm (le-313)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [{ defId: LIEUTENANT_OF_MORGUL, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [{ defId: LIEUTENANT_OF_MORGUL, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [BANDIT_LAIR_MINION] },
       ],
     });
@@ -131,7 +132,7 @@ describe('High Helm (le-313)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAGDUF, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAGDUF, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAYOS] }], hand: [], siteDeck: [BANDIT_LAIR_MINION] },
       ],
     });
@@ -146,7 +147,7 @@ describe('High Helm (le-313)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAYOS, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [{ defId: LAYOS, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [BANDIT_LAIR_MINION] },
       ],
     });
@@ -161,7 +162,7 @@ describe('High Helm (le-313)', () => {
       activePlayer: PLAYER_1,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [{ defId: LIEUTENANT_OF_MORGUL, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [{ defId: LIEUTENANT_OF_MORGUL, items: [HIGH_HELM] }] }], hand: [], siteDeck: [MORIA_MINION] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [BANDIT_LAIR_MINION] },
       ],
     });

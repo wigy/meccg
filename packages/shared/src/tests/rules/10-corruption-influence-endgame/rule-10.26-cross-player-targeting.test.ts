@@ -17,6 +17,16 @@
 
 import { describe, test } from 'vitest';
 
+// The default-deny half is architecturally guaranteed: `play-target` legal-
+// action generation for resource cards only ever scans the playing player's
+// own companies/characters unless a card explicitly opts into cross-player
+// targeting (e.g. opponent-influence-attempt has its own dedicated action
+// type and code path entirely, rather than reusing generic play-target).
+// This is exercised implicitly by every own-side play-target test in the
+// suite. "Opponent cards count as in-play for an active condition" and "a
+// region must be in a site path in play to be targeted" don't have a
+// dedicated generic check to isolate from the specific cards that already
+// rely on them.
 describe('Rule 10.26 — Cross-Player Targeting', () => {
   test.todo('Cannot target opponent resources/characters with own resources; opponent cards may count as in play for active conditions');
 });

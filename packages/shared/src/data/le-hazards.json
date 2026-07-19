@@ -964,8 +964,21 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ArouseDefenders.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a Free-hold [{F}] or Border-hold [{B}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 2 and cannot be canceled. Cannot be duplicated on a given site."
+    "effects": [
+      {
+        "type": "auto-attack-boost",
+        "siteTypes": ["free-hold", "border-hold"],
+        "prowessBonus": 2,
+        "uncancelable": true
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      }
+    ],
+    "text": "Playable on a Free-hold [{F}] or Border-hold [{B}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 2 and cannot be canceled. Cannot be duplicated on a given site.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "hazard-event",
@@ -984,7 +997,30 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AwakenDefenders.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
+    "certified": "2026-07-15",
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "op": "multiply",
+        "value": 2,
+        "target": "all-automatic-attacks",
+        "when": {
+          "site.siteType": {
+            "$in": ["free-hold", "border-hold"]
+          }
+        }
+      },
+      {
+        "type": "auto-attacks-normal",
+        "siteTypes": ["free-hold", "border-hold"]
+      }
+    ],
     "text": "The number of strikes for each automatic-attack at a Free-hold [{F}] or Border-hold [{B}] is doubled. Additionally, each detainment automatic-attack at a Free-hold [{F}] or Border-hold [{B}] becomes a normal automatic-attack. Cannot be duplicated."
   },
   {
@@ -1004,8 +1040,39 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/CallofHome.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a non-Ringwraith, non-Wizard character not bearing The One Ring. The character's player makes a roll. The character returns to his player’s hand if the result plus his player’s unused general influence is less than 10.Any one item held by the removed character may automatically be transferred to another character in his company (all other non-follower cards he controls are discarded)."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.race": {
+                "$ne": "wizard"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "ringwraith"
+              }
+            },
+            {
+              "$not": {
+                "target.possessions": {
+                  "$includes": "The One Ring"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "call-of-home-check",
+        "threshold": 10
+      }
+    ],
+    "text": "Playable on a non-Ringwraith, non-Wizard character not bearing The One Ring. The character's player makes a roll. The character returns to his player’s hand if the result plus his player’s unused general influence is less than 10.Any one item held by the removed character may automatically be transferred to another character in his company (all other non-follower cards he controls are discarded).",
+    "certified": "2026-07-02"
   },
   {
     "cardType": "hazard-event",
@@ -1047,8 +1114,33 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. When Doors of Night is played, all resource environment cards in play are immediately discarded, and all resource environment effects are canceled.Cannot be duplicated."
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": "in-play",
+          "to": "discard",
+          "filter": {
+            "cardType": {
+              "$in": ["hero-resource-event", "minion-resource-event"]
+            },
+            "keywords": {
+              "$includes": "environment"
+            }
+          }
+        }
+      }
+    ],
+    "text": "Environment. When Doors of Night is played, all resource environment cards in play are immediately discarded, and all resource environment effects are canceled. Cannot be duplicated.",
+    "certified": "2026-07-13"
   },
   {
     "cardType": "hazard-event",
@@ -1060,8 +1152,41 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Each Border-hold [{B}] receives an additional automatic-attack: Wolves — 3 strikes with 7 prowess. Additionally, if Doors of Night is in play, treat all Free-domains [{f}] as Border-lands [{b}] and all Border-lands [{b}] as Wildernesses [{w}]. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "permanent-event-auto-attack",
+        "siteIds": [],
+        "siteType": "border-hold",
+        "attack": {
+          "creatureType": "Wolves",
+          "strikes": 3,
+          "prowess": 7
+        }
+      },
+      {
+        "type": "region-type-remap",
+        "when": {
+          "inPlay": "Doors of Night"
+        },
+        "remap": [
+          {
+            "from": "free",
+            "to": "border"
+          },
+          {
+            "from": "border",
+            "to": "wilderness"
+          }
+        ]
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. Each Border-hold [{B}] receives an additional automatic-attack: Wolves — 3 strikes with 7 prowess. Additionally, if Doors of Night is in play, treat all Free-domains [{f}] as Border-lands [{b}] and all Border-lands [{b}] as Wildernesses [{w}]. Cannot be duplicated.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "hazard-event",
@@ -1070,8 +1195,27 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Greed.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a site. Until the end of the turn, each non-Hobbit, non-Wizard, non-Ringwraith character at the site must make a corruption check each time an item is played at the site. The character playing an item need not make a corruption check. When a character makes one of these checks, it is modified by subtracting the corruption points the item would normally give the character if he controlled it. Cannot be duplicated on a given site."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "item-play-corruption-check",
+        "exemptFilter": {
+          "target.race": {
+            "$in": ["hobbit", "wizard", "ringwraith"]
+          }
+        }
+      }
+    ],
+    "text": "Playable on a site. Until the end of the turn, each non-Hobbit, non-Wizard, non-Ringwraith character at the site must make a corruption check each time an item is played at the site. The character playing an item need not make a corruption check. When a character makes one of these checks, it is modified by subtracting the corruption points the item would normally give the character if he controlled it. Cannot be duplicated on a given site.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "hazard-event",
@@ -1090,7 +1234,50 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/InciteDenizens.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            {
+              "siteType": {
+                "$in": [
+                  "ruins-and-lairs"
+                ]
+              }
+            },
+            {
+              "automaticAttacks.length": {
+                "$gt": 0
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-duplicate",
+          "scope": "company-site-phase"
+        },
+        "when": {
+          "company.destinationSiteType": {
+            "$in": [
+              "ruins-and-lairs"
+            ]
+          }
+        }
+      }
+    ],
+    "certified": "2026-07-15",
     "text": "Playable on a Ruins & Lairs [{R}]. An additional automatic-attack is created at the site until the end of the turn. This is an exact duplicate (including all existing and eventual modifications to prowess, etc.) of an existing automatic-attack at the site of your choice. This automatic-attack is faced immediately following its original. Cannot be duplicated on a given site."
   },
   {
@@ -1140,8 +1327,14 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/MusterDisperses.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a faction. The faction’s player makes a roll. The faction is discarded if the result plus his unused general influence is less than 11."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "faction"
+      }
+    ],
+    "text": "Playable on a faction. The faction’s player makes a roll. The faction is discarded if the result plus his unused general influence is less than 11.",
+    "certified": "2026-07-02"
   },
   {
     "cardType": "hazard-event",
@@ -1190,18 +1383,115 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheRovingEye.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-07-06",
+    "keywords": [
+      "corruption"
+    ],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.race": {
+                "$ne": "wizard"
+              }
+            },
+            {
+              "target.race": {
+                "$ne": "ringwraith"
+              }
+            },
+            {
+              "$or": [
+                {
+                  "target.itemKeywords": {
+                    "$includes": "palantir"
+                  }
+                },
+                {
+                  "target.itemSubtypes": {
+                    "$includes": "greater"
+                  }
+                },
+                {
+                  "$and": [
+                    {
+                      "target.itemKeywords": {
+                        "$includes": "ring"
+                      }
+                    },
+                    {
+                      "$not": {
+                        "target.itemSubtypes": {
+                          "$includes": "gold-ring"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "cost": {
+          "check": "corruption",
+          "modifier": -2,
+          "failureMode": "discard-instead-of-eliminate"
+        }
+      }
+    ],
     "text": "Playable on a non-Wizard, non-Ringwraith character bearing a Palantír, greater item, or ring that is not a gold ring. Target character is forced to make corruption check modified by -2. If the character would normally be eliminated as a result of this check, he is instead discarded (along with all non-follower cards played with him)."
   },
   {
     "cardType": "hazard-event",
     "id": "le-137",
+    "certified": "2026-07-08",
     "name": "Shut Yer Mouth",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ShutYerMouth.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable on a non-Wizard, non-Ringwraith character. -2 to character’s direct influence (to a minimum of zero). Once during each of his organization phases, the character may attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "wizard" } },
+            { "target.race": { "$ne": "ringwraith" } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2,
+        "min": 0
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 8,
+          "onSuccess": {
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
+          }
+        }
+      }
+    ],
+    "text": "Playable on a non-Wizard, non-Ringwraith character. -2 to character’s direct influence (to a minimum of zero). Once during each of his organization phases, the character may attempt to remove this card. Make a roll—if the result is greater than 7, discard this card. Cannot be duplicated on a given character.",
+    "removalNumber": 7
   },
   {
     "cardType": "hazard-event",
@@ -1210,7 +1500,45 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SoYouveComeBack.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-07-09",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.mind": { "$lte": 5 } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": 1,
+        "target": "company-others",
+        "when": {
+          "$and": [
+            { "bearer.race": { "$ne": "wizard" } },
+            { "bearer.race": { "$ne": "ringwraith" } },
+            { "bearer.race": { "$ne": "fallen-wizard" } },
+            { "bearer.race": { "$ne": "balrog" } },
+            { "bearer.isFollower": { "$ne": true } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+        "when": {
+          "$and": [
+            { "company.characterCount": 1 },
+            { "bearer.atHaven": true }
+          ]
+        }
+      }
+    ],
     "text": "Playable on a character of 5 mind or less. The mind of each other non-follower, non-Ringwraith, non-Wizard character in his company increases by one. Discard this card during the organization phase if target character is in a company by himself and at a Haven/Darkhaven [{H}]. Cannot be duplicated on a given company."
   },
   {

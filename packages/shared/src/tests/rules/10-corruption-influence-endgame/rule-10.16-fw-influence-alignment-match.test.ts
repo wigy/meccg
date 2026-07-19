@@ -16,6 +16,14 @@
 
 import { describe, test } from 'vitest';
 
+// This depends on rule 10.11's identical-card reveal mechanism, which does
+// not yet gate on alignment at all (the `identicalInHand` lookups in
+// `opponentInfluenceActions`, legal-actions/site.ts, match purely by card
+// name, with no `player.alignment === 'fallen-wizard'` check comparable to
+// `siteTapCrossAlignmentBlocked`'s resource-play guard). Implementing this
+// means threading the same alignment-match logic through the influence-reveal
+// path, plus a distinct "manifestation revealed but unplayable" carve-out —
+// real engine work with no reachable card to test against in the meantime.
 describe('Rule 10.16 — Fallen-Wizard Influence Alignment Match', () => {
   test.todo('[FALLEN-WIZARD] Revealed card must match site alignment; manifestation may be revealed at non-MP site but cannot be played');
 });

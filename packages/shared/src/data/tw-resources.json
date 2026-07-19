@@ -2130,7 +2130,7 @@
     "race": "special",
     "playableAt": [
       {
-        "site": "Vale"
+        "site": "Vale of Erech"
       }
     ],
     "effects": [],
@@ -2158,15 +2158,19 @@
     "unique": true,
     "prowess": -2,
     "body": 10,
+    "mind": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
     "playableAt": [
-      {
-        "site": "Bree or Bag End; playable even if the site is tapped"
-      }
+      { "site": "Bree" },
+      { "site": "Bag End" }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Bree or Bag End; playable even if the site is tapped.If at a non-Haven/non-Under-deeps site and if his company’s size is three or less, you may discard Bill the Pony at the end of his company’s turn and replace its site with the nearest Haven [{H}]."
+    "effects": [
+      { "type": "play-flag", "flag": "playable-at-tapped-site" },
+      { "type": "run-home-to-haven", "maxCompanySize": 3 }
+    ],
+    "text": "Unique. Playable at Bree or Bag End; playable even if the site is tapped.If at a non-Haven/non-Under-deeps site and if his company’s size is three or less, you may discard Bill the Pony at the end of his company’s turn and replace its site with the nearest Haven [{H}].",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "hero-resource-event",
@@ -2275,11 +2279,29 @@
     "race": "elf",
     "playableAt": [
       {
-        "site": "Grey"
+        "site": "Grey Havens"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Grey Havens if the influence check is greater than 9. Standard Modifications: Dúnedain (+1), Elves (+2)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "bearer.race": "elf"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Grey Havens if the influence check is greater than 9. Standard Modifications: Dúnedain (+1), Elves (+2).",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hero-resource-faction",
@@ -2594,7 +2616,7 @@
     "race": "man",
     "playableAt": [
       {
-        "site": "Vale"
+        "site": "Vale of Erech"
       }
     ],
     "effects": [],
@@ -2881,7 +2903,43 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.skills": {
+                "$includes": "sage"
+              }
+            },
+            {
+              "target.status": "untapped"
+            }
+          ]
+        },
+        "cost": {
+          "tap": "character"
+        },
+        "requiredSkill": "sage"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "no-creature-hazards-on-company",
+          "scope": "turn"
+        },
+        "target": "target-company"
+      }
+    ],
     "text": "Sage only. Playable only at the end of the organization phase; may not be played on a company moving to a site in a Dark-domain [{d}]. Tap a sage in the company, and no hazard creatures keyed to the site may be played on the company."
   },
   {
@@ -2894,7 +2952,27 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "only-creatures-keyed-to-site",
+          "scope": "turn"
+        },
+        "target": "target-company"
+      }
+    ],
     "text": "Playable only at the end of the organization phase. If the company that it is played on moves to a Ruins & Lairs [{R}] site, opponent may only play hazard creatures that are keyed to the company’s new site."
   },
   {
@@ -2929,11 +3007,37 @@
     "race": "man",
     "playableAt": [
       {
-        "site": "Southron"
+        "site": "Southron Oasis"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Southron Oasis if the influence check is greater than 8. Standard Modifications: Dúnedain (-2), Elves (-2), Dwarves (-2)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "dunadan"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "elf"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Southron Oasis if the influence check is greater than 8. Standard Modifications: Dúnedain (-2), Elves (-2), Dwarves (-2).",
+    "certified": "2026-07-04"
   },
   {
     "cardType": "hero-resource-event",
@@ -2974,8 +3078,28 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "+4 to an influence attempt against a faction."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "play-option",
+        "id": "influence-boost",
+        "when": {
+          "player.hasFactionInHand": true
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "value": 4
+        }
+      }
+    ],
+    "text": "+4 to an influence attempt against a faction.",
+    "certified": "2026-07-04"
   },
   {
     "cardType": "hero-resource-event",
@@ -3045,11 +3169,12 @@
     "race": "eagle",
     "playableAt": [
       {
-        "site": "Eagles’"
+        "site": "Eagles’ Eyrie"
       }
     ],
     "effects": [],
-    "text": "Unique. Playable at Eagles’ Eyrie if the influence check is greater than 9. Standard Modifications: none."
+    "text": "Unique. Playable at Eagles’ Eyrie if the influence check is greater than 9. Standard Modifications: none.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "hero-resource-ally",
@@ -3067,8 +3192,23 @@
         "site": "Old Forest"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Old Forest. Tap to cancel a hazard that targets (as an active condition of playing the card itself) a company, or an entity associated with a company, moving to a site in: Arthedain, Cardolan, Rhudaur, or The Shire.Discard Tom Bombadil if his company moves to a site that is not in: Arthedain, Cardolan, Rhudaur, or The Shire."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "cancel-chain-entry",
+        "cost": { "tap": "self" },
+        "when": { "destinationRegion": { "$in": ["Arthedain", "Cardolan", "Rhudaur", "The Shire"] } },
+        "apply": { "type": "cancel-chain-entry", "select": "most-recent-unresolved-hazard" }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+        "when": { "$not": { "site.region": { "$in": ["Arthedain", "Cardolan", "Rhudaur", "The Shire"] } } }
+      }
+    ],
+    "text": "Unique. Playable at Old Forest. Tap to cancel a hazard that targets (as an active condition of playing the card itself) a company, or an entity associated with a company, moving to a site in: Arthedain, Cardolan, Rhudaur, or The Shire.Discard Tom Bombadil if his company moves to a site that is not in: Arthedain, Cardolan, Rhudaur, or The Shire.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hero-resource-event",
@@ -3109,11 +3249,12 @@
     "race": "man",
     "playableAt": [
       {
-        "site": "Variag"
+        "site": "Variag Camp"
       }
     ],
     "effects": [],
-    "text": "Unique. Playable at Variag Camp if the influence check is greater than 9. Standard Modifications: none."
+    "text": "Unique. Playable at Variag Camp if the influence check is greater than 9. Standard Modifications: none.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hero-resource-event",

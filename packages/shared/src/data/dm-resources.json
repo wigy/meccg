@@ -403,8 +403,43 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Tap the bearer of a Dagger of Westernesse during the site phase at a Ruins & Lairs [{R}] and play this with the Dagger. Dagger receives +1 prowess (+3 versus Undead and Nazgûl). Cannot be duplicated on a given Dagger."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-type",
+        "siteTypes": ["ruins-and-lairs"]
+      },
+      {
+        "type": "play-target",
+        "target": "item",
+        "filter": { "target.name": "Dagger of Westernesse" }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-bearer-on-play"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "when": {
+          "reason": "combat",
+          "enemy.race": { "$in": ["undead", "nazgul"] }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "item",
+        "max": 1
+      }
+    ],
+    "text": "Tap the bearer of a Dagger of Westernesse during the site phase at a Ruins & Lairs [{R}] and play this with the Dagger. Dagger receives +1 prowess (+3 versus Undead and Nazgûl). Cannot be duplicated on a given Dagger.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "hero-resource-event",
@@ -468,7 +503,12 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "organization" },
+      { "type": "play-target", "target": "character", "filter": { "target.name": "Pallando" }, "cost": { "tap": "character" } },
+      { "type": "reveal-choose-shuffle", "count": 8 }
+    ],
+    "certified": "2026-07-06",
     "text": "Playable on Pallando during the organization phase. Tap Pallando and reveal up to 8 cards from the top of your play deck. Choose one to put into your hand and shuffle the remaining ones into your play deck."
   },
   {
@@ -520,7 +560,24 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "keywords": ["ritual"],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "$and": [{ "target.skills": { "$includes": "sage" } }, { "target.status": "untapped" }] }
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "siteType": { "$in": ["border-hold", "free-hold"] } }
+      },
+      { "type": "play-flag", "flag": "tapped-site-only" },
+      { "type": "play-flag", "flag": "tap-character-on-play" },
+      { "type": "roll-untap-site", "threshold": 12, "wizardBonus": 10 },
+      { "type": "skip-next-untap-on-play" }
+    ],
+    "certified": "2026-07-17",
     "text": "Ritual. Playable on an untapped sage at a tapped Border-hold [{B}] or Free-hold [{F}]. Tap sage. Make a roll and add the mind of the sage (+10 if a Wizard)—if the result is greater than 12, the site untaps. The next time the sage would otherwise become untapped make him tapped instead and discard this card."
   },
   {
@@ -971,10 +1028,17 @@
     "name": "Withdrawn to Mordor",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/WithdrawntoMordor.jpg",
     "unique": false,
+    "certified": "2026-07-04",
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "withdraw-agent",
+        "returnMindThreshold": 6,
+        "alternativeDiscardOnGuard": true
+      }
+    ],
     "text": "Playable on a face-up agent. If the agent has a mind of 5 or less, it is discarded. If its mind is 6 or greater, return the agent to its owner’s hand.Alternatively, an on-guard card is discarded."
   },
   {
@@ -1009,10 +1073,62 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "her current site"
+        "site": "Bag End"
+      },
+      {
+        "site": "Bree"
       }
     ],
-    "effects": [],
-    "text": "Unique.Manifestation of Lobelia Sackville-Baggins. May only be played at Bag End or Bree. Discard this card if her company moves to any site other than Bree, Old Forest, The White Towers, or a site in The Shire. Tap Mistress Lobelia to search your discard pile or play deck for any one item, ally, or faction playable at her current site. Place the resource in your hand and reshuffle your play deck."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "lobelia-fetch-playable",
+        "cost": {
+          "tap": "self"
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["discard-pile", "deck"],
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "fetchTo": "hand",
+          "playableAtBearerSite": true,
+          "filter": {
+            "cardType": {
+              "$in": [
+                "hero-resource-item",
+                "hero-resource-ally",
+                "hero-resource-faction"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "$not": {
+            "$or": [
+              {
+                "destination.name": {
+                  "$in": ["Bree", "Old Forest", "The White Towers"]
+                }
+              },
+              {
+                "destination.region": "The Shire"
+              }
+            ]
+          }
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "to": "discard"
+        }
+      }
+    ],
+    "text": "Unique.Manifestation of Lobelia Sackville-Baggins. May only be played at Bag End or Bree. Discard this card if her company moves to any site other than Bree, Old Forest, The White Towers, or a site in The Shire. Tap Mistress Lobelia to search your discard pile or play deck for any one item, ally, or faction playable at her current site. Place the resource in your hand and reshuffle your play deck.",
+    "certified": "2026-07-10"
   }
 ]

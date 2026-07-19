@@ -115,13 +115,15 @@ describe('New Friendship (tw-292)', () => {
     const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
     const cardInstance = findHandCardId(state, RESOURCE_PLAYER, NEW_FRIENDSHIP);
 
-    const after = dispatch(state, {
+    // The boost rides the chain of effects; resolve it (both players pass) so
+    // the constraint is applied on resolution — see tw-337 for the regression.
+    const after = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: cardInstance,
       targetCharacterId: legolasId,
       optionId: 'influence-check-boost',
-    });
+    }));
 
     const constraints = after.activeConstraints.filter(
       c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',

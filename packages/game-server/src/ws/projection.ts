@@ -46,6 +46,26 @@ function hiddenCardPile(pile: readonly { readonly instanceId: CardInstanceId; re
 }
 
 /**
+ * Redacts a pile like {@link hiddenCardPile}, but keeps the true identity of
+ * any instance whose identity is already public per
+ * {@link GameState.revealedInstances}. Used for the opponent's hand so that a
+ * card a reveal effect has made public (e.g. Rolled down to the Sea, wh-29,
+ * which forces the opponent to reveal his whole hand) stays visible to the
+ * player who saw it, while freshly drawn cards the opponent picked up
+ * afterwards remain hidden.
+ */
+function revealedCardPile(
+  pile: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[],
+  revealed: GameState['revealedInstances'],
+): readonly ViewCard[] {
+  return pile.map(c =>
+    revealed[c.instanceId] !== undefined
+      ? { instanceId: c.instanceId, definitionId: c.definitionId }
+      : { instanceId: c.instanceId, definitionId: UNKNOWN_CARD },
+  );
+}
+
+/**
  * Site instance IDs in `playerIndex`'s site deck whose identity is currently
  * public to everyone, even though the card still lives in that otherwise-hidden
  * deck. During the character draft a Hidden Haven (wh-75) paired to a Ruins &
@@ -161,7 +181,7 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
 
   return {
     ...commonViewFields(state, player),
-    hand: hiddenCardPile(player.hand),
+    hand: revealedCardPile(player.hand, state.revealedInstances),
     playDeck: hiddenCardPile(player.playDeck),
     siteDeck: redactSitePile(player.siteDeck, publicSiteInstanceIds(state, getPlayerIndex(state, player.id))),
     discardPile: hiddenCardPile(player.discardPile),

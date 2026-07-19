@@ -30,7 +30,11 @@ import { applyManifestationCascade } from './manifestations.js';
 import { handleChainAction } from './chain-reducer.js';
 import { accrueRevealedInstances } from './visibility.js';
 import { sweepSetAside } from './set-aside.js';
+import { sweepPressGang } from './press-gang.js';
 import { sweepFallenWizardSpecific } from './fallen-wizard-specific.js';
+import { sweepGreatHuntDiscards } from './great-hunt.js';
+import { sweepDiscardSelfWhen } from './discard-self-when.js';
+import { sweepKeywordReplaced } from './keyword-replaced.js';
 
 /**
  * Post-action housekeeping: sweep manifestation cascades (METD §4.2) and
@@ -39,14 +43,19 @@ import { sweepFallenWizardSpecific } from './fallen-wizard-specific.js';
  * §12), then re-derive aggregates so MP/influence totals reflect any cards
  * moved, then record any newly-revealed card identities from public locations.
  */
-function postReduce(state: GameState): GameState {
-  return accrueRevealedInstances(recomputeDerived(sweepFallenWizardSpecific(sweepSetAside(discardOrphanedConvertedAllyEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(state))))))));
+function postReduce(state: GameState, prevState?: GameState): GameState {
+  // A More Evil Hour (ba-48): tap the card when the opponent just played a
+  // card giving them 3+ marshalling points. Runs first, on the raw post-action
+  // state, so the later sweeps/recompute see the tapped status.
+  const tapped = prevState ? applyEvilHourTaps(prevState, state) : state;
+  return accrueRevealedInstances(recomputeDerived(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(tapped)))))))))))))));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedConvertedAllyEvents } from './reducer-utils.js';
+import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedAgentAttachedEvents, discardOrphanedConvertedAllyEvents, discardOrphanedItemAttachedEvents, sweepProhibitedCompanyEvents } from './reducer-utils.js';
 import { topResolutionFor } from './pending.js';
+import { applyEvilHourTaps } from './evil-hour.js';
 import { applyResolution } from './pending-handlers.js';
 import { handleSetup } from './reducer-setup.js';
 import { handleUntap } from './reducer-untap.js';
@@ -85,11 +94,11 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   const phase = state.phaseState.phase;
 
   // Chain of effects: dispatch chain-specific actions when a chain is active
-  if (state.chain != null && (action.type === 'pass-chain-priority' || action.type === 'order-passives' || action.type === 'reveal-on-guard' || action.type === 'cancel-return-to-origin')) {
+  if (state.chain != null && (action.type === 'pass-chain-priority' || action.type === 'order-passives' || action.type === 'reveal-on-guard' || action.type === 'cancel-return-to-origin' || action.type === 'counter-cancel-roll' || action.type === 'counter-cancel-attack')) {
     logDetail(`Chain active — dispatching '${action.type}' to chain reducer`);
     const chainResult = handleChainAction(state, action);
     if (!chainResult.error) {
-      const recomputed = postReduce(chainResult.state);
+      const recomputed = postReduce(chainResult.state, state);
       return {
         state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
         effects: chainResult.effects,
@@ -109,7 +118,15 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   // (e.g. Searching Eye canceling Concealment). Route these through the phase
   // handler, which distinguishes resource vs hazard events correctly.
   const isChainShortEvent = state.chain != null && action.type === 'play-short-event';
-  if (state.combat != null && !isChainShortEvent && (COMBAT_ACTION_TYPES.has(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer')))) {
+  // A pending resolution queued for the acting player takes precedence over
+  // combat routing: while a resolution is on the stack (e.g. Scourge of Fire's
+  // discard-one-company-item during a CvCC), the legal actions are its
+  // resolution actions only. Some resolution actions share a type with a combat
+  // handler (e.g. `discard-item-from-company`, used both by An Article Missing's
+  // combat sub-phase and the discard-one-company-item resolution), so without
+  // this guard such an action would be misrouted to the combat handler.
+  const combatPendingTop = topResolutionFor(state, action.player);
+  if (state.combat != null && combatPendingTop === null && !isChainShortEvent && (COMBAT_ACTION_TYPES.has(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer')))) {
     logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
     const combatResult = handleCombatAction(state, action);
     if (!combatResult.error) {
@@ -127,7 +144,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
           }
         }
       }
-      const recomputed = postReduce(finalState);
+      const recomputed = postReduce(finalState, state);
       return {
         state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
         effects: finalEffects,
@@ -145,7 +162,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     const resolutionResult = applyResolution(state, action, topResolution);
     if (resolutionResult !== null) {
       if (!resolutionResult.error) {
-        const recomputed = postReduce(resolutionResult.state);
+        const recomputed = postReduce(resolutionResult.state, state);
         return {
           state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
           effects: resolutionResult.effects,
@@ -163,7 +180,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     if (newState === null) {
       return { state, error: `Card ${action.cardInstanceId as string} not found in ${action.player as string}'s hand` };
     }
-    const recomputed = postReduce(newState);
+    const recomputed = postReduce(newState, state);
     return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
   }
 
@@ -177,7 +194,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       effectResult = resolvePendingEffect(state);
     }
     if (!effectResult.error) {
-      const recomputed = postReduce(effectResult.state);
+      const recomputed = postReduce(effectResult.state, state);
       return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 }, effects: effectResult.effects };
     }
     return effectResult;
@@ -236,7 +253,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   // and increment the state sequence number for log tracking.
   // Clear reverseActions whenever the phase changes.
   if (!result.error) {
-    const recomputed = postReduce(result.state);
+    const recomputed = postReduce(result.state, state);
     const phaseChanged = recomputed.phaseState.phase !== state.phaseState.phase;
     result = {
       state: {

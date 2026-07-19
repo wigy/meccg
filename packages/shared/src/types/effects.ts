@@ -19,7 +19,7 @@
  * See `docs/card-effects-dsl.md` for the full design document with examples.
  */
 
-import type { CardDefinitionId, Keyword, RegionType, SiteType } from './common.js';
+import type { CardDefinitionId, Keyword, MarshallingCategory, PlayerId, RegionType, SiteType } from './common.js';
 import type { SiteRuleEffect } from './effects/site-rules.js';
 
 // ---- Value Expressions ----
@@ -147,8 +147,17 @@ export interface StatModifierEffect extends EffectBase {
    *   modifiers. Used for "doubled"-style effects, e.g. Plague of Wights
    *   (le-130) doubles the number of strikes of each Undead attack when
    *   Doors of Night is in play (`op: "multiply", value: 2`).
+   * - `"set"` — `result = value`, an **absolute override** of the printed
+   *   base, applied **before** every additive and multiplicative modifier so
+   *   that ordinary +N/-N bonuses still stack on top of the new base. Used by
+   *   the Radagast Shapeshifter forms (Master of Shapes wh-112, Shifter of
+   *   Hues wh-115, Winged Change-master wh-116), whose "adopting the given
+   *   attributes" replaces Radagast's printed prowess/body/DI/GI rather than
+   *   adjusting them — Winged Change-master's prowess 3 is *lower* than
+   *   Radagast's printed 6, which is what rules out a delta reading. When more
+   *   than one `set` for the same stat is collected, the last one wins.
    */
-  readonly op?: 'add' | 'multiply';
+  readonly op?: 'add' | 'multiply' | 'set';
   /** Maximum resulting stat value. Can be a MathJS expression. */
   readonly max?: ValueExpr;
   /** Minimum resulting stat value (floor). Can be a MathJS expression. E.g. `0` prevents negative DI. */
@@ -168,8 +177,25 @@ export interface StatModifierEffect extends EffectBase {
    * - `"all-attacks"` — applies to every automatic-attack and hazard creature.
    * - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures).
    * - `"company"` — applies to every character in the bearer's company (e.g. The One Ring).
+   * - `"company-others"` — applies to every *other* character in the bearer's
+   *   company, excluding the bearer itself (e.g. So You've Come Back le-138:
+   *   "the mind of each **other** … character in his company increases by one").
+   *   Collected from a company member's attached hazards/items for every *other*
+   *   member; the effect's `when` gates the modified character (via `bearer.*`).
    */
-  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company';
+  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company' | 'company-others';
+  /**
+   * Only meaningful for `stat: 'general-influence'`. Caps how many of the
+   * `value` points added to the general-influence pool may be spent to control
+   * characters; the remainder (`value - controlLimit`) still counts toward the
+   * player's *unused* general influence (defensive hazard subtraction, CoE
+   * step 1338) but can never control characters — mirroring the Ringwraith /
+   * Balrog +5 bonus (CoE 1.12.R1 / 1.12.B1). Used by Truths of Doom (wh-108):
+   * "+6 general influence; you may only use 2 of these 6 points to control
+   * characters" (`value: 6, controlLimit: 2`). Absent = all `value` points may
+   * control characters (the ordinary Bade to Rule / Great Shadow behaviour).
+   */
+  readonly controlLimit?: number;
 }
 
 /**
@@ -192,6 +218,25 @@ export interface CheckModifierEffect extends EffectBase {
   readonly check: import('./common.js').CheckKind | readonly import('./common.js').CheckKind[];
   /** The bonus (or penalty if negative) to the roll. */
   readonly value: ValueExpr;
+  /**
+   * Scope of the modifier. Absent (default) applies only to the bearer of the
+   * card carrying the effect. `'company'` applies to every character in the
+   * bearer's company — collected once per company (from items / attached
+   * permanent-events on any company member) and folded into each member's
+   * check via {@link resolveCheckModifier}. Used by I'll Be At Your Heels
+   * (le-195): "+1 to all corruption checks by characters in his company."
+   *
+   * `'player-in-play'` is a **player-scoped, ongoing** modifier carried by a
+   * bare permanent-event in the influencing player's `cardsInPlay` (not
+   * attached to any character/item/site). It is collected directly from that
+   * player's in-play permanent resource events at each faction-influence check
+   * and applies to **every** such check by any of the player's characters, for
+   * as long as the card stays in play (gated by the effect's `when` against the
+   * faction-influence resolver context). Used by Great Army of the North
+   * (ba-38): "As a permanent-event, +1 to your influence attempts against Orc
+   * and Troll factions."
+   */
+  readonly target?: 'company' | 'player-in-play';
 }
 
 /**
@@ -205,11 +250,43 @@ export interface CheckModifierEffect extends EffectBase {
  * Example: Helm of Fear (as-126) — "All body checks against the bearer are
  * modified by -1." Collected from items attached to the body-check target in
  * `reducer-combat.ts` and applied to the effective roll.
+ *
+ * A `scope: 'all-attacks'` modifier is instead a **global** effect carried by
+ * an in-play permanent-event: it applies to every body check in combat, gated
+ * by `when` against a context exposing `attack.creatureRace` (the attacking
+ * creature's normalized race) and `target.race` (the body-checked character's
+ * race). Used by Spawn of Ungoliant (ba-24) — "+1 to all body checks for
+ * Elves, Dwarves, Hobbits, Dúnedain, and Men resulting from Spider attacks."
+ *
+ * A `scope: 'bearer-combat'` modifier is carried by an item / attached
+ * permanent-event on a **participating character** and applies to body checks
+ * that arise from that bearer's combat, gated by `when` against a context
+ * exposing `bodyCheck.target` (`'creature' | 'character' | 'attacker-character'`),
+ * `bodyCheck.fromFailedStrike` (true when a strike against the bearer failed and
+ * the striker now body-checks), and `combat.isCvCC`. The relevant bearer is the
+ * parrying defender (for `creature` / `attacker-character` checks) or the
+ * successful CvCC attacker (for a `character` check). Used by Flame of Udûn
+ * (ba-58) — "+1 to all body checks resulting from failed strikes against The
+ * Balrog" and, in CvCC where The Balrog attacks successfully, "+1 to defending
+ * character's body check."
  */
 export interface BodyCheckModifierEffect extends EffectBase {
   readonly type: 'body-check-modifier';
   /** The modifier added to the body-check roll (negative protects the bearer). */
   readonly value: number;
+  /**
+   * Where the modifier is sourced from and what it applies to:
+   * - absent / `'bearer'` (default): a static effect on an item attached to the
+   *   body-check target; applies only to that bearer (Helm of Fear as-126).
+   * - `'all-attacks'`: a global effect on an in-play permanent-event; applies to
+   *   every combat body check, gated by `when` against `attack.creatureRace` /
+   *   `target.race` (Spawn of Ungoliant ba-24).
+   * - `'bearer-combat'`: an item / attached permanent-event on a participating
+   *   character; applies to body checks arising from that bearer's combat, gated
+   *   by `when` against `bodyCheck.target` / `bodyCheck.fromFailedStrike` /
+   *   `combat.isCvCC` (Flame of Udûn ba-58).
+   */
+  readonly scope?: 'bearer' | 'all-attacks' | 'bearer-combat';
 }
 
 /**
@@ -221,6 +298,113 @@ export interface MpModifierEffect extends EffectBase {
   readonly type: 'mp-modifier';
   /** The marshalling point adjustment. */
   readonly value: ValueExpr;
+}
+
+/**
+ * A game-wide modifier to the corruption points and/or marshalling points of
+ * every in-play item that matches an item filter, sourced from an in-play
+ * permanent-event (in either player's `cardsInPlay`). Unlike {@link MpModifierEffect}
+ * (which rides the item being scored and is gated on the *bearer*), this effect
+ * lives on a *separate* card and reaches out to every matching item borne by any
+ * character of any player.
+ *
+ * `itemFilter` is evaluated against a per-item context `{ item: { keywords,
+ * name, cardType } }` (an absent filter matches every item). The `corruptionPoints`
+ * delta is folded into each matching item's bearer corruption total (in
+ * `computeEffectiveStats`, respecting the same Balrog-avatar exclusion as the
+ * item's printed corruption); the `marshallingPoints` delta is added flat to the
+ * item's marshalling category in the MP tally.
+ *
+ * Used by Rumor of the One (le-224): "+1 to the corruption points and the
+ * marshalling points for all ring items." — `itemFilter`
+ * `{ "item.keywords": { "$includes": "ring" } }`, `corruptionPoints: 1`,
+ * `marshallingPoints: 1`.
+ */
+export interface InPlayItemModifierEffect extends EffectBase {
+  readonly type: 'in-play-item-modifier';
+  /** Item-context condition selecting which items are affected (absent → all items). */
+  readonly itemFilter?: Condition;
+  /** Corruption-point delta added to each matching item (default 0). */
+  readonly corruptionPoints?: number;
+  /** Marshalling-point delta added to each matching item's category (default 0). */
+  readonly marshallingPoints?: number;
+}
+
+/**
+ * Game-wide effect that multiplies the corruption points of **one** of each
+ * character's corruption sources, with the controlling player choosing which
+ * source. Carried by a permanent/long event in either player's `cardsInPlay`;
+ * while in play, every character in the game (both players) has one of its
+ * corruption sources scaled by {@link multiplier}.
+ *
+ * The controlling player always minimises the corruption they suffer, so the
+ * engine doubles the character's **smallest** corruption source — the only
+ * rational choice, since scaling any larger source would add strictly more
+ * corruption. With N copies of the effect in play, the N smallest distinct
+ * sources are scaled (the minimising assignment).
+ *
+ * A "corruption source" is a corruption-bearing card the character holds: a
+ * borne item worth corruption points (its printed value plus any in-play item
+ * modifier, e.g. Rumor of the One), an attached `hazard-corruption` card, or a
+ * card contributing corruption via a `stat-modifier` on `corruption-points`
+ * (e.g. The One Ring). Characters with no corruption source are unaffected.
+ *
+ * Used by The Balance of Things (tw-93): "Each character has the corruption
+ * points doubled for one of his sources of corruption (the player controlling
+ * the character chooses)."
+ */
+export interface CorruptionSourceMultiplierEffect extends EffectBase {
+  readonly type: 'corruption-source-multiplier';
+  /** Factor applied to the chosen source's corruption points (default 2 — "doubled"). */
+  readonly multiplier?: number;
+}
+
+/**
+ * Grants a fixed marshalling-point value while the carrying card sits in a
+ * player's marshalling-point (kill) pile.
+ *
+ * Some hazard events place *themselves* into a marshalling-point pile and then
+ * score marshalling points from there (rather than being stored items or
+ * defeated creatures). This effect declares the flat value the card is worth
+ * whenever it is found in a `killPile`, in the given category.
+ *
+ * Used by Neither so Ancient Nor so Potent (dm-73): after returning an
+ * opponent's stored item to hand, the card is placed in the opponent's
+ * marshalling-point pile where "It gives 2 item marshalling points."
+ */
+export interface MpInPileEffect extends EffectBase {
+  readonly type: 'mp-in-pile';
+  /** The marshalling-point category the card scores while in the pile. */
+  readonly category: MarshallingCategory;
+  /** The flat marshalling-point value awarded while in the pile. */
+  readonly value: number;
+}
+
+/**
+ * Resolution effect for a hazard played on an opponent's stored item: the
+ * targeted stored item is removed from the marshalling-point pile it sits in
+ * and the carrying card takes its place.
+ *
+ * On resolution the engine:
+ * 1. removes the targeted stored item from its owner's marshalling-point pile
+ *    and returns it to that owner's hand (per {@link returnItemTo}), discarding
+ *    any cards attached to the item; and
+ * 2. places the resolving card itself into that same owner's marshalling-point
+ *    pile (per {@link selfTo}), where an accompanying {@link MpInPileEffect}
+ *    determines how many marshalling points it grants.
+ *
+ * "Owner" is the stored item's owner — i.e. the opponent of the hazard player.
+ *
+ * Used by Neither so Ancient Nor so Potent (dm-73): "Return item to opponent's
+ * hand (discarding all attached cards). Place this card in opponent's
+ * marshalling point pile."
+ */
+export interface DisplaceStoredItemEffect extends EffectBase {
+  readonly type: 'displace-stored-item';
+  /** Where the displaced stored item goes. Currently the item owner's hand. */
+  readonly returnItemTo: 'owner-hand';
+  /** Where the resolving card goes. Currently the item owner's MP pile. */
+  readonly selfTo: 'owner-mp-pile';
 }
 
 /**
@@ -239,6 +423,11 @@ export interface MpModifierEffect extends EffectBase {
  * are each worth full marshalling points." His filter excludes items keyworded
  * `weapon`, `armor`, `shield`, or `helmet`.
  *
+ * The effect may be carried by a character (Saruman is a character) or by a
+ * stage permanent-event in `cardsInPlay` (Join the Hunt wh-93). When
+ * {@link inAvatarCompany} is set, only items borne by characters in the same
+ * company as the player's revealed avatar qualify ("items in Alatar's company").
+ *
  * ```json
  * { "type": "fw-item-mp-full",
  *   "filter": { "$not": { "$or": [
@@ -253,6 +442,115 @@ export interface FallenWizardItemMpEffect extends EffectBase {
   /**
    * Condition matched against an item's card definition. Items that match score
    * full printed MP for the Fallen-wizard; omit to exempt every item.
+   */
+  readonly filter?: Condition;
+  /**
+   * When `true`, the exemption applies only to items borne by characters in the
+   * same company as the player's revealed avatar (e.g. "your … items in Alatar's
+   * company", Join the Hunt wh-93). Omit for a player-wide exemption (Saruman).
+   */
+  readonly inAvatarCompany?: boolean;
+}
+
+/**
+ * Fallen-wizard ally marshalling-point exemption (MEWH §4 exception).
+ *
+ * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
+ * marshalling point. A card carrying this effect lets the player's **allies**
+ * matching {@link filter} each score their **full printed** MP instead of the
+ * clamped 1 (unlike {@link FallenWizardCharacterAllyMpEffect}, which pins the
+ * value to a fixed number). Allies that do not match remain clamped to 1.
+ *
+ * When {@link inAvatarCompany} is set, only allies borne by characters in the
+ * same company as the player's revealed avatar qualify ("allies in Alatar's
+ * company").
+ *
+ * Used by Join the Hunt (wh-93): "Your allies with a prowess attribute in
+ * Alatar's company are each worth full marshalling points." — `filter`
+ * `{ prowess: { $exists: true } }`, `inAvatarCompany: true`. Oromë's Warders
+ * (wh-94) reuses the same effect player-wide (no `inAvatarCompany`).
+ *
+ * ```json
+ * { "type": "fw-ally-mp-full",
+ *   "filter": { "prowess": { "$exists": true } },
+ *   "inAvatarCompany": true }
+ * ```
+ */
+export interface FallenWizardAllyMpFullEffect extends EffectBase {
+  readonly type: 'fw-ally-mp-full';
+  /**
+   * Condition matched against an ally's card definition. Allies that match score
+   * full printed MP for the Fallen-wizard; omit to exempt every ally.
+   */
+  readonly filter?: Condition;
+  /**
+   * When `true`, the exemption applies only to allies borne by characters in the
+   * same company as the player's revealed avatar (Join the Hunt wh-93). Omit for
+   * a player-wide exemption (Oromë's Warders wh-94).
+   */
+  readonly inAvatarCompany?: boolean;
+}
+
+/**
+ * Fallen-wizard character marshalling-point exemption (MEWH §4 exception).
+ *
+ * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
+ * marshalling point — including his characters (which normally score their
+ * printed character MP). A card carrying this effect lets the player's
+ * **characters** matching {@link filter} each score their **full printed** MP
+ * instead of the clamped 1. Characters that do not match remain clamped to 1.
+ *
+ * Used by the Fallen-wizard Gandalf (wh-4): "Your characters and hero allies are
+ * each worth full marshalling points." — carried player-wide (no `filter`,
+ * exempting every character), paired with a player-wide {@link
+ * FallenWizardAllyMpFullEffect} filtered to `hero-resource-ally` for the ally
+ * half of the clause.
+ *
+ * ```json
+ * { "type": "fw-char-mp-full" }
+ * ```
+ */
+export interface FallenWizardCharacterMpFullEffect extends EffectBase {
+  readonly type: 'fw-char-mp-full';
+  /**
+   * Condition matched against a character's card definition. Characters that
+   * match score full printed MP for the Fallen-wizard; omit to exempt every
+   * character (the wh-4 Gandalf case).
+   */
+  readonly filter?: Condition;
+  /**
+   * When `true`, the exemption applies only to characters in the same company as
+   * the player's revealed avatar. Omit for a player-wide exemption (wh-4).
+   */
+  readonly inAvatarCompany?: boolean;
+}
+
+/**
+ * Exempts matching allies the source's controller has in play from their
+ * printed "discard if the company moves to …" movement restriction (a
+ * `bearer-company-moves` self-discard, e.g. Mistress Lobelia dm-178). CRF 22:
+ * an ally's "movement restriction" is exactly its "Discard if he/she moves to"
+ * clause; this effect makes those clauses not fire for the matching allies.
+ *
+ * Collected during the end-of-movement discard sweep (`mh-hazard-play.ts`) from
+ * the moving player's in-play characters and `cardsInPlay`. When a matching
+ * ally would be discarded by a `bearer-company-moves` self-discard, the discard
+ * is skipped.
+ *
+ * Used by Radagast (wh-8): "Hero allies Radagast controls have no movement
+ * restrictions." — `filter` `{ cardType: "hero-resource-ally" }`.
+ *
+ * ```json
+ * { "type": "ally-movement-restriction-exemption",
+ *   "filter": { "cardType": "hero-resource-ally" } }
+ * ```
+ */
+export interface AllyMovementRestrictionExemptionEffect extends EffectBase {
+  readonly type: 'ally-movement-restriction-exemption';
+  /**
+   * Condition matched against an ally's card definition. Matching allies are
+   * exempt from their `bearer-company-moves` self-discard; omit to exempt every
+   * ally the controller has in play.
    */
   readonly filter?: Condition;
 }
@@ -288,6 +586,82 @@ export interface FallenWizardCharacterAllyMpEffect extends EffectBase {
 }
 
 /**
+ * Fallen-wizard kill marshalling-point exemption (MEWH §4 exception).
+ *
+ * MEWH §4 clamps every defeated creature a Fallen-wizard's companies kill to a
+ * flat **1** kill marshalling point. A character carrying this effect exempts
+ * the player from that clamp: hazard creatures his companies defeat score their
+ * *full* printed kill marshalling points instead. In addition, a defeated
+ * **detainment** creature — which normally awards 0 kill MP because it is
+ * discarded rather than routed to the kill pile (CoE rule 3.II.3) — is instead
+ * placed in the defending player's kill pile and scores its full kill MP too
+ * (the "even with *" clause; `*` marks a detainment attack). Both consequences
+ * are player-wide ("your companies"), not limited to the carrier's company.
+ *
+ * Used by Alatar (wh-1): "Hazards your companies defeat (even with *) are worth
+ * full kill marshalling points."
+ *
+ * ```json
+ * { "type": "fw-kill-mp-full" }
+ * ```
+ */
+export interface FallenWizardKillMpEffect extends EffectBase {
+  readonly type: 'fw-kill-mp-full';
+}
+
+/**
+ * Converts every detainment attack against the carrier's player's companies
+ * into a normal attack (CoE §3.II — a detainment attack taps rather than
+ * wounds, suppresses the body check, and awards no kill MP; a normal attack
+ * does none of those). While a character carrying this effect is in play and
+ * the player's stage-point total is strictly greater than
+ * {@link stagePointsAbove}, any attack the engine would otherwise treat as
+ * detainment — whether from a `combat-detainment` effect, a site-forced
+ * detainment rule, or the alignment-based §3.II keying rules — is resolved as a
+ * normal attack instead.
+ *
+ * Used by Alatar (wh-1): "If you have more than 7 stage points, all detainment
+ * attacks against your companies attack normally instead." Here
+ * `stagePointsAbove` is 7.
+ *
+ * ```json
+ * { "type": "detainment-attacks-normal", "stagePointsAbove": 7 }
+ * ```
+ */
+export interface DetainmentAttacksNormalEffect extends EffectBase {
+  readonly type: 'detainment-attacks-normal';
+  /**
+   * The player's stage-point total must be strictly greater than this for the
+   * conversion to apply. Defaults to 0 (always active while in play) when
+   * omitted.
+   */
+  readonly stagePointsAbove?: number;
+}
+
+/**
+ * Global (in-play, either player's `cardsInPlay`) rule: every automatic-attack
+ * at a site whose effective {@link SiteType} is in {@link siteTypes} resolves as
+ * a **normal** attack rather than a detainment attack (CoE §3.II — detainment
+ * taps rather than wounds and awards no kill MP; a normal attack does neither).
+ *
+ * Unlike {@link DetainmentAttacksNormalEffect} — which a *defending* character
+ * carries and which converts detainment for that player's companies regardless
+ * of site — this is a site-type-scoped global carried by a long hazard-event and
+ * applies to any company entering a matching site. It short-circuits the
+ * detainment computation to `false` for that attack (see `isDetainmentAttack`'s
+ * `defenderForcesNormalAttacks`, fed via `siteTypeForcesAutoAttacksNormal`).
+ *
+ * Used by Awaken Defenders (le-103): "each detainment automatic-attack at a
+ * Free-hold or Border-hold becomes a normal automatic-attack" —
+ * `{ "type": "auto-attacks-normal", "siteTypes": ["free-hold", "border-hold"] }`.
+ */
+export interface AutoAttacksNormalEffect extends EffectBase {
+  readonly type: 'auto-attacks-normal';
+  /** Effective site types at which automatic-attacks become normal. */
+  readonly siteTypes: readonly SiteType[];
+}
+
+/**
  * Contributes stage points to the Fallen-wizard who controls this card (MEWH).
  *
  * Stage points reflect how far a Fallen-wizard has deviated from his original
@@ -309,6 +683,17 @@ export interface StagePointsEffect extends EffectBase {
   readonly type: 'stage-points';
   /** Stage points this card contributes to its controller's running total. */
   readonly value: number;
+  /**
+   * When true, this card is a **site** that grants its stage points only while
+   * one of the controlling Fallen-wizard's companies occupies it — the points
+   * are not tallied from `cardsInPlay`/items but from a distinct occupied
+   * `currentSite` (deduplicated per site instance, so two companies at the same
+   * site do not double it). Used by Deep Mines (wh-55, "You receive the three
+   * stage points if any of your companies are at the site") and Rhosgobel
+   * (wh-57). Absent/false on ordinary stage cards, whose points are summed
+   * from in-play cards regardless of company location.
+   */
+  readonly whileCompanyAtSite?: boolean;
 }
 
 /**
@@ -403,6 +788,100 @@ export interface PermanentEventMpEffect extends EffectBase {
 }
 
 /**
+ * Re-values the controller's **non-character** cards in play that match a
+ * per-card {@link when} condition, overriding their printed marshalling points
+ * (and, for a Fallen-wizard, the MEWH §4 flat-1-MP clamp).
+ *
+ * The override is applied to every MP-scoring non-character card the player
+ * controls — items and allies borne by his characters, and factions / misc
+ * permanent-events in his `cardsInPlay` — but never to characters (which are
+ * scored by their own {@link FallenWizardCharacterAllyMpEffect} / §4 path).
+ * Each candidate is matched against the context
+ * `{ card: { unique, normalMp, cardType, name, race } }`, where `normalMp` is
+ * the card's *printed* marshalling points; a match scores exactly {@link value}.
+ *
+ * The carrying card is typically a stage permanent-event placed on the avatar
+ * (collected from both `cardsInPlay` and the avatar's `items`, so it counts
+ * while attached), so "if on Gandalf" is satisfied by the card being in play.
+ *
+ * Used by Give Welcome to the Unexpected (wh-99): "your unique non-character
+ * cards normally worth 1 marshalling point are each worth 2 marshalling points."
+ *
+ * ```json
+ * { "type": "noncharacter-mp-override", "when": { "card.unique": true, "card.normalMp": 1 }, "value": 2 }
+ * ```
+ */
+export interface NonCharacterMpOverrideEffect extends EffectBase {
+  readonly type: 'noncharacter-mp-override';
+  /**
+   * Condition matched against the per-card context
+   * `{ card: { unique, normalMp, cardType, name, race } }`. Every matching
+   * non-character MP-scoring card the player controls scores {@link value}.
+   */
+  readonly when: Condition;
+  /** MP each matching card is worth, overriding its printed value and the §4 clamp. */
+  readonly value: number;
+}
+
+/**
+ * Pins every MP-scoring card **held by a company that is not at one of the
+ * controller's Wizardhavens** to a flat {@link value} marshalling points,
+ * overriding all other MP computation for those cards ("regardless of other
+ * cards in play"). Applies to characters and the items / allies they bear;
+ * factions and other `cardsInPlay` entries are unaffected because they are not
+ * "in a company" (a Fallen-wizard never stores factions at a site). A company
+ * counts as being at a Wizardhaven via {@link isHavenForPlayer} for the
+ * controller's alignment (his own Wizardhaven sites plus any Hidden-Haven
+ * conversion); every other site — and a company with no current site — is
+ * treated as outside a Wizardhaven.
+ *
+ * The card's *"when the game ends"* qualifier is modelled as a continuous
+ * override of the running marshalling-point total (the engine has no separate
+ * end-of-game scoring pass). For a Fallen-wizard this is normally a no-op — the
+ * MEWH §4 clamp already values each company-held card at 1 — so the pin only
+ * changes a total when another card in play (Great Patron wh-72, a `*-mp-full`
+ * exemption, …) would otherwise value the card above {@link value}.
+ *
+ * Used by Await the Onset (wh-96): "Each of your marshalling point cards in a
+ * company not in one of your Wizardhavens [{H}] when the game ends is worth 1
+ * marshalling point regardless of other cards in play."
+ *
+ * ```json
+ * { "type": "nonhaven-company-mp-pin", "value": 1 }
+ * ```
+ */
+export interface NonHavenCompanyMpPinEffect extends EffectBase {
+  readonly type: 'nonhaven-company-mp-pin';
+  /** MP each qualifying company-held card is worth, overriding all other computation. */
+  readonly value: number;
+}
+
+/**
+ * Pins every faction the controller plays **after** this card comes into play to
+ * a flat {@link value} marshalling points, overriding its printed value, the MEWH
+ * §4 clamp, and every faction-MP modifier ("regardless of other cards in play").
+ * The pin is stamped on the faction instance ({@link CardInPlay.mpPinned}) when it
+ * is influenced into play, so factions played *before* the carrier keep their
+ * normal value — exactly the "place these factions under Await the Onset"
+ * bookkeeping the card describes. A Fallen-wizard never stores factions at a site,
+ * so no location is tracked; the tag alone records which factions the clause
+ * covers.
+ *
+ * Used by Await the Onset (wh-96): "Each faction you play after Await the Onset is
+ * worth 1 marshalling point regardless of other cards in play (place these
+ * factions under Await the Onset)."
+ *
+ * ```json
+ * { "type": "played-after-faction-mp-pin", "value": 1 }
+ * ```
+ */
+export interface PlayedAfterFactionMpPinEffect extends EffectBase {
+  readonly type: 'played-after-faction-mp-pin';
+  /** MP each faction played after this card comes into play is worth. */
+  readonly value: number;
+}
+
+/**
  * Recruitment-vehicle effect — Thrall of the Voice (wh-82).
  *
  * Marks a permanent resource-event as a "recruitment vehicle": during the
@@ -426,6 +905,22 @@ export interface RecruitmentVehicleEffect extends EffectBase {
   readonly type: 'recruitment-vehicle';
   /** Maximum printed mind of a character this vehicle may bring into play. */
   readonly maxMind: number;
+  /**
+   * Agent-summons variant — Open to the Summons (wh-46). When true the vehicle
+   * brings **one agent** character into the controller's own company at a
+   * **Darkhaven** [{DH}] (rather than the agent's home site), and may be used by
+   * a Ringwraith **or** Fallen-wizard player (Thrall of the Voice, the plain
+   * variant, is Fallen-wizard-only and covers any character up to {@link maxMind}).
+   *
+   * Unlike Thrall it does **not** lift the Fallen-wizard mind-5 cap: a
+   * Fallen-wizard may only summon an agent of mind ≤ 5 (CRF: "Does not allow a
+   * Fallen-wizard to play a 6-mind character"). The `-1 to his mind` reduction
+   * and the "may also be in your starting company" clause are shared with the
+   * plain variant (via the `stat-modifier` and `starting-company-placement`
+   * effects). During the character draft, one such enabler sitting in the
+   * player's play deck lifts the agent draft-gate for one agent (rules 1.41/1.42).
+   */
+  readonly agentRecruit?: boolean;
 }
 
 /**
@@ -570,6 +1065,14 @@ export interface HandSizeModifierEffect extends EffectBase {
  * Example: Alatar reduces the opponent's hazard draws by 1 for his company.
  * Example: Radagast adds +1 resource draw per Wilderness in the site path
  * via the expression `"sitePath.wildernessCount"`.
+ * Example: A Short Rest (td-95) — a resource long-event in the moving
+ * player's `cardsInPlay` — grants `"4 - sitePath.regionCount"` extra
+ * resource draws, gated on an actual region site path (`movementType`
+ * in `region`/`starter`, `sitePath.regionCount` in 1..3).
+ *
+ * Draw-modifiers are collected both from a moving company's characters and
+ * from the active player's own in-play events/environments, so a long-event
+ * (not carried by any character) can contribute.
  */
 export interface DrawModifierEffect extends EffectBase {
   readonly type: 'draw-modifier';
@@ -579,8 +1082,10 @@ export interface DrawModifierEffect extends EffectBase {
    * The adjustment (negative = fewer draws). Accepts a value expression
    * evaluated against the resolver context, which exposes `sitePath`
    * counts (`wildernessCount`, `shadowCount`, `darkCount`,
-   * `coastalCount`, `freeCount`, `borderCount`) derived from the
-   * moving company's resolved site path.
+   * `coastalCount`, `freeCount`, `borderCount`, and `regionCount` — the
+   * total path length) derived from the moving company's resolved site
+   * path, plus the top-level `movementType`
+   * (`starter`/`region`/`special`/`under-deeps`).
    */
   readonly value: ValueExpr;
   /** Floor for the modified draw count. */
@@ -633,6 +1138,271 @@ export interface ReshuffleFromDiscardEffect extends EffectBase {
    * every player; `'self'` affects only the playing player.
    */
   readonly scope?: 'self' | 'all-players';
+  /**
+   * When true, this reshuffle is the **alternative short-event mode** of an
+   * otherwise `eventType: "permanent"` resource card (a "Permanent-event/
+   * Short-event" card). The card is offered both as a permanent-event (its
+   * ongoing effects) and — via this effect — as a resource short-event that
+   * resolves the reshuffle and discards the card. Used by Great Army of the
+   * North (ba-38): "Alternatively, as a short-event, you may choose any Orc
+   * and Troll factions from your discard pile and shuffle them into your play
+   * deck."
+   */
+  readonly altShortEventMode?: boolean;
+}
+
+/**
+ * Forces the card-player's opponent to discard one or more cards of a named
+ * category, chosen by the opponent, or — if none is available — reveal their
+ * hand.
+ *
+ * Carried by a hazard short-event and resolved when the event resolves on the
+ * chain. The opponent (the resource player, in a hazard-play context) is the
+ * discarding player. Candidate cards are gathered from the sources named in
+ * `sources`: `'hand'` (cards in the opponent's hand) and/or `'carried'` (cards
+ * held by the opponent's in-play characters). If at least one candidate exists,
+ * a {@link PendingResolution} of kind `force-discard-card` is enqueued so the
+ * opponent picks the required number to discard (mandatory). If none exists and
+ * `fallbackRevealHand` is set, the opponent's current hand identities are
+ * revealed to the card-player instead (recorded in
+ * {@link GameState.revealedInstances}).
+ *
+ * The `match` category is a generic, data-driven matcher so other "opponent
+ * discards an X" cards can reuse it. `'ring'` matches any card carrying the
+ * `ring` keyword or the `gold-ring` subtype (the MECCG definition of a ring);
+ * `'any'` matches any hand card (used when the count is what matters, not the
+ * category).
+ *
+ * Used by *Rolled down to the Sea* (wh-29): "Opponent must discard a ring from
+ * his hand or from one of his companies if available. If no rings are available
+ * as such, he must reveal his hand to you." (match `'ring'`, count 1.)
+ *
+ * Used by *Khamûl the Easterling* (tw-47): when its permanent-event mode is
+ * tapped it "becomes a short-event and forces opponent to discard one card of
+ * his choice for every Nazgûl permanent-event in play (including this one) at
+ * the time of declaration." (match `'any'`, dynamic `count`.)
+ */
+export interface ForceOpponentDiscardEffect extends EffectBase {
+  readonly type: 'force-opponent-discard';
+  /**
+   * Named card-category matcher:
+   * - `'ring'` — cards carrying the `ring` keyword or the `gold-ring` subtype.
+   * - `'any'` — any card (used when the discard count, not the category, is the
+   *   point). Only the `'hand'` source is supported for `'any'`.
+   */
+  readonly match: 'ring' | 'any';
+  /**
+   * Where to look for candidate cards to discard:
+   * - `'hand'` — the opponent's hand.
+   * - `'carried'` — items/cards held by the opponent's in-play characters.
+   */
+  readonly sources: readonly ('hand' | 'carried')[];
+  /** When true and no candidate exists, reveal the opponent's hand instead. */
+  readonly fallbackRevealHand?: boolean;
+  /**
+   * How many cards the opponent must discard. Absent = one card (the `'ring'`
+   * case). A `countCardsInPlay` descriptor makes the number equal to the count
+   * of cards in play (across both players) whose definition matches the filter.
+   *
+   * This dynamic count is evaluated at **declaration time** — the moment the
+   * source permanent event is tapped to become the short-event (see
+   * `handleTapAltPermanentEvent`), while the source card is still in play — and
+   * threaded to the chain resolution via
+   * {@link ChainEntryPayload}.`forcedDiscardCount`. Evaluating before the source
+   * card leaves play is what makes "including this one" fall out naturally and
+   * matches the CRF ruling that "the number of cards discarded is set at the
+   * time of declaration".
+   */
+  readonly count?: {
+    readonly countCardsInPlay: {
+      /** Only count in-play cards whose definition carries this keyword. */
+      readonly keyword: string;
+    };
+  };
+}
+
+/**
+ * Reveals the playing player's hand, keeps the cards matching `keepInHand`,
+ * sets the rest aside, refills the hand to the player's effective hand size by
+ * drawing from the play deck, and then places the set-aside cards face-down on
+ * top of the play deck in an order the player chooses.
+ *
+ * Carried by a (hazard) short-event and resolved when the event resolves on
+ * the chain. The playing player is `entry.declaredBy` — for a hazard event
+ * this is the hazard player, who manipulates their **own** hand and deck. The
+ * flow is:
+ *
+ * 1. If `revealHand` is set, the playing player's hand identities are revealed
+ *    to their opponent (recorded in {@link GameState.revealedInstances}).
+ * 2. The hand is partitioned: cards whose definition matches `keepInHand` stay
+ *    in hand; the rest are set aside.
+ * 3. If `drawToHandSize` is set (default true), cards are drawn from the top of
+ *    the play deck until the hand reaches the player's effective hand size
+ *    (stopping early if the deck runs out — no card disappears).
+ * 4. The set-aside cards are placed face-down on top of the play deck. When
+ *    two or more were set aside, an {@link PendingResolution} of kind
+ *    `arrange-deck-top` is enqueued so the player chooses their order.
+ *
+ * The set-aside cards are always physically on top of the deck between steps
+ * 3 and 4 (the ordering resolution only permutes them), so no card instance
+ * ever floats outside a pile.
+ *
+ * Used by *Revealed to all Watchers* (dm-85): "Reveal your hand to opponent.
+ * Place all non-hazard cards from your hand off to the side. Draw cards from
+ * your play deck until your hand size is reached. Place the non-hazard cards
+ * from off to the side face down on top of your play deck in any order you
+ * choose." Here `keepInHand` matches the hazard card types (so non-hazards are
+ * the ones set aside).
+ */
+export interface CycleHandEffect extends EffectBase {
+  readonly type: 'cycle-hand';
+  /** When true, reveal the playing player's hand to their opponent first. */
+  readonly revealHand?: boolean;
+  /**
+   * DSL {@link Condition} matched against each hand card's definition. Cards
+   * that MATCH are kept in hand; non-matching cards are set aside and placed on
+   * top of the play deck after the draw.
+   */
+  readonly keepInHand: Condition;
+  /**
+   * When true (the default), draw from the top of the play deck until the hand
+   * reaches the player's effective hand size after the set-aside cards are
+   * removed. When false, no cards are drawn.
+   */
+  readonly drawToHandSize?: boolean;
+  /**
+   * Where the set-aside (non-matching) cards go after the draw. Currently only
+   * `'deck-top'`: face-down on top of the play deck, in a player-chosen order.
+   */
+  readonly setAsideTo: 'deck-top';
+}
+
+/**
+ * Reveals up to `count` cards from the top of the playing player's play deck,
+ * lets them choose exactly one to put into their hand, and shuffles the
+ * remaining revealed cards back into the play deck.
+ *
+ * Carried by a resource short-event and resolved when the event is played
+ * (after any `play-target` tap cost is paid). The flow is:
+ *
+ * 1. The top `min(count, deckSize)` cards are revealed to the opponent
+ *    (recorded in {@link GameState.revealedInstances}). They remain physically
+ *    on top of the play deck the entire time, so no instance ever floats.
+ * 2. When at least one card is revealed, a {@link PendingResolution} of kind
+ *    `reveal-choose-to-hand` is enqueued (actor = the playing player). The
+ *    choice is mandatory: the player picks one revealed card via a
+ *    `choose-revealed-card` action; it moves to their hand and the whole
+ *    remaining play deck is shuffled (folding the un-chosen revealed cards back
+ *    in). If the deck is empty nothing is revealed and the event simply fizzles.
+ *
+ * Used by *Eyes of Mandos* (dm-126): "Tap Pallando and reveal up to 8 cards
+ * from the top of your play deck. Choose one to put into your hand and shuffle
+ * the remaining ones into your play deck."
+ */
+export interface RevealChooseShuffleEffect extends EffectBase {
+  readonly type: 'reveal-choose-shuffle';
+  /** Maximum number of cards revealed from the top of the play deck. */
+  readonly count: number;
+}
+
+/**
+ * Reveals `count` cards chosen **at random** from the opponent's discard pile,
+ * then lets the card-player pick at most one **non-unique** revealed card and
+ * remove it from the game (to the owner's out-of-play pile). The remaining
+ * revealed cards stay in the discard pile.
+ *
+ * Carried by a hazard short-event and resolved when the event resolves on the
+ * chain. If the opponent's discard pile is empty the effect fizzles; if fewer
+ * than `count` cards are present, all of them are revealed. The random subset
+ * is drawn with the seeded RNG so replays stay deterministic.
+ *
+ * Per the French errata, **sites are treated as unique** (never removable),
+ * so `removableFilter` defaults to "non-unique, non-site". A choice is only
+ * offered when at least one revealed card is removable; the player may still
+ * decline ("You may choose…").
+ *
+ * Used by *Aware of their Ways* (dm-46): "Opponent reveals four cards at random
+ * from his discard pile. You may choose a non-unique one and remove it from
+ * play. Opponent discards the other three."
+ */
+export interface RevealRemoveFromDiscardEffect extends EffectBase {
+  readonly type: 'reveal-remove-from-discard';
+  /** How many cards are revealed at random from the opponent's discard pile. */
+  readonly count: number;
+}
+
+/**
+ * Reveal the top cards of the opponent's play deck (count = the number of the
+ * controller's in-play cards matching `countInPlayMatching`), let the
+ * card-player choose one and show it to the opponent, who must then choose
+ * between removing that card from the game or permanently reducing his hand
+ * size by one; the remaining revealed cards are shuffled back on top of the
+ * deck. The event card itself is removed from the game.
+ *
+ * Carried by a hazard short-event and resolved when the event resolves on the
+ * chain. If the reveal count is zero (no matching in-play cards, or the deck is
+ * empty) the effect fizzles — the event card is still removed from the game.
+ * The count is measured against `cardsInPlay` (both players), so "eliminated
+ * spawn do not count" falls out naturally: an eliminated card is no longer in
+ * `cardsInPlay`.
+ *
+ * The interaction is a two-step pending resolution: first a
+ * `desire-belly-choose-card` (actor = card-player) to pick the shown card, then
+ * a `desire-belly-choose-penalty` (actor = opponent) to pick the penalty.
+ *
+ * Used by *Desire All for Thy Belly* (ba-16): "Reveal to yourself a number of
+ * cards from the top of opponent's play deck equal to the number of Spawn cards
+ * in play. Eliminated spawn do not count. Choose one card and show it to your
+ * opponent. He must choose to either: remove the card from the game or decrease
+ * the number of cards he may hold in his hand by one for the rest of the game.
+ * Shuffle and replace all remaining cards back on top of his play deck."
+ * (Paired with a `play-discard-cost` for the "discard a Spawn card" play cost.)
+ */
+export interface RevealDeckChoosePenaltyEffect extends EffectBase {
+  readonly type: 'reveal-deck-choose-penalty';
+  /**
+   * How many top cards of the opponent's deck are revealed = the number of
+   * cards in play (either player's `cardsInPlay`) whose definition matches this
+   * condition. For ba-16 this is `{ keywords: { $includes: 'spawn' } }`.
+   */
+  readonly countInPlayMatching: Condition;
+}
+
+/**
+ * Removes an opponent's face-up agent from play, or (as an alternative mode)
+ * discards one of the opponent's unrevealed on-guard cards.
+ *
+ * Carried by a resource short-event and resolved when the event is played.
+ * The two modes are chosen by which target the play action carries:
+ *
+ * - **Agent mode** (`targetAgentId`): the targeted face-up agent is judged by
+ *   its printed mind. An agent whose mind is **below** {@link returnMindThreshold}
+ *   is discarded to its owner's discard pile; an agent whose mind is
+ *   {@link returnMindThreshold} **or greater** is returned to its owner's hand.
+ * - **On-guard mode** (`discardTargetInstanceId`): when
+ *   {@link alternativeDiscardOnGuard} is set, an unrevealed on-guard card is
+ *   discarded to its owner's discard pile instead. Per CRF 22 the on-guard
+ *   card must be discarded *before* it is revealed, and the primary
+ *   "playable on a face-up agent" condition does not gate this mode.
+ *
+ * Used by *Withdrawn to Mordor* (dm-165): "Playable on a face-up agent. If the
+ * agent has a mind of 5 or less, it is discarded. If its mind is 6 or greater,
+ * return the agent to its owner's hand. Alternatively, an on-guard card is
+ * discarded."
+ */
+export interface WithdrawAgentEffect extends EffectBase {
+  readonly type: 'withdraw-agent';
+  /**
+   * Printed-mind boundary between the two agent outcomes: an agent whose mind
+   * is at least this value is returned to hand; a lower-mind agent is discarded.
+   * For Withdrawn to Mordor this is `6` (mind ≤5 discarded, mind ≥6 returned).
+   */
+  readonly returnMindThreshold: number;
+  /**
+   * When true, the card may alternatively be played to discard one of the
+   * opponent's unrevealed on-guard cards (the second paragraph of the text).
+   */
+  readonly alternativeDiscardOnGuard: boolean;
 }
 
 /**
@@ -709,6 +1479,17 @@ export interface GrantActionEffect extends EffectBase {
    */
   readonly endOfTurnOnly?: boolean;
   /**
+   * When true, the ability may be activated at most **once per turn** by
+   * this source card. On the first activation the reducer records a
+   * turn-scoped `granted-action-used` constraint keyed by the source
+   * instance and `action`; the legal-action scanner then suppresses the
+   * ability for the rest of the turn (the constraint is cleared at
+   * turn-end). Independent of the phase-window flags. Used by *Strangling
+   * Coils* (ba-76): "Once during his movement/hazard phase, you may untap
+   * all tapped characters in The Balrog's company."
+   */
+  readonly oncePerTurn?: boolean;
+  /**
    * When true, the ability is activatable **only** while a corruption
    * check by a character in the bearer's company is awaiting its roll —
    * i.e. during a unified `corruption-check` pending resolution or the
@@ -763,6 +1544,17 @@ export interface GrantActionTargets {
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
+  /**
+   * For scope `'player-companies'`: restrict the enumerated companies to those
+   * that have declared movement this organization phase **and** whose declared
+   * destination's printed site path contains at least one region of this type.
+   *
+   * Shifter of Hues (wh-115) uses `"wilderness"` — "this company must be moving
+   * with at least one Wilderness [{w}] in their site path". Because movement is
+   * planned during the organization phase, the destination (and therefore the
+   * site path) is already known when the ability is offered.
+   */
+  readonly movingThroughRegionType?: string;
 }
 
 /** The cost required to activate a granted action. */
@@ -797,9 +1589,13 @@ export interface ActionCost {
   /**
    * Custom failure consequence for corruption-check costs. When set to
    * `'discard-ring-only'`, a failed check discards the bearer's Ring item
-   * instead of the character (e.g. The Ring's Betrayal).
+   * instead of the character (e.g. The Ring's Betrayal). When set to
+   * `'discard-instead-of-eliminate'`, an outcome that would normally
+   * eliminate the character (roll ≥2 below CP, or a Wizard avatar on any
+   * failure) instead merely discards him along with his non-follower
+   * possessions (e.g. The Roving Eye le-135).
    */
-  readonly failureMode?: 'discard-ring-only';
+  readonly failureMode?: 'discard-ring-only' | 'discard-instead-of-eliminate';
 }
 
 /**
@@ -860,12 +1656,18 @@ export type TriggeredActionType =
   | 'add-constraint'
   | 'remove-constraint'
   | 'cancel-chain-entry'
+  | 'counter-cancel-attack'
   | 'discard-character'
+  | 'eliminate-character'
+  | 'enqueue-opponent-elimination-roll'
   | 'discard-target-character'
   | 'force-discard-one-company-item'
   | 'enqueue-corruption-check'
+  | 'enqueue-body-check'
+  | 'malady-without-healing'
   | 'enqueue-pending-fetch'
   | 'enqueue-ring-play-offer'
+  | 'enqueue-gold-ring-test'
   | 'heal-target-character'
   | 'return-character-to-hand'
   | 'increment-company-extra-region-distance'
@@ -876,6 +1678,7 @@ export type TriggeredActionType =
   | 'roll-then-apply'
   | 'transform-site'
   | 'untap-site'
+  | 'cancel-current-attack'
   | 'win-condition-roll'
   | 'win-game';
 
@@ -945,6 +1748,47 @@ export interface EnqueueCorruptionCheckAction extends TriggeredActionBase {
   readonly onSuccess?: TriggeredAction;
 }
 
+/**
+ * `enqueue-body-check` — an `onSuccess` follow-up on a target's corruption
+ * check (A Malady Without Healing le-159: "…followed by a body check (modified
+ * by +1 if tapped)"). When the corruption check passes and the target survives,
+ * this enqueues a standalone (out-of-combat) body check on that same character:
+ * the `rollerPlayerId` rolls 2d6, +1 if the target is tapped (or wounded); if
+ * the modified roll exceeds the target's body the character is eliminated
+ * (CoE 3.I.2.1 — a failed body check on any character eliminates it). Modelled
+ * as a generic `dice-check` resolution enqueued by the corruption-check
+ * resolver, with `onPass: eliminate-character` carrying `awardKillMpTo`.
+ */
+export interface EnqueueBodyCheckAction extends TriggeredActionBase {
+  readonly type: 'enqueue-body-check';
+  /** Player who rolls the body check (the caster / non-controller). */
+  readonly rollerPlayerId: PlayerId;
+  /** Add +1 to the roll when the target is tapped or wounded (not untapped). */
+  readonly plusOneIfTapped?: boolean;
+  /** Credit this player with the hero target's kill MP if the body check eliminates it. */
+  readonly awardKillMpTo?: PlayerId;
+  /** UI/log banner for the enqueued check. */
+  readonly reason?: string;
+}
+
+/**
+ * `malady-without-healing` — the bespoke `self-enters-play` orchestrator for
+ * A Malady Without Healing (le-159). On resolution it: (1) enqueues a
+ * corruption check (`targetCorruptionModifier`, default -1) on the target
+ * character — which may be an opponent's, rolled by the target's controller —
+ * carrying `awardKillMpTo` (caster) and an `enqueue-body-check` `onSuccess`
+ * follow-up; and (2) unless the acting player's chosen shadow-magic user at the
+ * target's site is a Ringwraith, enqueues a corruption check
+ * (`casterCorruptionModifier`, default -5) on that user.
+ */
+export interface MaladyWithoutHealingAction extends TriggeredActionBase {
+  readonly type: 'malady-without-healing';
+  /** Roll modifier for the target's corruption check (le-159: -1). */
+  readonly targetCorruptionModifier: number;
+  /** Roll modifier for the non-Ringwraith shadow-magic user's corruption check (le-159: -5). */
+  readonly casterCorruptionModifier: number;
+}
+
 /** `roll-check` — roll 2d6, sum check modifiers, emit a labelled dice GameEffect. */
 export interface RollCheckAction extends TriggeredActionBase {
   readonly type: 'roll-check';
@@ -1001,6 +1845,14 @@ export interface AddConstraintAction extends TriggeredActionBase {
   /** Numeric payload (check-modifier, *-stat-modifier, hazard-limit-modifier, hand-size-modifier, …). */
   readonly value?: number;
   /**
+   * For a `check-modifier` payload: when true the modifier is not consumed by
+   * the first matching check but keeps applying until its `scope` sweeps it
+   * (Shifter of Hues wh-115: "+2 to the corruption checks of the characters in
+   * one company through your next organization phase"). Omit for the ordinary
+   * one-shot "add +N to one check" behaviour.
+   */
+  readonly lasting?: boolean;
+  /**
    * For a `check-modifier` payload: when true, the targeted character's next
    * matching check (e.g. corruption) succeeds unconditionally, regardless of
    * the roll, instead of being adjusted by {@link value}. Used by Ancient
@@ -1022,6 +1874,13 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly strikes?: number;
   /** Site type for site-type-override / site-resource-unlocked / auto-attack-prowess-boost. */
   readonly siteType?: string;
+  /**
+   * Compound site selector for a `site-resource-unlocked` add-constraint whose
+   * "such a site" is not a single site type — evaluated against the site
+   * context (A Panoply of Wings wh-37: "any non-Haven, non-Shadow-hold,
+   * non-Dark-hold site in a Wilderness"). Mutually exclusive with {@link siteType}.
+   */
+  readonly siteCondition?: Condition;
   /** Resource category for site-resource-unlocked. */
   readonly subtype?: string;
   /** Override target type for site-type-override / region-type-override. */
@@ -1030,6 +1889,39 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly regionName?: string;
   /** Payload describing the action granted by a `granted-action` constraint. */
   readonly grantedAction?: GrantedActionConstraintPayload;
+  /**
+   * For a `site-path-reduction` constraint (Roam the Waste ba-73): region type →
+   * count of tokens removed from each of the player's companies' site paths this
+   * turn (e.g. `{ "wilderness": 1, "shadow": 1 }`).
+   */
+  readonly regionReductions?: Record<string, number>;
+  /**
+   * For a `character-stat-modifier` constraint that is only active *while* a
+   * named card remains in play (Heart of Dark Fire ba-63: "The Balrog receives
+   * +5 direct influence this turn **while Strangling Coils is in play**"). The
+   * effect resolver re-checks this each time it synthesises the stat modifier,
+   * so the bonus lapses immediately if the named card leaves play mid-turn.
+   */
+  readonly requiresCardInPlay?: string;
+  /**
+   * For a `check-modifier` constraint: an optional condition evaluated against
+   * the check's resolver context at the moment the check resolves. When present,
+   * the modifier is only applied (and consumed) if the condition matches. Used
+   * by boosters that are specific to one flavour of influence attempt, e.g.
+   * Mine or No One's (ba-68): a +10 that applies only to an *opponent-influence*
+   * attempt (`reason: "opponent-influence-check"`) against an item, ally, or
+   * Orc/Troll faction. A check-modifier constraint with no `constraintWhen`
+   * keeps its legacy behaviour (consumed by the faction-influence roll).
+   *
+   * On a **company**-targeted corruption check-modifier it instead narrows
+   * which of the company's characters benefit, evaluated against a
+   * `{ target: { cardType, race, name } }` context describing the character
+   * making the check: Ren the Ringwraith (le-56) modifies checks "by minions
+   * in any one of your companies" and carries
+   * `{ "target.cardType": "minion-character" }`, while Shifter of Hues
+   * (wh-115) aids "the characters in one company" wholesale and omits it.
+   */
+  readonly constraintWhen?: Condition;
 }
 
 /**
@@ -1061,6 +1953,69 @@ export interface DiscardCharacterAction extends TriggeredActionBase {
   readonly type: 'discard-character';
 }
 
+/**
+ * `eliminate-character` — eliminate the resolution-context target character
+ * (remove it from its company and send the character card to its owner's
+ * out-of-play pile; its non-hazard possessions are discarded, its hazards go to
+ * the hazard owner, and its followers revert to general influence). Distinct
+ * from `discard-character` (which sends the character card to the discard pile).
+ * Used as the `onPass` branch of the dice-check enqueued by Evil Things
+ * Lingering (ba-45): the controlling character is *eliminated* if the opponent's
+ * organization-phase roll beats his mind.
+ */
+export interface EliminateCharacterAction extends TriggeredActionBase {
+  readonly type: 'eliminate-character';
+  /**
+   * When set, and the eliminated character is a **hero**, the named player is
+   * credited with the character's marshalling points as *kill* MP (added to
+   * `player.bonusKillMarshallingPoints`). Used by A Malady Without Healing
+   * (le-159) whose standalone body check "if target character is a hero and is
+   * eliminated by these checks, you receive his kill marshalling points."
+   */
+  readonly awardKillMpTo?: PlayerId;
+}
+
+/**
+ * `wound-or-eliminate` — the dice-check onPass verb for "he is wounded or, if
+ * already wounded, eliminated" (Crowned with Storm ba-54). Acts on the
+ * resolution-context target, which may be **either** a character
+ * (`targetCharacterId`) or an ally (`targetInstanceId`), and always locates the
+ * target's actual owner (the roller may control the *other* company), so it is
+ * roller-agnostic:
+ *
+ * - target not yet wounded (untapped/tapped) → set its status to `inverted`
+ *   (a wound);
+ * - target already wounded (`inverted`) → eliminate it: a character is removed
+ *   to its owner's out-of-play pile (its possessions handled like any
+ *   elimination); an ally is removed from its host and sent to its owner's
+ *   discard pile.
+ *
+ * Self-contained: it encodes the "already wounded → eliminate" branch itself
+ * rather than relying on `when`-guarded sibling verbs, so it needs no
+ * roller-owned-target assumption.
+ */
+export interface WoundOrEliminateAction extends TriggeredActionBase {
+  readonly type: 'wound-or-eliminate';
+}
+
+/**
+ * `enqueue-opponent-elimination-roll` — an `organization-phase-start` on-event
+ * apply (carried by an attached ally) that enqueues a generic `dice-check`
+ * resolution for the *opponent* (the bearer's controller's opponent): the
+ * opponent rolls 2d6, adds `modifier` (negative), and the bearer's controlling
+ * character is eliminated (`onPass`) when the modified total is strictly greater
+ * than that character's mind. Used by Evil Things Lingering (ba-45): "If this
+ * ally's controlling character is not The Balrog, your opponent makes a roll
+ * during your organization phase and subtracts four. The controlling character
+ * is eliminated if the result is greater than his mind." (The `not The Balrog`
+ * gate is expressed by the effect's `when: { "bearer.name": { "$ne": … } }`.)
+ */
+export interface EnqueueOpponentEliminationRollAction extends TriggeredActionBase {
+  readonly type: 'enqueue-opponent-elimination-roll';
+  /** Constant added to the opponent's 2d6 roll (e.g. `-4` = "subtracts four"). */
+  readonly modifier: number;
+}
+
 /** `discard-target-character` — discard the grant-action's target character (type-only marker). */
 export interface DiscardTargetCharacterAction extends TriggeredActionBase {
   readonly type: 'discard-target-character';
@@ -1090,9 +2045,15 @@ export interface HealTargetCharacterAction extends TriggeredActionBase {
   readonly type: 'heal-target-character';
 }
 
-/** `return-character-to-hand` — return the target character to its owner's hand (Call of Home onFail); type-only marker. */
+/** `return-character-to-hand` — return the target character to its owner's hand (Call of Home onFail). */
 export interface ReturnCharacterToHandAction extends TriggeredActionBase {
   readonly type: 'return-character-to-hand';
+  /**
+   * When true, the returning character's owner may transfer one of its items to
+   * another character in the same company before the rest are discarded (Pilfer
+   * Anything Unwatched as-33). Omitted/false discards every item (Call of Home).
+   */
+  readonly allowItemTransfer?: boolean;
 }
 
 /** `tap-one-character` — enqueue a "tap one character in the company" resolution; type-only marker. */
@@ -1151,6 +2112,14 @@ export interface EnqueuePendingFetchAction extends TriggeredActionBase {
   readonly fetchShuffle?: boolean;
   /** Where to place the fetched card (default `'deck'`). */
   readonly fetchTo?: 'deck' | 'hand';
+  /**
+   * When true, only cards playable at the bearer's company's current site
+   * qualify (item categories printed on the site card, allies/factions whose
+   * `playableAt` names the site). The site is captured when the fetch is
+   * enqueued. Used by Strider (ba-1): "search your discard pile for any one
+   * item, ally, or faction playable at his current site".
+   */
+  readonly playableAtBearerSite?: boolean;
   /** Enqueue a corruption check on the bearer after the fetch completes. */
   readonly postCorruptionCheck?: boolean;
   /** Modifier for the post-fetch corruption check (default 0). */
@@ -1164,6 +2133,22 @@ export interface EnqueueRingPlayOfferAction extends TriggeredActionBase {
   readonly type: 'enqueue-ring-play-offer';
   /** Ring categories to exclude from the offered set. */
   readonly excludeCategories?: readonly string[];
+}
+
+/**
+ * `enqueue-gold-ring-test` — run the full Rule 6.2 gold-ring test on a chosen
+ * gold-ring item borne by a character in a sage's company. Enqueues the shared
+ * `gold-ring-test` pending resolution: the ring's owner rolls 2d6 (plus this
+ * `rollModifier`), the gold ring's own `ring-test-table` maps the total to the
+ * eligible ring categories, the gold ring is discarded, and a `ring-play-offer`
+ * follows so the player may play a matching special ring from hand. Used by the
+ * "Test of X" short-event ring-test cards (e.g. Test of Fire le-239, whose
+ * `rollModifier` is 0; Test of Lore tw-340 uses -1).
+ */
+export interface EnqueueGoldRingTestAction extends TriggeredActionBase {
+  readonly type: 'enqueue-gold-ring-test';
+  /** Modifier applied to the 2d6 ring-test roll (default 0). */
+  readonly rollModifier?: number;
 }
 
 /** `sequence` — run an ordered list of sub-applies on the state each produces. Recursive. */
@@ -1180,6 +2165,19 @@ export interface CancelChainEntryAction extends TriggeredActionBase {
   readonly select?: 'most-recent-unresolved-hazard' | 'target';
   /** For `select: 'target'`: restrict to entries whose source has a matching skill effect. */
   readonly requiredSkill?: string;
+}
+
+/**
+ * `counter-cancel-attack` — dice-check onPass verb for Black Vapour (ba-14).
+ * Negates the chain entry named by the resolution's `targetInstanceId` (the
+ * opponent's cancel-attack) so the attack survives, and adds {@link prowessBonus}
+ * to the current attack's prowess (`combat.strikeProwess`). Runs only in the
+ * dice-check resolution context ({@link applyDiceCheckBranch}).
+ */
+export interface CounterCancelAttackTriggeredAction extends TriggeredActionBase {
+  readonly type: 'counter-cancel-attack';
+  /** Prowess added to the surviving attack on success. */
+  readonly prowessBonus?: number;
 }
 
 /** `set-company-special-movement` — flag a special-movement mode (Gwaihir flight) on the bearer's company. */
@@ -1227,6 +2225,16 @@ export interface UntapSiteAction extends TriggeredActionBase {
 }
 
 /**
+ * `cancel-current-attack` — cancel the combat currently in `state.combat`
+ * (delegates to the shared `resolveCancelAttackEntry`). Used as the `onPass`
+ * verb of a `dice-check` enqueued by a roll-to-cancel ability (Going Ever
+ * Under Dark ba-37). Type-only marker.
+ */
+export interface CancelCurrentAttackAction extends TriggeredActionBase {
+  readonly type: 'cancel-current-attack';
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -1236,6 +2244,8 @@ export type TriggeredAction =
   | ForceCheckAction
   | ForceCheckAllCompanyAction
   | EnqueueCorruptionCheckAction
+  | EnqueueBodyCheckAction
+  | MaladyWithoutHealingAction
   | RollCheckAction
   | RollThenApplyAction
   | WinConditionRollAction
@@ -1245,6 +2255,9 @@ export type TriggeredAction =
   | SetSitePhaseFlagAction
   | MoveEffect
   | DiscardCharacterAction
+  | EliminateCharacterAction
+  | WoundOrEliminateAction
+  | EnqueueOpponentEliminationRollAction
   | DiscardTargetCharacterAction
   | ForceDiscardOneCompanyItemAction
   | SetCharacterStatusAction
@@ -1258,14 +2271,17 @@ export type TriggeredAction =
   | OfferRestoreCharacterAction
   | EnqueuePendingFetchAction
   | EnqueueRingPlayOfferAction
+  | EnqueueGoldRingTestAction
   | SequenceAction
   | CancelChainEntryAction
+  | CounterCancelAttackTriggeredAction
   | SetCompanySpecialMovementAction
   | ShuffleDeckTopAction
   | IncrementCompanyExtraRegionDistanceAction
   | ModifyCurrentStrikeProwessAction
   | TransformSiteAction
-  | UntapSiteAction;
+  | UntapSiteAction
+  | CancelCurrentAttackAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -1331,6 +2347,112 @@ export interface CancelStrikeEffect extends EffectBase {
 }
 
 /**
+ * A from-hand combat event (permanent-event) the defender plays to make a
+ * named character "flee" from a strike he would likely lose. Playable during
+ * the strike sequence when the current strike is assigned to a character with
+ * {@link characterName} (owned by the defender) and the strike's prowess is
+ * strictly higher than that character's effective prowess.
+ *
+ * On play the current strike is canceled, the named character taps (if
+ * untapped), and the card enters play carrying a one-shot `skip-next-untap`
+ * constraint on that character. The next time the character would untap during
+ * the untap phase he stays tapped instead, the constraint is consumed, and this
+ * card is discarded. Pair with a `duplication-limit` to model "Cannot be
+ * duplicated".
+ *
+ * Used by Fled into Darkness (ba-18): "Playable before the strike sequence on
+ * The Balrog facing a strike with a prowess higher than his. The strike is
+ * canceled and The Balrog taps, if untapped. The next time The Balrog would
+ * otherwise untap, make him tapped instead and discard this card."
+ */
+export interface FleeFromStrikeEffect extends EffectBase {
+  readonly type: 'flee-from-strike';
+  /** Name of the character that must be facing the current strike (e.g. "The Balrog"). */
+  readonly characterName: string;
+}
+
+/**
+ * On-play roll that untaps the target character's company's current site.
+ *
+ * Carried by a resource permanent-event played on a character at a site. When
+ * the card enters play (`resolvePermanentEvent`), a generic {@link
+ * PendingResolution} `dice-check` is enqueued: the card player rolls 2d6, adds
+ * the target character's effective mind, plus {@link wizardBonus} when the
+ * character is a Wizard. If the modified total is strictly greater than {@link
+ * threshold}, the `untap-site` onPass verb untaps the site the character's
+ * company occupies. The roll surfaces as its own explicit `resolve-dice-check`
+ * action so the die roll is a distinct, replayable step.
+ *
+ * Used by Fireworks (dm-130): "Make a roll and add the mind of the sage (+10 if
+ * a Wizard) — if the result is greater than 12, the site untaps."
+ */
+export interface RollUntapSiteEffect extends EffectBase {
+  readonly type: 'roll-untap-site';
+  /** The modified 2d6 total must be strictly greater than this to untap the site. */
+  readonly threshold: number;
+  /** Bonus added to the roll when the target character is a Wizard. */
+  readonly wizardBonus: number;
+}
+
+/**
+ * On-play marker that installs a one-shot `skip-next-untap` active constraint on
+ * the target character (the same constraint kind Fled into Darkness ba-18 uses):
+ * the next time the character would otherwise untap he stays tapped once, then
+ * the source card is discarded and the constraint is cleared (`performUntap` in
+ * `reducer-untap.ts`, which also scans character-borne cards). The source card
+ * may sit either in the owner's `cardsInPlay` (ba-18) or attached to the target
+ * character's items (a resource permanent-event, dm-130).
+ *
+ * Used by Fireworks (dm-130): "The next time the sage would otherwise become
+ * untapped make him tapped instead and discard this card."
+ */
+export interface SkipNextUntapOnPlayEffect extends EffectBase {
+  readonly type: 'skip-next-untap-on-play';
+}
+
+/**
+ * An attached resource (currently an ally) that its controller "may return to
+ * hand" under listed triggers, instead of being discarded.
+ *
+ * Two triggers are supported:
+ * - `organization` — during the owning player's organization phase, the player
+ *   may voluntarily return the card to hand (a legal action emitted by the
+ *   organization-phase computer; the reducer detaches it and moves it to the
+ *   owner's hand).
+ * - `controller-leaves-play` — when the controlling character leaves active
+ *   play (elimination/discard), the card returns to its owner's hand rather
+ *   than to the discard pile (`discardCharacter` routes it accordingly).
+ *
+ * Used by Radagast's Black Bird (wh-114): "You may return … to your hand:
+ * during your organization phase or if its controlling character leaves active
+ * play."
+ */
+export interface ReturnToHandEffect extends EffectBase {
+  readonly type: 'return-to-hand';
+  /**
+   * The triggers under which the card may/should return to hand.
+   *
+   * - `organization` — offered as a `return-attached-to-hand` action during
+   *   the owner's organization phase (optional; the player chooses).
+   * - `controller-leaves-play` — automatic, when the controlling character
+   *   leaves active play the card goes to hand rather than the discard pile.
+   * - `replaced-by-keyword` — automatic, when another card carrying
+   *   {@link replacedByKeyword} is placed on the same character. Models the
+   *   Radagast Shapeshifter forms (wh-112/115/116): "Return this card to your
+   *   hand when you play another Shapeshifter card" — taking a new shape sheds
+   *   the old one instead of stacking forms.
+   */
+  readonly during: readonly ('organization' | 'controller-leaves-play' | 'replaced-by-keyword')[];
+  /**
+   * For the `replaced-by-keyword` trigger: the keyword whose arrival on the
+   * same character displaces this card (e.g. `"shapeshifter"`). The most
+   * recently placed carrier of the keyword stays; every earlier one that
+   * declares this trigger returns to its owner's hand.
+   */
+  readonly replacedByKeyword?: string;
+}
+
+/**
  * The attacking player assigns strikes to defending characters, instead
  * of the defender assigning them. Example: Cave-drake.
  */
@@ -1382,6 +2504,47 @@ export interface CombatOneStrikePerCharacterEffect extends EffectBase {
   readonly type: 'combat-one-strike-per-character';
   /** When true, avatar characters (mind === null) are excluded from strike assignment. */
   readonly excludeAvatars?: boolean;
+  /**
+   * When true, only **wounded** (inverted) characters face a strike:
+   * `strikesTotal = wounded characters` and one strike is pre-assigned to each
+   * wounded character. Unwounded characters are never assigned a strike. Card
+   * text is "Each wounded character faces one strike" (e.g. Carrion Feeders
+   * ba-11). Mutually exclusive with `excludeAvatars`.
+   */
+  readonly onlyWounded?: boolean;
+}
+
+/**
+ * Attack-wide body-check modifier carried by a hazard creature: `value` is
+ * added to every character body-check roll this attack produces (on top of
+ * the already-wounded +1 and any item modifiers). Positive values make
+ * elimination more likely. Threaded into `CombatState.bodyCheckModifier` at
+ * combat initiation and consumed in `handleBodyCheckRoll`. Card text is
+ * "All body checks resulting from successful strikes are modified by an
+ * additional +1" (e.g. Carrion Feeders ba-11). (implemented in
+ * `chain-reducer.ts`, `combat-actions.ts`)
+ */
+export interface CombatBodyCheckModifierEffect extends EffectBase {
+  readonly type: 'combat-body-check-modifier';
+  /** Amount added to every character body-check roll from this attack. */
+  readonly value: number;
+}
+
+/**
+ * The defending company may tap an untapped character to cancel one of this
+ * attack's strikes against a wounded character. Pairs with
+ * `combat-one-strike-per-character: onlyWounded` (every strike is against a
+ * wounded character). On combat initiation the engine opens a `cancel-by-tap`
+ * sub-phase (`CombatState.cancelStrikeAgainstWounded`): each untapped company
+ * character may tap to remove one pre-assigned strike (defender chooses which
+ * wounded character to protect), or pass to proceed to resolution. Card text
+ * is "Each untapped character in the company may tap to cancel a strike
+ * against a wounded character" (e.g. Carrion Feeders ba-11). Presence of this
+ * effect is the entire payload. (implemented in `chain-reducer.ts`,
+ * `legal-actions/combat.ts`, `combat-cancel.ts`)
+ */
+export interface CombatTapToCancelStrikeEffect extends EffectBase {
+  readonly type: 'combat-tap-to-cancel-strike';
 }
 
 /**
@@ -1442,6 +2605,12 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   resource menus to cancel an environment (e.g. Twilight).
  * - `playable-as-hazard` — a resource card may also be played through
  *   hazard menus (e.g. Sudden Call, le-235).
+ * - `playable-as-event` — a hazard creature that may alternatively be
+ *   played as an event, or an event that may alternatively be played as
+ *   a creature (e.g. the Nazgûl, the "manifestation" hunter creatures,
+ *   Mouth of Sauron). Such dual creature/event hazards count as half a
+ *   creature for the 12-creature deck-construction requirement
+ *   (CoE rule 1.5.1 / CRF 22).
  * - `no-hazard-limit` — playing this hazard does not consume a slot
  *   against the per-company hazard limit (e.g. Twilight, Lure).
  * - `not-starting-character` — character may not be drafted as one of
@@ -1457,6 +2626,11 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   permanent event resolves from the chain. Used by cards whose text
  *   explicitly says "Tap the site" as part of their play effect (e.g.
  *   The Windlord Found Me). Respects the `never-taps` site-rule.
+ * - `tap-bearer-on-play` — for an item-targeting permanent event
+ *   (`play-target` target `item`), taps the character bearing the targeted
+ *   item when the card resolves from the chain (e.g. Barrow-blade dm-119:
+ *   "Tap the bearer of a Dagger of Westernesse … and play this with the
+ *   Dagger").
  * - `healing-affects-all` — healing effects applied to one character in the
  *   company extend to all other wounded characters in the same company (e.g.
  *   Ioreth). Equivalent to the `healing-affects-all` site-rule but carried
@@ -1475,10 +2649,26 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   an untapped site" rule). Used by Noble Steed, which is playable at "tapped
  *   or untapped" non-Haven sites in its region list, and by Snaga-hai (le-286),
  *   which is playable at "any tapped or untapped Shadow-hold".
+ * - `no-tap-on-play` — playing this ally taps neither the controlling character
+ *   nor the site (overrides the default "an ally taps its controller and the
+ *   site"). Combined with a wizard-specific keyword, models "X may play this
+ *   ally … and need not tap himself or the site to do so." Used by Radagast's
+ *   Black Bird (wh-114). A controlling character may therefore be tapped when
+ *   it plays the ally (it does not need to be untapped, since it never taps).
+ * - `influences-factions` — this ally "may attempt to influence factions as if
+ *   he were a character" (CoE: allies are normally not influencers). A company
+ *   ally carrying this flag with a printed `directInfluence` is offered as a
+ *   faction-influence source alongside untapped characters; it taps for the
+ *   attempt exactly as a character would. Used by Radagast's Black Bird (wh-114).
  * - `block-company-joins` — while this permanent event is in play bound to a
  *   company (`CardInPlay.companyId`), no ally and no direct-influence follower
  *   may join that company. On play the company's existing allies and follower
  *   characters are discarded. Used by Fell Rider (le-183).
+ * - `no-allies-in-company` — while an item / attached permanent-event carrying
+ *   this flag is on a character in a company, no ally may be played to that
+ *   company. (Allies are only ever played during the site phase, so this
+ *   realizes "no allies in his company outside the organization phase" without a
+ *   phase gate.) Used by Flame of Udûn (ba-58).
  * - `bearer-cannot-untap-until-stored` — when this storable permanent event is
  *   attached to a character on play (taps the character via a play-target tap
  *   cost or a direct storable-at attachment, or is assigned a bearer after a
@@ -1490,7 +2680,7 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'bearer-cannot-untap-until-stored' | 'grants-followers';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -1614,6 +2804,34 @@ export interface TriggerAttackOnPlayEffect extends EffectBase {
    * current site.
    */
   readonly discardFactionsAtSite?: boolean;
+  /**
+   * When true, after bearer selection (the `move-to-mp-pile` keep branch)
+   * return every **unique** faction card in play — belonging to *either*
+   * player — that is playable at the company's current site to its owner's
+   * hand (Tempest of Fire ba-77). Distinct from `discardFactionsAtSite`,
+   * which discards only the active player's factions.
+   */
+  readonly returnFactionsAtSite?: boolean;
+  /**
+   * When present, the creature type of every triggered attack is resolved
+   * at play time from the active company's current site type instead of the
+   * fixed `creatureType` on each attack entry. Keyed by site type (e.g.
+   * `{ "border-hold": "Men", "shadow-hold": "Orcs" }`) — Tempest of Fire
+   * ba-77's "Men at a Border-hold, Orcs at a Shadow-hold". A site type absent
+   * from the map falls back to the attack entry's printed `creatureType`.
+   */
+  readonly creatureTypeBySiteType?: Readonly<Record<string, string>>;
+  /**
+   * When true, after bearer selection (the `move-to-mp-pile` keep branch)
+   * discard every **unique** faction card in play — belonging to *either*
+   * player — that is playable at the company's current site (Invade Their
+   * Domain ba-64, Lord and Usurper ba-65: "discard all unique factions
+   * playable at the site"). Distinct from `discardFactionsAtSite` (which
+   * discards *all* of the active player's factions regardless of uniqueness)
+   * and `returnFactionsAtSite` (which returns unique factions to hand rather
+   * than discarding).
+   */
+  readonly discardUniqueFactionsAtSite?: boolean;
 }
 
 /**
@@ -1636,6 +2854,44 @@ export interface DeckSearchAttackEffect extends EffectBase {
   readonly strikes: number;
   /** Whether this attack cannot be canceled. */
   readonly uncancelable: boolean;
+}
+
+/**
+ * The Great Hunt (wh-91) — Alatar's signature stage permanent-event. Carried
+ * by a resource permanent-event; fires when the card enters play and then
+ * establishes a persistent "discards attack" effect while it stays in play.
+ *
+ * On play (the reveal-and-attack process):
+ *  - The controller chooses whether the opponent reveals from their play deck
+ *    or their discard pile (a `great-hunt-source` pending resolution).
+ *  - Cards are revealed from the top of the chosen pile one at a time. Each
+ *    revealed hazard-creature immediately attacks the controller's Alatar
+ *    company (a `great-hunt-attack` combat). The process stops once
+ *    `maxCreatures` creatures have attacked or the pile is exhausted.
+ *  - The revealed cards never leave their pile (they are only revealed, exactly
+ *    like Lucky Search tw-269). If the play deck was used, it is reshuffled
+ *    when the process completes.
+ *
+ * Ongoing (the `great-hunt-active` tracker constraint added on play):
+ *  - "Whenever your opponent discards a creature during your turn, you may
+ *    choose to have it attack Alatar's company instead." Each hazard-creature
+ *    the opponent discards during the controller's own turn (while this card is
+ *    in play) offers a `great-hunt-discard-attack` resolution. Ruling: each
+ *    discarded creature instance is offered at most once per turn — after it
+ *    attacks (or is passed) it stays in the discard pile and is not re-offered,
+ *    even if it re-enters the discard pile — so the unbounded printed wording
+ *    cannot loop forever.
+ */
+export interface RevealAndAttackEffect extends EffectBase {
+  readonly type: 'reveal-and-attack';
+  /** Max number of revealed creatures that attack before the process stops. */
+  readonly maxCreatures: number;
+  /**
+   * The avatar whose company is attacked (both by the reveal process and by
+   * the ongoing discard trigger). Matched against the controller's in-play
+   * avatar character by name, e.g. `"Alatar"`.
+   */
+  readonly attackAvatar: string;
 }
 
 /**
@@ -1701,6 +2957,23 @@ export interface AgentTapAttackEffect extends EffectBase {
 }
 
 /**
+ * An agent at the target company's new site may be discarded (by its
+ * controller's choice, not as an agent action, not against the hazard limit)
+ * to force the moving company to return to its site of origin. The return
+ * follows CoE rule 2.IV.4: the company's movement/hazard phase immediately
+ * ends, the company is no longer considered to have a site path nor to have
+ * moved this turn, and its player cannot initiate any actions during that
+ * company's site phase.
+ *
+ * Used by Baduila (dm-2): "Agent only: if you choose to discard Baduila at
+ * target company's new site, company must return to its site of origin."
+ * (CRF: read "If Baduila is discarded" as "If you choose to discard Baduila.")
+ */
+export interface AgentDiscardReturnToOriginEffect extends EffectBase {
+  readonly type: 'agent-discard-return-to-origin';
+}
+
+/**
  * Restricts the site types an agent (acting as a hazard moving around the map)
  * may move to. When the bearer takes an `agent-move` action, any destination
  * whose {@link SiteType} appears in `siteTypes` is excluded from the legal
@@ -1711,8 +2984,18 @@ export interface AgentTapAttackEffect extends EffectBase {
  */
 export interface AgentMoveRestrictionEffect extends EffectBase {
   readonly type: 'agent-move-restriction';
-  /** Site types the agent may NOT move to. */
-  readonly siteTypes: readonly SiteType[];
+  /** Site types the agent may NOT move to (deny-list, e.g. Baugúr dm-181). */
+  readonly siteTypes?: readonly SiteType[];
+  /**
+   * Allow-list of site names the agent may move to. When either allow-list is
+   * present, the agent may move ONLY to a destination whose name is in
+   * `allowedSiteNames` or whose region is in `allowedRegionNames`. Used by
+   * Lobelia (dm-28): "may not move to any site other than Bree, Old Forest, The
+   * White Towers, or a site in The Shire."
+   */
+  readonly allowedSiteNames?: readonly string[];
+  /** Allow-list of region names the agent may move to (see `allowedSiteNames`). */
+  readonly allowedRegionNames?: readonly string[];
 }
 
 /**
@@ -1736,12 +3019,27 @@ export interface CompanyCombatBoostEffect extends EffectBase {
   /** The modifier value (positive to boost, negative to penalise). */
   readonly value: number;
   /**
-   * Optional DSL condition evaluated against `{ target: { race, name, skills } }`
-   * for each character in the defending company. Only characters that satisfy
-   * the condition receive the modifier. When absent, every character in the
-   * company receives it.
+   * Optional DSL condition evaluated against
+   * `{ target: { race, name, skills, keywords } }` for each character in the
+   * defending company. Only characters that satisfy the condition receive the
+   * modifier. When absent (and no `companyFilter` is set), every character in
+   * the company receives it.
    */
   readonly filter?: Condition;
+  /**
+   * Optional company-level eligibility gate. When present, the event may be
+   * played (and the boost applied to *every* character in the defending
+   * company) only if at least one character in that company satisfies the
+   * condition — evaluated with the same per-character context as `filter`.
+   * Unlike `filter`, which restricts *which* characters receive the boost,
+   * `companyFilter` gates the *whole* company on the presence of a qualifying
+   * member and then boosts all of them.
+   *
+   * Used by Foe Dismayed (ba-59): "+1 prowess against an attack for all
+   * characters in a leader's or The Balrog's company" — the company must
+   * contain a Leader or The Balrog, and then every character is boosted.
+   */
+  readonly companyFilter?: Condition;
 }
 
 /**
@@ -1755,6 +3053,73 @@ export interface DuplicationLimitEffect extends EffectBase {
   readonly scope: string;
   /** Maximum number of copies allowed in scope. */
   readonly max: number;
+}
+
+/**
+ * Movement/hazard restrictions imposed on the company a permanent-event is
+ * bound to (`CardInPlay.companyId`). Consulted at the movement legal-action
+ * sites (organization plan-movement, M/H select-company / declare-path) and at
+ * the hazard-limit snapshot. Multiple restriction cards on one company stack
+ * (strictest wins for the region cap; hazard modifiers sum).
+ *
+ * Used by Going Ever Under Dark (ba-37): "The company cannot use starter
+ * movement. In addition, if they move with region movement, they are limited
+ * in all cases to 3 regions maximum and their hazard limit is reduced by one
+ * (to a minimum of two)."
+ */
+export interface CompanyMovementRestrictionEffect extends EffectBase {
+  readonly type: 'company-movement-restriction';
+  /** When true, the bound company may not use starter movement. */
+  readonly noStarterMovement?: true;
+  /** Hard cap on the number of regions the bound company may span in region movement. */
+  readonly regionMovementMax?: number;
+  /**
+   * Amount added to the bound company's hazard limit when it moves with region
+   * movement (negative reduces it). Applied only for a region-moving company
+   * (CRF 22: "The hazard limit reduction only works if the company is moving").
+   */
+  readonly hazardLimitModifier?: number;
+  /** Floor the hazard limit is never reduced below by {@link hazardLimitModifier}. */
+  readonly hazardLimitFloor?: number;
+}
+
+/**
+ * A permanent event bound to a company (`CardInPlay.companyId`) that taxes the
+ * company's *voluntary* movement and splitting during the organization phase:
+ * before the bound company may declare movement (`plan-movement`) or split
+ * (`split-company`), the controlling player must first tap up to
+ * {@link taxTapCharacters} of its untapped characters ("tap all of its untapped
+ * characters to a maximum of two"). The tax is satisfied when that many have
+ * been tapped toward it this org phase **or** the company has no untapped
+ * character left to tap. The running count lives on
+ * `OrganizationPhaseState.movementTaxPaid` keyed by company id and is paid one
+ * character at a time via the `pay-movement-tax` action.
+ *
+ * Unlike {@link CompanyMovementRestrictionEffect} (Going Ever Under Dark ba-37,
+ * a same-player resource event), this is a *hazard* played by the opponent onto
+ * the resource player's company, so the reader
+ * ({@link companyMovementTax}) scans **both** players' `cardsInPlay`.
+ *
+ * Used by Enchanted Stream (as-27): "The company cannot voluntarily split or
+ * move to a new site unless it taps all of its untapped characters to a maximum
+ * of two during its organization phase."
+ */
+export interface CompanyMovementTaxEffect extends EffectBase {
+  readonly type: 'company-movement-tax';
+  /** Maximum number of untapped characters that must be tapped before the company may move/split. */
+  readonly taxTapCharacters: number;
+}
+
+/**
+ * Lets the controller voluntarily discard the carrying in-play permanent-event
+ * during their own organization phase ("Discard during your organization phase
+ * if you choose"). Offered as a `voluntary-discard-in-play` action in the
+ * organization aggregator. Used by Going Ever Under Dark (ba-37).
+ */
+export interface VoluntaryDiscardEffect extends EffectBase {
+  readonly type: 'voluntary-discard';
+  /** The phase during which the discard may be chosen (currently "organization"). */
+  readonly phase: 'organization';
 }
 
 /**
@@ -1773,6 +3138,57 @@ export interface NameAliasEffect extends EffectBase {
   readonly type: 'name-alias';
   /** The card name this card additionally counts as while in play. */
   readonly as: string;
+}
+
+/**
+ * A game-wide override of which named environment cards are *considered* in or
+ * out of play, applied while the bearer is itself in play. Unlike
+ * {@link NameAliasEffect} (which only *adds* the bearer's alias), this can both
+ * add names to the in-play set (`considerInPlay`) and remove names from it
+ * (`considerNotInPlay`), reshaping the global environment that every
+ * `{ "inPlay": "<name>" }` DSL condition reads.
+ *
+ * Used by Peril Returned (td-54): "If Gates of Morning is not in play, Doors of
+ * Night is considered to be in play. If Gates of Morning is in play, it is
+ * considered to be out of play while Peril Returned is in play." Both branches
+ * net to the same unconditional state — Doors of Night considered in, Gates of
+ * Morning considered out — so the card carries `considerInPlay: ["Doors of
+ * Night"]` and `considerNotInPlay: ["Gates of Morning"]`. The Gates of Morning
+ * *card* itself stays in `cardsInPlay` (it may still be removed normally by
+ * Twilight, Doors of Night, etc.); only its interpretation is suppressed.
+ *
+ * Removals are applied before additions, so a name in both lists ends up
+ * considered in play.
+ */
+export interface EnvironmentOverrideEffect extends EffectBase {
+  readonly type: 'environment-override';
+  /** Card names to treat as in play while the bearer is in play. */
+  readonly considerInPlay?: readonly string[];
+  /** Card names to treat as out of play while the bearer is in play. */
+  readonly considerNotInPlay?: readonly string[];
+}
+
+/**
+ * Carried by a character that is a manifestation of another character
+ * (e.g. Strider ba-1, "Manifestation of Aragorn II"): while this
+ * character is in play, its controller may play the named manifestation
+ * from hand into this character's company, removing this character from
+ * the game and automatically transferring all cards on it (items,
+ * allies, hazards, trophies) — plus its control relationships (its
+ * controller and any followers) — to the new manifestation. Per CRF 22
+ * (Strider) the swap may be performed at any time a normal resource
+ * could be played; the engine offers it during the controller's
+ * organization, movement/hazard, and site phases.
+ *
+ * The manifestation *relationship* itself (glossary rule g.man.1 — only
+ * one manifestation of an entity in play, draft collisions per rule 1.9)
+ * is declared by the character card's `manifestId` field, not by this
+ * effect.
+ */
+export interface ManifestationSwapEffect extends EffectBase {
+  readonly type: 'manifestation-swap';
+  /** Name of the character card that may replace this one (e.g. "Aragorn II"). */
+  readonly cardName: string;
 }
 
 /**
@@ -1812,6 +3228,102 @@ export interface RegionKeyingBoostEffect extends EffectBase {
 }
 
 /**
+ * One region-type substitution offered by a {@link RegionTypeRemapEffect}: for
+ * creature-keying purposes, every region of type {@link from} in a company's
+ * traversed site path is treated as a region of type {@link to} (e.g.
+ * `{ from: "border", to: "wilderness" }` = "treat all Border-lands as
+ * Wildernesses").
+ */
+export interface RegionTypeRemap {
+  /** The printed region type being reinterpreted. */
+  readonly from: RegionType;
+  /** The region type it is treated as. */
+  readonly to: RegionType;
+}
+
+/**
+ * An environment effect (Fell Winter, le-111) that reinterprets whole classes
+ * of region for creature-keying purposes: "treat all Free-domains as
+ * Border-lands and all Border-lands as Wildernesses". Unlike
+ * {@link RegionKeyingBoostEffect} (an additive alternative applied to one
+ * region), this is a wholesale **replacement** applied to every matching region
+ * of the traversed site path simultaneously — each region is mapped from its
+ * printed type, so listing both `border→wilderness` and `free→border` never
+ * cascades a Free-domain all the way to a Wilderness.
+ *
+ * The optional {@link when} clause (evaluated against `{ inPlay }`) gates the
+ * remap dynamically while the carrying card is in play — Fell Winter's remap is
+ * active only while Doors of Night is also in play. The creature-keying matchers
+ * (`findCreatureKeyingMatches`, `checkCreatureKeying`) consult the remap live
+ * and transform the effective region-type path before matching; the underlying
+ * path is never mutated.
+ */
+export interface RegionTypeRemapEffect extends EffectBase {
+  readonly type: 'region-type-remap';
+  /** The region-type substitutions applied to the traversed site path. */
+  readonly remap: readonly RegionTypeRemap[];
+  /**
+   * Optional gate evaluated against `{ inPlay }`. When present, the remap is
+   * active only while the condition holds (e.g. Doors of Night in play). Absent
+   * means the remap is active whenever the carrying card is in play.
+   */
+  readonly when?: Condition;
+}
+
+/**
+ * A persistent environment effect (Girdle of Radagast, wh-110) that converts a
+ * specific set of **named regions** — the region of the Wizardhaven the carrying
+ * card is bound to (`attachedToSite`) and, when {@link includeAdjacent} is set,
+ * every region adjacent to it — to the region type {@link to} for
+ * creature-keying purposes. Unlike {@link RegionTypeRemapEffect} (which
+ * reinterprets whole *type classes* along a path), this replaces specific
+ * regions by **name**, so it depends on the card being anchored to a site whose
+ * `region` names the origin region.
+ *
+ * The conversion is active for exactly as long as the carrying card is in play
+ * with its `attachedToSite` set. The creature-keying matchers
+ * (`findCreatureKeyingMatches`, `checkCreatureKeying`) consult it live via
+ * `collectRegionTypeConversions` / `applyRegionTypeConversions`
+ * (`engine/region-keying.ts`) and replace each matching region in the effective
+ * region-type path; the underlying path is never mutated.
+ */
+export interface RegionTypeConversionEffect extends EffectBase {
+  readonly type: 'region-type-conversion';
+  /** The region type the anchored regions are converted to (e.g. wilderness). */
+  readonly to: RegionType;
+  /**
+   * When `true`, the regions adjacent to the anchor region (per the region
+   * card's `adjacentRegions`) are converted as well, not just the anchor.
+   */
+  readonly includeAdjacent?: boolean;
+}
+
+/**
+ * Greed (le-113 / tw-42): a hazard short-event played on a site. Until the
+ * end of the turn, every character at the bound site (except the one playing
+ * the item) must make a corruption check each time an item is played at the
+ * site, the check modified by subtracting the item's printed corruption
+ * points. Characters matching {@link exemptFilter} (Hobbits, Wizards, and
+ * Ringwraiths for Greed) never make the check.
+ *
+ * On resolution the short-event installs a turn-scoped
+ * `item-play-corruption-check` {@link import('./pending.js').ActiveConstraint}
+ * bound to the target site (via the chain payload's `targetSiteDefinitionId`);
+ * the site-phase item-play handler fires the checks. Per CRF 22, a special
+ * ring item being *played* triggers the checks, but transferring an item does
+ * not — the trigger rides only the item-play path, never the transfer path.
+ */
+export interface ItemPlayCorruptionCheckEffect extends EffectBase {
+  readonly type: 'item-play-corruption-check';
+  /**
+   * Characters whose `target.*` context matches this condition are exempt
+   * from the corruption check (for Greed: Hobbits, Wizards, Ringwraiths).
+   * When absent, every character at the site (other than the item-player) checks.
+   */
+  readonly exemptFilter?: Condition;
+}
+
+/**
  * While this card is in play, each agent owned by the hazard player may take
  * this many additional agent actions each time it normally takes an agent action.
  * The extra action(s) do not trigger further extras (only a "normal" first
@@ -1823,6 +3335,14 @@ export interface ExtraAgentActionsEffect extends EffectBase {
   readonly type: 'extra-agent-actions';
   /** Number of additional agent actions granted per normal agent action. */
   readonly value: number;
+  /**
+   * When true, the effect is carried by an agent itself and grants the extra
+   * action(s) only while that agent is face-up (revealed) — e.g. My Precious
+   * (dm-29): "If face-up, may take an extra agent action …". When absent, the
+   * effect is a global in-play card (e.g. Great Need or Purpose dm-62) granting
+   * extra actions unconditionally.
+   */
+  readonly whileRevealed?: boolean;
 }
 
 /**
@@ -1866,9 +3386,30 @@ export interface PlayTargetEffect extends EffectBase {
   /**
    * The coarse target category. Resource-side `character` implicitly
    * scopes to the active player's own characters; hazard-side
-   * `character` scopes to the active company's characters.
+   * `character` scopes to the active company's characters. Hazard-side
+   * `stored-item` scopes to the opponent's stored items (items sitting in
+   * the opponent's marshalling-point pile). Resource-side `item` scopes to
+   * items borne by the active player's own characters (e.g. Barrow-blade
+   * dm-119, played "with the Dagger" — a permanent event attached to an
+   * item whose `stat-modifier` effects flow to the item's bearer).
    */
-  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally';
+  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item';
+  /**
+   * Widens a `character` target beyond the default own-characters scope. When
+   * `'any-player'`, candidates are drawn from **both** players' characters so a
+   * resource event may target an opponent's character (A Malady Without Healing
+   * le-159: "May target an opponent's character"). Absent = own characters only.
+   */
+  readonly targetScope?: 'any-player';
+  /**
+   * Play-condition for A Malady Without Healing (le-159): the card is only
+   * playable on a target character sitting at the **same site** as a
+   * shadow-magic-using character the **acting player controls** (a Ringwraith,
+   * or any character with the `shadow-magic` skill, incl. item-granted). The
+   * enabler must be a different character than the target. Evaluated per
+   * candidate by the legal-action generator and re-derived by the reducer.
+   */
+  readonly requiresControlledShadowMagicUserAtSite?: boolean;
   /**
    * Optional DSL condition refining which candidates qualify. Evaluated
    * against the per-candidate context (e.g. `target.race`,
@@ -1942,7 +3483,8 @@ export interface OnGuardRevealEffect extends EffectBase {
 
 /**
  * Restricts an item to be playable only where the company's current
- * site satisfies a constraint. Two mutually-exclusive forms:
+ * site satisfies a constraint. Two forms, combined with **OR** when both
+ * are present (either satisfies):
  *
  * - `sites`: the site's name must appear in the list (e.g. Palantír of
  *   Orthanc — Isengard only).
@@ -1950,12 +3492,17 @@ export interface OnGuardRevealEffect extends EffectBase {
  *   `{ site: <site definition> }` (e.g. hoard items: every site whose
  *   card definition has `hoard: true`).
  *
+ * Most cards use exactly one form, but a card whose printed restriction is
+ * "at <named site> or <site type>" uses both — e.g. Gold Ring that Sauron
+ * Fancies (le-312): playable at Bag End **or** any Ruins & Lairs where gold
+ * rings are playable.
+ *
  * When present, the normal site-type check (`playableResources`) is
  * bypassed; the item is playable only if its restriction matches.
  */
 export interface ItemPlaySiteEffect extends EffectBase {
   readonly type: 'item-play-site';
-  /** Site names where the item can be played. Mutually exclusive with `filter`. */
+  /** Site names where the item can be played. Combined with `filter` via OR when both are set. */
   readonly sites?: readonly string[];
   /**
    * Generic site filter, evaluated against `{ site: siteDef }`. The site
@@ -2010,6 +3557,73 @@ export interface FetchToDeckEffect extends EffectBase {
    * When 'hand', the card is placed directly in the player's hand instead.
    */
   readonly to?: 'deck' | 'hand';
+  /**
+   * When set, only cards playable at this site qualify (in addition to
+   * `filter`). Captured from the bearer's company's current site when an
+   * `enqueue-pending-fetch` apply with `playableAtBearerSite` resolves.
+   */
+  readonly playableAtSite?: CardDefinitionId;
+  /**
+   * When true, the spent event card is removed from the game (routed to the
+   * owner's out-of-play pile) instead of being discarded once the last pick
+   * resolves. Backs "Remove this card from the game." on fetch short-events
+   * such as Longbottom Leaf (ba-30).
+   */
+  readonly removeFromGame?: boolean;
+  /**
+   * When set, an additional eligibility gate on top of `filter`: the fetched
+   * card must be an *agent* character (carries the `agent` keyword) whose
+   * printed home site is a site whose {@link SiteType} appears in this list.
+   * Home-site type cannot be expressed with the plain definition `filter`
+   * (the `homesite` field is a comma-separated list of site *names*), so this
+   * bespoke gate resolves each home-site name to its site definition and
+   * checks the type. Used by Inner Cunning (dm-68) mode 2: "take any agent
+   * whose home site is a Shadow-hold or Dark-hold from your play deck".
+   */
+  readonly homeSiteTypes?: readonly SiteType[];
+  /**
+   * When true, the fetched card's identity is revealed to the opponent as it
+   * is taken to hand (recorded in {@link GameState.revealedInstances}). Used by
+   * Inner Cunning (dm-68) mode 2: "reveal it to your opponent".
+   */
+  readonly revealToOpponent?: boolean;
+}
+
+/**
+ * `agent-reveal-site-override` — a hazard permanent-event played on one of the
+ * hazard player's own face-down agents (Inner Cunning dm-68, mode 1).
+ *
+ * While this event is attached to a face-down agent (via
+ * {@link CardInPlay.attachedToAgentId}) whose *printed* home site is a site of
+ * one of `homeSiteTypes`, the agent may be revealed at **any** site in the
+ * hazard player's location deck of one of those types — not only at a site
+ * matching the agent's printed home-site name. Models "the site where he came
+ * into play (which is not represented by a card) may legally be any Shadow-hold
+ * or Dark-hold." The card is discarded when the agent is revealed (handled by
+ * the orphaned-agent-attached-event sweep, since a revealed agent is no longer
+ * face-down).
+ */
+export interface AgentRevealSiteOverrideEffect extends EffectBase {
+  readonly type: 'agent-reveal-site-override';
+  /** Site types the reveal site may be broadened to (e.g. shadow-hold, dark-hold). */
+  readonly homeSiteTypes: readonly SiteType[];
+}
+
+/**
+ * `fetch-agent-to-hand` — a hazard short-event that tutors an agent from the
+ * playing player's own play deck into hand (Inner Cunning dm-68, mode 2).
+ *
+ * On resolution the engine enqueues a `fetch-to-deck` pending effect with
+ * `source: ['deck']`, `to: 'hand'`, `shuffle: true`, `revealToOpponent: true`,
+ * a `filter` requiring the `agent` keyword, and `homeSiteTypes` restricting to
+ * agents whose printed home site is of one of those types. The player then
+ * picks one matching agent via a `fetch-from-pile` pending resolution; the deck
+ * is reshuffled and the fetched card is revealed to the opponent.
+ */
+export interface FetchAgentToHandEffect extends EffectBase {
+  readonly type: 'fetch-agent-to-hand';
+  /** Home-site types an eligible agent's printed home site must be one of. */
+  readonly homeSiteTypes: readonly SiteType[];
 }
 
 /**
@@ -2055,6 +3669,51 @@ export interface CancelAttackEffect extends EffectBase {
    * (as-102, `"ringwraith"`).
    */
   readonly costExemptRace?: string;
+  /**
+   * Dual-mode faction cancel (Wild Hounds wh-40). Set on a `cancel-attack`
+   * effect carrying `cost: { discard: "self" }` on a dual-alignment faction.
+   * The effect has two sources:
+   *   - the controlled faction in play, discarded (no covert/alignment gate); and
+   *   - the card in hand, played as a minion resource — but ONLY by a character
+   *     in a covert company (this flag), and only by a minion (Ringwraith) player.
+   * Backs "May also be used as a minion resource card that is only playable by a
+   * character in a covert company."
+   */
+  readonly handModeRequiresCovert?: true;
+  /**
+   * When true, cancelling this attack additionally grants the defending player
+   * a one-shot *deferred* free cancellation of a **later** attack this turn
+   * against a company containing The Balrog ("cancel this attack and a latter
+   * attack of your choice against his company this turn"). On resolution a
+   * turn-scoped `free-attack-cancel` constraint is installed on the defending
+   * player; the legal-action layer then offers a costless `cancel-attack`
+   * (`mode: "free-later-cancel"`) during a later combat whose defending company
+   * contains The Balrog, consuming the constraint. Used by Darkness Wielded
+   * (ba-55).
+   */
+  readonly alsoCancelLaterAttack?: true;
+  /**
+   * When true, the cancel is only available against a company-vs-company
+   * combat (`combat.isCvCC`) — "an attack against them by an opponent's
+   * company". Used by Going Ever Under Dark (ba-37).
+   */
+  readonly requiresCvCC?: true;
+  /**
+   * When set, the cancel is not automatic: paying the cost enqueues a 2d6
+   * dice-check that only cancels the attack on success. Backs "make a roll to
+   * attempt to cancel an attack … If the roll plus the number of scouts in the
+   * company is greater than 7, the attack is canceled" (Going Ever Under Dark
+   * ba-37). The roller is the defending player; the modified 2d6 total is
+   * compared to `threshold` via `comparison`.
+   */
+  readonly roll?: {
+    /** Success requires `roll (+ bonuses) comparison threshold`. */
+    readonly threshold: number;
+    /** `'gt'` (strictly greater) or `'gte'` (≥). */
+    readonly comparison: 'gt' | 'gte';
+    /** When true, add the number of Scout-skilled characters in the company to the roll. */
+    readonly scoutBonus?: true;
+  };
 }
 
 /**
@@ -2124,12 +3783,43 @@ export interface FlatteryCancelAttackEffect extends EffectBase {
 }
 
 /**
+ * Roll-gated counter-cancel (Black Vapour ba-14): a hazard short-event the
+ * *attacking* (hazard) player plays during a combat chain to negate an
+ * opponent-declared chain entry that would cancel a creature attack of a
+ * matching {@link race}. Unlike a plain cancel, the negation is not automatic:
+ * on resolution the card enqueues a `dice-check` (roll 2d6 + the attack's
+ * current prowess). If the total is greater than {@link threshold} the target
+ * cancel entry is negated (the attack survives) and the attack receives
+ * {@link prowessBonus} extra prowess; otherwise the cancel resolves normally.
+ *
+ * Distinct from a marker-only counter-cancel because of the roll: the card is
+ * pushed onto the chain as a short-event entry and, when it resolves un-negated
+ * (flattery pattern), enqueues the check (`chain-reducer.ts`). The onPass verb
+ * is the `counter-cancel-attack` {@link TriggeredAction}.
+ *
+ * Black Vapour's other mode ("+1 prowess to a Spider attack") is a plain
+ * {@link ModifyAttackEffect} (`fromHand`, `player: "attacker"`), which also
+ * carries the "reveal as an on-guard card" behaviour for that mode.
+ */
+export interface CounterCancelAttackRollEffect extends EffectBase {
+  readonly type: 'counter-cancel-attack-roll';
+  /** Creature races whose cancellation this card may counter (e.g. Spider). */
+  readonly race: ReadonlyArray<string>;
+  /** The modified roll total must exceed this for the counter to succeed. */
+  readonly threshold: number;
+  /** Prowess added to the surviving attack on a successful counter. */
+  readonly prowessBonus: number;
+}
+
+/**
  * Sets a character's status to one of the three standard values.
  *
  * When `target` is `"target-character"`, applies to the character targeted
  * by a {@link PlayTargetEffect} on the same card (e.g. Escape: the targeted
  * unwounded character is set to `inverted` / wounded as the cost of
- * cancelling the attack). When `target` is absent, applies to the bearer.
+ * cancelling the attack). When `target` is `"company"`, applies to every
+ * character in the bearer's company (e.g. Strangling Coils ba-76 untaps the
+ * whole company). When `target` is absent, applies to the bearer.
  *
  * Used instead of the removed `wound-target-character` type.
  */
@@ -2167,7 +3857,7 @@ export interface CancelInfluenceEffect extends EffectBase {
    * `opponent-influence-defend` resolution's `targetKind` appears in this list.
    * When absent (or empty), all target kinds are valid.
    */
-  readonly targetKindFilter?: readonly ('character' | 'ally' | 'faction')[];
+  readonly targetKindFilter?: readonly ('character' | 'ally' | 'faction' | 'item')[];
 }
 
 /**
@@ -2318,6 +4008,24 @@ export interface ModifyAttackEffect extends EffectBase {
    */
   readonly strikesModifier?: number;
   /**
+   * When set (from-hand path, whole-attack scope), the attack's total strike
+   * count is *set* to this exact value rather than adjusted by a delta —
+   * "the attack is reduced to one strike" (`setStrikesTo: 1`). The result never
+   * exceeds the attack's current strike count (it only reduces) and is clamped
+   * to a minimum of 1. Used by Darkness Wielded (ba-55). Mutually exclusive with
+   * {@link strikesModifier}.
+   */
+  readonly setStrikesTo?: number;
+  /**
+   * When true (from-hand attacker plays only), the buffed attack gains
+   * "cancel protection": the first attempt to cancel the attack instead
+   * removes this card's modifiers ({@link CombatState.cancelProtection}),
+   * leaving the (now unmodified) attack in play. The card is still spent.
+   * Used by Unabated in Malice (ba-26): "The first attempt to cancel this
+   * attack instead cancels the effects of this card."
+   */
+  readonly firstCancelRemovesEffect?: true;
+  /**
    * When true, activating removes the "attacker chooses defending characters"
    * rule from the current attack: {@link CombatState.attackerChoosesDefenders}
    * is cleared so the defending player assigns strikes normally. The action is
@@ -2326,12 +4034,174 @@ export interface ModifyAttackEffect extends EffectBase {
    */
   readonly removeAttackerChoosesDefenders?: true;
   /**
+   * When true (from-hand path), the current attack loses its detainment status
+   * — {@link CombatState.detainment} is set to `false` — so its strikes wound
+   * (and can eliminate) normally instead of merely tapping. Used by the
+   * attacker-played FEAR! FIRE! FOES! (as-29) Mode B: "playable on a detainment
+   * automatic-attack. Against a minion company the attack becomes normal (not
+   * detainment) and has -1 prowess." Gate the play with `when` on
+   * `attack.detainment` (and, for as-29, `defender.minionCompany`).
+   */
+  readonly removeDetainment?: true;
+  /**
    * When set, the item is discarded instead of tapped if the bearer's
    * race is NOT in `race`. The modifier still applies (whole-attack scope only).
    */
   readonly discardIfBearerNot?: {
     readonly race: readonly string[];
   };
+}
+
+/**
+ * An in-play item (or character-attached permanent event) that may be tapped
+ * during a creature/automatic-attack's strike-assignment window to let its
+ * bearer face one of the attack's strikes **regardless of the attack's normal
+ * capabilities and the bearer's status** — i.e. the bearer takes on a strike
+ * even while tapped or wounded, and even when the attack's normal rules would
+ * not direct a strike at him. Offered only to the defending player during the
+ * `assign-strikes` defender phase, while the item is untapped, its bearer is in
+ * the defending company, and an unassigned strike remains. Activating taps the
+ * item and adds a forced strike assignment to the bearer.
+ *
+ * If `bodyReductionOnParry` is set and the bearer subsequently defeats (parries)
+ * that strike — the strike "fails" to wound him — the attack's body
+ * ({@link CombatState.creatureBody}) is reduced by that amount for the rest of
+ * the combat, making the creature easier to defeat via its own body checks.
+ *
+ * Used by Bow of Alatar (wh-90): "you may tap Bow of Alatar to allow him to face
+ * a strike from an attack against his company regardless of the attack's normal
+ * capabilities and his status. If such a strike fails, the attack's body is
+ * reduced by 1."
+ */
+export interface FaceStrikeOnTapEffect extends EffectBase {
+  readonly type: 'face-strike-on-tap';
+  /**
+   * Amount subtracted from the attack's body (floored at 0) when the bearer
+   * parries the strike he faced via this ability. Omit for no body reduction.
+   */
+  readonly bodyReductionOnParry?: number;
+}
+
+/**
+ * `combat-cancel-weapon` — an in-play item ability, usable only during a
+ * company-vs-company combat (CvCC) in which the item's bearer's company is a
+ * participant. The controller pays the {@link cost} (tapping the item) and
+ * chooses one weapon (a `weapon`-keyword item) borne by a character in the
+ * *opponent's* company; that weapon's effects are cancelled for the rest of the
+ * combat via {@link CombatState.suppressedWeaponInstanceIds}. The weapon is NOT
+ * discarded — only its effects are nulled, and only until the combat ends.
+ *
+ * Because a weapon's contribution is always evaluated live from the item on the
+ * character (never a separate chain entry), a weapon that was just declared onto
+ * a character during the current combat's chain of effects is suppressed
+ * identically to one already in play — backing the "(even declared in the same
+ * chain of effects)" clause with no extra chain plumbing.
+ *
+ * Used by Whip of Many Thongs (ba-82): "If The Balrog is in company vs. company
+ * combat, tap this item to cancel all effects of one weapon of your choice (even
+ * declared in the same chain of effects) in an opponent's company until the end
+ * of the combat. This does not discard the weapon." The item is borne by The
+ * Balrog (a Balrog-specific item, exempt from the usual "items on the Balrog
+ * have no effect" ban).
+ */
+export interface CombatCancelWeaponEffect extends EffectBase {
+  readonly type: 'combat-cancel-weapon';
+  /** The cost to activate — tapping the item itself (`{ tap: "self" }`). */
+  readonly cost?: ActionCost;
+}
+
+/**
+ * `join-combat-force-strike` — a resource short-event played by the defending
+ * player during the pre-assignment window of the `assign-strikes` combat
+ * sub-phase (the same window as {@link CompanyCombatBoostEffect}). It brings a
+ * named character (e.g. The Balrog) into the defending company if absent —
+ * "considered movement with no movement/hazard phase", so only the company
+ * membership arrays change — forces that character to face a strike from the
+ * current attack regardless of conflicting effects (via
+ * {@link CombatState.forcedStrikeTargets}, whose status gate is bypassed for a
+ * forced target), and optionally taps the character after the attack if still
+ * untapped (via a {@link PostAttackEffect} with `tapIfUntapped`).
+ *
+ * Used by Vanguard of Might (ba-79): "Playable if a company at or moving to an
+ * Under-deeps site is facing an attack and Flame of Udûn is not in play. If not
+ * in the company, The Balrog immediately joins the company. … The Balrog must
+ * face a strike from the attack, regardless of any conflicting effects.
+ * Following the attack, if untapped, tap The Balrog."
+ */
+export interface JoinCombatForceStrikeEffect extends EffectBase {
+  readonly type: 'join-combat-force-strike';
+  /** Name of the character who joins the defending company and must face a strike. */
+  readonly characterName: string;
+  /** When true, tap the character after the attack if still untapped. */
+  readonly tapAfterAttack?: boolean;
+  /**
+   * Site keyword the defending company must be at (currentSite) or moving to
+   * (destinationSite) for the event to be playable, e.g. `"under-deeps"`.
+   */
+  readonly requiresSiteKeyword?: string;
+  /** Name of a card that must NOT be in play for the event to be playable (e.g. "Flame of Udûn"). */
+  readonly notInPlay?: string;
+}
+
+/**
+ * `combat-discard-opponent-item` — a Balrog resource short-event played during
+ * a **company-vs-company combat** in which The Balrog is untapped and a
+ * participant. On play, the card-player chooses one item borne by any character
+ * in the *opposing* company and discards it (to the opponent's discard pile),
+ * modeled via a {@link discard-one-company-item} pending resolution on that
+ * company. The Balrog-untapped + in-CvCC gate and the opponent's company are
+ * resolved in the legal-action emitter (`combatDiscardOpponentItemActions` in
+ * `engine/legal-actions/combat.ts`) and the reducer branch
+ * (`handlePlayResourceShortEvent` in `engine/reducer-events.ts`).
+ *
+ * Used by Scourge of Fire (ba-75): "Choose and discard one item an opponent's
+ * company bears if The Balrog is untapped and in company vs. company combat with
+ * that company. Cannot be duplicated on a given turn." The play-restriction
+ * (Balrog-specific, playable only if Flame of Udûn is in play) is carried by the
+ * `balrog-specific` keyword and a `card-in-play` play-condition; the
+ * once-per-turn limit by a `duplication-limit` effect with `scope: "turn"`.
+ */
+export interface CombatDiscardOpponentItemEffect extends EffectBase {
+  readonly type: 'combat-discard-opponent-item';
+}
+
+/**
+ * Crowned with Storm (ba-54): a Balrog CvCC resource short-event that unleashes
+ * a devastating storm on **everyone at the site** — both the Balrog's company
+ * and the opposing (Wizard's) company participating in the company-vs-company
+ * combat. When it resolves, in this fixed order:
+ *
+ * 1. **Discard all no-body allies** at the site (an ally whose effective body
+ *    is `0`/absent — e.g. Great Bats, Regiment of Black Crows). They are removed
+ *    to their owners' discard piles before any roll.
+ * 2. **Tap** every untapped ally and every untapped character *with a mind stat*
+ *    at the site (avatars — Balrog/Wizard/Ringwraith — have a `null` printed
+ *    mind and are left untapped). Applied before the rolls; because tapping only
+ *    ever affects untapped cards and the roll outcome (wound/eliminate) does not
+ *    depend on status, the observable end-state is identical to applying the tap
+ *    after the rolls.
+ * 3. **Roll** for each character whose mind is `< characterMindBelow` and each
+ *    ally normally worth `< allyMpBelow` marshalling points (the printed MP of
+ *    the ally card): the Balrog's controller rolls 2d6 per target. If
+ *    `roll - 1 > body`, the target is wounded, or — if already wounded
+ *    (inverted) — eliminated. Enqueued as one generic `dice-check` per target
+ *    with `comparison: 'gt'`, `threshold = body + 1`, and a `wound-or-eliminate`
+ *    onPass verb (see {@link WoundOrEliminateAction}), so each roll surfaces as
+ *    its own explicit roll action. No-body allies discarded in step 1 never
+ *    reach this step.
+ *
+ * Playability is gated by the legal-action emitter (`siteStormAtSiteActions` in
+ * `legal-actions/combat.ts`): the combat must be CvCC, the Balrog's controller
+ * must own one of the two companies with The Balrog in it, that company's site
+ * must **not** carry the `under-deeps` keyword, and the opposing company must
+ * contain a Wizard (a character of race `wizard`).
+ */
+export interface SiteStormDevastationEffect extends EffectBase {
+  readonly type: 'site-storm-devastation';
+  /** Characters with a mind stat strictly below this value are rolled against. */
+  readonly characterMindBelow: number;
+  /** Allies whose printed MP value is strictly below this value are rolled against. */
+  readonly allyMpBelow: number;
 }
 
 /**
@@ -2382,7 +4252,7 @@ export interface StorableAtEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'player-state' | 'region-through-or-leave' | 'site-protected';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region';
   /**
    * `requires: 'site-protected'` takes no extra fields. On a faction it gates
    * the influence attempt on the company's current site being **protected by
@@ -2391,6 +4261,23 @@ export interface PlayConditionEffect extends EffectBase {
    * id and owned by the player attempting the play. Used by Half-orcs (wh-87)
    * and Greater Half-orcs (wh-86): "Playable at one of your protected
    * Wizardhavens [{H}]".
+   *
+   * For `requires: 'card-attached-to-site'`: the permanent-event is only
+   * playable at the active company's current site when a card named
+   * {@link cardName} is in play attached to that same site (`attachedToSite`,
+   * either player's `cardsInPlay`). Lord and Usurper (ba-65): "Playable …
+   * on Invade Their Domain" — Invade Their Domain must already be attached to
+   * the Dwarf-hold the company occupies.
+   *
+   * For `requires: 'card-on-adjacent-under-deeps'`: the permanent-event is only
+   * playable at the active company's current site when a card named
+   * {@link cardName} is in play attached to an **Under-deeps site adjacent to
+   * that site** (an in-play card whose `attachedToSite` names an Under-deeps
+   * site whose `adjacentSites` map includes the current site's name). Invade
+   * Their Domain (ba-64): "… if … Breach the Hold is on its adjacent Under-deeps
+   * site" — Breach the Hold sits on The Drowning-deeps (adjacent to the Blue
+   * Mountain Dwarf-hold) or The Rusted-deeps (adjacent to the Iron Hill
+   * Dwarf-hold).
    */
   /**
    * For `requires: 'region-through-or-leave'`: the named regions one of which
@@ -2412,6 +4299,38 @@ export interface PlayConditionEffect extends EffectBase {
    * the company's characters. Lets a card declare a positional play
    * prerequisite — e.g. The One Ring (and Gollum) at Mount Doom for the
    * CoE 10.39 win cards — without a per-card keyword.
+   *
+   * For `requires: 'company-context'`: a generic DSL condition evaluated
+   * against the **play-target character's company** (for a character-targeting
+   * permanent event), exposing `{ site: { name, type, isOwnWizardhaven },
+   * company: { characterNames, itemNames, allyNames,
+   * playedUniqueHeroFactionAtFreeHold } }`. `itemNames` aggregates every item /
+   * attached permanent event borne by any character in the company, so a card
+   * can gate on "in the same company as <named card>" (the named card being
+   * attached to a company-mate). `site.isOwnWizardhaven` is `true` when the
+   * company's current site is one of the player's own Wizardhavens (a
+   * Fallen-wizard haven, or a Hidden-Haven-converted site), the meaning of "at
+   * one of your Wizardhavens [{H}]" — distinct from a generic haven that merely
+   * shares `type: "haven"`. `playedUniqueHeroFactionAtFreeHold` is `true` only
+   * during the site phase and only for the active company once it has, this site
+   * phase, successfully played a unique hero faction at a Free-hold that is not
+   * Bag End. Unlike `active-company` (evaluated against the site-phase active
+   * company for short-events), this condition is evaluated per target company in
+   * the character-target permanent-event play paths (organization + site phases).
+   * Used by To Fealty Sworn (ba-33): "Playable on a Hobbit: in the same company
+   * as Return of the King or during the same site phase his company plays a
+   * unique hero faction at a Free-hold [{F}] (not Bag End)." — and the
+   * Fallen-wizard squire companions (Squire of the Hunt wh-95) via
+   * `{ "site.isOwnWizardhaven": true }`.
+   *
+   * For `requires: 'company-site'`: a generic DSL condition evaluated,
+   * during the M/H play-hazards step, against the active company's relevant
+   * site — its **destination** site when moving, otherwise its current site —
+   * exposing `{ site: { name, siteType, region, keywords } }`. Lets a hazard
+   * short-event gate on where the targeted company is (or is moving) without a
+   * per-card keyword. Used by Glance of Arien (ba-19): "Playable on The Balrog
+   * at or moving to a non-Under-deeps site" via
+   * `{ "$not": { "site.keywords": { "$includes": "under-deeps" } } }`.
    *
    * For `requires: 'player-state'`: a generic DSL condition evaluated
    * against the active player's avatar/alignment context:
@@ -2487,6 +4406,16 @@ export interface PlayConditionEffect extends EffectBase {
    * the item subtype to check (e.g. `"information"`, `"gold-ring"`).
    */
   readonly subtype?: string;
+  /**
+   * For `requires: 'supporters-in-region'`: the minimum combined count of the
+   * playing player's **allies in play** plus their **unique factions in play
+   * that can be played at a site in the target Wizardhaven's region or an
+   * adjacent region**. Only offered when that combined count reaches this
+   * threshold. Used by Girdle of Radagast (wh-110): "… have at least … 6 allies
+   * and/or unique factions in play (the factions must be playable at sites in
+   * the Wizardhaven's [{H}] region or adjacent regions)."
+   */
+  readonly min?: number;
 }
 
 /**
@@ -2589,6 +4518,35 @@ export interface CompanyStrikeEffect extends EffectBase {
 }
 
 /**
+ * When this hazard short-event resolves on the active movement/hazard company,
+ * tap every untapped character in that company whose effective mind is strictly
+ * below the {@link mindBelow} threshold and that satisfies the optional
+ * {@link filter}. The threshold is a {@link ValueExpr} evaluated with a context
+ * exposing `spawnCardsInPlay` (the number of `spawn`-keyword cards currently in
+ * play, per "the number of Spawn cards in play"). Already-tapped or wounded
+ * characters are left as-is (only untapped characters can be tapped).
+ *
+ * Used by The Reek (ba-23): "Tap all untapped characters in the company with a
+ * mind less than 2 plus the number of Spawn cards in play. … Does not affect
+ * Wizards or Ringwraiths." (`mindBelow: "2 + spawnCardsInPlay"`, `filter`
+ * excluding the wizard and ringwraith races).
+ */
+export interface CompanyTapCharactersEffect extends EffectBase {
+  readonly type: 'company-tap-characters';
+  /**
+   * Mind threshold expression. A character is tapped only if its effective mind
+   * is strictly below this value. Context exposes `spawnCardsInPlay`.
+   */
+  readonly mindBelow: ValueExpr;
+  /**
+   * Optional per-character filter (context `{ target: { race, mind, name,
+   * skills } }`). Only matching characters are tapped — e.g. excluding Wizards
+   * and Ringwraiths.
+   */
+  readonly filter?: Condition;
+}
+
+/**
  * When this resource short-event resolves on a company, roll 2d6 for each
  * hazard permanent-event attached to characters in that company. If the roll
  * exceeds the hazard's `removalNumber` (or 8 if not set), the hazard is
@@ -2617,6 +4575,53 @@ export interface SeizedByTerrorCheckEffect extends EffectBase {
 }
 
 /**
+ * Left Behind (td-41): a hazard **short-event** played by the attacking (hazard)
+ * player during a combat in which the defending company is facing an attack of
+ * `minStrikes` or more strikes, targeting a non-Wizard character in that company
+ * (via a companion `play-target` `target: 'character'` filter). Following the
+ * attack, the targeted character **splits off into a separate company** that has
+ * the same site path as the company he was in; that company faces its own
+ * (separate) movement/hazard phase this turn with a **hazard limit of one**, and
+ * the character may **rejoin** his original company after all movement/hazard
+ * phases have finished.
+ *
+ * On play the reducer (`handleCombatPlayHazard`) schedules a
+ * {@link PostAttackEffect} with `leftBehindSplit: true`; the split itself runs at
+ * combat finalization (`applyPostAttackEffects`), which peels the character into
+ * a new `leftBehind` {@link Company} carrying the same movement (currentSite /
+ * destinationSite / movementPath) as the original. The `leftBehind` flag forces
+ * that company's hazard-limit snapshot to 1, and the M/H→Site transition enqueues
+ * a `left-behind-rejoin` resolution offering the merge back.
+ */
+export interface LeftBehindSplitEffect extends EffectBase {
+  readonly type: 'left-behind-split';
+  /** The attack must deliver at least this many strikes for the card to be playable. */
+  readonly minStrikes: number;
+}
+
+/**
+ * A play cost requiring the playing player to discard a card matching `filter`
+ * from the named `source` pile as part of playing this card. The discarded card
+ * is the player's choice — the legal-action layer offers one action per matching
+ * candidate — and (when `revealToOpponent` is set) its identity is shown to the
+ * opponent, satisfying a "show opponent" clause. If no matching card is
+ * available in the source, the card cannot be played.
+ *
+ * Used by Faces of the Dead (dm-57): "…if you discard any Undead hazard creature
+ * from your hand (show opponent)." (`source: 'hand'`,
+ * `filter: { cardType: 'hazard-creature', race: 'undead' }`, `revealToOpponent: true`).
+ */
+export interface PlayDiscardCostEffect extends EffectBase {
+  readonly type: 'play-discard-cost';
+  /** Source pile from which the cost card is discarded. Currently only `'hand'`. */
+  readonly source: 'hand';
+  /** DSL condition matched against candidate card definitions in the source pile. */
+  readonly filter: Condition;
+  /** When true, the discarded card's identity is revealed to the opponent. */
+  readonly revealToOpponent?: boolean;
+}
+
+/**
  * Declares that while this long-event is in play, any company whose
  * movement path crosses the listed region names (or region types) faces
  * a creature-like Dragon attack during the order-effects step (CoE step 4).
@@ -2636,18 +4641,356 @@ export interface AhuntAttackEffect extends EffectBase {
   readonly strikes: number;
   /** Prowess of each strike. */
   readonly prowess: number;
-  /** Body value for body checks after a strike. */
-  readonly body: number;
+  /**
+   * Body value for body checks after a defeated strike. Absent (or omitted)
+   * means the attack has no printed body — a successful strike still wounds the
+   * character (with a body check against the character's own body), but a
+   * defeated strike triggers no "body check vs creature". Used by region-attack
+   * cards such as Mordor in Arms (dm-72) whose Orc/Troll attacks list no body.
+   */
+  readonly body?: number;
   /** Race of the attacking creature (e.g. "dragon"). */
   readonly race: string;
   /** Combat rules that apply to the attack (e.g. "attacker-chooses-defenders"). */
   readonly combatRules?: readonly string[];
+  /**
+   * When set, the card "has no effect on a minion player" — this ahunt attack
+   * is skipped when the moving (defending) player is a Ringwraith/Sauron
+   * (minion) player. Used by Mordor in Arms (dm-72).
+   */
+  readonly noEffectOnMinion?: boolean;
+  /**
+   * Group-reward mechanic. When present, if **every** ahunt attack sourced from
+   * this same card instance during a single company's order-effects step is
+   * defeated, the card is moved from play into the defending (moving) player's
+   * kill pile. Combine with an `mp-in-pile` effect to score the reward MPs.
+   * Used by Mordor in Arms (dm-72): "If all three attacks are defeated by your
+   * opponent, he receives this card in his MP pile and 2 kill MPs."
+   */
+  readonly groupReward?: {
+    /** Move the card to the defending player's kill pile when all group attacks are defeated. */
+    readonly toDefenderKillPile: true;
+  };
   /** Extended regions that apply when a condition is met. */
   readonly extended?: {
     readonly when: Condition;
     readonly regionNames?: readonly string[];
     readonly regionTypes?: readonly string[];
   };
+}
+
+/**
+ * Optional cost-bearing modification the influencer may apply when attempting to
+ * bring **this faction** into play. Each option lets the influencing character
+ * discard one of its carried items of a given subtype in exchange for a positive
+ * modifier to the influence check. The influencer picks at most one option (or
+ * none); the discard is paid whether or not the check then succeeds.
+ *
+ * Used by the Dragons "Roused" factions — Smaug Roused (le-285): "Modifications:
+ * influencer discards a major item (+3) or a greater item (+6)." Modelled as a
+ * player-chosen variant of the faction influence-attempt: the legal-action
+ * generator emits one extra `influence-attempt` per eligible carried item, with
+ * `need` already reduced by the option's `value` and a `discardForBonus` payload
+ * naming the item; the declare handler discards that item and threads the bonus
+ * onto the influence roll.
+ */
+export interface InfluenceModificationEffect extends EffectBase {
+  readonly type: 'influence-modification';
+  /** The available paid modifications; the influencer applies at most one. */
+  readonly options: readonly {
+    /** The item subtype the influencer must discard to gain this modifier. */
+    readonly discardItemSubtype: 'minor' | 'major' | 'greater' | 'gold-ring' | 'special';
+    /** The positive modifier added to the influence check when this option is taken. */
+    readonly value: number;
+  }[];
+}
+
+/**
+ * Passive, in-play cancellation of every attack sourced from a **manifestation
+ * of the named entity** against the controller's own companies. Borne by a
+ * "Roused" Dragon faction — Smaug Roused (le-285): "All attacks by
+ * manifestations of Smaug against any of your companies are canceled."
+ *
+ * `manifestId` identifies the manifestation chain (by convention the basic
+ * form's id, e.g. `tw-90` for Smaug). While the controller of this card is the
+ * moving/defending player, any Ahunt region-attack whose source card belongs to
+ * that chain is skipped in `collectMatchingAhuntAttacks` — this covers the
+ * faction's own region attack against its controller and any same-chain Ahunt an
+ * opponent has in play. Under manifestation uniqueness (g.man.1) no other
+ * form of the entity can be simultaneously in play to generate a site/creature
+ * attack, so the Ahunt path is the reachable attack vector.
+ */
+export interface CancelManifestationAttacksEffect extends EffectBase {
+  readonly type: 'cancel-manifestation-attacks';
+  /** The manifestation-chain id whose attacks are canceled against your companies. */
+  readonly manifestId: string;
+}
+
+/**
+ * Environment effect carried by an in-play hazard permanent-event that penalises
+ * (and optionally blocks card-boosts for) a character's faction-influence checks
+ * made at a site located in one of the listed regions.
+ *
+ * While the carrying card is in play, any faction influence attempt whose site
+ * is in a region named in `regionNames` is modified by `modifier` (typically
+ * negative). Additionally, one-shot influence check-modifier constraints sourced
+ * from a card whose name is listed in `blockCards` are suppressed for that
+ * attempt ("cannot be done with <named card>").
+ *
+ * When `noEffectOnMinion` is set, the restriction does not apply if the
+ * influencing (resource) player is a Ringwraith/Sauron (minion) player.
+ *
+ * Used by Mordor in Arms (dm-72): "Any attempt by a character to influence a
+ * faction playable at a site in Horse Plains, Khand, Harondor, Nurn, Gorgoroth,
+ * Imlad Morgul, or Udûn is modified by -6 and cannot be done with Muster."
+ */
+export interface FactionInfluenceRestrictionEffect extends EffectBase {
+  readonly type: 'faction-influence-restriction';
+  /** Region names whose sites trigger the restriction. */
+  readonly regionNames: readonly string[];
+  /** Modifier added to the influence check total (negative = penalty). */
+  readonly modifier: number;
+  /** Names of cards whose influence check-modifier boosts are suppressed here. */
+  readonly blockCards?: readonly string[];
+  /** When true, the restriction has no effect on a minion (Ringwraith) influencer. */
+  readonly noEffectOnMinion?: boolean;
+}
+
+/**
+ * Prone to Violence (ba-42): a minion permanent-event that grants an *extra*
+ * Company-vs-Company-combat attack permission beyond the default alignment
+ * matrix ({@link import('../engine/reducer-utils.js').canAttackAlignment}, CoE
+ * rule 8.41). While any in-play permanent-event (either player's `cardsInPlay`)
+ * carries this effect, a CvCC attack that the matrix would otherwise forbid is
+ * allowed when the effect's `when` condition matches the attack.
+ *
+ * The condition is evaluated against a context describing both companies:
+ * `{ attacker: { alignment, isMinion, hasRingwraith }, defender: { alignment,
+ * isMinion, hasRingwraith } }`, where `alignment` is the owning player's engine
+ * alignment (`"ringwraith"` / `"balrog"` / …), `isMinion` is true for
+ * Ringwraith and Balrog players, and `hasRingwraith` is true when any character
+ * in that company has the Ringwraith race. Prone to Violence uses
+ * `{ attacker.isMinion, defender.isMinion, attacker.hasRingwraith: false,
+ * defender.hasRingwraith: false }` — "any minion company without a Ringwraith
+ * may attack another minion company without a Ringwraith" (the attacking
+ * company may contain The Balrog, which the `isMinion` allowance covers).
+ *
+ * Collected by {@link import('../engine/reducer-utils.js').cvccAttackPermitted}
+ * at both the legal-action declaration path
+ * ({@link import('../engine/legal-actions/site.js')}) and the reducer
+ * validation path ({@link import('../engine/reducer-site.js')}).
+ */
+export interface CvccAttackPermissionEffect extends EffectBase {
+  readonly type: 'cvcc-attack-permission';
+  /**
+   * Condition matched against the CvCC attack context to permit an attack the
+   * default alignment matrix forbids. Omitting it permits every CvCC attack
+   * while the card is in play (no current card needs the unconditional form).
+   */
+  readonly when?: Condition;
+}
+
+/**
+ * Caverns Unchoked (ba-51): a Balrog permanent-event played on an Under-deeps
+ * site during the organization phase (via a companion `play-target: site`
+ * filtered to the `under-deeps` keyword). While in play the card is bound to
+ * that Under-deeps site (`CardInPlay.attachedToSite`) and has two effects:
+ *
+ * 1. **Permanence** — the bound site "is never discarded or returned to its
+ *    location deck". The card itself is exempted from the site-attached orphan
+ *    sweep ({@link import('../engine/reducer-utils.js').discardOrphanedSiteAttachedEvents}),
+ *    so it persists even while the site is unoccupied, and when a company
+ *    leaves the bound site it is always returned to the owner's location deck
+ *    (never discarded), keeping it re-accessible.
+ * 2. **Surface-region adjacency** — each *other* site of the card's owner that
+ *    is normally one of `siteTypes` (Shadow-hold / Ruins & Lairs / Border-hold)
+ *    and lies in the same region as the Under-deeps site's surface site is
+ *    treated as Under-deeps-adjacent to it at a required roll of 0. Because an
+ *    Under-deeps site and its surface site always share a region, the region is
+ *    taken from the Under-deeps site's own `region` field. The adjacency is
+ *    consulted by {@link import('../engine/legal-actions/organization-companies.js').isUnderDeepsAdjacent}
+ *    and {@link import('../engine/mh-steps.js').getUnderDeepsRequiredRoll} via the
+ *    moving player (`forPlayer`), so only the owner's own companies benefit
+ *    ("of yours").
+ */
+export interface SurfaceRegionAdjacencyEffect extends EffectBase {
+  readonly type: 'surface-region-adjacency';
+  /**
+   * The *normal* (printed) site types that a same-region site must have to
+   * become adjacent. Caverns Unchoked uses shadow-hold / ruins-and-lairs /
+   * border-hold.
+   */
+  readonly siteTypes: readonly SiteType[];
+}
+
+/**
+ * Reduces the Under-deeps movement roll required for the owner's company to
+ * ascend from the bound Under-deeps site to its **surface site** to zero, and
+ * keeps the bound site permanent. Carried by a `trigger-attack-on-play`
+ * permanent event played on the Under-deeps site (via `play-target: site`),
+ * kept in play once its self-inflicted attacks are survived.
+ *
+ * Two effects ride on this while the card is in `cardsInPlay` bound to an
+ * Under-deeps site U (`attachedToSite`):
+ *
+ * 1. **Surface-site roll zero** — when one of the owner's companies at U moves
+ *    to U's surface site (the non-Under-deeps site listed in U's
+ *    `adjacentSites`), the required Under-deeps movement roll is 0 instead of
+ *    the printed value. Consulted by
+ *    {@link import('../engine/legal-actions/organization-companies.js').breachTheHoldSurfaceRoll}
+ *    from {@link import('../engine/mh-steps.js').getUnderDeepsRequiredRoll} via the
+ *    moving player (`forPlayer`), so only the owner's own companies benefit.
+ * 2. **Permanence** — "This site is never discarded or returned to its location
+ *    deck." The card is exempt from the site-attached orphan sweep so it
+ *    persists while U is unoccupied, and when a company leaves U the site is
+ *    always returned to the owner's location deck (never discarded), keeping it
+ *    re-accessible. Shared with {@link SurfaceRegionAdjacencyEffect} via
+ *    {@link import('../engine/reducer-utils.js').cardKeepsBoundSitePermanent}.
+ *
+ * Used by Breach the Hold (ba-50): "The roll required to move to the surface
+ * site is reduced to zero. This site is never discarded or returned to its
+ * location deck."
+ */
+export interface SurfaceSiteRollZeroEffect extends EffectBase {
+  readonly type: 'surface-site-roll-zero';
+}
+
+/**
+ * Balrog-specific site-locking permanent-event. Played during the site phase on
+ * the untapped site of the company containing The Balrog (the site must be
+ * neither an Under-deeps site nor the surface site of one — gated by the
+ * companion `play-target: site` filter and `untapped-site-required` /
+ * `tap-site-on-play` play-flags, plus a `company-context` play-condition
+ * requiring The Balrog in the company). On play the Balrog is tapped (handled in
+ * `chain-reducer.ts` when this effect is present) and the site is tapped.
+ *
+ * While in play, bound to a site instance (`attachedToSite` = the site
+ * definition id), it has three ongoing effects:
+ *
+ * 1. **Permanence** — the card is exempt from the site-attached orphan sweep
+ *    ({@link import('../engine/reducer-utils.js').discardOrphanedSiteAttachedEvents})
+ *    and the bound site is always returned to its owner's location deck rather
+ *    than discarded (the `cavernsBound` branch in `mh-hazard-play.ts` step 8),
+ *    the same treatment as {@link SurfaceRegionAdjacencyEffect} — "This site is
+ *    never discarded."
+ * 2. **Never untaps for the owner** — when the owner's company moves to a
+ *    version of the bound site definition, the site is placed **tapped** rather
+ *    than untapped (`mh-hazard-play.ts` step 8), realising "never untaps for
+ *    you" (the engine never untaps a stationary site, so the only refresh point
+ *    is re-placement on movement).
+ * 3. **Two-character tax** — any company (either player) at any version of the
+ *    bound site definition must tap `taxTapCharacters` of its characters during
+ *    its site phase before it may play an ally or item there. The count paid so
+ *    far this site phase is tracked on `SitePhaseState.eddyTaxTapped`; a
+ *    `pay-site-tax` action taps one character and increments it, and the item /
+ *    ally play paths are gated until it reaches `taxTapCharacters`.
+ *
+ * Used by Eddy in Fate's Tide (ba-57): "Playable during the site phase on an
+ * untapped site if The Balrog is there; the site cannot be an Under-deeps site
+ * or surface site thereof. Tap The Balrog and the site. This site is never
+ * discarded and never untaps for you. Before a company can play any ally or item
+ * at any version of this site, it must tap two characters during the site
+ * phase."
+ */
+export interface EddyLockEffect extends EffectBase {
+  readonly type: 'eddy-lock';
+  /**
+   * Number of characters a company must tap during its site phase before it may
+   * play an ally or item at any version of the bound site (2 for Eddy in Fate's
+   * Tide).
+   */
+  readonly taxTapCharacters: number;
+}
+
+/**
+ * Generic Balrog site-domination lock carried by a permanent-event bound to a
+ * site (`attachedToSite` = the site definition id). While the card is in play
+ * (and not still `pendingTriggerAttack`), the bound site gains two ongoing
+ * behaviours — plus an optional faction-influence penalty:
+ *
+ * 1. **Permanence** — the card is exempt from the site-attached orphan sweep
+ *    ({@link import('../engine/reducer-utils.js').discardOrphanedSiteAttachedEvents})
+ *    and the bound site is always returned to its owner's location deck rather
+ *    than discarded (the permanent branch in `mh-hazard-play.ts` step 8),
+ *    realising "This site is never discarded." Recognised via
+ *    {@link import('../engine/reducer-utils.js').cardKeepsBoundSitePermanent},
+ *    shared with {@link EddyLockEffect} / {@link SurfaceRegionAdjacencyEffect}.
+ * 2. **Never untaps for the owner** — when the owner's company re-enters a
+ *    version of the bound site definition, the site is placed **tapped** rather
+ *    than untapped (`mh-hazard-play.ts` step 8, via
+ *    {@link import('../engine/reducer-utils.js').siteNeverUntapsForOwner}),
+ *    realising "never untaps for you" (the engine never untaps a stationary
+ *    site, so re-placement on movement is the only refresh point).
+ * 3. **Faction-influence modifier** (optional `factionInfluenceModifier`) —
+ *    every influence attempt against a faction at any version of the bound site
+ *    (by either player) is modified by this value (`-5` for People Diminished),
+ *    summed live from bound in-play cards via
+ *    {@link import('../engine/reducer-utils.js').siteFactionInfluenceModifier}
+ *    in the site-phase influence path.
+ *
+ * Unlike {@link EddyLockEffect} this carries no per-company tax. Used by People
+ * Diminished (ba-72): "This site is never discarded and never untaps for you.
+ * -5 to each attempt against any faction at any version of this site."
+ *
+ * Also used by No Strangers at this Time (as-51), the hero counterpart, which
+ * carries the anti-minion `convertDetainmentVsMinion` /
+ * `duplicateFirstAutoAttackVsMinion` flags instead of a faction-influence
+ * modifier.
+ */
+export interface SiteLockEffect extends EffectBase {
+  readonly type: 'site-lock';
+  /**
+   * Optional modifier applied to every faction-influence attempt against a
+   * faction at any version of the bound site (e.g. `-5` for People Diminished).
+   * A negative value raises the influence number the attacker must roll.
+   */
+  readonly factionInfluenceModifier?: number;
+  /**
+   * When true, every detainment automatic-attack at any version of the bound
+   * site against a **minion** (Ringwraith) company resolves as a **normal**
+   * attack instead. No Strangers at this Time (as-51): "All detainment attacks
+   * at all versions of this site against minion companies instead attack
+   * normally." Folded into the `forcesNormalAttacks` gate in `reducer-site.ts`
+   * (via {@link import('../engine/reducer-utils.js').siteLockAntiMinion}).
+   */
+  readonly convertDetainmentVsMinion?: boolean;
+  /**
+   * When true, a **minion** (Ringwraith) company facing this site's automatic-
+   * attacks faces one additional attack: an exact copy of the first automatic-
+   * attack listed on the site card (its runtime modifications are re-applied at
+   * resolution, so "including all modifications" holds). No Strangers at this
+   * Time (as-51). Handled in the `handleSiteAutomaticAttacks` done-branch.
+   */
+  readonly duplicateFirstAutoAttackVsMinion?: boolean;
+}
+
+/**
+ * Balrog-specific movement grant: while this permanent-event is in play (and the
+ * card named in `suppressedByInPlay` is *not* in play), a company containing The
+ * Balrog avatar may use **region** movement — overriding his printed "may not use
+ * region or starter movement" lock — provided at least one endpoint (origin or
+ * destination) is an Under-deeps **surface site**. The number of regions the
+ * company may span is derived from The Balrog player's marshalling-point total via
+ * the ascending `[maxMp, regions]` bands in `regionAllowanceByMp` (the last band's
+ * `regions` applies to any higher total). This region allowance replaces — and may
+ * not be modified by — any other region-distance effect (environment reductions,
+ * extra-region grants, etc.); only the card named in `modifiableBy` may adjust it.
+ *
+ * Used by Out He Sprang (ba-71): "If Great Shadow is not in play, The Balrog may
+ * move with region movement (overriding his card) to an Under-deeps surface site
+ * or from an Under-deeps surface site. Based on his marshalling point (MP) total,
+ * he may use the following number of regions: 0-8 MPs – 1 region; 9-16 MPs – 2
+ * regions; 17-24 MPs – 3 regions; 25+ MPs – 4 regions. This region allowance may
+ * not be modified by any other effects except A More Evil Hour."
+ */
+export interface BalrogSurfaceRegionMovementEffect extends EffectBase {
+  readonly type: 'balrog-surface-region-movement';
+  /** Name of a card whose presence in play suppresses this grant (e.g. "Great Shadow"). */
+  readonly suppressedByInPlay?: string;
+  /** Ascending `[maxMp, regions]` bands; the final band applies to any higher MP total. */
+  readonly regionAllowanceByMp: readonly (readonly [number, number])[];
+  /** Name of the only card allowed to modify the derived region allowance (e.g. "A More Evil Hour"). */
+  readonly modifiableBy?: string;
 }
 
 /**
@@ -2686,8 +5029,18 @@ export interface DragonAtHomeEffect extends EffectBase {
  */
 export interface PermanentEventAutoAttackEffect extends EffectBase {
   readonly type: 'permanent-event-auto-attack';
-  /** Site definition IDs whose auto-attack list is augmented while this event is in play. */
+  /**
+   * Site definition IDs whose auto-attack list is augmented while this event is
+   * in play. May be empty when {@link siteType} is used to target every site of
+   * a given type instead of a fixed list.
+   */
   readonly siteIds: readonly CardDefinitionId[];
+  /**
+   * When present, the attack is added to **every** site of this printed type
+   * (e.g. Fell Winter le-111: "Each Border-hold receives an additional
+   * automatic-attack"), in addition to any explicit {@link siteIds}.
+   */
+  readonly siteType?: SiteType;
   /** The attack stats contributed to those sites. */
   readonly attack: {
     readonly creatureType: string;
@@ -2713,6 +5066,197 @@ export interface PermanentEventAutoAttackEffect extends EffectBase {
    * "discard after use — ignore result of defeat".
    */
   readonly discardAfterUse?: boolean;
+}
+
+/**
+ * Grants the controller of the carrying in-play card an **optional, per-attack**
+ * combat modifier: for each attack whose creature race matches `creatureRace`
+ * that their opponent faces, the controller (the attacking / hazard player) may
+ * choose to apply `prowessModifier` and/or make the attack `detainment`.
+ *
+ * The choice is offered as an `apply-attacker-attack-option` combat action in
+ * the attacking player's Step 1 priority window (CoE rule 3.iv.1), before any of
+ * the attack's strikes have resolved — so the modifier, once applied, affects
+ * the whole attack. It is a genuine option: the controller may simply decline
+ * (pass), leaving the attack unmodified. Applying it once flags the combat so it
+ * cannot be applied again.
+ *
+ * Example — Ungoliant's Progeny (ba-27): "for each Spider attack your opponent
+ * faces, you can choose for it to be at +1 prowess and detainment."
+ *
+ * ```json
+ * { "type": "attacker-attack-option",
+ *   "creatureRace": "spider", "prowessModifier": 1, "detainment": true }
+ * ```
+ */
+export interface AttackerAttackOptionEffect extends EffectBase {
+  readonly type: 'attacker-attack-option';
+  /**
+   * The normalized (lowercase, singular) creature race the faced attack must
+   * have for the option to be offered (e.g. `"spider"`). Matched against
+   * {@link import('./state-combat.js').CombatState.creatureRace}.
+   */
+  readonly creatureRace: string;
+  /** Prowess added to every strike of the attack when the option is applied. */
+  readonly prowessModifier?: number;
+  /** When true, applying the option makes the attack a detainment attack. */
+  readonly detainment?: boolean;
+}
+
+/**
+ * Splits a site's effective type and automatic-attacks between the **one
+ * instance the carrying card is attached to** ("the associated site") and
+ * **every other in-play copy of the same site definition** ("all other
+ * versions"). Carried by a kept resource permanent-event bound to a site
+ * (`attachedToSite`); scanned dynamically by {@link getEffectiveSiteType} and
+ * `getActiveAutoAttacks`, both of which take an optional site *instance* id so
+ * they can distinguish the associated copy (the controller's own current site)
+ * from the other copies.
+ *
+ * Unlike the generic `site-type-override` `attribute-modifier` (Hold Rebuilt
+ * and Repaired, as-88), this effect **bypasses the MEAS §6(d) Under-deeps
+ * type-immutability short-circuit** — it exists precisely to retype an
+ * Under-deeps site — and it discriminates by instance rather than applying to
+ * every copy uniformly.
+ *
+ * Used by Roots of the Earth (ba-74): the associated Under-deeps Ruins & Lairs
+ * becomes a Darkhaven [{H}] that loses all automatic-attacks, while every other
+ * version becomes a Shadow-hold [{S}] that gains an Orcs 5-strike/9-prowess
+ * automatic-attack.
+ */
+export interface SiteInstanceTransformEffect extends EffectBase {
+  readonly type: 'site-instance-transform';
+  /** How the single instance this card is attached to is transformed. */
+  readonly associated: {
+    /** Effective {@link SiteType} of the associated instance. */
+    readonly siteType: SiteType;
+    /** When true, the associated instance loses all automatic-attacks. */
+    readonly removeAllAutoAttacks?: boolean;
+    /**
+     * When set, the associated instance loses every automatic-attack of this
+     * creature race (matched against the attack's `creatureType`). Lord and
+     * Usurper (ba-65): "lose all Dwarf automatic-attacks".
+     */
+    readonly removeAutoAttacksByRace?: string;
+  };
+  /** How every other in-play copy of the same site definition is transformed. */
+  readonly others: {
+    /** Effective {@link SiteType} of every other version. */
+    readonly siteType: SiteType;
+    /** When set, every other version gains this automatic-attack. */
+    readonly addAutoAttack?: TriggerAttackEntry;
+    /**
+     * When set, every other version loses every automatic-attack of this
+     * creature race before {@link addAutoAttack} is applied. Lord and Usurper
+     * (ba-65): the other versions lose their Dwarf auto-attacks and gain an
+     * Orcs auto-attack.
+     */
+    readonly removeAutoAttacksByRace?: string;
+  };
+  /**
+   * When true, no faction may be played at any version of the transformed site
+   * (associated or other). Lord and Usurper (ba-65): "may have no factions
+   * played there".
+   */
+  readonly noFactions?: boolean;
+}
+
+/**
+ * Grants a fixed bonus to the carrying in-play card's own marshalling-point
+ * value when a named card is in play attached to the **same site**. Folded into
+ * the `cardsInPlay` marshalling-point tally in `recompute-derived.ts` on top of
+ * the card's printed `marshallingPoints`.
+ *
+ * Used by Roots of the Earth (ba-74): "If Breach the Hold is on the same site,
+ * this card gives 3 marshalling points" (printed 1 + bonus 2).
+ */
+export interface ConditionalMpEffect extends EffectBase {
+  readonly type: 'conditional-mp';
+  /** Points added to the carrying card's marshalling value when the condition holds. */
+  readonly bonus: number;
+  /**
+   * The bonus applies while a card with this exact name is in play (either
+   * player's `cardsInPlay`) attached to the same site as the carrying card.
+   * Used by Roots of the Earth (ba-74). Exactly one of `requiresCardOnSameSite`
+   * / `requiresFactionCount` is set.
+   */
+  readonly requiresCardOnSameSite?: string;
+  /**
+   * The bonus applies while the carrying card's controller has at least `min`
+   * factions of one of `races` in play (their own `cardsInPlay`) that satisfy
+   * the optional filters. Used by Great Army of the North (ba-38): "If you have
+   * at least 4 unique Orc and/or Troll factions —none playable at a Darkhold
+   * [{D}]—you receive this card's marshalling points."
+   */
+  readonly requiresFactionCount?: {
+    /** Minimum number of qualifying in-play factions required. */
+    readonly min: number;
+    /** Faction races that qualify (e.g. `["orc","troll"]`). */
+    readonly races: readonly string[];
+    /** When true, only unique factions count. */
+    readonly unique?: boolean;
+    /**
+     * When set, a faction playable at a site of this type (e.g. `"dark-hold"`)
+     * is excluded from the count ("none playable at a Darkhold").
+     */
+    readonly excludePlayableAtSiteType?: string;
+  };
+}
+
+/**
+ * Declares that, while the carrying card is in play, any hazard creature whose
+ * card definition matches `creatureFilter` may be keyed to any site matching
+ * `siteFilter` (its effective site type is one of `siteTypes` and it carries
+ * every keyword in `siteKeywords`), regardless of the creature's own `keyedTo`.
+ *
+ * This is the in-play permanent-event analogue of the site-bound
+ * {@link import('./effects/site-rules.js').AllowCreatureByRaceSiteRule} /
+ * {@link import('./effects/site-rules.js').AllowCreatureByKeyingSiteRule}: the
+ * grant travels with an environment card rather than living on a single site,
+ * so it applies at every site of the matching kind for as long as the card
+ * stays in play. Feeds only the normal M/H hazard-creature play path (the same
+ * `keyedBy: { method: 'keying-bypass' }` mechanism the site rules use).
+ *
+ * Example — Ungoliant's Foul Issue (ba-28): "non-unique Spider creatures can
+ * be keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}]."
+ *
+ * ```json
+ * { "type": "grant-creature-keying",
+ *   "creatureFilter": { "race": { "$in": ["spider", "spiders"] }, "unique": { "$ne": true } },
+ *   "siteFilter": { "siteTypes": ["ruins-and-lairs", "shadow-hold"], "siteKeywords": ["under-deeps"] } }
+ * ```
+ *
+ * The grant may also open **region-type** keying: `siteFilter.regionTypes` lets
+ * the creature key to any of those region types present in the moving company's
+ * resolved site path (OR'd with the site-type / keyword branch). A Pack at the
+ * Door (tw-497) grants non-unique Animal/Spider/Wolf creatures keying to
+ * Border-lands [{b}] (region type) or Border-holds [{B}] / Ruins & Lairs [{R}]
+ * (site types), gated by `requiresNonCoastalKeying` (see below).
+ */
+export interface GrantCreatureKeyingEffect extends EffectBase {
+  readonly type: 'grant-creature-keying';
+  /** DSL condition on the hazard-creature's card definition (dot-path keys). */
+  readonly creatureFilter: Condition;
+  /** The site(s) / region(s) matching creatures may be keyed to while this card is in play. */
+  readonly siteFilter: {
+    /** Effective site type must be one of these (omit = no site-type branch). */
+    readonly siteTypes?: readonly SiteType[];
+    /** Site must carry every keyword listed here (applies to the site-type branch). */
+    readonly siteKeywords?: readonly string[];
+    /**
+     * The moving company's resolved site path must contain a region of one of
+     * these types (omit = no region-type branch). OR'd with the site-type
+     * branch — a match on either grants the keying.
+     */
+    readonly regionTypes?: readonly RegionType[];
+  };
+  /**
+   * When true, the grant applies only to creatures whose own printed `keyedTo`
+   * offers at least one non-Coastal-Sea region keying — i.e. the creature "must
+   * be playable in a non-Coastal Sea [{c}] region" (A Pack at the Door tw-497).
+   * Excludes Coastal-Sea-only creatures (e.g. tw-34) from the broadened keying.
+   */
+  readonly requiresNonCoastalKeying?: boolean;
 }
 
 /**
@@ -2769,6 +5313,14 @@ export interface WardBearerEffect extends EffectBase {
  * separately in the order-effects resolution path.
  *
  * Used by Snowstorm (tw-91), Foul Fumes (tw-36), Long Winter (le-117).
+ *
+ * The condition is evaluated against a context exposing the company's
+ * site-path terrain counts (`sitePath.{wilderness,shadow,dark,coastal,border,
+ * free}Count`, `sitePath.length`), the moving player's alignment
+ * (`player.minion`), and `underDeepsMove` — true when the company's origin or
+ * destination is an Under-deeps site. Used by The Way is Shut (dm-98):
+ * `{ "underDeepsMove": true }` forces any company moving to or from an
+ * Under-deeps site back to its site of origin.
  */
 export interface ForceReturnToOriginEffect extends EffectBase {
   readonly type: 'force-return-to-origin';
@@ -2814,6 +5366,43 @@ export interface TapSitesInPlayEffect extends EffectBase {
 export interface CancelChainReturnToOriginEffect extends EffectBase {
   readonly type: 'cancel-chain-return-to-origin';
   readonly cost: { readonly tap: 'self' };
+}
+
+/**
+ * Marker on a Balrog resource short-event (Great Fissure ba-61): while a chain
+ * is active during a company-vs-company attack made *by* The Balrog's company
+ * against an opponent, the card may be played from hand to target and negate an
+ * unresolved chain entry declared by the opponent that would cancel that attack
+ * (a `cancel-attack` effect). It is the counter-cancel counterpart to
+ * {@link CancelChainReturnToOriginEffect} (Goldberry): a chain-declaring
+ * response, not a combat pre-assignment cancel, but sourced from a discarded
+ * hand card rather than a tapped in-play ally.
+ *
+ * Great Fissure's other mode ("cancel an attack against a company at, or moving
+ * to or from, an Under-deeps site") is a plain {@link CancelAttackEffect} gated
+ * on `attack.atUnderDeeps`.
+ */
+export interface CancelChainAttackCancelEffect extends EffectBase {
+  readonly type: 'cancel-chain-attack-cancel';
+}
+
+/**
+ * While the carrying card is in play, any active constraint sourced from a
+ * card whose name is listed in {@link cardNames} is suppressed — its effect
+ * is treated as absent for as long as this card remains in play. This is the
+ * generic "cancels the effects of X" primitive: it neutralizes the named
+ * cards' *in-play constraints* by source card name, so only those cards are
+ * affected (an unrelated card that happens to use the same constraint kind is
+ * untouched).
+ *
+ * Used by The Way is Shut (dm-98): "cancels the effects of Secret Passage and
+ * Secret Entrance" — while it is in play, the creature-play restrictions those
+ * two cards place on a company are lifted.
+ */
+export interface CancelCardEffectsEffect extends EffectBase {
+  readonly type: 'cancel-card-effects';
+  /** Names of the cards whose in-play constraint effects are suppressed. */
+  readonly cardNames: readonly string[];
 }
 
 /**
@@ -2878,6 +5467,7 @@ export interface FetchWizardOnStoreEffect extends EffectBase {
  *    `discard-self` and `reshuffle-self-from-hand`.
  *  - `in-play` — any player's `cardsInPlay` or character attachments.
  *  - `items-on-target` — items attached to `ctx.targetCardId`.
+ *  - `allies-on-target` — allies borne by `ctx.targetCardId`.
  *  - `items-on-wounded` — items attached to the combat wounded character.
  *  - `attached-to-target-company` — hazards/items attached to any
  *    character in the target company.
@@ -2892,6 +5482,7 @@ export type MoveZone =
   | 'self-location'
   | 'in-play'
   | 'items-on-target'
+  | 'allies-on-target'
   | 'items-on-wounded'
   | 'attached-to-target-company'
   /** Source: a single instance attached to ANY character's `hazards` or
@@ -2942,12 +5533,61 @@ export interface MoveEffect extends EffectBase {
   /** Shuffle the destination pile after pushing. */
   readonly shuffleAfter?: boolean;
   /**
+   * For fetch-to-deck moves (`select: 'target'`, `to: 'deck' | 'hand'`): when
+   * true, the spent event card is removed from the game instead of discarded
+   * once the interactive fetch resolves. Backs "Remove this card from the
+   * game." on Longbottom Leaf (ba-30).
+   */
+  readonly removeFromGame?: boolean;
+  /**
    * Enqueue a corruption check on the bearer after resolution.
    * Carried by bounce-hazard-events equivalents (Wizard Uncloaked).
    */
   readonly corruptionCheck?: { readonly modifier: number };
   /** For `select: 'named'`: the card name to match. */
   readonly cardName?: string;
+  /**
+   * For an `organization-phase-start` self-discard on a company-bound
+   * permanent-event: when true, discarding the card also discards every
+   * Ringwraith follower character in the bound company (their attached
+   * items/allies go with them; hazards to the opponent). Backs Black Rider
+   * (le-170) — "Discard this card and any other Ringwraith followers in the
+   * company …". The avatar's own allies are untouched.
+   */
+  readonly alsoDiscardCompanyFollowers?: boolean;
+}
+
+/**
+ * Marks an in-play permanent-event that taps itself when the controller's
+ * opponent plays a card that normally gives that opponent `mpThreshold` or more
+ * marshalling points (A More Evil Hour, ba-48: "Tap this card when an opponent
+ * plays a card normally giving him three or more marshalling points"). The
+ * "normally giving" value is the card's printed {@link CardBase.marshallingPoints}.
+ *
+ * The tap is a passive reaction: after every reducer step, the engine diffs the
+ * opponent's in-play scoring zones and, when a fresh card with printed MP ≥
+ * `mpThreshold` entered play, taps each untapped copy of the carrying card.
+ * Pair with `play-flag: no-auto-untap` so the card "does not untap".
+ */
+export interface EvilHourTapTriggerEffect extends EffectBase {
+  readonly type: 'evil-hour-tap-trigger';
+  /** Minimum printed marshalling points of the opponent's played card. */
+  readonly mpThreshold: number;
+}
+
+/**
+ * Grants an in-play permanent-event a once-only organization-phase ability
+ * (usable only while the card is tapped) to **discard itself** and mark one of
+ * the controller's companies (one allowed to use region movement) with a
+ * persistent conditional region-movement bonus (A More Evil Hour, ba-48). The
+ * marked company may move up to `extraRegions` additional regions whenever it
+ * moves to — or away from — a site where an opponent's company is present
+ * ({@link Company.evilHourMovementBonus}).
+ */
+export interface EvilHourGrantMovementEffect extends EffectBase {
+  readonly type: 'evil-hour-grant-movement';
+  /** Additional region distance granted (ba-48: 2). */
+  readonly extraRegions: number;
 }
 
 /**
@@ -2955,39 +5595,72 @@ export interface MoveEffect extends EffectBase {
  * The `type` field serves as the discriminant for type narrowing.
  */
 export type CardEffect =
+  | EvilHourTapTriggerEffect
+  | EvilHourGrantMovementEffect
+  | AllyMovementRestrictionExemptionEffect
   | StatModifierEffect
   | CheckModifierEffect
   | BodyCheckModifierEffect
   | MpModifierEffect
+  | InPlayItemModifierEffect
+  | CorruptionSourceMultiplierEffect
   | FallenWizardItemMpEffect
+  | FallenWizardAllyMpFullEffect
+  | FallenWizardCharacterMpFullEffect
   | FallenWizardCharacterAllyMpEffect
+  | FallenWizardKillMpEffect
+  | DetainmentAttacksNormalEffect
+  | AutoAttacksNormalEffect
   | CompanyModifierEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect
   | DrawModifierEffect
   | DrawCardsEffect
   | ReshuffleFromDiscardEffect
+  | ForceOpponentDiscardEffect
+  | CycleHandEffect
+  | RevealChooseShuffleEffect
+  | RevealRemoveFromDiscardEffect
+  | RevealDeckChoosePenaltyEffect
+  | WithdrawAgentEffect
   | GrantActionEffect
   | OnEventEffect
   | CancelStrikeEffect
   | CancelAttackEffect
   | ConvertCreatureToAllyEffect
   | FlatteryCancelAttackEffect
+  | CounterCancelAttackRollEffect
   | CancelInfluenceEffect
   | StrikeModifierEffect
   | ModifyAttackEffect
+  | FaceStrikeOnTapEffect
+  | CombatCancelWeaponEffect
+  | JoinCombatForceStrikeEffect
+  | CombatDiscardOpponentItemEffect
+  | SiteStormDevastationEffect
   | HalveStrikesEffect
   | ProtectFromStrikeAssignmentEffect
+  | FleeFromStrikeEffect
+  | RollUntapSiteEffect
+  | SkipNextUntapOnPlayEffect
+  | ReturnToHandEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect
   | CombatCancelAttackByTapEffect
   | CombatDetainmentEffect
   | CombatTapLowMindEffect
   | CombatOneStrikePerCharacterEffect
+  | CombatBodyCheckModifierEffect
+  | CombatTapToCancelStrikeEffect
   | PlayFlagEffect
   | DuplicationLimitEffect
   | NameAliasEffect
+  | EnvironmentOverrideEffect
+  | ManifestationSwapEffect
   | RegionKeyingBoostEffect
+  | RegionTypeRemapEffect
+  | RegionTypeConversionEffect
+  | ItemPlayCorruptionCheckEffect
   | PlayTargetEffect
   | PlayOptionEffect
   | PlayWindowEffect
@@ -2995,18 +5668,26 @@ export type CardEffect =
   | CreatureRaceChoiceEffect
   | OnGuardRevealEffect
   | FetchToDeckEffect
+  | AgentRevealSiteOverrideEffect
+  | FetchAgentToHandEffect
   | SiteRuleEffect
   | ItemPlaySiteEffect
   | StorableAtEffect
   | CallOfHomeCheckEffect
   | ForceCheckAllCompanyTopEffect
   | CompanyStrikeEffect
+  | CompanyTapCharactersEffect
   | SeizedByTerrorCheckEffect
+  | LeftBehindSplitEffect
+  | PlayDiscardCostEffect
   | RollRemoveHazardEventsEffect
   | AgentTapInfluenceEffect
   | AgentTapAttackEffect
+  | AgentDiscardReturnToOriginEffect
   | AgentMoveRestrictionEffect
   | AhuntAttackEffect
+  | InfluenceModificationEffect
+  | CancelManifestationAttacksEffect
   | DragonAtHomeEffect
   | CallCouncilEffect
   | WardBearerEffect
@@ -3014,34 +5695,52 @@ export type CardEffect =
   | SetCharacterStatusEffect
   | TriggerAttackOnPlayEffect
   | DeckSearchAttackEffect
+  | RevealAndAttackEffect
   | TapAgentEffect
   | ForceReturnToOriginEffect
   | TapSitesInPlayEffect
   | CancelChainReturnToOriginEffect
+  | CancelChainAttackCancelEffect
+  | CancelCardEffectsEffect
   | TapDiscardAttachedHazardEffect
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
   | PermanentEventAutoAttackEffect
+  | AttackerAttackOptionEffect
+  | SiteInstanceTransformEffect
+  | ConditionalMpEffect
+  | GrantCreatureKeyingEffect
   | PassiveMovementBonusEffect
   | UnderDeepsRollModifierEffect
+  | ProhibitCardPlayEffect
+  | ExtraUnderDeepsMhPhaseEffect
+  | GrantExtraMHPhaseEffect
   | RegionMovementLimitEffect
+  | ProhibitCompanyEventsEffect
   | HazardLimitEnvironmentEffect
   | TakePrisonerEffect
   | StrikeShieldEffect
   | CancelPrisonerTakingEffect
   | HazardMaintenanceEffect
   | DuplicateSiteAutoAttacksEffect
+  | CreateSiteAutoAttackEffect
+  | AutoAttackBoostEffect
   | SiteItemTrapEffect
   | HazardLimitSwapEffect
+  | DiscardForHazardLimitEffect
   | RingTestTableEffect
   | RingTestSearchEffect
   | GrantSkillEffect
+  | OverrideSkillsEffect
   | ItemSlotModifierEffect
   | CompanyOvertEffect
+  | AssignStrikeWhenTappedEffect
   | CombatTapCompanyBoostEffect
   | RingwraithModeEffect
   | RingwraithFollowerSlotsEffect
+  | RingwraithSelfFollowerEffect
+  | MagicDiscardToDeckEffect
   | AbsorbWoundEffect
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
@@ -3050,17 +5749,252 @@ export type CardEffect =
   | StartingCompanyPlacementEffect
   | SummonsFromLongSleepEffect
   | SetAsideEffect
+  | PressGangCaptureEffect
   | PlayCreatureFromDiscardEffect
+  | GrantReplayAttackedCreatureEffect
   | LeaderControlEffect
   | StagePointsEffect
   | ControlRestrictionEffect
   | FactionMpOverrideEffect
   | PermanentEventMpEffect
+  | NonCharacterMpOverrideEffect
+  | NonHavenCompanyMpPinEffect
+  | PlayedAfterFactionMpPinEffect
   | RecruitmentVehicleEffect
   | RecruitCharacterEffect
   | AllowCharacterPlayEffect
   | OrgPhaseFetchEffect
-  | StayHerAppetiteEffect;
+  | StayHerAppetiteEffect
+  | AllyBodyCheckBoostEffect
+  | CreatureAltEventEffect
+  | CompanyReturnToOriginEffect
+  | RunHomeToHavenEffect
+  | CompanySitePhaseDoNothingEffect
+  | TapCharacterEffect
+  | MpInPileEffect
+  | DisplaceStoredItemEffect
+  | AgentAttackOutcomeEffect
+  | AgentTapReturnCharacterEffect
+  | OpponentInfluenceOverrideEffect
+  | DiscardSelfWhenEffect
+  | SurfaceRegionAdjacencyEffect
+  | SurfaceSiteRollZeroEffect
+  | EddyLockEffect
+  | SiteLockEffect
+  | BalrogSurfaceRegionMovementEffect
+  | CompanyMovementRestrictionEffect
+  | CompanyMovementTaxEffect
+  | VoluntaryDiscardEffect
+  | CvccAttackPermissionEffect
+  | GrantAllyPlayEffect
+  | FactionInfluenceRestrictionEffect;
+
+/**
+ * Grants extended ally-play permission from a permanent-event attached to a
+ * character (the *bearer*). While in play, any ally matching {@link filter}
+ * becomes playable in the bearer's company at its **current site** — regardless
+ * of the ally's printed `playableAt` restrictions — and, when
+ * {@link fromDiscard} is set, may be sourced from the player's **discard pile**
+ * as well as the hand. When {@link excludeBearerControlsCopy} is set, an ally is
+ * excluded from the grant if the bearer already controls a copy of it (matched
+ * by card name).
+ *
+ * Used by Glove of Radagast (wh-111): "Any non-unique ally with 1 mind (a copy
+ * of which he does not already control) is considered playable with Radagast at
+ * his site. This ally may be taken from your discard pile or hand." Here
+ * `filter` matches non-unique, 1-mind allies, `excludeBearerControlsCopy` is
+ * true, and `fromDiscard` is true.
+ *
+ * ```json
+ * { "type": "grant-ally-play",
+ *   "filter": { "$and": [ { "target.unique": { "$ne": true } }, { "target.mind": 1 } ] },
+ *   "excludeBearerControlsCopy": true,
+ *   "fromDiscard": true }
+ * ```
+ */
+export interface GrantAllyPlayEffect extends EffectBase {
+  readonly type: 'grant-ally-play';
+  /**
+   * Condition matched against the candidate ally's card definition, wrapped as
+   * `{ target: allyDef }` (so `target.unique`, `target.mind`, `target.race`,
+   * etc. are available). Omit to grant every ally.
+   */
+  readonly filter?: Condition;
+  /**
+   * When `true`, a granted ally may also be played from the player's discard
+   * pile (not only the hand).
+   */
+  readonly fromDiscard?: boolean;
+  /**
+   * When `true`, an ally is excluded from the grant if the bearer already
+   * controls a copy of it (same card name in the bearer's `allies`).
+   */
+  readonly excludeBearerControlsCopy?: boolean;
+  /**
+   * When `true`, the grant is **player-scoped and Wizardhaven-keyed** rather
+   * than tied to a bearer character. The engine finds the granting
+   * permanent-event in the player's `cardsInPlay` (not a company member's
+   * `items`) and extends playability to a matching ally only when the acting
+   * company's current site is one of the player's own **protected
+   * Wizardhavens** ({@link playerHasProtectedWizardhaven}). Used by An Untimely
+   * Brood (wh-62): "One non-unique ally with a mind of 1 is playable at one of
+   * your tapped or untapped protected Wizardhavens each of your site phases."
+   */
+  readonly atProtectedWizardhavens?: boolean;
+  /**
+   * When `true`, the target site may be **tapped or untapped** — the grant
+   * lifts the normal untapped-site requirement for ally play. Only meaningful
+   * with {@link atProtectedWizardhavens} (wh-62: "tapped or untapped protected
+   * Wizardhavens").
+   */
+  readonly allowTappedSite?: boolean;
+  /**
+   * When `true`, only **one** ally may be played through this grant per site
+   * phase. The reducer records a turn-scoped `granted-action-used` lock
+   * (keyed by the granting card instance) the first time such an ally is
+   * played; the legal-action scanner suppresses further grant-enabled plays
+   * for the rest of the phase (wh-62: "each of your site phases").
+   */
+  readonly oncePerSitePhase?: boolean;
+}
+
+/**
+ * Marks a hazard-creature card as also playable in an alternative event mode
+ * (CoE "dual-mode" creatures, e.g. Mouth of Sauron tw-65, Beorning
+ * Skin-changers ba-10). The creature keeps its normal keyed-creature combat
+ * play; this effect declares the *alternative* — the same card may instead be
+ * played by the hazard player as a `short-event` (or, later, a
+ * `permanent-event`) against the active company, counting against the hazard
+ * limit like any event.
+ *
+ * The alternative mode's actual behaviour lives in the card's other top-level
+ * effects (e.g. a `move` from discard to hand for tw-65), which resolve through
+ * the normal hazard short-event chain path once the card is played in event
+ * mode — so no behaviour is duplicated here. This effect is purely the mode
+ * declaration the legal-action generator and play reducer key off.
+ *
+ * Distinct from `play-flag: playable-as-event`, which only feeds the
+ * deck-construction ½-creature weighting (`deck-validation.ts`) and carries no
+ * mode; both may coexist on a card.
+ */
+export interface CreatureAltEventEffect extends EffectBase {
+  readonly type: 'creature-alt-event';
+  /** The alternative event mode this creature may also be played in. */
+  readonly mode: 'short-event' | 'permanent-event';
+  /**
+   * Optional targeting for the event mode, evaluated against the active
+   * company (via the target-company condition context: `company.alignment`,
+   * `company.characterNames`, `company.maxUntappedWarriorProwess`, …). When
+   * absent, the event may be played against any company. Distinct from the
+   * creature mode's own `play-condition: target-company` — the two modes of a
+   * dual card can target different companies (e.g. Beorning Skin-changers
+   * ba-10: creature vs minion companies, short-event vs a hero company).
+   */
+  readonly targetCompany?: Condition;
+  /**
+   * When true, the event mode may only be played against a company that is
+   * actually moving (has a declared destination site) — e.g. ba-10's
+   * short-event "against a moving hero company".
+   */
+  readonly requiresMovingCompany?: boolean;
+}
+
+/**
+ * Forces the active movement/hazard company to return to its site of origin
+ * (CoE rule 2.IV.4 mechanism, shared with `agent-discard-return-to-origin`):
+ * the company keeps its origin site instead of its destination and may not act
+ * during its site phase (a `site-phase-do-nothing` constraint). Carried by a
+ * hazard short-event (including a dual-mode creature played as a short-event,
+ * e.g. Beorning Skin-changers ba-10) and applied on chain resolution.
+ *
+ * The optional `unless` condition is evaluated against the target company; when
+ * it matches, the company is NOT returned (the card resolves with no effect).
+ * ba-10: "Unless the company contains Beorn or an untapped warrior with prowess
+ * greater than 4, it must return to its site of origin."
+ */
+export interface CompanyReturnToOriginEffect extends EffectBase {
+  readonly type: 'company-return-to-origin';
+  /** When this condition matches the target company, the return is skipped. */
+  readonly unless?: Condition;
+}
+
+/**
+ * "Run home" ally ability (Bill the Pony tw-198). While the ally carrying this
+ * effect is in a company at a non-Haven, non-Under-deeps site whose character
+ * count is `maxCompanySize` or fewer, the controlling player may — during their
+ * end-of-turn phase — discard this ally and move its company to the site's
+ * nearest Haven [{H}]. Per the card errata this is considered movement with no
+ * movement/hazard phase, so the departure site follows the ordinary site-card
+ * lifecycle (untapped/haven → location deck, tapped → site discard pile).
+ */
+export interface RunHomeToHavenEffect extends EffectBase {
+  readonly type: 'run-home-to-haven';
+  /** Maximum company size (character count) for the option to be available. */
+  readonly maxCompanySize: number;
+}
+
+/**
+ * Forbids the active movement/hazard company from doing anything during its
+ * upcoming site phase this turn — a `site-phase-do-nothing` constraint is added
+ * to the target company (the same mechanism `company-return-to-origin` uses),
+ * but the company keeps its destination site and its movement is unaffected
+ * (only the site phase is blocked). Carried by a hazard short-event and applied
+ * on chain resolution.
+ *
+ * Playability is expressed with a companion `play-target: "company"` filter (the
+ * short-event company-target path in `legal-actions/movement-hazard.ts` exposes
+ * `target.siteType`, `target.siteKeywords`, `target.characterCount`,
+ * `target.spawnInPlayCount`, and the precomputed `target.moreSpawnThanCompany`
+ * boolean so the filter can gate on the site type and the Spawn-count
+ * comparison).
+ *
+ * Used by **Darkness Made by Malice (ba-15)**: "Playable on a company at or
+ * moving to a Ruins & Lairs [{R}] or Under-deeps site, if there are more Spawn
+ * cards in play than characters in the company. Eliminated Spawn do not count.
+ * The company must do nothing during its site phase this turn."
+ */
+export interface CompanySitePhaseDoNothingEffect extends EffectBase {
+  readonly type: 'company-site-phase-do-nothing';
+}
+
+/**
+ * Taps one chosen character in play. A short-event effect (including a dual-mode
+ * creature's `permanent-event` on-tap behaviour, e.g. Adûnaphel tw-2: "When
+ * tapped, … causes any one character to tap"). The specific character is chosen
+ * when the card is played/tapped and carried on the chain entry's
+ * `targetCharacterId`; the legal-action generator offers one action per
+ * eligible target.
+ */
+export interface TapCharacterEffect extends EffectBase {
+  readonly type: 'tap-character';
+  /**
+   * Optional filter on which characters may be targeted (evaluated against the
+   * character definition). Absent = any character in play.
+   */
+  readonly filter?: Condition;
+}
+
+/**
+ * Bespoke post-attack behaviour for a manifestation agent (My Precious dm-29),
+ * evaluated when the agent's own attack resolves (in `finalizeCombat`):
+ *
+ * - `onSuccessVsRing`: on a successful attack (a defender was wounded) against a
+ *   company holding a ring (a `gold-ring` item), the agent is discarded and one
+ *   ring is discarded — reusing the `force-discard-card` resolution so the
+ *   attacker chooses which ring.
+ * - `onFailSurvive`: on a failed attack (no wound) where the agent survives, the
+ *   defender is offered (via a `agent-play-manifestation-offer` resolution) the
+ *   option to tap a character in the target company and play the agent's other
+ *   manifestation (`manifestationCardName`, e.g. Gollum tw-246) from hand, after
+ *   which the agent is discarded.
+ */
+export interface AgentAttackOutcomeEffect extends EffectBase {
+  readonly type: 'agent-attack-outcome';
+  readonly onSuccessVsRing?: 'discard-self-and-ring';
+  readonly onFailSurvive?: 'defender-plays-manifestation';
+  /** The card name of the manifestation the defender may play from hand (Gollum). */
+  readonly manifestationCardName?: string;
+}
 
 /**
  * Passive movement bonus carried by an ally: when every character in the
@@ -3104,6 +6038,87 @@ export interface UnderDeepsRollModifierEffect extends EffectBase {
   readonly type: 'under-deeps-roll-modifier';
   /** Bonus added to the roll (equivalently subtracted from the required roll). */
   readonly value: number;
+  /**
+   * Where the modifier applies.
+   *
+   * - Omitted (default): the effect is carried by an item, ally, or character
+   *   and applies only to the company that carries it (Iron Shield of Old,
+   *   as-127; collected via `collectCharacterEffects`).
+   * - `'minion-companies'`: the effect is a game-wide environment (an in-play
+   *   resource long-event) that applies to every Ringwraith-minion company's
+   *   Under-deeps movement roll, regardless of who carries it. Collected from
+   *   either player's `cardsInPlay` in `mh-steps.ts`. Used by The Under-roads
+   *   (as-106): "The roll required for minions to move between adjacent
+   *   Under-deeps sites is decreased by 3."
+   */
+  readonly scope?: 'minion-companies';
+}
+
+/**
+ * While the carrying card is in play, the named cards may not be played, and
+ * any copy already in play is discarded the moment this card enters play.
+ * This is the generic "discards and prohibits the subsequent play of X"
+ * primitive — a hard play-lock keyed by card name, distinct from
+ * {@link CancelCardEffectsEffect} (which only suppresses an in-play card's
+ * *constraints* while leaving it in play and re-playable).
+ *
+ * On enter-play the engine discards every matching card from either player's
+ * `cardsInPlay` to its owner's discard pile (`resolveLongEvent`); the ongoing
+ * play-lock is enforced in the hazard legal-action layer
+ * (`playHazardsActions`), which refuses to offer a prohibited card.
+ *
+ * Used by The Under-roads (as-106): "Discards and prohibits the subsequent
+ * play of The Way is Shut."
+ */
+export interface ProhibitCardPlayEffect extends EffectBase {
+  readonly type: 'prohibit-card-play';
+  /** Names of the cards that are discarded on entry and may not be played. */
+  readonly cardNames: readonly string[];
+}
+
+/**
+ * Permanent-event effect granting repeated Under-deeps movement/hazard phases
+ * (Gangways over the Fire, ba-60). While the controlling player has a card
+ * carrying this effect in play, each of their **moving** companies may — at the
+ * end of its movement/hazard phase — attempt another Under-deeps movement to a
+ * new site it has not used yet this turn; another site card is played and a
+ * fresh movement/hazard phase immediately follows for that company.
+ *
+ * The Under-deeps movement roll for each such extra phase is penalised by the
+ * number of complete movement/hazard phases the company has already taken this
+ * turn (the first extra move is at −1, the second at −2, and so on). The engine
+ * tracks these counts and the sites used per company on the movement/hazard
+ * phase state (`gangwaysPhaseCounts` / `gangwaysSitesUsed`) and offers the
+ * choice at the dedicated `gangways-offer` step.
+ */
+export interface ExtraUnderDeepsMhPhaseEffect extends EffectBase {
+  readonly type: 'extra-under-deeps-mh-phase';
+}
+
+/**
+ * Resource short-event that grants a moving company **another** movement/hazard
+ * phase this turn (Forced March le-185, Bridge tw-202, Leg It Double Quick
+ * le-202, Ûvatha Unleashed le-248). Played at the end of the company's
+ * movement/hazard phase — routed through the resource short-event handler,
+ * which flags the active company with `extraMHPhasePending`. Once the company
+ * commits its current move, `advanceAfterCompanyMH` consumes the flag and
+ * offers it a new movement to an additional site (the `extra-mh-move-offer`
+ * step): another site card is played and a fresh movement/hazard phase follows
+ * for that company.
+ *
+ * The play window is gated to the qualifying destination: when
+ * {@link requiresDestinationSiteType} is set, the company must be moving to a
+ * site of that type (e.g. `haven` for Forced March / Bridge); when
+ * {@link requiresDestinationAlignment} is set, the destination site must carry
+ * that alignment (e.g. `ringwraith` — a Darkhaven — for Forced March). With no
+ * requirements, any moving company qualifies (Leg It Double Quick).
+ */
+export interface GrantExtraMHPhaseEffect extends EffectBase {
+  readonly type: 'grant-extra-mh-phase';
+  /** Required destination {@link SiteType} of the qualifying move, if any. */
+  readonly requiresDestinationSiteType?: SiteType;
+  /** Required destination site alignment (e.g. `ringwraith` for a Darkhaven), if any. */
+  readonly requiresDestinationAlignment?: string;
 }
 
 /**
@@ -3132,6 +6147,43 @@ export interface RegionMovementLimitEffect extends EffectBase {
   readonly reduceWithDoorsOfNight?: number;
   /** Floor below which the reduced max region distance may never drop. */
   readonly min: number;
+}
+
+/**
+ * Environment effect that suppresses **resource permanent-events played on a
+ * company as a whole** (e.g. Fellowship tw-240) for every company that
+ * contains a character of {@link companyHasRace}.
+ *
+ * Carried by an in-play hazard environment permanent-event, it applies
+ * game-wide and has two faces:
+ *
+ * - **Discard** — every resource permanent-event bound to a matching company
+ *   (`CardInPlay.companyId` set, cardType `hero-resource-event` /
+ *   `minion-resource-event`, `eventType: "permanent"`) is discarded to its
+ *   owner's discard pile. Run continuously by `sweepProhibitedCompanyEvents`
+ *   (a `postReduce` sweep in `reducer.ts`), so it also catches a case where a
+ *   matching character later joins a company already carrying such an event.
+ * - **Prohibition** — no such card may be played on a matching company. The
+ *   organization-phase `play-target: company` emitter
+ *   (`legal-actions/organization-events.ts`) refuses the play via
+ *   `isCompanyEventPlayProhibited`.
+ *
+ * "Played on the company as a whole, not individual characters" is exactly the
+ * `companyId`-bound resource permanent-event (Fellowship), distinct from a
+ * character-attached permanent-event (which sets `attachedTo`, not
+ * `companyId`), so those are untouched.
+ *
+ * Used by Stormcrow (td-73): "Discard all resource permanent-events that have
+ * been played on each company with a Wizard … No such cards may be played on
+ * each Wizard's company." — `companyHasRace: "wizard"`.
+ */
+export interface ProhibitCompanyEventsEffect extends EffectBase {
+  readonly type: 'prohibit-company-events';
+  /**
+   * Only companies containing a character of this race (e.g. `"wizard"`) are
+   * affected — matched against each company member's printed `race`.
+   */
+  readonly companyHasRace: string;
 }
 
 /**
@@ -3294,6 +6346,72 @@ export interface DuplicateSiteAutoAttacksEffect extends EffectBase {
 }
 
 /**
+ * FEAR! FIRE! FOES! (as-29) Mode A: a hazard short-event played during the M/H
+ * phase on a company **moving to** a site whose type is one of {@link siteTypes}
+ * ("Playable on a Free-hold [{F}] or Border-hold [{B}]"). On resolution it
+ * installs a turn-scoped `extra-automatic-attack` constraint keyed to the
+ * destination site instance (which becomes the company's `currentSite` on
+ * arrival), so the company faces one **additional real automatic-attack** at the
+ * site this turn — resolved through the normal site-phase auto-attack flow
+ * alongside the site's printed attacks. Unlike Tidings of Bold Spies
+ * ({@link DuplicateSiteAutoAttacksEffect}), the created attack IS an
+ * automatic-attack (so cards referencing automatic-attacks apply) and it is
+ * faced in the SITE phase, not immediately in M/H.
+ *
+ * The attack carries no creature race ("no attack type") and forced detainment,
+ * expressed on the injected {@link AutomaticAttack} via `creatureType: ""` and
+ * `forceDetainment: true`.
+ */
+export interface CreateSiteAutoAttackEffect extends EffectBase {
+  readonly type: 'create-site-auto-attack';
+  /**
+   * The destination site types the company may be moving to for this card to be
+   * playable (e.g. `["free-hold", "border-hold"]`). Checked against the target
+   * company's destination site during M/H short-event emission.
+   */
+  readonly siteTypes: readonly import('./common.js').SiteType[];
+  /** The additional automatic-attack created at the site this turn. */
+  readonly attack: {
+    /** Creature type; empty string means "no attack type". */
+    readonly creatureType: string;
+    readonly strikes: number;
+    readonly prowess: number;
+    readonly body?: number;
+    /** When true, the created attack is detainment regardless of alignment/site. */
+    readonly detainment?: boolean;
+  };
+}
+
+/**
+ * Arouse Defenders (le-101): a hazard short-event played in the M/H phase on a
+ * company moving to a Free-hold [{F}] or Border-hold [{B}]. It boosts the
+ * prowess of one automatic-attack (the hazard player's choice) at the target
+ * site by {@link prowessBonus} and makes that attack impossible to cancel, for
+ * that turn's site phase. "Cannot be duplicated on a given site."
+ *
+ * Like {@link CreateSiteAutoAttackEffect}, the playability gate is the
+ * destination site's type; on resolution an `auto-attack-boost` constraint is
+ * installed against the moving company (scope `company-site-phase`, keyed to the
+ * destination site definition for the per-site duplication limit). The boost is
+ * consumed on the first automatic-attack the company faces at the site — the
+ * same "one automatic-attack (your choice) = the first faced" modelling used by
+ * Choking Shadows (tw-21).
+ */
+export interface AutoAttackBoostEffect extends EffectBase {
+  readonly type: 'auto-attack-boost';
+  /**
+   * The destination site types the company may be moving to for this card to be
+   * playable (e.g. `["free-hold", "border-hold"]`). Checked against the target
+   * company's destination site during M/H short-event emission.
+   */
+  readonly siteTypes: readonly import('./common.js').SiteType[];
+  /** Prowess added to the boosted automatic-attack (Arouse Defenders: +2). */
+  readonly prowessBonus: number;
+  /** When true, the boosted automatic-attack cannot be canceled that turn. */
+  readonly uncancelable: boolean;
+}
+
+/**
  * Troll-purse (dm-95): a hazard permanent-event attached to a site that has
  * an Orc or Troll automatic-attack. When the resource player plays any item
  * at the bound site during the site phase, the company must face all of the
@@ -3324,6 +6442,27 @@ export interface HazardLimitSwapEffect extends EffectBase {
   readonly tapValue: number;
   /** Hazard limit slots consumed to untap this card. */
   readonly untapCost: number;
+}
+
+/**
+ * A permanent hazard event that may be **discarded from play** during the
+ * opponent's movement/hazard phase (not counting against the hazard limit) to
+ * increase the hazard limit against one company by `value`.
+ *
+ * Unlike {@link HazardLimitSwapEffect}, the boost is paid once by removing the
+ * card from play (cardsInPlay → discard pile) rather than by tapping; there is
+ * no way to recover it. The added hazard limit is scoped to the target
+ * company's current movement/hazard phase.
+ *
+ * Used by the 9 Dragon "At Home" permanent-events (METD §4), whose second
+ * sentence reads "you may discard this card from play during opponent's
+ * movement/hazard phase (not counting against the hazard limit) to increase
+ * the hazard limit against one company by two."
+ */
+export interface DiscardForHazardLimitEffect extends EffectBase {
+  readonly type: 'discard-for-hazard-limit';
+  /** Hazard limit slots added to the target company when the card is discarded. */
+  readonly value: number;
 }
 
 // ---- Gold ring test (Rule 9.21) ----
@@ -3394,6 +6533,28 @@ export interface GrantSkillEffect extends EffectBase {
 }
 
 /**
+ * **Replaces** the bearer's printed skills with {@link skills} while the card
+ * carrying this effect is in play on them.
+ *
+ * The counterpart to {@link GrantSkillEffect}, which only *adds*. Used by the
+ * Radagast Shapeshifter forms ("Radagast's skills become Warrior/Diplomat" —
+ * Shifter of Hues wh-115), where taking a new shape strips the skills the
+ * previous shape had rather than accumulating them. Skills granted by other
+ * cards (`grant-skill`) still stack on top of the replacement set: the
+ * override replaces what the *character card* prints, not what other cards
+ * confer.
+ *
+ * Resolved through {@link getEffectiveSkills}; when several overrides are
+ * collected (which no printed card currently does — the Shapeshifter forms
+ * return each other to hand) the last one collected wins.
+ */
+export interface OverrideSkillsEffect extends EffectBase {
+  readonly type: 'override-skills';
+  /** The bearer's complete skill set while this card is on them. */
+  readonly skills: readonly string[];
+}
+
+/**
  * Adjusts how many items of a given slot the bearing character may have
  * **in use** at once (rule 9.15). By default every slot (weapon, armor,
  * shield, helmet) allows exactly one in-use item; this effect changes the
@@ -3449,6 +6610,23 @@ export interface CompanyOvertEffect extends EffectBase {
 }
 
 /**
+ * Marks an ally as always assignable a strike during the defender's
+ * strike-assignment phase, even while it is tapped or wounded — its status is
+ * treated as untapped for the purpose of being a legal strike target only.
+ *
+ * Unlike {@link StrikeShieldEffect} with `alwaysCountsAsUntapped`, this does
+ * NOT force strikes onto the ally before its controlling character (no allied
+ * protection): the ally simply remains a voluntary strike target regardless of
+ * its combat status.
+ *
+ * Used by Great Troll (ba-46): "Even if tapped or wounded, you may assign a
+ * strike to this ally as though it were untapped."
+ */
+export interface AssignStrikeWhenTappedEffect extends EffectBase {
+  readonly type: 'assign-strike-when-tapped';
+}
+
+/**
  * Tap an in-play ally during combat to grant an attack-scoped stat boost to
  * every character in the ally's own company that satisfies the optional
  * `filter`. The modifier lasts only for the current attack (it is applied as
@@ -3477,6 +6655,38 @@ export interface CombatTapCompanyBoostEffect extends EffectBase {
    * the modifier. When absent, every character in the company receives it.
    */
   readonly filter?: Condition;
+  /** Activation cost — always `{ tap: "self" }` (the ally taps itself). */
+  readonly cost: ActionCost;
+}
+
+/**
+ * Activated ability on an in-play ally that boosts its controlling character's
+ * body for the body check resulting from the *current* strike, offered only
+ * when the ally itself and its controlling character are both targets of
+ * strikes from the same attack (CoE rule 2.V.2.2 companion mechanic).
+ *
+ * Unlike {@link BodyCheckModifierEffect} (a static, always-on item effect
+ * added to the roll), this is a one-shot, tap-activated ally ability: the
+ * player decides whether to tap the ally during the `body-check` combat
+ * phase, before the roll is made, and the bonus is added directly to the
+ * character's effective body for that single body check (via
+ * `StrikeAssignment.strikeBodyPenalty`, the same field used by strike-event
+ * body modifiers such as Risky Blow).
+ *
+ * Eligibility (checked structurally by the legal-action generator, not via
+ * `when`): the ally must be untapped, its controlling character must be the
+ * character currently facing a body check (`combat.strikeAssignments[combat.currentStrikeIndex]`),
+ * and the ally's own instance ID must also appear among `combat.strikeAssignments`
+ * for the same attack (i.e. the ally itself was also struck).
+ *
+ * Used by War-warg (le-156): "If the War-warg and its controlling character
+ * are both targets of strikes from the same attack, you may tap War-warg to
+ * give +2 body to its controlling character."
+ */
+export interface AllyBodyCheckBoostEffect extends EffectBase {
+  readonly type: 'ally-body-check-boost';
+  /** Amount added to the controlling character's effective body (positive protects). */
+  readonly value: number;
   /** Activation cost — always `{ tap: "self" }` (the ally taps itself). */
   readonly cost: ActionCost;
 }
@@ -3520,6 +6730,44 @@ export interface RingwraithFollowerSlotsEffect extends EffectBase {
   readonly type: 'ringwraith-follower-slots';
   /** Maximum number of Ringwraith followers this avatar may control. */
   readonly count: number;
+}
+
+/**
+ * Marks a Ringwraith avatar card as a *self-granting* Ringwraith follower: it
+ * may be played from hand as a follower of the player's already-revealed
+ * Ringwraith (with no influence to control) **regardless** of whether that
+ * revealed Ringwraith carries a {@link RingwraithFollowerSlotsEffect}. The
+ * card grants its own follower slot, so it does not consume the host
+ * Ringwraith's slot budget (`ringwraith-follower-slots.count`).
+ *
+ * Like a slot-enabled follower, it may only enter play when the revealed
+ * Ringwraith's company is at a Darkhaven or at this card's home site, joins
+ * that company under the avatar's control, consumes none of the avatar's
+ * direct influence (`mind === null`), and comes into play through the normal
+ * one-character-per-turn organization-phase flow.
+ *
+ * Used by *Ûvatha the Ringwraith* (le-57): "He may join another Ringwraith's
+ * company during your organization phase and requires no influence to control."
+ */
+export interface RingwraithSelfFollowerEffect extends EffectBase {
+  readonly type: 'ringwraith-self-follower';
+}
+
+/**
+ * Passive avatar flag: while this avatar is a player's revealed Ringwraith,
+ * any *magic card* (a card carrying a `spell` / `sorcery` / `spirit-magic` /
+ * `shadow-magic` keyword) that the player casts is shuffled back into their
+ * play deck when it would otherwise be discarded, rather than going to the
+ * discard pile. The play deck is reshuffled after the card is returned.
+ *
+ * Used by *Akhôrahil the Ringwraith* (le-51): "As your Ringwraith, when a
+ * magic card used by him has to be discarded, return it to the play deck and
+ * reshuffle." The engine treats the redirect as a replacement applied at the
+ * point a just-played magic event would land in the caster's discard pile
+ * (see `discardOrRecyclePlayedEvent` in `reducer-utils.ts`).
+ */
+export interface MagicDiscardToDeckEffect extends EffectBase {
+  readonly type: 'magic-discard-to-deck';
 }
 
 /**
@@ -3656,6 +6904,22 @@ export interface SummonsFromLongSleepEffect extends EffectBase {
  * this effect only declares the off-to-the-side disposition. Per-card wiring of
  * which cards a given host sets aside is card-certification work.
  */
+/**
+ * Press-gang (ba-22). Marks a hazard permanent-event as a "press-gang" capture
+ * host: while it is in play, whenever a character owned by the card controller's
+ * **opponent** would be *discarded* from play (not eliminated), it is instead
+ * held "off to the side" with this card — stripped of all possessions, kept in
+ * its owner's `characters` map, and worth **negative** character marshalling
+ * points to its owner (like a prisoner, CoE 8.35). The card holds at most one
+ * character; a new capture returns the prior one to its owner's hand, and when
+ * this card leaves play the held character returns to its owner's hand.
+ *
+ * See {@link module:engine/press-gang} for the interception + scoring wiring.
+ */
+export interface PressGangCaptureEffect extends EffectBase {
+  readonly type: 'press-gang-capture';
+}
+
 export interface SetAsideEffect extends EffectBase {
   readonly type: 'set-aside';
   /**
@@ -3699,6 +6963,40 @@ export interface PlayCreatureFromDiscardEffect extends EffectBase {
 }
 
 /**
+ * Effect carried by an in-play hazard permanent-event (Monstrosity of Diverse
+ * Shape, ba-21) that grants its controller a once-per-turn "replay" of a
+ * creature from their own discard pile against a moving company.
+ *
+ * During the play-hazards window of a company's movement/hazard phase, the
+ * hazard player may bring one hazard-creature matching `filter` out of their
+ * discard pile as an immediate attack, provided that same creature has already
+ * attacked that company earlier this movement/hazard phase (its name appears in
+ * `MovementHazardPhaseState.hazardsEncountered`). Unlike
+ * {@link PlayCreatureFromDiscardEffect}, this play:
+ *  - is granted by an in-play permanent-event (not a card in hand),
+ *  - counts one against the hazard limit, and
+ *  - may be used only once per company's movement/hazard phase
+ *    (tracked via `MovementHazardPhaseState.spawnReplayUsedSources`).
+ *
+ * The creature's race is matched by the card's authoritative `race` string
+ * (e.g. "wolves", "animals"); the source permanent-event's own name in the
+ * printed text ("This card must have already attacked the company this turn")
+ * is realised as the "already attacked this turn" gate — the Balrog set's
+ * intent, confirmed by the French text ("Cette créature doit déjà avoir
+ * attaquée cette compagnie ce tour-ci").
+ */
+export interface GrantReplayAttackedCreatureEffect extends EffectBase {
+  readonly type: 'grant-replay-attacked-creature';
+  /**
+   * Condition matched against each candidate creature's card definition to
+   * decide which discard-pile creatures may be replayed (e.g.
+   * `{ "race": { "$in": ["wolves", "animals"] } }`). Reuses the shared
+   * condition-matcher rather than a card-specific keyword.
+   */
+  readonly filter: Condition;
+}
+
+/**
  * Hazard short-event effect for Stay Her Appetite (le-140).
  *
  * When this short event resolves against a company containing the targeted
@@ -3712,4 +7010,92 @@ export interface PlayCreatureFromDiscardEffect extends EffectBase {
  */
 export interface StayHerAppetiteEffect extends EffectBase {
   readonly type: 'stay-her-appetite';
+}
+
+/**
+ * Hazard short-event effect for Pilfer Anything Unwatched (as-33).
+ *
+ * "Playable on an untapped agent. Tap the agent. Make a roll for a character
+ * in play of your choice with a home site the same as the agent's current
+ * site. To the roll add 5 if the agent's current site is also the agent's home
+ * site. If the result is greater than the character's mind plus 5, the
+ * character is returned to his player's hand (one item may be transferred to
+ * another character in the same company). Cannot be played if your opponent is
+ * a minion player."
+ *
+ * The card player (hazard player) selects one of their own untapped agents plus
+ * one opponent character in play whose home site matches the agent's current
+ * site. Playing the card taps the agent and enqueues a generic `dice-check`
+ * pending resolution: the hazard player rolls 2d6 (+`atHomeSiteBonus` when the
+ * agent is at one of its own home sites) and, if the total is strictly greater
+ * than the target's mind + `mindBonus`, the character is returned to its
+ * owner's hand with the option to save one of its items onto a company-mate.
+ */
+export interface AgentTapReturnCharacterEffect extends EffectBase {
+  readonly type: 'agent-tap-return-character';
+  /** Bonus added to the roll when the agent's current site is its home site. */
+  readonly atHomeSiteBonus: number;
+  /** Amount added to the target's mind to form the roll threshold. */
+  readonly mindBonus: number;
+}
+
+/**
+ * Modifies a *named* influencer's opponent-influence attempts (CoE rule 10.10:
+ * influencing away an opponent's in-play character/ally/faction during your
+ * site phase). Carried by an in-play stage permanent-event; while the card is
+ * in play, every opponent-influence attempt made by the influencer whose name
+ * matches {@link influencer} (the active player's avatar) is modified:
+ *
+ * - `fromAnySite` — the influencer "need not be at the appropriate site": the
+ *   normal same-site requirement is lifted, so he may target the opponent's
+ *   cards in any of their companies (and any of their in-play factions),
+ *   regardless of where his own (active) company stands.
+ * - `generalInfluenceSubstitution` — the influence check adds a value derived
+ *   from the influencer's *player's unused general influence* (half, rounded up
+ *   per `roundUp`, capped at `max`) **instead of** the influencer's unused
+ *   direct influence.
+ * - `regionDistancePenalty` — subtract the number of regions between the
+ *   influencer's site and the site where the attempt would normally be made
+ *   (CRF 22: the count is inclusive of both endpoint regions, i.e. same region
+ *   = 1, adjacent = 2, …).
+ *
+ * Used by Prophet of Doom (wh-106).
+ */
+export interface OpponentInfluenceOverrideEffect extends EffectBase {
+  readonly type: 'opponent-influence-override';
+  /** The influencer name this override applies to (e.g. "Pallando"). */
+  readonly influencer: string;
+  /** Lift the same-site requirement — target opponents at any site. */
+  readonly fromAnySite?: boolean;
+  /**
+   * Substitute the influencer's unused DI with a value derived from the
+   * player's unused general influence.
+   */
+  readonly generalInfluenceSubstitution?: {
+    /** Divisor applied to the unused general influence (e.g. 2 = half). */
+    readonly divisor: number;
+    /** Round the quotient up when true (rounded down otherwise). */
+    readonly roundUp?: boolean;
+    /** Maximum value the substitution may contribute. */
+    readonly max: number;
+  };
+  /** Subtract the inclusive region distance to the target's site. */
+  readonly regionDistancePenalty?: boolean;
+}
+
+/**
+ * Discards the carrying in-play card the moment a player-state condition holds.
+ * Evaluated as post-action housekeeping against the card controller's
+ * player-state context (the same context used by `play-condition`
+ * `requires: "player-state"`: `player.avatar`, `player.stagePoints`,
+ * `player.factionCount`, …). Distinct from the play-condition, which gates
+ * *entry*; this gates *staying in play*.
+ *
+ * Used by Prophet of Doom (wh-106): "Discard if you have fewer than 5 factions
+ * in play."
+ */
+export interface DiscardSelfWhenEffect extends EffectBase {
+  readonly type: 'discard-self-when';
+  /** Condition (against the player-state context) that forces the discard. */
+  readonly condition: Condition;
 }

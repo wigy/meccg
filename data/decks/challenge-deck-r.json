@@ -2,6 +2,7 @@
   "id": "challenge-deck-r",
   "name": "(R) The Ally-Armada",
   "alignment": "fallen-wizard",
+  "notes": "Radagast wants to get his Girdle. So he needs a lot of allies. Play the wolves at Weathertop and the others allies at the two Rhosgobels.\n\n### Starting Company (1) at Weathertop*\n\n- Barliman Butterbur, Elrohir, Gildor Inglorion, Imrahil with Thrall of the Voice and Dagger of Westernesse, Perchen with Elf-stone. Perchen controls Elrohir\n\n### Suggested Sites for Resources\n\n- A Panoply of Wings (sideboard) - Bree\n- Barrow-blade – Weathertop*\n- Delver's Harvest 2x (sideboard) – Deep Mines\n- Dwarven Light-stone 2x (sideboard) – Deep Mines\n- Great Bats 2x (sideboard) – Rhosgobel@ (after An Untimely Brood is played or by Radagast)\n- Noble Hound 2x (sideboard) - Rhosgobel@ (after An Untimely Brood is played or by Radagast), Bree\n- Noble Steed 2x (sideboard) - Rhosgobel@ (after An Untimely Brood is played or by Radagast)\n- Radagast's Black Bird - Rhosgobel@\n- Regiment of Black Crows 2x (sideboard) - Rhosgobel@ (after An Untimely Brood is played or by Radagast), Weathertop* (when the Wild Hounds are in play)\n- War-warg 2x – Weathertop*\n- War-wolf 2x – Weathertop*\n- Wild Hounds 2x – Weathertop*\n\n### Resource Play\n\nYour starting company is staying at Weathertop* to play the wolves and the Wild Hounds. In the last turn they can go to Bree to get the Panoply and Noble Hounds. Form a second company at Rhosgobel and play all of the none-unique allies there. Later go down to the Deep Mines to get the Dwarven Light-stones and the Delver Harvest. When too many characters were eliminated at Weathertop* you can send new characters via Rivendell to Weathertop*.\n\n### Radagast\n\nRadagst is sitting the whole game in Rhosgobel and is also playing allies. During the organization phase he has to sideboard. Untap him after the movement-hazard phase by using Hall of Fire.\n\n### Hazard Play\n\nThis are Man with corruption. Very simple.\n\n### Sideboard\n\nThe conditions for sideboarding are:\n\n| Name of the card | Card you must have in play or condition |\n| --- | --- |\n| Great Bats 2x, Regiment of Black Crows, Noble Hound, Noble Steed (in the discard pile) | Radagast |\n| Legacy of Smiths | More than 6 stage points |\n| An Untimely Brood | More than 6 stage points and Radagast |\n| Regiment of Black Crows, Noble Hound, Noble Steed | An Untimely Brood |\n| Delver Harvest 2x, Dwarven Light-stone | Three characters at Rhosgobel@ |\n| Girdle of Radagast | More than 12 stage points and six allies |\n\n### Errata\n\nPlease read the following cards as follows:\n\n**CORSAIRS OF UMBAR** - Creature (U)\n[MP: 1; P/B: 9/-; Playable: Coastal Seas]\nMen. Five strikes. May also be played keyed to Andrast, Anfalas, Belfalas, Cardolan, Enedhwaith, Harondor, Lindon, Lebennin, and Old Pûkel-land; and may also be played at Ruins & Lairs and Shadow-holds in these regions. ***May also be played at any site in Elven Shores, Eriadoran Coast, Andrast Coast, Bay of Belfalas, or Mouths of the Anduin***. **(E)**\n\n**DEEP MINES** - Ruins & Lairs (Under-deeps)\n[opponent draws/you draw: 2/1; SP: 1]\nA company may move to this site only from one of your protected Wizardhavens and only if you have more than 6 stage points. The protected Wizardhaven is the surface site for Deep Mines (i.e., the sites are adjacent and the movement roll required to move between them is 0). You receive the three stage points if any of your companies are at the site. May be duplicated in location deck. ***Cannot be duplicated on a given Wizardhaven.*** **(E)**\n\n**MUSTER** - Short-event (C)\nWarrior only. ***An influence check against a faction by a warrior is modified by adding the warrior's prowess to a maximum modifier of +5.*** **(E)**\n\n**NOBLE HOUND** - Ally (C)\n[MP: 1; Mind: 1; P/B: 3/6]\nPlayable at any tapped or untapped Border-hold. In all cases, Noble Hound must be assigned a strike before any strike can be assigned to its controlling character. Discard Noble Hound to cancel any effect that would take its controlling character prisoner (does not protect other characters from being taken prisoner). ***If Noble Hound is tapped or wounded, treat it as though it were untapped for the purposes of assigning strikes.*** **(E)**\n\n**RHOSGOBEL** - Wizardhaven (Southern Mirkwood) (C)\n[opponent draws/you draw: 2/2; SP: 1]\nSpecial: Only Radagast's companies may use this card. This site is a protected Wizardhaven. If one of your companies is at this site, all attacks against it are canceled. ~~Any of your companies moving to or from Rhosgobel is not considered to be moving through Southern Mirkwood (including one less Dark-domain in their site path).~~ You receive the stage point if any of your companies are at this site. (E)\n\n**SLAYER** - Creature (C)\n[MP: **2**; P/B: 11/-; Playable: Border-lands and Border-holds]\n***Slayer***. Two attacks (of one strike each) against the same character. Attacker chooses defending character. The defender may tap one character in the same company to cancel one of these attacks. **(E)**",
   "pool": [
     {
       "name": "Barliman Butterbur",
@@ -77,16 +78,6 @@
       "name": "Galdor",
       "card": "td-92",
       "qty": 1
-    },
-    {
-      "name": "Ostisen",
-      "card": "le-36",
-      "qty": 1
-    },
-    {
-      "name": "Voteli",
-      "card": "tw-185",
-      "qty": 1
     }
   ],
   "deck": {
@@ -95,6 +86,16 @@
         "name": "Radagast",
         "card": "wh-8",
         "qty": 3
+      },
+      {
+        "name": "Ostisen",
+        "card": "le-36",
+        "qty": 1
+      },
+      {
+        "name": "Voteli",
+        "card": "tw-185",
+        "qty": 1
       }
     ],
     "hazards": [

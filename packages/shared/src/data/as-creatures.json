@@ -70,6 +70,12 @@
           "free"
         ]
       }
+    ],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
     ]
   },
   {
@@ -91,8 +97,44 @@
           "wilderness",
           "border"
         ]
+      },
+      {
+        "regionNames": [
+          "The Shire"
+        ]
       }
-    ]
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -2,
+        "when": {
+          "defender.alignment": "hero"
+        }
+      }
+    ],
+    "certified": "2026-07-12"
   },
   {
     "cardType": "hazard-creature",
@@ -150,6 +192,12 @@
           "free"
         ]
       }
+    ],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
     ]
   },
   {
@@ -180,7 +228,13 @@
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
     "race": "elves",
-    "keyedTo": []
+    "keyedTo": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ]
   },
   {
     "cardType": "hazard-creature",
@@ -195,7 +249,13 @@
     "killMarshallingPoints": 2,
     "starredKillMarshallingPoints": true,
     "race": "men",
-    "keyedTo": []
+    "keyedTo": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ]
   },
   {
     "cardType": "hazard-creature",
@@ -210,7 +270,13 @@
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
     "race": "elves",
-    "keyedTo": []
+    "keyedTo": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ]
   },
   {
     "cardType": "hazard-creature",
@@ -225,7 +291,13 @@
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
     "race": "elves",
-    "keyedTo": []
+    "keyedTo": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ]
   },
   {
     "cardType": "hazard-creature",
@@ -245,6 +317,12 @@
         "regionTypes": [
           "free"
         ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
       }
     ]
   },
@@ -267,6 +345,12 @@
           "free"
         ]
       }
+    ],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
     ]
   },
   {
@@ -287,6 +371,12 @@
         "regionTypes": [
           "free"
         ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
       }
     ]
   },

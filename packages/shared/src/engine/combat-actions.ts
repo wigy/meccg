@@ -24,21 +24,22 @@ import type { CharacterInPlay } from '../types/state-cards.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
-import { CardStatus, Race } from '../types/common.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect } from '../types/effects.js';
+import { Alignment, CardStatus, Race } from '../types/common.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, removeAttachment, removeById, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, clonePlayers, companyById, companySubphaseScope, defById, diceRollEffect, findById, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
 import { finalizeCombat, applyRule8_22AfterTrophyDecision, recordHazardEncountered } from './combat-finalize.js';
+import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { pruneLeaderFollowers, nextStrikePhase, eliminateCombatantFromStrike } from './combat-strike.js';
 import { resolveChainStrikeModifier } from './combat-cancel.js';
 
@@ -249,6 +250,80 @@ export function handleCancelStrike(state: GameState, action: GameAction, combat:
 }
 
 /**
+ * Fled into Darkness (ba-18): the defending player plays a `flee-from-strike`
+ * permanent-event from hand during resolve-strike to make the named character
+ * (The Balrog) flee the current strike. The strike is canceled, the character
+ * taps if untapped, the card enters play attached to the character, and a
+ * one-shot `skip-next-untap` constraint is installed so the character stays
+ * tapped through his next untap phase (at which point this card is discarded).
+ */
+export function handleFleeFromStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'flee-from-strike') return wrongActionType(state, action, 'flee-from-strike');
+
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const handCard = findById(defPlayer.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'Flee-from-strike card not found in hand' };
+  const cardDef = defById(state, handCard.definitionId);
+  const effect = getCardEffects(cardDef).find(
+    (e): e is FleeFromStrikeEffect => e.type === 'flee-from-strike',
+  );
+  if (!effect) return { state, error: 'Card has no flee-from-strike effect' };
+
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return { state, error: 'No current unresolved strike' };
+  const targetCharId = currentStrike.characterId;
+  const targetChar = defPlayer.characters[targetCharId];
+  if (!targetChar) return { state, error: 'Struck character not found for flee-from-strike' };
+
+  const cardLabel = cardName(state, handCard.definitionId);
+  logDetail(`${cardLabel}: ${effect.characterName} flees the strike — strike canceled, character taps (if untapped), skip-next-untap installed`);
+
+  // Remove the card from hand, place it into play attached to the character, and
+  // tap the character if untapped.
+  let nextState = updatePlayer(state, defPlayerIndex, p => {
+    const withoutCard = removeById(p.hand, handCard.instanceId);
+    const withInPlay = {
+      ...p,
+      hand: withoutCard,
+      cardsInPlay: [
+        ...p.cardsInPlay,
+        {
+          instanceId: handCard.instanceId,
+          definitionId: handCard.definitionId,
+          status: CardStatus.Untapped,
+          attachedTo: targetCharId,
+        },
+      ],
+    };
+    const char = withInPlay.characters[targetCharId];
+    if (!char || char.status !== CardStatus.Untapped) return withInPlay;
+    return updateCharacter(withInPlay, targetCharId, c => ({ ...c, status: CardStatus.Tapped }));
+  });
+
+  // Install the one-shot skip-next-untap constraint on the character.
+  nextState = addConstraint(nextState, {
+    source: handCard.instanceId,
+    sourceDefinitionId: handCard.definitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'character', characterId: targetCharId },
+    kind: { type: 'skip-next-untap', cardInstanceId: handCard.instanceId },
+  });
+
+  // Cancel the current strike and advance combat.
+  const newAssignments = [...combat.strikeAssignments];
+  newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
+  const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
+  const next = nextStrikePhase(combatWithAssignments);
+  if (!next) {
+    return finalizeCombat({ ...nextState, combat: combatWithAssignments });
+  }
+  return {
+    state: { ...nextState, combat: { ...combatWithAssignments, ...next } },
+  };
+}
+
+/**
  * Play a `strike-modifier` short event from hand during resolve-strike.
  * Covers three resolution modes driven by the card's effect flags:
  *
@@ -326,8 +401,97 @@ function bodyCheckRollModifier(state: GameState, charData: CharacterInPlay): num
     if (!itemDef) continue;
     for (const effect of getCardEffects(itemDef)) {
       if (effect.type !== 'body-check-modifier') continue;
+      if (effect.scope === 'all-attacks') continue; // global modifiers are collected separately
       if (effect.when && !matchesCondition(effect.when, { bearer: { race: bearerRace } })) continue;
       logDetail(`Body-check modifier ${formatSignedNumber(effect.value)} from ${(itemDef as { name?: string }).name ?? (item.definitionId as string)}`);
+      total += effect.value;
+    }
+  }
+  return total;
+}
+
+/**
+ * Sums `scope: 'all-attacks'` `body-check-modifier` effects carried by any
+ * in-play permanent-event (either player's `cardsInPlay`). Unlike the
+ * item-attached modifier, these are global to combat and gated by `when`
+ * against a context exposing `attack.creatureRace` (the attacking creature's
+ * normalized race) and `target.race` (the body-checked character's race).
+ * Backs Spawn of Ungoliant (ba-24): "+1 to all body checks for Elves,
+ * Dwarves, Hobbits, Dúnedain, and Men resulting from Spider attacks." Returns
+ * 0 when no such permanent-event is in play or none matches.
+ */
+function globalBodyCheckRollModifier(state: GameState, targetRace: string | undefined, creatureRace: string | undefined): number {
+  let total = 0;
+  const ctx = { attack: { creatureRace }, target: { race: targetRace } };
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'body-check-modifier') continue;
+        if (effect.scope !== 'all-attacks') continue;
+        if (effect.when && !matchesCondition(effect.when, ctx)) continue;
+        logDetail(`Global body-check modifier ${formatSignedNumber(effect.value)} from ${(def as { name?: string }).name ?? (card.definitionId as string)} (attack race ${creatureRace ?? '?'}, target race ${targetRace ?? '?'})`);
+        total += effect.value;
+      }
+    }
+  }
+  return total;
+}
+
+/**
+ * Sums `scope: 'bearer-combat'` `body-check-modifier` effects carried by an
+ * item / attached permanent-event on the character *participating* in the
+ * current body check, gated by `when` against a context describing the check.
+ *
+ * The relevant bearer depends on `combat.bodyCheckTarget`:
+ * - `'creature'` / `'attacker-character'` — a strike against the defending
+ *   character failed (was parried); the striker now body-checks. The bearer is
+ *   the parrying **defender** (`strike.characterId`).
+ * - `'character'` — the strike succeeded and the struck character body-checks.
+ *   The bearer is the **successful striker**: in CvCC the attacking character
+ *   (`strike.attackingCharacterId`); a hazard-creature striker bears nothing.
+ *
+ * Backs Flame of Udûn (ba-58): "+1 to all body checks resulting from failed
+ * strikes against The Balrog" (`when: { bodyCheck.fromFailedStrike: true }`) and
+ * "+1 to defending character's body check" when The Balrog attacks successfully
+ * in CvCC (`when: { bodyCheck.target: 'character', combat.isCvCC: true }`).
+ * Returns 0 when no participating bearer carries a matching effect.
+ */
+function bearerCombatBodyCheckModifier(state: GameState, combat: CombatState, strike: StrikeAssignment | undefined): number {
+  if (!strike) return 0;
+  const target = combat.bodyCheckTarget;
+  const fromFailedStrike = target === 'creature' || target === 'attacker-character';
+
+  let bearerCharId: CardInstanceId | undefined;
+  let bearerPlayerId = combat.defendingPlayerId;
+  if (fromFailedStrike) {
+    // The defending character parried; the striker body-checks. Bearer = defender.
+    bearerCharId = strike.characterId;
+    bearerPlayerId = combat.defendingPlayerId;
+  } else if (target === 'character' && combat.isCvCC && strike.attackingCharacterId) {
+    // CvCC: the attacking character struck successfully. Bearer = the attacker.
+    bearerCharId = strike.attackingCharacterId;
+    bearerPlayerId = combat.attackingPlayerId;
+  }
+  if (!bearerCharId) return 0;
+
+  const bearer = state.players[getPlayerIndex(state, bearerPlayerId)]?.characters[bearerCharId];
+  if (!bearer) return 0;
+
+  const ctx = {
+    bodyCheck: { target, fromFailedStrike },
+    combat: { isCvCC: !!combat.isCvCC },
+  };
+  let total = 0;
+  for (const item of bearer.items) {
+    const itemDef = defById(state, item.definitionId);
+    if (!itemDef) continue;
+    for (const effect of getCardEffects(itemDef)) {
+      if (effect.type !== 'body-check-modifier') continue;
+      if (effect.scope !== 'bearer-combat') continue;
+      if (effect.when && !matchesCondition(effect.when, ctx)) continue;
+      logDetail(`Bearer-combat body-check modifier ${formatSignedNumber(effect.value)} from ${(itemDef as { name?: string }).name ?? (item.definitionId as string)} (target ${target ?? '?'}, failedStrike ${fromFailedStrike}, cvcc ${!!combat.isCvCC})`);
       total += effect.value;
     }
   }
@@ -362,9 +526,23 @@ function discardCharacterAfterBodyCheck(
     }
     return a;
   });
+  const combatWithDiscard = { ...combat, strikeAssignments: assignments };
+
+  // Press-gang (ba-22): a character discarded by a body check is instead held
+  // off to the side by the attacking (opponent's) Press-gang. The combat state
+  // advances exactly as for a discard; only the character's disposition changes.
+  const pressHost = findCapturingPressGang(stateWithRoll, defPlayerIndex);
+  if (pressHost) {
+    const captured = capturePressGang(stateWithRoll, defPlayerIndex, strike.characterId, pressHost);
+    const next = nextStrikePhase(combatWithDiscard);
+    if (next) {
+      return { state: { ...captured, combat: { ...combatWithDiscard, ...next } }, effects };
+    }
+    return finalizeCombat({ ...captured, combat: combatWithDiscard }, effects);
+  }
+
   const newPlayers = clonePlayers(stateWithRoll);
   const newPlayerData = { ...defPlayer };
-  const combatWithDiscard = { ...combat, strikeAssignments: assignments };
   if (company) {
     newPlayerData.companies = newPlayerData.companies.map(c =>
       c.id === combat.companyId
@@ -374,9 +552,13 @@ function discardCharacterAfterBodyCheck(
   }
   const discardedCharDefId = resolveInstanceId(state, strike.characterId);
   newPlayerData.discardPile = [...newPlayerData.discardPile, { instanceId: strike.characterId, definitionId: discardedCharDefId! }];
-  for (const ally of charData.allies) {
-    logDetail(`Discarding ally ${ally.instanceId as string} from discarded character`);
-    newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
+  // An ally that returns to hand when its controller leaves play (Radagast's
+  // Black Bird wh-114) is preserved to the owner's hand; the rest are discarded.
+  {
+    const { toHand, toDiscard } = partitionLeavingAllies(state, charData.allies);
+    if (toHand.length > 0) logDetail(`${toHand.length} ally(ies) return to hand from discarded character`);
+    newPlayerData.hand = [...newPlayerData.hand, ...toHand];
+    newPlayerData.discardPile = [...newPlayerData.discardPile, ...toDiscard];
   }
   for (const item of charData.items) {
     logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
@@ -392,7 +574,10 @@ function discardCharacterAfterBodyCheck(
   const updatedChars = { ...remainingChars };
   for (const followerId of charData.followers) {
     const follower = updatedChars[followerId];
-    if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general' };
+    // Combat never happens during the controlling player's organization
+    // phase, so the follower's mind subtraction from general influence is
+    // deferred to that player's next organization phase (CoE rule 3.13).
+    if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
   }
   newPlayerData.characters = pruneLeaderFollowers(updatedChars, strike.characterId, charData.controlledBy);
   newPlayers[defPlayerIndex] = newPlayerData;
@@ -401,6 +586,40 @@ function discardCharacterAfterBodyCheck(
     return { state: { ...stateWithRoll, players: newPlayers, combat: { ...combatWithDiscard, ...next } }, effects };
   }
   return finalizeCombat({ ...stateWithRoll, players: newPlayers, combat: combatWithDiscard }, effects);
+}
+
+/**
+ * Remove an agent whose (only) strike was defeated and whose body check
+ * failed (CoE 3.v — Agent Hazard Attacks). The agent card leaves the board:
+ * a defending hero or Fallen-Wizard player claims it as kill marshalling
+ * points (their kill pile); a Ringwraith or Balrog player instead removes it
+ * from play (the agent owner's out-of-play pile). The agent's site stack is
+ * returned to its owner's site deck so no card instance is lost.
+ */
+function removeDefeatedAgent(state: GameState, combat: CombatState, agentInstId: CardInstanceId): GameState {
+  const ownerIdx = getPlayerIndex(state, combat.attackingPlayerId);
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
+  const agent = state.players[ownerIdx].agents.find(a => a.character.instanceId === agentInstId);
+  if (!agent) return state;
+  const agentCard = toCardInstance(agent.character);
+  // "Hero" players are Wizard-aligned; Fallen-Wizard players may also claim
+  // agents as kill MPs. Ringwraith/Balrog players cannot.
+  const defenderClaimsMP =
+    state.players[defIdx].alignment === Alignment.Wizard ||
+    state.players[defIdx].alignment === Alignment.FallenWizard;
+  let next = updatePlayer(state, ownerIdx, p => ({
+    ...p,
+    agents: p.agents.filter(a => a.character.instanceId !== agentInstId),
+    siteDeck: [...p.siteDeck, ...agent.siteStack],
+  }));
+  if (defenderClaimsMP) {
+    next = updatePlayer(next, defIdx, p => ({ ...p, killPile: [...p.killPile, agentCard] }));
+    logDetail(`Agent ${agentInstId as string} defeated — placed in defender's kill pile for kill MPs (CoE 3.v)`);
+  } else {
+    next = updatePlayer(next, ownerIdx, p => ({ ...p, outOfPlayPile: [...p.outOfPlayPile, agentCard] }));
+    logDetail(`Agent ${agentInstId as string} defeated — removed from play (CoE 3.v)`);
+  }
+  return next;
 }
 
 export function handleBodyCheckRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
@@ -439,37 +658,82 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       if (charData2) {
         const inPlayNames2 = buildInPlayNames(stateWithRoll);
         const enemy2 = { race: combat.creatureRace, name: '', prowess: combat.strikeProwess, body: combat.creatureBody };
-        const modifiedBody = resolveEnemyBody(stateWithRoll, charData2, enemy2, body, inPlayNames2);
+        // Mechanical Bow (wh-53): "-1 to the body of any strike its bearer faces
+        // if he taps to face the strike." The recorded `strikeMode` gates the
+        // bearer's `enemy-modifier` body reduction on `combat.strikeMode: tap`.
+        const modifiedBody = resolveEnemyBody(stateWithRoll, charData2, enemy2, body, inPlayNames2, strike2.strikeMode);
         if (modifiedBody !== body) {
           logDetail(`Enemy body modified by character effects: ${body} → ${modifiedBody}`);
           body = modifiedBody;
         }
       }
     }
-    logDetail(`Body check vs creature: roll ${rollTotal} vs body ${body}`);
+    // Agent hazard attacks (CoE 3.v): when a character defeats an agent's
+    // strike, the agent is *wounded* and must make a body check — unlike an
+    // ordinary hazard creature, which is never wounded and simply survives or
+    // is defeated. The body check gets a +1 modifier if the agent was already
+    // wounded before this strike (CoE 3.I.1). A failed body check defeats the
+    // strike and removes the agent; a passed body check leaves the agent in
+    // play but wounded.
+    const isAgent = combat.attackSource.type === 'agent';
+    const agentInstId = isAgent ? combat.attackSource.instanceId : null;
+    const agentBefore = agentInstId
+      ? stateWithRoll.players[getPlayerIndex(stateWithRoll, combat.attackingPlayerId)]
+          .agents.find(a => a.character.instanceId === agentInstId)
+      : undefined;
+    const agentAlreadyWounded = agentBefore?.character.status === CardStatus.Inverted;
+    const woundedBonus = agentAlreadyWounded ? 1 : 0;
+    // bearer-combat body-check modifier (Flame of Udûn ba-58): a failed strike
+    // against the parrying character raises the striker's body check.
+    const bearerMod = bearerCombatBodyCheckModifier(stateWithRoll, combat, strike2);
+    const effectiveRoll = rollTotal + woundedBonus + bearerMod;
+    const entityLabel = isAgent ? 'agent' : 'creature';
+    logDetail(`Body check vs ${entityLabel}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll} vs body ${body}`);
     // CoE 3.iv.7: the strike is defeated only if the body check FAILS (roll >
     // body). If the body check passes, the strike was not defeated and the
-    // creature survives. Record 'survived' (vs the parry's 'success') so
-    // finalizeCombat does not count this strike toward defeating the creature.
+    // creature/agent survives. Record 'survived' (vs the parry's 'success') so
+    // finalizeCombat does not count this strike toward defeating the entity.
     let combatAfterBodyCheck = combat;
-    if (rollTotal > body) {
-      logDetail('Creature body check failed — strike defeated');
-      noteOutcome(`Body check failed — strike defeated (rolled ${rollTotal} vs body ${body})`);
+    let stateAfterOutcome = stateWithRoll;
+    if (effectiveRoll > body) {
+      logDetail(`${isAgent ? 'Agent' : 'Creature'} body check failed — strike defeated`);
+      noteOutcome(`Body check failed — strike defeated (rolled ${effectiveRoll} vs body ${body})`);
+      if (isAgent) {
+        // Strike defeated: with a single strike this defeats the agent, which
+        // is removed from play — or claimed as kill MPs by a defending hero /
+        // Fallen-Wizard player (CoE 3.v).
+        stateAfterOutcome = removeDefeatedAgent(stateWithRoll, combat, agentInstId!);
+      }
     } else {
-      logDetail('Creature body check passed — creature survives');
-      noteOutcome(`Body check passed — the creature survives (rolled ${rollTotal} vs body ${body})`);
+      logDetail(`${isAgent ? 'Agent' : 'Creature'} body check passed — ${isAgent ? 'agent survives (wounded)' : 'creature survives'}`);
+      noteOutcome(`Body check passed — the ${isAgent ? 'agent survives but is wounded' : 'creature survives'} (rolled ${effectiveRoll} vs body ${body})`);
       const survivedAssignments = combat.strikeAssignments.map((a, i) =>
         i === combat.currentStrikeIndex ? { ...a, result: 'survived' as const } : a,
       );
       combatAfterBodyCheck = { ...combat, strikeAssignments: survivedAssignments };
+      if (isAgent) {
+        // CoE 3.v: the agent is wounded because its strike was defeated, even
+        // though it survives the body check.
+        stateAfterOutcome = updatePlayer(
+          stateWithRoll,
+          getPlayerIndex(stateWithRoll, combat.attackingPlayerId),
+          p => ({
+            ...p,
+            agents: p.agents.map(a => a.character.instanceId === agentInstId
+              ? { ...a, character: { ...a.character, status: CardStatus.Inverted } }
+              : a),
+          }),
+        );
+        logDetail(`Agent ${agentInstId as string} wounded (strike defeated, CoE 3.v)`);
+      }
     }
 
     // Advance to next strike or finalize
     const next1 = nextStrikePhase(combatAfterBodyCheck);
     if (next1) {
-      return { state: { ...stateWithRoll, combat: { ...combatAfterBodyCheck, ...next1 } }, effects };
+      return { state: { ...stateAfterOutcome, combat: { ...combatAfterBodyCheck, ...next1 } }, effects };
     }
-    return finalizeCombat({ ...stateWithRoll, combat: combatAfterBodyCheck }, effects);
+    return finalizeCombat({ ...stateAfterOutcome, combat: combatAfterBodyCheck }, effects);
   }
 
   if (combat.bodyCheckTarget === 'character') {
@@ -490,7 +754,8 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // Allies with an instance stat override (e.g. a creature converted by
     // Ready to His Will) use that body; otherwise fall back to the definition.
     const allyOverrideBody = allyMatch ? allyEffectiveBody(stateWithRoll, allyMatch.ally) : undefined;
-    let body = allyOverrideBody ?? charDef2?.body ?? 9; // Default body if not specified
+    const printedBody = allyOverrideBody ?? charDef2?.body ?? 9;
+    let body = printedBody; // Default body if not specified
     // CvCC weapon effects: the attacking character's `enemy-modifier` (body,
     // subtract/halve) effects reduce the defending character's body-check
     // target, mirroring how the same DSL effect reduces a hazard creature's
@@ -528,9 +793,18 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // Item-granted body-check modifiers (e.g. Helm of Fear -1) only apply to
     // characters (allies do not bear items).
     const itemBodyMod = charData && !allyMatch ? bodyCheckRollModifier(stateWithRoll, charData) : 0;
-    const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod;
+    // Global body-check modifiers from in-play permanent-events (e.g. Spawn of
+    // Ungoliant ba-24: +1 to certain races' body checks from Spider attacks).
+    const targetRaceForBody = charData && !allyMatch && isCharacterCard(defById(stateWithRoll, charData.definitionId))
+      ? (defById(stateWithRoll, charData.definitionId) as { race?: string }).race
+      : undefined;
+    const globalBodyMod = globalBodyCheckRollModifier(stateWithRoll, targetRaceForBody, combat.creatureRace);
+    // bearer-combat body-check modifier (Flame of Udûn ba-58): a successful CvCC
+    // strike by the bearer raises the defending character's body check.
+    const bearerMod = bearerCombatBodyCheckModifier(stateWithRoll, combat, strike);
+    const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod + globalBodyMod + bearerMod;
 
-    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''} = ${effectiveRoll} vs body ${body}`);
+    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${globalBodyMod ? `${formatSignedNumber(globalBodyMod)}(global)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll} vs body ${body}`);
 
     // MELE §8.R1: if the *unmodified* roll is exactly 7 or 8 and the target is a
     // Ringwraith avatar, the Ringwraith returns to hand instead of being eliminated.
@@ -579,11 +853,13 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         }
         newPlayersRW[1 - defPlayerIndex] = { ...hazardPlayerRW, discardPile: hazardDiscardRW };
         const { [strike.characterId]: _rw, ...remainingCharsRW } = newPlayerDataRW.characters;
-        // Revert followers to general influence
+        // Revert followers to general influence with the mind subtraction
+        // deferred to the player's next organization phase (CoE rule 3.13 —
+        // combat never happens during the controller's organization phase).
         const updatedCharsRW = { ...remainingCharsRW };
         for (const followerId of charData.followers) {
           const follower = updatedCharsRW[followerId];
-          if (follower) updatedCharsRW[followerId] = { ...follower, controlledBy: 'general' };
+          if (follower) updatedCharsRW[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
         }
         newPlayerDataRW.characters = pruneLeaderFollowers(updatedCharsRW, strike.characterId, charData.controlledBy);
         // Record the returned Ringwraith's definition ID for reveal restrictions
@@ -605,9 +881,14 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // Allies cannot benefit from this protection.
     if (!allyMatch && charData) {
       const charDefForDiscard = defById(stateWithRoll, charData.definitionId);
-      const discardBodyCheckValues = isCharacterCard(charDefForDiscard) && charDefForDiscard.cardType === 'minion-character' && charDefForDiscard.discardBodyCheck != null
+      const printedDiscardBodyCheckValues = isCharacterCard(charDefForDiscard) && charDefForDiscard.cardType === 'minion-character' && charDefForDiscard.discardBodyCheck != null
         ? charDefForDiscard.discardBodyCheck
         : [];
+      // CoE rule 8.31: effects that modify the character's body (e.g. a dodge
+      // or strike-event body penalty) shift the discard number by the same
+      // amount, so the printed values track `body`'s delta from its printed value.
+      const bodyDelta = body - printedBody;
+      const discardBodyCheckValues = printedDiscardBodyCheckValues.map(v => v + bodyDelta);
       if ((discardBodyCheckValues).includes(effectiveRoll)) {
         const isProtected = charData.items.some(item => {
           const itemDef = state.cardPool[item.definitionId];
@@ -684,8 +965,12 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // Item-granted body-check modifiers (e.g. Helm of Fear -1) apply to the
     // bearer regardless of whether they are attacking or defending in CvCC.
     const itemBodyMod = bodyCheckRollModifier(stateWithRoll, charData);
-    const effectiveRoll = rollTotal + itemBodyMod;
-    logDetail(`CvCC body check vs attacking character ${charName} (body ${body}): roll ${rollTotal}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''} = ${effectiveRoll}`);
+    // bearer-combat body-check modifier (Flame of Udûn ba-58): the CvCC defender
+    // parried this attacking character's strike, so a failed strike against the
+    // defender raises the attacker's body check.
+    const bearerMod = bearerCombatBodyCheckModifier(stateWithRoll, combat, strike);
+    const effectiveRoll = rollTotal + itemBodyMod + bearerMod;
+    logDetail(`CvCC body check vs attacking character ${charName} (body ${body}): roll ${rollTotal}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll}`);
 
     const newAssignments = combat.strikeAssignments.map((a, i) =>
       i === combat.currentStrikeIndex ? { ...a, resolved: true } : a,
@@ -1078,6 +1363,84 @@ export function handleTapItemForStrike(state: GameState, action: GameAction, com
 }
 
 /**
+ * Tap a `face-strike-on-tap` item (e.g. Bow of Alatar wh-90) during the
+ * `assign-strikes` defender phase to let its bearer face one of the attack's
+ * strikes regardless of the attack's normal capabilities and the bearer's
+ * status. Taps the item and adds a forced strike assignment to the bearer,
+ * flagged (`reduceAttackBodyOnParry`) so that a parry lowers the attack's body.
+ *
+ * The bearer may already be tapped or wounded — the status check that gates
+ * ordinary defender assignment is intentionally bypassed here ("regardless of
+ * … his status"). The assignment always adds one strike-facing; combat advances
+ * to resolution once every strike is allocated.
+ */
+export function handleFaceStrikeOnTap(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'face-strike-on-tap') return wrongActionType(state, action, 'face-strike-on-tap');
+  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only face a strike via item during strike assignment' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only the defending player may activate a face-strike item' };
+
+  const defPlayerIndex = getPlayerIndex(state, action.player);
+  const defPlayer = state.players[defPlayerIndex];
+
+  const bearer = defPlayer.characters[action.characterInstanceId];
+  if (!bearer) return { state, error: 'Bearer not in play' };
+
+  // Bearer must be in the defending company.
+  const company = companyById(defPlayer.companies, combat.companyId);
+  if (!company || !company.characters.includes(action.characterInstanceId)) {
+    return { state, error: 'Bearer is not in the defending company' };
+  }
+
+  // The strike-facing consumes one of the attack's strikes.
+  const totalAllocated = combat.strikeAssignments.length
+    + combat.strikeAssignments.reduce((sum, a) => sum + a.excessStrikes, 0);
+  if (totalAllocated >= combat.strikesTotal) {
+    return { state, error: 'No unassigned strike remains for the bearer to face' };
+  }
+  if (combat.strikeAssignments.some(a => a.characterId === action.characterInstanceId)) {
+    return { state, error: 'Bearer is already facing a strike' };
+  }
+
+  // Tap the (untapped) face-strike item on the bearer.
+  const tapped = updateAttachment(defPlayer, 'items', action.cardInstanceId, it => ({ ...it, status: CardStatus.Tapped }));
+  if (!tapped || tapped.charId !== action.characterInstanceId) return { state, error: 'Item not found on bearer' };
+  const item = tapped.attachment;
+  if (item.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
+
+  const itemDef = defById(state, item.definitionId);
+  const effect = getCardEffects(itemDef).find(e => e.type === 'face-strike-on-tap');
+  if (!effect) return { state, error: 'Item has no face-strike-on-tap effect' };
+  const reduction = (effect as { bodyReductionOnParry?: number }).bodyReductionOnParry ?? 0;
+
+  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (item.definitionId as string);
+  const bearerName = cardName(state, bearer.definitionId, action.characterInstanceId as string);
+  logDetail(`Face-strike-on-tap: tapping ${itemName} — ${bearerName} faces a strike regardless of capabilities/status${reduction > 0 ? ` (attack body -${reduction} if parried)` : ''}`);
+
+  const newAssignments: StrikeAssignment[] = [...combat.strikeAssignments, {
+    characterId: action.characterInstanceId,
+    excessStrikes: 0,
+    resolved: false,
+    ...(reduction > 0 ? { reduceAttackBodyOnParry: reduction } : {}),
+  }];
+
+  const newTotalAllocated = newAssignments.length
+    + newAssignments.reduce((sum, a) => sum + a.excessStrikes, 0);
+
+  let newCombat: CombatState = { ...combat, strikeAssignments: newAssignments };
+  if (newTotalAllocated >= combat.strikesTotal) {
+    const next = nextStrikePhase(newCombat);
+    newCombat = { ...newCombat, assignmentPhase: 'done', ...next };
+  }
+
+  return {
+    state: {
+      ...updatePlayer(state, defPlayerIndex, () => tapped.player),
+      combat: newCombat,
+    },
+  };
+}
+
+/**
  * Tap an in-play ally carrying a `combat-tap-company-boost` effect to grant an
  * attack-scoped stat boost to every matching character in the ally's own
  * company. Mirrors the `company-combat-boost` short-event path (one
@@ -1164,6 +1527,65 @@ export function handleTapAllyCombatBoost(state: GameState, action: GameAction, c
 }
 
 /**
+ * Tap an in-play ally carrying an `ally-body-check-boost` effect to add its
+ * value to its controlling character's effective body for the pending body
+ * check — the current strike (`combat.currentStrikeIndex`) must already
+ * target that character. Mirrors the `strike-modifier` bodyPenalty path
+ * (accumulates onto `StrikeAssignment.strikeBodyPenalty`, read by both
+ * `bodyCheckActions` and the body-check roll resolution in
+ * `handleBodyCheckRoll`) but is triggered by tapping the ally instead of
+ * playing a card. Only offered (see `tapAllyBodyCheckBoostActions`) when the
+ * ally itself was also struck by a strike from the same attack, so the
+ * eligibility is re-checked here defensively rather than trusted blindly.
+ *
+ * Used by War-warg (le-156).
+ */
+export function handleTapAllyBodyCheckBoost(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'tap-ally-body-check-boost') return wrongActionType(state, action, 'tap-ally-body-check-boost');
+  if (combat.bodyCheckTarget !== 'character') return { state, error: 'No character body check pending' };
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  if (playerIndex < 0) return { state, error: 'Player not found' };
+  const player = state.players[playerIndex];
+
+  const tapped = updateAttachment(player, 'allies', action.cardInstanceId, a => ({ ...a, status: CardStatus.Tapped }));
+  if (!tapped) return { state, error: 'Ally not in play under this player' };
+  const { charId: bearerCharId, attachment: ally } = tapped;
+  if (ally.status !== CardStatus.Untapped) return { state, error: 'Ally must be untapped to activate' };
+
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!strike || strike.characterId !== bearerCharId) {
+    return { state, error: 'Ally does not belong to the character facing this body check' };
+  }
+  const struckAlly = combat.strikeAssignments.some(a => a.characterId === ally.instanceId);
+  if (!struckAlly) {
+    return { state, error: 'Ally was not also targeted by a strike from this attack' };
+  }
+
+  const allyDef = defById(state, ally.definitionId);
+  const boostEffect = getCardEffects(allyDef).find(
+    (e): e is AllyBodyCheckBoostEffect => e.type === 'ally-body-check-boost',
+  );
+  if (!boostEffect) return { state, error: 'Ally has no ally-body-check-boost effect' };
+
+  const allyName = (allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string);
+  logDetail(`${allyName} tapped — +${boostEffect.value} body to ${bearerCharId as string} for the pending body check`);
+
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex
+      ? { ...a, strikeBodyPenalty: (a.strikeBodyPenalty ?? 0) + boostEffect.value }
+      : a,
+  );
+
+  return {
+    state: {
+      ...updatePlayer(state, playerIndex, () => tapped.player),
+      combat: { ...combat, strikeAssignments: newAssignments },
+    },
+  };
+}
+
+/**
  * Activate an in-play item's `modify-attack` effect to adjust the
  * current attack's prowess and/or body. When cost is `{ tap: "self" }` the
  * item taps — unless its `discardIfBearerNot` clause fires (bearer race
@@ -1185,10 +1607,33 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
   if (playerIndex < 0) return { state, error: 'Player not found' };
   const player = state.players[playerIndex];
 
-  // --- From-hand path ---
+  // --- From-hand path (also covers the attacker revealing a modify-attack
+  //     hazard event they placed on-guard, e.g. Unabated in Malice ba-26) ---
   if (action.characterInstanceId === undefined) {
-    const handCard = findById(player.hand, action.cardInstanceId);
-    if (!handCard) return { state, error: 'Card not in hand' };
+    let sourceCard = findById(player.hand, action.cardInstanceId);
+    // On-guard fallback: an unrevealed modify-attack card the attacker placed
+    // on the defending company plays exactly like a from-hand card, but is
+    // removed from the on-guard zone instead of the hand (rule 2.V.i).
+    let onGuard: { defenderIndex: number; companyIndex: number; ogIndex: number } | undefined;
+    if (!sourceCard) {
+      const defenderIndex = state.players.findIndex(p => p.id === combat.defendingPlayerId);
+      if (defenderIndex >= 0) {
+        const defender = state.players[defenderIndex];
+        const companyIndex = defender.companies.findIndex(c => c.id === combat.companyId);
+        if (companyIndex >= 0) {
+          const ogIndex = defender.companies[companyIndex].onGuardCards.findIndex(
+            og => !og.revealed && og.instanceId === action.cardInstanceId,
+          );
+          if (ogIndex >= 0) {
+            const og = defender.companies[companyIndex].onGuardCards[ogIndex];
+            sourceCard = { instanceId: og.instanceId, definitionId: og.definitionId };
+            onGuard = { defenderIndex, companyIndex, ogIndex };
+          }
+        }
+      }
+    }
+    if (!sourceCard) return { state, error: 'Card not in hand' };
+    const handCard = sourceCard;
     const cardDef = defById(state, handCard.definitionId);
     if (!cardDef) return { state, error: 'Card definition not found' };
     const effect = getCardEffects(cardDef).find(
@@ -1205,16 +1650,77 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
 
     const prowessModifier = effect.prowessModifier ?? 0;
     const bodyModifier = effect.bodyModifier ?? 0;
-    const newHand = removeById(player.hand, handCard.instanceId);
-    const newDiscard = [...player.discardPile, toCardInstance(handCard)];
+    const strikesModifier = effect.strikesModifier ?? 0;
     const newStrikeProwess = combat.strikeProwess + prowessModifier;
     const newCreatureBody = combat.creatureBody === null ? null : combat.creatureBody + bodyModifier;
+    // Strike count. `setStrikesTo` reduces the attack to a fixed number of
+    // strikes ("reduced to one strike", Darkness Wielded ba-55) — never
+    // increasing the count and clamped to a minimum of 1. Otherwise
+    // `strikesModifier` applies a delta (also clamped to a minimum of 1, same
+    // rule as the in-play path).
+    const newStrikesTotal = effect.setStrikesTo !== undefined
+      ? Math.max(1, Math.min(combat.strikesTotal, effect.setStrikesTo))
+      : strikesModifier !== 0 ? Math.max(1, combat.strikesTotal + strikesModifier) : combat.strikesTotal;
+    // The applied strike delta (may differ from strikesModifier if clamped);
+    // stored so a cancel-redirect reverses exactly what was applied.
+    const appliedStrikesDelta = newStrikesTotal - combat.strikesTotal;
+    // FEAR! FIRE! FOES! (as-29) Mode B: the detainment attack "becomes normal".
+    const removesDetainment = effect.removeDetainment === true && combat.detainment;
+    const newDetainment = removesDetainment ? false : combat.detainment;
     const cardLabel = cardDef.name;
-    logDetail(`Modify-attack (from hand): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
+    logDetail(`Modify-attack (${onGuard ? 'on-guard reveal' : 'from hand'}): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}${removesDetainment ? ', detainment → normal' : ''}`);
+
+    // Cancel protection: the first attempt to cancel the attack instead
+    // strips these modifiers (Unabated in Malice ba-26). Record the exact
+    // deltas applied so the redirect reverses them precisely.
+    const cancelProtection = effect.firstCancelRemovesEffect
+      ? {
+          sourceInstanceId: handCard.instanceId,
+          strikesModifier: appliedStrikesDelta,
+          prowessModifier,
+          bodyModifier,
+        }
+      : undefined;
+    if (cancelProtection) {
+      logDetail(`${cardLabel}: cancel protection active — first cancel attempt will strip this card's modifiers instead of ending the attack`);
+    }
+
+    // The attacker owns the card (whether played from hand or revealed
+    // on-guard), so it always lands in the attacker's discard pile.
+    const discarded = toCardInstance(handCard);
+    let baseState: GameState;
+    if (onGuard) {
+      const og = onGuard;
+      const withoutOnGuard = updatePlayer(state, og.defenderIndex, p => {
+        const companies = [...p.companies];
+        const company = companies[og.companyIndex];
+        const onGuardCards = [...company.onGuardCards];
+        onGuardCards.splice(og.ogIndex, 1);
+        companies[og.companyIndex] = { ...company, onGuardCards };
+        return { ...p, companies };
+      });
+      baseState = updatePlayer(withoutOnGuard, playerIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, discarded],
+      }));
+    } else {
+      baseState = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        hand: removeById(p.hand, handCard.instanceId),
+        discardPile: [...p.discardPile, discarded],
+      }));
+    }
 
     let newState: GameState = {
-      ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
-      combat: { ...combat, strikeProwess: newStrikeProwess, creatureBody: newCreatureBody },
+      ...baseState,
+      combat: {
+        ...combat,
+        strikeProwess: newStrikeProwess,
+        creatureBody: newCreatureBody,
+        strikesTotal: newStrikesTotal,
+        detainment: newDetainment,
+        ...(cancelProtection ? { cancelProtection } : {}),
+      },
     };
 
     const attackDupLimit = getCardEffects(cardDef).find(

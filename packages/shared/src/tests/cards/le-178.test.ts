@@ -48,7 +48,7 @@ import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
   LORIEN, MINAS_TIRITH,
-  handCardId, charIdAt, dispatch, findHandCardId,
+  handCardId, charIdAt, dispatch, resolveChain, findHandCardId,
   buildInfluenceAttemptChainState, buildSitePhaseState, findCharInstanceId, RESOURCE_PLAYER,
   expectInDiscardPile,
 } from '../test-helpers.js';
@@ -120,13 +120,15 @@ describe('Crooked Promptings (le-178)', () => {
     });
     const asternak = findCharInstanceId(state, RESOURCE_PLAYER, ASTERNAK);
     const cardInstance = findHandCardId(state, RESOURCE_PLAYER, CROOKED_PROMPTINGS);
-    const after = dispatch(state, {
+    // The boost rides the chain of effects; resolve it (both players pass) so
+    // the constraint is applied on resolution — see tw-337 for the regression.
+    const after = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: cardInstance,
       targetCharacterId: asternak,
       optionId: 'influence-check-boost',
-    });
+    }));
     const constraints = after.activeConstraints.filter(
       c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',
     );

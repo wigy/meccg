@@ -29,10 +29,11 @@ import type { CardEffect, RecruitCharacterEffect } from '../../types/effects.js'
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
 import { characterEntries, defById, matchesDefinition, playerById, isUniqueCharacterInPlay } from '../reducer-utils.js';
+import { manifestationOfEntityInPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
-import { hasFollowerGrantPermission } from '../../effects/play-flags.js';
+import { hasFollowerGrantPermission, hasPlayFlag } from '../../effects/play-flags.js';
 
 /**
  * Generates `play-character` actions enabled by an in-hand `recruit-character`
@@ -72,7 +73,7 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
       if (!c.currentSite) return false;
       const siteDef = resolveDef(state, c.currentSite.instanceId);
       if (!isSiteCard(siteDef)) return false;
-      const effType = getEffectiveSiteType(state, c.currentSite.definitionId, siteDef.siteType);
+      const effType = getEffectiveSiteType(state, c.currentSite.definitionId, siteDef.siteType, c.currentSite.instanceId);
       return event.effect.siteTypes.includes(effType);
     });
     if (qualifyingCompanies.length === 0) {
@@ -84,6 +85,10 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
       if (handCard.instanceId === event.instanceId) continue;
       const recruitDef = defById(state, handCard.definitionId);
       if (!recruitDef || !isCharacterCard(recruitDef)) continue;
+
+      // Pure "Hazard Agent" cards (Lobelia dm-28, My Precious dm-29) are
+      // deploy-only — they can never be brought into a company as characters.
+      if (hasPlayFlag(recruitDef, 'hazard-agent-only')) continue;
 
       // The event brings a character in "with direct influence": an avatar
       // (mind null) cannot be controlled under direct influence.
@@ -98,6 +103,14 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
       // Uniqueness: a unique character already in play cannot be recruited.
       if (recruitDef.unique && isUniqueCharacterInPlay(state, recruitDef.name)) {
         logDetail(`${event.name}: ${recruitDef.name} is unique and already in play`);
+        continue;
+      }
+
+      // Glossary g.man.1: an in-play manifestation of the same entity also
+      // blocks the recruit (e.g. Strider in play blocks Aragorn II).
+      const blockingManifestation = manifestationOfEntityInPlay(state, recruitDef);
+      if (blockingManifestation !== null) {
+        logDetail(`${event.name}: ${blockingManifestation}, a manifestation of the same entity as ${recruitDef.name}, is in play (g.man.1)`);
         continue;
       }
 

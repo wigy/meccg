@@ -55,6 +55,20 @@ export function findCharInstanceId(state: GameState, playerIdx: number, defId: C
   throw new Error(`Character ${defId} not found for player ${playerIdx}`);
 }
 
+/**
+ * Find the instance ID of an item borne by any character of a player, matched
+ * by item definition ID. Throws if no character bears the item. Used by tests
+ * that target a specific item in play (e.g. Barrow-blade dm-119, played "with
+ * the Dagger of Westernesse").
+ */
+export function findItemInstanceId(state: GameState, playerIdx: number, itemDefId: CardDefinitionId): CardInstanceId {
+  for (const char of Object.values(state.players[playerIdx].characters)) {
+    const item = char.items.find(i => i.definitionId === itemDefId);
+    if (item) return item.instanceId;
+  }
+  throw new Error(`Item ${itemDefId as string} not borne by any character for player ${playerIdx}`);
+}
+
 /** Get all viable actions of a specific type for a player. */
 export function viableActions(state: GameState, playerId: PlayerId, actionType: string) {
   return computeLegalActions(state, playerId)
@@ -95,6 +109,17 @@ export function nonViableOfType(
  */
 export function phaseStateAs<T extends GameState['phaseState']>(state: GameState): T {
   return state.phaseState as T;
+}
+
+/**
+ * The queued `opponent-influence-defend` attempt payload (attacker roll,
+ * influencer contribution, opponent GI, region penalty, …), or `undefined` if
+ * no such resolution is pending. Used by opponent-influence tests to inspect the
+ * computed modifiers before the defender rolls.
+ */
+export function opponentInfluenceAttempt(state: GameState) {
+  const pending = state.pendingResolutions.find(r => r.kind.type === 'opponent-influence-defend');
+  return pending?.kind.type === 'opponent-influence-defend' ? pending.kind.attempt : undefined;
 }
 
 /** Get all viable play-character actions for a player. */

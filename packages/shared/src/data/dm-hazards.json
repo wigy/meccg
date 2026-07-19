@@ -423,24 +423,113 @@
     "certified": "2026-04-25"
   },
   {
-    "cardType": "hazard-event",
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
     "id": "dm-28",
     "name": "Lobelia Sackville-Baggins",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/LobeliaSackvilleBaggins.jpg",
     "unique": true,
-    "eventType": "short",
-    "effects": [],
-    "text": "Unique. Manifestation of Mistress Lobelia. Agent. +3 direct influence against Hobbits and Hobbit factions. May not move to any site other than Bree, Old Forest, The White Towers, or a site in The Shire."
+    "race": "hobbit",
+    "skills": [
+      "scout"
+    ],
+    "prowess": 0,
+    "body": 9,
+    "mind": 3,
+    "directInfluence": 1,
+    "marshallingPoints": 1,
+    "marshallingCategory": "character",
+    "homesite": "Bag End, Bree",
+    "keywords": [
+      "agent"
+    ],
+    "manifestId": "dm-178",
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "hazard-agent-only"
+      },
+      {
+        "type": "agent-tap-influence",
+        "targetKinds": [
+          "character",
+          "ally",
+          "faction"
+        ]
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "hobbit"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "hobbit"
+        }
+      },
+      {
+        "type": "agent-move-restriction",
+        "allowedSiteNames": [
+          "Bree",
+          "Old Forest",
+          "The White Towers"
+        ],
+        "allowedRegionNames": [
+          "The Shire"
+        ]
+      }
+    ],
+    "text": "Unique. Manifestation of Mistress Lobelia. Agent. +3 direct influence against Hobbits and Hobbit factions. May not move to any site other than Bree, Old Forest, The White Towers, or a site in The Shire.",
+    "certified": "2026-07-06"
   },
   {
-    "cardType": "hazard-event",
+    "cardType": "minion-character",
+    "alignment": "ringwraith",
     "id": "dm-29",
     "name": "My Precious",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/MyPrecious.jpg",
     "unique": true,
-    "eventType": "short",
-    "effects": [],
-    "text": "Unique. Manifestation of Gollum. Agent. If face-up, may take an extra agent action (not counting against the hazard limit) each time he normally takes an agent action. If he attacks successfully against a company with a ring, he and a ring (attacker's choice) are discarded. If My Precious attacks and fails but is not defeated, the defender may tap a character in the target company to play Gollum (My Precious is discarded). Any player whose character eliminates My Precious receives -1 kill MPs."
+    "race": "creature",
+    "skills": [
+      "scout"
+    ],
+    "prowess": 2,
+    "body": 9,
+    "mind": 4,
+    "directInfluence": 0,
+    "killMarshallingPoints": -1,
+    "homesite": "Goblin-gate, Moria, Shelob's Lair, Mt. Doom",
+    "keywords": [
+      "agent"
+    ],
+    "manifestId": "tw-246",
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "hazard-agent-only"
+      },
+      {
+        "type": "extra-agent-actions",
+        "value": 1,
+        "whileRevealed": true
+      },
+      {
+        "type": "agent-attack-outcome",
+        "onSuccessVsRing": "discard-self-and-ring",
+        "onFailSurvive": "defender-plays-manifestation",
+        "manifestationCardName": "Gollum"
+      }
+    ],
+    "text": "Unique. Manifestation of Gollum. Agent. If face-up, may take an extra agent action (not counting against the hazard limit) each time he normally takes an agent action. If he attacks successfully against a company with a ring, he and a ring (attacker's choice) are discarded. If My Precious attacks and fails but is not defeated, the defender may tap a character in the target company to play Gollum (My Precious is discarded). Any player whose character eliminates My Precious receives -1 kill MPs.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-event",
@@ -459,8 +548,11 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/AwareoftheirWays.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Opponent reveals four cards at random from his discard pile. You may choose a non-unique one and remove it from play. Opponent discards the other three."
+    "effects": [
+      { "type": "reveal-remove-from-discard", "count": 4 }
+    ],
+    "text": "Opponent reveals four cards at random from his discard pile. You may choose a non-unique one and remove it from play. Opponent discards the other three.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "hazard-event",
@@ -589,8 +681,41 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/FacesoftheDead.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a non-Wizard character moving with at least two Wildernesses [{w}] in his site path if you discard any Undead hazard creature from your hand (show opponent). Target character's player makes a roll and adds character's mind. If the result is less than 13, that character splits off into a different company. This new company immediately returns to his original company’s site of origin."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "sitePath.wildernessCount": {
+            "$gte": 2
+          }
+        }
+      },
+      {
+        "type": "play-discard-cost",
+        "source": "hand",
+        "filter": {
+          "cardType": "hazard-creature",
+          "race": "undead"
+        },
+        "revealToOpponent": true
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": {
+            "$ne": "wizard"
+          }
+        }
+      },
+      {
+        "type": "seized-by-terror-check",
+        "threshold": 13
+      }
+    ],
+    "text": "Playable on a non-Wizard character moving with at least two Wildernesses [{w}] in his site path if you discard any Undead hazard creature from your hand (show opponent). Target character's player makes a roll and adds character's mind. If the result is less than 13, that character splits off into a different company. This new company immediately returns to his original company’s site of origin.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "hazard-event",
@@ -679,7 +804,11 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/InnerCunning.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      { "type": "agent-reveal-site-override", "homeSiteTypes": ["shadow-hold", "dark-hold"] },
+      { "type": "fetch-agent-to-hand", "homeSiteTypes": ["shadow-hold", "dark-hold"] }
+    ],
+    "certified": "2026-07-07",
     "text": "As a permanent-event, playable on a face-down agent who was brought into play this turn. When the agent is revealed, and if his home site is a Shadow-hold [{S}] or a Dark-hold [{D}], the site where he came into play (which is not represented by a card) may legally be any Shadow-hold [{S}] or a Dark-hold [{D}]. Discard when the agent is revealed.Alternatively, as a short-event, take any agent who has a home site that is a Shadow-hold [{S}] or Dark-hold [{D}] from your play deck into your hand (reveal it to your opponent and reshuffle your play deck).Cannot be played if your opponent is a minion player."
   },
   {
@@ -709,8 +838,15 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/MordorinArms.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Any company moving in Nurn faces three attacks: Orcs — 5 strikes with 8 prowess, Orcs — 4 strikes with 10 prowess, Trolls — 3 strikes with 12 prowess. If all three attacks are defeated by your opponent, he receives this card in his MP pile and 2 kill MPs. Any attempt by a character to influence a faction playable at a site in Horse Plains, Khand, Harondor, Nurn, Gorgoroth, Imlad Morgul, or Udûn is modified by -6 and cannot be done with Muster. This card has no effect on a minion player."
+    "effects": [
+      { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 5, "prowess": 8, "race": "orc", "noEffectOnMinion": true },
+      { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 4, "prowess": 10, "race": "orc", "noEffectOnMinion": true },
+      { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 3, "prowess": 12, "race": "troll", "noEffectOnMinion": true, "groupReward": { "toDefenderKillPile": true } },
+      { "type": "mp-in-pile", "category": "kill", "value": 2 },
+      { "type": "faction-influence-restriction", "regionNames": ["Horse Plains", "Khand", "Harondor", "Nurn", "Gorgoroth", "Imlad Morgul", "Udûn"], "modifier": -6, "blockCards": ["Muster"], "noEffectOnMinion": true }
+    ],
+    "text": "Any company moving in Nurn faces three attacks: Orcs — 5 strikes with 8 prowess, Orcs — 4 strikes with 10 prowess, Trolls — 3 strikes with 12 prowess. If all three attacks are defeated by your opponent, he receives this card in his MP pile and 2 kill MPs. Any attempt by a character to influence a faction playable at a site in Horse Plains, Khand, Harondor, Nurn, Gorgoroth, Imlad Morgul, or Udûn is modified by -6 and cannot be done with Muster. This card has no effect on a minion player.",
+    "certified": "2026-07-07"
   },
   {
     "cardType": "hazard-event",
@@ -719,8 +855,13 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/NeithersoAncientNorsoPotent.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable on a stored item. Return item to opponent’s hand (discarding all attached cards). Place this card in opponent’s marshalling point pile. It gives 2 item marshalling points."
+    "effects": [
+      { "type": "play-target", "target": "stored-item" },
+      { "type": "displace-stored-item", "returnItemTo": "owner-hand", "selfTo": "owner-mp-pile" },
+      { "type": "mp-in-pile", "category": "item", "value": 2 }
+    ],
+    "text": "Playable on a stored item. Return item to opponent’s hand (discarding all attached cards). Place this card in opponent’s marshalling point pile. It gives 2 item marshalling points.",
+    "certified": "2026-07-07"
   },
   {
     "cardType": "hazard-event",
@@ -909,8 +1050,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/RevealedtoallWatchers.jpg",
     "unique": true,
     "eventType": "short",
-    "effects": [],
-    "text": "Unique. Reveal your hand to opponent. Place all non-hazard cards from your hand off to the side. Draw cards from your play deck until your hand size is reached. Place the non-hazard cards from off to the side face down on top of your play deck in any order you choose."
+    "effects": [
+      {
+        "type": "cycle-hand",
+        "revealHand": true,
+        "keepInHand": { "cardType": { "$in": ["hazard-creature", "hazard-event"] } },
+        "drawToHandSize": true,
+        "setAsideTo": "deck-top"
+      }
+    ],
+    "text": "Unique. Reveal your hand to opponent. Place all non-hazard cards from your hand off to the side. Draw cards from your play deck until your hand size is reached. Place the non-hazard cards from off to the side face down on top of your play deck in any order you choose.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-event",
@@ -1029,8 +1179,23 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheWayisShut.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
-    "text": "A company moving to or from an Under-deeps site must return to its site of origin.Additionally, cancels the effects of Secret Passage and Secret Entrance. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "force-return-to-origin",
+        "condition": { "underDeepsMove": true }
+      },
+      {
+        "type": "cancel-card-effects",
+        "cardNames": ["Secret Passage", "Secret Entrance"]
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "A company moving to or from an Under-deeps site must return to its site of origin.Additionally, cancels the effects of Secret Passage and Secret Entrance. Cannot be duplicated.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-event",

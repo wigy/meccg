@@ -1,6 +1,6 @@
 {
   "name": "@meccg/shared",
-  "version": "0.44.0",
+  "version": "0.54.0",
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

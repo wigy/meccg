@@ -15,11 +15,12 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
+import { computeLegalActions } from '../../../index.js';
 import type { CardDefinitionId } from '../../test-helpers.js';
 import {
   buildTestState, resetMint, Phase, Alignment,
-  viablePlayCharacterActions,
-  PLAYER_1, PLAYER_2,
+  viablePlayCharacterActions, viableOfType, handCardId,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   ARAGORN, RIVENDELL,
 } from '../../test-helpers.js';
 
@@ -27,6 +28,10 @@ import {
 const THE_BALROG = 'ba-3' as CardDefinitionId;
 const THE_UNDER_GATES = 'ba-100' as CardDefinitionId;
 const MORIA_BALROG = 'ba-93' as CardDefinitionId; // a Balrog Darkhaven, but not the avatar's home site
+// A Balrog-specific card from the BANNED_VS_BALROG_OPPONENT play-ban list
+// (minion permanent-event with no play-target — unconditionally offered
+// unless the ban blocks it; same probe card as the rule-1.36 tests).
+const THE_BLACK_COUNCIL = 'wh-41' as CardDefinitionId;
 
 describe('Rule 3.10 — Balrog Avatar Play', () => {
   beforeEach(() => resetMint());
@@ -88,5 +93,20 @@ describe('Rule 3.10 — Balrog Avatar Play', () => {
     expect(viablePlayCharacterActions(state, PLAYER_1)).toHaveLength(0);
   });
 
-  test.todo('[BALROG] If a Balrog player\'s opponent is also a Balrog player, both may continue to play Balrog-specific cards regardless of which plays their avatar first');
+  test('[BALROG] in a Balrog mirror match, a Balrog-specific card stays playable despite the opponent being a Balrog player', () => {
+    // The MEBA play-ban ("your opponent may not play The Balrog (Ally), The
+    // Black Council, ...") must not fire between two Balrog players — both
+    // may continue to play Balrog-specific cards.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Balrog, companies: [], hand: [THE_BLACK_COUNCIL], siteDeck: [] },
+        { id: PLAYER_2, alignment: Alignment.Balrog, companies: [], hand: [], siteDeck: [] },
+      ],
+    });
+    const cardId = handCardId(state, RESOURCE_PLAYER);
+    const plays = viableOfType(computeLegalActions(state, PLAYER_1), 'play-permanent-event');
+    expect(plays.some(a => 'cardInstanceId' in a.action && a.action.cardInstanceId === cardId)).toBe(true);
+  });
 });

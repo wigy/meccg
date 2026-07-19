@@ -422,11 +422,51 @@
     "race": "animal",
     "playableAt": [
       {
-        "site": "any"
+        "any": true,
+        "when": {
+          "$and": [
+            { "$not": { "site.siteType": { "$in": ["haven", "shadow-hold", "dark-hold"] } } },
+            { "site.regionType": "wilderness" }
+          ]
+        }
       }
     ],
-    "effects": [],
-    "text": "Playable at any tapped or untapped non-Haven, non-Shadow-hold, non-Dark-hold site in a Wilderness [{w}] if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Discard this faction to make information playable at such a site."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 3,
+        "when": {
+          "controller.wizard": "Radagast"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "panoply-unlock-information",
+        "cost": {
+          "discard": "self"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-resource-unlocked",
+          "scope": "turn",
+          "target": "player",
+          "subtype": "information",
+          "siteCondition": {
+            "$and": [
+              { "$not": { "site.siteType": { "$in": ["haven", "shadow-hold", "dark-hold"] } } },
+              { "site.regionType": "wilderness" }
+            ]
+          }
+        }
+      }
+    ],
+    "text": "Playable at any tapped or untapped non-Haven, non-Shadow-hold, non-Dark-hold site in a Wilderness [{w}] if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Discard this faction to make information playable at such a site.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-resource-faction",
@@ -441,11 +481,60 @@
     "race": "animal",
     "playableAt": [
       {
-        "site": "any"
+        "any": true,
+        "when": {
+          "$and": [
+            { "site.siteType": { "$ne": "haven" } },
+            { "site.siteType": { "$ne": "dark-hold" } },
+            {
+              "site.region": {
+                "$in": [
+                  "Woodland Realm",
+                  "Western Mirkwood",
+                  "Heart of Mirkwood",
+                  "Southern Mirkwood",
+                  "Fangorn",
+                  "Cardolan"
+                ]
+              }
+            }
+          ]
+        }
       }
     ],
-    "effects": [],
-    "text": "Playable at any tapped or untapped non-Haven, non-Darkhaven, non-Dark-hold site in Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Fangorn, or Cardolan if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Tap this faction to cancel an attack keyed by name to one of the regions listed above. May also be used as a minion resource card that is only playable by a character in a covert company."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 3,
+        "when": {
+          "controller.wizard": "Radagast"
+        }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "handModeRequiresCovert": true,
+        "when": {
+          "$or": [
+            { "attack.keyingRegionNames": { "$includes": "Woodland Realm" } },
+            { "attack.keyingRegionNames": { "$includes": "Western Mirkwood" } },
+            { "attack.keyingRegionNames": { "$includes": "Heart of Mirkwood" } },
+            { "attack.keyingRegionNames": { "$includes": "Southern Mirkwood" } },
+            { "attack.keyingRegionNames": { "$includes": "Fangorn" } },
+            { "attack.keyingRegionNames": { "$includes": "Cardolan" } }
+          ]
+        }
+      }
+    ],
+    "text": "Playable at any tapped or untapped non-Haven, non-Darkhaven, non-Dark-hold site in Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Fangorn, or Cardolan if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Tap this faction to cancel an attack keyed by name to one of the regions listed above. May also be used as a minion resource card that is only playable by a character in a covert company.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "hero-resource-faction",
@@ -479,11 +568,38 @@
     "race": "animal",
     "playableAt": [
       {
-        "site": "any"
+        "siteType": "ruins-and-lairs",
+        "when": { "site.regionType": "wilderness" }
       }
     ],
-    "effects": [],
-    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] in a Wilderness [{w}] if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Discard this faction to cancel an automatic-attack at a Ruins & Lairs [{R}] or an attack keyed to Wilderness [{w}] or Ruins & Lairs [{R}]. May also be used as a minion resource card that is only playable by a character in a covert company."
+    "effects": [
+      { "type": "play-flag", "flag": "playable-at-tapped-site" },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 3,
+        "when": { "controller.wizard": "Radagast" }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": { "discard": "self" },
+        "handModeRequiresCovert": true,
+        "when": {
+          "$or": [
+            {
+              "$and": [
+                { "attack.source": "automatic-attack" },
+                { "site.type": "ruins-and-lairs" }
+              ]
+            },
+            { "attack.keying": "wilderness" },
+            { "attack.siteKeyingTypes": "ruins-and-lairs" }
+          ]
+        }
+      }
+    ],
+    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] in a Wilderness [{w}] if the influence check is greater than 11.Standard Modifications: if Radagast is your Wizard (+3).Discard this faction to cancel an automatic-attack at a Ruins & Lairs [{R}] or an attack keyed to Wilderness [{w}] or Ruins & Lairs [{R}]. May also be used as a minion resource card that is only playable by a character in a covert company.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",
@@ -547,7 +663,30 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "keywords": [
+      "starting-item"
+    ],
+    "effects": [
+      {
+        "type": "recruitment-vehicle",
+        "maxMind": 99,
+        "agentRecruit": true
+      },
+      {
+        "type": "starting-company-placement"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": "max(1, bearer.baseMind - 1) - bearer.baseMind"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "certified": "2026-07-09",
     "text": "Playable on a company. One agent character may be played with target company at a Darkhaven [{DH}] or in your starting company — place this card with the agent. -1 to his mind to a minimum of 1. This card may be played with a starting company in lieu of a minor item. When played as such, reveal it when starting companies are determined as if it were a character.Does not allow you to start with a character that says he cannot be in the starting company. Cannot be duplicated on a given character. Cannot be included in a Balrog's deck."
   },
   {
@@ -673,9 +812,57 @@
       {
         "type": "stage-points",
         "value": 4
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            {
+              "player.avatar": {
+                "$in": [
+                  "Radagast",
+                  "Alatar"
+                ]
+              }
+            },
+            {
+              "player.stagePoints": {
+                "$gte": 6
+              }
+            },
+            {
+              "player.hasProtectedWizardhaven": true
+            }
+          ]
+        }
+      },
+      {
+        "type": "grant-ally-play",
+        "filter": {
+          "$and": [
+            {
+              "target.unique": {
+                "$ne": true
+              }
+            },
+            {
+              "target.mind": 1
+            }
+          ]
+        },
+        "atProtectedWizardhavens": true,
+        "allowTappedSite": true,
+        "oncePerSitePhase": true
       }
     ],
-    "text": "Playable if you are Radagast or Alatar and have 6 or more stage points and a protected Wizardhaven [{H}]. One non-unique ally with a mind of 1 is playable at one of your tapped or untapped protected Wizardhavens [{H}] each of your site phases. Cannot be duplicated by a given player."
+    "text": "Playable if you are Radagast or Alatar and have 6 or more stage points and a protected Wizardhaven [{H}]. One non-unique ally with a mind of 1 is playable at one of your tapped or untapped protected Wizardhavens [{H}] each of your site phases. Cannot be duplicated by a given player.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-event",
@@ -726,10 +913,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/DelversHarvest.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the site phase if one of your companies enters the Deep Mines site."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": { "site.name": "Deep Mines" }
+      }
+    ],
+    "text": "Playable during the site phase if one of your companies enters the Deep Mines site.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -1011,9 +1205,34 @@
       {
         "type": "stage-points",
         "value": 4
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.stagePoints": {
+            "$gt": 6
+          }
+        }
+      },
+      {
+        "type": "fw-item-mp-full",
+        "filter": {
+          "$not": {
+            "keywords": {
+              "$includes": "ring"
+            }
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
       }
     ],
-    "text": "Playable if you have more than 6 stage points. Your non-ring items are each worth full marshalling points. Cannot be duplicated by a given player."
+    "text": "Playable if you have more than 6 stage points. Your non-ring items are each worth full marshalling points. Cannot be duplicated by a given player.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-resource-event",
@@ -1029,9 +1248,79 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": {
+          "site.type": "border-hold"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.stagePoints": {
+            "$gte": 10
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": "border-hold"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "haven",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "wizardhaven-conversion",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "skip-automatic-attacks",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-nothing-playable",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "cancel-attacks-at-site",
+          "scope": "until-cleared"
+        }
       }
     ],
-    "text": "Playable during the site phase on a Border-hold [{B}] site if you have 10 or more stage points. This site becomes one of your Wizardhavens [{H}] and loses all automatic-attacks. Nothing is considered playable as written on the site. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise."
+    "text": "Playable during the site phase on a Border-hold [{B}] site if you have 10 or more stage points. This site becomes one of your Wizardhavens [{H}] and loses all automatic-attacks. Nothing is considered playable as written on the site. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "minion-resource-event",
@@ -1257,9 +1546,19 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Alatar" }
+      },
+      {
+        "type": "face-strike-on-tap",
+        "bodyReductionOnParry": 1
       }
     ],
-    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Bow of Alatar to allow him to face a strike from an attack against his company regardless of the attack’s normal capabilities and his status. If such a strike fails, the attack’s body is reduced by 1."
+    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Bow of Alatar to allow him to face a strike from an attack against his company regardless of the attack’s normal capabilities and his status. If such a strike fails, the attack’s body is reduced by 1.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",
@@ -1272,10 +1571,31 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-07-09",
     "effects": [
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "player.avatar": "Alatar" },
+            { "player.stagePoints": { "$gte": 12 } }
+          ]
+        }
+      },
+      {
+        "type": "reveal-and-attack",
+        "maxCreatures": 5,
+        "attackAvatar": "Alatar"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
       }
     ],
     "text": "Alatar specific. Playable if you are Alatar and have at least 12 stage points. Your opponent reveals cards one at a time from his play deck or his discard pile (your choice). Any hazard creature revealed immediately attacks Alatar’s company. This process stops when 5 creatures or all cards of the deck (or pile) have been revealed. Reshuffle play deck if used. Thereafter, your opponent discards face-up. Whenever your opponent discards a creature during your turn, you may choose to have it attack Alatar’s company instead. Cannot be duplicated."
@@ -1295,9 +1615,36 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Alatar"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "huntsmans-garb-fetch",
+        "cost": {
+          "tap": "self"
+        },
+        "endOfTurnOnly": true,
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": {
+            "name": {
+              "$in": ["Risky Blow", "True Fána", "The Hunt"]
+            }
+          }
+        }
       }
     ],
-    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Huntsman’s Garb during your end-of-turn phase to take Risky Blow, True Fána, or The Hunt from your discard pile to your hand."
+    "text": "Unique. Alatar specific. Place this card on Alatar if he is in play. If on Alatar, you may tap Huntsman’s Garb during your end-of-turn phase to take Risky Blow, True Fána, or The Hunt from your discard pile to your hand.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",
@@ -1314,9 +1661,27 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "fw-item-mp-full",
+        "inAvatarCompany": true,
+        "filter": {
+          "$or": [
+            { "keywords": { "$includes": "weapon" } },
+            { "keywords": { "$includes": "armor" } },
+            { "keywords": { "$includes": "shield" } },
+            { "keywords": { "$includes": "helmet" } }
+          ]
+        }
+      },
+      {
+        "type": "fw-ally-mp-full",
+        "inAvatarCompany": true,
+        "filter": { "prowess": { "$exists": true } }
       }
     ],
-    "text": "Unique.Alatar specific. Your weapon/shield/ armor/helmet items in Alatar’s company are each worth full marshalling points. Your allies with a prowess attribute in Alatar’s company are each worth full marshalling points."
+    "text": "Unique.Alatar specific. Your weapon/shield/ armor/helmet items in Alatar’s company are each worth full marshalling points. Your allies with a prowess attribute in Alatar’s company are each worth full marshalling points.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",
@@ -1352,9 +1717,45 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.avatar": "Alatar" }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": { "site.isOwnWizardhaven": true }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "$and": [{ "target.isAvatar": { "$ne": true } }, { "target.skills": { "$includes": "warrior" } }] }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1
+      },
+      {
+        "type": "control-restriction",
+        "cost": 2,
+        "sources": ["general", "fallen-wizard"]
       }
     ],
-    "text": "Unique.Alatar specific. Warrior only. Playable on one of your warrior characters at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Alatar."
+    "text": "Unique.Alatar specific. Warrior only. Playable on one of your warrior characters at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Alatar.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-resource-event",
@@ -1365,14 +1766,40 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/AwaittheOnset.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 5,
     "marshallingCategory": "misc",
     "effects": [
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "player.stagePoints": { "$gte": 12 } },
+            { "player.protectedWizardhavenCount": { "$gte": 2 } },
+            { "player.factionCount": { "$gte": 4 } },
+            { "player.characterCount": { "$gte": 6 } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "nonhaven-company-mp-pin",
+        "value": 1
+      },
+      {
+        "type": "played-after-faction-mp-pin",
+        "value": 1
       }
     ],
+    "certified": "2026-07-19",
     "text": "Gandalf specific. Playable if you are Gandalf and have at least: 12 stage points, two protected Wizardhavens [{H}], 4 factions, and 6 characters. Each faction you play after Await the Onset is worth 1 marshalling point regardless of other cards in play (place these factions under Await the Onset). Each of your marshalling point cards in a company not in one of your Wizardhavens [{H}] when the game ends is worth 1 marshalling point regardless of other cards in play. Cannot be duplicated."
   },
   {
@@ -1390,9 +1817,71 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "cardType": "hero-site" },
+            { "siteType": "free-hold" }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "haven",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "wizardhaven-conversion",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "skip-automatic-attacks",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-nothing-playable",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "cancel-attacks-at-site",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
       }
     ],
-    "text": "Gandalf specific. Playable on one of your hero Free-hold [{F}] sites in play. This site becomes a Wizardhaven [{H}] for your companies, loses all automatic-attacks against your companies, and is one of Gandalf’s home sites. Nothing is considered playable as written on the site card. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise. Cannot be duplicated on a given site."
+    "text": "Gandalf specific. Playable on one of your hero Free-hold [{F}] sites in play. This site becomes a Wizardhaven [{H}] for your companies, loses all automatic-attacks against your companies, and is one of Gandalf’s home sites. Nothing is considered playable as written on the site card. If one of your companies is at this site, all attacks against it are canceled. Other Fallen-wizards may not use this site as a Wizardhaven [{H}]. Discard this card when the site is discarded or returned to its location deck. It cannot be discarded otherwise. Cannot be duplicated on a given site.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "minion-resource-event",
@@ -1409,8 +1898,42 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.avatar": "Gandalf"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "site.isOwnWizardhaven": true
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.isAvatar": {
+            "$ne": true
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "control-restriction",
+        "cost": 1,
+        "sources": ["general", "fallen-wizard"]
       }
     ],
+    "certified": "2026-07-17",
     "text": "Unique. Gandalf specific. Playable on one of your characters at one of your Wizardhavens [{H}] (or in your starting company). +2 to his direct influence. This character requires 1 point of influence to control and may only be controlled by general influence or Gandalf."
   },
   {
@@ -1428,8 +1951,19 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Gandalf" }
+      },
+      {
+        "type": "noncharacter-mp-override",
+        "when": { "card.unique": true, "card.normalMp": 1 },
+        "value": 2
       }
     ],
+    "certified": "2026-07-17",
     "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, your unique non-character cards normally worth 1 marshalling point are each worth 2 marshalling points."
   },
   {
@@ -1447,8 +1981,24 @@
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Gandalf" }
+      },
+      {
+        "type": "noncharacter-mp-override",
+        "when": { "card.unique": true, "card.cardType": "hero-resource-faction", "card.normalMp": { "$lte": 2 } },
+        "value": 2
+      },
+      {
+        "type": "noncharacter-mp-override",
+        "when": { "card.unique": true, "card.cardType": "hero-resource-faction", "card.normalMp": { "$gte": 3 } },
+        "value": 3
       }
     ],
+    "certified": "2026-07-17",
     "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, your unique hero factions normally worth 2 or fewer marshalling points are each worth 2 marshalling points. If on Gandalf, your unique hero factions normally worth 3 or more marshalling points are each worth 3 marshalling points."
   },
   {
@@ -1523,9 +2073,50 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.avatar": "Pallando"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "site.isOwnWizardhaven": true
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isAvatar": { "$ne": true } },
+            { "target.skills": { "$includes": "sage" } },
+            { "target.race": { "$ne": "hobbit" } },
+            { "target.race": { "$ne": "dwarf" } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1
+      },
+      {
+        "type": "control-restriction",
+        "cost": 2,
+        "sources": ["general", "fallen-wizard"]
+      },
+      {
+        "type": "play-flag",
+        "flag": "can-use-palantir"
       }
     ],
-    "text": "Unique. Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage character at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Pallando. This character may tap to use a Palantír he bears."
+    "text": "Unique. Pallando specific. Sage only. Playable on a non-Hobbit, non-Dwarf sage character at one of your Wizardhavens [{H}] (or in your starting company). +1 to his direct influence. This character requires 2 points of influence to control and may only be controlled by general influence or Pallando. This character may tap to use a Palantír he bears.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -1542,9 +2133,40 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Pallando"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "pallandos-hood-fetch",
+        "cost": {
+          "tap": "self"
+        },
+        "endOfTurnOnly": true,
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": {
+            "name": {
+              "$in": [
+                "Gifts as Given of Old",
+                "Wizard’s Voice",
+                "Eyes of Mandos"
+              ]
+            }
+          }
+        }
       }
     ],
-    "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Pallando’s Hood during your end-of-turn phase to take Gifts as Given of Old, Wizard’s Voice, or Eyes of Mandos from your discard pile to your hand."
+    "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Pallando’s Hood during your end-of-turn phase to take Gifts as Given of Old, Wizard’s Voice, or Eyes of Mandos from your discard pile to your hand.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -1561,9 +2183,37 @@
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "player.avatar": "Pallando" },
+            { "player.stagePoints": { "$gte": 12 } },
+            { "player.factionCount": { "$gte": 5 } }
+          ]
+        }
+      },
+      {
+        "type": "opponent-influence-override",
+        "influencer": "Pallando",
+        "fromAnySite": true,
+        "generalInfluenceSubstitution": { "divisor": 2, "roundUp": true, "max": 10 },
+        "regionDistancePenalty": true
+      },
+      {
+        "type": "discard-self-when",
+        "condition": { "player.factionCount": { "$lt": 5 } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
       }
     ],
-    "text": "Pallando specific. Playable if you are Pallando and have at least 12 stage points and 5 factions in play. Pallando need not be at the appropriate site when making an influence attempt on an opponent’s resource or character. Such an influence check is modified by half (rounded up) of Pallando’s unused general influence (to a maximum of 10) instead of his unused direct influence. Subtract from the attempt the number of regions between Pallando’s site and the site where the influence attempt would normally be made. Discard if you have fewer than 5 factions in play. Cannot be duplicated."
+    "text": "Pallando specific. Playable if you are Pallando and have at least 12 stage points and 5 factions in play. Pallando need not be at the appropriate site when making an influence attempt on an opponent’s resource or character. Such an influence check is modified by half (rounded up) of Pallando’s unused general influence (to a maximum of 10) instead of his unused direct influence. Subtract from the attempt the number of regions between Pallando’s site and the site where the influence attempt would normally be made. Discard if you have fewer than 5 factions in play. Cannot be duplicated.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -1599,9 +2249,16 @@
       {
         "type": "stage-points",
         "value": 4
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "value": 6,
+        "controlLimit": 2
       }
     ],
-    "text": "Unique.Pallando specific. Your general influence is increased by 6 points. You may only use 2 of these 6 points to control characters."
+    "text": "Unique.Pallando specific. Your general influence is increased by 6 points. You may only use 2 of these 6 points to control characters.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -1637,9 +2294,46 @@
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "effectiveSiteType": "haven"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "player.avatar": "Radagast" },
+            { "player.stagePoints": { "$gte": 12 } }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-protected"
+      },
+      {
+        "type": "play-condition",
+        "requires": "supporters-in-region",
+        "min": 6
+      },
+      {
+        "type": "region-type-conversion",
+        "to": "wilderness",
+        "includeAdjacent": true
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
       }
     ],
-    "text": "Radagast specific. Playable on one of your protected Wizardhavens [{H}] if you are Radagast and have at least 12 SPs and 6 allies and/or unique factions in play (the factions must be playable at sites in the Wizardhaven’s [{H}] region or adjacent regions). The Wizardhaven’s region and all adjacent regions become Wilderness [{w}]. Cannot be duplicated."
+    "text": "Radagast specific. Playable on one of your protected Wizardhavens [{H}] if you are Radagast and have at least 12 SPs and 6 allies and/or unique factions in play (the factions must be playable at sites in the Wizardhaven’s [{H}] region or adjacent regions). The Wizardhaven’s region and all adjacent regions become Wilderness [{w}]. Cannot be duplicated.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-event",
@@ -1656,9 +2350,28 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Radagast"
+        }
+      },
+      {
+        "type": "grant-ally-play",
+        "filter": {
+          "$and": [
+            { "target.unique": { "$ne": true } },
+            { "target.mind": 1 }
+          ]
+        },
+        "excludeBearerControlsCopy": true,
+        "fromDiscard": true
       }
     ],
-    "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. Any non-unique ally with 1 mind (a copy of which he does not already control) is considered playable with Radagast at his site. This ally may be taken from your discard pile or hand."
+    "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. Any non-unique ally with 1 mind (a copy of which he does not already control) is considered playable with Radagast at his site. This ally may be taken from your discard pile or hand.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-event",
@@ -1708,26 +2421,52 @@
     "unique": true,
     "prowess": 2,
     "body": 8,
+    "mind": 2,
+    "directInfluence": 3,
+    "skills": ["scout", "diplomat"],
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "one of your Wizardhavens [{H}]"
+        "any": true
       }
     ],
     "effects": [
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-tap-on-play"
+      },
+      {
+        "type": "play-flag",
+        "flag": "influences-factions"
+      },
+      {
+        "type": "return-to-hand",
+        "during": ["organization", "controller-leaves-play"]
+      },
+      {
+        "type": "cancel-strike",
+        "cost": {
+          "tap": "self"
+        }
       }
     ],
-    "text": "Unique. Radagast specific. Playable at one of your Wizardhavens [{H}]. You may return Radagast’s Black Bird to your hand: during your organization phase or if its controlling character leaves active play. Radagast may play this ally at any site (tapped or untapped) and need not tap himself or the site to do so. This ally may attempt to influence factions as if he were a character. He may cancel a strike directed against him—tapping afterwards if not already tapped."
+    "text": "Unique. Radagast specific. Playable at one of your Wizardhavens [{H}]. You may return Radagast’s Black Bird to your hand: during your organization phase or if its controlling character leaves active play. Radagast may play this ally at any site (tapped or untapped) and need not tap himself or the site to do so. This ally may attempt to influence factions as if he were a character. He may cancel a strike directed against him—tapping afterwards if not already tapped.",
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-resource-event",
     "alignment": "stage",
     "id": "wh-115",
-    "keywords": ["radagast-specific"],
+    "keywords": ["radagast-specific", "shapeshifter"],
     "name": "Shifter of Hues",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ShifterofHues.jpg",
     "unique": false,
@@ -1738,9 +2477,83 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Radagast" }
+      },
+      {
+        "type": "return-to-hand",
+        "during": ["organization", "replaced-by-keyword"],
+        "replacedByKeyword": "shapeshifter"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "op": "set",
+        "value": 6
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "op": "set",
+        "value": 10
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "op": "set",
+        "value": 3
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "op": "set",
+        "value": 27
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": -2
+      },
+      {
+        "type": "override-skills",
+        "skills": ["warrior", "diplomat"]
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-cannot-move"
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": 1
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-cannot-use-items"
+      },
+      {
+        "type": "grant-action",
+        "action": "shifter-of-hues-corruption-aid",
+        "cost": { "tap": "bearer" },
+        "targets": {
+          "scope": "player-companies",
+          "movingThroughRegionType": "wilderness"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "corruption",
+          "value": 2,
+          "lasting": true,
+          "scope": "next-organization-phase",
+          "target": "action-target-company"
+        }
       }
     ],
-    "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Warrior/Diplomat. Radagast may not move. You may keep one more card than normal in your hand. Radagast can tap give +2 to the corruption checks of the characters in one company through your next organization phase (this company must be moving with at least one Wilderness [{w}] in their site path). Radagast may bear, but may not use, items."
+    "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Warrior/Diplomat. Radagast may not move. You may keep one more card than normal in your hand. Radagast can tap give +2 to the corruption checks of the characters in one company through your next organization phase (this company must be moving with at least one Wilderness [{w}] in their site path). Radagast may bear, but may not use, items.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "minion-resource-event",

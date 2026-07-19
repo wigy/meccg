@@ -84,6 +84,12 @@ export interface DeckList {
   /** Deck alignment: hero, minion, fallen-wizard, or balrog. */
   readonly alignment: 'hero' | 'minion' | 'fallen-wizard' | 'balrog';
   /**
+   * Free-form notes about the deck in Markdown: strategy write-ups, starting
+   * company suggestions, play tips. Shown in the deck browser and editable in
+   * the deck editor. Optional (absent on decks without notes).
+   */
+  readonly notes?: string;
+  /**
    * Game length declared for this deck (CoE rule 1.1), governing the maximum
    * sideboard size (rule 1.6.1). Defaults to `'short'` when absent, matching
    * decks built before this field existed.

@@ -17,6 +17,17 @@
 
 import { describe, test } from 'vitest';
 
+// The core mechanism (`on-event` DSL effects, detected and queued by
+// chain-reducer.ts's passive-detection pass, each opening a fresh chain
+// once the current one finishes) is implemented and used pervasively —
+// e.g. every `on-event: self-enters-play` card (Cracks of Doom, Gollum's
+// Fate, A New Ringlord) and rule 6.16's "on-guard reveal initiates a
+// nested/new chain" tests already exercise the "declared in its own chain"
+// half. What's not separately isolated here is the specific ordering claim
+// for *multiple simultaneous* passive conditions resolving into one
+// combined subsequent chain in resource-player-chosen order — no scenario
+// in the current pool has two independent passive conditions trigger at
+// exactly the same moment to prove that ordering rule (see also rule 10.35).
 describe('Rule 10.31 — Passive Conditions', () => {
   test.todo('Passive conditions: prescribed actions when circumstances met after card resolved; declared in new chain of effects');
 });

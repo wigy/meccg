@@ -204,9 +204,26 @@
         "rule": "deny-character",
         "filter": {},
         "exceptHomesite": true
+      },
+      {
+        "type": "site-rule",
+        "rule": "no-storage"
+      },
+      {
+        "type": "site-rule",
+        "rule": "hazard-site-type-override",
+        "siteType": "ruins-and-lairs",
+        "sitePath": [
+          "shadow",
+          "wilderness",
+          "wilderness",
+          "wilderness",
+          "wilderness"
+        ]
       }
     ],
-    "unique": true
+    "unique": true,
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-site",
@@ -1321,7 +1338,7 @@
     "id": "le-403",
     "name": "Shrel-Kain",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ShrelKain.jpg",
-    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major) — weapon, armor, shield, or helmet only Automatic-attacks: Men — each character faces 1 strike with 8 prowess (detainment against covert company)",
+    "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major*) *—weapon, armor, shield, or helmet only Automatic-attacks: Men — each character faces 1 strike with 8 prowess (detainment against covert company)",
     "alignment": "ringwraith",
     "siteType": "border-hold",
     "sitePath": [
@@ -1335,9 +1352,64 @@
       "minor",
       "major"
     ],
-    "automaticAttacks": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 8,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-item",
+        "when": {
+          "$and": [
+            {
+              "subtype": "major"
+            },
+            {
+              "$not": {
+                "$or": [
+                  {
+                    "keywords": {
+                      "$includes": "weapon"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "armor"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "shield"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "helmet"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 2,
+    "certified": "2026-07-09",
     "unique": true
   },
   {
@@ -1447,7 +1519,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "unique": true
+    "unique": true,
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-site",
@@ -1486,7 +1559,8 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Minas Morgul. Automatic-attacks: Men — each character faces 1 strike with 5 prowess (detainment against covert company).",
-    "unique": true
+    "unique": true,
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-site",
@@ -1503,7 +1577,10 @@
     ],
     "nearestHaven": "Minas Morgul",
     "region": "Rohan",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -1513,7 +1590,20 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Minas MorgulPlayable: Information, Items (minor)Automatic-attacks: Undead — 1 strike with 6 prowess; each character wounded must make a corruption check modified by -2"
+    "text": "Nearest Darkhaven: Minas MorgulPlayable: Information, Items (minor)Automatic-attacks: Undead — 1 strike with 6 prowess; each character wounded must make a corruption check modified by -2",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -2
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-site",
@@ -1529,7 +1619,10 @@
     ],
     "nearestHaven": "Carn Dûm",
     "region": "Cardolan",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -1539,7 +1632,20 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major)Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check modified by -2."
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major)Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check modified by -2.",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -2
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-site",
@@ -1580,11 +1686,38 @@
     ],
     "nearestHaven": "Carn Dûm",
     "region": "Arthedain",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "gold-ring",
+      "information"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dúnedain",
+        "strikes": 1,
+        "prowess": 7,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-agent-play"
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Carn DûmPlayable: Information, Items (minor, gold ring)Automatic-attacks: Dúnedain — each character faces 1 strike with 7 prowess (detainment against covert company)Special: Agent minions may be brought into play under direct influence at this site."
+    "unique": true,
+    "certified": "2026-07-15",
+    "text": "Nearest Darkhaven: Carn Dûm Playable: Information, Items (minor, gold ring) Automatic-attacks: Dúnedain — each character faces 1 strike with 7 prowess (detainment against covert company) Special: Agent minions may be brought into play under direct influence at this site."
   },
   {
     "cardType": "minion-site",
@@ -1599,7 +1732,10 @@
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Southern Rhovanion",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -1609,7 +1745,8 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor, major)Automatic-attacks: Troll — 1 strike with 10 prowess"
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor, major)Automatic-attacks: Troll — 1 strike with 10 prowess",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-site",
@@ -1624,11 +1761,70 @@
     ],
     "nearestHaven": "Carn Dûm",
     "region": "Rhudaur",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 7,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-item",
+        "when": {
+          "$and": [
+            {
+              "subtype": "major"
+            },
+            {
+              "$not": {
+                "$or": [
+                  {
+                    "keywords": {
+                      "$includes": "weapon"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "armor"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "shield"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "helmet"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major*) *—weapon, armor, shield, or helmet onlyAutomatic-attacks: Men — each character faces 1 strike with 7 prowess (detainment against covert company)"
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major*) *—weapon, armor, shield, or helmet onlyAutomatic-attacks: Men — each character faces 1 strike with 7 prowess (detainment against covert company)",
+    "unique": true,
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-site",
@@ -1646,16 +1842,40 @@
     ],
     "nearestHaven": "Minas Morgul",
     "region": "Belfalas",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring",
+      "information"
+    ],
     "automaticAttacks": [
       {
-        "creatureType": "(2nd) Dúnedain",
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 8,
+        "combatRules": [
+          "each-character"
+        ]
+      },
+      {
+        "creatureType": "Dúnedain",
         "strikes": 3,
-        "prowess": 10
+        "prowess": 10,
+        "appliesTo": "overt"
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "resourceDraws": 2,
     "hazardDraws": 4,
+    "unique": true,
+    "certified": "2026-07-17",
     "text": "Nearest Darkhaven: Minas MorgulPlayable: Information, Items (minor, major, gold ring)Automatic-attacks (2): (1st) Men — each character faces 1 strike with 8 prowess (detainment against covert company) (2nd) Dúnedain — 3 strikes with 10 prowess (against overt company only)"
   },
   {
@@ -1739,7 +1959,9 @@
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Anduin Vales",
-    "playableResources": [],
+    "playableResources": [
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -1749,7 +1971,21 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (gold ring)Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check modified by -2"
+    "unique": true,
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (gold ring)Automatic-attacks: Undead — 1 strike with 8 prowess; each character wounded must make a corruption check modified by -2",
+    "certified": "2026-07-15",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -2
+        },
+        "target": "wounded-character"
+      }
+    ]
   },
   {
     "cardType": "minion-site",
@@ -1794,10 +2030,69 @@
     ],
     "nearestHaven": "Minas Morgul",
     "region": "Harondor",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 8,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-item",
+        "when": {
+          "$and": [
+            {
+              "subtype": "major"
+            },
+            {
+              "$not": {
+                "$or": [
+                  {
+                    "keywords": {
+                      "$includes": "weapon"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "armor"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "shield"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "helmet"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 2,
+    "unique": true,
+    "certified": "2026-07-09",
     "text": "Nearest Darkhaven: Minas MorgulPlayable: Items (minor, major*) *—weapon, armor, shield, or helmet onlyAutomatic-attacks: Men — each character faces 1 strike with 8 prowess (detainment against covert company)"
   },
   {
@@ -1886,7 +2181,12 @@
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Iron Hills",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Dwarves",
@@ -1896,6 +2196,7 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
+    "certified": "2026-07-14",
     "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor, major, greater, gold ring)Automatic-attacks: Dwarves — 4 strikes with 10 prowess"
   },
   {
@@ -2002,16 +2303,39 @@
     ],
     "nearestHaven": "Minas Morgul",
     "region": "Lebennin",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
-        "creatureType": "(2nd) Dúnedain",
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 7,
+        "combatRules": [
+          "each-character"
+        ]
+      },
+      {
+        "creatureType": "Dúnedain",
         "strikes": 3,
-        "prowess": 10
+        "prowess": 10,
+        "appliesTo": "overt"
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
       }
     ],
     "resourceDraws": 2,
     "hazardDraws": 3,
+    "unique": true,
+    "certified": "2026-07-17",
     "text": "Nearest Darkhaven: Minas MorgulPlayable: Items (minor, major, gold ring)Automatic-attacks (2): (1st) Men — each character faces 1 strike with 7 prowess (detainment against covert company)(2nd) Dúnedain — 3 strikes with 10 prowess (against overt company only)"
   },
   {

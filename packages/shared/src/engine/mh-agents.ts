@@ -15,7 +15,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, CharacterCard, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction } from '../index.js';
-import type { TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect } from '../types/effects.js';
+import type { TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, AgentTapReturnCharacterEffect } from '../types/effects.js';
 import type { CardInstanceId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -23,6 +23,7 @@ import { isCharacterCard, isAllyCard, isFactionCard, isSiteCard } from '../types
 import { CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
 import { makeCombatState, characterEntries, defById, findById, getCardEffects, removeById, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames } from './reducer-utils.js';
@@ -37,12 +38,22 @@ import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
  * Exported so legal-actions can reuse the same logic.
  */
 export function countExtraAgentActions(state: GameState): number {
+  const sumEffects = (defId: CardDefinition['id'], requireGlobal: boolean, revealed: boolean): number =>
+    getCardEffects(defById(state, defId)).reduce(
+      (n, e) => {
+        if (e.type !== 'extra-agent-actions') return n;
+        const eff = e as { value?: number; whileRevealed?: boolean };
+        // A card in cardsInPlay contributes only if it is NOT a face-up-agent
+        // effect; an agent contributes its whileRevealed effect only while revealed.
+        if (requireGlobal && eff.whileRevealed) return n;
+        if (!requireGlobal && (!eff.whileRevealed || !revealed)) return n;
+        return n + (eff.value ?? 0);
+      }, 0,
+    );
   return state.players.reduce((sum, p) =>
-    sum + p.cardsInPlay.reduce((s, card) =>
-      s + getCardEffects(defById(state, card.definitionId)).reduce(
-        (n, e) => e.type === 'extra-agent-actions' ? n + ((e as { value?: number }).value ?? 0) : n, 0,
-      ),
-    0),
+    sum
+      + p.cardsInPlay.reduce((s, card) => s + sumEffects(card.definitionId, true, false), 0)
+      + p.agents.reduce((s, a) => s + sumEffects(a.character.definitionId, false, a.revealed), 0),
   0);
 }
 
@@ -313,6 +324,25 @@ export function handleAgentKeyCreatures(state: GameState, action: GameAction, mh
  *     site with the agent (character/ally) or faction is playable at agent's
  *     home site (faction)
  */
+/**
+ * Sum an agent's conditional `direct-influence` stat-modifiers whose `when`
+ * condition matches the given influence context. Agents live in `player.agents`
+ * — outside `recompute-derived` (which only processes `player.characters`) — so
+ * an agent's conditional DI bonus is applied here at influence time rather than
+ * via effective stats. Used by Lobelia dm-28 ("+3 direct influence against
+ * Hobbits and Hobbit factions").
+ */
+function agentConditionalDirectInfluence(agentDef: CardDefinition, ctx: Record<string, unknown>): number {
+  let bonus = 0;
+  for (const eff of getCardEffects(agentDef)) {
+    if (eff.type !== 'stat-modifier' || eff.stat !== 'direct-influence') continue;
+    if (typeof eff.value !== 'number') continue;
+    if (eff.when && !matchesCondition(eff.when, ctx)) continue;
+    bonus += eff.value;
+  }
+  return bonus;
+}
+
 export function handleAgentInfluenceAttempt(
   state: GameState,
   action: GameAction,
@@ -371,6 +401,12 @@ export function handleAgentInfluenceAttempt(
     if (!targetChar) return { state, error: 'Target character not found' };
     const targetDef = defById(state, targetChar.definitionId);
     if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
+    // Conditional DI bonus vs this target's race (e.g. Lobelia +3 vs Hobbits).
+    const diBonus = agentConditionalDirectInfluence(agentDef, { reason: 'influence-check', target: { race: targetDef.race } });
+    if (diBonus) {
+      influencerDI += diBonus;
+      logDetail(`Agent influence: ${agentDef.name} +${diBonus} DI vs ${targetDef.race} ${targetDef.name} (total: ${influencerDI})`);
+    }
     // A `control-restriction` overrides the influence-to-control threshold.
     targetMind = controlCostOf(state, targetChar, targetDef.mind ?? null) ?? 0;
 
@@ -416,6 +452,12 @@ export function handleAgentInfluenceAttempt(
     if (!targetFaction) return { state, error: 'Target faction not found' };
     const factionDef = defById(state, targetFaction.definitionId);
     if (!factionDef || !isFactionCard(factionDef)) return { state, error: 'Target is not a faction' };
+    // Conditional DI bonus vs this faction's race (e.g. Lobelia +3 vs Hobbit factions).
+    const diBonus = agentConditionalDirectInfluence(agentDef, { reason: 'faction-influence-check', faction: { race: (factionDef as { race?: string }).race } });
+    if (diBonus) {
+      influencerDI += diBonus;
+      logDetail(`Agent influence: ${agentDef.name} +${diBonus} DI vs faction ${factionDef.name} (total: ${influencerDI})`);
+    }
     targetMind = factionDef.inPlayInfluenceNumber ?? factionDef.influenceNumber;
 
     // Rule 10.14: faction playable at agent's home site → value = 0, +2 roll
@@ -652,6 +694,108 @@ export function handleAgentTapAttack(
  *  - Taps the agent and marks it as having acted this turn
  *  - Builds and sets CombatState so the M/H phase attack can proceed
  */
+/**
+ * Handle a Pilfer Anything Unwatched (as-33) hazard short-event: the hazard
+ * player taps one of their own untapped agents and targets one opponent
+ * character in play whose home site matches the agent's current site.
+ *
+ * Resolution (rule text):
+ *  - Tap the agent, discard the short event, count it against the hazard limit.
+ *  - Enqueue a generic `dice-check`: the hazard player rolls 2d6 (+5 when the
+ *    agent's current site is also one of its home sites). If the total is
+ *    strictly greater than the target's mind + 5, the character is returned to
+ *    its owner's hand (with the option to transfer one item to a company-mate).
+ *
+ * Bypasses the chain (mirrors `handleTapAgentAtSite`); the roll and its
+ * consequences run through the pending `dice-check` / `transfer-returned-item`
+ * resolutions.
+ */
+export function handleAgentTapReturnCharacter(
+  state: GameState,
+  action: PlayHazardAction,
+  mhState: MovementHazardPhaseState,
+  hazardPlayer: GameState['players'][number],
+  hazardIndex: number,
+  handCard: GameState['players'][number]['hand'][number],
+  def: CardDefinition,
+  effect: AgentTapReturnCharacterEffect,
+): ReducerResult {
+  const agentInstanceId = action.agentInstanceId!;
+  const targetCharacterId = action.targetCharacterId!;
+
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.character.instanceId === agentInstanceId);
+  if (agentIdx === -1) return { state, error: `Agent ${agentInstanceId as string} not found` };
+  const agent = hazardPlayer.agents[agentIdx];
+  if (agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped' };
+  const agentDef = defById(state, agent.character.definitionId);
+  if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent definition not found' };
+
+  // The target character belongs to the hazard player's opponent (resource player).
+  const resourceIndex = 1 - hazardIndex;
+  const resourcePlayer = state.players[resourceIndex];
+  const targetChar = resourcePlayer.characters[targetCharacterId];
+  if (!targetChar) return { state, error: `Target character ${targetCharacterId as string} not found` };
+  const targetDef = defById(state, targetChar.definitionId);
+  if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
+
+  // The agent's current site: top of its site stack, or its first home site
+  // when the stack is empty (a face-down agent sitting at home).
+  const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
+  let agentSiteName: string | null = null;
+  if (agent.siteStack.length > 0) {
+    const topSite = agent.siteStack[agent.siteStack.length - 1];
+    const siteDef = defById(state, topSite.definitionId);
+    if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
+  } else {
+    agentSiteName = homesiteNames[0] ?? null;
+  }
+  const atHome = agentSiteName !== null && homesiteNames.includes(agentSiteName);
+
+  const targetMind = targetChar.effectiveStats.mind ?? targetDef.mind ?? 0;
+  const threshold = targetMind + effect.mindBonus;
+
+  logDetail(`Pilfer Anything Unwatched: agent "${agentDef.name}" (site ${agentSiteName ?? '?'}, atHome=${atHome}) targeting "${targetDef.name}" (mind ${targetMind}); roll +${atHome ? effect.atHomeSiteBonus : 0} must be > ${threshold}`);
+
+  // Tap the agent, discard the short event, count it against the hazard limit.
+  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+  const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
+  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+
+  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    hand: newHand,
+    discardPile: [...p.discardPile, handCard],
+    agents: p.agents.map((a, i) => i === agentIdx
+      ? { ...a, character: { ...a.character, status: CardStatus.Tapped } }
+      : a),
+  }));
+  newState = {
+    ...newState,
+    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
+  };
+
+  // The hazard player rolls; on a pass the target returns to its owner's hand.
+  newState = enqueueResolution(newState, {
+    source: handCard.instanceId,
+    actor: hazardPlayer.id,
+    scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+    kind: {
+      type: 'dice-check',
+      label: `${def.name}: ${targetDef.name}`,
+      roller: hazardPlayer.id,
+      modifiers: atHome ? [{ kind: 'constant', value: effect.atHomeSiteBonus }] : [],
+      threshold,
+      comparison: 'gt',
+      onPass: { type: 'return-character-to-hand', allowItemTransfer: true },
+      continuation: { kind: 'dequeue-only' },
+      requireTargetPresent: true,
+      targetCharacterId,
+    },
+  });
+
+  return { state: newState };
+}
+
 export function handleTapAgentAtSite(
   state: GameState,
   action: PlayHazardAction,

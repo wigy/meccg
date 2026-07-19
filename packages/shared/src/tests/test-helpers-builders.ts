@@ -18,6 +18,7 @@ import type { GameConfig, QuickStartGameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
 import type { ReducerResult } from '../engine/reducer.js';
 import { Phase, Alignment, RegionType, SiteType, computeLegalActions } from '../index.js';
+import { MovementType } from '../types/common.js';
 import type { PlayerId, GameState, GameAction, CardDefinitionId, CardInstanceId, SitePhaseState, MovementHazardPhaseState, InfluenceAttemptAction, OpponentInfluenceAttemptAction, CreatureKeyingMatch, CombatState, ActiveConstraint, CheckKind } from '../index.js';
 import { addConstraint } from '../engine/pending.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -308,15 +309,20 @@ import { recomputeDerived } from '../engine/recompute-derived.js';
 export { recomputeDerived };
 
 /**
- * Builds a freshly-minted Bill Ferny {@link AgentInPlay} in its default
- * (untapped, unrevealed, one-action) state. Shared by the agent-combat tests.
+ * Builds a freshly-minted {@link AgentInPlay} for the given agent character
+ * definition in its default (untapped, one-action, face-down) state. Pass
+ * `revealed: true` to build a face-up agent (e.g. for the Withdrawn to Mordor
+ * dm-165 test, which targets face-up agents).
  */
-export function makeBillFernyAgent(): AgentInPlay {
+export function makeAgent(
+  definitionId: CardDefinitionId,
+  opts?: { revealed?: boolean },
+): AgentInPlay {
   return {
-    id: 'agent-bill-ferny-0' as CompanyId,
+    id: `agent-${definitionId as string}-0` as CompanyId,
     character: {
       instanceId: mint(),
-      definitionId: BILL_FERNY,
+      definitionId,
       status: CardStatus.Untapped,
       items: [],
       allies: [],
@@ -325,13 +331,21 @@ export function makeBillFernyAgent(): AgentInPlay {
       controlledBy: 'general' as const,
       effectiveStats: ZERO_EFFECTIVE_STATS,
     },
-    revealed: false,
+    revealed: opts?.revealed ?? false,
     siteStack: [],
     remainingActions: 1,
     inPlayAtTurnStart: true,
     attackedThisSitePhase: false,
     discardAtEndOfTurn: false,
   };
+}
+
+/**
+ * Builds a freshly-minted Bill Ferny {@link AgentInPlay} in its default
+ * (untapped, unrevealed, one-action) state. Shared by the agent-combat tests.
+ */
+export function makeBillFernyAgent(): AgentInPlay {
+  return { ...makeAgent(BILL_FERNY), id: 'agent-bill-ferny-0' as CompanyId };
 }
 
 /** Returns a copy of `state` with every company's current site tapped. */
@@ -543,6 +557,33 @@ export function buildSitePhaseState(opts: {
 }
 
 /**
+ * Build an M/H-phase state with PLAYER_1 (resource) moving a company from
+ * Rivendell to `destination`, and PLAYER_2 (hazard) holding `hazardHand`. Used
+ * by hold-targeting hazard short-event card tests (FEAR! FIRE! FOES! as-29,
+ * Arouse Defenders le-101) that must be offered against a moving company whose
+ * destination site type matches the card's gate.
+ */
+export function buildHazardMovingState(
+  destination: CardDefinitionId,
+  destinationSiteName: string,
+  hazardHand: CardDefinitionId[],
+  characters: CharacterEntry[] = [ARAGORN],
+): GameState {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    players: [
+      { id: PLAYER_1, companies: [{ site: RIVENDELL, characters, destinationSite: destination }], hand: [], siteDeck: [MORIA] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: hazardHand, siteDeck: [MINAS_TIRITH] },
+    ],
+  });
+  return {
+    ...state,
+    phaseState: makeMHState({ hazardsPlayedThisCompany: 0, hazardLimitAtReveal: 4, destinationSiteName }),
+  };
+}
+
+/**
  * Build a Fallen-wizard site-phase state at the play-resources step with one
  * company at `site`. Mirrors {@link buildSitePhaseState} but for Fallen-wizard
  * card tests, where alignment-sensitive logic (Wizardhaven gates, Stage
@@ -554,6 +595,13 @@ export function buildFallenWizardSitePhaseState(opts: {
   site: CardDefinitionId;
   hand?: CardDefinitionId[];
   siteStatus?: CardStatus;
+  /**
+   * Pre-set the Fallen-wizard's stage-point total. Some site-phase Stage
+   * resources gate on it (Mischief in a Mean Way wh-77: "if you have 10 or
+   * more stage points"). Applied after the initial recompute, so it is not
+   * overwritten unless a subsequent reduce recomputes derived state.
+   */
+  stagePoints?: number;
 }): GameState {
   const state = buildTestState({
     activePlayer: PLAYER_1,
@@ -567,6 +615,12 @@ export function buildFallenWizardSitePhaseState(opts: {
 
   if (opts.siteStatus) {
     (state.players[0].companies[0].currentSite as { status: CardStatus }).status = opts.siteStatus;
+  }
+
+  // Set the FW's stage-point total after the initial recompute (which would
+  // otherwise reset it to the sum of in-play Stage cards, i.e. 0).
+  if (opts.stagePoints !== undefined) {
+    (state.players[0] as { stagePoints: number }).stagePoints = opts.stagePoints;
   }
 
   const sitePhaseState: SitePhaseState = {
@@ -816,6 +870,13 @@ export function makeBodyCheckCombat(opts: {
   bodyCheckTarget?: CombatState['bodyCheckTarget'];
   detainment?: boolean;
   attackSource?: CombatState['attackSource'];
+  /** Recorded strike result (default `'wounded'`; use `'success'` for a parry
+   * so a `bodyCheckTarget: 'creature'` check reads as a defeated strike). */
+  result?: 'success' | 'wounded' | 'eliminated' | 'survived';
+  /** Marks the combat as company-vs-company (Balrog CvCC body-check tests). */
+  isCvCC?: boolean;
+  /** CvCC attacking character whose successful strike caused this body check. */
+  attackingCharacterId?: CardInstanceId;
 }): CombatState {
   return {
     attackSource: opts.attackSource ?? {
@@ -830,13 +891,15 @@ export function makeBodyCheckCombat(opts: {
     strikeProwess: opts.strikeProwess ?? 10,
     creatureBody: opts.creatureBody ?? null,
     creatureRace: opts.creatureRace ?? 'orc',
+    ...(opts.isCvCC ? { isCvCC: true } : {}),
     strikeAssignments: [
       {
         characterId: opts.characterId,
         excessStrikes: 0,
         resolved: true,
-        result: 'wounded',
+        result: opts.result ?? 'wounded',
         wasAlreadyWounded: opts.wasAlreadyWounded ?? false,
+        ...(opts.attackingCharacterId ? { attackingCharacterId: opts.attackingCharacterId } : {}),
       },
     ],
     currentStrikeIndex: 0,
@@ -867,6 +930,7 @@ export function makeCancelWindowCombat(
     creatureRace?: string;
     attackKeying?: readonly RegionType[];
     attackSiteKeyingTypes?: readonly SiteType[];
+    attackKeyingRegionNames?: readonly string[];
     attackSourceType?: 'creature' | 'on-guard-creature' | 'automatic-attack';
     strikesTotal?: number;
     strikeProwess?: number;
@@ -913,6 +977,7 @@ export function makeCancelWindowCombat(
     creatureRace,
     attackKeying: opts.attackKeying && opts.attackKeying.length > 0 ? opts.attackKeying : undefined,
     attackSiteKeyingTypes: opts.attackSiteKeyingTypes && opts.attackSiteKeyingTypes.length > 0 ? opts.attackSiteKeyingTypes : undefined,
+    attackKeyingRegionNames: opts.attackKeyingRegionNames && opts.attackKeyingRegionNames.length > 0 ? opts.attackKeyingRegionNames : undefined,
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',
@@ -1228,6 +1293,22 @@ export function findAllyInstanceId(
 }
 
 /**
+ * Returns a copy of `state` with `agent` appended to the given player's
+ * in-play agents list. Used by tests that need a face-up (or face-down) agent
+ * in play, e.g. the Withdrawn to Mordor (dm-165) card test.
+ */
+export function withAgentInPlay(
+  state: GameState,
+  playerIdx: number,
+  agent: AgentInPlay,
+): GameState {
+  const players = state.players.map((p, i) =>
+    i === playerIdx ? { ...p, agents: [...p.agents, agent] } : p,
+  ) as unknown as typeof state.players;
+  return { ...state, players };
+}
+
+/**
  * Place an on-guard card on a player's company and return the updated
  * GameState + card. Cards are placed face-down by default; pass
  * `revealed: true` to place a pre-revealed card (e.g. for testing the
@@ -1327,6 +1408,68 @@ export function buildTargetState(opts: {
     turnNumber: 3,
     phaseState: makeSitePhase(),
   };
+}
+
+/**
+ * Build a Fallen-wizard influence scenario: player 0 is a Fallen-wizard with
+ * `avatar` at `p1Site`; player 1 is the opponent at `p2Site`. In-play
+ * `factions` and extra in-play cards (`p1CardsInPlay`, e.g. Prophet of Doom)
+ * are seeded onto player 0, and an explicit `stagePoints` override is applied
+ * last (after `recomputeDerived`, which otherwise derives it from in-play stage
+ * cards) so the Pallando-specific stage-point play gate can be exercised
+ * directly. In the default Site phase both companies have entered their sites
+ * on turn 3, so opponent-influence attempts are legal (CoE 10.10 guards met).
+ */
+export function buildFallenWizardInfluenceState(opts: {
+  avatar: CardDefinitionId;
+  p1Site: CardDefinitionId;
+  p2Site: CardDefinitionId;
+  p2Chars?: Parameters<typeof buildTestState>[0]['players'][0]['companies'][0]['characters'];
+  p1Hand?: CardDefinitionId[];
+  stagePoints?: number;
+  factions?: CardDefinitionId[];
+  p1CardsInPlay?: CardDefinitionId[];
+  turnNumber?: number;
+  phase?: Phase;
+  p2Alignment?: Alignment;
+}): GameState {
+  const phase = opts.phase ?? Phase.Site;
+  let state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        alignment: Alignment.FallenWizard,
+        companies: [{ site: opts.p1Site, characters: [opts.avatar] }],
+        hand: opts.p1Hand ?? [],
+        siteDeck: [MINAS_TIRITH],
+      },
+      {
+        id: PLAYER_2,
+        alignment: opts.p2Alignment,
+        companies: [{ site: opts.p2Site, characters: opts.p2Chars ?? [LEGOLAS] }],
+        hand: [],
+        siteDeck: [LORIEN],
+      },
+    ],
+  });
+  for (const faction of opts.factions ?? []) state = addCardInPlay(state, RESOURCE_PLAYER, faction);
+  for (const card of opts.p1CardsInPlay ?? []) state = addCardInPlay(state, RESOURCE_PLAYER, card);
+  state = recomputeDerived(state);
+  if (phase === Phase.Site) {
+    state = { ...state, turnNumber: opts.turnNumber ?? 3, phaseState: makeSitePhase() };
+  } else if (opts.turnNumber !== undefined) {
+    state = { ...state, turnNumber: opts.turnNumber };
+  }
+  if (opts.stagePoints !== undefined) {
+    const players = state.players.map(
+      (p, i) => i === RESOURCE_PLAYER ? { ...p, stagePoints: opts.stagePoints! } : p,
+    ) as unknown as typeof state.players;
+    state = { ...state, players };
+  }
+  return state;
 }
 
 /**
@@ -1491,6 +1634,7 @@ export function playPermanentEventAndResolve(
     targetSiteDefinitionId?: CardDefinitionId;
     discardCardInstanceId?: CardInstanceId;
     targetCompanyId?: CompanyId;
+    targetItemInstanceId?: CardInstanceId;
   },
 ): GameState {
   return playAndResolve(state, {
@@ -2289,6 +2433,19 @@ export function buildAhuntOrderEffectsState(opts: {
   pathNames: readonly string[];
   pathTypes: readonly RegionType[];
   extraCardsInPlay?: readonly CardDefinitionId[];
+  /**
+   * Which player holds the ahunt source card (and `extraCardsInPlay`). Defaults
+   * to the hazard player (P2). Set to the moving player (P1) to model a Dragons
+   * "Roused" faction's own region attack — its `cancel-manifestation-attacks`
+   * suppresses it for the controller's own moving company (Smaug Roused le-285).
+   */
+  ahuntOwnerIndex?: 0 | 1;
+  /**
+   * Extra in-play cards for the moving player (P1), regardless of ahunt owner.
+   * Used to place a "Roused" faction in the mover's play area while an
+   * opponent's same-chain Ahunt sits in P2, to test the cross cancellation.
+   */
+  movingPlayerCardsInPlay?: readonly CardDefinitionId[];
 }): GameState {
   const base = buildTestState({
     phase: Phase.MovementHazard,
@@ -2299,7 +2456,7 @@ export function buildAhuntOrderEffectsState(opts: {
     ],
   });
 
-  const newCards: CardInPlay[] = [
+  const ownerCards: CardInPlay[] = [
     { instanceId: mint(), definitionId: opts.ahuntDefId, status: CardStatus.Untapped },
     ...(opts.extraCardsInPlay ?? []).map(defId => ({
       instanceId: mint(),
@@ -2307,8 +2464,15 @@ export function buildAhuntOrderEffectsState(opts: {
       status: CardStatus.Untapped,
     })),
   ];
+  const movingCards: CardInPlay[] = (opts.movingPlayerCardsInPlay ?? []).map(defId => ({
+    instanceId: mint(),
+    definitionId: defId,
+    status: CardStatus.Untapped,
+  }));
 
-  const withCards = addP2CardsInPlay(base, newCards);
+  const ownerIndex = opts.ahuntOwnerIndex ?? 1;
+  let withCards = ownerIndex === 0 ? addP1CardsInPlay(base, ownerCards) : addP2CardsInPlay(base, ownerCards);
+  if (movingCards.length > 0) withCards = addP1CardsInPlay(withCards, movingCards);
 
   return {
     ...withCards,
@@ -2318,6 +2482,54 @@ export function buildAhuntOrderEffectsState(opts: {
       resolvedSitePath: opts.pathTypes as RegionType[],
     }),
   };
+}
+
+/**
+ * Drive an already-active ahunt combat sequence to completion, forcing every
+ * strike roll (and body-check roll) to `roll` via `cheatRollTotal`. Returns the
+ * terminal state (combat null) plus the distinct combats observed in order
+ * (one entry per attack in a multi-attack ahunt like Mordor in Arms dm-72).
+ *
+ * A high roll (12) defeats every strike; a mid roll lets a high-prowess attack's
+ * strikes succeed, so a grouped ahunt is not fully defeated. `resourcePlayer`
+ * is the moving/defending player; `hazardPlayer` rolls body checks.
+ */
+export function runAhuntSequence(
+  start: GameState,
+  roll: number,
+  resourcePlayer: PlayerId = PLAYER_1,
+  hazardPlayer: PlayerId = PLAYER_2,
+): { end: GameState; combats: Array<{ strikes: number; prowess: number; race: string; body: number | null }> } {
+  let cur = start;
+  const combats: Array<{ strikes: number; prowess: number; race: string; body: number | null }> = [];
+  let lastKey = '';
+  for (let i = 0; i < 400 && cur.combat !== null; i++) {
+    const c = cur.combat;
+    const key = `${c.strikesTotal}/${c.strikeProwess}/${c.creatureRace ?? ''}`;
+    if (key !== lastKey) {
+      combats.push({ strikes: c.strikesTotal, prowess: c.strikeProwess, race: c.creatureRace ?? '', body: c.creatureBody });
+      lastKey = key;
+    }
+    cur = { ...cur, cheatRollTotal: roll };
+    let acts = viableActions(cur, resourcePlayer, 'assign-strike');
+    if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    // Excess strikes (more strikes than characters) are assigned by the attacker.
+    acts = viableActions(cur, hazardPlayer, 'assign-strike');
+    if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    acts = viableActions(cur, resourcePlayer, 'choose-strike-order');
+    if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    acts = viableActions(cur, resourcePlayer, 'resolve-strike');
+    if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    acts = viableActions(cur, hazardPlayer, 'body-check-roll');
+    if (acts.length) { cur = dispatch(cur, acts[0].action); continue; }
+    let stepped = false;
+    for (const pid of [resourcePlayer, hazardPlayer]) {
+      const p = viableActions(cur, pid, 'pass');
+      if (p.length) { cur = dispatch(cur, p[0].action); stepped = true; break; }
+    }
+    if (!stepped) break;
+  }
+  return { end: cur, combats };
 }
 
 // ─── On-guard scaffolding ───────────────────────────────────────────────────
@@ -2515,6 +2727,10 @@ export function buildRingwraithCreatureCombat(opts: {
  * destination site. Dispatching `pass` triggers the transition into
  * draw-cards, surfacing draw-count modifiers. Used by wizard draw-modifier
  * tests (Alatar, etc.).
+ *
+ * Pass `movementType` to set the declared movement type on the phase state
+ * (defaults to null) — needed by draw-modifiers that gate on the movement
+ * type, e.g. A Short Rest (td-95), which applies only to region/starter moves.
  */
 export function buildMHOrderEffectsDrawState(opts: {
   heroChars: readonly CardDefinitionId[];
@@ -2522,6 +2738,7 @@ export function buildMHOrderEffectsDrawState(opts: {
   heroSiteDeck?: readonly CardDefinitionId[];
   pathTypes?: readonly RegionType[];
   pathNames?: readonly string[];
+  movementType?: MovementType;
 }): GameState {
   const state = buildTestState({
     phase: Phase.MovementHazard,
@@ -2558,6 +2775,55 @@ export function buildMHOrderEffectsDrawState(opts: {
     step: 'order-effects' as MovementHazardPhaseState['step'],
     resolvedSitePath: opts.pathTypes ? [...opts.pathTypes] : [],
     resolvedSitePathNames: opts.pathNames ? [...opts.pathNames] : [],
+    ...(opts.movementType !== undefined ? { movementType: opts.movementType } : {}),
   });
   return { ...state, players, phaseState: mhState } as GameState;
+}
+
+/**
+ * Build a mid-strike M/H-phase combat state for rule 8.12: a synthetic
+ * dragon creature attack against Aragorn is at `resolve-strike`, the hazard
+ * player holds Dragon's Curse (td-16, the pool's only mid-strike hazard
+ * play), and the M/H phase state carries an explicit hazard limit with
+ * `hazardsAlreadyPlayed` hazards already counted against the company.
+ */
+export function makeMidStrikeHazardPlayState(opts: {
+  hazardsAlreadyPlayed: number;
+  hazardLimit?: number;
+}): GameState {
+  const DRAGONS_CURSE = 'td-16' as CardDefinitionId;
+  const base = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    recompute: true,
+    players: [
+      { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [DRAGONS_CURSE], siteDeck: [RIVENDELL] },
+    ],
+  });
+  const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+  const combat: CombatState = {
+    attackSource: { type: 'creature', instanceId: 'synthetic-dragon' as CardInstanceId },
+    companyId: companyIdAt(base, RESOURCE_PLAYER),
+    defendingPlayerId: PLAYER_1,
+    attackingPlayerId: PLAYER_2,
+    strikesTotal: 1,
+    strikeProwess: 8,
+    creatureBody: null,
+    creatureRace: 'dragon',
+    strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
+    currentStrikeIndex: 0,
+    phase: 'resolve-strike',
+    assignmentPhase: 'done',
+    bodyCheckTarget: null,
+    detainment: false,
+  };
+  return {
+    ...base,
+    combat,
+    phaseState: makeMHState({
+      hazardLimitAtReveal: opts.hazardLimit ?? 2,
+      hazardsPlayedThisCompany: opts.hazardsAlreadyPlayed,
+    }),
+  };
 }

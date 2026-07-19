@@ -19,17 +19,60 @@ import type {
 } from '../../index.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
-import { isCharacterCard, isAvatarCharacter, isSiteCard } from '../../types/cards.js';
+import { isCharacterCard, isAvatarCharacter, isSiteCard, isFactionCard } from '../../types/cards.js';
 import { Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import { getItemGrantedSkills } from '../effects/index.js';
+import { getEffectiveSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { hasSiteFlagForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf } from '../reducer-utils.js';
+import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findPlayerAvatar, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
+import { buildFactionPlayableRegions } from '../recompute-derived.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
+
+/**
+ * The combined count of a player's supporters for Girdle of Radagast (wh-110):
+ * every ally in play (an ally borne by any of the player's characters) plus
+ * every **unique faction** in play that can be played at a site in the anchor
+ * Wizardhaven's region or an adjacent region. The parenthetical region
+ * restriction on the card applies only to the factions, so allies always count.
+ */
+function girdleSupporterCount(
+  state: GameState,
+  player: import('../../index.js').PlayerState,
+  siteDef: import('../../index.js').SiteCard,
+): number {
+  // Allies in play — allies attach to characters (CharacterInPlay.allies).
+  let count = 0;
+  for (const ch of Object.values(player.characters)) {
+    count += ch.allies.length;
+  }
+
+  // Region set: the Wizardhaven's region plus its adjacent regions.
+  const regionSet = new Set<string>();
+  const anchorRegion = siteDef.region;
+  if (anchorRegion) {
+    regionSet.add(anchorRegion);
+    for (const cardDef of Object.values(state.cardPool)) {
+      const rc = cardDef as { cardType?: string; name?: string; adjacentRegions?: readonly string[] };
+      if (rc.cardType === 'region' && rc.name === anchorRegion) {
+        for (const adj of rc.adjacentRegions ?? []) regionSet.add(adj);
+        break;
+      }
+    }
+  }
+
+  // Unique factions in play playable at a site in the region set.
+  for (const c of player.cardsInPlay) {
+    const def = defById(state, c.definitionId);
+    if (!def || !isFactionCard(def) || !def.unique) continue;
+    const playableRegions = buildFactionPlayableRegions(state, def);
+    if (playableRegions.some(r => regionSet.has(r))) count++;
+  }
+  return count;
+}
 
 /**
  * Whether `company` contains an Orc or Troll character (MEWH §9). Half-orcs
@@ -74,6 +117,16 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     const isStageResource = (def as { alignment?: string }).alignment === 'stage';
     if (isStageResource && state.phaseState.phase !== Phase.Organization) {
       logDetail(`Stage permanent-event ${def.name}: only playable during the organization phase (current phase ${state.phaseState.phase})`);
+      continue;
+    }
+
+    // A permanent-event carrying an `active-company` play-condition declares its
+    // own site-phase timing (Delver's Harvest wh-65: "Playable during the site
+    // phase if one of your companies enters the Deep Mines site."). Such a card
+    // is offered only by the site-phase play path (legal-actions/site.ts),
+    // never here — even during the organization phase.
+    if (findPlayConditionEffect(def, 'active-company')) {
+      logDetail(`Permanent event ${def.name}: site-phase timing (active-company play-condition) — not offered in this phase`);
       continue;
     }
 
@@ -149,11 +202,24 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // Haven wh-74, Double-dealing wh-66, Saruman's Machinery wh-120) is
       // offered here against any of the player's companies whose current site
       // matches the play-target filter; playing it binds the card to that site.
-      // Non-Stage site-targeting permanent events (e.g. hero events erratated
-      // "Playable during the site phase") are handled by the site phase instead.
-      if (!isStageResource) {
+      // Caverns Unchoked (ba-51) is a Balrog resource permanent-event that
+      // likewise declares organization-phase-on-site timing (via its
+      // `surface-region-adjacency` effect). Non-Stage site-targeting permanent
+      // events without such a marker (e.g. hero events erratated "Playable
+      // during the site phase") are handled by the site phase instead.
+      const isCavernsUnchoked = def.effects?.some(e => e.type === 'surface-region-adjacency') ?? false;
+      const orgPhaseSiteTiming = isStageResource || isCavernsUnchoked;
+      if (!orgPhaseSiteTiming) {
         logDetail(`Permanent event ${def.name}: requires a site target — only playable during the site phase`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during the site phase`));
+        continue;
+      }
+      // Caverns Unchoked (ba-51) is "Playable ... during the organization
+      // phase." Stage resources are already blocked outside the organization
+      // phase above; block the non-stage Caverns Unchoked here too so the
+      // rule-2.1.1 "any phase" allowance does not offer it during movement/hazard.
+      if (isCavernsUnchoked && state.phaseState.phase !== Phase.Organization) {
+        logDetail(`Permanent event ${def.name}: only playable during the organization phase (current ${state.phaseState.phase})`);
         continue;
       }
 
@@ -161,6 +227,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // `site-protected` constraint owned by this player (Saruman's Machinery
       // wh-120: "Playable on your protected Isengard or The White Towers").
       const siteProtectedCond = findPlayConditionEffect(def, 'site-protected');
+      const supportersInRegionCond = findPlayConditionEffect(def, 'supporters-in-region');
       const siteDupLimit = findDuplicationLimitEffect(def, 'site');
       let anySite = false;
       for (const company of player.companies) {
@@ -175,7 +242,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           // like Hidden Haven's region gate or Guarded Haven's "your
           // Wizardhaven [{H}]" match dynamically converted sites.
           const regionType = siteRegionTypeOf(state, siteDef);
-          const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType);
+          const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, company.currentSite.instanceId);
           const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType };
           if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
             logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
@@ -183,7 +250,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           }
         }
         if (siteProtectedCond) {
-          const protectedForPlayer = hasSiteFlagForPlayer(state.activeConstraints, 'site-protected', siteDefId, playerId);
+          const protectedForPlayer = isSiteProtectedForPlayer(state, siteDefId, playerId);
           if (!protectedForPlayer) {
             logDetail(`Permanent event ${def.name}: site ${siteDef.name} is not protected for ${playerId as string}`);
             continue;
@@ -193,6 +260,16 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           const copiesAtSite = countPermanentEventCopiesAtSite(state, def.name, siteDefId);
           if (copiesAtSite >= siteDupLimit.max) {
             logDetail(`Permanent event ${def.name}: site duplication limit reached at ${siteDef.name}`);
+            continue;
+          }
+        }
+        // play-condition: supporters-in-region — Girdle of Radagast (wh-110):
+        // "… 6 allies and/or unique factions in play (the factions must be
+        // playable at sites in the Wizardhaven's region or adjacent regions)."
+        if (supportersInRegionCond?.min !== undefined) {
+          const supporters = girdleSupporterCount(state, player, siteDef);
+          if (supporters < supportersInRegionCond.min) {
+            logDetail(`Permanent event ${def.name}: only ${supporters} supporter(s) for ${siteDef.name} region, need ${supportersInRegionCond.min}`);
             continue;
           }
         }
@@ -233,8 +310,19 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const siteTypeCondition = findPlayConditionEffect(def, 'site-type');
       // play-condition: same-site-has-character-race — a company at the same site must have a character of the given race
       const sameSiteRaceCondition = findPlayConditionEffect(def, 'same-site-has-character-race');
+      // play-condition: company-context — a generic DSL condition on the target
+      // character's company (To Fealty Sworn ba-33). During the organization
+      // phase no faction has been played this site phase, so the
+      // `playedUniqueHeroFactionAtFreeHold` flag is always false here — only the
+      // "in the same company as <named card>" alternative can be satisfied.
+      const companyContextCondition = findPlayConditionEffect(def, 'company-context');
       let anyTarget = false;
       for (const company of player.companies) {
+        if (companyContextCondition?.condition
+          && !matchesCompanyContextCondition(state, player, company, companyContextCondition.condition, false)) {
+          logDetail(`Permanent event ${def.name}: company ${company.id as string} does not satisfy company-context play-condition`);
+          continue;
+        }
         if (siteTypeCondition) {
           const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : null;
           const companySiteType = siteDef && 'siteType' in siteDef ? (siteDef as { siteType: string }).siteType : null;
@@ -271,7 +359,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           const ch = player.characters[cId];
           if (!ch) return [];
           const cDef = defById(state, ch.definitionId);
-          return cDef && isCharacterCard(cDef) ? [...cDef.skills, ...getItemGrantedSkills(state, ch)] : [];
+          return cDef && isCharacterCard(cDef) ? getEffectiveSkills(state, ch, cDef) : [];
         });
         // True if the company contains any character who can use shadow-magic:
         // ringwraiths can use it by default; others need the "shadow-magic" skill.
@@ -281,7 +369,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           const cDef = defById(state, ch.definitionId);
           if (!cDef || !isCharacterCard(cDef)) return false;
           if ((cDef as { race?: string }).race === 'ringwraith') return true;
-          return [...(cDef as { skills?: readonly string[] }).skills ?? [], ...getItemGrantedSkills(state, ch)].includes('shadow-magic');
+          return getEffectiveSkills(state, ch, cDef as { skills?: readonly string[] }).includes('shadow-magic');
         });
         for (const charId of company.characters) {
           const charData = player.characters[charId];
@@ -295,7 +383,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
               target: {
                 race: charDef.race,
                 status: charData.status,
-                skills: [...charDef.skills, ...getItemGrantedSkills(state, charData)],
+                skills: getEffectiveSkills(state, charData, charDef),
                 name: charDef.name,
                 // Mind cost of the character (null for avatars). Lets a card
                 // gate on the printed mind, e.g. Awaiting the Call (le-165)
@@ -347,6 +435,13 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         if (!company.currentSite) continue;
         if (heroEventForFw && companyHasOrcOrTroll(state, company, player)) {
           logDetail(`Permanent event ${def.name}: hero resource cannot be played on company ${company.id as string} — contains an Orc/Troll (MEWH §9)`);
+          continue;
+        }
+        // Stormcrow (td-73): "No such cards may be played on each Wizard's
+        // company." A resource permanent-event played on the company as a whole
+        // is barred from any company containing a prohibited race (a Wizard).
+        if (isCompanyEventPlayProhibited(state, player, company)) {
+          logDetail(`Permanent event ${def.name}: cannot be played on company ${company.id as string} — a Stormcrow-style effect prohibits company events there`);
           continue;
         }
         const siteDef = defById(state, company.currentSite.definitionId);

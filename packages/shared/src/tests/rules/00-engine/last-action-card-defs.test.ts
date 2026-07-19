@@ -22,8 +22,8 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ELROND, LEGOLAS, ARAGORN, SARUMAN, THEODEN,
-  MARVELS_TOLD, FOOLISH_WORDS,
+  ELROND, LEGOLAS, ARAGORN, SARUMAN, THEODEN, GIMLI,
+  MARVELS_TOLD, FOOLISH_WORDS, CAVE_DRAKE, STING,
   SUN, BARROW_WIGHT, ORC_PATROL, ASSASSIN,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
@@ -36,11 +36,14 @@ import {
   buildAnUnexpectedOutpostMH,
   resolveChain,
 } from '../../test-helpers.js';
-import type { AddCharacterToDeckAction, CardDefinitionId, CardInstanceId, DiscardCardAction, ExchangeSideboardAction, FetchFromPileAction, PlaceOnGuardAction, PlayerView, PlayShortEventAction } from '../../../index.js';
+import type { AddCharacterToDeckAction, ArrangeDeckTopCardAction, CardDefinitionId, CardInstanceId, ChooseRevealedCardAction, DiscardCardAction, ExchangeSideboardAction, FetchFromPileAction, PlaceOnGuardAction, PlayerView, PlayShortEventAction } from '../../../index.js';
 import { Phase, SetupStep, buildInstanceLookup, describeAction, extractActionCardDefs, reduce } from '../../../index.js';
 
 /** Lure of Expedience — hazard permanent-event attached to a character. Single-use in this file. */
 const LURE_OF_EXPEDIENCE = 'le-122' as CardDefinitionId;
+
+/** Revealed to all Watchers — hazard short-event that cycles the caster's hand (dm-85). */
+const REVEALED_TO_ALL_WATCHERS = 'dm-85' as CardDefinitionId;
 
 describe('lastAction card defs — opponent toast naming', () => {
   beforeEach(() => resetMint());
@@ -447,6 +450,83 @@ describe('exchange-sideboard — opponent must not learn which cards were swappe
   });
 });
 
+describe('arrange-deck-top-card — audience must not learn the face-down deck-top order', () => {
+  beforeEach(() => resetMint());
+
+  /**
+   * Regression for bug 0aea1e91dc37e18f (game mrahfk9s-eaeybx, seq 279):
+   * after playing Revealed to all Watchers (dm-85) the player revealed their
+   * hand (correctly public) and then placed the non-hazard cards face-down on
+   * top of their play deck "in any order you choose". Each
+   * `arrange-deck-top-card` pick, however, broadcast the placed card's identity
+   * in `lastActionCardDefs` — the cards were still in `revealedInstances` from
+   * the hand reveal — so the opponent and every spectator saw the exact
+   * face-down deck-top order in their toasts. Placing cards face-down means the
+   * ordering is private; `extractActionCardDefs` must omit the card instance ID
+   * so the audience sees only "Place a card … on top of the play deck".
+   */
+  test('extractActionCardDefs omits the arranged card even though the hand was revealed', () => {
+    // dm-85 in P2's hand plus two non-hazard cards to set aside (Gimli, Sting)
+    // and one kept hazard (Cave-drake); a deck to refill from.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [REVEALED_TO_ALL_WATCHERS, CAVE_DRAKE, GIMLI, STING],
+          playDeck: [BARROW_WIGHT, ORC_PATROL, SUN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState() };
+
+    const revealedId = state.players[1].hand.find(c => c.definitionId === REVEALED_TO_ALL_WATCHERS)!.instanceId;
+    const gimliId = state.players[1].hand.find(c => c.definitionId === GIMLI)!.instanceId;
+    const stingId = state.players[1].hand.find(c => c.definitionId === STING)!.instanceId;
+
+    // Play the card and resolve the chain: the hand is revealed, Gimli and
+    // Sting are set aside face-down on top of the deck, arrange-deck-top pends.
+    const resolved = resolveChain(dispatch(state, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: revealedId,
+      targetCompanyId: state.players[0].companies[0].id,
+    }));
+
+    // Precondition: both set-aside cards are in revealedInstances (the hand was
+    // publicly revealed) yet now sit face-down on top of the private play deck.
+    expect(resolved.revealedInstances[gimliId]).toBe(GIMLI);
+    expect(resolved.revealedInstances[stingId]).toBe(STING);
+    expect(resolved.players[1].playDeck.slice(0, 2).map(c => c.instanceId).sort())
+      .toEqual([gimliId, stingId].sort());
+    expect(resolved.pendingResolutions.some(r => r.kind.type === 'arrange-deck-top')).toBe(true);
+
+    // The player places Sting on top first.
+    const arrangeAction: ArrangeDeckTopCardAction = {
+      type: 'arrange-deck-top-card',
+      player: PLAYER_2,
+      cardInstanceId: stingId,
+    };
+    const after = dispatch(resolved, arrangeAction);
+
+    // The broadcast map must NOT name the arranged card — its placement order
+    // on the face-down deck is private, even though its identity is public.
+    const defs = extractActionCardDefs(after, arrangeAction);
+    expect(defs[stingId as string]).toBeUndefined();
+
+    // describeAction with only the audience map renders "a card", hiding order.
+    const audienceLookup = (id: CardInstanceId) => defs[id as string];
+    const audienceDesc = describeAction(arrangeAction, pool, audienceLookup);
+    expect(audienceDesc).toContain('a card');
+    const realName = pool[STING as string]?.name;
+    if (realName) expect(audienceDesc).not.toContain(realName);
+  });
+});
+
 describe('Marvels Told discard-target naming — lookup must cover character-attached hazards', () => {
   /**
    * Regression for bug d06bedbd3fa71d6d (game mqi3vh2z-32ok2s, seq ~1090):
@@ -516,5 +596,56 @@ describe('Marvels Told discard-target naming — lookup must cover character-att
     const stale = describeAction(action, pool, staleLookup);
     expect(stale).toContain('a card');
     expect(stale).not.toContain('Lure of Expedience');
+  });
+});
+
+describe('deck-arranging action labels — imperative, no raw player code', () => {
+  /**
+   * Regression for bug d3d376794cfc8a4e (game mr9jvlnw-2ldyce, seq 119):
+   * after playing Revealed to all Watchers (dm-85), the player was offered
+   * one `arrange-deck-top-card` action per set-aside card, but the button
+   * text read "p1 places Noble Steed next on top of their play deck" — the
+   * raw player id "p1" leaked into the label and the phrasing did not match
+   * the imperative voice every other action the player clicks uses ("Draft
+   * …", "Play …", "Move …"). Its sibling `choose-revealed-card` (Eyes of
+   * Mandos, dm-126) had the identical defect. Both labels are the acting
+   * player's own choice, so they should read as an imperative instruction
+   * with no player code.
+   */
+  test('arrange-deck-top-card reads as an imperative naming the card, without the player code', () => {
+    const cardId = 'p1-18' as CardInstanceId;
+    const lookup = (id: CardInstanceId) => (id === cardId ? MARVELS_TOLD : undefined);
+    const action: ArrangeDeckTopCardAction = {
+      type: 'arrange-deck-top-card',
+      player: PLAYER_1,
+      cardInstanceId: cardId,
+    };
+    const label = describeAction(action, pool, lookup);
+    // Imperative voice, the card named, ending in the player's own deck.
+    expect(label.startsWith('Place ')).toBe(true);
+    expect(label).toContain('Marvels Told');
+    expect(label).toContain('next on top of your play deck');
+    // The raw player id must not leak into the button text (the pre-fix
+    // label read "p1 places … their play deck").
+    expect(label).not.toContain('p1');
+    expect(label).not.toContain('their play deck');
+    // And the card is named, not shown as "a card".
+    expect(label).not.toContain('a card');
+  });
+
+  test('choose-revealed-card reads as an imperative naming the card, without the player code', () => {
+    const cardId = 'p1-27' as CardInstanceId;
+    const lookup = (id: CardInstanceId) => (id === cardId ? MARVELS_TOLD : undefined);
+    const action: ChooseRevealedCardAction = {
+      type: 'choose-revealed-card',
+      player: PLAYER_1,
+      cardInstanceId: cardId,
+    };
+    const label = describeAction(action, pool, lookup);
+    expect(label.startsWith('Take revealed card ')).toBe(true);
+    expect(label).toContain('Marvels Told');
+    expect(label).toContain('shuffle the rest back into the play deck');
+    expect(label).not.toContain('p1');
+    expect(label).not.toContain('a card');
   });
 });

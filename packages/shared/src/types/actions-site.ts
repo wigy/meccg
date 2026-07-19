@@ -171,6 +171,21 @@ export interface PlayHeroResourceAction {
   readonly companyId: CompanyId;
   /** For items, the character who will carry the item. */
   readonly attachToCharacterId?: CardInstanceId;
+  /**
+   * When `true`, the card is sourced from the player's discard pile instead of
+   * the hand. Enabled by an in-play `grant-ally-play` effect with
+   * `fromDiscard` (Glove of Radagast wh-111): a granted ally may be played from
+   * the discard pile.
+   */
+  readonly fromDiscard?: boolean;
+  /**
+   * When set, the ally is being played through a player-scoped, Wizardhaven-keyed
+   * `grant-ally-play` permission (An Untimely Brood wh-62) whose
+   * `oncePerSitePhase` limit applies. Carries the instance id of the granting
+   * permanent-event so the reducer can record the turn-scoped once-per-phase
+   * lock against it.
+   */
+  readonly viaWizardhavenAllyGrant?: CardInstanceId;
 }
 
 /**
@@ -201,6 +216,19 @@ export interface InfluenceAttemptAction {
    * the player may choose. See {@link LeaderControlEffect}.
    */
   readonly placeUnderLeaderControl?: boolean;
+  /**
+   * For Dragons "Roused" factions (`influence-modification` effect): an optional
+   * paid modification. When present, the influencing character discards the
+   * named carried item on declare and the influence roll gains `value`. The
+   * legal-action generator emits one such variant per eligible carried item;
+   * `need` is already reduced by `value`. See {@link InfluenceModificationEffect}.
+   */
+  readonly discardForBonus?: {
+    /** The carried item the influencing character discards as the cost. */
+    readonly itemInstanceId: CardInstanceId;
+    /** The influence-check modifier gained by paying this discard. */
+    readonly value: number;
+  };
 }
 
 /**
@@ -228,8 +256,8 @@ export interface OpponentInfluenceAttemptAction {
   readonly targetPlayer: PlayerId;
   /** The instance ID of the opponent's card being influenced. */
   readonly targetInstanceId: CardInstanceId;
-  /** Whether the target is a character, ally, or faction. */
-  readonly targetKind: 'character' | 'ally' | 'faction';
+  /** Whether the target is a character, ally, faction, or item. */
+  readonly targetKind: 'character' | 'ally' | 'faction' | 'item';
   /**
    * Optional: instance ID of an identical card revealed from hand.
    * When set, the comparison value (target mind) is treated as 0.
@@ -364,4 +392,22 @@ export interface DeclareCompanyAttackAction {
   readonly attackingCompanyId: CompanyId;
   /** The target company (the opponent's company at the same site). */
   readonly targetCompanyId: CompanyId;
+}
+
+/**
+ * Tap one character to pay the Eddy in Fate's Tide (ba-57) site tax during the
+ * play-resources step. Eddy's text: "Before a company can play any ally or item
+ * at any version of this site, it must tap two characters during the site
+ * phase." Each `pay-site-tax` taps one untapped character in the active company
+ * and increments {@link SitePhaseState.eddyTaxTapped}; item and ally plays at the
+ * bound site are gated until the count reaches the bound card's
+ * `taxTapCharacters`.
+ */
+export interface PaySiteTaxAction {
+  /** Action discriminant. */
+  readonly type: 'pay-site-tax';
+  /** The active player paying the tax. */
+  readonly player: PlayerId;
+  /** The untapped character in the active company to tap. */
+  readonly characterId: CardInstanceId;
 }

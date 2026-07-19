@@ -1280,15 +1280,29 @@
         "when": {
           "bearer.ringwraithMode": "fell-rider"
         }
+      },
+      {
+        "type": "enemy-modifier",
+        "stat": "body",
+        "op": "subtract",
+        "value": 2,
+        "when": {
+          "enemy.race": "elf"
+        }
+      },
+      {
+        "type": "ringwraith-follower-slots",
+        "count": 1
       }
-    ]
+    ],
+    "certified": "2026-07-16"
   },
   {
     "cardType": "minion-character",
     "id": "le-56",
     "name": "Ren the Ringwraith",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/RentheRingwraith.jpg",
-    "text": "Unique. Manifestation of Ren the Unclean. Can use sorcery and shadow-magic. -2 direct influence in Heralded Lord mode. +2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, he may tap during your organization phase to modify all corruption checks made this turn by your characters by -1 or +1.",
+    "text": "Unique. Manifestation of Ren the Unclean. Can use sorcery and shadow-magic. -2 direct influence in Heralded Lord mode. +2 prowess in Fell Rider mode. As your Ringwraith, if at a Darkhaven, he may tap during your organization phase to modify all corruption checks made this turn by minions in any one of your companies by +2.",
     "alignment": "ringwraith",
     "unique": true,
     "race": "ringwraith",
@@ -1321,15 +1335,39 @@
         "when": {
           "bearer.ringwraithMode": "fell-rider"
         }
+      },
+      {
+        "type": "grant-action",
+        "action": "modify-company-corruption-checks",
+        "cost": {
+          "tap": "bearer"
+        },
+        "when": {
+          "bearer.isRevealedAvatar": true,
+          "bearer.atDarkhaven": true
+        },
+        "targets": {
+          "scope": "player-companies"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "corruption",
+          "value": 2,
+          "scope": "turn",
+          "target": "action-target-company",
+          "constraintWhen": { "target.cardType": "minion-character" }
+        }
       }
-    ]
+    ],
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-character",
     "id": "le-57",
     "name": "Ûvatha the Ringwraith",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/UvathatheRingwraith.jpg",
-    "text": "Unique. Manifestation of Ûvatha the Horseman. Can use spirit-magic. -3 direct influence in Heralded Lord mode. -1 prowess in Fell Rider mode. He may join another Ringwraith's company during your organization phase and requires no influence to control. As your Ringwraith, if at a Darkhaven, he may tap to untap one character in any one of your companies.",
+    "text": "Unique. Manifestation of Ûvatha the Horseman. Can use spirit-magic. -3 direct influence in Heralded Lord mode. -1 prowess in Fell Rider mode. He may join another Ringwraith's company during your organization phase and requires no influence to control. As your Ringwraith, if at a Darkhaven [{DH}], he may tap during your organization phase to move one resource event card from your discard pile to your play deck and reshuffle.",
     "alignment": "ringwraith",
     "unique": true,
     "race": "ringwraith",
@@ -1362,8 +1400,36 @@
         "when": {
           "bearer.ringwraithMode": "fell-rider"
         }
+      },
+      {
+        "type": "ringwraith-self-follower"
+      },
+      {
+        "type": "grant-action",
+        "action": "recall-to-deck",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "$and": [
+            { "bearer.isRevealedAvatar": true },
+            { "bearer.atHaven": true }
+          ]
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": [
+            "discard-pile"
+          ],
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "filter": {
+            "cardType": "minion-resource-event"
+          }
+        }
       }
-    ]
+    ],
+    "certified": "2026-07-12"
   },
   {
     "cardType": "minion-character",
@@ -1451,7 +1517,8 @@
     "race": "dúnadan",
     "skills": [
       "sage",
-      "diplomat"
+      "diplomat",
+      "spirit-magic"
     ],
     "prowess": 3,
     "body": 7,
@@ -1462,7 +1529,8 @@
     "corruptionModifier": 0,
     "homesite": "Carn Dûm",
     "effects": [],
-    "text": "Unique. Can use spirit-magic."
+    "text": "Unique. Can use spirit-magic.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-character",
@@ -1555,7 +1623,8 @@
     "corruptionModifier": 0,
     "homesite": "Bree",
     "effects": [],
-    "text": "Unique."
+    "text": "Unique.",
+    "certified": "2026-07-12"
   },
   {
     "cardType": "minion-character",
@@ -1577,8 +1646,28 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Carn Dûm",
-    "effects": [],
-    "text": "Unique. +1 prowess against Orcs and Elves."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "elf"
+        }
+      }
+    ],
+    "text": "Unique. +1 prowess against Orcs and Elves.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-character",
@@ -1623,8 +1712,60 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Carn Dûm",
-    "effects": [],
-    "text": "Unique. Olog-hai. Leader. Manifestation of Rogrog. Discard on a body check result of 9. +4 direct influence against Trolls, Orcs, Troll factions, and Orc factions. When he is at Carn Dûm, you may keep one more card than normal in your hand."
+    "keywords": [
+      "leader",
+      "olog-hai"
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": 1,
+        "when": {
+          "self.location": "Carn Dûm"
+        }
+      }
+    ],
+    "text": "Unique. Olog-hai. Leader. Manifestation of Rogrog. Discard on a body check result of 9. +4 direct influence against Trolls, Orcs, Troll factions, and Orc factions. When he is at Carn Dûm, you may keep one more card than normal in your hand.",
+    "certified": "2026-07-16",
+    "discardBodyCheck": [
+      9
+    ]
   },
   {
     "cardType": "minion-character",
@@ -1668,7 +1809,15 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
-    "effects": [],
+    "certified": "2026-07-13",
+    "discardBodyCheck": [8],
+    "effects": [
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1, "when": { "reason": "influence-check", "target.race": "troll" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1, "when": { "reason": "influence-check", "target.race": "orc" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1, "when": { "reason": "faction-influence-check", "faction.race": "troll" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1, "when": { "reason": "faction-influence-check", "faction.race": "orc" } },
+      { "type": "check-modifier", "check": "corruption", "value": -1 }
+    ],
     "text": "Discard on a body check result of 8. +1 direct influence against Trolls, Orcs, Troll factions, and Orc factions. -1 to all corruption checks."
   },
   {
@@ -1737,8 +1886,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Southron Oasis",
-    "effects": [],
-    "text": "Unique. +2 direct influence against any faction playable at Southron Oasis."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.playableAt": "Southron Oasis"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against any faction playable at Southron Oasis.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-character",
@@ -1950,8 +2110,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Cameth Brin",
-    "effects": [],
-    "text": "Unique. +4 direct influence against the Hillmen faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Hillmen"
+        }
+      }
+    ],
+    "text": "Unique. +4 direct influence against the Hillmen faction.",
+    "certified": "2026-07-12"
   },
   {
     "cardType": "minion-character",
@@ -1984,7 +2155,10 @@
     "unique": true,
     "race": "ringwraith",
     "skills": [
-      "sage"
+      "sage",
+      "sorcery",
+      "spirit-magic",
+      "shadow-magic"
     ],
     "prowess": 8,
     "body": 9,
@@ -1994,7 +2168,12 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any site in Nurn",
-    "effects": [],
-    "text": "Unique. Manifestation of Akhôrahil. Can use sorcery, spirit-magic, and shadow-magic. +3 direct influence in Heralded Lord mode. +1 prowess in Fell Rider mode. As your Ringwraith, when a magic card used by him has to be discarded, return it to the play deck and reshuffle."
+    "effects": [
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 3, "when": { "bearer.ringwraithMode": "heralded-lord" } },
+      { "type": "stat-modifier", "stat": "prowess", "value": 1, "when": { "bearer.ringwraithMode": "fell-rider" } },
+      { "type": "magic-discard-to-deck" }
+    ],
+    "text": "Unique. Manifestation of Akhôrahil. Can use sorcery, spirit-magic, and shadow-magic. +3 direct influence in Heralded Lord mode. +1 prowess in Fell Rider mode. As your Ringwraith, when a magic card used by him has to be discarded, return it to the play deck and reshuffle.",
+    "certified": "2026-07-15"
   }
 ]

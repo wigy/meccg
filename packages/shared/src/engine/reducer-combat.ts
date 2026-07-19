@@ -9,12 +9,13 @@ import type { GameState, CombatState, StrikeAssignment, GameAction, CardInstance
 import { getPlayerIndex } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { companyById, playerById, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { companyById, playerById, toCardInstance, updatePlayer, wrongActionType, defById, getCardEffects } from './reducer-utils.js';
+import { formatSignedNumber } from '../format-helpers.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleCombatPlayHazard } from './combat-hazard-play.js';
 import { nextStrikePhase, handleResolveStrike } from './combat-strike.js';
-import { handleCancelAttack, handleCancelByTap } from './combat-cancel.js';
-import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleTapAllyCombatBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
+import { handleCancelAttack, handleCancelByTap, handleCancelWeaponEffects } from './combat-cancel.js';
+import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleFleeFromStrike, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
 
 /**
  * Signature shared by every combat-active action handler. Each handler takes
@@ -44,15 +45,20 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   'body-check-roll': handleBodyCheckRoll,
   'shield-discard-roll': handleShieldDiscardRoll,
   'cancel-attack': handleCancelAttack,
+  'cancel-weapon-effects': handleCancelWeaponEffects,
   'convert-creature-to-ally': handleConvertCreatureToAlly,
   'cancel-by-tap': handleCancelByTap,
   'play-strike-event': handlePlayStrikeEvent,
   'cancel-strike': handleCancelStrike,
+  'flee-from-strike': handleFleeFromStrike,
   'protect-from-assignment': handleProtectFromStrikeAssignment,
   'halve-strikes': handleHalveStrikes,
   'tap-item-for-strike': handleTapItemForStrike,
+  'face-strike-on-tap': handleFaceStrikeOnTap,
   'tap-ally-combat-boost': handleTapAllyCombatBoost,
+  'tap-ally-body-check-boost': handleTapAllyBodyCheckBoost,
   'modify-attack': handleModifyAttack,
+  'apply-attacker-attack-option': handleApplyAttackerAttackOption,
   'salvage-item': handleSalvageItem,
   'discard-item-from-company': handleDiscardItemFromCompany,
   'play-hazard': handleCombatPlayHazard,
@@ -246,6 +252,46 @@ function handleAllocateCvccExcess(state: GameState, action: GameAction, combat: 
   logDetail(`CvCC excess allocation: -1 applied to strike ${combat.currentStrikeIndex} (${pool - 1} remaining in pool)`);
   return {
     state: { ...state, combat: { ...combat, strikeAssignments: updatedAssignments, cvccExcessPool: pool - 1 || undefined } },
+  };
+}
+
+/**
+ * Apply an in-play `attacker-attack-option` to the current attack (e.g.
+ * Ungoliant's Progeny ba-27: a Spider attack gains +1 prowess and becomes
+ * detainment). Legal only in the attacking player's `resolve-strike` Step 1
+ * window before any strike has resolved, once per attack. Bumps
+ * `combat.strikeProwess` and/or sets `combat.detainment`, then flags the combat
+ * so the one-shot option cannot be applied again.
+ */
+function handleApplyAttackerAttackOption(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'apply-attacker-attack-option') return wrongActionType(state, action, 'apply-attacker-attack-option');
+  if (combat.phase !== 'resolve-strike') return { state, error: 'Attacker-attack-option only during resolve-strike' };
+  if (action.player !== combat.attackingPlayerId) return { state, error: 'Only the attacking player may apply this option' };
+  if (combat.attackerAttackOptionApplied) return { state, error: 'Attacker-attack-option already applied this attack' };
+  if (combat.strikeAssignments.some(s => s.resolved)) return { state, error: 'Attacker-attack-option must be applied before any strike resolves' };
+
+  const attacker = playerById(state, action.player);
+  const card = attacker?.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: 'Source card is not in play' };
+  const def = defById(state, card.definitionId);
+  const effect = def
+    ? getCardEffects(def).find(e => e.type === 'attacker-attack-option' && e.creatureRace === combat.creatureRace)
+    : undefined;
+  if (!effect || effect.type !== 'attacker-attack-option') {
+    return { state, error: 'No matching attacker-attack-option effect for this attack' };
+  }
+
+  const prowessBump = effect.prowessModifier ?? 0;
+  const newProwess = combat.strikeProwess + prowessBump;
+  const newDetainment = combat.detainment || effect.detainment === true;
+  logDetail(
+    `Attacker applies "${def?.name ?? card.definitionId as string}" to the ${combat.creatureRace ?? '?'} attack: prowess ${combat.strikeProwess}${prowessBump ? ` ${formatSignedNumber(prowessBump)} → ${newProwess}` : ''}${newDetainment && !combat.detainment ? ', now detainment' : ''}`,
+  );
+  return {
+    state: {
+      ...state,
+      combat: { ...combat, strikeProwess: newProwess, detainment: newDetainment, attackerAttackOptionApplied: true },
+    },
   };
 }
 

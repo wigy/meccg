@@ -1,0 +1,409 @@
+{
+  "id": "challenge-deck-k",
+  "name": "(K) Lord of Rings",
+  "alignment": "minion",
+  "notes": "Play rings, test these rings, get more direct influence to play more characters and make it easier to get factions. The hazards modify the auto attacks.\n\n### Starting Company (1) at Dol Guldur\n\n- Dror with Open to the Summons, Gulla, Layos, Surion with Open to the Summons, Dror controls Gulla.\n\n### Resource Play\n\nYou have to go to Free-holds to play Bright Gold Ring and to Ruins & Lairs to play Gold Ring that Sauron Fancies. You can test the Rings by using Test of Fire or at a site where information is playable to replace the Gold Ring with the Ring you want. For all ring tests you need sages, so be aware that you always have a sage available.\n\n### Ren\n\nRen is sitting the whole game in Dol Guldur. He can sideboard or, when needed, tap to give +2 for all corruption checks in the company with the Rings. So this is a help to survive the corruption check at the end of the untap phase for the untested Gold Ring.\n\n### Hazard Play\n\nThe main idea is modifying auto attacks at all versions of sites. But be aware that the long events like Fell Winter and Awaken Minions can also hurt you. Note that Fell Winter with Doors of Night treat all Borderlands as Wildernesses.",
+  "pool": [
+    {
+      "name": "Dror",
+      "card": "dm-6",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Gulla",
+      "card": "le-13",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Layos",
+      "card": "le-19",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Surion",
+      "card": "dm-24",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Open to the Summons",
+      "card": "wh-46",
+      "qty": 2
+    },
+    {
+      "name": "Asternak",
+      "card": "le-1",
+      "qty": 1
+    },
+    {
+      "name": "Eradan",
+      "card": "le-10",
+      "qty": 1
+    },
+    {
+      "name": "Hador",
+      "card": "le-14",
+      "qty": 1
+    },
+    {
+      "name": "Jerrek",
+      "card": "le-17",
+      "qty": 1
+    },
+    {
+      "name": "Luitprand",
+      "card": "le-23",
+      "qty": 1
+    },
+    {
+      "name": "Mîonid",
+      "card": "as-3",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "Ren the Ringwraith",
+        "card": "le-56",
+        "qty": 3
+      },
+      {
+        "name": "Odoacer",
+        "card": "le-28",
+        "qty": 1
+      },
+      {
+        "name": "Pon Opar",
+        "card": "le-37",
+        "qty": 1
+      }
+    ],
+    "hazards": [
+      {
+        "name": "Arthadan Rangers",
+        "card": "le-60",
+        "qty": 1
+      },
+      {
+        "name": "Ghosts",
+        "card": "le-72",
+        "qty": 1
+      },
+      {
+        "name": "Nameless Thing",
+        "card": "dm-109",
+        "qty": 1
+      },
+      {
+        "name": "Sellswords Between Charters",
+        "card": "le-89",
+        "qty": 3
+      },
+      {
+        "name": "Slayer",
+        "card": "le-90",
+        "qty": 3
+      },
+      {
+        "name": "True Fire-drake",
+        "card": "le-95",
+        "qty": 3
+      },
+      {
+        "name": "Arouse Defenders",
+        "card": "le-101",
+        "qty": 1
+      },
+      {
+        "name": "Awaken Defenders",
+        "card": "le-103",
+        "qty": 1
+      },
+      {
+        "name": "Awaken Minions",
+        "card": "tw-10",
+        "qty": 2
+      },
+      {
+        "name": "Doors of Night",
+        "card": "le-110",
+        "qty": 3
+      },
+      {
+        "name": "FEAR! FIRE! FOES!",
+        "card": "as-29",
+        "qty": 3
+      },
+      {
+        "name": "Fell Winter",
+        "card": "le-111",
+        "qty": 2
+      },
+      {
+        "name": "Incite Denizens",
+        "card": "le-116",
+        "qty": 3
+      },
+      {
+        "name": "Twilight",
+        "card": "le-145",
+        "qty": 3
+      }
+    ],
+    "resources": [
+      {
+        "name": "Bright Gold Ring",
+        "card": "le-303",
+        "qty": 2
+      },
+      {
+        "name": "Dwarven Ring of Thelor's Tribe",
+        "card": "as-123",
+        "qty": 1
+      },
+      {
+        "name": "Gold Ring that Sauron Fancies",
+        "card": "le-312",
+        "qty": 2
+      },
+      {
+        "name": "Minor Ring",
+        "card": "le-324",
+        "qty": 2
+      },
+      {
+        "name": "Palantír of Orthanc",
+        "card": "le-334",
+        "qty": 1
+      },
+      {
+        "name": "Scroll of Isildur",
+        "card": "le-343",
+        "qty": 1
+      },
+      {
+        "name": "The Oracle's Ring",
+        "card": "le-327",
+        "qty": 1
+      },
+      {
+        "name": "War-wolf",
+        "card": "le-157",
+        "qty": 3
+      },
+      {
+        "name": "Woodmen",
+        "card": "le-295",
+        "qty": 1
+      },
+      {
+        "name": "Crept Along Cleverly",
+        "card": "wh-43",
+        "qty": 2
+      },
+      {
+        "name": "Dark Tryst",
+        "card": "as-80",
+        "qty": 3
+      },
+      {
+        "name": "Not Slay Needlessly",
+        "card": "le-212",
+        "qty": 3
+      },
+      {
+        "name": "Orc Quarrels",
+        "card": "le-216",
+        "qty": 2
+      },
+      {
+        "name": "Secrets of Their Forging",
+        "card": "le-226",
+        "qty": 2
+      },
+      {
+        "name": "Test of Fire",
+        "card": "le-239",
+        "qty": 2
+      },
+      {
+        "name": "Voices of Malice",
+        "card": "le-250",
+        "qty": 2
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Amon Hen",
+      "card": "le-349",
+      "qty": 1
+    },
+    {
+      "name": "Bandit Lair",
+      "card": "le-351",
+      "qty": 1
+    },
+    {
+      "name": "Beorn's House",
+      "card": "le-354",
+      "qty": 1
+    },
+    {
+      "name": "Dimrill Dale",
+      "card": "le-365",
+      "qty": 1
+    },
+    {
+      "name": "Dol Guldur",
+      "card": "le-367",
+      "qty": 1
+    },
+    {
+      "name": "Edoras",
+      "card": "le-372",
+      "qty": 1
+    },
+    {
+      "name": "Gladden Fields",
+      "card": "le-375",
+      "qty": 1
+    },
+    {
+      "name": "Isengard",
+      "card": "le-384",
+      "qty": 1
+    },
+    {
+      "name": "Minas Morgul",
+      "card": "le-390",
+      "qty": 1
+    },
+    {
+      "name": "Moria",
+      "card": "le-392",
+      "qty": 1
+    },
+    {
+      "name": "Southron Oasis",
+      "card": "le-404",
+      "qty": 1
+    },
+    {
+      "name": "Variag Camp",
+      "card": "le-411",
+      "qty": 1
+    },
+    {
+      "name": "Woodmen-town",
+      "card": "le-414",
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Bade to Rule",
+      "card": "le-167",
+      "qty": 1
+    },
+    {
+      "name": "Bold Thrust",
+      "card": "le-172",
+      "qty": 1
+    },
+    {
+      "name": "Gifts as Given of Old",
+      "card": "le-188",
+      "qty": 1
+    },
+    {
+      "name": "Minor Ring",
+      "card": "le-324",
+      "qty": 1
+    },
+    {
+      "name": "Piercing All Shadows",
+      "card": "wh-47",
+      "qty": 1
+    },
+    {
+      "name": "Rumor of the One",
+      "card": "le-224",
+      "qty": 1
+    },
+    {
+      "name": "Southrons",
+      "card": "le-287",
+      "qty": 1
+    },
+    {
+      "name": "Sudden Call",
+      "card": "le-235",
+      "qty": 1
+    },
+    {
+      "name": "Swift Strokes",
+      "card": "le-238",
+      "qty": 1
+    },
+    {
+      "name": "Trifling Ring",
+      "card": "le-346",
+      "qty": 1
+    },
+    {
+      "name": "Variags of Khand",
+      "card": "le-292",
+      "qty": 1
+    },
+    {
+      "name": "Ambusher",
+      "card": "le-59",
+      "qty": 1
+    },
+    {
+      "name": "Cave Worm",
+      "card": "le-65",
+      "qty": 1
+    },
+    {
+      "name": "Eärcaraxë Ahunt",
+      "card": "td-21",
+      "qty": 1
+    },
+    {
+      "name": "Foolish Words",
+      "card": "le-112",
+      "qty": 1
+    },
+    {
+      "name": "Itangast Ahunt",
+      "card": "td-37",
+      "qty": 1
+    },
+    {
+      "name": "Lost in Free-domains",
+      "card": "le-119",
+      "qty": 1
+    },
+    {
+      "name": "Muster Disperses",
+      "card": "le-126",
+      "qty": 1
+    },
+    {
+      "name": "New Moon",
+      "card": "tw-68",
+      "qty": 1
+    },
+    {
+      "name": "Withered Lands",
+      "card": "td-85",
+      "qty": 1
+    }
+  ]
+}

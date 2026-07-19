@@ -36,10 +36,17 @@ export type SiteRuleEffect =
   | AlwaysReturnToDeckSiteRule
   | HazardLimitSiteRule
   | AllowCreatureByRaceSiteRule
+  | AllowCreatureByKeyingSiteRule
   | CreaturesAlwaysKeyedToSiteSiteRule
   | AllowItemsWhenTappedSiteRule
   | CancelFirstAttackIfInPlaySiteRule
-  | StolenKnowledgeSiteRule;
+  | StolenKnowledgeSiteRule
+  | DeepMinesMovementSiteRule
+  | NoStorageSiteRule
+  | HazardSiteTypeOverrideSiteRule
+  | AllowAgentPlaySiteRule
+  | ProtectedWizardhavenSiteRule
+  | DynamicUnderDeepsAdjacencySiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -319,6 +326,65 @@ export interface AlwaysReturnToDeckSiteRule extends EffectBase {
 }
 
 /**
+ * Declares that agent characters may be brought into play at this site under a
+ * character's **direct influence** (as a follower joining a company already at
+ * the site), overriding rule 2.II.2.2.5 — which otherwise confines an agent
+ * played as a character to its own home site.
+ *
+ * The permission applies only to Ringwraith/Fallen-wizard players (the only
+ * players who may play agents as characters at all) and only via direct
+ * influence: general-influence play at this site is NOT granted, matching the
+ * printed wording "under direct influence at this site". A company must be
+ * physically at the site with an untapped controller holding enough direct
+ * influence for the agent's mind.
+ *
+ * Example — Bree (le-356): "Agent minions may be brought into play under direct
+ * influence at this site."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "allow-agent-play" }
+ * ```
+ */
+export interface AllowAgentPlaySiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'allow-agent-play';
+}
+
+/**
+ * Declares that this Under-deeps site's adjacency is *chosen when it is played*
+ * rather than fixed on the card: it is Under-deeps-adjacent — at the given
+ * `roll` — to any **other** Under-deeps site whose effective type is one of
+ * `siteTypes`. This models a site whose printed adjacency reads "one Under-deeps
+ * <site type> chosen by you when playing this card (N)". Since the engine has no
+ * unoccupied-in-play site zone in which to record the once-chosen connection,
+ * the faithful generalization is to treat the site as reachable from — and back
+ * to — any Under-deeps site of the required type at the required roll. The
+ * connected site must carry the `under-deeps` keyword, so no *surface* site is
+ * ever adjacent ("no surface site").
+ *
+ * The rule is symmetric (works whether this site is the movement origin or
+ * destination) and player-agnostic, mirroring the printed `adjacentSites`
+ * adjacency it stands in for. Consulted by {@link isUnderDeepsAdjacent} and
+ * {@link getUnderDeepsRequiredRoll}.
+ *
+ * Example — Ancient Deep-hold (ba-83): "no surface site, one Under-deeps
+ * Ruins & Lairs [{R}] chosen by you when playing this card (8)".
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "dynamic-under-deeps-adjacency",
+ *   "siteTypes": ["ruins-and-lairs"], "roll": 8 }
+ * ```
+ */
+export interface DynamicUnderDeepsAdjacencySiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'dynamic-under-deeps-adjacency';
+  /** Effective site types the connected Under-deeps site must be. */
+  readonly siteTypes: readonly SiteType[];
+  /** Required 2d6 roll to move between this site and the connected one. */
+  readonly roll: number;
+}
+
+/**
  * Adjusts the hazard limit for any company moving to this site.
  * Applied during the `set-hazard-limit` step before the snapshot is taken.
  *
@@ -339,7 +405,21 @@ export interface HazardLimitSiteRule extends EffectBase {
 /**
  * Declares that hazard creatures of the given race may be played at this site
  * regardless of normal keying requirements. The keying check is bypassed when
- * the attacking creature's race matches this rule's `race` field.
+ * the attacking creature's race matches this rule's `race` field. The bypass
+ * feeds normal hazard-creature play against a company at the site. It **also**
+ * feeds the site's `dynamic-auto-attack` eligibility (such a creature becomes a
+ * legal choice for the opponent's dynamically-played automatic-attack) — but
+ * only when that attack keys by **site-type** (e.g. The Iron-deeps ba-91: "…
+ * keyed to a Ruins and Lairs"), since being keyed to *this site* is itself a
+ * form of site keying. When the attack keys by **region-type** (e.g. The
+ * Drowning-deeps ba-89: "…keyed to Coastal Seas"), keying to this site grants
+ * no region keying, so the race bypass does not feed the auto-attack.
+ *
+ * When the optional `except` condition is present, it is evaluated against the
+ * creature's card definition (via the standard DSL matcher, dot-path keys); a
+ * creature matching `except` does **not** receive the bypass even if its race
+ * matches. This models "any <race> creature (except <named creature>) may be
+ * keyed to this site."
  *
  * Example — Geann a-Lisch (as-138): "Any Man hazard creature can be played
  * at this site."
@@ -347,12 +427,56 @@ export interface HazardLimitSiteRule extends EffectBase {
  * ```json
  * { "type": "site-rule", "rule": "allow-creature-by-race", "race": "men" }
  * ```
+ *
+ * Example — The Iron-deeps (ba-91): "Any Drake creature (except Sea Serpent)
+ * may be keyed to this site."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "allow-creature-by-race", "race": "drake",
+ *   "except": { "name": "Sea Serpent" } }
+ * ```
  */
 export interface AllowCreatureByRaceSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'allow-creature-by-race';
   /** The creature race that bypasses keying at this site (e.g. "men"). */
   readonly race: string;
+  /**
+   * Optional DSL condition on the creature card definition; a creature that
+   * matches is excluded from the bypass (e.g. Sea Serpent for a Drake rule).
+   */
+  readonly except?: Condition;
+}
+
+/**
+ * Declares that any hazard creature whose own `keyedTo` includes one of the
+ * listed region-types or site-types may be played at this site regardless of
+ * the site's actual region/site type. This is the "Creatures keyed to X may be
+ * keyed to this site" clause: the creature keys as if the site matched its
+ * `keyedTo`, bypassing the normal path/site keying check.
+ *
+ * Distinct from {@link AllowCreatureByRaceSiteRule} (which keys on the
+ * creature's race): this rule keys on the creature's own keying requirement.
+ * The `keying` filter mirrors {@link DynamicAutoAttackSiteRule.keying}. Feeds
+ * only the normal hazard-creature play path (not the site's dynamic
+ * auto-attack, whose own `keying` filter already governs eligibility).
+ *
+ * Example — The Drowning-deeps (ba-89) and Remains of Thangorodrim (ba-95):
+ * "Creatures keyed to Coastal Seas may be keyed to this site."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "allow-creature-by-keying",
+ *   "keying": { "regionTypes": ["coastal"] } }
+ * ```
+ */
+export interface AllowCreatureByKeyingSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'allow-creature-by-keying';
+  /** Site-types and region-types whose presence in a creature's `keyedTo` grants the bypass. */
+  readonly keying: {
+    readonly siteTypes?: readonly SiteType[];
+    readonly regionTypes?: readonly RegionType[];
+  };
 }
 
 /**
@@ -428,4 +552,126 @@ export interface StolenKnowledgeSiteRule extends EffectBase {
   readonly rule: 'stolen-knowledge';
   /** Miscellaneous marshalling points awarded when the site is stored. */
   readonly marshallingPoints: number;
+}
+
+/**
+ * Declares that this site is an Under-deeps-style destination reachable **only**
+ * from one of the moving Fallen-wizard's own *protected Wizardhavens*, and only
+ * while that player has more than six stage points. The protected Wizardhaven is
+ * the site's "surface site": the two are adjacent and the movement roll required
+ * to move between them is 0 (so the move auto-succeeds like a roll-0 Under-deeps
+ * step). The site is never reachable via ordinary starter/region movement.
+ *
+ * A "protected Wizardhaven" is a site that (a) is a Wizardhaven for the moving
+ * Fallen-wizard (`isHavenForPlayer` — a Fallen-wizard haven or a Hidden-Haven
+ * conversion) and (b) carries an active `site-protected` constraint owned by
+ * that player (Guarded Haven wh-74 / The Fortress of … family, or an inherently
+ * protected Wizardhaven such as Rhosgobel wh-57). Per CRF 22 the phrase
+ * "protected Wizardhaven" is otherwise just a keyword.
+ *
+ * The stage-point requirement (>6) is enforced at both the plan-movement offer
+ * and the M/H declare-path offer, so if the total drops before the company's
+ * movement/hazard phase the descent is no longer a legal path and the company
+ * simply stays put (rule 5.04) — matching the CRF ruling that "if [the stage
+ * point requirement] is not met the company does not move at all."
+ *
+ * Example — Deep Mines (wh-55):
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "deep-mines-movement" }
+ * ```
+ */
+export interface DeepMinesMovementSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'deep-mines-movement';
+}
+
+/**
+ * Declares that resources may never be stored at this site. The standard
+ * storage flow (regular items at any Haven, or `storable-at` items at their
+ * listed sites/site-types) is suppressed for any company whose current site
+ * carries this rule — no `store-item` action is offered there (organization
+ * phase or an `allow-store-eot` end-of-turn window), and the reducer rejects a
+ * store attempt as a safety backstop.
+ *
+ * Example — Geann a-Lisch (le-374): "Resources may never be stored at this
+ * site." (a minion Haven that would otherwise permit storing regular items).
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "no-storage" }
+ * ```
+ */
+export interface NoStorageSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'no-storage';
+}
+
+/**
+ * Declares that this site is an **inherently protected Wizardhaven** — it is a
+ * Wizardhaven that is always protected for the Fallen-wizard who controls it,
+ * without any card having to establish protection on it (unlike Isengard/The
+ * White Towers, which only become protected once The Fortress of Isen wh-68 /
+ * Guarded Haven wh-74 etc. are played on them).
+ *
+ * The site behaves exactly as if it carried an active `site-protected`
+ * constraint owned by its Fallen-wizard controller: it counts as one of that
+ * player's *protected Wizardhavens* for every consumer of that concept — the
+ * Deep Mines (wh-55) descent source, the "at a protected Wizardhaven" play
+ * conditions (A Strident Spawn wh-61 / An Untimely Brood wh-62, Half-orcs
+ * wh-86/87), the `player.hasProtectedWizardhaven` player-state flag, and the
+ * protected-site marshalling-point block against the opponent. The controller
+ * is the Fallen-wizard for whom this is a Wizardhaven ({@link isHavenForPlayer})
+ * and who satisfies the site's `<wizard>-specific` keyword restriction, if any
+ * (Rhosgobel is `radagast-specific`, so only Radagast controls it).
+ *
+ * Per CRF 22 the bare phrase "protected Wizardhaven" is otherwise just a
+ * keyword; the attack-cancellation Rhosgobel also prints is a separate
+ * `cancel-attacks` rule, and the stage point it grants is a separate
+ * `stage-points` effect.
+ *
+ * Example — Rhosgobel (wh-57): "This site is a protected Wizardhaven [{H}]."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "protected-wizardhaven" }
+ * ```
+ */
+export interface ProtectedWizardhavenSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'protected-wizardhaven';
+}
+
+/**
+ * Overrides the site-type (and, optionally, the site path) the engine uses when
+ * **playing and interpreting hazards** against a company whose effective site
+ * (destination if moving, else current) carries this rule. The override applies
+ * only to hazard keying — the site keeps its printed type for every other
+ * purpose (movement, healing/untap, draws, storage, etc.).
+ *
+ * This models a site that "counts as a <site type> for the purposes of playing
+ * and interpreting hazards": normally a Haven blocks hazards emergently (its
+ * empty site path and `haven` type match no creature keying), so declaring an
+ * override site-type — and the site path to use "if needed" — re-exposes the
+ * company to hazards keyed to that type / path.
+ *
+ * `siteType` replaces `mhState.destinationSiteType` for the keying pass;
+ * `sitePath` (when present) replaces `mhState.resolvedSitePath`, so creatures
+ * keyed to the listed region-types can be played.
+ *
+ * Example — Geann a-Lisch (le-374): "Geann a-Lisch counts as a Ruins & Lairs
+ * [{R}] for the purposes of playing and interpreting hazards. Its site path for
+ * this purpose, if needed, is the one from Carn Dûm [{s}{w}{w}{w}{w}]."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "hazard-site-type-override",
+ *   "siteType": "ruins-and-lairs",
+ *   "sitePath": ["shadow", "wilderness", "wilderness", "wilderness", "wilderness"] }
+ * ```
+ */
+export interface HazardSiteTypeOverrideSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'hazard-site-type-override';
+  /** Site-type to use when keying hazards against a company at this site. */
+  readonly siteType: SiteType;
+  /** Optional site path (region-types) to use for hazard keying "if needed". */
+  readonly sitePath?: readonly RegionType[];
 }

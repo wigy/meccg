@@ -13,8 +13,8 @@
 
 import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInstanceId } from '../../index.js';
 import { Alignment } from '../../types/common.js';
-import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName } from '../reducer-utils.js';
-import { isAvatarCharacter } from '../../types/cards.js';
+import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes } from '../reducer-utils.js';
+import { isAvatarCharacter, isSiteCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getPlayerIndex } from '../../state-utils.js';
 import { setupActions } from './setup.js';
@@ -27,7 +27,7 @@ import { endOfTurnActions } from './end-of-turn.js';
 import { freeCouncilActions } from './free-council.js';
 import { chainActions } from './chain.js';
 import { combatActions } from './combat.js';
-import { logEvaluated, logHeading, logResult } from './log.js';
+import { logDetail, logEvaluated, logHeading, logResult } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { asViable } from './evaluated.js';
 import { topResolutionFor } from '../pending.js';
@@ -60,6 +60,10 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
   const current = state.pendingEffects[0];
   const sourceCardId = current.type === 'card-effect' ? current.cardInstanceId : undefined;
 
+  // Site-playability restriction (Strider ba-1: "playable at his current
+  // site") — the qualifying site was captured when the fetch was enqueued.
+  const requiredSite = effect.playableAtSite !== undefined ? defById(state, effect.playableAtSite) : undefined;
+
   for (const source of effect.source) {
     const pile = source === 'sideboard' ? player.sideboard
       : (source === 'deck' || source === 'play-deck') ? player.playDeck
@@ -71,6 +75,17 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
       if (card.instanceId === sourceCardId) continue;
       const def = defById(state, card.definitionId);
       if (!def || !matchesDefinition(def, effect.filter)) continue;
+      // Home-site-type restriction (Inner Cunning dm-68 mode 2).
+      if (effect.homeSiteTypes && effect.homeSiteTypes.length > 0
+        && !agentHomeSiteMatchesTypes(state, def as { homesite?: string }, effect.homeSiteTypes)) {
+        continue;
+      }
+      if (effect.playableAtSite !== undefined) {
+        if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite)) {
+          logDetail(`fetch-from-pile: ${(def as { name?: string }).name ?? (card.definitionId as string)} filtered out — not playable at ${(requiredSite as { name?: string } | undefined)?.name ?? (effect.playableAtSite as string)}`);
+          continue;
+        }
+      }
       actions.push({
         action: { type: 'fetch-from-pile', player: playerId, cardInstanceId: card.instanceId, source: pileSource, to: dest },
         viable: true,
@@ -178,6 +193,11 @@ const BANNED_VS_RINGWRAITH_OPPONENT: ReadonlySet<string> = new Set([
  * Rewrites any `play-*` action that would play a banned card into a
  * not-playable entry, when the acting player's opponent has the given
  * alignment. Pass-through for every other situation.
+ *
+ * When `exemptSameAlignment` is set, the ban is skipped if the acting
+ * player shares the opponent's alignment — CoE rule 3.10: in a Balrog
+ * mirror match both players may continue to play Balrog-specific cards
+ * regardless of which plays their avatar first.
  */
 function applyOpponentAlignmentBans(
   state: GameState,
@@ -186,9 +206,15 @@ function applyOpponentAlignmentBans(
   opponentAlignment: Alignment,
   banned: ReadonlySet<string>,
   reasonSuffix: string,
+  exemptSameAlignment = false,
 ): EvaluatedAction[] {
   const opponent = state.players.find(p => p.id !== playerId);
   if (!opponent || opponent.alignment !== opponentAlignment) return evaluated;
+  const actor = state.players.find(p => p.id === playerId);
+  if (exemptSameAlignment && actor && actor.alignment === opponentAlignment) {
+    logDetail(`Opponent-alignment ban skipped: both players are ${opponentAlignment} (mirror match, CoE 3.10)`);
+    return evaluated;
+  }
   return evaluated.map(ea => {
     const a = ea.action as unknown as Record<string, unknown>;
     const type = a['type'];
@@ -241,6 +267,7 @@ function applyOpponentBans(
   const afterBalrog = applyOpponentAlignmentBans(
     state, playerId, evaluated, Alignment.Balrog, BANNED_VS_BALROG_OPPONENT,
     'cannot be played against a Balrog player (MEBA)',
+    true, // Balrog mirror match: both players keep their Balrog-specific cards (CoE 3.10)
   );
   const afterRingwraith = applyOpponentAlignmentBans(
     state, playerId, afterBalrog, Alignment.Ringwraith, BANNED_VS_RINGWRAITH_OPPONENT,

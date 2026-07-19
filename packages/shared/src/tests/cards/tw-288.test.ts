@@ -125,13 +125,15 @@ describe('Muster (tw-288)', () => {
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const musterInstance = findHandCardId(state, RESOURCE_PLAYER, MUSTER);
 
-    const after = dispatch(state, {
+    // The boost rides the chain of effects; resolve it (both players pass) so
+    // the constraint is applied on resolution — see tw-337 for the regression.
+    const after = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: musterInstance,
       targetCharacterId: aragornId,
       optionId: 'influence-boost',
-    });
+    }));
 
     // Constraint added with value capped at 5 (Aragorn prowess 6 → min(6,5) = 5)
     const influenceConstraints = after.activeConstraints.filter(
@@ -165,13 +167,13 @@ describe('Muster (tw-288)', () => {
     const faramirId = findCharInstanceId(state, RESOURCE_PLAYER, FARAMIR);
     const musterInstance = findHandCardId(state, RESOURCE_PLAYER, MUSTER);
 
-    const after = dispatch(state, {
+    const after = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: musterInstance,
       targetCharacterId: faramirId,
       optionId: 'influence-boost',
-    });
+    }));
 
     const influenceConstraints = after.activeConstraints.filter(
       c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',
@@ -193,13 +195,13 @@ describe('Muster (tw-288)', () => {
     const beregondId = findCharInstanceId(state, RESOURCE_PLAYER, BEREGOND);
     const musterInstance = findHandCardId(state, RESOURCE_PLAYER, MUSTER);
 
-    const after = dispatch(state, {
+    const after = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: musterInstance,
       targetCharacterId: beregondId,
       optionId: 'influence-boost',
-    });
+    }));
 
     // Beregond prowess 4 → min(4,5) = 4; full prowess used, not capped
     const influenceConstraints = after.activeConstraints.filter(

@@ -6,20 +6,22 @@
  * character placement, deck shuffle, initial draw, and initiative roll.
  */
 
-import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstance, GameAction, TwoDiceSix, SiteSelectionPlayerState } from '../index.js';
+import type { GameState, DraftPlayerState, ItemDraftPlayerState, CharacterDeckDraftPlayerState, SetupStepState, CardInstance, CardInstanceId, GameAction, TwoDiceSix, SiteSelectionPlayerState } from '../index.js';
 import type { CardInPlay } from '../types/state-cards.js';
 import { getAlignmentRules } from '../alignment-rules.js';
 import { shuffle } from '../rng.js';
 import { MAX_STARTING_ITEMS } from '../rules/definitions/item-draft.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
 import { Alignment, CardStatus } from '../types/common.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, countStartingMinorItems } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersInDeck, countDraftedAgents } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
+import { sameManifestationEntity } from './manifestations.js';
 
 
 export function handleSetup(state: GameState, action: GameAction): ReducerResult {
@@ -226,6 +228,21 @@ function handleCharacterDraft(
           return { state, error: 'Invalid character' };
         }
 
+        // Pure "Hazard Agent" cards (Lobelia dm-28, My Precious dm-29) are
+        // deploy-only — never drafted or played as company characters by any player.
+        if (hasPlayFlag(charDef, 'hazard-agent-only')) {
+          logDetail(`${charDef.name} blocked: a hazard-only agent cannot be drafted as a character`);
+          return { state, error: 'A hazard agent cannot be drafted as a character' };
+        }
+
+        // Open to the Summons (wh-46): each copy held in the play deck lets a
+        // Ringwraith or Fallen-wizard draft ONE agent as a starting character
+        // (rules 1.41/1.42). The gate is lifted while fewer agents have been
+        // drafted than enablers held.
+        const agentSummonsEnablers = countAgentSummonsEnablersInDeck(state, state.players[playerIndex]);
+        const agentsDrafted = countDraftedAgents(state, playerDraft.drafted);
+        const summonsAgentAllowed = agentsDrafted < agentSummonsEnablers;
+
         // Fallen-wizard draft gate (rules 1.42, 1.44): without an enabling Stage
         // resource (Thrall), a Fallen-wizard cannot draft a mind > 5 or agent
         // character. The enabler must already be revealed (in draftedStageResources).
@@ -235,16 +252,16 @@ function handleCharacterDraft(
             logDetail(`${charDef.name} (mind ${charDef.mind}) blocked: Fallen-wizard mind > 5 requires an enabling Stage resource`);
             return { state, error: 'A Fallen-wizard cannot draft a character with mind > 5 without an enabling Stage resource' };
           }
-          if (isAgentCharacter(charDef)) {
-            logDetail(`${charDef.name} (agent) blocked: Fallen-wizard agent draft requires an enabling Stage resource`);
+          if (isAgentCharacter(charDef) && !summonsAgentAllowed) {
+            logDetail(`${charDef.name} (agent) blocked: Fallen-wizard agent draft requires an enabling Stage resource or Open to the Summons`);
             return { state, error: 'A Fallen-wizard cannot draft an agent character without an enabling Stage resource' };
           }
         }
 
         // Ringwraith draft gate (rule 1.41, CoE 1.9.R2): a Ringwraith cannot draft
-        // agent characters. A Ringwraith never drafts resources during the
-        // character draft, so there is no enabler that can lift this gate.
-        if (state.players[playerIndex].alignment === Alignment.Ringwraith && isAgentCharacter(charDef)) {
+        // agent characters unless an enabling resource (Open to the Summons,
+        // wh-46) in the play deck lifts the gate for one agent.
+        if (state.players[playerIndex].alignment === Alignment.Ringwraith && isAgentCharacter(charDef) && !summonsAgentAllowed) {
           logDetail(`${charDef.name} (agent) blocked: a Ringwraith cannot draft agent characters`);
           return { state, error: 'A Ringwraith cannot draft an agent character during the character draft' };
         }
@@ -369,13 +386,31 @@ function resolveDraftRound(
   const def0 = pick0 !== null ? pick0.definitionId : null;
   const def1 = pick1 !== null ? pick1.definitionId : null;
 
-  if (pick0 !== null && pick1 !== null && def0 === def1) {
+  // Rule 1.9: "Players set aside duplicated unique characters with the same
+  // name or manifestation." Beyond an identical card (same definition), a
+  // collision also occurs when the two picks are distinct manifestations of
+  // the same entity (e.g. Strider ba-1 vs Aragorn II tw-120, linked by
+  // `manifestId`) or same-named unique reprints.
+  const def0Card = def0 !== null ? defById(state, def0) : undefined;
+  const def1Card = def1 !== null ? defById(state, def1) : undefined;
+  const entityCollision = def0 !== def1 && def0Card !== undefined && def1Card !== undefined
+    && (sameManifestationEntity(def0Card, def1Card)
+      || (isCharacterCard(def0Card) && isCharacterCard(def1Card)
+        && def0Card.name === def1Card.name && def0Card.unique === true && def1Card.unique === true));
+
+  if (pick0 !== null && pick1 !== null && (def0 === def1 || entityCollision)) {
     // Duplicate! Neither gets it — set aside both instances (one per player, so no instance ID is shared).
-    // Remove the collided definition from both pools.
+    // Remove each player's collided definition from their pool. (For an
+    // identical-card collision the two definitions coincide; for a
+    // manifestation collision each player only loses the card they revealed —
+    // the entity may still be drafted later since it is no longer duplicated.)
+    if (entityCollision) {
+      logDetail(`Character draft collision: ${def0Card && 'name' in def0Card ? def0Card.name : String(def0)} and ${def1Card && 'name' in def1Card ? def1Card.name : String(def1)} are manifestations of the same entity (rule 1.9) — both set aside`);
+    }
     newSetAside[0].push(pick0);
     newSetAside[1].push(pick1);
     newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(c => c.definitionId !== def0) };
-    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def0) };
+    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def1) };
   } else {
     if (pick0 !== null) newDraft[0] = { ...newDraft[0], drafted: [...newDraft[0].drafted, pick0] };
     if (pick1 !== null) newDraft[1] = { ...newDraft[1], drafted: [...newDraft[1].drafted, pick1] };
@@ -503,15 +538,22 @@ function handleItemDraft(
     if (assignedCount >= MAX_STARTING_ITEMS) {
       return { state, error: `Already at starting item limit (${assignedCount}/${MAX_STARTING_ITEMS})` };
     }
-    const deckCard = player.playDeck.find(c => c.definitionId === action.cardDefId);
+    // The placement card normally lives in the play deck, but Balrog-specific
+    // starting resources (ba-60, ba-70) are sunk to the sideboard during setup
+    // (see hasStartingCompanyPlacementInDeck) — accept it from either zone and
+    // remove it from whichever one holds it.
+    const fromSideboard = !player.playDeck.some(c => c.definitionId === action.cardDefId);
+    const sourceZone = fromSideboard ? player.sideboard : player.playDeck;
+    const deckCard = sourceZone.find(c => c.definitionId === action.cardDefId);
     if (!deckCard) {
-      return { state, error: 'Card not found in play deck' };
+      return { state, error: 'Card not found in play deck or sideboard' };
     }
     const targetCompany = player.companies.find(c => c.id === action.companyId);
     if (!targetCompany) {
       return { state, error: 'Company not found' };
     }
-    const newPlayDeck = player.playDeck.filter(c => c.instanceId !== deckCard.instanceId);
+    const newPlayDeck = fromSideboard ? player.playDeck : player.playDeck.filter(c => c.instanceId !== deckCard.instanceId);
+    const newSideboard = fromSideboard ? player.sideboard.filter(c => c.instanceId !== deckCard.instanceId) : player.sideboard;
     const newItemDraft: ItemDraftPlayerState = {
       ...itemDraft,
       startingEventsPlaced: (itemDraft.startingEventsPlaced ?? 0) + 1,
@@ -530,11 +572,18 @@ function handleItemDraft(
     ) ?? false;
     const targetCharId = action.targetCharacterInstanceId;
     const targetChar = targetCharId ? player.characters[targetCharId] : undefined;
+    // Open to the Summons (wh-46) is an agent-summons vehicle: "place this card
+    // with the agent" — it may only be placed with an agent character.
+    if (isRecruitmentVehicle && targetChar && hasAgentSummonsEffect(eventDef)
+      && !isAgentCharacter(defById(state, targetChar.definitionId))) {
+      return { state, error: 'Open to the Summons may only be placed with an agent character' };
+    }
 
     const stateWithCard = (isRecruitmentVehicle && targetChar)
       ? updatePlayer(state, playerIndex, p => ({
           ...p,
           playDeck: newPlayDeck,
+          sideboard: newSideboard,
           characters: {
             ...p.characters,
             [targetCharId as string]: {
@@ -549,6 +598,7 @@ function handleItemDraft(
       : updatePlayer(state, playerIndex, p => ({
           ...p,
           playDeck: newPlayDeck,
+          sideboard: newSideboard,
           cardsInPlay: [...p.cardsInPlay, {
             instanceId: deckCard.instanceId,
             definitionId: deckCard.definitionId,
@@ -877,6 +927,7 @@ function finalizeSiteSelection(
     ? setupPhase({
       step: SetupStep.CharacterPlacement,
       placementDone: [!p1NeedsPlacement, !p2NeedsPlacement],
+      placed: [[], []],
     })
     : setupPhase({ step: SetupStep.DeckShuffle, shuffled: [false, false] });
 
@@ -974,6 +1025,13 @@ function handleCharacterPlacement(
     return { state, error: 'Character not found' };
   }
 
+  // A character may be placed at most once. Re-placing an already-placed
+  // character is what let players (AIs in particular) shuffle characters
+  // between companies without ever finishing, so it is rejected here.
+  if (stepState.placed[playerIndex].includes(action.characterInstanceId)) {
+    return { state, error: 'Character has already been placed' };
+  }
+
   // Validate target company belongs to this player
   const targetIdx = player.companies.findIndex(c => c.id === action.companyId);
   if (targetIdx < 0) {
@@ -992,8 +1050,15 @@ function handleCharacterPlacement(
     characters: [...newCompanies[targetIdx].characters, action.characterInstanceId],
   };
 
+  // Mark the character as placed so it is no longer offered a move.
+  const newPlaced = [...stepState.placed] as [readonly CardInstanceId[], readonly CardInstanceId[]];
+  newPlaced[playerIndex] = [...newPlaced[playerIndex], action.characterInstanceId];
+
   return {
-    state: updatePlayer(state, playerIndex, p => ({ ...p, companies: newCompanies })),
+    state: {
+      ...updatePlayer(state, playerIndex, p => ({ ...p, companies: newCompanies })),
+      phaseState: setupPhase({ ...stepState, placed: newPlaced }),
+    },
   };
 }
 

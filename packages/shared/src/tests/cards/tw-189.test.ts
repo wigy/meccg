@@ -33,7 +33,7 @@ import {
   ARAGORN, LEGOLAS, GIMLI, BILBO,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, PELARGIR,
   MEN_OF_LEBENNIN,
-  handCardId, charIdAt, dispatch, findHandCardId,
+  handCardId, charIdAt, dispatch, resolveChain, findHandCardId,
   buildSitePhaseState, buildInfluenceAttemptChainState, findCharInstanceId, RESOURCE_PLAYER,
   expectInDiscardPile,
 } from '../test-helpers.js';
@@ -89,13 +89,15 @@ describe('A Friend or Three (tw-189)', () => {
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const cardInstance = findHandCardId(state, RESOURCE_PLAYER, A_FRIEND_OR_THREE);
 
-    const after = dispatch(state, {
+    // The boost rides the chain of effects; resolve it (both players pass) so
+    // the constraint is applied on resolution — see tw-337 for the regression.
+    const after = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: cardInstance,
       targetCharacterId: aragornId,
       optionId: 'influence-check-boost',
-    });
+    }));
 
     const constraints = after.activeConstraints.filter(
       c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',
@@ -124,13 +126,13 @@ describe('A Friend or Three (tw-189)', () => {
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const cardInstance = findHandCardId(state, RESOURCE_PLAYER, A_FRIEND_OR_THREE);
 
-    const after = dispatch(state, {
+    const after = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: cardInstance,
       targetCharacterId: aragornId,
       optionId: 'influence-check-boost',
-    });
+    }));
 
     const constraints = after.activeConstraints.filter(
       c => c.kind.type === 'check-modifier' && c.kind.check === 'influence',

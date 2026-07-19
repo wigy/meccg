@@ -81,8 +81,9 @@ export function enqueueCorruptionCheck(
     readonly modifier?: number;
     readonly possessions?: readonly CardInstanceId[];
     readonly transferredItemId?: CardInstanceId | null;
-    readonly failureMode?: 'discard-ring-only';
+    readonly failureMode?: 'discard-ring-only' | 'discard-instead-of-eliminate';
     readonly onSuccess?: import('../types/effects.js').TriggeredAction;
+    readonly awardKillMpTo?: PlayerId;
   },
 ): GameState {
   return enqueueResolution(state, {
@@ -98,6 +99,7 @@ export function enqueueCorruptionCheck(
       transferredItemId: opts.transferredItemId ?? null,
       failureMode: opts.failureMode,
       onSuccess: opts.onSuccess,
+      awardKillMpTo: opts.awardKillMpTo,
     },
   });
 }
@@ -216,6 +218,9 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
         return true;
       case 'attack-end':
         return true;
+      case 'organization-phase-end':
+        // No ResolutionScope is keyed to the organization phase boundary.
+        return true;
       case 'turn-end':
         return true;
     }
@@ -237,6 +242,14 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
         return true;
       case 'attack-end':
         if (s.kind === 'attack') return false;
+        return true;
+      case 'organization-phase-end':
+        // "Through your next organization phase": drop it at the owner's
+        // organization-phase end, but not the one it was created in (same turn
+        // number) — that is the phase the card was activated during.
+        if (s.kind === 'next-organization-phase'
+          && s.playerId === boundary.playerId
+          && boundary.turnNumber > s.afterTurn) return false;
         return true;
       case 'turn-end':
         if (s.kind === 'turn') return false;

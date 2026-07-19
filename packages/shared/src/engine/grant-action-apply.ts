@@ -207,6 +207,31 @@ function runGrantApply(
     return { error: `set-character-status target-instance: target ${targetCardId as string} not found` };
   }
 
+  // company: set the given status on every character in the bearer's company
+  // (Strangling Coils ba-76: "untap all tapped characters in The Balrog's
+  // company"). Untapping is idempotent for already-untapped members.
+  if (apply.type === 'set-character-status' && apply.target === 'company') {
+    if (apply.status === undefined) {
+      return { error: `set-character-status apply missing status on ${ctx.sourceName}` };
+    }
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const company = findCharacterCompany(bearerPlayer.companies, ctx.action.characterId);
+    if (!company) {
+      return { error: `${ctx.charName} is not in any company` };
+    }
+    const statusEnum = cardStatusFromName(apply.status);
+    logDetail(`Grant-action ${ctx.action.actionId}: setting all ${company.characters.length} character(s) in company ${company.id as string} → status ${apply.status}`);
+    const updatedChars = { ...bearerPlayer.characters };
+    for (const memberId of company.characters) {
+      const member = updatedChars[memberId];
+      if (!member) continue;
+      updatedChars[memberId] = { ...member, status: statusEnum };
+    }
+    newPlayers[ctx.playerIndex] = { ...bearerPlayer, characters: updatedChars };
+    const updatedChar = updatedChars[ctx.action.characterId] ?? char;
+    return { updatedChar, effects: [], stateOps: [] };
+  }
+
   if (apply.type === 'increment-company-extra-region-distance') {
     const amount = apply.amount ?? 1;
     const bearerPlayer = newPlayers[ctx.playerIndex];
@@ -275,7 +300,7 @@ function runGrantApply(
     if (!kind) {
       return { error: `add-constraint: unsupported constraint kind "${constraintKind}" from grant-action (${ctx.sourceName})` };
     }
-    const scope = parseConstraintScope(apply.scope, newPlayers[ctx.playerIndex], ctx.action.characterId);
+    const scope = parseConstraintScope(apply.scope, newPlayers[ctx.playerIndex], ctx.action.characterId, ctx.action.player, state.turnNumber);
     if (!scope) {
       return { error: `add-constraint: unknown or unresolved scope "${apply.scope ?? ''}" on ${ctx.sourceName}` };
     }
@@ -510,7 +535,20 @@ function runGrantApply(
     const characterId = ctx.action.characterId;
     const sourceId = ctx.action.sourceCardId;
     const ccModifier = apply.postCorruptionCheckModifier ?? 0;
-    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing fetch-to-${fetchTo} from [${fromSources.join(', ')}] (count=${count}, shuffle=${shuffle}, postCorruptionCheck=${!!apply.postCorruptionCheck}, ccModifier=${ccModifier})`);
+    // Site-playability restriction (Strider ba-1): capture the bearer's
+    // company's current site now, so the pending fetch can gate candidates
+    // on being playable there.
+    let playableAtSite: import('../types/common.js').CardDefinitionId | undefined;
+    if (apply.playableAtBearerSite === true) {
+      const company = findCharacterCompany(newPlayers[ctx.playerIndex].companies, characterId);
+      const siteInstId = company?.currentSite?.instanceId;
+      playableAtSite = siteInstId !== undefined ? resolveInstanceId(state, siteInstId) : undefined;
+      if (playableAtSite === undefined) {
+        return { error: `enqueue-pending-fetch: ${ctx.charName} has no current site for the playable-at-site restriction` };
+      }
+    }
+    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing fetch-to-${fetchTo} from [${fromSources.join(', ')}] (count=${count}, shuffle=${shuffle}, postCorruptionCheck=${!!apply.postCorruptionCheck}, ccModifier=${ccModifier}${playableAtSite !== undefined ? `, playable at ${playableAtSite as string}` : ''})`);
+    const sitePart = playableAtSite !== undefined ? { playableAtSite } : {};
     return {
       updatedChar: char,
       effects: [],
@@ -529,6 +567,7 @@ function runGrantApply(
                 count,
                 shuffle,
                 to: fetchTo,
+                ...sitePart,
               },
               skipDiscard: true,
               ...(apply.postCorruptionCheck
@@ -849,8 +888,17 @@ function buildPayloadConstraintKind(
     return { type: 'hand-size-modifier', value: apply.value };
   }
   if (name === 'site-resource-unlocked') {
-    if (typeof apply.siteType !== 'string' || typeof apply.subtype !== 'string') return null;
-    return { type: 'site-resource-unlocked', siteType: apply.siteType, subtype: apply.subtype };
+    if (typeof apply.subtype !== 'string') return null;
+    // Either a fixed site type (Records Unread as-130: Information at any
+    // Shadow-hold) or a compound site condition (A Panoply of Wings wh-37:
+    // Information at any non-Haven/non-Shadow-hold/non-Dark-hold Wilderness site).
+    if (typeof apply.siteType === 'string') {
+      return { type: 'site-resource-unlocked', siteType: apply.siteType, subtype: apply.subtype };
+    }
+    if (apply.siteCondition) {
+      return { type: 'site-resource-unlocked', siteCondition: apply.siteCondition, subtype: apply.subtype };
+    }
+    return null;
   }
   if (name === 'check-modifier') {
     // A one-shot roll modifier the engine collects when the targeted
@@ -866,6 +914,8 @@ function buildPayloadConstraintKind(
       check: apply.check,
       value: apply.value,
       ...(apply.autoPass ? { autoPass: true } : {}),
+      ...(apply.lasting ? { lasting: true } : {}),
+      ...(apply.constraintWhen ? { when: apply.constraintWhen } : {}),
     };
   }
   return null;
@@ -876,12 +926,18 @@ function parseConstraintScope(
   scopeName: string | undefined,
   player: import('../types/state.js').PlayerState,
   characterId: CardInstanceId,
+  playerId: import('../types/common.js').PlayerId,
+  turnNumber: number,
 ): import('../types/pending.js').ConstraintScope | null {
   switch (scopeName) {
     case 'turn':
       return { kind: 'turn' };
     case 'until-cleared':
       return { kind: 'until-cleared' };
+    case 'next-organization-phase':
+      // Stamped with the current turn so the organization phase this was
+      // activated in does not immediately sweep it (Shifter of Hues wh-115).
+      return { kind: 'next-organization-phase', playerId, afterTurn: turnNumber };
     case 'company-site-phase':
     case 'company-mh-phase': {
       const company = findCharacterCompany(player.companies, characterId);
@@ -930,6 +986,70 @@ function resolveConstraintTarget(
 }
 
 /**
+ * Resolve an activated ability on a *bearer-less* in-play card — a card in the
+ * player's `cardsInPlay` that is not attached to any character (currently an
+ * in-play faction). Only the `discard: self` cost and the `add-constraint`
+ * apply are supported: the source is discarded from `cardsInPlay` to the
+ * controller's discard pile, then the declared constraint is added.
+ *
+ * Used by A Panoply of Wings (wh-37): "Discard this faction to make
+ * information playable at such a site" — a `site-resource-unlocked` constraint
+ * (Information, keyed to a compound `siteCondition`), scope `turn`, targeting
+ * the discarding player.
+ */
+function handleInPlayCardGrantAction(
+  state: GameState,
+  action: Extract<GameAction, { type: 'activate-granted-action' }>,
+  playerIndex: number,
+): ReducerResult {
+  const player = state.players[playerIndex];
+  const source = player.cardsInPlay.find(c => c.instanceId === action.sourceCardId);
+  if (!source) return { state, error: `in-play grant-action: source ${action.sourceCardId as string} not in play` };
+  const sourceDef = defById(state, source.definitionId);
+  const sourceName = sourceDef?.name ?? '?';
+
+  const effect = getCardEffects(sourceDef).find(
+    (e): e is import('../types/effects.js').GrantActionEffect =>
+      e.type === 'grant-action' && e.action === action.actionId,
+  );
+  if (!effect?.apply) return { state, error: `in-play grant-action ${action.actionId} has no apply on ${sourceName}` };
+  if (effect.cost.discard !== 'self') {
+    return { state, error: `in-play grant-action ${action.actionId}: only discard-self cost supported (${sourceName})` };
+  }
+  const apply = effect.apply;
+  if (apply.type !== 'add-constraint') {
+    return { state, error: `in-play grant-action ${action.actionId}: only add-constraint apply supported (${sourceName})` };
+  }
+
+  // Discard the source card from cardsInPlay to the controller's discard pile.
+  const newPlayers = clonePlayers(state);
+  newPlayers[playerIndex] = {
+    ...newPlayers[playerIndex],
+    cardsInPlay: newPlayers[playerIndex].cardsInPlay.filter(c => c.instanceId !== source.instanceId),
+    discardPile: [...newPlayers[playerIndex].discardPile, { instanceId: source.instanceId, definitionId: source.definitionId }],
+  };
+
+  const constraintKind = apply.constraint ?? '';
+  const kind = buildPayloadConstraintKind(constraintKind, apply) ?? constraintKindWithoutPayload(constraintKind);
+  if (!kind) return { state, error: `in-play grant-action: unsupported constraint kind "${constraintKind}" on ${sourceName}` };
+  const scope = parseConstraintScope(apply.scope, newPlayers[playerIndex], action.characterId, action.player, state.turnNumber);
+  if (!scope) return { state, error: `in-play grant-action: unknown scope "${apply.scope ?? ''}" on ${sourceName}` };
+  const target = resolveConstraintTarget(apply.target, newPlayers[playerIndex], action.characterId, action.player, action);
+  if (!target) return { state, error: `in-play grant-action: cannot resolve target "${apply.target ?? ''}" on ${sourceName}` };
+
+  logDetail(`In-play grant-action ${action.actionId}: discarding ${sourceName}, adding constraint ${constraintKind} (scope ${apply.scope ?? '?'})`);
+  let finalState = recomputeDerived({ ...state, players: newPlayers });
+  finalState = addConstraint(finalState, {
+    source: source.instanceId,
+    sourceDefinitionId: source.definitionId,
+    scope,
+    target,
+    kind,
+  });
+  return { state: finalState, effects: [] };
+}
+
+/**
  * Generic handler for grant-action effects that declare an `apply`.
  * Pays the effect's cost (discard source attachment or tap the bearer)
  * then dispatches on `apply.type` to mutate state. Shared across all
@@ -955,7 +1075,18 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
   const char = player.characters[action.characterId];
-  if (!char) return { state, error: 'Character not found' };
+  if (!char) {
+    // Bearer-less source: a card sitting in the player's `cardsInPlay` (not
+    // attached to any character) that carries an activated discard ability —
+    // e.g. an in-play faction discarded to add a constraint (A Panoply of
+    // Wings wh-37: "Discard this faction to make information playable at such
+    // a site"). The legal-action emitter sets `characterId = sourceCardId` as
+    // a self-reference since there is no activating character.
+    if (player.cardsInPlay.some(c => c.instanceId === action.sourceCardId)) {
+      return handleInPlayCardGrantAction(state, action, playerIndex);
+    }
+    return { state, error: 'Character not found' };
+  }
 
   const charDef = resolveDef(state, action.characterId);
   const charName = charDef?.name ?? '?';
@@ -1057,6 +1188,23 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   });
   for (const op of result.stateOps) {
     finalState = op(finalState);
+  }
+
+  // Once-per-turn abilities record a turn-scoped lock so the scanner
+  // suppresses further activations of this source+action for the rest of
+  // the turn (Strangling Coils ba-76's company untap).
+  if (staticEffect?.oncePerTurn) {
+    finalState = addConstraint(finalState, {
+      source: action.sourceCardId,
+      sourceDefinitionId: action.sourceCardDefinitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'player', playerId: action.player },
+      kind: {
+        type: 'granted-action-used',
+        sourceInstanceId: action.sourceCardId,
+        actionId: action.actionId,
+      },
+    });
   }
 
   return {

@@ -47,13 +47,14 @@ Follow these steps:
    - Ensure all new code has proper JSDoc documentation
    - Follow the server-side logging policy if adding engine code
 
-5. **Iterate until green:** Run all four checks **in parallel** and fix any failures. Repeat until all pass:
+5. **Iterate until green:** Run these checks **in parallel** and fix any failures. Repeat until all pass:
    - `npm run build` — type-check (must pass)
-   - `npm test` — rules tests (must all pass)
-   - `npm run test:nightly` — card tests (must not introduce new failures)
+   - **Changed tests only** — run only the test files you added or modified (`git diff --name-only origin/master...HEAD -- '*.test.ts' | xargs npx vitest run`, plus any uncommitted test files); must pass
    - `npm run lint` — linting (fix with `npm run lint:fix`)
 
-   If a check fails, read the error output, fix the issue, and re-run. Keep iterating until all four pass cleanly.
+   **Do NOT run the full `npm test` suite or `npm run test:nightly`.** Full-suite runs are part of the review process — the reviewer and branch CI run and wait for them during PR review, not you.
+
+   If a check fails, read the error output, fix the issue, and re-run. Keep iterating until all pass cleanly.
 
 6. **Create a branch, commit, push, and open a PR:** Work on a dedicated branch and open a pull request — never push features directly to master.
    ```

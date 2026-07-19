@@ -7,7 +7,7 @@
  */
 
 import type { PlayerView, CardDefinition } from '@meccg/shared';
-import { formatPlayerView, formatCardList, formatCardName, buildInstanceLookup, Phase, isCardHidden } from '@meccg/shared';
+import { formatPlayerView, formatCardList, formatCardName, buildInstanceLookup, Phase, isCardHidden, effectiveHazardLimit } from '@meccg/shared';
 import type { CardDefinitionId, CardInstanceId } from '@meccg/shared';
 import { $ } from './render-utils.js';
 import {
@@ -90,8 +90,10 @@ export function renderMHInfo(
   // Active company
   const selfIsResource = view.activePlayer === view.self.id;
   const resourceCompanies = selfIsResource ? view.self.companies : view.opponent.companies;
-  if (mh.step !== 'select-company' && mh.activeCompanyIndex < resourceCompanies.length) {
-    const activeCompany = resourceCompanies[mh.activeCompanyIndex];
+  const activeCompany = mh.step !== 'select-company' && mh.activeCompanyIndex < resourceCompanies.length
+    ? resourceCompanies[mh.activeCompanyIndex]
+    : undefined;
+  if (activeCompany) {
     const name = companyNames[activeCompany.id as string] ?? `company #${mh.activeCompanyIndex}`;
     lines.push(`Active company: ${name}`);
   }
@@ -123,9 +125,14 @@ export function renderMHInfo(
     lines.push(`Destination: ${mh.destinationSiteName} (${mh.destinationSiteType ?? '?'})`);
   }
 
-  // Hazard tracking
-  const remaining = mh.hazardLimitAtReveal - mh.hazardsPlayedThisCompany;
-  lines.push(`Hazard limit: ${mh.hazardsPlayedThisCompany}/${mh.hazardLimitAtReveal} played (${remaining} remaining)`);
+  // Hazard tracking. Show the effective limit for the active company, which
+  // folds in any mid-phase `hazard-limit-modifier` constraint (e.g. a Daelomin
+  // at Home td-11 discard granting +2), not just the at-reveal snapshot.
+  const limit = activeCompany
+    ? effectiveHazardLimit(view.activeConstraints, mh.hazardLimitAtReveal, mh.preRevealHazardLimitConstraintIds, activeCompany.id)
+    : mh.hazardLimitAtReveal;
+  const remaining = limit - mh.hazardsPlayedThisCompany;
+  lines.push(`Hazard limit: ${mh.hazardsPlayedThisCompany}/${limit} played (${Math.max(0, remaining)} remaining)`);
 
   // Draw tracking
   lines.push(`Draws: resource ${mh.resourceDrawCount}/${mh.resourceDrawMax}, hazard ${mh.hazardDrawCount}/${mh.hazardDrawMax}`);

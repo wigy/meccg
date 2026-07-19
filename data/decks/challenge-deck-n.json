@@ -1,0 +1,384 @@
+{
+  "id": "challenge-deck-n",
+  "name": "(N) Smoke on the Water",
+  "alignment": "minion",
+  "notes": "Go to Eagles' Eyrie once you get Smoke in the Wind. Go to the Borderholds when you have Burning Rick, Cot, and Tree. Go to the faction sites when you have neither. Break things. Get points. Win games.\n\n### Starting Company (1) at Dol Guldur\n\n- Shagrat with Orders from Lugbûrz, Lieutenant of Angmar, Orc Veteran and Troll Lout with Foul-smelling Paste. Shagrat controls Orc Veteran and the Lieutenant controls Troll Lout.\n\n### Resource Play\n\nThe idea of the deck is to burn down three border-holds and one free-hold. To make this possible you have to play first an item or Blackbole and then you can play Burning Rick, Cot, and Tree and Smoke on the Wind. Try to play on each leader in your starting company an I'll report you to give +2 prowess to each character in the company.\n\n### Khamûl\n\nKhamûl is waiting for his moving card. So he can start with sideboarding. If he got this mode card he can also burn sites because with the Fell Rider he has 12 prowess. Use Forced March to move Khamûl first to a Darkhaven and then to a non-Haven site.\n\n### Hazard Play\n\nYou should tap or kill all of your opponent's rangers. Then you can play Enchanted Stream and River to roadblock the companies.",
+  "pool": [
+    {
+      "name": "Shagrat",
+      "card": "le-39",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Lieutenant of Angmar",
+      "card": "le-20",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Orc Veteran",
+      "card": "le-35",
+      "qty": 2,
+      "favourite": true
+    },
+    {
+      "name": "Troll Lout",
+      "card": "le-44",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Orders from Lugbûrz",
+      "card": "as-94",
+      "qty": 1
+    },
+    {
+      "name": "Foul-smelling Paste",
+      "card": "le-310",
+      "qty": 1
+    },
+    {
+      "name": "Lagduf",
+      "card": "le-18",
+      "qty": 1
+    },
+    {
+      "name": "Muzgash",
+      "card": "le-25",
+      "qty": 1
+    },
+    {
+      "name": "Orc Captain",
+      "card": "le-31",
+      "qty": 2
+    },
+    {
+      "name": "Orc Tracker",
+      "card": "le-34",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "Khamûl the Ringwraith",
+        "card": "le-55",
+        "qty": 3
+      },
+      {
+        "name": "Orc Tracker",
+        "card": "le-34",
+        "qty": 1
+      }
+    ],
+    "hazards": [
+      {
+        "name": "Chill Douser",
+        "card": "dm-106",
+        "qty": 3
+      },
+      {
+        "name": "Neeker-breekers",
+        "card": "tw-493",
+        "qty": 3
+      },
+      {
+        "name": "Slayer",
+        "card": "le-90",
+        "qty": 3
+      },
+      {
+        "name": "Wisp of Pale Sheen",
+        "card": "dm-113",
+        "qty": 3
+      },
+      {
+        "name": "An Unexpected Outpost",
+        "card": "dm-45",
+        "qty": 2
+      },
+      {
+        "name": "Enchanted Stream",
+        "card": "as-27",
+        "qty": 3
+      },
+      {
+        "name": "Exhalation of Decay",
+        "card": "dm-55",
+        "qty": 2
+      },
+      {
+        "name": "Foolish Words",
+        "card": "le-112",
+        "qty": 3
+      },
+      {
+        "name": "River",
+        "card": "le-134",
+        "qty": 3
+      },
+      {
+        "name": "Shut Yer Mouth",
+        "card": "le-137",
+        "qty": 2
+      },
+      {
+        "name": "The Moon Is Dead",
+        "card": "dm-71",
+        "qty": 3
+      }
+    ],
+    "resources": [
+      {
+        "name": "Blackbole",
+        "card": "le-152",
+        "qty": 1
+      },
+      {
+        "name": "Broad-headed Spear",
+        "card": "le-304",
+        "qty": 3
+      },
+      {
+        "name": "Burning Rick, Cot, and Tree",
+        "card": "le-173",
+        "qty": 3
+      },
+      {
+        "name": "Grey Mountain Goblins",
+        "card": "le-266",
+        "qty": 1
+      },
+      {
+        "name": "High Helm",
+        "card": "le-313",
+        "qty": 1
+      },
+      {
+        "name": "Orcs of Gundabad",
+        "card": "le-276",
+        "qty": 1
+      },
+      {
+        "name": "Sable Shield",
+        "card": "le-341",
+        "qty": 1
+      },
+      {
+        "name": "Smoke on the Wind",
+        "card": "le-230",
+        "qty": 1
+      },
+      {
+        "name": "Bold Thrust",
+        "card": "le-172",
+        "qty": 3
+      },
+      {
+        "name": "Dark Tryst",
+        "card": "as-80",
+        "qty": 3
+      },
+      {
+        "name": "Fell Rider",
+        "card": "le-183",
+        "qty": 2
+      },
+      {
+        "name": "Forced March",
+        "card": "le-185",
+        "qty": 1
+      },
+      {
+        "name": "I'll Report you",
+        "card": "le-196",
+        "qty": 2
+      },
+      {
+        "name": "Swift Strokes",
+        "card": "le-238",
+        "qty": 3
+      },
+      {
+        "name": "Under His Blow",
+        "card": "le-247",
+        "qty": 2
+      },
+      {
+        "name": "Weigh All Things to a Nicety",
+        "card": "le-253",
+        "qty": 2
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Buhr Widu",
+      "card": "le-357",
+      "qty": 1
+    },
+    {
+      "name": "Cameth Brin",
+      "card": "le-358",
+      "qty": 1
+    },
+    {
+      "name": "Carn Dûm",
+      "card": "le-359",
+      "qty": 1
+    },
+    {
+      "name": "Dead Marshes",
+      "card": "le-364",
+      "qty": 1
+    },
+    {
+      "name": "Dol Guldur",
+      "card": "le-367",
+      "qty": 1
+    },
+    {
+      "name": "Eagles' Eyrie",
+      "card": "as-144",
+      "qty": 1
+    },
+    {
+      "name": "Gondmaeglom",
+      "card": "le-379",
+      "qty": 1
+    },
+    {
+      "name": "Isengard",
+      "card": "le-384",
+      "qty": 1
+    },
+    {
+      "name": "Moria",
+      "card": "le-392",
+      "qty": 1
+    },
+    {
+      "name": "Mount Gundabad",
+      "card": "le-395",
+      "qty": 1
+    },
+    {
+      "name": "Raider-hold",
+      "card": "le-399",
+      "qty": 1
+    },
+    {
+      "name": "Sarn Goriwing",
+      "card": "le-401",
+      "qty": 1
+    },
+    {
+      "name": "Shrel-Kain",
+      "card": "le-403",
+      "qty": 1
+    },
+    {
+      "name": "Woodmen-town",
+      "card": "le-414",
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Black Mace",
+      "card": "le-299",
+      "qty": 1
+    },
+    {
+      "name": "Fell Rider",
+      "card": "le-183",
+      "qty": 1
+    },
+    {
+      "name": "Forced March",
+      "card": "le-185",
+      "qty": 1
+    },
+    {
+      "name": "Gifts as Given of Old",
+      "card": "le-188",
+      "qty": 1
+    },
+    {
+      "name": "I'll Report you",
+      "card": "le-196",
+      "qty": 1
+    },
+    {
+      "name": "Mechanical Bow",
+      "card": "wh-53",
+      "qty": 1
+    },
+    {
+      "name": "Orcs of Mirkwood",
+      "card": "le-277",
+      "qty": 1
+    },
+    {
+      "name": "Piercing All Shadows",
+      "card": "wh-47",
+      "qty": 1
+    },
+    {
+      "name": "Sudden Call",
+      "card": "le-235",
+      "qty": 1
+    },
+    {
+      "name": "The Ring Leaves Its Mark",
+      "card": "le-223",
+      "qty": 2
+    },
+    {
+      "name": "Under His Blow",
+      "card": "le-247",
+      "qty": 1
+    },
+    {
+      "name": "War-wolf",
+      "card": "le-157",
+      "qty": 1
+    },
+    {
+      "name": "Woodmen",
+      "card": "le-295",
+      "qty": 1
+    },
+    {
+      "name": "Alone and Unadvised",
+      "card": "as-24",
+      "qty": 1
+    },
+    {
+      "name": "Ambusher",
+      "card": "le-59",
+      "qty": 1
+    },
+    {
+      "name": "Eärcaraxë Ahunt",
+      "card": "td-21",
+      "qty": 1
+    },
+    {
+      "name": "Itangast Ahunt",
+      "card": "td-37",
+      "qty": 1
+    },
+    {
+      "name": "Lost in Free-domains",
+      "card": "le-119",
+      "qty": 1
+    },
+    {
+      "name": "Searching Eye",
+      "card": "le-136",
+      "qty": 1
+    }
+  ]
+}

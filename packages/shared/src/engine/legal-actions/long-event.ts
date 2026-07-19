@@ -26,7 +26,7 @@ import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay } from '../reducer-utils.js';
+import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, altShortEventReshuffleEffect, playerHasReshuffleMatch } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -142,13 +142,40 @@ export function heroResourceShortEventActions(
   const player = playerById(state, playerId);
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
-  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-strike', 'halve-strikes', 'strike-modifier']);
+  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-chain-attack-cancel', 'cancel-strike', 'halve-strikes', 'strike-modifier', 'flattery-cancel-attack']);
   const inPlayNames = buildInPlayNames(state);
 
   for (const handCard of player.hand) {
     const cardInstanceId = handCard.instanceId;
     const def = defById(state, handCard.definitionId);
-    if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
+    if (!isResourceEventCard(def)) continue;
+    // A "Permanent-event/Short-event" card (Great Army of the North ba-38) is a
+    // permanent event that also carries an alternative short-event reshuffle
+    // mode; admit it here alongside true short events. It is viable only when
+    // the reshuffle would actually recycle a matching card from the discard.
+    const altReshuffle = altShortEventReshuffleEffect(def);
+    if (def.eventType !== 'short' && !altReshuffle) continue;
+
+    // grant-extra-mh-phase resources (Forced March le-185, Bridge tw-202, Leg
+    // It Double Quick le-202) are emitted by the movement/hazard-specific
+    // `extraMHPhaseResourceActions`, which enforces the "at the end of the
+    // movement/hazard phase, on a company moving to the qualifying site" window.
+    // Skip them in this generic short-event path so they aren't offered
+    // ungated (e.g. during the site phase or against a non-qualifying company).
+    if ((def.effects ?? []).some(e => e.type === 'grant-extra-mh-phase')) continue;
+    if (def.eventType !== 'short' && altReshuffle) {
+      if (!playerHasReshuffleMatch(state, player, altReshuffle)) {
+        logDetail(`${def.name}: short-event mode has no matching card in discard — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: nothing to shuffle from your discard pile`));
+        continue;
+      }
+      logDetail(`${def.name}: playable as alternative short-event (reshuffle from discard)`);
+      actions.push({
+        action: { type: 'play-short-event', player: playerId, cardInstanceId },
+        viable: true,
+      });
+      continue;
+    }
 
     // Skip cards that declare a play-window restricting them to a
     // different phase/step (e.g. Stealth plays only at end-of-org).

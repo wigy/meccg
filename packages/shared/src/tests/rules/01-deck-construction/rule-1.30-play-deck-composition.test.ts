@@ -101,6 +101,90 @@ describe('Rule 1.30 — Play Deck Composition', () => {
     expect(errors.some(e => e.section === 'hazards' && e.message.includes('min 12'))).toBe(true);
   });
 
+  // Rule 1.5.1 / CRF 22: agents that count as hazards, dual creature/event
+  // hazards, Dragon "Ahunt"/"At Home" manifestations, and Spawn permanent-events
+  // each count as HALF a creature toward the 12-creature minimum (rounded down).
+  // Regression for the "Pallando vs H" report: the counter previously scored
+  // dual creatures as full creatures and ignored agents and Dragon
+  // manifestations entirely, so a deck with 11 full creatures + several half
+  // creatures was miscounted as valid.
+
+  // 11 ordinary (full) hazard creatures — one short of the 12 minimum on their
+  // own, so any half-creature category can be exercised on top of them.
+  const ELEVEN_FULL_CREATURES = [
+    { name: 'Cave-drake', card: 'tw-020' as CardDefinitionId, qty: 3 },
+    { name: 'Orc-patrol', card: 'tw-074' as CardDefinitionId, qty: 3 },
+    { name: 'Barrow-wight', card: 'tw-015' as CardDefinitionId, qty: 3 },
+    { name: 'Orc-guard', card: 'tw-072' as CardDefinitionId, qty: 2 },
+  ];
+
+  test('A creature also playable as an event counts as half a creature (rule 1.5.1)', () => {
+    // 11 full creatures + Mouth of Sauron (dual creature/event) = 11.5 → 11 < 12.
+    const deck: DeckList = {
+      ...validDeck,
+      deck: {
+        ...validDeck.deck,
+        hazards: [...ELEVEN_FULL_CREATURES, { name: 'Mouth of Sauron', card: 'tw-65' as CardDefinitionId, qty: 1 }],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'hazards' && e.message.includes('min 12'))).toBe(true);
+  });
+
+  test('Two agents in the hazard section count as one creature for a hero deck (rule 1.5.1)', () => {
+    // 11 full creatures + 2 agents × ½ = 12 → no creature error.
+    const deck: DeckList = {
+      ...validDeck,
+      deck: {
+        ...validDeck.deck,
+        hazards: [
+          ...ELEVEN_FULL_CREATURES,
+          { name: 'Bill Ferny', card: 'dm-3' as CardDefinitionId, qty: 1 },
+          { name: 'Deallus', card: 'dm-5' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'hazards' && e.message.includes('min 12'))).toBe(false);
+  });
+
+  test('Manifestation agents modelled as hazard events count as half a creature each (rule 1.5.1)', () => {
+    // My Precious (dm-29) and Lobelia (dm-28) are agents modelled as hazard
+    // events, not character cards. They were previously scored 0 (the agent
+    // branch only matched character cards), so a deck relying on them fell
+    // short. 11 full creatures + 2 manifestation agents × ½ = 12 → no error.
+    const deck: DeckList = {
+      ...validDeck,
+      deck: {
+        ...validDeck.deck,
+        hazards: [
+          ...ELEVEN_FULL_CREATURES,
+          { name: 'My Precious', card: 'dm-29' as CardDefinitionId, qty: 1 },
+          { name: 'Lobelia Sackville-Baggins', card: 'dm-28' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'hazards' && e.message.includes('min 12'))).toBe(false);
+  });
+
+  test('Dragon "Ahunt"/"At Home" manifestations count as half a creature each (rule 1.5.1)', () => {
+    // 11 full creatures + Itangast Ahunt + Daelomin at Home = 11 + 2×½ = 12.
+    const deck: DeckList = {
+      ...validDeck,
+      deck: {
+        ...validDeck.deck,
+        hazards: [
+          ...ELEVEN_FULL_CREATURES,
+          { name: 'Itangast Ahunt', card: 'td-37' as CardDefinitionId, qty: 1 },
+          { name: 'Daelomin at Home', card: 'td-11' as CardDefinitionId, qty: 1 },
+        ],
+      },
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'hazards' && e.message.includes('min 12'))).toBe(false);
+  });
+
   test('More than 10 non-avatar characters produces a characters error', () => {
     const deck: DeckList = {
       ...validDeck,

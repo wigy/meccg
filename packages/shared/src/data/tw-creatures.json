@@ -982,7 +982,12 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ],
     "text": "Unique.Nazgûl (5th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Akhôrahil becomes a short-event and modifies any one character’s body by -1 for the rest of this turn."
   },
   {
@@ -1062,7 +1067,12 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ],
     "text": "Unique.Nazgûl (3rd). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Imlad Morgul, Gorgoroth, and Ithilien; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Dwar of Waw becomes a short-event and gives +1 prowess to all Wolf, Spider, and Animal attacks until the end of the turn."
   },
   {
@@ -1136,7 +1146,8 @@
       }
     ],
     "effects": [],
-    "text": "Trolls. Two strikes."
+    "text": "Trolls. Two strikes.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "hazard-creature",
@@ -1159,7 +1170,12 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ],
     "text": "Unique.Nazgûl (6th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Dagorlad, Ithilien, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Hoarmûrath of Dír becomes a short-event and gives +1 strike to any one attack."
   },
   {
@@ -1204,7 +1220,12 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ],
     "text": "Unique.Nazgûl (4th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Imlad Morgul, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Indûr Dawndeath becomes a short-event and makes any wounded character discard an item of his choice (but not a ring)."
   },
   {
@@ -1291,7 +1312,8 @@
       }
     ],
     "effects": [],
-    "text": "Trolls. Three strikes."
+    "text": "Trolls. Three strikes.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "hazard-creature",
@@ -1408,7 +1430,12 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ],
     "text": "Unique.Nazgûl (8th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Dagorlad, Ithilien, Gorgoroth, and Horse Plains; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Ren the Unclean becomes a short-event: each character in play must make a corruption check.If you tap Ren the Unclean, then you cannot play resources to aid your character’s corruption checks. Your characters may tap in support. The moving player makes corruption checks first. Each player decides the order of the corruption checks for their characters."
   },
   {
@@ -1560,10 +1587,39 @@
         "siteTypes": [
           "dark-hold"
         ]
+      },
+      {
+        "regionNames": [
+          "Harondor",
+          "Horse Plains",
+          "Gorgoroth",
+          "Khand"
+        ]
       }
     ],
-    "effects": [],
-    "text": "Unique.Nazgûl (9th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Ûvatha the Horseman becomes a short-event and you may bring one hazard creature from your discard pile to your hand."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event"
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "discard",
+        "to": "hand",
+        "filter": {
+          "cardType": "hazard-creature"
+        },
+        "count": 1,
+        "shuffleAfter": false
+      }
+    ],
+    "text": "Unique.Nazgûl (9th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Horse Plains, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Ûvatha the Horseman becomes a short-event and you may bring one hazard creature from your discard pile to your hand.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-creature",
@@ -1586,8 +1642,31 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Unique.Man. May be played as a hazard creature (with one strike) or as a short-event.If played as a short-event, bring any hazard card from your discard pile back into your hand."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "short-event"
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "discard",
+        "to": "hand",
+        "filter": {
+          "cardType": {
+            "$in": ["hazard-creature", "hazard-event", "hazard-corruption"]
+          }
+        },
+        "count": 1,
+        "shuffleAfter": false
+      }
+    ],
+    "text": "Unique.Man. May be played as a hazard creature (with one strike) or as a short-event.If played as a short-event, bring any hazard card from your discard pile back into your hand.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hazard-creature",
@@ -1601,7 +1680,12 @@
     "killMarshallingPoints": 6,
     "race": "spiders",
     "keyedTo": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ],
     "text": "Unique.Spider. Spawn. May be played as a hazard creature (with one strike) or as a permanent-event. As a creature, may be played at any site in Imlad Morgul or Gorgoroth.If Doors of Night is in play, Shelob may be played as a permanent-event that gives +1 prowess and +1 strikes to all Spider and Animal attacks. She may opt to attack from a permanent-event state and receive these bonuses, but her attack counts as one against the hazard limit. Discard when Shelob attacks or if Doors of Night is not in play."
   }
 ]

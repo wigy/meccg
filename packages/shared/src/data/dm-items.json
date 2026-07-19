@@ -52,8 +52,41 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Playable at any Under-deeps site. +2 to all rolls required for bearer’s company to move to an adjacent site in the Under-deeps. Tap Dwarven Light-stone: to modify by -2 the prowess of one Orc or Troll attack or to modify by -2 the prowess of one attack for which “weapons do not modify the target’s prowess” (e. g., Trap, Lava Flow, etc.)."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.keywords": {
+            "$includes": "under-deeps"
+          }
+        }
+      },
+      {
+        "type": "under-deeps-roll-modifier",
+        "value": 2
+      },
+      {
+        "type": "modify-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "prowessModifier": -2,
+        "when": {
+          "$or": [
+            {
+              "enemy.race": {
+                "$in": ["orc", "orcs", "troll", "trolls"]
+              }
+            },
+            {
+              "attack.weaponsIneffective": true
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Playable at any Under-deeps site. +2 to all rolls required for bearer’s company to move to an adjacent site in the Under-deeps. Tap Dwarven Light-stone: to modify by -2 the prowess of one Orc or Troll attack or to modify by -2 the prowess of one attack for which “weapons do not modify the target’s prowess” (e. g., Trap, Lava Flow, etc.).",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "hero-resource-item",

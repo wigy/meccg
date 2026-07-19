@@ -140,6 +140,26 @@ export interface CardInPlay {
    */
   readonly attachedToSite?: CardDefinitionId;
   /**
+   * If this permanent event is attached to one of its controller's *face-down
+   * agents* (Inner Cunning dm-68), the agent's virtual-company id
+   * ({@link AgentInPlay.id}). The event lives in the controller's `cardsInPlay`
+   * while so attached; it broadens the agent's legal reveal sites (see the
+   * `agent-reveal-site-override` effect) and is discarded once the agent is no
+   * longer a face-down agent (revealed or gone) via the orphaned-agent-attached
+   * event sweep.
+   */
+  readonly attachedToAgentId?: import('./common.js').CompanyId;
+  /**
+   * If this permanent event is attached to a specific *item* in play rather
+   * than to its bearer directly — the item's {@link CardInstanceId}. The card
+   * lives in its controller's `cardsInPlay` while so attached; its
+   * `stat-modifier` effects flow to the character bearing the item (collected
+   * in `collectCharacterEffects`), and it is discarded when the host item
+   * leaves play (the orphaned-item-attached-event sweep). Used by Barrow-blade
+   * (dm-119): "play this with the Dagger [of Westernesse]".
+   */
+  readonly attachedToItem?: CardInstanceId;
+  /**
    * Instance ID of the card this is linked to via Crown of Flowers pairing
    * (mutual discard). When either linked card is discarded from cardsInPlay,
    * the other is discarded as well.
@@ -199,6 +219,27 @@ export interface CardInPlay {
    * `leader-control` effect.
    */
   readonly controlledBy?: CardInstanceId;
+  /**
+   * Marshalling-point pin: this card is worth exactly this many marshalling
+   * points, overriding its printed value, the MEWH §4 clamp, and every MP
+   * modifier ("regardless of other cards in play"). Recorded per instance
+   * because it depends on *when* the card was played, not on its definition.
+   * Set on a faction influenced into play while Await the Onset (wh-96) is in
+   * play — the card's "place these factions under Await the Onset" clause, which
+   * pins each such faction to 1 MP.
+   */
+  readonly mpPinned?: number;
+  /**
+   * Set on a `trigger-attack-on-play` permanent event (e.g. Descent through
+   * Fire ba-56) while its self-inflicted attacks are still resolving. Such a
+   * card enters `cardsInPlay` *before* the attacks it triggers, but its own
+   * ongoing effects (e.g. "+1 prowess to all your characters") must not apply
+   * until the card is actually kept in the marshalling-point pile after the
+   * attacks. While this flag is set, {@link collectGlobalEffects} ignores the
+   * card's effects; it is cleared when the bearer is selected
+   * (`move-to-mp-pile` keep) and the card is gone if instead discarded.
+   */
+  readonly pendingTriggerAttack?: boolean;
 }
 
 /**
@@ -347,6 +388,48 @@ export interface Company {
    * movement distance for this company. Defaults to 0 when undefined.
    */
   readonly extraRegionDistance?: number | undefined;
+  /**
+   * Set when A More Evil Hour (ba-48) was discarded during the organization
+   * phase to target this company. While set, the company may move up to two
+   * additional regions (region movement) whenever it moves **to** — or away
+   * **from** — a site where an opponent's company is present. Unlike
+   * {@link extraRegionDistance}, this is a persistent grant that is *not* reset
+   * at turn boundaries (the effect is an ongoing ability of the company, per the
+   * card's "thereafter, when leaving this site"). Defaults to false when absent.
+   */
+  readonly evilHourMovementBonus?: boolean | undefined;
+  /**
+   * Set on a company created by Left Behind (td-41): a character was peeled off
+   * "following the attack" into this separate company that has the same site
+   * path as the company he was in. While set, this company's hazard-limit
+   * snapshot is forced to 1 for its own (separate) movement/hazard phase, and
+   * after all movement/hazard phases the character may rejoin his original
+   * company (identified by {@link leftBehindOriginCompanyId}). Cleared once the
+   * rejoin is resolved (or declined).
+   */
+  readonly leftBehind?: boolean | undefined;
+  /**
+   * For a {@link leftBehind} company, the id of the company the character was
+   * peeled off from — the "original company" he may rejoin after all M/H phases.
+   */
+  readonly leftBehindOriginCompanyId?: CompanyId | undefined;
+  /**
+   * Set when Left Behind (td-41) targeted a character who was **alone** in his
+   * company: there is no other company to peel him into, so his own company is
+   * flagged to run one more (separate) movement/hazard phase this turn with a
+   * hazard limit of one. Consumed by `advanceAfterCompanyMH`, which re-runs the
+   * company's M/H sub-phase once and clears the flag.
+   */
+  readonly leftBehindExtraPhasePending?: boolean | undefined;
+  /**
+   * Set when a `grant-extra-mh-phase` resource event (e.g. Forced March le-185,
+   * Bridge tw-202, Leg It Double Quick le-202) resolves on this company during
+   * its movement/hazard phase. After the company completes its current M/H phase
+   * (its move to the qualifying site is committed), `advanceAfterCompanyMH`
+   * consumes the flag and offers the company another movement to an additional
+   * site — a fresh movement/hazard phase — via the `extra-mh-move-offer` step.
+   */
+  readonly extraMHPhasePending?: boolean | undefined;
 }
 
 

@@ -29,6 +29,7 @@ import type { MovementHazardPhaseState } from '../types/state-phases.js';
 import type { TriggerAttackOnPlayEffect } from '../types/effects.js';
 import { shuffle } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
+import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { isSiteCard, isCharacterCard, isHalfOrc } from '../types/cards.js';
 import { CardStatus, Alignment, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -36,12 +37,13 @@ import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
-import { makeCombatState, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { makeCombatState, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, nextCompanyId, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired, removeConstraint } from './pending.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
+import { advanceGreatHuntReveal } from './great-hunt.js';
 
 export function discardCardTriggeredCard(
   state: GameState,
@@ -68,6 +70,79 @@ export function discardCardTriggeredCard(
       };
       return { ...state, players: newPlayers };
     }
+  }
+  return state;
+}
+
+/**
+ * My Precious (dm-29) `agent-attack-outcome` post-effects, applied when his
+ * agent attack finalizes:
+ *   - Successful attack (a defender wounded/eliminated) against a company that
+ *     holds a ring (a `gold-ring` item): discard My Precious and enqueue a
+ *     `force-discard-card` so the attacker chooses one ring to discard.
+ *   - Failed attack (no wound), agent survives: enqueue an
+ *     `agent-play-manifestation-offer` so the defender may tap a character to
+ *     play Gollum from hand (discarding My Precious), or pass.
+ */
+function applyAgentAttackOutcome(state: GameState, combat: CombatState): GameState {
+  if (combat.attackSource.type !== 'agent') return state;
+  const agentInstId = combat.attackSource.instanceId;
+  const hazardIdx = getPlayerIndex(state, combat.attackingPlayerId);
+  const agent = state.players[hazardIdx].agents.find(a => a.character.instanceId === agentInstId);
+  if (!agent) return state;
+  const agentDef = defById(state, agent.character.definitionId);
+  const outcome = getCardEffects(agentDef).find(e => e.type === 'agent-attack-outcome');
+  if (!outcome) return state;
+
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defIdx];
+  const company = companyById(defPlayer.companies, combat.companyId);
+  if (!company) return state;
+
+  const attackSucceeded = combat.strikeAssignments.some(a => a.result === 'wounded' || a.result === 'eliminated');
+
+  if (attackSucceeded && outcome.onSuccessVsRing) {
+    const ringIds: CardInstanceId[] = [];
+    for (const charId of company.characters) {
+      const ch = defPlayer.characters[charId];
+      if (!ch) continue;
+      for (const item of ch.items) {
+        const itemDef = defById(state, item.definitionId);
+        if (itemDef && (itemDef as { subtype?: string }).subtype === 'gold-ring') ringIds.push(item.instanceId);
+      }
+    }
+    if (ringIds.length === 0) return state;
+    logDetail(`My Precious: successful attack vs a company with a ring → discarded; attacker chooses a ring to discard`);
+    let next = updatePlayer(state, hazardIdx, p => ({
+      ...p,
+      agents: p.agents.filter(a => a.character.instanceId !== agentInstId),
+      discardPile: [...p.discardPile, toCardInstance(agent.character)],
+      siteDeck: [...p.siteDeck, ...agent.siteStack],
+    }));
+    next = enqueueResolution(next, {
+      source: null,
+      actor: combat.attackingPlayerId,
+      scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+      kind: { type: 'force-discard-card', candidateInstanceIds: ringIds, sourceDefinitionId: agent.character.definitionId },
+    });
+    return next;
+  }
+
+  if (!attackSucceeded && outcome.onFailSurvive) {
+    const manifestName = outcome.manifestationCardName ?? '';
+    const hasManifestation = defPlayer.hand.some(c => {
+      const d = defById(state, c.definitionId);
+      return d !== undefined && (d as { name?: string }).name === manifestName;
+    });
+    const hasUntappedChar = company.characters.some(cid => defPlayer.characters[cid]?.status === CardStatus.Untapped);
+    if (!hasManifestation || !hasUntappedChar) return state;
+    logDetail(`My Precious: failed attack, survives → defender may play ${manifestName} to discard him`);
+    return enqueueResolution(state, {
+      source: null,
+      actor: combat.defendingPlayerId,
+      scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+      kind: { type: 'agent-play-manifestation-offer', companyId: combat.companyId, agentId: agent.id, manifestationCardName: manifestName },
+    });
   }
   return state;
 }
@@ -160,9 +235,12 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         discardPile: [...newPlayers[atkIdx].discardPile, creatureCard],
       };
       logDetail(`Played-auto-attack creature discarded (no kill-MP awarded — treated as site's automatic-attack)`);
-    } else if (allDefeated && creatureCard && combat.detainment) {
+    } else if (allDefeated && creatureCard && combat.detainment && !playerHasKillMpExemption(state, state.players[defIdx])) {
       // CoE rule 3.II.3 — defeated detainment creature is discarded instead
       // of going to the attacked player's MP pile (0 kill-MP awarded).
+      // Exception: a player with a `fw-kill-mp-full` carrier (Alatar wh-1)
+      // gains full kill MP "even with *" (detainment), so his defeated
+      // detainment creatures are routed to the kill pile like normal kills.
       newPlayers[atkIdx] = {
         ...newPlayers[atkIdx],
         discardPile: [...newPlayers[atkIdx].discardPile, creatureCard],
@@ -295,6 +373,16 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         stateAfterCombat = discardWoundedCharacters(stateAfterCombat, combat, woundedCharIds, sourceName, woundEvent.when);
       }
     }
+  }
+
+  // My Precious (dm-29): agent-attack-outcome post-effects — success vs a ring
+  // discards him + a ring; a failed-but-survived attack offers the defender the
+  // Gollum play. Runs for agent attacks in either the Site or M/H phase.
+  if (
+    combat.attackSource.type === 'agent' &&
+    (state.phaseState.phase === Phase.Site || state.phaseState.phase === Phase.MovementHazard)
+  ) {
+    stateAfterCombat = applyAgentAttackOutcome(stateAfterCombat, combat);
   }
 
   // Check for on-event: company-member-wounded effects on characters' attached
@@ -532,7 +620,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     const { siteInstanceId, attackIndex } = combat.attackSource;
     const siteDef = resolveDef(state, siteInstanceId);
     if (siteDef && isSiteCard(siteDef)) {
-      const autoAttacks = getActiveAutoAttacks(state, siteDef);
+      const autoAttacks = getActiveAutoAttacks(state, siteDef, siteInstanceId);
       const aa = autoAttacks[attackIndex];
       const sourceInstId = aa?.sourceInstanceId;
       if (sourceInstId) {
@@ -570,7 +658,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     const { siteInstanceId: dauSiteInstId, attackIndex: dauAttackIdx } = combat.attackSource;
     const dauSiteDef = resolveDef(state, dauSiteInstId);
     if (dauSiteDef && isSiteCard(dauSiteDef)) {
-      const dauAttacks = getActiveAutoAttacks(state, dauSiteDef);
+      const dauAttacks = getActiveAutoAttacks(state, dauSiteDef, dauSiteInstId);
       const dauAa = dauAttacks[dauAttackIdx];
       const dauSourceInstId = dauAa?.sourceInstanceId;
       if (dauSourceInstId) {
@@ -598,6 +686,22 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   }
 
   stateAfterCombat = recordHazardEncountered(stateAfterCombat, state, combat);
+
+  // Record ahunt-attack outcomes for ahunt group rewards (e.g. Mordor in Arms
+  // dm-72): each ahunt attack resolved during a company's order-effects step
+  // appends its defeated/not-defeated result, consumed by handleOrderEffects.
+  if (state.phaseState.phase === Phase.MovementHazard && combat.attackSource.type === 'ahunt') {
+    const mhStateAO = stateAfterCombat.phaseState as MovementHazardPhaseState;
+    const priorOutcomes = mhStateAO.ahuntGroupOutcomes ?? [];
+    logDetail(`Ahunt outcome recorded: ${combat.attackSource.longEventInstanceId as string} defeated=${allDefeated}`);
+    stateAfterCombat = {
+      ...stateAfterCombat,
+      phaseState: {
+        ...mhStateAO,
+        ahuntGroupOutcomes: [...priorOutcomes, { instanceId: combat.attackSource.longEventInstanceId, defeated: allDefeated }],
+      },
+    };
+  }
 
   // Apply post-attack effects scheduled by accepted haven-join offers
   // (e.g. Alatar's "following the attack, tap + corruption check").
@@ -682,6 +786,8 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           : null;
         const afterAttack = triggerEffect?.afterAttack ?? 'attach-with-constraint';
         const discardFactionsAtSite = triggerEffect?.discardFactionsAtSite ?? false;
+        const returnFactionsAtSite = triggerEffect?.returnFactionsAtSite ?? false;
+        const discardUniqueFactionsAtSite = triggerEffect?.discardUniqueFactionsAtSite ?? false;
         logDetail(
           `Card-auto-attack: untapped characters remain — queuing select-card-bearer for "${cardLabel}" ` +
           `(company ${combat.companyId as string}, mode: ${afterAttack})`,
@@ -696,6 +802,8 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
             companyId: combat.companyId,
             ...(afterAttack !== 'attach-with-constraint' ? { mode: afterAttack } : {}),
             ...(discardFactionsAtSite ? { discardFactionsAtSite: true } : {}),
+            ...(returnFactionsAtSite ? { returnFactionsAtSite: true } : {}),
+            ...(discardUniqueFactionsAtSite ? { discardUniqueFactionsAtSite: true } : {}),
           },
         });
       }
@@ -754,6 +862,14 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     stateAfterCombat = { ...updatePlayer(stateAfterCombat, defIdx, p => ({ ...p, playDeck: reshuffled })), rng: newRng };
   }
 
+  // The Great Hunt (wh-91): after a reveal-sequence attack finalizes, advance
+  // the reveal queue — initiate the next queued creature's attack or complete
+  // the process (reshuffling the opponent play deck). The creature that just
+  // attacked was never moved out of its pile, so nothing is disposed here.
+  if (combat.attackSource.type === 'great-hunt-attack' && combat.attackSource.continuation === 'reveal') {
+    stateAfterCombat = advanceGreatHuntReveal(stateAfterCombat, combat.attackSource.greatHuntInstanceId);
+  }
+
   // Clear attack-scoped constraints (e.g. company-combat-boost stat modifiers
   // from short events like "The Dwarves Are upon You!").
   stateAfterCombat = sweepExpired(stateAfterCombat, { kind: 'attack-end' });
@@ -802,6 +918,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           attackRace: race as import('../index.js').Race | null,
           defendingAlignment: activeIdx2 >= 0 ? stateAfterCombat.players[activeIdx2].alignment : Alignment.Wizard,
           defendingSiteEffects: siteDef2?.effects,
+          defenderForcesNormalAttacks: activeIdx2 >= 0 && playerConvertsDetainmentToNormal(stateAfterCombat, stateAfterCombat.players[activeIdx2]),
         }),
         ...(aaAttackerChooses2 ? { attackerChoosesDefenders: true } : {}),
       });
@@ -947,9 +1064,90 @@ function applyPostAttackEffects(
       });
       logDetail(`Post-attack: corruption check queued on ${effect.targetCharacterId as string} (mod ${modifier})`);
     }
+    // Left Behind (td-41): peel the character off into a separate company.
+    if (effect.leftBehindSplit) {
+      s = applyLeftBehindSplit(s, defIdx, effect.targetCharacterId, combat.companyId);
+    }
   }
 
   return s;
+}
+
+/**
+ * Left Behind (td-41) split. Peel `characterId` off the company under attack
+ * (`originCompanyId`) into a new `leftBehind` company that has the **same site
+ * path** (currentSite / destinationSite / movementPath) as the company he was
+ * in. That company is created *unhandled* so the movement/hazard loop naturally
+ * gives it its own (separate) movement/hazard phase; its `leftBehind` flag
+ * forces that phase's hazard-limit snapshot to one, and after all M/H phases a
+ * `left-behind-rejoin` resolution offers the merge back into the original
+ * company.
+ *
+ * If the character was **alone** in his company there is no other company to
+ * peel him into, so his own company is flagged `leftBehindExtraPhasePending` to
+ * run one more (limit-one) M/H phase this turn instead.
+ */
+function applyLeftBehindSplit(
+  state: GameState,
+  playerIndex: number,
+  characterId: CardInstanceId,
+  originCompanyId: import('../types/common.js').CompanyId,
+): GameState {
+  const newPlayers = clonePlayers(state);
+  const player = newPlayers[playerIndex];
+
+  const sourceIndex = player.companies.findIndex(c => c.id === originCompanyId);
+  if (sourceIndex < 0) {
+    logDetail(`Left Behind: origin company ${originCompanyId as string} not found — split skipped`);
+    return state;
+  }
+  const source = player.companies[sourceIndex];
+  if (!source.characters.includes(characterId)) {
+    logDetail(`Left Behind: ${characterId as string} not in origin company — split skipped`);
+    return state;
+  }
+
+  const updatedCompanies = [...player.companies];
+
+  if (source.characters.length <= 1) {
+    // Lone character — flag his company for one extra (separate) M/H phase.
+    logDetail(`Left Behind: ${characterId as string} is alone — his company gets a separate M/H phase (limit 1)`);
+    updatedCompanies[sourceIndex] = {
+      ...source,
+      leftBehind: true,
+      leftBehindOriginCompanyId: source.id,
+      leftBehindExtraPhasePending: true,
+    };
+    newPlayers[playerIndex] = { ...player, companies: updatedCompanies };
+    return { ...state, players: newPlayers };
+  }
+
+  // Remove the character from his original company.
+  updatedCompanies[sourceIndex] = {
+    ...source,
+    characters: source.characters.filter(id => id !== characterId),
+  };
+
+  // Create the separate "left behind" company sharing the same site path.
+  const newCompany = {
+    id: nextCompanyId(player),
+    characters: [characterId],
+    currentSite: source.currentSite,
+    siteCardOwned: false,
+    destinationSite: source.destinationSite,
+    movementPath: source.movementPath,
+    moved: false,
+    siteOfOrigin: null,
+    onGuardCards: [],
+    hazards: [],
+    leftBehind: true,
+    leftBehindOriginCompanyId: source.id,
+  };
+  updatedCompanies.push(newCompany);
+  logDetail(`Left Behind: ${characterId as string} splits off into ${newCompany.id as string} (same site path as ${source.id as string})`);
+
+  newPlayers[playerIndex] = { ...player, companies: updatedCompanies };
+  return cleanupEmptyCompanies({ ...state, players: newPlayers });
 }
 
 /**
@@ -1085,6 +1283,14 @@ function discardWoundedCharacters(
       continue;
     }
 
+    // Press-gang (ba-22): a wounded character discarded by an effect is instead
+    // held off to the side by the opponent's Press-gang.
+    const pressHost = findCapturingPressGang(stateOut, defIdx);
+    if (pressHost) {
+      stateOut = capturePressGang(stateOut, defIdx, charId, pressHost);
+      continue;
+    }
+
     logDetail(`${sourceName}: discarding wounded character ${charId as string} to discard pile`);
     const cloned = clonePlayers(stateOut);
     const newPlayerData = { ...cloned[defIdx] };
@@ -1097,9 +1303,11 @@ function discardWoundedCharacters(
       ...newPlayerData.discardPile,
       { instanceId: charId, definitionId: charDefId! },
     ];
-    for (const ally of charData.allies) {
-      logDetail(`${sourceName}: discarding ally ${ally.instanceId as string} from discarded character`);
-      newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(ally)];
+    {
+      const { toHand, toDiscard } = partitionLeavingAllies(stateOut, charData.allies);
+      if (toHand.length > 0) logDetail(`${sourceName}: ${toHand.length} ally(ies) return to hand from discarded character`);
+      newPlayerData.hand = [...newPlayerData.hand, ...toHand];
+      newPlayerData.discardPile = [...newPlayerData.discardPile, ...toDiscard];
     }
     for (const item of charData.items) {
       logDetail(`${sourceName}: discarding item ${item.instanceId as string} from discarded character`);
@@ -1110,11 +1318,13 @@ function discardWoundedCharacters(
       cloned[1 - defIdx] = { ...cloned[1 - defIdx], discardPile: [...cloned[1 - defIdx].discardPile, toCardInstance(hazard)] };
     }
     const { [charId]: _removed, ...remainingChars } = newPlayerData.characters;
-    // Revert followers to general influence
+    // Revert followers to general influence with the mind subtraction
+    // deferred to the player's next organization phase (CoE rule 3.13 —
+    // combat never happens during the controller's organization phase).
     const updatedChars = { ...remainingChars };
     for (const followerId of charData.followers) {
       const follower = updatedChars[followerId];
-      if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general' };
+      if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true };
     }
     newPlayerData.characters = updatedChars;
 

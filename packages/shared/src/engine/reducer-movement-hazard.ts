@@ -13,7 +13,7 @@ import { resolveHandSize } from './effects/index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findById, removeById, updatePlayer, wrongActionType } from './reducer-utils.js';
-import { handlePlayHazards, advanceAfterCompanyMH } from './mh-hazard-play.js';
+import { handlePlayHazards, advanceAfterCompanyMH, handleGangwaysOffer, handleExtraMHMoveOffer } from './mh-hazard-play.js';
 import { enterSetHazardLimitAndAutoAdvance, handleSelectCompany, handleRevealNewSite, handleUnderDeepsRoll, handleOrderEffects, handleDrawCards } from './mh-steps.js';
 
 
@@ -40,6 +40,8 @@ const MH_STEP_HANDLERS: Readonly<Record<MovementHazardPhaseState['step'], MHHand
   'draw-cards': handleDrawCards,
   'play-hazards': handlePlayHazards,
   'reset-hand': handleResetHand,
+  'gangways-offer': handleGangwaysOffer,
+  'extra-mh-move-offer': handleExtraMHMoveOffer,
 };
 
 export function handleMovementHazard(state: GameState, action: GameAction): ReducerResult {

@@ -354,8 +354,11 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "men",
-    "keyedTo": [],
+    "keyedTo": [
+      { "regionNames": ["Enedhwaith", "Cardolan", "Hollin", "Rhudaur", "Dunland"] }
+    ],
     "effects": [],
+    "certified": "2026-07-15",
     "text": "Men. Five strikes. Playable keyed to Enedhwaith, Cardolan, Hollin, Rhudaur, and Dunland; and may also be played at Ruins & Lairs [{R}] in these regions."
   },
   {
@@ -414,8 +417,20 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "drake",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Elven Shores",
+          "Forochel",
+          "Angmar",
+          "Gundabad",
+          "Grey Mountain Narrows",
+          "Withered Heath"
+        ]
+      }
+    ],
     "effects": [],
+    "certified": "2026-07-15",
     "text": "Drake. Two strikes. May be played keyed to Elven Shores, Forochel, Angmar, Gundabad, Grey Mountain Narrows, and Withered Heath."
   },
   {
@@ -663,7 +678,12 @@
     "killMarshallingPoints": 1,
     "race": "orcs",
     "keyedTo": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ],
     "text": "Orcs. May be played following any Orc attack not keyed to a site. Three strikes.If played as a short-event, modify the prowess and strikes of a Wolf attack by +1."
   },
   {
@@ -678,7 +698,12 @@
     "killMarshallingPoints": 1,
     "race": "orcs",
     "keyedTo": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-as-event"
+      }
+    ],
     "text": "Orcs. May be played following any Orc attack not keyed to a site. Three strikes.If played as a short-event, modify the prowess and strikes of a Wolf attack by +1."
   }
 ]

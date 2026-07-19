@@ -111,8 +111,8 @@ export interface OpponentInfluenceAttempt {
   readonly influencerId: CardInstanceId;
   /** The opponent's targeted card instance ID. */
   readonly targetInstanceId: CardInstanceId;
-  /** Whether the target is a character, ally, or faction. */
-  readonly targetKind: 'character' | 'ally' | 'faction';
+  /** Whether the target is a character, ally, faction, or item. */
+  readonly targetKind: 'character' | 'ally' | 'faction' | 'item';
   /** The target's player ID. */
   readonly targetPlayer: PlayerId;
   /** The attacker's 2d6 roll result. */
@@ -132,6 +132,20 @@ export interface OpponentInfluenceAttempt {
    * modifiers — i.e. added as a negative term on the attacker side.
    */
   readonly crossAlignmentPenalty: number;
+  /**
+   * Region-distance penalty subtracted from the attacker's roll, used by
+   * Prophet of Doom (wh-106): the inclusive number of regions between the
+   * influencer's site and the target's site. 0 (or absent) for a normal
+   * same-site attempt.
+   */
+  readonly regionPenalty?: number;
+  /**
+   * Sum of one-shot influence `check-modifier` constraint values that matched
+   * this opponent-influence attempt (e.g. Mine or No One's ba-68: +10 against
+   * an item/ally/Orc-or-Troll faction), added to the attacker's side of the
+   * final comparison. 0 (or absent) when no booster was in effect.
+   */
+  readonly boostModifier?: number;
   /**
    * The card instance revealed from hand for a comparison value of 0.
    * Null if no card was revealed.
@@ -186,9 +200,12 @@ export interface PendingResolution {
         /**
          * Custom failure consequence. When `'discard-ring-only'`, a failed
          * check discards only the bearer's Ring item instead of the character
-         * (e.g. The Ring's Betrayal). Absent for standard checks.
+         * (e.g. The Ring's Betrayal). When `'discard-instead-of-eliminate'`,
+         * an outcome that would eliminate the character is downgraded to a
+         * discard of the character + his non-follower possessions (e.g. The
+         * Roving Eye le-135). Absent for standard checks.
          */
-        readonly failureMode?: 'discard-ring-only';
+        readonly failureMode?: 'discard-ring-only' | 'discard-instead-of-eliminate';
         /**
          * Follow-up effect run when the check *passes* (CoE 10.39 hook).
          * Used by Cracks of Doom (tw-205): a successful −4 corruption check
@@ -197,6 +214,14 @@ export interface PendingResolution {
          * standard checks.
          */
         readonly onSuccess?: TriggeredAction;
+        /**
+         * When set, and this check *eliminates* a **hero** character, the named
+         * player is credited the hero's marshalling points as kill MP (folded
+         * into `player.bonusKillMarshallingPoints`). Used by A Malady Without
+         * Healing (le-159): "If target character is a hero and is eliminated by
+         * these checks, you receive his kill marshalling points."
+         */
+        readonly awardKillMpTo?: PlayerId;
       }
     | {
         readonly type: 'order-effects';
@@ -242,6 +267,12 @@ export interface PendingResolution {
          * site untapped. Threaded from the chain entry's payload.
          */
         readonly placeUnderLeaderControl?: boolean;
+        /**
+         * Positive influence-check modifier from a Dragons "Roused" faction's
+         * paid `influence-modification` (Smaug Roused le-285). Threaded from
+         * the chain entry's payload; added by the roll resolver.
+         */
+        readonly bonusModifier?: number;
       }
     | {
         /**
@@ -419,6 +450,22 @@ export interface PendingResolution {
          * company's current site.
          */
         readonly discardFactionsAtSite?: boolean;
+        /**
+         * When true, after bearer selection (move-to-mp-pile keep) return
+         * every unique faction in play — belonging to either player — that is
+         * playable at the company's current site to its owner's hand
+         * (Tempest of Fire ba-77).
+         */
+        readonly returnFactionsAtSite?: boolean;
+        /**
+         * When true, after bearer selection (move-to-mp-pile keep) discard
+         * every unique faction in play — belonging to either player — that is
+         * playable at the company's current site (Invade Their Domain ba-64,
+         * Lord and Usurper ba-65). Distinct from `discardFactionsAtSite`
+         * (active player, all factions) and `returnFactionsAtSite` (returns to
+         * hand rather than discarding).
+         */
+        readonly discardUniqueFactionsAtSite?: boolean;
       }
     | {
         /**
@@ -430,6 +477,43 @@ export interface PendingResolution {
         readonly type: 'discard-one-company-item';
         /** The company whose items are candidates for discard. */
         readonly companyId: CompanyId;
+      }
+    | {
+        /**
+         * The card-player's opponent must discard one or more cards of their
+         * choice. Two flavours:
+         *
+         * - **Fixed-candidate** (Rolled down to the Sea wh-29): the actor picks
+         *   from {@link candidateInstanceIds} — rings gathered from their hand
+         *   and/or held by their in-play characters. `remaining` defaults to 1.
+         * - **Any-from-hand** (Khamûl the Easterling tw-47): `anyFromHand` is
+         *   set, so every card in the actor's current hand is a candidate, and
+         *   `remaining` (≥1) cards must be discarded one at a time. The
+         *   candidate set is recomputed from the shrinking hand after each pick;
+         *   the resolution clears early if the hand empties first.
+         *
+         * Resolved by repeated `force-discard-card` actions.
+         */
+        readonly type: 'force-discard-card';
+        /**
+         * Card instances the actor may choose to discard (fixed-candidate mode).
+         * Ignored when {@link anyFromHand} is set.
+         */
+        readonly candidateInstanceIds: readonly CardInstanceId[];
+        /** Definition ID of the source hazard event (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+        /**
+         * When set, any card in the actor's current hand is a valid discard
+         * choice (the candidate list is recomputed each step). Used for
+         * count-based discards (Khamûl the Easterling).
+         */
+        readonly anyFromHand?: boolean;
+        /**
+         * How many more cards must still be discarded. Absent = 1. Decremented
+         * after each pick; the resolution clears when it reaches 0 (or, in
+         * any-from-hand mode, when the hand empties).
+         */
+        readonly remaining?: number;
       }
     | {
         /**
@@ -480,6 +564,38 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Left Behind (td-41): following all movement/hazard phases, the
+         * character(s) who were peeled off into a separate `leftBehind`
+         * company may rejoin their original company. Offered only when the
+         * original company still exists and occupies the same site as the
+         * left-behind company. The player may merge the two (`left-behind-rejoin`)
+         * or decline (`pass`, the left-behind company stays separate). Enqueued
+         * at the M/H→Site transition (`finalizeCompanyMH`).
+         */
+        readonly type: 'left-behind-rejoin';
+        /** The separate "left behind" company that may rejoin. */
+        readonly companyId: CompanyId;
+        /** The original company it was peeled off from. */
+        readonly originCompanyId: CompanyId;
+      }
+    | {
+        /**
+         * My Precious (dm-29): after My Precious attacks and fails but survives,
+         * the defender may tap one character in the target company to play the
+         * agent's other manifestation (Gollum) from hand, after which My Precious
+         * is discarded — or pass (My Precious stays in play). Resolved by a
+         * `play-agent-manifestation` action.
+         */
+        readonly type: 'agent-play-manifestation-offer';
+        /** The company whose characters may be tapped to play the manifestation. */
+        readonly companyId: CompanyId;
+        /** The attacking agent's id (discarded when the manifestation is played). */
+        readonly agentId: CompanyId;
+        /** Card name of the manifestation the defender may play from hand (Gollum). */
+        readonly manifestationCardName: string;
+      }
+    | {
+        /**
          * Stay Her Appetite (le-140): a hazard short-event has targeted an ally.
          * The hazard player rolls 2d6. If roll + ally.mind > opponent.unusedGI +
          * bearerCharacter.unusedDI + 5, a detainment attack (1 strike, prowess =
@@ -505,6 +621,166 @@ export interface PendingResolution {
         readonly companyId: CompanyId;
         /** Definition ID of le-140 (for logging). */
         readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Pilfer Anything Unwatched (as-33): a character has just been returned
+         * to its owner's hand and its items discarded. The card lets the owner
+         * transfer **one** of those items to another character remaining in the
+         * same company ("one item may be transferred to another character in the
+         * same company"). The owner picks one `(item, mate)` pair via a
+         * `transfer-returned-item` action, or declines; on either outcome the
+         * remaining items stay in the discard pile.
+         */
+        readonly type: 'transfer-returned-item';
+        /** The returned character's items, now sitting in the owner's discard pile. */
+        readonly itemInstanceIds: readonly CardInstanceId[];
+        /** The company the returned character was in (source of eligible mates). */
+        readonly companyId: CompanyId;
+        /** Player index of the returned character's owner (who chooses). */
+        readonly ownerPlayerIndex: number;
+        /** Definition ID of the source hazard event (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Revealed to all Watchers (dm-85): the playing player has just refilled
+         * their hand and placed their set-aside (non-hazard) cards on top of the
+         * play deck. They now choose the order of those top cards ("in any order
+         * you choose"), picking one at a time from top to bottom. The cards are
+         * already physically on top of the deck (in a default order); resolving
+         * this resolution only permutes those top `count` cards to match the
+         * chosen sequence.
+         */
+        readonly type: 'arrange-deck-top';
+        /**
+         * How many cards on top of the play deck are being arranged (the number
+         * of set-aside cards). The resolution is complete once `orderedInstanceIds`
+         * reaches this length.
+         */
+        readonly count: number;
+        /**
+         * The player's chosen order so far, top-first. Each `arrange-deck-top-card`
+         * action appends the next-highest card; when the length reaches `count`,
+         * the top `count` cards are reordered to match and the resolution clears.
+         */
+        readonly orderedInstanceIds: readonly CardInstanceId[];
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Eyes of Mandos (dm-126): the playing player has revealed the top
+         * cards of their play deck (a `reveal-choose-shuffle` effect) and must
+         * now choose exactly one to put into their hand. The revealed cards are
+         * still physically on top of the play deck; a `choose-revealed-card`
+         * action moves the chosen one to hand and shuffles the remaining play
+         * deck. The choice is mandatory (no pass).
+         */
+        readonly type: 'reveal-choose-to-hand';
+        /**
+         * Instance ids of the revealed top-of-deck cards the player may choose
+         * from (top-first). Exactly one is taken into hand on resolution.
+         */
+        readonly revealedInstanceIds: readonly CardInstanceId[];
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Aware of their Ways (dm-46): the card-player has revealed a random
+         * subset of the opponent's discard pile (a `reveal-remove-from-discard`
+         * effect) and may now choose at most one **non-unique** revealed card to
+         * remove from the game. A `remove-revealed-card` action moves the chosen
+         * card from the opponent's discard pile to their out-of-play pile; a
+         * `pass` declines. The un-chosen revealed cards stay in the discard pile.
+         */
+        readonly type: 'reveal-remove-from-discard';
+        /**
+         * Instance ids of the non-unique revealed cards the card-player may
+         * choose to remove from play (at most one). Empty is never enqueued.
+         */
+        readonly removableInstanceIds: readonly CardInstanceId[];
+        /** The opponent whose discard pile the cards belong to. */
+        readonly opponentId: PlayerId;
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Desire All for Thy Belly (ba-16), step 1: the card-player has revealed
+         * the top cards of the opponent's play deck and must choose exactly one
+         * (`desire-choose-shown-card`) to show to the opponent. The choice is
+         * mandatory (no pass). On resolution a `desire-belly-choose-penalty`
+         * resolution is enqueued for the opponent.
+         */
+        readonly type: 'desire-belly-choose-card';
+        /**
+         * Instance ids of the revealed top-of-deck cards (top-first). They stay
+         * on top of the opponent's play deck while the choice is pending.
+         */
+        readonly revealedInstanceIds: readonly CardInstanceId[];
+        /** The player whose play deck was revealed (the opponent). */
+        readonly opponentId: PlayerId;
+        /** The card-player who played the event. */
+        readonly cardPlayerId: PlayerId;
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * Desire All for Thy Belly (ba-16), step 2: the card-player has shown a
+         * revealed card; the opponent must choose (`desire-choose-penalty`) to
+         * either remove that card from the game or permanently reduce his hand
+         * size by one. The choice is mandatory (no pass). On resolution the
+         * remaining revealed cards are shuffled back on top of the opponent's
+         * deck.
+         */
+        readonly type: 'desire-belly-choose-penalty';
+        /** The revealed card the card-player chose and showed to the opponent. */
+        readonly chosenInstanceId: CardInstanceId;
+        /** Instance ids of all revealed top-of-deck cards (top-first). */
+        readonly revealedInstanceIds: readonly CardInstanceId[];
+        /** The player whose play deck / hand size is affected (the opponent). */
+        readonly opponentId: PlayerId;
+        /** The card-player who played the event. */
+        readonly cardPlayerId: PlayerId;
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
+         * The Great Hunt (wh-91): after the card enters play, the controller
+         * chooses whether the opponent reveals from their play deck or their
+         * discard pile (`choose-great-hunt-source` action). The choice kicks off
+         * the reveal-and-attack sequence.
+         */
+        readonly type: 'great-hunt-source';
+        /** The Great Hunt card instance driving the process. */
+        readonly greatHuntInstanceId: CardInstanceId;
+        /** Max creatures that may attack in the reveal sequence. */
+        readonly maxCreatures: number;
+        /** The opponent whose pile is revealed. */
+        readonly opponentId: PlayerId;
+        /** The controller's Alatar company that is attacked. */
+        readonly companyId: CompanyId;
+      }
+    | {
+        /**
+         * The Great Hunt (wh-91) ongoing trigger: the opponent discarded a
+         * hazard-creature during the controller's turn. The controller may pass
+         * or choose `great-hunt-attack-with-creature` to have that creature
+         * attack their Alatar company (it stays in the discard pile).
+         */
+        readonly type: 'great-hunt-discard-attack';
+        /** The Great Hunt card instance driving the trigger. */
+        readonly greatHuntInstanceId: CardInstanceId;
+        /** The discarded creature instance (in the opponent's discard pile). */
+        readonly creatureInstanceId: CardInstanceId;
+        /** The opponent who owns the discarded creature (the attacker). */
+        readonly opponentId: PlayerId;
+        /** The controller's Alatar company that would be attacked. */
+        readonly companyId: CompanyId;
       };
 }
 
@@ -521,6 +797,17 @@ export type ConstraintScope =
   | { readonly kind: 'phase'; readonly phase: Phase }
   | { readonly kind: 'company-site-phase'; readonly companyId: CompanyId }
   | { readonly kind: 'company-mh-phase'; readonly companyId: CompanyId }
+  /**
+   * Cleared at the end of {@link playerId}'s **next** organization phase —
+   * "through your next organization phase" (Shifter of Hues wh-115).
+   *
+   * {@link afterTurn} records `state.turnNumber` at the moment the constraint
+   * was created. The organization-phase-end sweep only drops the constraint
+   * once it sees a strictly greater turn number, so the organization phase the
+   * constraint was *created in* does not immediately expire it, while the
+   * player's next one (necessarily a later turn) does.
+   */
+  | { readonly kind: 'next-organization-phase'; readonly playerId: PlayerId; readonly afterTurn: number }
   /** Cleared explicitly by another effect; never auto-swept. */
   | { readonly kind: 'until-cleared' };
 
@@ -594,6 +881,30 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Secret Passage (tw-325): while active, the opponent may only play
+         * hazard creatures that are keyed to the target company's destination
+         * site (by site-type or site-name). Creatures keyable only via region
+         * terrain in the path are dropped. Suppressed while The Way is Shut
+         * (dm-98) is in play (see `cancel-card-effects`).
+         */
+        readonly type: 'only-creatures-keyed-to-site';
+      }
+    | {
+        /**
+         * Down Down to Goblin-town (le-181): like `only-creatures-keyed-to-site`,
+         * but the restriction applies **only if** the target company moves to a
+         * Ruins & Lairs [{R}] site. While active and the company's destination is
+         * a Ruins & Lairs, the opponent may only play hazard creatures keyed to
+         * that site (by site-type or site-name); region-keyed creatures ("by type
+         * or name") are dropped. When the company moves anywhere else the
+         * constraint imposes nothing. Kept distinct from
+         * `only-creatures-keyed-to-site` because that (ungated) kind blocks
+         * region-keyed creatures at any destination (Secret Passage tw-325).
+         */
+        readonly type: 'only-creatures-keyed-to-site-at-ruins-lairs';
+      }
+    | {
+        /**
          * Hide in Dark Places (le-192): the company may not declare movement
          * (plan a new destination) for the rest of this turn. The card is
          * "playable on a scout whose company is not moving", and locks that
@@ -626,6 +937,30 @@ export interface ActiveConstraint {
          * by {@link value}). Used by Ancient Black Axe (as-122).
          */
         readonly autoPass?: boolean;
+        /**
+         * When true the modifier is **not** consumed by the check it modifies:
+         * it keeps applying to every matching check until its scope sweeps it
+         * away. The default (absent/false) is the one-shot behaviour every
+         * earlier card wanted — "add +2 to *one* corruption check".
+         *
+         * Shifter of Hues (wh-115) needs the lasting form: tapping Radagast
+         * gives "+2 to the corruption checks of the characters in one company
+         * through your next organization phase" — a standing buff over a whole
+         * company for a bounded window, not a single roll.
+         */
+        readonly lasting?: boolean;
+        /**
+         * Optional condition evaluated against the resolving check's resolver
+         * context. When present, the modifier is only applied (and consumed) if
+         * the condition matches — this lets a booster target one specific
+         * flavour of influence attempt. Mine or No One's (ba-68) uses
+         * `{ reason: "opponent-influence-check", ... }` so its +10 fires on an
+         * opponent-influence attempt against an item/ally/Orc-or-Troll faction
+         * and is *not* swallowed by an ordinary faction-influence roll. A
+         * check-modifier constraint with no `when` is consumed by the
+         * faction-influence roll only (legacy default).
+         */
+        readonly when?: import('./effects.js').Condition;
       }
     | {
         /**
@@ -651,6 +986,29 @@ export interface ActiveConstraint {
         readonly strikes: number;
         /** Prowess bonus applied to matching creature attacks. */
         readonly prowess: number;
+      }
+    | {
+        /**
+         * Arouse Defenders (le-101): a single-use boost applied to one of the
+         * target company's automatic-attacks at its site — the first attack the
+         * company faces consumes it, matching the "one automatic-attack (your
+         * choice)" modelling of Choking Shadows (tw-21). The constraint is
+         * scoped `company-site-phase` and targets the moving company; the site
+         * auto-attack initiation in `reducer-site.ts` adds {@link prowessBonus}
+         * to the attack's prowess and, when {@link uncancelable} is set, marks
+         * the combat as impossible to cancel, then removes the constraint.
+         *
+         * {@link siteDefinitionId} records the target site so the "cannot be
+         * duplicated on a given site" limit can count copies bound to it (same
+         * approach as Greed le-113).
+         */
+        readonly type: 'auto-attack-boost';
+        /** Prowess added to the boosted automatic-attack (le-101: +2). */
+        readonly prowessBonus: number;
+        /** When set, the boosted automatic-attack cannot be canceled. */
+        readonly uncancelable: boolean;
+        /** Target site definition (for the per-site duplication limit). */
+        readonly siteDefinitionId: CardDefinitionId;
       }
     | {
         /**
@@ -813,6 +1171,21 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Roam the Waste (ba-73): each of the constrained player's companies is
+         * "considered to have one fewer Wilderness / Shadow-land … in its site
+         * path" for the rest of the turn. Player-targeted and turn-scoped; read
+         * when a moving company's `resolvedSitePath` is built
+         * (`handleRevealNewSite`), removing up to {@link reductions}[type] tokens
+         * of each region type from the path (and the parallel name entry), so it
+         * flows to creature keying, ahunt matching, force-return-to-origin, and
+         * end-of-company-MH corruption region counts alike.
+         */
+        readonly type: 'site-path-reduction';
+        /** Region type → number of tokens to remove from each company's site path. */
+        readonly reductions: Partial<Record<import('./common.js').RegionType, number>>;
+      }
+    | {
+        /**
          * Promptings of Wisdom / Piercing All Shadows: cancels hazard
          * effects that force the company to return to its site of origin
          * or that tap the company's current or new site. Placed when the
@@ -867,6 +1240,23 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * FEAR! FIRE! FOES! (as-29) Mode A: one **additional** automatic-attack
+         * is created at a specific site instance for the rest of the turn.
+         * Installed (scope `'turn'`) when the hazard short-event resolves during
+         * M/H against a company moving to a Free-hold/Border-hold, keyed to the
+         * destination site instance (which becomes the company's `currentSite`).
+         * `getActiveAutoAttacks` appends {@link attack} when its `siteInstanceId`
+         * matches the queried site instance, so the company faces it as a real
+         * automatic-attack in the site phase.
+         */
+        readonly type: 'extra-automatic-attack';
+        /** The site instance the extra attack is created at. */
+        readonly siteInstanceId: import('./common.js').CardInstanceId;
+        /** The additional automatic-attack (carries `forceDetainment` / empty race). */
+        readonly attack: import('./cards-sites.js').AutomaticAttack;
+      }
+    | {
+        /**
          * Blasting Fire (wh-51): every faction-influence attempt made
          * against a faction at the named site is modified by {@link value}
          * for the rest of the turn. Placed (scope `'turn'`) when the item
@@ -882,6 +1272,26 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Greed (le-113 / tw-42): while this turn-scoped constraint is bound to
+         * the site, each character at the site (other than the character playing
+         * the item) must make a corruption check each time an item is played at
+         * the site, modified by subtracting the item's printed corruption points.
+         * Installed by the Greed short-event on resolution and fired by the
+         * site-phase item-play handler (`fireItemPlayCorruptionChecks`). Matched
+         * by `siteDefinitionId` against the item-playing company's current site.
+         */
+        readonly type: 'item-play-corruption-check';
+        /** The definition ID of the bound site (matches all versions). */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+        /**
+         * Characters whose `target.*` context matches this condition are exempt
+         * from the check (for Greed: Hobbits, Wizards, Ringwraiths). Absent =
+         * every character at the site (other than the item-player) checks.
+         */
+        readonly exemptFilter?: import('./effects.js').Condition;
+      }
+    | {
+        /**
          * METD §7 / rule 10.08 — once a player attempts the no-tap
          * variant of removing a corruption card from a character, no
          * further attempts (tap or no-tap) on the same
@@ -893,6 +1303,22 @@ export interface ActiveConstraint {
         readonly characterId: CardInstanceId;
         /** Corruption card instance the lock applies to. */
         readonly corruptionInstanceId: CardInstanceId;
+      }
+    | {
+        /**
+         * Once-per-turn lock for a grant-action flagged
+         * {@link GrantActionEffect.oncePerTurn}. Added (turn-scoped) by the
+         * grant-action reducer the first time the ability resolves and read
+         * by the legal-action scanner to suppress further activations for the
+         * rest of the turn. Keyed by the source card instance and action id
+         * so distinct once-per-turn abilities (or copies) never collide.
+         * Used by Strangling Coils (ba-76).
+         */
+        readonly type: 'granted-action-used';
+        /** Source card instance whose ability was used. */
+        readonly sourceInstanceId: CardInstanceId;
+        /** The grant-action's `action` identifier. */
+        readonly actionId: string;
       }
     | {
         /**
@@ -924,6 +1350,14 @@ export interface ActiveConstraint {
         readonly value: number;
         /** The character instance to which the bonus applies. */
         readonly characterId: CardInstanceId;
+        /**
+         * Optional name of a card that must remain in play for the bonus to
+         * apply (Heart of Dark Fire ba-63: "+5 direct influence this turn while
+         * Strangling Coils is in play"). Re-checked by the effect resolver on
+         * every stat computation, so the bonus lapses the moment the named card
+         * leaves play. When absent, the bonus is unconditional (Vilya style).
+         */
+        readonly requiresCardInPlay?: string;
       }
     | {
         /**
@@ -948,6 +1382,20 @@ export interface ActiveConstraint {
          */
         readonly type: 'bearer-cannot-untap';
         /** The permanent-event card instance that placed this restriction. */
+        readonly cardInstanceId: import('./common.js').CardInstanceId;
+      }
+    | {
+        /**
+         * Fled into Darkness (ba-18): a **one-shot** untap skip on a character.
+         * The next time the character would untap during the untap phase he
+         * stays tapped instead; the constraint is then removed and the source
+         * card (a `flee-from-strike` permanent-event in the owner's cardsInPlay)
+         * is discarded. Scoped to `until-cleared` so it persists across turns
+         * until that single untap fires. `cardInstanceId` is the in-play card to
+         * discard when the skip is consumed.
+         */
+        readonly type: 'skip-next-untap';
+        /** The `flee-from-strike` card instance to discard when the skip fires. */
         readonly cardInstanceId: import('./common.js').CardInstanceId;
       }
     | {
@@ -986,8 +1434,21 @@ export interface ActiveConstraint {
          * Targeted at the discarding player and scoped to `turn`.
          */
         readonly type: 'site-resource-unlocked';
-        /** Site type at which the resource category becomes playable. */
-        readonly siteType: string;
+        /**
+         * Site type at which the resource category becomes playable
+         * (e.g. `"shadow-hold"` for Records Unread). Mutually exclusive with
+         * {@link siteCondition}: exactly one of the two selects the matching
+         * sites.
+         */
+        readonly siteType?: string;
+        /**
+         * Compound site selector, evaluated against the site context
+         * (`site.siteType`, `site.regionType`, `site.name`, `site.region`).
+         * Used when "such a site" is not a single site type — e.g. A Panoply
+         * of Wings (wh-37) unlocks Information at "any non-Haven,
+         * non-Shadow-hold, non-Dark-hold site in a Wilderness".
+         */
+        readonly siteCondition?: Condition;
         /** Resource category unlocked (e.g. `"information"`). */
         readonly subtype: string;
       }
@@ -1039,6 +1500,20 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Press-gang (ba-22): marks a character held "off to the side" with a
+         * Press-gang hazard permanent-event. Like a prisoner (CoE 8.35) it costs
+         * 0 general influence, is worth **negative** character marshalling points
+         * to its owner, and never untaps or heals. Unlike a prisoner there is no
+         * rescue site or HazardHost record — the hold ends only when the
+         * Press-gang card leaves play (the character returns to its owner's hand)
+         * or a new capture replaces it. Scoped `until-cleared`; removed explicitly.
+         */
+        readonly type: 'character-pressed';
+        /** Instance ID of the Press-gang card holding this character. */
+        readonly hostInstanceId: CardInstanceId;
+      }
+    | {
+        /**
          * Tidings of Bold Spies (le-143): queued M/H-phase combat attacks that
          * duplicate the destination site's automatic-attacks. One attack per entry
          * in `attacks`; `attackIndex` is the index of the NEXT attack to initiate.
@@ -1051,6 +1526,59 @@ export interface ActiveConstraint {
         readonly attacks: readonly import('./cards-sites.js').AutomaticAttack[];
         /** Index of the next attack to initiate (0 = first attack was already started). */
         readonly attackIndex: number;
+      }
+  /**
+   * The Great Hunt (wh-91) reveal-and-attack queue. Holds the ordered list of
+   * revealed hazard-creature instances that will attack the controller's Alatar
+   * company, and how far the sequence has progressed. Each `great-hunt-attack`
+   * combat's finalization advances `queueIndex`; when it reaches the end the
+   * process completes (reshuffling the opponent play deck if `reshuffleDeck`)
+   * and the constraint is removed. Scoped `until-cleared`; targeted at the
+   * controlling player.
+   */
+  | {
+        readonly type: 'great-hunt-reveal';
+        /** The Great Hunt card instance driving the process. */
+        readonly greatHuntInstanceId: CardInstanceId;
+        /** Ordered creature instances (in the opponent's deck/discard) to attack. */
+        readonly creatureInstanceIds: readonly CardInstanceId[];
+        /** Index of the next creature to attack (0 = none started yet). */
+        readonly queueIndex: number;
+        /** Whether to reshuffle the opponent's play deck when the sequence ends. */
+        readonly reshuffleDeck: boolean;
+      }
+  /**
+   * The Great Hunt (wh-91) ongoing discard tracker. While present (the card is
+   * in play), the post-reduce sweep offers the controller a
+   * `great-hunt-discard-attack` for each hazard-creature the opponent newly
+   * discards during the controller's turn. `processedDiscardIds` records every
+   * discard instance already handled (offered) so no creature is offered twice
+   * — the loop-prevention ruling. Scoped `until-cleared`; targeted at the
+   * controlling player; removed when the card leaves play.
+   */
+  | {
+        readonly type: 'great-hunt-active';
+        readonly greatHuntInstanceId: CardInstanceId;
+        readonly processedDiscardIds: readonly CardInstanceId[];
+      }
+    | {
+        /**
+         * Darkness Wielded (ba-55): a one-shot *deferred* free attack
+         * cancellation granted to the target player when Darkness Wielded's
+         * cancel mode resolves ("cancel this attack and a latter attack of your
+         * choice against his company this turn"). While present, the
+         * legal-action layer offers a costless `cancel-attack`
+         * (`mode: "free-later-cancel"`) during any later combat this turn whose
+         * defending company contains The Balrog (when
+         * {@link restrictToBalrogCompany}); using it consumes this constraint.
+         * Turn-scoped; targeted at the granted player.
+         */
+        readonly type: 'free-attack-cancel';
+        /**
+         * When true, the free cancel may only be used against an attack on a
+         * company that contains The Balrog avatar ("against his company").
+         */
+        readonly restrictToBalrogCompany: boolean;
       };
 }
 
@@ -1068,4 +1596,10 @@ export type ScopeBoundary =
   | { readonly kind: 'company-site-end'; readonly companyId: CompanyId }
   /** Clears `attack`-scoped constraints when an attack finalizes. */
   | { readonly kind: 'attack-end' }
+  /**
+   * Raised when {@link playerId} leaves their organization phase, carrying the
+   * turn number that organization phase belonged to. Clears
+   * `next-organization-phase`-scoped constraints created on an earlier turn.
+   */
+  | { readonly kind: 'organization-phase-end'; readonly playerId: PlayerId; readonly turnNumber: number }
   | { readonly kind: 'turn-end' };

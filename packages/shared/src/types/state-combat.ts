@@ -115,7 +115,28 @@ export type AttackSource =
    * strike (not a creature attack — no race, uncancelable). `eventInstanceId`
    * is the played short-event card.
    */
-  | { readonly type: 'company-strike-event'; readonly eventInstanceId: CardInstanceId };
+  | { readonly type: 'company-strike-event'; readonly eventInstanceId: CardInstanceId }
+  /**
+   * Triggered by The Great Hunt (wh-91) via the `reveal-and-attack` effect. A
+   * revealed / discarded hazard-creature attacks the controller's Alatar
+   * company. The creature card is never moved out of its pile (deck or discard)
+   * — it is attacked "in place", exactly like a Lucky Search revealed card — so
+   * finalization does not discard or award it as a trophy.
+   *
+   * `continuation` distinguishes the two firing modes:
+   *  - `'reveal'` — part of the on-play reveal sequence. On finalization the
+   *    engine advances the `great-hunt-reveal` constraint queue: it either
+   *    initiates the next queued creature's attack or, when the queue is empty,
+   *    completes the process (reshuffling the opponent play deck if it was the
+   *    revealed pile) and removes the constraint.
+   *  - `'none'` — a one-off attack from the ongoing discard trigger; no queue.
+   */
+  | {
+      readonly type: 'great-hunt-attack';
+      readonly greatHuntInstanceId: CardInstanceId;
+      readonly creatureInstanceId: CardInstanceId;
+      readonly continuation: 'reveal' | 'none';
+    };
 
 /**
  * Tracks the assignment and resolution of a single strike against a character.
@@ -203,6 +224,24 @@ export interface StrikeAssignment {
    * resolve-strike sub-phase: attacker declares first, then defender resolves.
    */
   readonly attackerTapToFight?: boolean;
+  /**
+   * When set, this strike was assigned to its facing character via a
+   * `face-strike-on-tap` item (e.g. Bow of Alatar wh-90). If the character
+   * defeats (parries) the strike — the strike fails to wound him — the attack's
+   * body ({@link CombatState.creatureBody}) is reduced by this amount for the
+   * rest of the combat. Absent for ordinary strike assignments.
+   */
+  readonly reduceAttackBodyOnParry?: number;
+  /**
+   * How the facing character resolved this strike (`'tap'`, `'untap'`,
+   * `'dodge'`, `'reroll'`). Recorded in `resolveStrikeCore` so the later
+   * `body-check` action can gate `enemy-modifier` body reductions on the
+   * resolution mode — e.g. Mechanical Bow (wh-53): "-1 to the body of any
+   * strike its bearer faces **if he taps to face the strike**" is an
+   * `enemy-modifier` body -1 gated on `combat.strikeMode: "tap"`. Absent until
+   * the strike is resolved.
+   */
+  readonly strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll';
 }
 
 /**
@@ -253,6 +292,14 @@ export interface CombatState {
    * unconditionally for that case).
    */
   readonly attackSiteKeyingTypes?: readonly SiteType[];
+  /**
+   * The specific *region names* this attack is keyed to, flattened from the
+   * creature's `keyedTo` entries (e.g. a creature keyed by name to "Fangorn").
+   * Used to evaluate cancel-attack conditions like Beasts of the Wood wh-38's
+   * "an attack keyed by name to one of the regions listed above". Only
+   * populated for creature hazards; automatic attacks leave this absent.
+   */
+  readonly attackKeyingRegionNames?: readonly string[];
   /** The assignment of each strike to a defending character, with resolution status. */
   readonly strikeAssignments: readonly StrikeAssignment[];
   /** Index into strikeAssignments for the strike currently being resolved. */
@@ -323,6 +370,14 @@ export interface CombatState {
    */
   readonly detainment: boolean;
   /**
+   * Set once the attacking player has applied an `attacker-attack-option`
+   * (e.g. Ungoliant's Progeny ba-27's "+1 prowess and detainment" for a Spider
+   * attack). Prevents the one-shot per-attack option from being applied twice
+   * and hides the offer once used. Absent means the option is still available
+   * (or the carrying card is not in play).
+   */
+  readonly attackerAttackOptionApplied?: boolean;
+  /**
    * When true, this is a Company vs Company Combat (CvCC) encounter.
    * Absent or false means standard creature combat. When true:
    * - Each strike is backed by a specific attacking character (no excess-strike overflow)
@@ -370,6 +425,15 @@ export interface CombatState {
    * Defaults to false (Assassin restriction: "not the defending character").
    */
   readonly cancelByTapAllowTarget?: boolean;
+  /**
+   * When true, the `cancel-by-tap` sub-phase uses the "cancel a strike against
+   * a wounded character" variant (Carrion Feeders ba-11, `combat-tap-to-cancel-
+   * strike`): the defender taps an untapped company character to remove one
+   * pre-assigned strike, choosing which wounded character to protect. The
+   * `cancel-by-tap` action carries `strikeCharacterId` (the wounded character
+   * whose strike is canceled) instead of popping the last assignment.
+   */
+  readonly cancelStrikeAgainstWounded?: boolean;
   /**
    * Items available for salvage transfer from an eliminated character.
    * Only set during the 'item-salvage' phase (CoE rule 3.I.2).
@@ -472,6 +536,17 @@ export interface CombatState {
    */
   readonly woundEliminates?: boolean;
   /**
+   * When true, weapons do not modify the target's prowess against this attack's
+   * strikes (the printed "weapons do not modify prowess against these strikes"
+   * clause, e.g. Trap, Lava Flows dm-152, Rock Fall dm-156). Set by the
+   * `weapons-ineffective` automatic-attack combat rule and exposed as
+   * `attack.weaponsIneffective` in the `modify-attack` `when` context, so an
+   * item like Dwarven Light-stone (dm-168) can gate its tap-to-lower-prowess
+   * ability on "one attack for which weapons do not modify the target's
+   * prowess".
+   */
+  readonly weaponsIneffective?: boolean;
+  /**
    * When true, this attack was reduced from multiple attacks by
    * *Forewarned Is Forearmed*. Exposed as `attack.isolated` in the
    * `attack-defeated` condition context so the card can self-discard
@@ -514,6 +589,18 @@ export interface CombatState {
    */
   readonly protectedFromStrikeAssignment?: readonly CardInstanceId[];
   /**
+   * Weapon item instance IDs whose effects have been cancelled for this
+   * company-vs-company combat by a `combat-cancel-weapon` ability (Whip of Many
+   * Thongs ba-82: "tap this item to cancel all effects of one weapon of your
+   * choice in an opponent's company until the end of the combat"). While a
+   * weapon's instance sits in this list, `collectCharacterEffects` drops every
+   * effect it sources and `computeEffectiveStats` skips its structural
+   * prowess/body — so the weapon contributes nothing to its bearer's combat
+   * stats. The weapon itself is NOT discarded; the suppression clears when the
+   * combat finalizes (this field lives on the discarded combat state).
+   */
+  readonly suppressedWeaponInstanceIds?: readonly CardInstanceId[];
+  /**
    * When true, this attack uses the "each character faces one strike" rule
    * (CoE §3.I.1): every character in the defending company is automatically
    * assigned exactly one strike, with no player choice. After the cancel
@@ -536,6 +623,26 @@ export interface CombatState {
   readonly trollPursePrisoner?: {
     readonly hostInstanceId: CardInstanceId;
     readonly siteInstanceId: CardInstanceId;
+  };
+  /**
+   * Records an active "cancel protection" buff on this attack, set by a
+   * from-hand `modify-attack` effect with `firstCancelRemovesEffect: true`
+   * (Unabated in Malice ba-26). Holds the modifiers this card applied so
+   * the *first* cancellation attempt can reverse them instead of cancelling
+   * the attack. Cleared once that first attempt spends the protection; a
+   * later cancellation then ends the attack normally. Absent when no such
+   * buff is active (the common case). Only one may exist per attack (the
+   * card's `duplication-limit` scope `attack` enforces this).
+   */
+  readonly cancelProtection?: {
+    /** Instance of the modify-attack card that granted the protection. */
+    readonly sourceInstanceId: CardInstanceId;
+    /** Strike-count modifier applied (reversed on redirect). */
+    readonly strikesModifier: number;
+    /** Strike-prowess modifier applied (reversed on redirect). */
+    readonly prowessModifier: number;
+    /** Creature-body modifier applied (reversed on redirect). */
+    readonly bodyModifier: number;
   };
 }
 
@@ -576,6 +683,14 @@ export interface PostAttackEffect {
   readonly tapIfUntapped?: boolean;
   /** When present, enqueue a corruption check on the character (optional modifier). */
   readonly corruptionCheck?: { readonly modifier?: number };
+  /**
+   * Left Behind (td-41): when true, at combat finalization the character is
+   * peeled off into a separate `leftBehind` company with the same site path as
+   * the company he was in (see `applyPostAttackEffects`). That company then
+   * faces its own movement/hazard phase with a hazard limit of one, after which
+   * the character may rejoin his original company.
+   */
+  readonly leftBehindSplit?: boolean;
 }
 
 /** Records where a haven-jumped character came from so they can be restored. */
@@ -599,16 +714,39 @@ export type ChainEntryPayload =
   | {
       readonly type: 'short-event';
       readonly targetInstanceId?: CardInstanceId;
+      /**
+       * For a counter-cancel-roll short-event (Black Vapour ba-14), the chain
+       * entry (a cancel-attack) this card is countering. Distinct from
+       * {@link targetInstanceId} because that field triggers the Twilight-style
+       * environment-cancel path; this one is read only by the
+       * counter-cancel-attack-roll resolution branch, which enqueues a roll.
+       */
+      readonly counterCancelTargetInstanceId?: CardInstanceId;
       readonly targetCharacterId?: CardInstanceId;
       readonly targetFactionInstanceId?: CardInstanceId;
       /** For Stay Her Appetite (le-140): the ally being targeted. */
       readonly targetAllyId?: CardInstanceId;
+      /**
+       * For site-targeting short-events (e.g. Greed le-113): the site
+       * definition ID the event is bound to. On resolution the event
+       * installs its turn-scoped `item-play-corruption-check` constraint
+       * bound to this site so item plays there trigger the checks.
+       */
+      readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
       /**
        * For hazard short-events with `play-option` effects (e.g. Weariness of
        * the Heart le-149), the id of the option the hazard player chose at
        * play time. The chain resolver dispatches that option's `apply`.
        */
       readonly optionId?: string;
+      /**
+       * For a `force-opponent-discard` effect with a dynamic `count` (Khamûl the
+       * Easterling tw-47), the number of cards the opponent must discard,
+       * computed at declaration time (when the permanent-event mode was tapped,
+       * while the source card was still in play — so "including this one" is
+       * already accounted for). Read by the chain resolver; absent = 1.
+       */
+      readonly forcedDiscardCount?: number;
     }
   | {
       readonly type: 'creature';
@@ -641,6 +779,28 @@ export type ChainEntryPayload =
        * to that company only.
        */
       readonly targetCompanyId?: import('./common.js').CompanyId;
+      /**
+       * For hazards played on an opponent's stored item (e.g. Neither so
+       * Ancient Nor so Potent dm-73), the stored item instance being
+       * displaced. On resolution the chain reducer returns the item to its
+       * owner's hand and places the resolving card into that owner's
+       * marshalling-point pile.
+       */
+      readonly targetStoredItemInstanceId?: CardInstanceId;
+      /**
+       * For a hazard permanent-event played on one of the hazard player's own
+       * face-down agents (Inner Cunning dm-68, mode 1), the agent's
+       * virtual-company id. On resolution the chain reducer places the card
+       * into the hazard player's `cardsInPlay` with `attachedToAgentId` set.
+       */
+      readonly targetAgentId?: import('./common.js').CompanyId;
+      /**
+       * For a resource permanent-event played on one of the active player's own
+       * items (Barrow-blade dm-119, "play this with the Dagger"), the target
+       * item instance. On resolution the chain reducer places the card into the
+       * controller's `cardsInPlay` with `attachedToItem` set to this value.
+       */
+      readonly targetItemInstanceId?: CardInstanceId;
     }
   | { readonly type: 'long-event' }
   | { readonly type: 'corruption-card' }
@@ -658,6 +818,13 @@ export type ChainEntryPayload =
        * `placeUnderLeaderControl` flag. See {@link LeaderControlEffect}.
        */
       readonly placeUnderLeaderControl?: boolean;
+      /**
+       * Positive influence-check modifier from a Dragons "Roused" faction's
+       * paid `influence-modification` (Smaug Roused le-285: discard a major
+       * item for +3 / greater item for +6). The declare handler discards the
+       * chosen item and threads the modifier here; the roll resolver adds it.
+       */
+      readonly bonusModifier?: number;
     };
 
 /**

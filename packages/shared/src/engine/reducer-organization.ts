@@ -16,16 +16,18 @@ import { CardStatus, SiteType } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById } from './reducer-utils.js';
+import { findCapturingPressGang, capturePressGang } from './press-gang.js';
+import { clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { enqueueResolution, enqueueCorruptionCheck, removeConstraint } from './pending.js';
+import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
-import { resolveDef, getItemGrantedSkills } from './effects/index.js';
+import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { directInfluenceControlAllowed } from './control-cost.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
+import { wizardSpecificName } from './fallen-wizard-specific.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -41,6 +43,7 @@ type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
  */
 const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHandler>>> = {
   'play-character': handlePlayCharacter,
+  'manifestation-swap': handleManifestationSwap,
   'pass': handleOrganizationPass,
   'plan-movement': handlePlanMovement,
   'cancel-movement': handleCancelMovement,
@@ -48,6 +51,7 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'play-short-event': handleOrganizationPlayShortEvent,
   'fetch-from-pile': handleFetchFromPile,
   'move-to-influence': handleMoveToInfluence,
+  'discard-character': handleDiscardCharacter,
   'transfer-item': handleTransferItem,
   'store-item': handleStoreItem,
   'split-company': handleSplitCompany,
@@ -56,10 +60,15 @@ const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHand
   'start-sideboard-to-deck': handleStartSideboard,
   'start-sideboard-to-discard': handleStartSideboard,
   'fetch-from-sideboard': handleFetchFromSideboard,
+  'card-sideboard-to-deck': handleCardSideboardToDeck,
   'activate-granted-action': handleActivateGrantedAction,
   'test-ring-at-site': handleTestRingAtSite,
   'discard-stage-resource': handleDiscardStageResource,
+  'voluntary-discard-in-play': handleVoluntaryDiscardInPlay,
+  'return-attached-to-hand': handleReturnAttachedToHand,
   'activate-org-fetch': handleActivateOrgFetch,
+  'discard-for-evil-hour-movement': handleDiscardForEvilHourMovement,
+  'pay-movement-tax': handlePayMovementTax,
 };
 
 export function handleOrganization(state: GameState, action: GameAction): ReducerResult {
@@ -103,9 +112,20 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
     return true;
   });
 
+  // Raise the organization-phase-end boundary for the active player so that
+  // "through your next organization phase" constraints (Shifter of Hues wh-115)
+  // created on an earlier turn expire here. The constraint created during *this*
+  // organization phase carries this same turn number and so survives — see
+  // `ConstraintScope['next-organization-phase']`.
+  const swept = sweepExpired(state, {
+    kind: 'organization-phase-end',
+    playerId: activePlayer,
+    turnNumber: state.turnNumber,
+  });
+
   return {
     state: {
-      ...updatePlayer(state, activeIndex, p => ({
+      ...updatePlayer(swept, activeIndex, p => ({
         ...p,
         cardsInPlay: remainingCards,
         discardPile: [...p.discardPile, ...discardedEvents],
@@ -145,6 +165,137 @@ function handleDiscardStageResource(state: GameState, action: GameAction): Reduc
     ...p,
     cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
     discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+  return { state: recomputeDerived(next) };
+}
+
+/**
+ * Voluntarily discards one of the player's in-play permanent-events carrying a
+ * `voluntary-discard` effect during their organization phase ("Discard during
+ * your organization phase if you choose" — Going Ever Under Dark ba-37). The
+ * card leaves `cardsInPlay` for the discard pile; any company binding is
+ * severed automatically (the entry is gone), lifting its restrictions.
+ */
+function handleVoluntaryDiscardInPlay(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'voluntary-discard-in-play') return wrongActionType(state, action, 'voluntary-discard-in-play');
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: 'Voluntary-discard target not found in play' };
+  const def = defById(state, card.definitionId);
+  const eff = def ? getCardEffects(def).find(e => e.type === 'voluntary-discard') : undefined;
+  if (!eff || eff.type !== 'voluntary-discard' || eff.phase !== 'organization') {
+    return { state, error: 'Target does not allow voluntary discard during the organization phase' };
+  }
+
+  logDetail(`Organization: ${player.name} voluntarily discards ${def?.name ?? '?'} from play`);
+  const next = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+  return { state: recomputeDerived(next) };
+}
+
+/**
+ * Returns an attached card to its owner's hand during the organization phase
+ * ("You may return … to your hand: during your organization phase").
+ *
+ * Two kinds of attachment qualify, both carrying a `return-to-hand` effect
+ * whose triggers include `organization`:
+ * - an **ally** on its controlling character (Radagast's Black Bird wh-114);
+ * - a **permanent-event placed on a character**, which the engine stores in
+ *   that character's `items` (the Radagast Shapeshifter forms wh-112/115/116:
+ *   "Return this card to your hand … if you choose, during your organization
+ *   phase").
+ *
+ * The card is detached and placed into the player's hand, never the discard
+ * pile.
+ */
+function handleReturnAttachedToHand(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'return-attached-to-hand') return wrongActionType(state, action, 'return-attached-to-hand');
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const removed = removeAttachment(player, 'allies', action.cardInstanceId)
+    ?? removeAttachment(player, 'items', action.cardInstanceId);
+  if (!removed) return { state, error: 'return-attached-to-hand: card not found in play' };
+  const def = defById(state, removed.attachment.definitionId);
+  const canReturn = getCardEffects(def).some(
+    e => e.type === 'return-to-hand' && e.during.includes('organization'),
+  );
+  if (!canReturn) return { state, error: 'return-attached-to-hand: card may not return to hand this phase' };
+
+  logDetail(`Organization: ${player.name} returns ${def?.name ?? '?'} to hand`);
+  const next = updatePlayer(state, playerIndex, () => ({
+    ...removed.player,
+    hand: [...removed.player.hand, toCardInstance(removed.attachment)],
+  }));
+  return { state: recomputeDerived(next) };
+}
+
+/**
+ * Enchanted Stream (as-27): tap one untapped character toward a company's
+ * movement tax. Increments {@link OrganizationPhaseState.movementTaxPaid} for
+ * that company; once the required number ("to a maximum of two") have been
+ * tapped, `plan-movement` / `split-company` are unlocked for the company this
+ * org phase.
+ */
+function handlePayMovementTax(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'pay-movement-tax') return wrongActionType(state, action, 'pay-movement-tax');
+  const orgState = requirePhaseState(state, Phase.Organization);
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const company = companyById(player.companies, action.companyId);
+  if (!company) return { state, error: 'pay-movement-tax: company not found' };
+  if (!company.characters.includes(action.characterId)) {
+    return { state, error: 'pay-movement-tax: character is not in the company' };
+  }
+  const char = player.characters[action.characterId];
+  if (!char || char.status !== CardStatus.Untapped) {
+    return { state, error: 'pay-movement-tax: character is not an untapped member' };
+  }
+  const cid = action.companyId as string;
+  const paidSoFar = (orgState.movementTaxPaid?.[cid] ?? 0) + 1;
+  const charName = defById(state, char.definitionId)?.name ?? action.characterId;
+  logDetail(`Organization: paying Enchanted Stream movement tax — tapping ${charName} for company ${cid} (${paidSoFar} paid this org phase)`);
+  const afterTap = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    characters: { ...p.characters, [action.characterId]: { ...char, status: CardStatus.Tapped } },
+  }));
+  return {
+    state: recomputeDerived({
+      ...afterTap,
+      phaseState: { ...orgState, movementTaxPaid: { ...(orgState.movementTaxPaid ?? {}), [cid]: paidSoFar } },
+    }),
+  };
+}
+
+/**
+ * Discards an in-play (tapped) A More Evil Hour (ba-48) during the organization
+ * phase and marks the targeted company with {@link Company.evilHourMovementBonus},
+ * granting it a persistent conditional +2 region-movement bonus.
+ */
+function handleDiscardForEvilHourMovement(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'discard-for-evil-hour-movement') return wrongActionType(state, action, 'discard-for-evil-hour-movement');
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: 'A More Evil Hour not found in play' };
+  if (card.status !== CardStatus.Tapped) return { state, error: 'A More Evil Hour must be tapped to grant movement' };
+  const def = defById(state, card.definitionId);
+  const eff = def ? getCardEffects(def).find(e => e.type === 'evil-hour-grant-movement') : undefined;
+  if (!eff || eff.type !== 'evil-hour-grant-movement') {
+    return { state, error: 'Card does not grant the A More Evil Hour movement bonus' };
+  }
+  const company = player.companies.find(c => c.id === action.companyId);
+  if (!company) return { state, error: 'Target company not found' };
+
+  logDetail(`Organization: ${player.name} discards ${def?.name ?? '?'} to grant company ${action.companyId as string} the region-movement bonus`);
+  const next = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...p.discardPile, toCardInstance(card)],
+    companies: p.companies.map(c => c.id === action.companyId ? { ...c, evilHourMovementBonus: true } : c),
   }));
   return { state: recomputeDerived(next) };
 }
@@ -431,8 +582,26 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
       : state.phaseState,
   })), affectedIds);
 
+  // CoE rule 3.09: playing a Fallen-wizard avatar discards the *opponent's*
+  // in-play Stage resources specific to that avatar (the opponent can no
+  // longer bring that wizard into play, so their wizard-specific stage cards
+  // are dead).
+  let stateAfterAvatarSweep = stateAfterPlace;
+  if (player.alignment === 'fallen-wizard' && isAvatarCharacter(charDef)) {
+    stateAfterAvatarSweep = discardCardsInPlayWhere(
+      stateAfterPlace,
+      (card, cardOwner) =>
+        cardOwner.id !== action.player
+        && wizardSpecificName(defById(state, card.definitionId)) === charDef.name,
+      card => {
+        const def = defById(state, card.definitionId);
+        logDetail(`Rule 3.09: ${charDef.name} entered play — discarding opponent's ${charDef.name}-specific stage card ${def?.name ?? (card.definitionId as string)}`);
+      },
+    ).state;
+  }
+
   return {
-    state: applyCharacterSelfEntersPlayMoveEffects(stateAfterPlace, charDef, charInstId, playerIndex),
+    state: applyCharacterSelfEntersPlayMoveEffects(stateAfterAvatarSweep, charDef, charInstId, playerIndex),
   };
 }
 
@@ -463,6 +632,114 @@ function applyCharacterSelfEntersPlayMoveEffects(
     }
   }
   return newState;
+}
+
+/**
+ * Handle a `manifestation-swap` action (Strider ba-1: "You may bring
+ * Aragorn II into play with Strider's company, removing Strider from the
+ * game and automatically transferring all cards on Strider to Aragorn II").
+ *
+ * The named manifestation is played from hand into the old manifestation's
+ * company at the same position, entering untapped. Everything referencing
+ * the old instance transfers to the new one: attached cards (items, allies,
+ * hazards, trophies), the follower list, the `controlledBy` of the old
+ * character itself and of any character it controlled, plus any in-play
+ * card (leader-controlled faction) it controlled. The old manifestation's
+ * card is removed from the game — it lands in its owner's out-of-play pile,
+ * preserving the no-card-disappears invariant.
+ *
+ * Per CRF 22 this is a resource-style play, not a character play: the
+ * one-character-per-turn bookkeeping is untouched and the swap is routed
+ * from the organization, site, and M/H phase reducers alike.
+ */
+export function handleManifestationSwap(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'manifestation-swap') return wrongActionType(state, action, 'manifestation-swap');
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const oldId = action.characterId;
+
+  const oldChar = player.characters[oldId];
+  if (!oldChar) return { state, error: 'manifestation-swap: character not in play' };
+  const oldDef = defById(state, oldChar.definitionId);
+  if (!oldDef || !isCharacterCard(oldDef)) return { state, error: 'manifestation-swap: source is not a character' };
+  const swap = getCardEffects(oldDef).find(
+    (e): e is import('../types/effects.js').ManifestationSwapEffect => e.type === 'manifestation-swap',
+  );
+  if (!swap) return { state, error: `manifestation-swap: ${oldDef.name} has no manifestation-swap effect` };
+
+  const handCard = findById(player.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'manifestation-swap: replacement not found in hand' };
+  const newDef = defById(state, handCard.definitionId);
+  if (!newDef || !isCharacterCard(newDef) || newDef.name !== swap.cardName) {
+    return { state, error: `manifestation-swap: replacement must be ${swap.cardName}` };
+  }
+  const newId = handCard.instanceId;
+
+  logDetail(`Manifestation swap: ${newDef.name} enters play with ${oldDef.name}'s company; ${oldDef.name} is removed from the game and all cards on him transfer`);
+
+  // The replacement enters play untapped, inheriting every attachment and
+  // control relationship of the old manifestation. Tap/wound state does not
+  // transfer — only cards do ("bring Aragorn II into play").
+  const newChar: CharacterInPlay = {
+    instanceId: newId,
+    definitionId: handCard.definitionId,
+    status: CardStatus.Untapped,
+    items: oldChar.items,
+    allies: oldChar.allies,
+    hazards: oldChar.hazards,
+    followers: oldChar.followers,
+    controlledBy: oldChar.controlledBy,
+    effectiveStats: ZERO_EFFECTIVE_STATS,
+    ...(oldChar.trophies !== undefined ? { trophies: oldChar.trophies } : {}),
+  };
+
+  // Rebuild the characters map: drop the old instance, add the new one,
+  // repoint follower/controller references from old to new.
+  const newCharacters: Record<CardInstanceId, CharacterInPlay> = {};
+  for (const [cid, c] of Object.entries(player.characters)) {
+    if (cid === (oldId as string)) continue;
+    let updated = c;
+    if (updated.controlledBy === oldId) {
+      updated = { ...updated, controlledBy: newId };
+      logDetail(`  Follower ${defById(state, updated.definitionId)?.name ?? cid} now controlled by ${newDef.name}`);
+    }
+    if (updated.followers.includes(oldId)) {
+      updated = { ...updated, followers: updated.followers.map(f => (f === oldId ? newId : f)) };
+    }
+    newCharacters[cid as CardInstanceId] = updated;
+  }
+  newCharacters[newId] = newChar;
+
+  // Replace the old instance in its company at the same position.
+  const companies = player.companies.map(comp =>
+    comp.characters.includes(oldId)
+      ? { ...comp, characters: comp.characters.map(c => (c === oldId ? newId : c)) }
+      : comp,
+  );
+
+  // Leader-controlled in-play cards (e.g. Orcs of Udûn-style factions)
+  // transfer with everything else.
+  const cardsInPlay = player.cardsInPlay.map(c =>
+    c.controlledBy === oldId ? { ...c, controlledBy: newId } : c,
+  );
+
+  const newState = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    hand: removeById(p.hand, newId),
+    characters: newCharacters,
+    companies,
+    cardsInPlay,
+    outOfPlayPile: [...p.outOfPlayPile, toCardInstance(oldChar)],
+  }));
+
+  return {
+    state: newState,
+    effects: [{
+      effect: 'text-notification',
+      message: `${player.name} brings ${newDef.name} into play with ${oldDef.name}'s company — ${oldDef.name} is removed from the game and all cards on him transfer`,
+    }],
+  };
 }
 
 /**
@@ -636,6 +913,20 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const itemInstId = action.itemInstanceId;
 
   if (!player.characters[charId]) return { state, error: 'Character not found' };
+
+  // `no-storage` site-rule (Geann a-Lisch le-374): "Resources may never be
+  // stored at this site." Reject a store attempt as a backstop to the
+  // legal-action suppression in storeItemActions.
+  const storeCompany = findCharacterCompany(player.companies, charId);
+  const storeSiteDef = storeCompany?.currentSite
+    ? defById(state, storeCompany.currentSite.definitionId)
+    : undefined;
+  if (storeSiteDef && isSiteCard(storeSiteDef)
+    && storeSiteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
+    logDetail(`Store item rejected: ${storeSiteDef.name} carries no-storage site-rule`);
+    return { state, error: `Resources may never be stored at ${storeSiteDef.name}` };
+  }
+
   const removed = removeAttachment(player, 'items', itemInstId);
   if (!removed || removed.charId !== charId) return { state, error: 'Item not found on character' };
   const item = removed.attachment;
@@ -871,6 +1162,32 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
 }
 
 /**
+ * Handle `card-sideboard-to-deck`: a card carrying a `select: 'self'`
+ * sideboard→deck `move` effect brings itself from the player's sideboard into
+ * their play deck (reshuffling) during the organization phase. Card-granted
+ * relocation of the Balrog sideboard family (Terror Heralds Doom ba-78), it
+ * taps nothing and has no deck-size gate — distinct from the CoE 2.II.6
+ * avatar-tap access.
+ */
+function handleCardSideboardToDeck(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'card-sideboard-to-deck') return wrongActionType(state, action, 'card-sideboard-to-deck');
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const card = findById(player.sideboard, action.cardInstanceId);
+  if (!card) return { state, error: 'Sideboard card not found' };
+  const def = defById(state, card.definitionId);
+  const move = selfSideboardToDeckMove(def);
+  if (!move) return { state, error: `${def?.name ?? String(card.definitionId)} has no sideboard-to-deck move effect` };
+
+  logDetail(`Sideboard self-relocation: ${def?.name ?? String(card.definitionId)} → play deck (reshuffling)`);
+  const ctx: MoveContext = { sourceCardId: action.cardInstanceId, sourcePlayerIndex: playerIndex };
+  const result = applyMove(state, move, ctx);
+  if ('error' in result) return { state, error: result.error };
+  return { state: result.state };
+}
+
+/**
  * Handle activation of a grant-action effect during organization. All
  * cards that declare `grant-action` now carry an `apply` clause, so
  * this entry point just delegates to the generic dispatcher — no
@@ -903,7 +1220,7 @@ function handleTestRingAtSite(state: GameState, action: GameAction): ReducerResu
 
   const sageDef = defById(state, sage.definitionId);
   if (!sageDef || !isCharacterCard(sageDef)) return { state, error: 'test-ring-at-site: sage is not a character' };
-  const skills = [...(sageDef.skills as readonly string[] ?? []), ...getItemGrantedSkills(state, sage)];
+  const skills = getEffectiveSkills(state, sage, sageDef as { skills?: readonly string[] });
   if (!skills.includes('sage')) return { state, error: 'test-ring-at-site: character is not a sage' };
 
   const company = findCharacterCompany(player.companies, action.characterId);
@@ -1153,6 +1470,97 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
 }
 
 /**
+ * Handle discard-character during organization (CoE rule 3.22).
+ *
+ * Discards a non-avatar character at a haven or its home site: the character,
+ * its items, and its allies go to the player's discard pile; attached hazards
+ * return to their owner's discard pile; followers revert to general influence
+ * (immediately — this is the player's organization phase, so no deferral);
+ * the character is removed from its company (empty companies are dropped).
+ */
+function handleDiscardCharacter(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'discard-character') return wrongActionType(state, action, 'discard-character');
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const charInstId = action.characterInstanceId;
+  const char = player.characters[charInstId];
+  if (!char) return { state, error: 'Character not found' };
+
+  const charDef = resolveDef(state, charInstId);
+  if (!isCharacterCard(charDef)) return { state, error: 'Not a character' };
+  if (isAvatarCharacter(charDef)) return { state, error: 'An avatar cannot be discarded (rule 3.22)' };
+
+  const company = findCharacterCompany(player.companies, charInstId);
+  if (!company) return { state, error: 'Character is not in a company' };
+
+  // Press-gang (ba-22): a character the active player voluntarily discards
+  // (rule 3.22) is instead captured off to the side by an opponent's Press-gang.
+  const pressHost = findCapturingPressGang(state, playerIndex);
+  if (pressHost) {
+    logDetail(`Discard character (rule 3.22): ${charDef.name} redirected to opponent's Press-gang ${pressHost as string}`);
+    return { state: capturePressGang(state, playerIndex, charInstId, pressHost) };
+  }
+
+  logDetail(`Discard character (rule 3.22): ${charDef.name} at ${company.currentSite?.definitionId as string ?? '?'} — discarding with ${char.items.length} item(s), ${char.allies.length} ally/allies, ${char.hazards.length} hazard(s); ${char.followers.length} follower(s) revert to GI`);
+
+  const newPlayers = clonePlayers(state);
+  const opponentIndex = 1 - playerIndex;
+
+  // Character + possessions to the player's own discard pile.
+  let ownDiscard = [...newPlayers[playerIndex].discardPile, { instanceId: charInstId, definitionId: char.definitionId }];
+  for (const item of char.items) ownDiscard = [...ownDiscard, toCardInstance(item)];
+  for (const ally of char.allies) ownDiscard = [...ownDiscard, toCardInstance(ally)];
+
+  // Attached hazards return to their owner's discard pile.
+  let opponentDiscard = [...newPlayers[opponentIndex].discardPile];
+  for (const hazard of char.hazards) {
+    const hazOwner = ownerOf(hazard.instanceId);
+    if ((newPlayers[playerIndex].id as string) === hazOwner) {
+      ownDiscard = [...ownDiscard, toCardInstance(hazard)];
+    } else {
+      opponentDiscard = [...opponentDiscard, toCardInstance(hazard)];
+    }
+  }
+
+  // Remove the character; revert followers to GI (immediate — organization
+  // phase); prune the leader's followers list if the character followed one.
+  const { [charInstId]: _discarded, ...remainingChars } = newPlayers[playerIndex].characters;
+  const newCharacters: Record<CardInstanceId, CharacterInPlay> = { ...remainingChars };
+  for (const followerId of char.followers) {
+    const follower = newCharacters[followerId];
+    if (follower) {
+      logDetail(`  follower ${followerId as string} reverts to general influence`);
+      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
+    }
+  }
+  if (char.controlledBy !== 'general') {
+    const leader = newCharacters[char.controlledBy];
+    if (leader) {
+      newCharacters[char.controlledBy] = { ...leader, followers: leader.followers.filter(f => f !== charInstId) };
+    }
+  }
+
+  const companies = newPlayers[playerIndex].companies
+    .map(c => c.id === company.id ? { ...c, characters: c.characters.filter(id => id !== charInstId) } : c)
+    .filter(c => c.characters.length > 0);
+
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newCharacters, companies, discardPile: ownDiscard };
+  newPlayers[opponentIndex] = { ...newPlayers[opponentIndex], discardPile: opponentDiscard };
+
+  let result = sweepCompanyMembershipChangedEvents(
+    sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({ ...state, players: newPlayers })),
+    [company.id],
+  );
+  if (isLeaderCharacter(charDef)) {
+    logDetail(`Discard character: ${charDef.name} is a Leader — sweeping leader-leaves-company events on ${company.id as string}`);
+    result = sweepLeaderLeavesCompanyEvents(result, [company.id]);
+  }
+
+  return { state: result };
+}
+
+/**
  * Handle merge-companies during organization.
  *
  * Moves all characters from the source company into the target company,
@@ -1273,6 +1681,13 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
   )) {
     logDetail(`Plan movement rejected: company ${company.id as string} is locked stationary (company-cannot-move)`);
     return { state, error: 'Company is locked stationary this turn (cannot declare movement)' };
+  }
+
+  // A character who may not move (Shifter of Hues wh-115 on Radagast) keeps
+  // their whole company stationary while they remain in it.
+  if (companyHasImmobileCharacter(state, player, company)) {
+    logDetail(`Plan movement rejected: company ${company.id as string} holds a character with bearer-cannot-move`);
+    return { state, error: 'A character in this company may not move' };
   }
 
   const deckCard = findById(player.siteDeck, action.destinationSite);

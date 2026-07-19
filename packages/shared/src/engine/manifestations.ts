@@ -29,11 +29,13 @@ import type {
   PlayerState,
   SiteCard,
 } from '../index.js';
+import type { CardInstanceId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { ownerOf } from '../types/state.js';
 import { isBalrogAvatarDef } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import { cardName, defById, toCardInstance } from './reducer-utils.js';
+import { resolveSiteInstanceTransform } from './effective.js';
 
 /**
  * Extracts a card definition's {@link ManifestId} if it has one.
@@ -43,6 +45,94 @@ import { cardName, defById, toCardInstance } from './reducer-utils.js';
 export function manifestIdOf(def: CardDefinition | undefined): ManifestId | undefined {
   if (!def) return undefined;
   return (def as { manifestId?: ManifestId }).manifestId;
+}
+
+/**
+ * True when two card definitions are manifestations of the same entity via
+ * the `manifestId` chain tag. The tag may be one-sided (glossary: "if a card
+ * indicates that it is the manifestation of another card, the latter is also
+ * considered a manifestation of the former"), so the comparison is symmetric:
+ * `a` tagging `b`'s id, `b` tagging `a`'s id, or both tagging the same chain.
+ *
+ * Same-name duplicates are deliberately NOT treated as manifestations here —
+ * they are the plain uniqueness check's concern, and non-unique characters
+ * (three copies of the same Orc) must not collide.
+ */
+export function sameManifestationEntity(
+  a: CardDefinition | undefined,
+  b: CardDefinition | undefined,
+): boolean {
+  if (!a || !b) return false;
+  const ma = manifestIdOf(a);
+  const mb = manifestIdOf(b);
+  if (ma !== undefined && (ma === b.id || ma === mb)) return true;
+  if (mb !== undefined && mb === a.id) return true;
+  return false;
+}
+
+/**
+ * Glossary rule g.man.1: only one manifestation of an entity can be in play,
+ * regardless of the cards' alignment. Returns the name of an in-play
+ * character (either player) that is a manifestation of the same entity as
+ * `def` (e.g. Strider ba-1 blocks a normal play of Aragorn II tw-120, and
+ * vice versa), or `null` when nothing blocks.
+ *
+ * Scans characters only: hazard-side chain sisters (Balrog of Moria tw-12
+ * vs The Balrog ba-3, Nazgûl permanent-events vs Ringwraiths) leave play
+ * when the character enters via their own discard-on-play rules — the
+ * "unless the current manifestation would leave play … when the new
+ * manifestation is played" clause of g.man.1. The sanctioned path around
+ * this block for characters is the `manifestation-swap` action, where the
+ * old manifestation is removed from the game as part of the play.
+ */
+export function manifestationOfEntityInPlay(
+  state: GameState,
+  def: CardDefinition,
+): string | null {
+  const nameOf = (d: CardDefinition): string => (d as { name?: string }).name ?? (d.id as string);
+  for (const player of state.players) {
+    // Characters in play.
+    for (const char of Object.values(player.characters)) {
+      const charDef = defById(state, char.definitionId);
+      if (charDef && sameManifestationEntity(charDef, def)) return nameOf(charDef);
+      // Allies attached to a character (a manifestation may be an ally, e.g.
+      // Mistress Lobelia dm-178 — a hero-resource-ally manifestation of the
+      // same entity as the hazard agent Lobelia dm-28).
+      for (const ally of char.allies) {
+        const allyDef = defById(state, ally.definitionId);
+        if (allyDef && sameManifestationEntity(allyDef, def)) return nameOf(allyDef);
+      }
+    }
+    // Agents in play (a manifestation may be a hazard agent).
+    for (const agent of player.agents) {
+      const agentDef = defById(state, agent.character.definitionId);
+      if (agentDef && sameManifestationEntity(agentDef, def)) return nameOf(agentDef);
+    }
+  }
+  return null;
+}
+
+/**
+ * Companion to {@link manifestationOfEntityInPlay} that scans the two players'
+ * `cardsInPlay` (in-play factions, permanent-events, long-events) for a card
+ * that is a manifestation of the same entity as `def`. Used for faction
+ * manifestation uniqueness (g.man.1): a Dragons "Roused" faction such as Smaug
+ * Roused (le-285) cannot be played while another form of the same Dragon — its
+ * Ahunt long-event, At-Home permanent-event, or another Roused faction — is
+ * already in play on either side. Returns the blocking card's name, or `null`.
+ */
+export function manifestationInCardsInPlay(
+  state: GameState,
+  def: CardDefinition,
+): string | null {
+  const nameOf = (d: CardDefinition): string => (d as { name?: string }).name ?? (d.id as string);
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const cardDef = defById(state, card.definitionId);
+      if (cardDef && sameManifestationEntity(cardDef, def)) return nameOf(cardDef);
+    }
+  }
+  return null;
 }
 
 /**
@@ -157,6 +247,7 @@ export function applyManifestationCascade(state: GameState): GameState {
 export function getActiveAutoAttacks(
   state: GameState,
   siteDef: SiteCard,
+  siteInstanceId?: CardInstanceId,
 ): readonly AutomaticAttack[] {
   const lairOf = (siteDef as { lairOf?: ManifestId }).lairOf;
 
@@ -180,6 +271,21 @@ export function getActiveAutoAttacks(
   // Augment with any permanent-event-auto-attack effects targeting this site.
   const peAugments = collectPermanentEventAttacks(state, siteDef);
   let combined: readonly AutomaticAttack[] = peAugments.length === 0 ? printed : [...printed, ...peAugments];
+
+  // FEAR! FIRE! FOES! (as-29) Mode A: turn-scoped `extra-automatic-attack`
+  // constraints append one additional real automatic-attack to the specific
+  // site *instance* they were created at (matched by instance id, not
+  // definition id, so only the targeted company's site is augmented).
+  if (siteInstanceId) {
+    const extras = state.activeConstraints.filter(
+      c => c.kind.type === 'extra-automatic-attack' && c.kind.siteInstanceId === siteInstanceId,
+    );
+    for (const c of extras) {
+      if (c.kind.type !== 'extra-automatic-attack') continue;
+      logDetail(`extra-automatic-attack: appending ${c.kind.attack.creatureType || 'no-type'} attack (${c.kind.attack.strikes} strikes, ${c.kind.attack.prowess} prowess${c.kind.attack.forceDetainment ? ', detainment' : ''}) at ${siteDef.name}`);
+      combined = [...combined, c.kind.attack];
+    }
+  }
 
   // MEBA: "If The Balrog is in play or has been defeated, ignore all Balrog
   // automatic-attacks (i.e., at The Under-gates)." Strip Balrog-typed attacks
@@ -232,6 +338,34 @@ export function getActiveAutoAttacks(
       ...(a.body !== undefined ? { body: a.body } : {}),
       ...(combatRules.length > 0 ? { combatRules } : {}),
     }];
+  }
+
+  // Roots of the Earth (ba-74): a `site-instance-transform` strips all
+  // automatic-attacks from the associated Darkhaven instance and adds an Orcs
+  // 5/9 auto-attack to every other version. Lord and Usurper (ba-65): both the
+  // associated and the other versions lose their Dwarf auto-attacks
+  // (`removeAutoAttacksByRace`), and the other versions additionally gain an
+  // Orcs 4/7 attack. Requires the queried site instance to distinguish the two.
+  const transform = resolveSiteInstanceTransform(state, siteDef.id, siteInstanceId);
+  if (transform) {
+    const roleCfg = transform.role === 'associated'
+      ? transform.effect.associated
+      : transform.effect.others;
+    if (transform.role === 'associated' && transform.effect.associated.removeAllAutoAttacks) {
+      logDetail(`site-instance-transform: ${siteDef.name} is the associated ${transform.effect.associated.siteType} — all automatic-attacks removed`);
+      return [];
+    }
+    if (roleCfg.removeAutoAttacksByRace) {
+      const race = roleCfg.removeAutoAttacksByRace;
+      const before = combined.length;
+      combined = combined.filter(a => a.creatureType !== race);
+      logDetail(`site-instance-transform: ${transform.role} version of ${siteDef.name} loses ${before - combined.length} ${race} automatic-attack(s)`);
+    }
+    if (transform.role === 'other' && transform.effect.others.addAutoAttack) {
+      const add = transform.effect.others.addAutoAttack;
+      logDetail(`site-instance-transform: other version of ${siteDef.name} gains ${add.creatureType} auto-attack (${add.strikes} strikes, ${add.prowess} prowess)`);
+      combined = [...combined, { creatureType: add.creatureType, strikes: add.strikes, prowess: add.prowess }];
+    }
   }
 
   return combined;
@@ -303,7 +437,12 @@ function collectPermanentEventAttacks(state: GameState, siteDef: SiteCard): Auto
       for (const e of effects) {
         if (e.type !== 'permanent-event-auto-attack') continue;
         const eff = e;
-        if (!eff.siteIds.includes(siteDef.id)) continue;
+        // Match either an explicitly listed site definition (Spawn-type events)
+        // or, when `siteType` is set, every site of that printed type (Fell
+        // Winter le-111: "Each Border-hold receives an additional auto-attack").
+        const matchesById = eff.siteIds.includes(siteDef.id);
+        const matchesByType = eff.siteType !== undefined && siteDef.siteType === eff.siteType;
+        if (!matchesById && !matchesByType) continue;
         out.push({
           creatureType: eff.attack.creatureType,
           strikes: eff.attack.strikes,

@@ -1,0 +1,522 @@
+{
+  "id": "challenge-deck-1",
+  "name": "(#1) The Shadow-deeps",
+  "alignment": "balrog",
+  "notes": "This deck features the Balrog's Great Shadow form -- which is his stealthiest and most reclusive -- along with bold adventuring in Sauron's domains. The Under-deeps beneath the Dark Lord's holds tempt the Balrog with the lingering power of Morgoth, the creator and Black Enemy. The Balrog dispatches his Orcs and Trolls to retrieve what they can here and from the strongholds above. The deck's hazards center on Spiders and Animals and land the horrible Spawn of Morgoth, newly unearthed for this expansion.\n\n### Starting Company (1) at Moria\n\n- Azog controls two Mountain-maggots, Bûthrakaur controls the Orc Veteran. Instead of two minor items, start with Orders from the Great Demon on the company and Gangways over the Fire.\n\n### Resource Play\n\nThe power of this deck improves dramatically using Great Shadow's ability to recycle non-short-event resources and characters. Guiltlessly discard inconvenient MP sources drawn early in the game, because you can recycle and redraw them later. Access additional resources from the sideboard by tapping The Balrog to bring five to your discard pile, cycling these using Great Shadow's ability. Cycle and recycle Skies of Fire to foil an opponent's Doors of Night strategy. The deck relies on one or more high prowess non-Balrog companies to roam the heart of Mordor and beyond.\n\n### The Balrog\n\nAs soon as convenient, tap The Balrog to bring to the discard pile Breach the Hold, Roots of the Earth, Memories of Old Torture, Flame of Udûn, and a sideboard resource that reacts to your opponent. In Great Shadow form The Balrog should always be accompanied by his minions outside of a Darkhaven. Once The Balrog plays Descent Through Fire -- the deck's most important card -- bring in Breach the Hold and Roots of the Earth from the sideboard.\n\n### Hazard Play\n\nThe hazard mix contains plenty of Spiders, a handful of Animals, and enhancers for both. Certain enhancers -- called Spawn -- form a natural sub-theme of their own. Three of the deck's hazards depend on the number of Spawn in play.",
+  "pool": [
+    {
+      "name": "Azog",
+      "card": "ba-2",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Bûthrakaur",
+      "card": "ba-5",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Mountain-maggot",
+      "card": "ba-8",
+      "qty": 2
+    },
+    {
+      "name": "Orc Veteran",
+      "card": "le-35",
+      "qty": 1
+    },
+    {
+      "name": "Orders from the Great Demon",
+      "card": "ba-70",
+      "qty": 1
+    },
+    {
+      "name": "Gangways over the Fire",
+      "card": "ba-60",
+      "qty": 1
+    },
+    {
+      "name": "Gorbag",
+      "card": "le-11",
+      "qty": 1
+    },
+    {
+      "name": "Orc Tracker",
+      "card": "le-34",
+      "qty": 2
+    },
+    {
+      "name": "Shagrat",
+      "card": "le-39",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "The Balrog",
+        "card": "ba-3",
+        "qty": 3
+      },
+      {
+        "name": "Bûrat",
+        "card": "as-1",
+        "qty": 1
+      },
+      {
+        "name": "Tûma",
+        "card": "as-5",
+        "qty": 1
+      },
+      {
+        "name": "Wûluag",
+        "card": "as-6",
+        "qty": 1
+      }
+    ],
+    "hazards": [
+      {
+        "name": "Beorning Skin-changers",
+        "card": "ba-10",
+        "qty": 1
+      },
+      {
+        "name": "Carrion Feeders",
+        "card": "ba-11",
+        "qty": 1
+      },
+      {
+        "name": "Monstrosity of Diverse Shape",
+        "card": "ba-21",
+        "qty": 1
+      },
+      {
+        "name": "Shelob's Brood",
+        "card": "ba-13",
+        "qty": 2
+      },
+      {
+        "name": "Spawn of Ungoliant",
+        "card": "ba-24",
+        "qty": 1
+      },
+      {
+        "name": "Ungoliant's Foul Issue",
+        "card": "ba-28",
+        "qty": 1
+      },
+      {
+        "name": "Ungoliant's Progeny",
+        "card": "ba-27",
+        "qty": 1
+      },
+      {
+        "name": "Giant Spiders",
+        "card": "le-75",
+        "qty": 3
+      },
+      {
+        "name": "Half-trolls of Far Harad",
+        "card": "tw-43",
+        "qty": 2
+      },
+      {
+        "name": "Lesser Spiders",
+        "card": "le-83",
+        "qty": 3
+      },
+      {
+        "name": "Neeker-breekers",
+        "card": "tw-493",
+        "qty": 2
+      },
+      {
+        "name": "Black Vapour",
+        "card": "ba-14",
+        "qty": 1
+      },
+      {
+        "name": "Darkness Made By Malice",
+        "card": "ba-15",
+        "qty": 1
+      },
+      {
+        "name": "The Reek",
+        "card": "ba-23",
+        "qty": 1
+      },
+      {
+        "name": "Unabated in Malice",
+        "card": "ba-26",
+        "qty": 1
+      },
+      {
+        "name": "Foolish Words",
+        "card": "le-112",
+        "qty": 2
+      },
+      {
+        "name": "Full of Froth and Rage",
+        "card": "as-30",
+        "qty": 3
+      },
+      {
+        "name": "Greed",
+        "card": "le-113",
+        "qty": 1
+      },
+      {
+        "name": "Lure of Expedience",
+        "card": "le-122",
+        "qty": 2
+      },
+      {
+        "name": "Twilight",
+        "card": "le-145",
+        "qty": 2
+      }
+    ],
+    "resources": [
+      {
+        "name": "Cave Troll",
+        "card": "ba-35",
+        "qty": 1
+      },
+      {
+        "name": "Descent through Fire",
+        "card": "ba-56",
+        "qty": 1
+      },
+      {
+        "name": "Evil Things Lingering",
+        "card": "ba-45",
+        "qty": 1
+      },
+      {
+        "name": "Great Troll",
+        "card": "ba-46",
+        "qty": 1
+      },
+      {
+        "name": "Maker's Map",
+        "card": "ba-66",
+        "qty": 1
+      },
+      {
+        "name": "Tempest of Fire",
+        "card": "ba-77",
+        "qty": 1
+      },
+      {
+        "name": "Black Mace",
+        "card": "le-299",
+        "qty": 2
+      },
+      {
+        "name": "High Helm",
+        "card": "le-313",
+        "qty": 1
+      },
+      {
+        "name": "Iron Shield of Old",
+        "card": "as-127",
+        "qty": 2
+      },
+      {
+        "name": "Orcs of Mirkwood",
+        "card": "le-277",
+        "qty": 1
+      },
+      {
+        "name": "Orcs of Moria",
+        "card": "le-278",
+        "qty": 1
+      },
+      {
+        "name": "Sable Shield",
+        "card": "le-341",
+        "qty": 1
+      },
+      {
+        "name": "Stinker",
+        "card": "le-154",
+        "qty": 1
+      },
+      {
+        "name": "Ancient Secrets",
+        "card": "ba-36",
+        "qty": 2
+      },
+      {
+        "name": "Angband Revisited",
+        "card": "ba-49",
+        "qty": 1
+      },
+      {
+        "name": "Caverns Unchoked",
+        "card": "ba-51",
+        "qty": 1
+      },
+      {
+        "name": "Foe Dismayed",
+        "card": "ba-59",
+        "qty": 1
+      },
+      {
+        "name": "Going Ever Under Dark",
+        "card": "ba-37",
+        "qty": 1
+      },
+      {
+        "name": "Great Fissure",
+        "card": "ba-61",
+        "qty": 2
+      },
+      {
+        "name": "Great Shadow",
+        "card": "ba-62",
+        "qty": 2
+      },
+      {
+        "name": "Out He Sprang",
+        "card": "ba-71",
+        "qty": 1
+      },
+      {
+        "name": "Vanguard of Might",
+        "card": "ba-79",
+        "qty": 1
+      },
+      {
+        "name": "Bold Thrust",
+        "card": "le-172",
+        "qty": 3
+      },
+      {
+        "name": "I'll Report you",
+        "card": "le-196",
+        "qty": 2
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Moria",
+      "card": "ba-93",
+      "qty": 1
+    },
+    {
+      "name": "The Under-gates",
+      "card": "ba-100",
+      "qty": 1
+    },
+    {
+      "name": "The Drowning-deeps",
+      "card": "ba-89",
+      "qty": 1
+    },
+    {
+      "name": "The Iron-deeps",
+      "card": "ba-91",
+      "qty": 1
+    },
+    {
+      "name": "The Sulfur-deeps",
+      "card": "ba-97",
+      "qty": 1
+    },
+    {
+      "name": "The Under-courts",
+      "card": "ba-98",
+      "qty": 1
+    },
+    {
+      "name": "The Under-galleries",
+      "card": "ba-99",
+      "qty": 1
+    },
+    {
+      "name": "The Under-grottos",
+      "card": "ba-101",
+      "qty": 1
+    },
+    {
+      "name": "The Under-leas",
+      "card": "ba-102",
+      "qty": 1
+    },
+    {
+      "name": "The Under-vaults",
+      "card": "ba-103",
+      "qty": 1
+    },
+    {
+      "name": "Barad-dûr",
+      "card": "ba-84",
+      "qty": 1
+    },
+    {
+      "name": "Carn Dûm",
+      "card": "ba-85",
+      "qty": 1
+    },
+    {
+      "name": "Cirith Gorgor",
+      "card": "ba-86",
+      "qty": 1
+    },
+    {
+      "name": "Cirith Ungol",
+      "card": "ba-87",
+      "qty": 1
+    },
+    {
+      "name": "Dol Guldur",
+      "card": "ba-88",
+      "qty": 1
+    },
+    {
+      "name": "Minas Morgul",
+      "card": "ba-92",
+      "qty": 1
+    },
+    {
+      "name": "Remains of Thangorodrim",
+      "card": "ba-95",
+      "qty": 1
+    },
+    {
+      "name": "Dead Marshes",
+      "card": "le-364",
+      "qty": 1
+    },
+    {
+      "name": "Goblin-gate",
+      "card": "le-378",
+      "qty": 1
+    },
+    {
+      "name": "Sarn Goriwing",
+      "card": "le-401",
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Breach the Hold",
+      "card": "ba-50",
+      "qty": 1
+    },
+    {
+      "name": "Cloaked by Darkness",
+      "card": "ba-53",
+      "qty": 1
+    },
+    {
+      "name": "Crook-legged Orc",
+      "card": "ba-6",
+      "qty": 1
+    },
+    {
+      "name": "Darkness Wielded",
+      "card": "ba-55",
+      "qty": 1
+    },
+    {
+      "name": "Flame of Udûn",
+      "card": "ba-58",
+      "qty": 1
+    },
+    {
+      "name": "Hill-troll",
+      "card": "ba-7",
+      "qty": 1
+    },
+    {
+      "name": "Memories of Old Torture",
+      "card": "ba-67",
+      "qty": 1
+    },
+    {
+      "name": "Roots of the Earth",
+      "card": "ba-74",
+      "qty": 1
+    },
+    {
+      "name": "Terror Heralds Doom",
+      "card": "ba-78",
+      "qty": 1
+    },
+    {
+      "name": "I'll Be at your Heels",
+      "card": "le-195",
+      "qty": 1
+    },
+    {
+      "name": "Orc Veteran",
+      "card": "le-35",
+      "qty": 2
+    },
+    {
+      "name": "Piercing All Shadows",
+      "card": "wh-47",
+      "qty": 1
+    },
+    {
+      "name": "Skies of Fire",
+      "card": "le-228",
+      "qty": 2
+    },
+    {
+      "name": "Sudden Call",
+      "card": "le-235",
+      "qty": 1
+    },
+    {
+      "name": "The Under-roads",
+      "card": "as-106",
+      "qty": 2
+    },
+    {
+      "name": "Desire All for Thy Belly",
+      "card": "ba-16",
+      "qty": 1
+    },
+    {
+      "name": "Glance of Arien",
+      "card": "ba-19",
+      "qty": 1
+    },
+    {
+      "name": "The Sun Shone Fiercely",
+      "card": "ba-25",
+      "qty": 1
+    },
+    {
+      "name": "Corsairs of Umbar",
+      "card": "tw-24",
+      "qty": 1
+    },
+    {
+      "name": "Covetous Thoughts",
+      "card": "le-107",
+      "qty": 2
+    },
+    {
+      "name": "Muster Disperses",
+      "card": "le-126",
+      "qty": 2
+    },
+    {
+      "name": "Stench of Mordor",
+      "card": "le-141",
+      "qty": 1
+    },
+    {
+      "name": "The Way Is Shut",
+      "card": "dm-98",
+      "qty": 1
+    }
+  ]
+}

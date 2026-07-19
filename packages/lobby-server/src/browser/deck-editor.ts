@@ -17,6 +17,7 @@ import {
 import { buildCardPreviewInfo } from './render.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { apiSend } from './api.js';
+import { renderMarkdown } from './markdown.js';
 
 // Forward-declared showScreen, set by the lobby module at startup.
 let showScreenFn: ((id: ScreenId) => void) | null = null;
@@ -329,6 +330,155 @@ function siteTypeToggles(preset: TogglePreset): BrowserToggle[] {
 function isRing(def: CardDefinition): boolean {
   return traits(def).cardType.endsWith('resource-item')
     && (traits(def).subtype === 'gold-ring' || (traits(def).keywords ?? []).includes('ring'));
+}
+
+/**
+ * Render the deck title: the deck name with an edit icon, or — in edit
+ * mode — a name input with Save/Cancel (Enter saves, Escape cancels).
+ * Saving persists the whole deck; a failed save restores the old name.
+ */
+function renderTitle(editing = false): void {
+  const titleEl = document.getElementById('deck-editor-title');
+  if (!titleEl || !editingDeck) return;
+  const deck = editingDeck;
+  titleEl.textContent = '';
+
+  if (!editing) {
+    const name = document.createElement('span');
+    name.textContent = deck.name;
+    titleEl.appendChild(name);
+    const editBtn = document.createElement('button');
+    editBtn.className = 'deck-editor-title-edit-btn';
+    editBtn.textContent = '\u{270F}\u{FE0F}';
+    editBtn.title = 'Rename this deck';
+    editBtn.addEventListener('click', () => renderTitle(true));
+    titleEl.appendChild(editBtn);
+    return;
+  }
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'deck-editor-title-input';
+  input.value = deck.name;
+  input.maxLength = 60;
+  titleEl.appendChild(input);
+
+  const commit = () => {
+    const name = input.value.trim();
+    if (!name || name === deck.name) {
+      renderTitle();
+      return;
+    }
+    const prev = deck.name;
+    deck.name = name;
+    renderTitle();
+    void saveEditingDeck().then(ok => {
+      if (!ok) {
+        deck.name = prev;
+        renderTitle();
+      }
+    });
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      renderTitle();
+    }
+  });
+
+  const actions = document.createElement('span');
+  actions.className = 'deck-editor-title-actions';
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = 'Save';
+  saveBtn.title = 'Save the new deck name';
+  saveBtn.addEventListener('click', commit);
+  actions.appendChild(saveBtn);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'deck-editor-title-btn--cancel';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => renderTitle());
+  actions.appendChild(cancelBtn);
+  titleEl.appendChild(actions);
+
+  input.focus();
+  input.select();
+}
+
+/**
+ * Render the deck notes panel: a collapsible block showing the deck's
+ * Markdown notes with an edit mode (textarea + Save/Cancel). Saving
+ * persists the whole deck; a failed save restores the previous notes.
+ */
+function renderNotes(editing = false): void {
+  const box = document.getElementById('deck-editor-notes') as HTMLDetailsElement | null;
+  if (!box || !editingDeck) return;
+  const deck = editingDeck;
+  const wasOpen = box.open;
+  box.textContent = '';
+  const summary = document.createElement('summary');
+  summary.className = 'deck-editor-notes-summary';
+  summary.textContent = deck.notes || editing ? 'Notes' : 'Notes (empty)';
+  box.appendChild(summary);
+  box.open = wasOpen || editing;
+
+  if (editing) {
+    const textarea = document.createElement('textarea');
+    textarea.className = 'deck-editor-notes-input';
+    textarea.placeholder = 'Notes about this deck, in Markdown…';
+    textarea.value = deck.notes ?? '';
+    // Grow the textarea to fit its content so editing never scrolls inside it.
+    const autoGrow = () => {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight + 2}px`;
+    };
+    textarea.addEventListener('input', autoGrow);
+    box.appendChild(textarea);
+    autoGrow();
+    const actions = document.createElement('div');
+    actions.className = 'deck-editor-notes-actions';
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', () => {
+      const prev = deck.notes;
+      const text = textarea.value.trim();
+      deck.notes = text || undefined;
+      void saveEditingDeck().then(ok => {
+        if (!ok) deck.notes = prev;
+        renderNotes(!ok);
+      });
+    });
+    actions.appendChild(saveBtn);
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'deck-editor-notes-btn--cancel';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => renderNotes());
+    actions.appendChild(cancelBtn);
+    box.appendChild(actions);
+    textarea.focus();
+    return;
+  }
+
+  const view = document.createElement('div');
+  view.className = 'deck-editor-notes-view';
+  if (deck.notes) {
+    view.innerHTML = renderMarkdown(deck.notes);
+  } else {
+    view.innerHTML = '<p class="lobby-empty">No notes yet.</p>';
+  }
+  box.appendChild(view);
+  const actions = document.createElement('div');
+  actions.className = 'deck-editor-notes-actions';
+  const editBtn = document.createElement('button');
+  editBtn.textContent = 'Edit';
+  editBtn.title = 'Edit the deck notes';
+  editBtn.addEventListener('click', () => renderNotes(true));
+  actions.appendChild(editBtn);
+  box.appendChild(actions);
 }
 
 /** Persist the deck currently being edited. Returns true on success. */
@@ -799,7 +949,11 @@ export async function openDeckEditor(deckId: string): Promise<void> {
   if (sentResp.ok) {
     const sent = await sentResp.json() as { messages: { topic: string; status: string; keywords: Record<string, string> }[] };
     for (const msg of sent.messages) {
-      const pending = msg.status !== 'processed';
+      // A request is still "pending" (its card/cert chip stays marked) until it
+      // reaches a terminal state. `processed` means the work is done and its PR
+      // is awaiting a merge/close decision; `success`/`failed` are the final
+      // verdicts — none of these should re-mark the card as still-requested.
+      const pending = msg.status !== 'processed' && msg.status !== 'success' && msg.status !== 'failed';
       if (pending && msg.topic === 'card-request' && msg.keywords.deckId && msg.keywords.cardName) {
         appState.requestedCards.add(`${msg.keywords.deckId}:${msg.keywords.cardName}`);
       }
@@ -810,8 +964,8 @@ export async function openDeckEditor(deckId: string): Promise<void> {
   }
 
   sessionStorage.setItem(EDITING_DECK_KEY, deckId);
-  document.getElementById('deck-editor-title')!.textContent = deck.name;
   editingDeck = deck;
+  renderTitle();
   if (!deck.sideboard) deck.sideboard = [];
   if (!deck.antiFwSideboard) deck.antiFwSideboard = [];
   const sections: DeckSection[] = [
@@ -826,5 +980,9 @@ export async function openDeckEditor(deckId: string): Promise<void> {
   for (const s of sections) {
     renderSection(s, deckId);
   }
+  // Notes start collapsed each time a deck is opened.
+  const notesBox = document.getElementById('deck-editor-notes') as HTMLDetailsElement | null;
+  if (notesBox) notesBox.open = false;
+  renderNotes();
   showScreenFn?.('deck-editor-screen');
 }

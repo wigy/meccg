@@ -42,6 +42,7 @@ import {
   getCharacter,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
+import { Alignment } from '../../index.js';
 import { enqueueResolution } from '../../engine/pending.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
@@ -68,7 +69,7 @@ describe('Minor Ring (le-324)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BANDIT_LAIR] },
       ],
     });
@@ -87,7 +88,7 @@ describe('Minor Ring (le-324)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [{ defId: GORBAG, items: [MINOR_RING] }] }], hand: [], siteDeck: [ETTENMOORS] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [{ defId: GORBAG, items: [MINOR_RING] }] }], hand: [], siteDeck: [ETTENMOORS] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BANDIT_LAIR] },
       ],
     });
@@ -101,7 +102,7 @@ describe('Minor Ring (le-324)', () => {
       phase: Phase.Organization,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BANDIT_LAIR] },
       ],
     });
@@ -117,7 +118,7 @@ describe('Minor Ring (le-324)', () => {
       phase: Phase.Site,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BANDIT_LAIR] },
       ],
     });
@@ -147,7 +148,7 @@ describe('Minor Ring (le-324)', () => {
       phase: Phase.Site,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BANDIT_LAIR] },
       ],
     });
@@ -183,7 +184,7 @@ describe('Minor Ring (le-324)', () => {
       phase: Phase.Site,
       recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [GORBAG] }], hand: [], siteDeck: [ETTENMOORS] },
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [SHAGRAT] }], hand: [], siteDeck: [BANDIT_LAIR] },
       ],
     });

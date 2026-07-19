@@ -90,8 +90,31 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Take up to two resources from your sideboard to your play deck and reshuffle. Remove this card from the game."
+    "effects": [
+      {
+        "type": "move",
+        "select": "target",
+        "from": [
+          "sideboard"
+        ],
+        "to": "deck",
+        "shuffleAfter": true,
+        "removeFromGame": true,
+        "filter": {
+          "cardType": {
+            "$in": [
+              "hero-resource-item",
+              "hero-resource-ally",
+              "hero-resource-faction",
+              "hero-resource-event"
+            ]
+          }
+        },
+        "count": 2
+      }
+    ],
+    "text": "Take up to two resources from your sideboard to your play deck and reshuffle. Remove this card from the game.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hero-resource-event",
@@ -127,10 +150,42 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/ToFealtySworn.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a Hobbit: in the same company as Return of the King or during the same site phase his company plays a unique hero faction at a Free-hold [{F}] (not Bag End). The Hobbit gains the warrior skill, +2 prowess, and +5 direct influence against the Hobbits faction and characters with Bag End as a home site. Cannot be duplicated on a given Hobbit."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": "hobbit" }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "$or": [
+            { "company.itemNames": { "$includes": "Return of the King" } },
+            { "company.playedUniqueHeroFactionAtFreeHold": true }
+          ]
+        }
+      },
+      { "type": "grant-skill", "skill": "warrior" },
+      { "type": "stat-modifier", "stat": "prowess", "value": 2 },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5,
+        "when": { "reason": "influence-check", "target.homesite": { "$includes": "Bag End" } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5,
+        "when": { "reason": "faction-influence-check", "faction.name": "Hobbits" }
+      },
+      { "type": "duplication-limit", "scope": "character", "max": 1 }
+    ],
+    "text": "Playable on a Hobbit: in the same company as Return of the King or during the same site phase his company plays a unique hero faction at a Free-hold [{F}] (not Bag End). The Hobbit gains the warrior skill, +2 prowess, and +5 direct influence against the Hobbits faction and characters with Bag End as a home site. Cannot be duplicated on a given Hobbit.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "minion-resource-ally",
@@ -145,11 +200,22 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "a tapped or untapped Under-deeps site with a Troll automatic-attack"
+        "any": true,
+        "when": {
+          "$and": [
+            { "site.keywords": { "$includes": "under-deeps" } },
+            { "site.autoAttack.race": "troll" }
+          ]
+        }
       }
     ],
-    "effects": [],
-    "text": "Playable at a tapped or untapped Under-deeps site with a Troll automatic-attack. Its controlling character's company is overt. +1 to rolls required for its controller’s company to move to adjacent Under-deeps sites."
+    "effects": [
+      { "type": "company-overt" },
+      { "type": "under-deeps-roll-modifier", "value": 1 },
+      { "type": "play-flag", "flag": "playable-at-tapped-site" }
+    ],
+    "text": "Playable at a tapped or untapped Under-deeps site with a Troll automatic-attack. Its controlling character's company is overt. +1 to rolls required for its controller’s company to move to adjacent Under-deeps sites.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -161,8 +227,46 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Tap your Ringwraith to discard one hazard permanent-event. Alternatively, during your organization phase, tap your Ringwraith to take up to two resources from your sideboard to your play deck and reshuffle."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.isRevealedAvatar": true },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "in-play",
+        "to": "discard",
+        "filter": {
+          "$and": [
+            { "cardType": "hazard-event" },
+            { "eventType": "permanent" }
+          ]
+        }
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": ["sideboard"],
+        "to": "deck",
+        "shuffleAfter": true,
+        "count": 2,
+        "filter": {
+          "cardType": {
+            "$in": [
+              "minion-resource-item",
+              "minion-resource-ally",
+              "minion-resource-faction",
+              "minion-resource-event"
+            ]
+          }
+        }
+      }
+    ],
+    "text": "Tap your Ringwraith to discard one hazard permanent-event. Alternatively, during your organization phase, tap your Ringwraith to take up to two resources from your sideboard to your play deck and reshuffle.",
+    "certified": "2026-07-12"
   },
   {
     "cardType": "minion-resource-event",
@@ -174,8 +278,15 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a company during the organization phase. The company cannot use starter movement. In addition, if they move with region movement, they are limited in all cases to 3 regions maximum and their hazard limit is reduced by one (to a minimum of two). Discard this card from play and make a roll to attempt to cancel an attack against them by an opponent’s company. If the roll plus the number of scouts in the company is greater than 7, the attack is canceled. Discard during your organization phase if you choose. Cannot be duplicated on a given company."
+    "effects": [
+      { "type": "play-target", "target": "company" },
+      { "type": "company-movement-restriction", "noStarterMovement": true, "regionMovementMax": 3, "hazardLimitModifier": -1, "hazardLimitFloor": 2 },
+      { "type": "cancel-attack", "requiresCvCC": true, "cost": { "discard": "self" }, "roll": { "threshold": 7, "comparison": "gt", "scoutBonus": true } },
+      { "type": "voluntary-discard", "phase": "organization" },
+      { "type": "duplication-limit", "scope": "company", "max": 1 }
+    ],
+    "text": "Playable on a company during the organization phase. The company cannot use starter movement. In addition, if they move with region movement, they are limited in all cases to 3 regions maximum and their hazard limit is reduced by one (to a minimum of two). Discard this card from play and make a roll to attempt to cancel an attack against them by an opponent’s company. If the roll plus the number of scouts in the company is greater than 7, the attack is canceled. Discard during your organization phase if you choose. Cannot be duplicated on a given company.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -187,8 +298,37 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "As a permanent-event, +1 to your influence attempts against Orc and Troll factions. If you have at least 4 unique Orc and/or Troll factions —none playable at a Darkhold [{D}]—you receive this card’s marshalling points. Cannot be duplicated as a permanent-event. Alternatively, as a short-event, you may choose any Orc and Troll factions from your discard pile and shuffle them into your play deck."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "target": "player-in-play",
+        "when": { "reason": "faction-influence-check", "faction.race": { "$in": ["orc", "troll"] } }
+      },
+      {
+        "type": "conditional-mp",
+        "bonus": 2,
+        "requiresFactionCount": {
+          "min": 4,
+          "races": ["orc", "troll"],
+          "unique": true,
+          "excludePlayableAtSiteType": "dark-hold"
+        }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 },
+      {
+        "type": "reshuffle-from-discard",
+        "scope": "self",
+        "altShortEventMode": true,
+        "filter": {
+          "cardType": "minion-resource-faction",
+          "race": { "$in": ["orc", "troll"] }
+        }
+      }
+    ],
+    "text": "As a permanent-event, +1 to your influence attempts against Orc and Troll factions. If you have at least 4 unique Orc and/or Troll factions —none playable at a Darkhold [{D}]—you receive this card’s marshalling points. Cannot be duplicated as a permanent-event. Alternatively, as a short-event, you may choose any Orc and Troll factions from your discard pile and shuffle them into your play deck.",
+    "certified": "2026-07-13"
   },
   {
     "cardType": "minion-resource-event",
@@ -239,8 +379,31 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Any minion company without a Ringwraith may attack another minion company without a Ringwraith. The attacking company may contain The Balrog. Discard when any play deck is exhausted. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "cvcc-attack-permission",
+        "when": {
+          "$and": [
+            { "attacker.isMinion": true },
+            { "defender.isMinion": true },
+            { "attacker.hasRingwraith": false },
+            { "defender.hasRingwraith": false }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      }
+    ],
+    "text": "Any minion company without a Ringwraith may attack another minion company without a Ringwraith. The attacking company may contain The Balrog. Discard when any play deck is exhausted. Cannot be duplicated.",
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
@@ -281,14 +444,54 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "The Under-galleries, The Under-courts, or Remains of Thangorodrim"
+        "site": "The Under-galleries"
+      },
+      {
+        "site": "The Under-courts"
+      },
+      {
+        "site": "Remains of Thangorodrim"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-overt"
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "movementType": {
+            "$in": ["region", "starter"]
+          }
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "when": {
+          "bearer.name": {
+            "$ne": "The Balrog"
+          }
+        },
+        "apply": {
+          "type": "enqueue-opponent-elimination-roll",
+          "modifier": -4
+        }
+      }
+    ],
     "text": "Unique. Balrog specific. Spawn. Playable at The Under-galleries, The Under-courts, or Remains of Thangorodrim. Its controlling character's company is overt. Discard this ally if its company moves using region or starter movement. If this ally’s controlling character is not The Balrog, your opponent makes a roll during your organization phase and subtracts four. The controlling character is eliminated if the result is greater than his mind.",
     "keywords": [
-      "balrog-specific"
-    ]
+      "balrog-specific",
+      "spawn"
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-ally",
@@ -303,14 +506,36 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "a non-Darkhaven Under-deeps site and only by The Balrog"
+        "any": true,
+        "when": {
+          "$and": [
+            {
+              "site.keywords": {
+                "$includes": "under-deeps"
+              }
+            },
+            {
+              "site.siteType": {
+                "$ne": "haven"
+              }
+            }
+          ]
+        }
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-overt"
+      },
+      {
+        "type": "assign-strike-when-tapped"
+      }
+    ],
     "text": "Balrog specific. Playable at a non-Darkhaven Under-deeps site and only by The Balrog. Troll. Its controlling character's company is overt. Even if tapped or wounded, you may assign a strike to this ally as though it were untapped.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-ally",
@@ -325,14 +550,65 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "a non-Darkhaven Under-deeps site"
+        "any": true,
+        "when": {
+          "$and": [
+            {
+              "site.keywords": {
+                "$includes": "under-deeps"
+              }
+            },
+            {
+              "site.siteType": {
+                "$ne": "haven"
+              }
+            }
+          ]
+        }
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-overt"
+      },
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "drake"
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "movementType": {
+            "$in": [
+              "region",
+              "starter"
+            ]
+          }
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
     "text": "Unique. Balrog specific. Spawn. Playable at a non-Darkhaven Under-deeps site. Its controlling character's company is overt. Tap to cancel a Drake attack against his company. Discard this ally if its company moves using region or starter movement.",
     "keywords": [
-      "balrog-specific"
-    ]
+      "balrog-specific",
+      "spawn"
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "minion-resource-event",
@@ -344,11 +620,16 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-flag", "flag": "no-auto-untap" },
+      { "type": "evil-hour-tap-trigger", "mpThreshold": 3 },
+      { "type": "evil-hour-grant-movement", "extraRegions": 2 }
+    ],
     "text": "Balrog specific. Tap this card when an opponent plays a card normally giving him three or more marshalling points. This card does not untap. If tapped, you may discard this card during your organization phase to target a company allowed to move with region movement. The company may move up to two additional regions if moving to a site where an opponent’s company is present—and also, thereafter, when leaving this site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "minion-resource-event",
@@ -360,11 +641,35 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.status": "tapped"
+            },
+            {
+              "target.inAvatarCompany": true
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "untap",
+        "apply": {
+          "type": "set-character-status",
+          "status": "untapped"
+        }
+      }
+    ],
     "text": "Balrog specific. Untap a character in The Balrog’s company.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -374,13 +679,63 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/BreachtheHold.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "name": {
+            "$in": [
+              "The Drowning-deeps",
+              "The Rusted-deeps"
+            ]
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "The Balrog"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          {
+            "creatureType": "Spawn",
+            "strikes": 1,
+            "prowess": 15
+          },
+          {
+            "creatureType": "Dwarves",
+            "strikes": 4,
+            "prowess": 9
+          },
+          {
+            "creatureType": "Dwarves",
+            "strikes": 2,
+            "prowess": 12
+          }
+        ],
+        "afterAttack": "move-to-mp-pile"
+      },
+      {
+        "type": "surface-site-roll-zero"
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on The Drowning-deeps or The Rusted-deeps if The Balrog is there. The Balrog’s company faces 3 attacks (Spawn — 1 strike with 15 prowess, Dwarves — 4 strikes with 9 prowess, 2 strikes with 12 prowess). Following the attacks, tap The Balrog or discard this card. The roll required to move to the surface site is reduced to zero. This site is never discarded or returned to its location deck. Cannot be duplicated on a given site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
@@ -392,11 +747,22 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "keywords": { "$includes": "under-deeps" } }
+      },
+      {
+        "type": "surface-region-adjacency",
+        "siteTypes": ["shadow-hold", "ruins-and-lairs", "border-hold"]
+      }
+    ],
     "text": "Balrog specific. Playable on an Under-deeps site during the organization phase. This site is never discarded or returned to its location deck. Each other site (of yours) in the same region as its surface site is considered adjacent to this Under-deeps site. This only applies if the other site is normally a Shadow-hold [{S}], Ruins & Lairs [{R}], or Border-hold [{B}].",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -408,11 +774,27 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "organization", "step": "end-of-org" },
+      { "type": "play-condition", "requires": "card-in-play", "cardName": "Great Shadow" },
+      { "type": "play-target", "target": "company" },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-modifier",
+          "scope": "company-mh-phase",
+          "value": -1
+        }
+      },
+      { "type": "move", "select": "self", "from": ["sideboard"], "to": "deck", "shuffleAfter": true }
+    ],
     "text": "Balrog specific. Playable on a company if Great Shadow is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. The hazard limit against the company is reduced by one to no minimum.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
@@ -424,11 +806,15 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "combat" },
+      { "type": "site-storm-devastation", "characterMindBelow": 8, "allyMpBelow": 3 }
+    ],
     "text": "Balrog specific. Playable if The Balrog’s company is not at an Under-deeps site and is in company vs. company combat against a company with a Wizard. Discard all allies with no body at the site. Make a roll: for each character at the site with a mind less than 8 and for each ally normally worth less than 3 marshalling points. If the result minus 1 is greater than the character’s/ally’s body, he is wounded or, if already wounded, eliminated. Tap all untapped allies and characters with a mind stat.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
@@ -440,11 +826,44 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "defender",
+        "prowessModifier": -2,
+        "bodyModifier": -1,
+        "setStrikesTo": 1,
+        "when": {
+          "$and": [
+            { "defender.companyContainsBalrog": true },
+            { "defender.inPlay": { "$includes": "Great Shadow" } }
+          ]
+        }
+      },
+      {
+        "type": "cancel-attack",
+        "alsoCancelLaterAttack": true,
+        "when": {
+          "$and": [
+            { "defender.companyContainsBalrog": true },
+            { "defender.inPlay": { "$includes": "Great Shadow" } }
+          ]
+        }
+      },
+      {
+        "type": "move",
+        "select": "self",
+        "from": ["sideboard"],
+        "to": "deck",
+        "shuffleAfter": true
+      }
+    ],
     "text": "Balrog specific. Playable on an attack against The Balrog’s company if Great Shadow is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. The attack receives -2 prowess, -1 body, and is reduced to one strike. Alternatively, cancel this attack and a latter attack of your choice against his company this turn.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
@@ -456,11 +875,43 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "name": { "$in": ["The Under-galleries", "The Under-courts"] } }
+      },
+      { "type": "play-flag", "flag": "untapped-site-required" },
+      { "type": "play-flag", "flag": "tap-site-on-play" },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "The Balrog" }
+      },
+      { "type": "duplication-limit", "scope": "site", "max": 1 },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          { "creatureType": "Trolls", "strikes": 5, "prowess": 8 },
+          { "creatureType": "Trolls", "strikes": 4, "prowess": 10 },
+          { "creatureType": "Trolls", "strikes": 3, "prowess": 12 }
+        ],
+        "afterAttack": "move-to-mp-pile"
+      },
+      { "type": "stat-modifier", "stat": "prowess", "value": 1, "target": "own-characters" },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "target": "own-characters",
+        "when": { "bearer.keywords": { "$includes": "leader" } }
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase if The Balrog is at an untapped The Under-galleries or The Under-courts. Tap the site. The Balrog’s company faces 3 attacks (Trolls – 5 strikes with 8 prowess, 4 strikes with 10 prowess, 3 strikes with 12 prowess). Following the attacks, tap The Balrog or discard this card. If not discarded, place this card in your marshalling point pile. All your characters receive +1 prowess and all your leaders receive +1 direct influence. Cannot be duplicated at a given site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -470,13 +921,33 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/EddyinFatesTide.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-flag", "flag": "untapped-site-required" },
+      { "type": "play-flag", "flag": "tap-site-on-play" },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "$not": { "keywords": { "$includes": "under-deeps" } } },
+            { "isUnderDeepsSurface": { "$ne": true } }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": { "company.characterNames": { "$includes": "The Balrog" } }
+      },
+      { "type": "eddy-lock", "taxTapCharacters": 2 }
+    ],
     "text": "Balrog specific. Playable during the site phase on an untapped site if The Balrog is there; the site cannot be an Under-deeps site or surface site thereof. Tap The Balrog and the site. This site is never discarded and never untaps for you. Before a company can play any ally or item at any version of this site, it must tap two characters during the site phase.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
@@ -488,11 +959,77 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "The Balrog" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": "items-on-target",
+          "to": "hand",
+          "filter": { "keywords": { "$includes": "demon-fana" } }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": "allies-on-target",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "return-self-to-hand",
+        "cost": {},
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "hand"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-allies-in-company"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": -2
+      },
+      {
+        "type": "body-check-modifier",
+        "value": 1,
+        "scope": "bearer-combat",
+        "when": { "bodyCheck.fromFailedStrike": true }
+      },
+      {
+        "type": "body-check-modifier",
+        "value": 1,
+        "scope": "bearer-combat",
+        "when": { "bodyCheck.target": "character", "combat.isCvCC": true }
+      }
+    ],
     "text": "Balrog specific. Demon fána. Playable during your organization phase on The Balrog. Return this card to your hand: when you play another Demon fána card, or, if you choose, during your organization phase. Discard his allies. No other characters or allies can be in his company outside of the organization phase. +3 prowess; -2 direct influence. +1 to all body checks resulting from failed strikes against The Balrog. If The Balrog attacks successfully in company vs. company combat, +1 to defending character’s body check.",
     "keywords": [
-      "balrog-specific"
-    ]
+      "balrog-specific",
+      "demon-fana"
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
@@ -504,11 +1041,48 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "value": 1,
+        "companyFilter": {
+          "$or": [
+            { "target.keywords": { "$includes": "leader" } },
+            { "target.name": "The Balrog" }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$or": [
+            { "target.keywords": { "$includes": "leader" } },
+            { "target.name": "The Balrog" }
+          ]
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "influence-boost",
+        "when": {
+          "player.hasFactionInHand": true
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "value": 3
+        }
+      }
+    ],
     "text": "Balrog specific. +1 prowess against an attack for all characters in a leader’s or The Balrog’s company or +3 to an influence attempt by a leader or The Balrog.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -520,11 +1094,17 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "extra-under-deeps-mh-phase" },
+      { "type": "starting-company-placement" },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
     "text": "Balrog specific. At the end of its movement/hazard phase, each of your moving companies may attempt to move with Under-deeps movement to a new site they have not used yet this turn. Another site card is played and a movement/hazard phase immmediately follows. Subtract the number of complete movement/ hazard phases the company has taken so far this turn from its Under-deeps movement rolls. You may start the game with this card in lieu of playing a minor item. Cannot be duplicated.",
     "keywords": [
-      "balrog-specific"
-    ]
+      "balrog-specific",
+      "starting-item"
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -536,11 +1116,15 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "cancel-chain-attack-cancel" },
+      { "type": "cancel-attack", "when": { "attack.atUnderDeeps": true } }
+    ],
     "text": "Balrog specific. Target and cancel any effect (declared earlier in the same chain of effects) that would cancel an attack by The Balrog’s company against an opponent’s company. Alternatively, cancel an attack against a company at, or moving to or from, an Under-deeps site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -654,11 +1238,19 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "organization" },
+      { "type": "play-condition", "requires": "card-in-play", "cardName": "Strangling Coils" },
+      { "type": "play-target", "target": "character", "filter": { "target.name": "The Balrog" } },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 },
+      { "type": "on-event", "event": "self-enters-play", "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "scope": "turn", "stat": "direct-influence", "value": 5, "requiresCardInPlay": "Strangling Coils" } },
+      { "type": "move", "select": "self", "from": ["sideboard"], "to": "deck", "shuffleAfter": true }
+    ],
     "text": "Balrog specific. Playable if Strangling Coils is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. The Balrog receives +5 direct influence this turn while Strangling Coils is in play. Cannot be duplicated on a given turn.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
@@ -670,11 +1262,49 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "name": {
+            "$in": ["Blue Mountain Dwarf-hold", "Iron Hill Dwarf-hold"]
+          }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "The Balrog"
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-on-adjacent-under-deeps",
+        "cardName": "Breach the Hold"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          { "creatureType": "Dwarves", "strikes": 5, "prowess": 9 },
+          { "creatureType": "Dwarves", "strikes": 4, "prowess": 10 },
+          { "creatureType": "Dwarves", "strikes": 3, "prowess": 12 }
+        ],
+        "afterAttack": "move-to-mp-pile",
+        "discardUniqueFactionsAtSite": true
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on the Blue Mountain or Iron Hill Dwarf-hold if The Balrog is there and Breach the Hold is on its adjacent Under-deeps site. The Balrog’s company faces 3 attacks (Dwarves — 5 strikes with 9 prowess, 4 strikes with 10 prowess, 3 strikes with 12 prowess). Following the attacks, tap The Balrog or discard this card. If this card is not discarded, discard all unique factions playable at the site. Discard this card when the site is discarded or returned to its location deck. Cannot be duplicated on a given site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
@@ -686,11 +1316,54 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "name": {
+            "$in": ["Blue Mountain Dwarf-hold", "Iron Hill Dwarf-hold"]
+          }
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-attached-to-site",
+        "cardName": "Invade Their Domain"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          { "creatureType": "Dwarves", "strikes": 4, "prowess": 9 },
+          { "creatureType": "Dwarves", "strikes": 3, "prowess": 10 }
+        ],
+        "afterAttack": "move-to-mp-pile",
+        "discardUniqueFactionsAtSite": true
+      },
+      {
+        "type": "site-instance-transform",
+        "associated": {
+          "siteType": "shadow-hold",
+          "removeAutoAttacksByRace": "Dwarves"
+        },
+        "others": {
+          "siteType": "shadow-hold",
+          "removeAutoAttacksByRace": "Dwarves",
+          "addAutoAttack": { "creatureType": "Orcs", "strikes": 4, "prowess": 7 }
+        },
+        "noFactions": true
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on Invade Their Domain. The company faces 2 attacks (Dwarves — 4 strikes with 9 prowess, 3 strikes with 10 prowess). Following the attacks, tap a character or discard this card. If this card is not discarded, discard all unique factions playable at the site. All versions of the associated site become a Shadow-hold [{S}], may have no factions played there, and lose all Dwarf automatic-attacks. Other versions gain an automatic-attack: Orcs – 4 strikes with 7 prowess. Cannot be duplicated on a given card.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
@@ -700,13 +1373,34 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/MakersMap.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "playableResources": { "$includes": "information" } }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "ranger" } },
+            { "target.status": "untapped" }
+          ]
+        }
+      },
+      { "type": "play-flag", "flag": "untapped-site-required" },
+      { "type": "play-flag", "flag": "tap-site-on-play" },
+      { "type": "play-flag", "flag": "tap-character-on-play" },
+      { "type": "under-deeps-roll-modifier", "value": 2 }
+    ],
     "text": "Balrog specific. Playable during the site phase on an untapped ranger at an untapped site where Information is playable. Tap the ranger and the site. +2 to all rolls for his company to move to adjacent Under-deeps sites.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-12"
   },
   {
     "cardType": "minion-resource-event",
@@ -716,13 +1410,53 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/MemoriesofOldTorture.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
-    "marshallingCategory": "misc",
-    "effects": [],
+    "marshallingPoints": 1,
+    "marshallingCategory": "ally",
+    "effects": [
+      {
+        "type": "convert-creature-to-ally",
+        "races": [
+          "man",
+          "men",
+          "drake",
+          "drakes",
+          "orc",
+          "orcs",
+          "troll",
+          "trolls",
+          "giant",
+          "giants"
+        ],
+        "maxStrikes": 1,
+        "controllerTaps": false,
+        "ally": {
+          "mind": 1,
+          "body": 7,
+          "prowessModifier": -7
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "when": {
+          "$or": [
+            { "sitePath.regionTypes": { "$includes": "free" } },
+            { "sitePath.regionTypes": { "$includes": "dark" } }
+          ]
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
     "text": "Balrog specific. Playable on a Man, Drake, Orc, Troll, or Giant hazard creature attack with one strike for each of its attacks. All attacks of the creature are canceled. The creature becomes an ally under the control of any character in the company. The character need not tap. The ally has a mind of 1, body of 7, and prowess equal to its normal prowess minus 7. It gives 1 ally marshalling point. Discard this card and the ally if the company moves through a Free-domain [{f}] or Dark-domain [{d}].",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
@@ -734,11 +1468,49 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "The Balrog"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "influence-boost",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "value": 10,
+          "constraintWhen": {
+            "reason": "opponent-influence-check",
+            "$or": [
+              { "target.kind": "item" },
+              { "target.kind": "ally" },
+              {
+                "$and": [
+                  { "target.kind": "faction" },
+                  { "target.race": { "$in": ["orc", "troll"] } }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "active-check",
+        "max": 1
+      }
+    ],
     "text": "Balrog specific. +10 to an influence attempt by The Balrog against an opponent’s: item, ally, Troll faction, or Orc faction. Cannot be duplicated on a given attempt.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-event",
@@ -750,11 +1522,57 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.keywords": {
+            "$includes": "leader"
+          }
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "company-context",
+        "condition": {
+          "company.characterNames": {
+            "$includes": "The Balrog"
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "protect-from-body-check"
+      },
+      {
+        "type": "on-event",
+        "event": "company-composition-changed",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "company.hasHigherMindThanBearer": true
+        }
+      }
+    ],
     "text": "Balrog specific. Playable during the organization phase on a leader in The Balrog’s company. The leader receives +2 direct influence and cannot be discarded by a body check. Discard whenever there is a character in his company with a higher mind. Cannot be duplicated on a given character.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "minion-resource-event",
@@ -795,11 +1613,19 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "balrog-surface-region-movement",
+        "suppressedByInPlay": "Great Shadow",
+        "regionAllowanceByMp": [[8, 1], [16, 2], [24, 3], [25, 4]],
+        "modifiableBy": "A More Evil Hour"
+      }
+    ],
     "text": "Balrog specific. If Great Shadow is not in play, The Balrog may move with region movement (overriding his card) to an Under-deeps surface site or from an Under-deeps surface site. Based on his marshalling point (MP) total, he may use the following number of regions: 0-8 MPs – 1 region; 9-16 MPs – 2 regions; 17-24 MPs – 3 regions; 25+ MPs – 4 regions. This region allowance may not be modified by any other effects except A More Evil Hour.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-12"
   },
   {
     "cardType": "minion-resource-event",
@@ -809,13 +1635,66 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/PeopleDiminished.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": {
+            "$in": [
+              "free-hold",
+              "border-hold"
+            ]
+          }
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "untapped-site-required"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          {
+            "creatureType": "Men",
+            "strikes": 4,
+            "prowess": 8
+          },
+          {
+            "creatureType": "Men",
+            "strikes": 3,
+            "prowess": 10
+          },
+          {
+            "creatureType": "Men",
+            "strikes": 2,
+            "prowess": 12
+          }
+        ],
+        "afterAttack": "move-to-mp-pile",
+        "discardUniqueFactionsAtSite": true
+      },
+      {
+        "type": "site-lock",
+        "factionInfluenceModifier": -5
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on an untapped Free-hold [{F}] or Border-hold [{B}]. Tap the site. The company faces 3 attacks (Men — 4 strikes with 8 prowess, 3 strikes with 10 prowess, 2 strikes with 12 prowess). Following the attacks, tap a character or discard this card. If this card is not discarded, discard all unique factions playable at the site. -5 to each attempt against any faction at any version of this site. This site is never discarded and never untaps for you. Cannot be duplicated on a given site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-resource-event",
@@ -827,11 +1706,45 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Strangling Coils"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-path-reduction",
+          "scope": "turn",
+          "target": "player",
+          "regionReductions": {
+            "wilderness": 1,
+            "shadow": 1
+          }
+        }
+      },
+      {
+        "type": "move",
+        "select": "self",
+        "from": [
+          "sideboard"
+        ],
+        "to": "deck",
+        "shuffleAfter": true
+      }
+    ],
     "text": "Balrog specific. Playable during the organization phase if Strangling Coils is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. Each of your companies this turn is considered to have one fewer Wilderness [{w}] and one fewer Shadow-land [{s}] in its site path.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
@@ -841,13 +1754,55 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/RootsoftheEarth.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "keywords": { "$includes": "under-deeps" } },
+            { "siteType": "ruins-and-lairs" }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "The Balrog" }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          { "creatureType": "Drake", "strikes": 2, "prowess": 13 }
+        ],
+        "afterAttack": "move-to-mp-pile"
+      },
+      {
+        "type": "site-instance-transform",
+        "associated": { "siteType": "haven", "removeAllAutoAttacks": true },
+        "others": {
+          "siteType": "shadow-hold",
+          "addAutoAttack": { "creatureType": "Orcs", "strikes": 5, "prowess": 9 }
+        }
+      },
+      {
+        "type": "conditional-mp",
+        "bonus": 2,
+        "requiresCardOnSameSite": "Breach the Hold"
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on an Under-deeps site normally a Ruins & Lairs [{R}] if The Balrog is there. The Balrog’s company faces an attack (Drake — 2 strikes with 13 prowess). Following the attack, tap The Balrog or discard this card. The associated site is a Darkhaven [{H}] and loses all automatic-attacks. All other versions of the site become a Shadow-hold [{S}] and gain an additional automatic-attack: Orcs — 5 strikes with 9 prowess. If Breach the Hold is on the same site, this card gives 3 marshalling points. This site is never discarded or returned to its location deck. Cannot be duplicated on a given site.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
@@ -859,11 +1814,18 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-window", "phase": "combat" },
+      { "type": "play-condition", "requires": "card-in-play", "cardName": "Flame of Udûn" },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 },
+      { "type": "combat-discard-opponent-item" },
+      { "type": "move", "select": "self", "from": ["sideboard"], "to": "deck", "shuffleAfter": true }
+    ],
     "text": "Balrog specific. Playable if Flame of Udûn is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. Choose and discard one item an opponent’s company bears if The Balrog is untapped and in company vs. company combat with that company. Cannot be duplicated on a given turn.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "minion-resource-event",
@@ -875,11 +1837,74 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "The Balrog" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": "items-on-target",
+          "to": "hand",
+          "filter": { "keywords": { "$includes": "demon-fana" } }
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "return-self-to-hand",
+        "cost": {},
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "hand"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": -1
+      },
+      {
+        "type": "grant-skill",
+        "skill": "diplomat"
+      },
+      {
+        "type": "play-flag",
+        "flag": "grants-followers"
+      },
+      {
+        "type": "grant-action",
+        "action": "untap-balrog-company",
+        "anyPhase": true,
+        "oncePerTurn": true,
+        "cost": {},
+        "when": { "phase": "movement-hazard" },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            { "type": "set-character-status", "target": "company", "status": "untapped" },
+            { "type": "set-character-status", "target": "bearer", "status": "tapped" }
+          ]
+        }
+      }
+    ],
     "text": "Balrog specific. Demon fána. Playable during your organization phase on The Balrog. Return this card to your hand: when you play another Demon fána card, or, if you choose, during your organization phase. +3 direct influence; -1 body. The Balrog gains the diplomat skill and may have followers. Once during his movement/hazard phase, you may untap all tapped characters in The Balrog’s company. If then untapped, tap The Balrog.",
     "keywords": [
-      "balrog-specific"
-    ]
+      "balrog-specific",
+      "demon-fana"
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "minion-resource-event",
@@ -889,13 +1914,48 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/TempestofFire.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 3,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "siteType": { "$in": ["border-hold", "shadow-hold"] } },
+            { "$not": { "keywords": { "$includes": "under-deeps" } } },
+            { "isUnderDeepsSurface": false }
+          ]
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "untapped-site-required"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [
+          { "creatureType": "Men", "strikes": 5, "prowess": 8 },
+          { "creatureType": "Men", "strikes": 4, "prowess": 9 },
+          { "creatureType": "Men", "strikes": 3, "prowess": 10 }
+        ],
+        "creatureTypeBySiteType": {
+          "border-hold": "Men",
+          "shadow-hold": "Orcs"
+        },
+        "afterAttack": "move-to-mp-pile",
+        "returnFactionsAtSite": true
+      }
+    ],
     "text": "Balrog specific. Playable during the site phase on an untapped Border-hold [{B}] or Shadow-hold [{S}]; the site cannot be an Under-deeps site or surface site thereof. Tap the site. The company faces three attacks (Men at a Border-hold [{B}], Orcs at a Shadow-hold [{S}] — 5 strikes with 8 prowess, 4 strikes with 9 prowess, 3 strikes with 10 prowess). Following these attacks: discard this card or tap a character, place this card in your marshalling point pile, and return each unique faction playable at the site to its owner’s hand.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-event",
@@ -907,11 +1967,43 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Flame of Udûn"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "value": 2,
+          "scope": "turn",
+          "target": "player"
+        }
+      },
+      {
+        "type": "move",
+        "select": "self",
+        "from": [
+          "sideboard"
+        ],
+        "to": "deck",
+        "shuffleAfter": true
+      }
+    ],
     "text": "Balrog specific. Playable during the organization phase if Flame of Udûn is in play. You may bring this card from your sideboard into your play deck and reshuffle during your organization phase. +2 to all influence attempts this turn by any of your characters.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-resource-event",
@@ -923,11 +2015,20 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "join-combat-force-strike",
+        "characterName": "The Balrog",
+        "tapAfterAttack": true,
+        "requiresSiteKeyword": "under-deeps",
+        "notInPlay": "Flame of Udûn"
+      }
+    ],
     "text": "Balrog specific. Playable if a company at or moving to an Under-deeps site is facing an attack and Flame of Udûn is not in play. If not in the company, The Balrog immediately joins the company. This is considered movement for The Balrog with no movement/hazard phase. The Balrog must face a strike from the attack, regardless of any conflicting effects. Following the attack, if untapped, tap The Balrog.",
     "keywords": [
       "balrog-specific"
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-resource-faction",
@@ -942,11 +2043,24 @@
     "race": "orc",
     "playableAt": [
       {
-        "site": "a"
+        "any": true,
+        "when": {
+          "$and": [
+            { "site.siteType": { "$in": ["dark-hold", "shadow-hold", "ruins-and-lairs"] } },
+            { "$not": { "site.keywords": { "$includes": "under-deeps" } } },
+            { "site.isUnderDeepsSurface": { "$ne": true } },
+            { "site.lairOf": { "$exists": false } }
+          ]
+        }
       }
     ],
-    "effects": [],
+    "effects": [
+      { "type": "play-flag", "flag": "playable-at-tapped-site" },
+      { "type": "check-modifier", "check": "influence", "value": 3, "when": { "bearer.name": "The Balrog" } },
+      { "type": "check-modifier", "check": "influence", "value": 2, "when": { "bearer.keywords": { "$includes": "leader" } } }
+    ],
     "text": "Balrog specific. Playable at a tapped or untapped non-Dragon’s lair: Dark-hold [{D}], Shadow-hold [{S}], or Ruins & Lairs [{R}] —the site cannot be an Under-deeps site or surface site thereof— if the influence check is greater than 8. Modifications: The Balrog (+3), leader (+2).",
+    "certified": "2026-07-13",
     "keywords": [
       "balrog-specific"
     ]

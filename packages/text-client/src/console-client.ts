@@ -187,6 +187,10 @@ function connect(): void {
         const nonViable = allEvaluated.filter(e => !e.viable);
         const instances = buildInstanceLookup(msg.view);
         const compNames = buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool);
+        const playerNames = {
+          [msg.view.self.id as string]: msg.view.self.name,
+          [msg.view.opponent.id as string]: msg.view.opponent.name,
+        };
 
         // AI mode: compute weights, display probabilities, sample and send
         if (aiStrategy && lastLegalActions.length > 0) {
@@ -197,14 +201,14 @@ function connect(): void {
           console.log(`AI (${aiStrategy.name}) thinking:`);
           for (let i = 0; i < weighted.length; i++) {
             const pct = totalWeight > 0 ? (weighted[i].weight / totalWeight * 100).toFixed(0) : '0';
-            const desc = describeAction(weighted[i].action, cardPool, instances, compNames);
+            const desc = describeAction(weighted[i].action, cardPool, instances, compNames, playerNames);
             console.log(`  [${i + 1}] ${pct}% ${desc}`);
           }
 
           setTimeout(() => {
             if (!ws || ws.readyState !== WebSocket.OPEN || !aiStrategy || lastLegalActions.length === 0) return;
             const action = sampleWeighted(weighted);
-            const desc = describeAction(action, cardPool, instances, compNames);
+            const desc = describeAction(action, cardPool, instances, compNames, playerNames);
             console.log(`AI (${aiStrategy.name}) picks: ${desc}`);
             clientLog.log('msg-out', { msgType: 'action', action });
             const outMsg: ClientMessage = { type: 'action', action };
@@ -215,14 +219,14 @@ function connect(): void {
           if (lastLegalActions.length > 0) {
             console.log('Legal actions:');
             for (let i = 0; i < lastLegalActions.length; i++) {
-              const desc = describeAction(lastLegalActions[i], cardPool, instances, compNames);
+              const desc = describeAction(lastLegalActions[i], cardPool, instances, compNames, playerNames);
               console.log(`  [${i + 1}] ${desc}`);
             }
           }
           if (nonViable.length > 0) {
             console.log('Not available:');
             for (const ea of nonViable) {
-              const desc = describeAction(ea.action, cardPool, instances, compNames);
+              const desc = describeAction(ea.action, cardPool, instances, compNames, playerNames);
               console.log(`  ${desc} — ${ea.reason ?? '?'}`);
             }
           }

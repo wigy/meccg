@@ -105,7 +105,30 @@
     "generalInfluence": 17,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Any non-“Dragon’s lair” Ruins & Lairs in a Wilderness"
+    "homesite": "Any non-“Dragon’s lair” Ruins & Lairs in a Wilderness",
+    "effects": [
+      {
+        "type": "fw-kill-mp-full"
+      },
+      {
+        "type": "detainment-attacks-normal",
+        "stagePointsAbove": 7
+      },
+      {
+        "type": "on-event",
+        "event": "creature-attack-begins",
+        "apply": {
+          "type": "offer-char-join-attack",
+          "discardOwnedAllies": true,
+          "forceStrike": true,
+          "postAttack": {
+            "tapIfUntapped": true,
+            "corruptionCheck": {}
+          }
+        }
+      }
+    ],
+    "certified": "2026-07-08"
   },
   {
     "cardType": "hero-character",
@@ -130,7 +153,62 @@
     "generalInfluence": 18,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Any Free-hold"
+    "homesite": "Any Free-hold",
+    "effects": [
+      {
+        "type": "fw-char-mp-full"
+      },
+      {
+        "type": "fw-ally-mp-full",
+        "filter": {
+          "cardType": "hero-resource-ally"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "untap-self",
+        "oncePerTurn": true,
+        "cost": {},
+        "when": {
+          "bearer.status": "tapped"
+        },
+        "apply": {
+          "type": "set-character-status",
+          "target": "bearer",
+          "status": "untapped"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "test-gold-ring",
+        "cost": {
+          "tap": "self"
+        },
+        "targets": {
+          "scope": "company-items",
+          "filter": {
+            "subtype": "gold-ring"
+          }
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "roll-check",
+              "check": "gold-ring-test",
+              "label": "Gold ring test"
+            },
+            {
+              "type": "move",
+              "select": "target",
+              "from": "in-play",
+              "to": "discard"
+            }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-07-17"
   },
   {
     "cardType": "hero-character",
@@ -155,7 +233,27 @@
     "generalInfluence": 20,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "The White Towers"
+    "homesite": "The White Towers",
+    "effects": [
+      {
+        "type": "faction-mp-override",
+        "rules": [
+          {
+            "when": {
+              "faction.race": {
+                "$in": ["man", "dwarf", "elf", "dunadan", "hobbit", "orc", "troll"]
+              }
+            },
+            "value": 2
+          }
+        ]
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": 1
+      }
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "hero-character",
@@ -179,7 +277,38 @@
     "generalInfluence": 22,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "homesite": "Rhosgobel"
+    "homesite": "Rhosgobel",
+    "effects": [
+      {
+        "type": "faction-mp-override",
+        "rules": [
+          {
+            "when": {
+              "$and": [
+                { "faction.unique": true },
+                { "$not": { "faction.race": { "$in": ["man", "dwarf", "dunadan", "hobbit", "orc", "troll"] } } }
+              ]
+            },
+            "value": 2
+          }
+        ]
+      },
+      {
+        "type": "fw-ally-mp-full",
+        "filter": { "cardType": "hero-resource-ally" }
+      },
+      {
+        "type": "ally-movement-restriction-exemption",
+        "filter": { "cardType": "hero-resource-ally" }
+      },
+      {
+        "type": "draw-modifier",
+        "draw": "resource",
+        "value": "sitePath.wildernessCount",
+        "min": 0
+      }
+    ],
+    "certified": "2026-07-16"
   },
   {
     "cardType": "hero-character",

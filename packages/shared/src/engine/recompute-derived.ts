@@ -25,13 +25,15 @@ import type {
   CardEffect,
   FactionCard,
   Alignment,
+  Company,
   CompanyId,
+  CardDefinitionId,
   PlayerId,
   RingwraithModeEffect,
   FallenWizardCharacterAllyMpEffect,
 } from '../index.js';
-import { isCharacterCard, isItemCard, isFactionCard } from '../types/cards.js';
-import { MarshallingCategory } from '../types/common.js';
+import { isCharacterCard, isItemCard, isFactionCard, isSiteCard } from '../types/cards.js';
+import { MarshallingCategory, Race } from '../types/common.js';
 import { ZERO_MARSHALLING_POINTS } from '../types/state-cards.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
 import { getPlayerIndex, isBalrogAvatarDef } from '../state-utils.js';
@@ -41,10 +43,11 @@ import {
   collectGlobalEffects,
   resolveStatModifiers,
   resolveDef,
+  evaluateExpr,
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer } from './reducer-utils.js';
 import type { Condition } from '../types/effects.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -103,27 +106,111 @@ function fwClampMp(baseMp: number, def: CardDefinition, playerAlignment: Alignme
  * Fallen-wizard card whose printed MP meets a cap's threshold is worth the cap's
  * `value` instead of the flat §4 1-MP clamp. Stage cards and non-Fallen-wizard
  * players are never affected.
+ *
+ * `fwFullMp` requests the full printed MP for a Fallen-wizard ally that matches
+ * an in-play `fw-ally-mp-full` exemption (Join the Hunt wh-93 / Oromë's Warders
+ * wh-94). It takes precedence over both the §4 clamp and any `fwCharAllyCaps`.
  */
+/**
+ * Roots of the Earth (ba-74): true when a card named `requiredCardName` is in
+ * play (either player's `cardsInPlay`) attached to the **same site** as `card`
+ * — i.e. both carry the same `attachedToSite` definition id. Drives the
+ * `conditional-mp` bonus.
+ */
+function conditionalMpApplies(
+  state: GameState,
+  card: { readonly attachedToSite?: CardDefinitionId },
+  requiredCardName: string,
+): boolean {
+  if (card.attachedToSite === undefined) return false;
+  for (const player of state.players) {
+    for (const other of player.cardsInPlay) {
+      if (other.attachedToSite !== card.attachedToSite) continue;
+      const def = defById(state, other.definitionId);
+      if (def?.name === requiredCardName) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True when a faction card is playable at any site of `siteType` — either a
+ * `playableAt` entry naming that site type directly, or one naming a specific
+ * site whose definition carries that type. Used by the Great Army of the North
+ * (ba-38) conditional-MP gate to exclude Orc/Troll factions "playable at a
+ * Darkhold [{D}]".
+ */
+function factionPlayableAtSiteType(
+  state: GameState,
+  factionDef: FactionCard,
+  siteType: string,
+): boolean {
+  for (const entry of factionDef.playableAt) {
+    if ('siteType' in entry && entry.siteType === siteType) return true;
+    if ('site' in entry) {
+      const siteName = entry.site;
+      for (const cardDef of Object.values(state.cardPool)) {
+        if (isSiteCard(cardDef) && cardDef.name === siteName && cardDef.siteType === siteType) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Counts the factions a player has in play (their own `cardsInPlay`) that
+ * satisfy a `conditional-mp` `requiresFactionCount` gate: a race in `races`,
+ * unique when required, and — when `excludePlayableAtSiteType` is set — not
+ * playable at a site of that type. Drives Great Army of the North (ba-38): "at
+ * least 4 unique Orc and/or Troll factions —none playable at a Darkhold [{D}]".
+ */
+function conditionalMpFactionCount(
+  state: GameState,
+  player: PlayerState,
+  gate: NonNullable<import('../types/effects.js').ConditionalMpEffect['requiresFactionCount']>,
+): number {
+  let count = 0;
+  for (const card of player.cardsInPlay) {
+    const def = defById(state, card.definitionId);
+    if (!def || !isFactionCard(def)) continue;
+    if (!gate.races.includes(def.race)) continue;
+    if (gate.unique && !def.unique) continue;
+    if (gate.excludePlayableAtSiteType
+      && factionPlayableAtSiteType(state, def, gate.excludePlayableAtSiteType)) continue;
+    count += 1;
+  }
+  return count;
+}
+
 function addMP(
   totals: MarshallingPointTotals,
   def: CardDefinition,
   playerAlignment: Alignment,
   fwCharAllyCaps: readonly FallenWizardCharacterAllyMpEffect[] = [],
+  fwFullMp = false,
 ): MarshallingPointTotals {
   if (!hasMarshallingPoints(def)) return totals;
   let mp = fwClampMp(def.marshallingPoints, def, playerAlignment);
-  // Great Patron (wh-72): a Fallen-wizard's characters/allies that normally give
-  // at least `threshold` MP are each worth `value` instead of the §4 1-MP clamp.
   if (
     playerAlignment === 'fallen-wizard'
-    && fwCharAllyCaps.length > 0
     && def.marshallingPoints > 0
     && !('alignment' in def && (def as { alignment?: string }).alignment === 'stage')
   ) {
-    for (const cap of fwCharAllyCaps) {
-      if (def.marshallingPoints >= cap.threshold) {
-        mp = cap.value;
-        break;
+    if (fwFullMp) {
+      // Join the Hunt (wh-93) / Oromë's Warders (wh-94): a matching ally scores
+      // its full printed MP, ignoring both the §4 clamp and any cap below.
+      mp = def.marshallingPoints;
+    } else if (fwCharAllyCaps.length > 0) {
+      // Great Patron (wh-72): a Fallen-wizard's characters/allies that normally
+      // give at least `threshold` MP are each worth `value` instead of the §4
+      // 1-MP clamp.
+      for (const cap of fwCharAllyCaps) {
+        if (def.marshallingPoints >= cap.threshold) {
+          mp = cap.value;
+          break;
+        }
       }
     }
   }
@@ -150,6 +237,36 @@ function fwCharacterAllyMpCaps(
     }
   }
   return caps;
+}
+
+/**
+ * The marshalling-point pin a player's in-play `nonhaven-company-mp-pin` effect
+ * imposes on company-held cards outside a Wizardhaven (Await the Onset wh-96),
+ * or `undefined` when no such card is in play. At most one applies (the carrier
+ * is duplication-limited), so the first match wins.
+ */
+function nonHavenCompanyMpPin(state: GameState, player: PlayerState): number | undefined {
+  for (const def of playerCardsInPlayDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'nonhaven-company-mp-pin') return effect.value;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Adds a company-held card's pinned marshalling points (Await the Onset wh-96):
+ * a card with printed MP scores exactly `value`, overriding every other rule.
+ * Cards with no MP (or 0 printed MP) contribute nothing.
+ */
+function addPinnedCardMp(
+  totals: MarshallingPointTotals,
+  def: CardDefinition,
+  value: number,
+): MarshallingPointTotals {
+  if (!hasMarshallingPoints(def) || def.marshallingPoints <= 0) return totals;
+  const cat = def.marshallingCategory;
+  return { ...totals, [cat]: totals[cat] + value };
 }
 
 /**
@@ -188,17 +305,18 @@ type FactionMpOverrideRule = { readonly when: Condition; readonly value: number 
 
 /**
  * Collects the faction-MP-override rule sets a player has in play (e.g. Gatherer
- * of Loyalties wh-70). Each in-play card carrying a `faction-mp-override` effect
- * contributes its ordered rule list; the lists are concatenated in card order so
- * the shared "last matching rule wins" precedence still holds. Returns an empty
- * array when no such card is in play.
+ * of Loyalties wh-70 as a stage permanent-event, or Pallando wh-7 as a
+ * character). Each in-play card or character carrying a `faction-mp-override`
+ * effect contributes its ordered rule list; the lists are concatenated in card
+ * order so the shared "last matching rule wins" precedence still holds. Returns
+ * an empty array when no such card is in play.
  */
 function factionMpOverrideRules(
   state: GameState,
   player: PlayerState,
 ): FactionMpOverrideRule[] {
   const rules: FactionMpOverrideRule[] = [];
-  for (const def of playerCardsInPlayDefs(state, player)) {
+  for (const def of playerInPlayAndCharacterDefs(state, player)) {
     for (const effect of getCardEffects(def)) {
       if (effect.type === 'faction-mp-override') rules.push(...effect.rules);
     }
@@ -244,6 +362,22 @@ function playerCardsInPlayDefs(state: GameState, player: PlayerState): CardDefin
 }
 
 /**
+ * Resolves the card definitions of every source a player-wide, in-play effect
+ * can live on: the player's `cardsInPlay` (permanent-events, factions, stage
+ * cards, …) plus their in-play characters. Character-carried player-wide effects
+ * (e.g. Pallando wh-7's `faction-mp-override`, Saruman wh-9's `fw-item-mp-full`)
+ * are collected the same way as ones carried by a stage permanent-event.
+ */
+function playerInPlayAndCharacterDefs(state: GameState, player: PlayerState): CardDefinition[] {
+  const defs = [...playerCardsInPlayDefs(state, player)];
+  for (const char of Object.values(player.characters)) {
+    const def = resolveDef(state, char.instanceId);
+    if (def) defs.push(def);
+  }
+  return defs;
+}
+
+/**
  * The names of all named cards a player has in `cardsInPlay`, in card order.
  *
  * A card carrying a `name-alias` effect (e.g. Skies of Fire le-228 "acts as
@@ -266,9 +400,33 @@ function inPlayNamesOf(state: GameState, player: PlayerState): string[] {
  * Builds the list of card names currently in play as events or other cards.
  * Used to populate the `inPlay` context field so DSL conditions
  * like `{ "inPlay": "Gates of Morning" }` can be evaluated.
+ *
+ * Any in-play card carrying an `environment-override` effect (Peril Returned
+ * td-54) reshapes the resulting set game-wide: its `considerNotInPlay` names are
+ * removed (so their environment interpretation is suppressed even though the
+ * card itself remains in `cardsInPlay`) and its `considerInPlay` names are added
+ * (treated as in play without an actual card). Removals precede additions.
  */
 export function buildInPlayNames(state: GameState): readonly string[] {
-  return state.players.flatMap(player => inPlayNamesOf(state, player));
+  const names = state.players.flatMap(player => inPlayNamesOf(state, player));
+  return applyEnvironmentOverrides(state, names);
+}
+
+/**
+ * Applies every in-play `environment-override` effect to a raw in-play-names
+ * list. Collects all `considerNotInPlay` / `considerInPlay` names across both
+ * players' `cardsInPlay`, removes the former, then adds the latter (additions
+ * win over removals for any name in both). Returns the input unchanged when no
+ * override is in play (the common case), avoiding array churn.
+ */
+function applyEnvironmentOverrides(state: GameState, names: string[]): string[] {
+  const { add, remove } = collectEnvironmentOverride(state);
+  if (remove.size === 0 && add.size === 0) return names;
+  const result = names.filter(n => !remove.has(n) || add.has(n));
+  for (const n of add) {
+    if (!result.includes(n)) result.push(n);
+  }
+  return result;
 }
 
 /**
@@ -363,7 +521,43 @@ export function buildControllerFactionRaces(
  * when the corresponding site name appears in this array.
  */
 export function buildFactionPlayableAt(def: FactionCard): readonly string[] {
-  return def.playableAt.map(entry => 'region' in entry ? `region:${entry.region}` : 'site' in entry ? entry.site : entry.siteType);
+  return def.playableAt.map(entry =>
+    'region' in entry ? `region:${entry.region}`
+      : 'any' in entry ? 'any'
+        : 'site' in entry ? entry.site
+          : entry.siteType);
+}
+
+/**
+ * Resolves the geographic regions in which a faction can be played, by mapping
+ * each **named site** in its `playableAt` to that site's `region` (looked up in
+ * the card pool) and folding in explicit `region:` entries. Site-type and `any`
+ * entries contribute no specific region (a site type spans many regions, so it
+ * is not a definite "can be played in region X" claim). Multiple site defs may
+ * share a name across sets (e.g. TW and LE both print Pelargir); they resolve to
+ * the same region, so the de-duplicating set is unaffected.
+ *
+ * Used by DSL conditions like
+ * `{ "faction.playableRegions": { "$includes": "Lamedon" } }` — e.g. Firiel
+ * (dm-10): "+2 direct influence against … factions that can be played in
+ * Anfalas, Anórien, Belfalas, Lamedon, and Lebennin."
+ */
+export function buildFactionPlayableRegions(state: GameState, def: FactionCard): readonly string[] {
+  const namedSites = new Set(
+    def.playableAt.filter((e): e is { site: string } => 'site' in e).map(e => e.site),
+  );
+  const regions = new Set<string>();
+  for (const entry of def.playableAt) {
+    if ('region' in entry) regions.add(entry.region);
+  }
+  if (namedSites.size > 0) {
+    for (const cardDef of Object.values(state.cardPool)) {
+      if (isSiteCard(cardDef) && namedSites.has(cardDef.name)) {
+        regions.add(cardDef.region);
+      }
+    }
+  }
+  return [...regions];
 }
 
 /**
@@ -376,17 +570,43 @@ export function buildFactionPlayableAt(def: FactionCard): readonly string[] {
  * `bearer.companionDefinitionIds` (definition IDs of companions, for
  * conditions that match by ID rather than name).
  */
+/**
+ * Returns true when a company is at, moving to, or moving from an Under-deeps
+ * site. A company's `currentSite` stays the origin for the whole M/H phase
+ * (it is only replaced by the destination at step 8, when movement finalizes
+ * and the company is no longer "moving"), so checking `currentSite` covers both
+ * "at" and "moving from", while `destinationSite` covers "moving to". Used to
+ * spare characters near the Under-deeps from environments like The Sun Shone
+ * Fiercely (ba-25).
+ */
+function companyAtOrMovingUnderDeeps(
+  state: GameState,
+  company: Company | undefined,
+): boolean {
+  if (!company) return false;
+  const isUnderDeepsDef = (defId: CardDefinitionId | undefined): boolean => {
+    if (!defId) return false;
+    const def = state.cardPool[defId];
+    return !!(def && 'keywords' in def
+      && (def as { keywords?: readonly string[] }).keywords?.includes('under-deeps'));
+  };
+  return isUnderDeepsDef(company.currentSite?.definitionId)
+    || isUnderDeepsDef(company.destinationSite?.definitionId);
+}
+
 function buildEffectiveStatsContext(
   charDef: CharacterCard,
   inPlayNames: readonly string[],
   companionNames: readonly string[] = [],
   companionDefinitionIds: readonly string[] = [],
   ringwraithMode?: RingwraithModeEffect['mode'],
+  isFollower = false,
+  atOrMovingUnderDeeps = false,
 ): ResolverContext {
   const charInfo = buildBearerContext(charDef);
   return {
     reason: 'effective-stats',
-    bearer: { ...charInfo, companionDefinitionIds, ringwraithMode },
+    bearer: { ...charInfo, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps },
     target: charInfo,
     inPlay: inPlayNames,
     company: { characterNames: companionNames },
@@ -420,6 +640,112 @@ function resolveCompanyRingwraithMode(
   return undefined;
 }
 
+/** One in-play global item-stat modifier (from an `in-play-item-modifier` effect). */
+type InPlayItemModifier = {
+  readonly itemFilter?: Condition;
+  readonly corruptionPoints: number;
+  readonly marshallingPoints: number;
+};
+
+/**
+ * Collects every `in-play-item-modifier` effect carried by a card in either
+ * player's `cardsInPlay` (e.g. Rumor of the One le-224, "+1 to the corruption
+ * points and the marshalling points for all ring items"). Returns an empty
+ * array when no such card is in play, so the per-item scan below short-circuits.
+ */
+function collectInPlayItemModifiers(state: GameState): InPlayItemModifier[] {
+  const out: InPlayItemModifier[] = [];
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'in-play-item-modifier') continue;
+        out.push({
+          itemFilter: effect.itemFilter,
+          corruptionPoints: effect.corruptionPoints ?? 0,
+          marshallingPoints: effect.marshallingPoints ?? 0,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Sums the corruption-point and marshalling-point deltas that the in-play
+ * global item modifiers grant to a single item, matching each modifier's
+ * optional `itemFilter` against a per-item context `{ item: { keywords, name,
+ * cardType } }`. Returns `{ cp: 0, mp: 0 }` when nothing matches.
+ */
+function itemModifierDeltas(
+  itemDef: CardDefinition,
+  mods: readonly InPlayItemModifier[],
+): { cp: number; mp: number } {
+  if (mods.length === 0) return { cp: 0, mp: 0 };
+  const ctx = {
+    item: {
+      keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
+      name: itemDef.name,
+      cardType: itemDef.cardType,
+    },
+  };
+  let cp = 0;
+  let mp = 0;
+  for (const m of mods) {
+    if (m.itemFilter && !matchesContext(m.itemFilter, ctx)) continue;
+    cp += m.corruptionPoints;
+    mp += m.marshallingPoints;
+  }
+  return { cp, mp };
+}
+
+/**
+ * Collects the multipliers of every `corruption-source-multiplier` effect
+ * carried by a card in either player's `cardsInPlay` (The Balance of Things
+ * tw-93, "corruption points doubled for one of his sources of corruption").
+ * Each in-play copy scales one of a character's corruption sources; the
+ * returned array holds one multiplier per copy. Empty when none is in play,
+ * so the per-character source scan below short-circuits.
+ */
+function collectCorruptionSourceMultipliers(state: GameState): number[] {
+  const out: number[] = [];
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'corruption-source-multiplier') continue;
+        out.push(effect.multiplier ?? 2);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Given a character's individual corruption-source values and the multipliers
+ * of every in-play `corruption-source-multiplier` effect, returns the extra
+ * corruption the character suffers. The controlling player minimises their
+ * corruption, so each copy scales the character's smallest remaining source and
+ * the largest multiplier is paired with the smallest source (rearrangement
+ * inequality). Returns 0 when the character has no source or no copy is in play.
+ */
+function corruptionSourceMultiplierDelta(
+  sources: readonly number[],
+  multipliers: readonly number[],
+): number {
+  if (sources.length === 0 || multipliers.length === 0) return 0;
+  const ascSources = [...sources].sort((a, b) => a - b);
+  const descIncrements = multipliers.map(m => m - 1).sort((a, b) => b - a);
+  const k = Math.min(ascSources.length, descIncrements.length);
+  let delta = 0;
+  for (let i = 0; i < k; i++) {
+    delta += ascSources[i] * descIncrements[i];
+  }
+  return delta;
+}
+
 /**
  * Computes effective stats for a character using the card effects resolver.
  *
@@ -441,8 +767,11 @@ function computeEffectiveStats(
   companionDefinitionIds: readonly string[] = [],
   ringwraithMode?: RingwraithModeEffect['mode'],
   controllingPlayerId?: PlayerId,
+  bearerPlayerAlignment?: Alignment,
+  atOrMovingUnderDeeps = false,
 ): EffectiveStats {
-  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode);
+  const isFollower = char.controlledBy !== 'general';
+  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps);
   let charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
   // `own-characters`-scoped effects (e.g. A Strident Spawn wh-61) apply only to
@@ -461,6 +790,28 @@ function computeEffectiveStats(
     charEffects = charEffects.filter(ce => ce.sourceDef.cardType !== 'hero-resource-item');
   }
 
+  // Rule 9.20: a Wizard player's character cannot USE a minion item it bears,
+  // and a Ringwraith player's character cannot USE a hero item it bears
+  // (corruption points still apply, via the structural sum below — only the
+  // item's effects are nulled).
+  const bearerBlocksMinionItems = bearerPlayerAlignment === 'wizard';
+  const bearerBlocksHeroItems = bearerPlayerAlignment === 'ringwraith';
+  if (bearerBlocksMinionItems) {
+    charEffects = charEffects.filter(ce => ce.sourceDef.cardType !== 'minion-resource-item');
+  }
+  if (bearerBlocksHeroItems) {
+    charEffects = charEffects.filter(ce => ce.sourceDef.cardType !== 'hero-resource-item');
+  }
+
+  // Rule 9.20: "Ringwraiths may bear items but those items cannot be used" —
+  // unlike the player-alignment rule above, this is about the Ringwraith
+  // (Nazgûl) avatar character itself, mirroring the Balrog avatar's blanket
+  // item-usage ban below. Applies regardless of which item alignment it bears.
+  const bearerIsRingwraithAvatar = charDef.race === Race.Ringwraith;
+  if (bearerIsRingwraithAvatar) {
+    charEffects = charEffects.filter(ce => !isItemCard(ce.sourceDef));
+  }
+
   // MEBA: The Balrog may carry items (including rings) but may not use them —
   // "an item has no effect on The Balrog's company or on his attributes and
   // abilities." Drop every effect sourced from an item borne by the Balrog
@@ -469,6 +820,21 @@ function computeEffectiveStats(
   // (uniqueness, transfer, ring auto-test) — only its effect is nulled.
   const bearerIsBalrogAvatar = isBalrogAvatarDef(charDef);
   if (bearerIsBalrogAvatar) {
+    charEffects = charEffects.filter(ce => !isItemCard(ce.sourceDef));
+  }
+
+  // `play-flag: "bearer-cannot-use-items"` — the card-driven form of the same
+  // ban ("Radagast may bear, but may not use, items" — the Shapeshifter forms
+  // wh-112/115/116). Unlike the Ringwraith/Balrog avatar bans above this is not
+  // keyed on the character's race but on a card currently borne by them, so the
+  // flag must be read *before* the filter runs; the flag's own source is a
+  // permanent-event rather than an item, so it never filters itself away.
+  // Corruption points still apply (the item is still borne) — matching the
+  // MEWH §9 / rule 9.20 "bear but not use" wording, and unlike the Balrog ban.
+  const bearerCannotUseItems = charEffects.some(
+    ce => ce.effect.type === 'play-flag' && ce.effect.flag === 'bearer-cannot-use-items',
+  );
+  if (bearerCannotUseItems) {
     charEffects = charEffects.filter(ce => !isItemCard(ce.sourceDef));
   }
   const collected = [...charEffects, ...globalEffects, ...ownEffects];
@@ -480,6 +846,16 @@ function computeEffectiveStats(
   let body: number;
   let directInfluence: number;
   let corruptionPoints = 0;
+
+  // The Balance of Things (tw-93): while a `corruption-source-multiplier` card
+  // is in play, one of each character's corruption sources is scaled (the
+  // controller minimising, so the smallest source). Track individual source
+  // values only when such a card is in play and the bearer can hold corruption
+  // (the Balrog avatar's borne items contribute none). See
+  // `corruptionSourceMultiplierDelta`.
+  const corruptionMultipliers = collectCorruptionSourceMultipliers(state);
+  const trackCorruptionSources = corruptionMultipliers.length > 0 && !bearerIsBalrogAvatar;
+  const corruptionSources: number[] = [];
 
   if (hasAnyEffects) {
     prowess = resolveStatModifiers(collected, 'prowess', charDef.prowess, context);
@@ -494,6 +870,23 @@ function computeEffectiveStats(
     // through here as normal stat-modifier entries.
     const cpFromEffects = resolveStatModifiers(collected, 'corruption-points', 0, context);
     corruptionPoints = cpFromEffects;
+
+    // Each card contributing corruption via a `corruption-points` stat-modifier
+    // (e.g. The One Ring) is one corruption source: group the modifiers by
+    // source card instance and sum each card's contribution.
+    if (trackCorruptionSources) {
+      const exprCtx = context as unknown as Record<string, unknown>;
+      const perSource = new Map<string, number>();
+      for (const ce of collected) {
+        if (ce.effect.type === 'stat-modifier' && ce.effect.stat === 'corruption-points') {
+          const v = evaluateExpr(ce.effect.value, exprCtx);
+          perSource.set(ce.sourceInstance as string, (perSource.get(ce.sourceInstance as string) ?? 0) + v);
+        }
+      }
+      for (const v of perSource.values()) {
+        if (v > 0) corruptionSources.push(v);
+      }
+    }
   } else {
     // Fallback: use the old hardcoded approach for cards without effects
     prowess = charDef.prowess;
@@ -523,22 +916,40 @@ function computeEffectiveStats(
   // structural fallback; ditto for unrelated DSL effects on the item
   // itself, e.g. `item-play-site`.)
   const activeItems = pickActiveItemsForCharacter(state, char);
+  // Global item-stat modifiers in play (Rumor of the One le-224: +1 corruption
+  // point to all ring items). Applied to each borne matching item's corruption
+  // total below, under the same Balrog-avatar exclusion as its printed CP.
+  const inPlayItemMods = collectInPlayItemModifiers(state);
+  // Whip of Many Thongs (ba-82): weapons whose effects were cancelled for the
+  // current combat contribute no structural prowess/body either (the DSL-effect
+  // path is filtered in `collectCharacterEffects`; this covers weapons that
+  // declare their bonus via the legacy `prowessModifier`/`bodyModifier` fields).
+  const suppressedWeapons = state.combat?.suppressedWeaponInstanceIds;
   for (const item of char.items) {
     const itemDef = resolveDef(state, item.instanceId);
     if (isItemCard(itemDef)) {
       const itemEffects = itemDef.effects ?? [];
       const itemHasStatMod = itemEffects.some(e => e.type === 'stat-modifier');
+      const weaponSuppressed = !!suppressedWeapons?.includes(item.instanceId);
       // MEWH §9: structural prowess/body bonuses from a hero item are ignored on
       // an Orc/Troll bearer (its corruption points still apply below).
       const heroItemOnOrcTroll = bearerIsOrcOrTroll && itemDef.cardType === 'hero-resource-item';
-      if (!itemHasStatMod && !heroItemOnOrcTroll && !bearerIsBalrogAvatar && activeItems.has(item.instanceId as string)) {
+      // Rule 9.20: a Wizard bearer's minion items, a Ringwraith bearer's hero
+      // items, and any item on a Ringwraith avatar contribute no structural bonus.
+      const itemUnusableByAlignment = (bearerBlocksMinionItems && itemDef.cardType === 'minion-resource-item')
+        || (bearerBlocksHeroItems && itemDef.cardType === 'hero-resource-item')
+        || bearerIsRingwraithAvatar
+        || bearerCannotUseItems;
+      if (!itemHasStatMod && !heroItemOnOrcTroll && !bearerIsBalrogAvatar && !itemUnusableByAlignment && !weaponSuppressed && activeItems.has(item.instanceId as string)) {
         prowess += itemDef.prowessModifier;
         body += itemDef.bodyModifier;
       }
       // MEBA: an item borne by the Balrog avatar has no effect on his
       // attributes — its corruption points do not apply either.
       if (!bearerIsBalrogAvatar) {
-        corruptionPoints += itemDef.corruptionPoints;
+        const itemCp = itemDef.corruptionPoints + itemModifierDeltas(itemDef, inPlayItemMods).cp;
+        corruptionPoints += itemCp;
+        if (trackCorruptionSources && itemCp > 0) corruptionSources.push(itemCp);
       }
     }
   }
@@ -547,7 +958,15 @@ function computeEffectiveStats(
     const hDef = resolveDef(state, hazard.instanceId);
     if (hDef && hDef.cardType === 'hazard-corruption') {
       corruptionPoints += hDef.corruptionPoints;
+      if (trackCorruptionSources && hDef.corruptionPoints > 0) corruptionSources.push(hDef.corruptionPoints);
     }
+  }
+
+  // The Balance of Things (tw-93): scale one (per in-play copy) of the
+  // character's corruption sources, the controller minimising by scaling the
+  // smallest. No source → no effect.
+  if (trackCorruptionSources && corruptionSources.length > 0) {
+    corruptionPoints += corruptionSourceMultiplierDelta(corruptionSources, corruptionMultipliers);
   }
 
   // MELE §8.37: trophy bonus — sum total printed MPs on all trophy cards.
@@ -591,34 +1010,98 @@ function statsEqual(a: EffectiveStats, b: EffectiveStats): boolean {
 }
 
 /**
- * Collects the item marshalling-point exemption filters a Fallen-wizard player
- * currently has in play (MEWH §4 exception, e.g. Saruman wh-9). Scans the
- * player's in-play characters for `fw-item-mp-full` effects and returns each
- * effect's `filter` (an absent filter is represented as `null`, meaning "every
- * item"). Empty for any non-Fallen-wizard player.
- *
- * The list is consumed by {@link itemExemptFromFwClamp} when scoring each item.
+ * A single Fallen-wizard full-MP exemption entry (from a `fw-item-mp-full` or
+ * `fw-ally-mp-full` effect): the card-definition `filter` (a `null` filter means
+ * "every card"), and whether the exemption is restricted to the avatar's company.
  */
-function fwItemMpExemptFilters(state: GameState, player: PlayerState): (Condition | null)[] {
-  if (player.alignment !== 'fallen-wizard') return [];
-  const filters: (Condition | null)[] = [];
-  for (const char of Object.values(player.characters)) {
-    const def = resolveDef(state, char.instanceId);
-    if (!def) continue;
-    for (const effect of getCardEffects(def)) {
-      if (effect.type === 'fw-item-mp-full') filters.push(effect.filter ?? null);
-    }
-  }
-  return filters;
+type FwMpFullEntry = { readonly filter: Condition | null; readonly inAvatarCompany: boolean };
+
+/**
+ * Resolves the card definitions of every source a Fallen-wizard's MP-exemption
+ * effects can live on: the player's in-play characters (Saruman wh-9 carries
+ * `fw-item-mp-full` as a character) plus their `cardsInPlay` permanent-events
+ * (Join the Hunt wh-93 / Oromë's Warders wh-94 carry the effects as stage
+ * permanent-events).
+ */
+function fwExemptionSourceDefs(state: GameState, player: PlayerState): CardDefinition[] {
+  return playerInPlayAndCharacterDefs(state, player);
 }
 
 /**
- * Whether an item definition is exempt from the Fallen-wizard 1-MP clamp given
- * the active `fw-item-mp-full` filters. An item is exempt if any filter matches
- * it (a `null` filter matches every item).
+ * Collects the item marshalling-point exemption entries a Fallen-wizard player
+ * currently has in play (MEWH §4 exception, e.g. Saruman wh-9, Join the Hunt
+ * wh-93). Returns each `fw-item-mp-full` effect's `filter` (absent → `null`,
+ * "every item") together with its `inAvatarCompany` flag. Empty for any
+ * non-Fallen-wizard player.
+ *
+ * The list is consumed by {@link itemExemptFromFwClamp} when scoring each item.
  */
-function itemExemptFromFwClamp(itemDef: CardDefinition, filters: (Condition | null)[]): boolean {
-  return filters.some(f => f === null || matchesDefinition(itemDef, f));
+function fwItemMpFullEntries(state: GameState, player: PlayerState): FwMpFullEntry[] {
+  if (player.alignment !== 'fallen-wizard') return [];
+  const entries: FwMpFullEntry[] = [];
+  for (const def of fwExemptionSourceDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-item-mp-full') {
+        entries.push({ filter: effect.filter ?? null, inAvatarCompany: effect.inAvatarCompany ?? false });
+      }
+    }
+  }
+  return entries;
+}
+
+/**
+ * Collects the ally marshalling-point exemption entries a Fallen-wizard player
+ * currently has in play (`fw-ally-mp-full`, e.g. Join the Hunt wh-93). Each
+ * matching ally scores its full printed MP instead of the §4 1-MP clamp. Empty
+ * for any non-Fallen-wizard player.
+ */
+function fwAllyMpFullEntries(state: GameState, player: PlayerState): FwMpFullEntry[] {
+  if (player.alignment !== 'fallen-wizard') return [];
+  const entries: FwMpFullEntry[] = [];
+  for (const def of fwExemptionSourceDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-ally-mp-full') {
+        entries.push({ filter: effect.filter ?? null, inAvatarCompany: effect.inAvatarCompany ?? false });
+      }
+    }
+  }
+  return entries;
+}
+
+/**
+ * Collects the character marshalling-point exemption entries a Fallen-wizard
+ * player currently has in play (`fw-char-mp-full`, e.g. the wh-4 Gandalf). Each
+ * matching character scores its full printed character MP instead of the §4
+ * 1-MP clamp. Empty for any non-Fallen-wizard player.
+ */
+function fwCharMpFullEntries(state: GameState, player: PlayerState): FwMpFullEntry[] {
+  if (player.alignment !== 'fallen-wizard') return [];
+  const entries: FwMpFullEntry[] = [];
+  for (const def of fwExemptionSourceDefs(state, player)) {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'fw-char-mp-full') {
+        entries.push({ filter: effect.filter ?? null, inAvatarCompany: effect.inAvatarCompany ?? false });
+      }
+    }
+  }
+  return entries;
+}
+
+/**
+ * Whether a card definition (item or ally) is exempt from the Fallen-wizard
+ * 1-MP clamp given the active full-MP entries. A card is exempt if any entry's
+ * filter matches it (a `null` filter matches every card) **and** the entry's
+ * company restriction is satisfied — an `inAvatarCompany` entry only applies
+ * when the bearer is in the player's avatar company (`bearerInAvatarCompany`).
+ */
+function cardExemptFromFwClamp(
+  def: CardDefinition,
+  entries: readonly FwMpFullEntry[],
+  bearerInAvatarCompany: boolean,
+): boolean {
+  return entries.some(e =>
+    (!e.inAvatarCompany || bearerInAvatarCompany)
+    && (e.filter === null || matchesDefinition(def, e.filter)));
 }
 
 /**
@@ -663,18 +1146,111 @@ function permanentEventMpOverride(
   return match?.value;
 }
 
+/** One `noncharacter-mp-override` rule: a per-card condition and its MP value. */
+type NonCharacterMpOverrideRule = { readonly when: Condition; readonly value: number };
+
+/**
+ * Collects the `noncharacter-mp-override` rules a player currently has in play
+ * (e.g. Give Welcome to the Unexpected wh-99). The carrying stage
+ * permanent-event is placed "on the avatar", so it lives in the avatar's
+ * `items` rather than `cardsInPlay`; both locations are scanned so the override
+ * counts while the card is attached ("if on Gandalf"). Empty when no such card
+ * is in play, so non-Fallen-wizards and unaffected games pay nothing.
+ */
+function nonCharacterMpOverrideRules(
+  state: GameState,
+  player: PlayerState,
+): NonCharacterMpOverrideRule[] {
+  const rules: NonCharacterMpOverrideRule[] = [];
+  const collect = (def: CardDefinition | undefined): void => {
+    if (!def) return;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'noncharacter-mp-override') rules.push({ when: effect.when, value: effect.value });
+    }
+  };
+  for (const card of player.cardsInPlay) collect(resolveDef(state, card.instanceId));
+  for (const char of Object.values(player.characters)) {
+    for (const item of char.items) collect(resolveDef(state, item.instanceId));
+  }
+  return rules;
+}
+
+/**
+ * Resolves the overridden marshalling-point value for one of the player's
+ * **non-character** MP-scoring cards (an item, ally, faction, or misc
+ * permanent-event) under the active `noncharacter-mp-override` rules, or
+ * `undefined` when no rule matches (so the card scores normally). Each rule is
+ * evaluated against `{ card: { unique, normalMp, cardType, name, race } }`,
+ * where `normalMp` is the card's *printed* marshalling points; the last matching
+ * rule wins. Cards with no printed MP are never overridden.
+ */
+function nonCharacterMpOverride(
+  def: CardDefinition,
+  rules: readonly NonCharacterMpOverrideRule[],
+): number | undefined {
+  if (rules.length === 0 || !hasMarshallingPoints(def)) return undefined;
+  const ctx = {
+    card: {
+      unique: 'unique' in def ? (def as { unique?: boolean }).unique : undefined,
+      normalMp: def.marshallingPoints,
+      cardType: def.cardType,
+      name: 'name' in def ? def.name : undefined,
+      race: 'race' in def ? (def as { race?: string }).race : undefined,
+    },
+  };
+  let value: number | undefined;
+  for (const rule of rules) {
+    if (matchesContext(rule.when, ctx)) value = rule.value;
+  }
+  return value;
+}
+
 function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: readonly string[]): PlayerState {
   // MEWH §4 exception: items matching an in-play `fw-item-mp-full` effect's
-  // filter (e.g. Saruman's non-combat items) score full printed MP instead of
+  // filter (e.g. Saruman's non-combat items, or Join the Hunt's weapon/armor/
+  // shield/helmet items in Alatar's company) score full printed MP instead of
   // being clamped to 1. Computed once per player; empty for non-Fallen-wizards.
-  const fwItemExemptions = fwItemMpExemptFilters(state, player);
+  const fwItemExemptions = fwItemMpFullEntries(state, player);
+  // Join the Hunt (wh-93) / Oromë's Warders (wh-94): allies matching a
+  // `fw-ally-mp-full` filter score full printed MP instead of the §4 1-MP clamp.
+  const fwAllyExemptions = fwAllyMpFullEntries(state, player);
+  // Fallen-wizard Gandalf (wh-4): characters matching a `fw-char-mp-full` filter
+  // score their full printed character MP instead of the §4 1-MP clamp.
+  const fwCharExemptions = fwCharMpFullEntries(state, player);
   // Great Patron (wh-72): in-play overrides letting the Fallen-wizard's
   // characters/allies that normally give >= threshold MP score `value` instead
   // of the §4 1-MP clamp. Empty for non-Fallen-wizards.
   const fwCharAllyCaps = fwCharacterAllyMpCaps(state, player);
+  // Give Welcome to the Unexpected (wh-99): in-play overrides re-valuing the
+  // player's non-character cards (items, allies, factions, misc permanent-events)
+  // that match a per-card condition. Collected from `cardsInPlay` and the
+  // avatar's `items` (the carrier is placed "on Gandalf"); empty otherwise.
+  const ncMpOverrides = nonCharacterMpOverrideRules(state, player);
+  // Await the Onset (wh-96): pin every company-held MP card outside one of the
+  // player's Wizardhavens to this value, overriding all other MP rules.
+  // Undefined when the card is not in play (the common case).
+  const nonHavenMpPin = nonHavenCompanyMpPin(state, player);
+  // "in Alatar's company": the id of the company holding the player's revealed
+  // avatar, resolved only when some exemption is company-restricted (Join the
+  // Hunt). Undefined when the avatar is not in play, so no character matches.
+  const needsAvatarCompany = fwItemExemptions.some(e => e.inAvatarCompany)
+    || fwAllyExemptions.some(e => e.inAvatarCompany)
+    || fwCharExemptions.some(e => e.inAvatarCompany);
+  const avatarCompanyId = needsAvatarCompany
+    ? (() => {
+      const avatar = findPlayerAvatar(state, player);
+      return avatar ? findCharacterCompany(player.companies, avatar.instanceId)?.id : undefined;
+    })()
+    : undefined;
   let generalInfluenceUsed = 0;
   let generalInfluenceBonus = 0;
+  let generalInfluenceControlPenalty = 0;
+  let generalInfluenceOverride: number | undefined;
   let mp = ZERO_MARSHALLING_POINTS;
+  // Global item-stat modifiers in play (Rumor of the One le-224: +1 marshalling
+  // point to all ring items). Collected once per recompute; applied flat to each
+  // matching item's marshalling category in the item MP loop below.
+  const inPlayItemMods = collectInPlayItemModifiers(state);
   // MEAS §6e: marshalling points of company-held cards (characters, their items
   // and allies) at an Under-deeps site, accumulated separately so they can be
   // excluded from the *call* threshold while remaining in the final tally.
@@ -712,11 +1288,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       continue;
     }
 
-    // Prisoners cost 0 GI and are worth negative MPs (CoE rule 8.35).
+    // Prisoners (CoE 8.35) and Press-ganged characters (ba-22) are held "off to
+    // the side": they cost 0 GI and are worth negative character MPs.
     const isPrisoner = state.activeConstraints.some(
       c => c.target.kind === 'character'
         && c.target.characterId === char.instanceId
-        && c.kind.type === 'character-is-prisoner',
+        && (c.kind.type === 'character-is-prisoner' || c.kind.type === 'character-pressed'),
     );
 
     // Compute effective stats with both companion name and ID context so that
@@ -732,7 +1309,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       })
       .filter((id): id is string => id !== null);
     const ringwraithMode = resolveCompanyRingwraithMode(state, player, charCompany?.id);
-    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, player.id);
+    // The Sun Shone Fiercely (ba-25) and similar environments spare characters
+    // at, moving to, or moving from an Under-deeps site. Flag the character's
+    // company spatial relationship to any Under-deeps site so `all-characters`
+    // effects can gate on `bearer.atOrMovingUnderDeeps`.
+    const atOrMovingUnderDeeps = companyAtOrMovingUnderDeeps(state, charCompany);
+    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, player.id, player.alignment, atOrMovingUnderDeeps);
     if (statsEqual(char.effectiveStats, newStats)) {
       newCharacters[key] = char;
     } else {
@@ -762,24 +1344,75 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const atUnderDeeps = !!(charSiteDef && 'keywords' in charSiteDef
       && (charSiteDef as { keywords?: readonly string[] }).keywords?.includes('under-deeps'));
 
+    // Await the Onset (wh-96): when the pin is in play, this character's company
+    // (and thus the items/allies it bears) is "not in one of your Wizardhavens"
+    // unless its current site is a Wizardhaven for the player. A company with no
+    // current site counts as outside. `pinValue` is undefined otherwise, leaving
+    // normal MP scoring untouched.
+    const pinValue = nonHavenMpPin !== undefined
+      && !isHavenForPlayer(charSiteDef, player.alignment, { state, siteDefinitionId: charSiteDefId, playerId: player.id })
+      ? nonHavenMpPin
+      : undefined;
+
+    // Is this character (and thus the items/allies it bears) in the player's
+    // avatar company? Gates the "in Alatar's company" full-MP exemptions (Join
+    // the Hunt wh-93). `avatarCompanyId` is undefined when no exemption is
+    // company-restricted, so this stays false for every other card.
+    const bearerInAvatarCompany = avatarCompanyId !== undefined && charCompany?.id === avatarCompanyId;
+
     // Character MPs: prisoners contribute negative MPs
     if (isPrisoner) {
       const charMp = charDef.marshallingPoints ?? 0;
       const cat = (charDef.marshallingCategory ?? 'character') as import('../index.js').MarshallingCategory;
       mp = { ...mp, [cat]: mp[cat] - charMp };
       if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] - charMp };
+    } else if (pinValue !== undefined) {
+      // wh-96: pin overrides the §4 clamp and every exemption (wh-4, Great Patron).
+      mp = addPinnedCardMp(mp, charDef, pinValue);
+      if (atUnderDeeps) underDeepsMp = addPinnedCardMp(underDeepsMp, charDef, pinValue);
     } else {
-      mp = addMP(mp, charDef, player.alignment, fwCharAllyCaps);
-      if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, charDef, player.alignment, fwCharAllyCaps);
+      // Fallen-wizard Gandalf (wh-4): a matching character scores full printed
+      // MP instead of the §4 clamp (or a Great Patron cap).
+      const charFull = fwCharExemptions.length > 0
+        && cardExemptFromFwClamp(charDef, fwCharExemptions, bearerInAvatarCompany);
+      mp = addMP(mp, charDef, player.alignment, fwCharAllyCaps, charFull);
+      if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, charDef, player.alignment, fwCharAllyCaps, charFull);
     }
 
     // Item MPs (cross-alignment items are worth half MP, rounded up — MELE Part IV)
     for (const item of char.items) {
       const itemDef = resolveDef(state, item.instanceId);
       if (!itemDef) continue;
-      const fwExempt = fwItemExemptions.length > 0 && itemExemptFromFwClamp(itemDef, fwItemExemptions);
+      // Await the Onset (wh-96): a company-held item outside a Wizardhaven is
+      // pinned, overriding the ncOverride / cross-alignment / §4 / bonus logic.
+      if (pinValue !== undefined) {
+        mp = addPinnedCardMp(mp, itemDef, pinValue);
+        if (atUnderDeeps) underDeepsMp = addPinnedCardMp(underDeepsMp, itemDef, pinValue);
+        continue;
+      }
+      // Give Welcome to the Unexpected (wh-99): a matching unique non-character
+      // item scores the override value instead of its printed / §4-clamped MP.
+      const ncOverride = nonCharacterMpOverride(itemDef, ncMpOverrides);
+      if (ncOverride !== undefined && hasMarshallingPoints(itemDef)) {
+        const cat = itemDef.marshallingCategory;
+        if (ncOverride !== 0) {
+          mp = { ...mp, [cat]: mp[cat] + ncOverride };
+          if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + ncOverride };
+        }
+        continue;
+      }
+      const fwExempt = fwItemExemptions.length > 0 && cardExemptFromFwClamp(itemDef, fwItemExemptions, bearerInAvatarCompany);
       mp = addItemMP(mp, itemDef, player.alignment, fwExempt);
       if (atUnderDeeps) underDeepsMp = addItemMP(underDeepsMp, itemDef, player.alignment, fwExempt);
+      // Global item-MP bonus (Rumor of the One le-224): a flat delta to the
+      // item's marshalling category, independent of the cross-alignment / §4
+      // clamps applied to the item's own printed MP above.
+      const globalMpDelta = itemModifierDeltas(itemDef, inPlayItemMods).mp;
+      if (globalMpDelta !== 0 && hasMarshallingPoints(itemDef)) {
+        const cat = itemDef.marshallingCategory;
+        mp = { ...mp, [cat]: mp[cat] + globalMpDelta };
+        if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + globalMpDelta };
+      }
       // Apply bearer-conditional mp-modifier effects on items
       // (e.g. Durin's Axe: +2 MP if held by a Dwarf). Skipped for a Fallen-wizard
       // (MEWH §4): his items are worth a flat 1 MP and cannot be boosted by such
@@ -805,26 +1438,78 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const ally of char.allies) {
       const allyDef = resolveDef(state, ally.instanceId);
       if (allyDef) {
-        mp = addMP(mp, allyDef, player.alignment, fwCharAllyCaps);
-        if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, allyDef, player.alignment, fwCharAllyCaps);
+        // Await the Onset (wh-96): a company-held ally outside a Wizardhaven is
+        // pinned, overriding the ncOverride / §4 / full-MP exemption logic.
+        if (pinValue !== undefined) {
+          mp = addPinnedCardMp(mp, allyDef, pinValue);
+          if (atUnderDeeps) underDeepsMp = addPinnedCardMp(underDeepsMp, allyDef, pinValue);
+          continue;
+        }
+        // Give Welcome to the Unexpected (wh-99): a matching unique ally scores
+        // the override value instead of its printed / §4-clamped MP.
+        const allyNcOverride = nonCharacterMpOverride(allyDef, ncMpOverrides);
+        if (allyNcOverride !== undefined && hasMarshallingPoints(allyDef)) {
+          const cat = allyDef.marshallingCategory;
+          if (allyNcOverride !== 0) {
+            mp = { ...mp, [cat]: mp[cat] + allyNcOverride };
+            if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + allyNcOverride };
+          }
+          continue;
+        }
+        // Join the Hunt (wh-93): a matching ally in the avatar company scores
+        // full printed MP instead of the §4 clamp (or a Great Patron cap).
+        const allyFull = fwAllyExemptions.length > 0
+          && cardExemptFromFwClamp(allyDef, fwAllyExemptions, bearerInAvatarCompany);
+        mp = addMP(mp, allyDef, player.alignment, fwCharAllyCaps, allyFull);
+        if (atUnderDeeps) underDeepsMp = addMP(underDeepsMp, allyDef, player.alignment, fwCharAllyCaps, allyFull);
       }
     }
   }
 
-  // General-influence bonus: sum stat-modifier general-influence effects from character items.
+  // General-influence bonus: sum stat-modifier general-influence effects. These
+  // ride two kinds of source: an item / attached permanent-event on a character
+  // (Bade to Rule le-167 on the Ringwraith, Great Shadow ba-62 on the Balrog),
+  // and a bare stage permanent-event sitting in `cardsInPlay` (Truths of Doom
+  // wh-108, which is not placed on any character). An optional `controlLimit`
+  // caps how many of the added points may control characters; the excess is
+  // accumulated as `generalInfluenceControlPenalty` (still part of the pool for
+  // defensive unused-GI purposes, but never usable to control characters).
+  // `op: "set"` is the exception: it does not add to the pool, it *replaces*
+  // the avatar's printed general influence (Radagast's Shapeshifter forms
+  // adopt a whole attribute line, e.g. Shifter of Hues wh-115's GI 27 in place
+  // of Radagast's printed 22). Recorded separately so `effectiveGeneralInfluence`
+  // can substitute it for the printed number and still add ordinary bonuses on
+  // top. Last override collected wins.
+  const applyGeneralInfluenceEffect = (effect: CardEffect): void => {
+    if (effect.type !== 'stat-modifier') return;
+    const e = effect as { stat?: string; value?: number; controlLimit?: number; op?: string };
+    if (e.stat !== 'general-influence') return;
+    const val = typeof e.value === 'number' ? e.value : 0;
+    if (e.op === 'set') {
+      generalInfluenceOverride = val;
+      return;
+    }
+    generalInfluenceBonus += val;
+    if (typeof e.controlLimit === 'number') {
+      generalInfluenceControlPenalty += Math.max(0, val - e.controlLimit);
+    }
+  };
   for (const char of Object.values(player.characters)) {
     for (const item of char.items) {
       const itemDef = resolveDef(state, item.instanceId);
       const effects = itemDef && 'effects' in itemDef
         ? (itemDef as { effects?: readonly CardEffect[] }).effects ?? []
         : [];
-      for (const effect of effects) {
-        if (effect.type === 'stat-modifier' && (effect as { stat?: string }).stat === 'general-influence') {
-          const val = (effect as { value?: number }).value ?? 0;
-          generalInfluenceBonus += typeof val === 'number' ? val : 0;
-        }
-      }
+      for (const effect of effects) applyGeneralInfluenceEffect(effect);
     }
+  }
+  for (const card of player.cardsInPlay) {
+    if (card.setAsideHost !== undefined) continue;
+    const def = resolveDef(state, card.instanceId);
+    const effects = def && 'effects' in def
+      ? (def as { effects?: readonly CardEffect[] }).effects ?? []
+      : [];
+    for (const effect of effects) applyGeneralInfluenceEffect(effect);
   }
 
   // Cards in play: factions, permanent events, etc. Set-aside cards (MEAS §1)
@@ -846,6 +1531,22 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);
     if (!def) continue;
+    // Await the Onset (wh-96) clause A: a faction stamped `mpPinned` (played after
+    // the card came into play) scores exactly that value, overriding every faction
+    // MP rule below ("regardless of other cards in play").
+    if (card.mpPinned !== undefined) {
+      mp = addPinnedCardMp(mp, def, card.mpPinned);
+      continue;
+    }
+    // Give Welcome to the Unexpected (wh-99): a matching unique non-character
+    // card in play (faction / misc permanent-event) scores the override value,
+    // taking precedence over its printed / §4-clamped MP.
+    const ncOverride = nonCharacterMpOverride(def, ncMpOverrides);
+    if (ncOverride !== undefined) {
+      const cat = hasMarshallingPoints(def) ? def.marshallingCategory : ('misc' as MarshallingCategory);
+      if (ncOverride !== 0) mp = { ...mp, [cat]: mp[cat] + ncOverride };
+      continue;
+    }
     if (factionOverrides.length > 0 && isFactionCard(def)) {
       const overrideMp = resolveFactionMpOverride(def, factionOverrides, avatarName);
       if (overrideMp !== undefined) {
@@ -859,6 +1560,21 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       if (override !== 0) mp = { ...mp, [cat]: mp[cat] + override };
     } else {
       mp = addMP(mp, def, player.alignment);
+    }
+    // `conditional-mp` adds a bonus to the carrying card's own printed MP when
+    // its gate holds. Roots of the Earth (ba-74): a named card is in play on the
+    // same site. Great Army of the North (ba-38): the player has ≥N qualifying
+    // factions in play ("at least 4 unique Orc and/or Troll factions —none
+    // playable at a Darkhold").
+    for (const eff of getCardEffects(def)) {
+      if (eff.type !== 'conditional-mp') continue;
+      const satisfied = eff.requiresFactionCount
+        ? conditionalMpFactionCount(state, player, eff.requiresFactionCount) >= eff.requiresFactionCount.min
+        : eff.requiresCardOnSameSite !== undefined
+          && conditionalMpApplies(state, card, eff.requiresCardOnSameSite);
+      if (!satisfied) continue;
+      const cat = hasMarshallingPoints(def) ? def.marshallingCategory : ('misc' as MarshallingCategory);
+      mp = { ...mp, [cat]: mp[cat] + eff.bonus };
     }
   }
 
@@ -900,10 +1616,23 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // creatures earn kill MP — except, per METD §4.1, a player who defeats a
   // manifestation they themselves played awards no MPs. Owner is derivable in
   // O(1) from the instance ID prefix.
+  const fullKillMp = playerHasKillMpExemption(state, player);
   for (const card of player.killPile) {
     const def = resolveDef(state, card.instanceId);
     if (!def) continue;
     const effects = (def as { effects?: readonly CardEffect[] }).effects;
+
+    // mp-in-pile: a card that places itself into a marshalling-point pile and
+    // scores a flat value from there (e.g. Neither so Ancient Nor so Potent
+    // dm-73 — "It gives 2 item marshalling points"). Independent of the
+    // stored-item / defeated-creature machinery below.
+    const mpInPile = effects?.find(e => e.type === 'mp-in-pile') as
+      | { type: 'mp-in-pile'; category: MarshallingCategory; value: number }
+      | undefined;
+    if (mpInPile) {
+      mp = { ...mp, [mpInPile.category]: mp[mpInPile.category] + mpInPile.value };
+      continue;
+    }
 
     // Stored items: storable-at effect grants MP (overriding base MP when set).
     const storableEffect = effects?.find(e => e.type === 'storable-at') as
@@ -939,8 +1668,11 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (killMP === 0) continue;
     const mid = manifestIdOf(def);
     if (mid && ownerOf(card.instanceId) === player.id) continue;
-    // MEWH §4: a defeated creature is worth a flat 1 MP to a Fallen-wizard.
-    const killContribution = player.alignment === 'fallen-wizard' && killMP > 0 ? 1 : killMP;
+    // MEWH §4: a defeated creature is worth a flat 1 MP to a Fallen-wizard —
+    // unless the player has a `fw-kill-mp-full` carrier in play (Alatar wh-1),
+    // which exempts him and awards the full printed kill MP instead.
+    const killContribution =
+      player.alignment === 'fallen-wizard' && killMP > 0 && !fullKillMp ? 1 : killMP;
     mp = { ...mp, kill: mp.kill + killContribution };
   }
 
@@ -982,10 +1714,32 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     mp = { ...mp, misc: mp.misc + player.bonusMiscMarshallingPoints };
   }
 
+  // One-time kill MP not tied to a defeated creature in the kill pile (A Malady
+  // Without Healing le-159: "you receive his kill marshalling points" for a hero
+  // eliminated by the card's checks). Held on the player and folded into kill.
+  if (player.bonusKillMarshallingPoints) {
+    mp = { ...mp, kill: mp.kill + player.bonusKillMarshallingPoints };
+  }
+
+  // CoE rule 2.2: an eliminated avatar provides -5 miscellaneous marshalling
+  // points to its player. This penalty is in effect throughout the game (CoE
+  // 10.3.vi — "despite having already been in effect for the purposes of
+  // determining whether the game could be called"), so it is folded into the
+  // running misc tally here rather than being applied only at final scoring.
+  // Keeping it in the derived total means it is reflected in the live MP display
+  // and read consistently by the end-game scorer. It is safe against the
+  // tournament doubling step (CoE 10.3.iii), which ignores misc and never
+  // doubles a negative source.
+  if (hasEliminatedAvatar(state, getPlayerIndex(state, player.id))) {
+    mp = { ...mp, misc: mp.misc - 5 };
+  }
+
   // MEAS §6e: callable totals = full tally minus Under-deeps company-held MPs.
+  // Rule 10.42 exempts Balrog players — they may count Under-deeps MPs both
+  // for calling the end of the game and thereafter, so `mp` is used unmodified.
   // Reuse the `mp` reference when nothing is excluded (the common case) so the
   // no-allocation fast path below still holds.
-  const callable: MarshallingPointTotals = underDeepsMp === ZERO_MARSHALLING_POINTS
+  const callable: MarshallingPointTotals = underDeepsMp === ZERO_MARSHALLING_POINTS || player.alignment === 'balrog'
     ? mp
     : {
         character: mp.character - underDeepsMp.character,
@@ -1033,6 +1787,18 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         stagePoints += stagePointsOfCard(defById(state, card.definitionId));
       }
     }
+    // A Fallen-wizard site that grants stage points *while occupied* (Deep Mines
+    // wh-55: "You receive the three stage points if any of your companies are at
+    // the site") contributes from each distinct occupied site instance. Dedup by
+    // instance so two companies at the same site do not double the points; two
+    // different occupied Deep Mines each count once.
+    const countedSiteInstances = new Set<string>();
+    for (const company of player.companies) {
+      const site = company.currentSite;
+      if (!site || countedSiteInstances.has(site.instanceId as string)) continue;
+      countedSiteInstances.add(site.instanceId as string);
+      stagePoints += siteOccupancyStagePointsOfCard(defById(state, site.definitionId));
+    }
   }
 
   // Skip update if nothing changed
@@ -1040,6 +1806,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     !charactersChanged &&
     player.generalInfluenceUsed === generalInfluenceUsed &&
     player.generalInfluenceBonus === generalInfluenceBonus &&
+    player.generalInfluenceControlPenalty === generalInfluenceControlPenalty &&
+    player.generalInfluenceOverride === generalInfluenceOverride &&
     player.marshallingPoints === mp &&
     player.callableMarshallingPoints === callable &&
     player.stagePoints === stagePoints
@@ -1052,6 +1820,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     characters: charactersChanged ? newCharacters : player.characters,
     generalInfluenceUsed,
     generalInfluenceBonus,
+    generalInfluenceControlPenalty,
+    generalInfluenceOverride,
     marshallingPoints: mp,
     callableMarshallingPoints: callable,
     stagePoints,
@@ -1093,6 +1863,13 @@ export function recomputeDerived(state: GameState): GameState {
  * @param char - The character in play whose prowess to compute.
  * @param charDef - The character's card definition.
  * @param creatureRace - The lowercase race of the attacking creature (e.g. "orc").
+ * @param strikeMode - How the character is facing the strike (`'tap'`, `'untap'`,
+ *   `'dodge'`, `'reroll'`). Exposed to conditions as `combat.strikeMode` so a
+ *   modifier can gate on "when tapping to face a strike", e.g. Stabbing Tongue
+ *   of Fire (ba-81) / Whip of Many Thongs (ba-82): `+1 prowess`
+ *   `when: { "combat.strikeMode": "tap" }`. When omitted, `combat.strikeMode` is
+ *   absent and such a modifier does not apply (so it never leaks into
+ *   non-facing prowess like effective-stats).
  * @returns The character's prowess value including combat-conditional effects.
  */
 export function computeCombatProwess(
@@ -1100,6 +1877,7 @@ export function computeCombatProwess(
   char: CharacterInPlay,
   charDef: CharacterCard,
   creatureRace: string,
+  strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
 ): number {
   const inPlayNames = buildInPlayNames(state);
   const charInfo = buildBearerContext(charDef);
@@ -1109,11 +1887,22 @@ export function computeCombatProwess(
     target: charInfo,
     inPlay: inPlayNames,
     enemy: { race: creatureRace, name: '', prowess: 0, body: null },
+    combat: { strikeMode },
   };
 
   const charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
-  const collected = [...charEffects, ...globalEffects];
+  // `own-characters`-scoped effects (e.g. Descent through Fire ba-56: "+1
+  // prowess to all your characters") apply only to characters controlled by
+  // the source card's owner. Find the player whose `characters` dict holds this
+  // character so the bonus is scoped to that player's own company members.
+  const ownerPlayer = state.players.find(
+    p => Object.prototype.hasOwnProperty.call(p.characters, char.instanceId as string),
+  );
+  const ownEffects = ownerPlayer
+    ? collectGlobalEffects(state, 'own-characters', context, undefined, ownerPlayer.id)
+    : [];
+  const collected = [...charEffects, ...globalEffects, ...ownEffects];
 
   if (collected.length > 0) {
     return resolveStatModifiers(collected, 'prowess', charDef.prowess, context);

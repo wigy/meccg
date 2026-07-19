@@ -10,7 +10,7 @@ import type { CardDefinition } from './types/cards.js';
 import { isAvatarCharacter, isCharacterCard } from './types/cards.js';
 import type { Company, CharacterInPlay, GameState } from './types/state.js';
 import type { GameAction } from './types/actions.js';
-import type { CardInstanceId, CardDefinitionId, CompanyId } from './types/common.js';
+import type { CardInstanceId, CardDefinitionId, CompanyId, PlayerId } from './types/common.js';
 import { UNKNOWN_CARD, UNKNOWN_SITE } from './card-ids.js';
 import { formatCardName } from './format-cards.js';
 import { formatSignedNumber } from './format-helpers.js';
@@ -164,6 +164,20 @@ export function extractActionCardDefs(
     visit(rest);
     return defs;
   }
+  // arrange-deck-top-card places a set-aside card face-down on top of the
+  // acting player's own play deck "in any order you choose" (Revealed to all
+  // Watchers, dm-85). Although the identities were made public a moment earlier
+  // when the card revealed the player's hand (revealHand), the *ordering* the
+  // player picks is private — the cards go face-down. Broadcasting which card
+  // is placed at each step would leak the exact deck-top order to the opponent
+  // and every spectator, defeating the face-down placement. Exclude the card
+  // instance ID so the audience only sees "Place a card … on top of the play
+  // deck"; the acting player still names their choices via the legal actions.
+  if (action.type === 'arrange-deck-top-card') {
+    const { cardInstanceId: _excluded, ...rest } = action;
+    visit(rest);
+    return defs;
+  }
   visit(action);
   return defs;
 }
@@ -184,6 +198,7 @@ export function describeAction(
   cardPool: Readonly<Record<string, CardDefinition>>,
   instanceLookup?: Readonly<Record<string, CardDefinitionId>> | InstanceLookup,
   companyNames?: Readonly<Record<string, string>>,
+  playerNames?: Readonly<Record<string, string>>,
 ): string {
   const defName = (id: CardDefinitionId) => {
     const def = cardPool[id as string];
@@ -200,7 +215,11 @@ export function describeAction(
     }
     return 'a card';
   };
-  const compName = (id: CompanyId) => companyNames?.[id as string] ?? `${id}`;
+  const compName = (id: CompanyId) => companyNames?.[id as string] ?? `a company`;
+  // Resolve an internal player id (e.g. "p1") to a display name. Legal-action
+  // and toast text must never surface raw player codes; fall back to a neutral
+  // word rather than leaking the id when no name map is supplied.
+  const playerName = (id: PlayerId) => playerNames?.[id as string] ?? `the player`;
 
   switch (action.type) {
     case 'draft-pick':
@@ -334,6 +353,8 @@ export function describeAction(
       return 'Tap avatar: fetch up to 5 cards from sideboard to discard';
     case 'fetch-from-sideboard':
       return `Fetch ${instName(action.sideboardCardInstanceId)} from sideboard`;
+    case 'card-sideboard-to-deck':
+      return `Bring ${instName(action.cardInstanceId)} from sideboard to play deck`;
     case 'start-hazard-sideboard-to-deck':
       return 'Fetch 1 hazard from sideboard to play deck';
     case 'start-hazard-sideboard-to-discard':
@@ -402,16 +423,22 @@ export function describeAction(
         : `Play ${instName(action.cardInstanceId)} from hand to modify attack`;
     case 'tap-item-for-strike':
       return `Tap ${instName(action.cardInstanceId)} on ${instName(action.characterInstanceId)} — ${action.explanation}`;
+    case 'face-strike-on-tap':
+      return `Tap ${instName(action.cardInstanceId)} so ${instName(action.characterInstanceId)} faces a strike (regardless of the attack's capabilities and his status)`;
     case 'cancel-by-tap':
       return `Cancel attack by tapping ${instName(action.characterId)}`;
     case 'salvage-item':
       return `Salvage ${instName(action.itemInstanceId)} to ${instName(action.recipientCharacterId)}`;
     case 'discard-item-from-company':
       return `Discard item ${instName(action.itemInstanceId)} (An Article Missing)`;
+    case 'force-discard-card':
+      return `Discard ring ${instName(action.cardInstanceId)} (Rolled down to the Sea)`;
     case 'play-strike-event':
       return `Strike event: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
     case 'cancel-strike':
       return `${instName(action.cancellerInstanceId)} taps to cancel strike against ${instName(action.targetCharacterId)}`;
+    case 'flee-from-strike':
+      return `Play ${instName(action.cardInstanceId)} to flee the strike (cancel it, tap the character)`;
     case 'support-corruption-check':
       return `Tap ${instName(action.supportingCharacterId)} for CC support (+1)`;
     case 'resolve-dice-check':
@@ -430,12 +457,16 @@ export function describeAction(
       return `${instName(action.characterId)} joins attacked company from haven`;
     case 'cancel-return-to-origin':
       return `${instName(action.allyInstanceId)} taps to cancel return-to-origin effect`;
+    case 'counter-cancel-roll':
+      return `Play ${instName(action.cardInstanceId)} to counter-cancel ${instName(action.targetInstanceId)} (roll + attack prowess)`;
+    case 'counter-cancel-attack':
+      return `Play ${instName(action.cardInstanceId)} to counter-cancel ${instName(action.targetInstanceId)} (the Balrog’s attack survives)`;
     case 'select-forewarned-attack':
       return `Select auto-attack ${action.attackIndex} (Forewarned Is Forearmed)`;
     case 'pair-resource-with-cof':
       return `Pair ${instName(action.cardInstanceId)} with Crown of Flowers (${instName(action.cofInstanceId)})`;
     case 'play-wizard-from-search':
-      return `Play wizard ${action.wizardDefinitionId as string} from ${action.source}`;
+      return `Play wizard ${defName(action.wizardDefinitionId)} from ${action.source}`;
     case 'skip-wizard-search':
       return `Skip wizard search`;
     case 'select-card-bearer':
@@ -463,57 +494,115 @@ export function describeAction(
     case 'agent-key-creatures':
       return `Agent ${action.agentId as string} taps to key creatures`;
     case 'agent-influence-attempt':
-      return `Agent ${action.agentId as string} taps to influence ${action.targetKind} ${action.targetInstanceId as string}`;
+      return `Agent ${action.agentId as string} taps to influence ${action.targetKind} ${instName(action.targetInstanceId)}`;
     case 'agent-tap-attack':
       return `Agent ${action.agentId as string} taps to attack`;
+    case 'agent-discard-return-to-origin':
+      return `Agent ${action.agentId as string} is discarded to return company to its site of origin`;
     case 'agent-strike-roll':
       return `Agent rolls for strike`;
     case 'under-deeps-roll':
-      return `${action.player as string} rolls for Under-deeps movement`;
+      return `${playerName(action.player)} rolls for Under-deeps movement`;
     case 'haven-return':
-      return `${action.player as string} returns company to origin haven`;
+      return `${playerName(action.player)} returns company to origin haven`;
+    case 'run-home':
+      return `${playerName(action.player)} discards ${instName(action.allyInstanceId)} to move company ${action.companyId} to its nearest haven (Bill the Pony)`;
     case 'pay-hazard-event-maintenance':
       return action.paymentType === 'discard-self'
         ? `Discard ${instName(action.sourceInstanceId)} (hazard event maintenance)`
         : `Discard ${instName(action.cardInstanceId)} from hand to maintain ${instName(action.sourceInstanceId)}`;
     case 'tap-hazard-card-for-limit':
-      return `${action.player as string} taps ${action.cardInstanceId as string} for +1 hazard limit`;
+      return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} for +1 hazard limit`;
     case 'pay-hazard-limit-to-untap-card':
-      return `${action.player as string} spends hazard limit to untap ${action.cardInstanceId as string}`;
+      return `${playerName(action.player)} spends hazard limit to untap ${instName(action.cardInstanceId)}`;
+    case 'discard-card-for-hazard-limit':
+      return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} for +2 hazard limit against ${compName(action.targetCompanyId)}`;
     case 'protect-from-assignment':
       return `Play Ruse — ${instName(action.targetCharacterId)} protected from strike assignment`;
     case 'declare-company-attack':
-      return `${action.player as string} declares company attack on ${action.targetCompanyId as string}`;
+      return `${playerName(action.player)} declares company attack on ${compName(action.targetCompanyId)}`;
     case 'take-trophy':
-      return `${action.player as string} takes creature ${action.creatureInstanceId as string} as trophy for ${action.characterId as string}`;
+      return `${playerName(action.player)} takes creature ${instName(action.creatureInstanceId)} as trophy for ${instName(action.characterId)}`;
     case 'shield-discard-roll':
-      return `${action.player as string} rolls to determine if shield ${action.itemInstanceId as string} is discarded`;
+      return `${playerName(action.player)} rolls to determine if shield ${instName(action.itemInstanceId)} is discarded`;
     case 'tap-character-by-effect':
-      return `${action.player as string} taps character ${action.characterInstanceId as string} (hazard effect)`;
+      return `${playerName(action.player)} taps character ${instName(action.characterInstanceId)} (hazard effect)`;
     case 'restore-character-by-effect':
-      return `${action.player as string} untaps/heals character ${action.characterInstanceId as string} (Hall of Fire)`;
+      return `${playerName(action.player)} untaps/heals character ${instName(action.characterInstanceId)} (Hall of Fire)`;
     case 'place-starting-company-event':
-      return `${action.player as string} places ${action.cardDefId as string} on company ${action.companyId as string} as a starting event`;
+      return `${playerName(action.player)} places ${defName(action.cardDefId)} on company ${compName(action.companyId)} as a starting event`;
     case 'reserve-creature':
-      return `${action.player as string} reserves creature ${instName(action.cardInstanceId)} via ${instName(action.sourceCardInstanceId)}`;
+      return `${playerName(action.player)} reserves creature ${instName(action.cardInstanceId)} via ${instName(action.sourceCardInstanceId)}`;
     case 'play-reserved-creature':
-      return `${action.player as string} plays reserved creature from ${action.sourceCardInstanceId as string} against company ${action.targetCompanyId as string}`;
+      return `${playerName(action.player)} plays reserved creature from ${instName(action.sourceCardInstanceId)} against company ${compName(action.targetCompanyId)}`;
     case 'play-creature-from-discard':
-      return `${action.player as string} plays creature ${action.creatureInstanceId as string} from discard pile against company ${action.targetCompanyId as string}`;
+      return `${playerName(action.player)} plays creature ${instName(action.creatureInstanceId)} from discard pile against company ${compName(action.targetCompanyId)}`;
+    case 'spawn-replay-creature':
+      return `${playerName(action.player)} replays creature ${instName(action.creatureInstanceId)} from discard pile against company ${compName(action.targetCompanyId)} (${instName(action.sourceInstanceId)})`;
     case 'stay-her-appetite-roll':
-      return `${action.player as string} rolls for Stay Her Appetite`;
+      return `${playerName(action.player)} rolls for Stay Her Appetite`;
+    case 'transfer-returned-item':
+      return action.itemInstanceId && action.targetCharacterId
+        ? `${playerName(action.player)} transfers returned item ${instName(action.itemInstanceId)} to ${instName(action.targetCharacterId)}`
+        : `${playerName(action.player)} declines to transfer a returned item`;
     case 'tap-ally-combat-boost':
-      return `${action.player as string} taps ally ${action.cardInstanceId as string} to boost its company in combat`;
+      return `${playerName(action.player)} taps ally ${instName(action.cardInstanceId)} to boost its company in combat`;
+    case 'tap-ally-body-check-boost':
+      return `${playerName(action.player)} taps ally ${instName(action.cardInstanceId)} to boost its controlling character's body check`;
     case 'tap-ally-discard-hazard':
-      return `${action.player as string} taps ally ${action.allyInstanceId as string} to discard hazard ${action.targetInstanceId as string}`;
+      return `${playerName(action.player)} taps ally ${instName(action.allyInstanceId)} to discard hazard ${instName(action.targetInstanceId)}`;
     case 'convert-creature-to-ally':
-      return `${action.player as string} plays ${action.cardInstanceId as string} to convert the attacking creature into an ally controlled by ${action.controllingCharacterId as string}`;
+      return `${playerName(action.player)} plays ${instName(action.cardInstanceId)} to convert the attacking creature into an ally controlled by ${instName(action.controllingCharacterId)}`;
+    case 'discard-character':
+      return `${playerName(action.player)} discards character ${instName(action.characterInstanceId)} while organizing`;
     case 'discard-stage-resource':
-      return `${action.player as string} discards stage resource ${action.cardInstanceId as string}`;
+      return `${playerName(action.player)} discards stage resource ${instName(action.cardInstanceId)}`;
     case 'activate-org-fetch':
-      return `${action.player as string} activates org-phase fetch from ${instName(action.cardInstanceId)} (take one matching card to hand)`;
+      return `${playerName(action.player)} activates org-phase fetch from ${instName(action.cardInstanceId)} (take one matching card to hand)`;
+    case 'manifestation-swap':
+      return `${playerName(action.player)} brings ${instName(action.cardInstanceId)} into play, replacing ${instName(action.characterId)} (removed from the game, cards transferred)`;
     case 'rescue-prisoner':
-      return `${action.player as string} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
+      return `${playerName(action.player)} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
+    case 'tap-alt-permanent-event':
+      return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} (permanent-event → short-event)${action.targetCharacterId ? `, tapping ${instName(action.targetCharacterId)}` : ''}`;
+    case 'play-agent-manifestation':
+      return `${playerName(action.player)} taps ${instName(action.characterId)} to play ${instName(action.manifestationCardInstanceId)} (agent discarded)`;
+    case 'arrange-deck-top-card':
+      return `Place ${instName(action.cardInstanceId)} next on top of your play deck`;
+    case 'choose-revealed-card':
+      return `Take revealed card ${instName(action.cardInstanceId)} into hand (shuffle the rest back into the play deck)`;
+    case 'remove-revealed-card':
+      return `${playerName(action.player)} removes revealed card ${instName(action.cardInstanceId)} from play (opponent's discard → out of play)`;
+    case 'desire-choose-shown-card':
+      return `${playerName(action.player)} shows revealed card ${instName(action.cardInstanceId)} to the opponent (Desire All for Thy Belly)`;
+    case 'desire-choose-penalty':
+      return action.penalty === 'remove-from-game'
+        ? `${playerName(action.player)} removes the shown card from the game (Desire All for Thy Belly)`
+        : `${playerName(action.player)} reduces his hand size by one for the rest of the game (Desire All for Thy Belly)`;
+    case 'choose-great-hunt-source':
+      return `${playerName(action.player)} has the opponent reveal from their ${action.source === 'deck' ? 'play deck' : 'discard pile'} (The Great Hunt)`;
+    case 'great-hunt-attack-with-creature':
+      return `${playerName(action.player)} has discarded creature ${instName(action.creatureInstanceId)} attack Alatar's company (The Great Hunt)`;
+    case 'gangways-extra-move':
+      return `${playerName(action.player)} sends company ${action.companyId} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
+    case 'extra-mh-move':
+      return `${playerName(action.player)} sends company ${action.companyId} on another movement to ${instName(action.destinationSite)} (extra movement/hazard phase)`;
+    case 'apply-attacker-attack-option':
+      return `${playerName(action.player)} applies ${instName(action.cardInstanceId)} to the attack (+prowess / detainment)`;
+    case 'voluntary-discard-in-play':
+      return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} from play`;
+    case 'return-attached-to-hand':
+      return `${playerName(action.player)} returns ${instName(action.cardInstanceId)} to hand`;
+    case 'discard-for-evil-hour-movement':
+      return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} to grant company ${action.companyId} the region-movement bonus (A More Evil Hour)`;
+    case 'left-behind-rejoin':
+      return `${playerName(action.player)} rejoins the left-behind company ${action.companyId} with its original company (Left Behind)`;
+    case 'cancel-weapon-effects':
+      return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} to cancel all effects of weapon ${instName(action.weaponInstanceId)} until end of combat (Whip of Many Thongs)`;
+    case 'pay-site-tax':
+      return `${playerName(action.player)} taps ${instName(action.characterId)} to pay the site tax before playing an ally or item (Eddy in Fate's Tide)`;
+    case 'pay-movement-tax':
+      return `${playerName(action.player)} taps ${instName(action.characterId)} to pay company ${action.companyId}'s movement tax (Enchanted Stream)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

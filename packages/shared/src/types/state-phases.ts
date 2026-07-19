@@ -124,6 +124,17 @@ export type SetupStepState =
       readonly step: SetupStep.CharacterPlacement;
       /** Whether each player has finished placing characters. */
       readonly placementDone: readonly [boolean, boolean];
+      /**
+       * Character instance IDs each player has already explicitly placed into
+       * their chosen company during this step, indexed by player. A character
+       * may be placed at most once so that placement makes monotonic progress
+       * and can never cycle: without this mark, the reversible place-character
+       * moves let a player (notably an AI) shuffle characters between companies
+       * forever without ever converging. Every valid starting-company partition
+       * remains reachable because each unplaced character is offered every
+       * company it is not currently in, and its single placement is final.
+       */
+      readonly placed: readonly [readonly CardInstanceId[], readonly CardInstanceId[]];
     }
   | {
       readonly step: SetupStep.DeckShuffle;
@@ -241,6 +252,16 @@ export interface OrganizationPhaseState {
    */
   readonly sideboardFetchDestination: 'discard' | 'deck' | null;
   /**
+   * Enchanted Stream (as-27) movement tax: how many of a company's untapped
+   * characters have been tapped toward the tax this organization phase, keyed
+   * by company id. A company bound by a `company-movement-tax` permanent event
+   * may not voluntarily declare movement or split until this reaches the
+   * effect's `taxTapCharacters` (or the company has no untapped character left
+   * to tap). Reset each organization phase (the phase state is rebuilt on
+   * entry). Optional — absent/`{}` means no tax has been paid yet.
+   */
+  readonly movementTaxPaid?: Readonly<Record<string, number>>;
+  /**
    * The active sub-step within the organization phase.
    *
    * - `'play-actions'` (default): the active player is taking their
@@ -352,7 +373,26 @@ export type MHStep =
    * Drawing up is automatic. Advances to next company or Site phase
    * once both players are at hand size.
    */
-  | 'reset-hand';
+  | 'reset-hand'
+  /**
+   * Gangways over the Fire (ba-60): after a moving company completes its
+   * movement/hazard phase, if the active player has an
+   * `extra-under-deeps-mh-phase` effect in play the company may attempt
+   * another Under-deeps movement to a site it has not used this turn. The
+   * active player either selects a new Under-deeps destination
+   * (`gangways-extra-move`) — re-entering the phase at `reveal-new-site` with
+   * a cumulative roll penalty — or passes to finish the company.
+   */
+  | 'gangways-offer'
+  /**
+   * `grant-extra-mh-phase` resources (Forced March le-185, Bridge tw-202, Leg
+   * It Double Quick le-202, Ûvatha Unleashed le-248): after a company that
+   * moved to the qualifying site (e.g. a Darkhaven) completes its M/H phase,
+   * the active player may send it on another movement to an additional site —
+   * a fresh movement/hazard phase — by choosing a new destination
+   * (`extra-mh-move`), or pass to finish the company.
+   */
+  | 'extra-mh-move-offer';
 
 export interface MovementHazardPhaseState {
   /** Phase discriminant. */
@@ -501,11 +541,28 @@ export interface MovementHazardPhaseState {
    */
   readonly hazardsEncountered: readonly string[];
   /**
+   * Instance IDs of in-play permanent-events (Monstrosity of Diverse Shape,
+   * ba-21) that have already used their once-per-turn
+   * `grant-replay-attacked-creature` replay against the current company this
+   * M/H sub-phase. Reset alongside {@link hazardsEncountered} whenever a new
+   * company's M/H phase begins. Absent is treated as an empty list.
+   */
+  readonly spawnReplayUsedSources?: readonly CardInstanceId[];
+  /**
    * Number of ahunt-attack effects resolved during the order-effects step.
    * Tracks progress through the list of matching ahunt long-events so
    * combat is initiated one at a time.
    */
   readonly ahuntAttacksResolved: number;
+  /**
+   * Per-attack outcomes for ahunt attacks resolved during the current company's
+   * order-effects step, keyed by the source card instance. Accumulated by
+   * `finalizeCombat` and consumed by `handleOrderEffects` to evaluate ahunt
+   * group rewards (e.g. Mordor in Arms dm-72 — "if all three attacks are
+   * defeated, the opponent receives this card in his MP pile"). Reset when a
+   * new company is selected. Optional so pre-existing initializers need not set it.
+   */
+  readonly ahuntGroupOutcomes?: readonly { readonly instanceId: CardInstanceId; readonly defeated: boolean }[];
   /**
    * Set of character instance IDs that have already had a corruption card played
    * on them during this turn (CoE rule 7.2.1: only one corruption card per character per turn).
@@ -523,6 +580,22 @@ export interface MovementHazardPhaseState {
   readonly nazgulSideboardDestination: 'discard' | 'deck' | null;
   /** Number of cards fetched so far during the active Nazgûl sideboard sub-flow. */
   readonly nazgulSideboardFetched: number;
+  /**
+   * Gangways over the Fire (ba-60): number of complete movement/hazard phases
+   * each company has taken so far this turn, keyed by company id. Incremented
+   * when a company finishes its M/H phase (whether or not it moved). The count
+   * for a company is subtracted from that company's Under-deeps movement rolls
+   * on any extra Gangways phase. Absent for games without the effect in play.
+   */
+  readonly gangwaysPhaseCounts?: { readonly [companyId: string]: number };
+  /**
+   * Gangways over the Fire (ba-60): site definition ids each company has
+   * occupied so far this turn, keyed by company id. A Gangways extra move may
+   * only target an Under-deeps site the company has not used yet this turn, so
+   * these sites are excluded from the offered destinations. Absent for games
+   * without the effect in play.
+   */
+  readonly gangwaysSitesUsed?: { readonly [companyId: string]: readonly CardDefinitionId[] };
 }
 
 /**
@@ -721,6 +794,46 @@ export interface SitePhaseState {
    * company's site phase begins (a fresh {@link SitePhaseState} is built).
    */
   readonly technologyItemPlayed?: boolean;
+  /**
+   * Whether the current (active) company has, this site phase, successfully
+   * played a **unique hero faction at a Free-hold that is not Bag End**. Set
+   * when such a faction resolves (`resolveInfluenceAttemptRoll`); consulted by
+   * the `company-context` play-condition so a card can gate on "during the same
+   * site phase his company plays a unique hero faction at a Free-hold [{F}] (not
+   * Bag End)" (To Fealty Sworn, ba-33). Absent (undefined → treated as false)
+   * until such a faction is played; reset to absent when a new company's site
+   * phase begins (a fresh {@link SitePhaseState} is built).
+   */
+  readonly uniqueHeroFactionPlayedAtFreeHold?: boolean;
+  /**
+   * Whether the active company has, this site phase, successfully played **any**
+   * faction (of any type) at its current site. Set when a faction resolves
+   * (`resolveInfluenceAttemptRoll`); consulted by the `company-context`
+   * play-condition via `company.playedFactionHere` so a card can gate on "if you
+   * have played a faction there" (No Strangers at this Time, as-51). Absent
+   * (undefined → false) until such a faction is played; reset to absent when a
+   * new company's site phase begins (a fresh {@link SitePhaseState} is built).
+   */
+  readonly factionPlayedThisSitePhase?: boolean;
+  /**
+   * Whether the site's minion-only additional automatic-attack (No Strangers at
+   * this Time, as-51 `duplicateFirstAutoAttackVsMinion`) has already been faced
+   * this site phase. Set once the copied first automatic-attack has been
+   * initiated in the `handleSiteAutomaticAttacks` done-branch, so it fires
+   * exactly once. Absent (undefined → false) until then; reset when a new
+   * company's site phase begins.
+   */
+  readonly siteLockMinionAttackDone?: boolean;
+  /**
+   * Number of characters the active company has tapped this site phase to pay
+   * the Eddy in Fate's Tide (ba-57) tax — "Before a company can play any ally or
+   * item at any version of this site, it must tap two characters during the site
+   * phase." Incremented by each `pay-site-tax` action; the item / ally play
+   * paths are gated until it reaches the bound card's `taxTapCharacters`. Absent
+   * (treated as 0) until the first tax character is tapped; reset to absent when
+   * a new company's site phase begins (a fresh {@link SitePhaseState} is built).
+   */
+  readonly eddyTaxTapped?: number;
   /**
    * Agent instance ID declared as attacking in step 3, or null if no
    * agent attack was declared.

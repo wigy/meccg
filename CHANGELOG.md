@@ -1,5 +1,265 @@
 # Changelog
 
+## 0.54.0 — 2026-07-19
+
+Challenge Deck S
+
+### Game Engine
+
+- Completed the card pool for challenge deck (S) "Await the Onset" — all 110 cards are now certified, making the deck playable end to end
+- Certified Await the Onset (wh-96), the Fallen-wizard permanent event the deck is built around: both of its marshalling-point clauses are modelled as pin-to-1 overrides (a `played-after-faction-mp-pin` and a `nonhaven-company-mp-pin`), carried per-instance via a new `mpPinned` tag. Factions are never stored on characters, so no faction-location model was needed
+- Certified Gandalf as a Fallen-wizard (wh-4) with a new `fw-char-mp-full` primitive (the Fallen-wizard avatar scores full character marshalling points), alongside Gandalf's Friend (wh-98), a Gandalf-specific stage companion
+- Certified Fireworks (dm-130) with a `roll-untap-site` primitive (a dice-check whose on-pass verb untaps a site) plus a skip-next-untap-on-play constraint reusing the ba-18 machinery
+- Certified Peril Returned (td-54) with an environment-override primitive that locks Doors of Night / Gates of Morning, and A Pack at the Door (tw-497) with a `grant-creature-keying` region-type primitive
+- Certified Grey Embassy (wh-100) and Give Welcome to the Unexpected (wh-99) with a `noncharacter-mp-override`, plus Chambers in the Royal Court (wh-97) as an "Any <site-type>" homesite
+- Certified Dol Amroth (le-366) and Pelargir (le-398) MELE free-hold guardian sites, mirroring the existing le-391 detainment/overt structure
+- Certified Mischief in a Mean Way (wh-77) — a site-phase Border-hold Wizardhaven conversion gated on 10+ stage points, reusing the wh-65/wh-70/wh-75 primitives
+
+### Card Data
+
+- 19 newly certified cards (896 → 915 of 1683), completing challenge deck (S) "Await the Onset" at 110/110
+- Certified The Great Eagles (tw-344) after repairing a truncated `playableAt` list (also affecting tw-258/369/370), No Strangers at this Time (as-51), Beornings (le-261), Bill the Pony (tw-198, a run-home-to-haven ally ability), Elwen (dm-8) and Herion (dm-16), and Freca (dm-182, +1 direct influence against Riders of Rohan and Dunlendings)
+
+### Testing & Infrastructure
+
+- Adjusted the le-303 test to reflect the newly certified guardian sites: Pelargir now allows a gold-ring play, Dol Amroth now offers a gold-ring, and Blue Mountain Dwarf-hold is used as the free-hold-without-gold-ring fixture
+- Cleaned up unused test imports flagged by lint across the dm-130, tw-497, wh-4, and wh-77 certifications
+
+## 0.53.0 — 2026-07-17
+
+Challenge Deck R
+
+### Game Engine
+
+- Completed the card pool for challenge deck (R) "The Ally-Armada" — all 110 cards are now certified, making the deck playable end to end
+- Certified Radagast (wh-8), the Fallen-wizard avatar the deck is built around, with a new `ally-movement-restriction-exemption` effect (his allies ignore the normal "allies may not move" restriction) layered on the existing `faction-mp-override`, `fw-ally-mp-full`, and `draw-modifier` primitives. Note for future card data: a `$not` written as a sibling of field keys is silently dropped by the condition matcher — wrap it in an explicit `$and`
+- Certified Shifter of Hues (wh-115), Radagast's Shapeshifter form: stat effects gain an `op: "set"` mode for absolute (rather than relative) values, plus `override-skills` threaded through `getEffectiveSkills`, `bearer-cannot-move` / `bearer-cannot-use-items` restrictions, and a lasting `check-modifier` scoped to the next organization phase
+- Certified Radagast's Black Bird (wh-114) with two new play-flags — `no-tap-on-play` and `influences-factions` (an ally contributing direct influence to faction checks) — a `return-to-hand` effect, and `partitionLeavingAllies` so allies are correctly separated across the four leave-play sites
+- Certified Girdle of Radagast (wh-110) with a new persistent `region-type-conversion` effect (named regions re-key as Wilderness) and a `supporters-in-region` play-condition
+- Certified Rhosgobel (wh-57) with a new inherently-protected-Wizardhaven site-rule and an `isSiteProtectedForPlayer` helper; deck validation for rule 1.07 now also scans the sites section, which it previously skipped
+- Certified Stormcrow (td-73) with a new `prohibit-company-events` primitive (discarding/prohibiting Fellowship-style company events on Wizard companies) plus the Wizard direct-influence -2/-4 modifier
+- Certified Glove of Radagast (wh-111) with a new `grant-ally-play` primitive: a non-unique 1-mind ally playable at the bearer's site, supporting `fromDiscard` and `excludeBearerControlsCopy`
+- Certified An Untimely Brood (wh-62), a Wizardhaven-keyed variant of `grant-ally-play` adding `atProtectedWizardhavens`, `allowTappedSite`, and `oncePerSitePhase`
+
+### Card Data
+
+- 11 newly certified cards (885 → 896 of 1683), concentrated on the challenge deck (R) "The Ally-Armada" pool, which reached 110/110
+- Certified Barliman Butterbur (tw-125) as a dual `check-modifier` (corruption -1 and faction-influence -1), reusing the existing primitive with no engine work
+- Certified Lure of Nature (tw-58) and Lure of Expedience (tw-57) as data-fix siblings of le-123 and le-122 (identical card text). Lure of Nature needed `keywords: ["corruption"]` so rule 10.08's no-tap removal applies
+
+### Testing & Infrastructure
+
+- Adapted the Girdle of Radagast (wh-110) tests to Rhosgobel's newly inherent protection and stage point. Gotcha worth remembering: `buildTestState` with `recompute: true` resets `stagePoints` to 0
+
+## 0.52.0 — 2026-07-16
+
+Challenge Deck N
+
+### Game Engine
+
+- Completed the card pool for challenge deck (N) "Smoke on the Water" — all 110 cards are now certified, making the deck playable end to end
+- Certified Enchanted Stream (as-27), a permanent hazard-event bound to the opponent's moving company, introducing a new `company-movement-tax` effect: the company may not voluntarily split or move until it taps up to two of its untapped characters during its organization phase (new `pay-movement-tax` action, reducer, and per-org counter gating both `planMovementActions` and `splitCompanyActions`). A ranger in the company may tap to cancel it before it resolves, via a static `grant-action cancel-chain-entry` offered during movement/hazard chain declaration. Also fixed the long/permanent-event branch of `playHazardsActions`, which previously skipped the `play-condition requires: site-path` check that the short-event branch already enforced
+- Certified The Ring Leaves Its Mark (le-223), a dual-mode minion short event: either fetch a Black Rider / Fell Rider / Heralded Lord from the sideboard or discard into the play deck and reshuffle, or play it on your tapped Ringwraith and roll to untap. Legal-actions emits both modes and the reducer discriminates them by the presence of `targetCharacterId`
+- Certified Mechanical Bow (wh-53): the `enemy-modifier` body reduction can now gate on the bearer tapping to face a strike. `StrikeAssignment` gains a `strikeMode` field, recorded in `resolveStrikeCore` and threaded through the creature body-check path into `resolveEnemyBody`, where it is exposed as `combat.strikeMode`
+- Certified Khamûl the Ringwraith (le-55) by reusing existing primitives — a race-gated intrinsic `enemy-modifier` (Elf body -2 against his strikes in character-vs-character combat) and `ringwraith-follower-slots` count 1, the single-slot sibling of The Witch-king's two-slot ability
+
+### Card Data
+
+- 8 newly certified cards (877 → 885 of 1683), concentrated on the challenge deck (N) "Smoke on the Water" pool
+- Certified Cameth Brin (le-358), a data-twin of Raider-hold (le-399): filled in empty playable resources and the Men each-character automatic attack, plus covert-gated detainment and a `deny-item` site rule — all engine support pre-existed
+- Certified Blackbole (le-152), the minion Ringwraith counterpart of the Ent ally Quickbeam: replaced the free-text `playableAt` placeholder with a structured Mirkwood-except-Dol-Guldur condition, added the `no-attack-site-keyed` play-flag, and restored the missing `mind: 3`
+- Certified Smoke on the Wind (le-230), a data-only sibling of Burning Rick, Cot, and Tree (le-173) keyed to a Free-hold instead of a Border-hold; corrected printed marshalling points 0 → 3
+- Certified Lieutenant of Angmar (le-20) as a data-fix sibling of le-21
+
+### Testing & Infrastructure
+
+- Added `bin/update-readme.mjs`, a generator that regenerates the rules and card test READMEs plus the top-level Project Status and Deck Catalog tables from the tests and card data (supports `--check` for CI-style verification)
+- Fixed two rule/card tests whose premises were invalidated by new certifications: rule-9.20 now uses a warrior bearer for the Mechanical Bow's warrior-gated prowess, and the le-58 test uses Dwar as its follower-less avatar now that Khamûl has follower slots
+
+## 0.51.0 — 2026-07-16
+
+Challenge Deck M
+
+### Game Engine
+
+- Completed the card pool for challenge deck (M) "It's magic!" — all 110 cards are now certified, making the deck playable end to end
+- Certified Geann a-Lisch (le-374), a dangerous minion Haven introducing two new site-rules: `no-storage` ("resources may never be stored here") and `hazard-site-type-override` (the site counts as a Ruins & Lairs with Carn Dûm's site path for hazard keying only, re-exposing companies to hazards that a Haven would otherwise block emergently); its "no characters unless this is their home site" rule needed data only, via the existing `deny-character` rule with an empty filter
+- Certified Bree (le-356) with a new `allow-agent-play` site-rule, letting agent characters be brought into play under a controlling character's *direct* influence (overriding rule 2.II.2.2.5's home-site confinement) while leaving Ringwraith/Fallen-wizard alignment gating unchanged; also filled in Bree's materially incomplete data (playable resources, Dúnedain auto-attack, covert-gated detainment)
+- Certified The Balance of Things (tw-93) with a new `corruption-source-multiplier` effect: a game-wide long-event that doubles each character's *smallest* corruption source (the controlling player minimises), with N in-play copies scaling the N smallest sources; the Balrog avatar is excluded
+- Certified Forced March (le-185) with a new `grant-extra-mh-phase` primitive, granting an extra movement/hazard phase to a company that moved to a Darkhaven
+- Certified Akhôrahil the Ringwraith (le-51) with a new magic-discard-to-deck passive, recycling the caster's magic cards to the play deck instead of the discard pile
+- Certified Akhôrahil Unleashed (le-162): the move fetch now accepts a `deck` source, enabling a magic-card self-tutor across play deck and discard with a reshuffle
+- Certified A Malady Without Healing (le-159), adding a cross-player play-target, a standalone body check, and hero kill MP via `bonusKillMarshallingPoints`
+- Certified Shadow-cloak (le-344) with a cancel-strike attack-keying when-context primitive
+
+### Card Data
+
+- 12 newly certified cards (865 → 877 of 1683), concentrated on the challenge deck (M) "It's magic!" pool
+- Certified Half-trolls (le-267), an Orcs-of-Udûn leader-control faction sibling of le-262 — data fix only
+- Certified Cave-drake (le-66) as a data-fix sibling of tw-020: added the `combat-attacker-chooses-defenders` effect and corrected its keying to `{w}{w}` (two wildernesses)
+- Certified Ice-drake (td-32), a plain region-name-keyed hazard Drake encoded via a single `keyedTo.regionNames` entry — no engine work
+- Certified Belegorn (le-2) — restored the missing "can use spirit-magic" skill
+
+## 0.50.0 — 2026-07-15
+
+Challenge Deck L
+
+### Game Engine
+
+- Completed the card pool for challenge deck (L) "Wolves!" — all 110 cards are now certified, making the deck playable end to end
+- Certified Black Rider (le-170), a Ringwraith-mode card introducing a new `alsoDiscardCompanyFollowers` purge primitive
+- Certified Words of Menace and Deceit (le-258), a spirit-magic short event granting +5 direct influence for the rest of the turn and −4 corruption (unless a Ringwraith); extended the duplication-limit character scope to cover non-attaching short events
+- Certified Smaug Roused (le-285), adding Dragons "Roused" faction primitives: influence modification (discard an item for +N), cancel-manifestation-attacks, and faction `manifestId` uniqueness
+- Certified Dunlending Raiders (td-19), a region-keyed vanilla creature with R&L-in-regions folded into `regionNames`
+
+## 0.49.0 — 2026-07-15
+
+Challenge Deck K
+
+### Game Engine
+
+- Complete the card pool for challenge deck (K) "Lord of Rings" — all 110 cards are now certified, making the deck playable end to end; also corrected illegal/unplayable card counts in decks K and Q against the source PDFs
+- New gold-ring and ring-item primitives: `enqueue-gold-ring-test` active org-phase sage ring test (Test of Fire le-239), a game-wide `in-play-item-modifier` boosting CP/MP on filtered ring items (Rumor of the One le-224), and support for the special ring cards Bright Gold Ring (le-303), Gold Ring that Sauron Fancies (le-312), The Oracle's Ring (le-327), and Trifling Ring (le-346, "+3 direct influence against characters")
+- New auto-attack manipulation primitives: `auto-attack-boost` (Arouse Defenders le-101), doubled auto-attack strikes at Shadow/Dark-holds (Awaken Minions tw-10, Awaken Defenders le-103 with detainment→normal at Free/Border-holds), and dual-mode auto-attack control (FEAR! FIRE! FOES! as-29)
+- New site and creature behaviours: region-type remap plus permanent-event auto-attack (Fell Winter le-111), gold-ring-only site with wound-corruption check (Gladden Fields le-375), Amon Hen (le-349) Barrow-downs-style Info+minor test, Dúnedain region-keyed creatures (Arthadan Rangers le-60), and Incite Denizens (le-116)
+- New dual-mode tap-character short hazard-event with a region/site arrival override (New Moon tw-68)
+- Direct-influence and combat modifiers: Súrion +2 DI vs Dúnedain/Southern-Gondor (dm-24), Gulla +1 prowess against Orcs and Elves (le-13), Mine or No One's +10 Balrog opponent-influence booster (ba-68), People Diminished (ba-72), Ren the Ringwraith (le-56), Woodmen manifestation uniqueness (le-295), Variags of Khand Standard Modifications + manifestation uniqueness (le-292), and Woodmen-town (le-414)
+
+### Card Data
+
+- 24 newly certified cards (837 → 861 of 1683), concentrated on the challenge deck (K) "Lord of Rings" pool plus supporting Lidless Eye gold-ring, ring-item, and faction cards
+
+### Infrastructure
+
+- Regenerate card-test and rule-test coverage reports (card tests 781 → 805 of 813)
+
+## 0.48.0 — 2026-07-15
+
+Balrog Deck #2
+
+### Game Engine
+
+- Complete the card pool for challenge deck #2 "Balrog's Host" — 119 of its 121 cards are now certified, making the Balrog's second challenge deck playable end to end
+- New capture mechanic: `press-gang-capture` (Press-gang ba-22) holds a captured character outside any company in a new `character-pressed` state, with `engine/press-gang.ts` providing `findCapturingPressGang` and `sweepPressGang`
+- New Balrog site and Under-deeps primitives: `eddy-lock` site-locking permanent-event with a pay-site-tax action (Eddy in Fate's Tide ba-57), `site-storm-devastation` CvCC devastation (Crowned with Storm ba-54), `site-path-reduction` active constraint (Roam the Waste ba-73), dynamic Under-deeps adjacency rolls (Ancient Deep-hold ba-83), and the remaining Under-deeps sites ba-90, ba-94, ba-96, ba-104
+- New combat primitives: `combat-cancel-weapon` (Whip of Many Thongs ba-82), `combat-discard-opponent-item` (Scourge of Fire ba-75), `flee-from-strike` with a one-shot `skip-next-untap` (Fled into Darkness ba-18), a strike-mode prowess gate (Stabbing Tongue of Fire ba-81), Demon fána company-untap (Strangling Coils ba-76), and a roller-agnostic `wound-or-eliminate` dice-check verb
+- New `cvcc-attack-permission` effect: an in-play permanent can grant company-vs-company attacks (Invade Their Domain ba-64, Lord and Usurper ba-65)
+- Direct-influence and corruption support: attach-to-leader DI with body checks (Obey Him or Die ba-69), `discardBodyCheck` and DI effects for Umagaur (ba-9) and Old Troll (le-29), Bolg's +2 DI against Balrog-specific characters (ba-4), Uchel's +4 DI against the Hillmen (le-47), and faction influence-check modifiers (Orcs of Angmar le-274)
+- New card behaviours from the wider pool: environment discard of all resource environments (Doors of Night le-110), self-granting Ringwraith followers with recall-to-deck (Ûvatha le-57), R\&L-gated creature-keying restrictions (Down Down to Goblin-town le-181), detainment with a prowess penalty vs. hero (Durin's Folk as-8), and a limit-1 M/H combat window split out as its own phase (Left Behind td-41)
+- Fixes: Balrog starting resources no longer vanish from the starting company; Great Fissure (ba-61) is no longer offered as a plain short-event outside its combat modes; Flatter a Foe is no longer playable outside combat; the combat trophy-offer phase no longer stalls the game when no valid actions exist; the eliminated-avatar −5 MP penalty is now reflected in the running total
+
+### Card Data
+
+- 38 newly certified cards (799 → 837 of 1683), concentrated on the Balrog's Host pool plus supporting Lidless Eye, Against the Shadow, and Dark Minions cards
+- Complete missing data on Wellinghall (as-170) and the Iron Hill Dwarf-hold (le-383)
+
+### Web Client
+
+- Add a rename control to the deck editor title
+
+### Infrastructure
+
+- `run-ai` now serves the request queue by topic priority and resets an interrupted request back to `new` on Ctrl+C/SIGTERM
+- Pass the skill prompt to headless Claude on stdin rather than argv
+- Move the certify engine-support catalog out of the skill prompt into its own document
+
+## 0.47.0 — 2026-07-12
+
+Balrog Deck #1
+
+### Game Engine
+
+- Complete the card pool for challenge deck #1 "The Shadow-deeps" — every card in the deck is now certified, making the Balrog's Great Shadow form fully playable
+- New Balrog and Under-deeps primitives: `balrog-surface-region-movement` (Out He Sprang ba-71), `join-combat-force-strike` (Vanguard of Might ba-79), `surface-site-roll-zero` (Breach the Hold ba-50), `site-instance-transform` for the Darkhaven/Shadow-hold split (Roots of the Earth ba-74), `surface-region-adjacency` (Caverns Unchoked ba-51), repeated Under-deeps M/H phases (Gangways over the Fire ba-60), and Balrog self-attack events with lingering buffs (Descent through Fire ba-56)
+- New combat primitives: bearer-combat body-check modifiers for parrying defenders and CvCC attackers (Flame of Udûn ba-58), one-strike-per-wounded with tap-to-cancel-strike (Carrion Feeders ba-11), attacker-attack-option with Spawn auto-attack (Ungoliant's Progeny ba-27), dynamic-race trigger attacks (Tempest of Fire ba-77), counter-cancel of Under-deeps attacks (Great Fissure ba-61), and the weapons-ineffective rule (Dwarven Light-stone dm-168)
+- New resource/hazard primitives: `reveal-deck-choose-penalty` (Desire All for Thy Belly ba-16), `reveal-remove-from-discard` (Aware of their Ways dm-46), `convert-creature-to-ally` (Memories of Old Torture ba-67), `reveal-and-attack` with ongoing discard triggers (The Great Hunt wh-91), `company-tap-characters` on a Spawn-count threshold (The Reek ba-23), dual-mode from-hand modify/cancel combat short-events (Darkness Wielded ba-55), sideboard self-relocation with player-scoped influence modifiers (Terror Heralds Doom ba-78), company-scoped corruption-check modifiers (I'll Be At Your Heels le-195), and end-of-org hazard-limit modifiers (Cloaked by Darkness ba-53)
+- Add Fallen-Wizard support for Alatar (wh-1) and Pallando (wh-7): full-kill MP, detainment-as-normal attacks, Wizardhaven joining, FW faction-MP override, and the associated squire/item family (wh-90, wh-92, wh-93, wh-95, wh-104, wh-105)
+- Add agent recruitment via Open to the Summons (wh-46) and coastal keying-bypass for the Drowning-deeps (ba-89) and Remains of Thangorodrim (ba-95)
+- Enforce the starting-company pool restriction (rule 1.7) in `validateDeck`
+
+### Card Data
+
+- 100 newly certified cards (699 → 799 of 1683), including the full Balrog Under-deeps site set (ba-84 through ba-101), Ungoliant/Spawn creature line, Trolls, and the White Hand hunt cycle
+- Fix illegal sample-deck pools: relocate excess and start-company-forbidden characters
+- Add the seven missing challenge decks (#1, #2, K–N, T, U); the deck catalog now covers all 24
+
+### AI Player
+
+- Fix the AI getting stuck by accepting resource short-events during site select-company and enter-or-skip
+- Offer on-guard placement for agent cards held in hand
+- Make character placement monotonic to stop endless company shuffling
+
+### Infrastructure
+
+- Fix `run-ai` silently abandoning broken PRs forever; bound PR-fix retries
+
+## 0.46.0 — 2026-07-07
+
+More Cards
+
+### Game Engine
+
+- Add creature↔event dual-mode play: creature↔permanent-event (Adûnaphel tw-2, Ûvatha tw-107) and creature↔short-event with return-to-origin (Mouth of Sauron tw-65, Beorning Skin-changers ba-10)
+- Model event-based agent deployment: re-cast mis-typed hazard-event cards as deployable agents (Lobelia dm-28, My Precious dm-29) and implement agent-attack-outcome rules (§5–6)
+- New DSL primitives shipped with certifications: `agent-tap-return-character` (Pilfer as-33), `reveal-choose-shuffle` dig (Eyes of Mandos dm-126), `cycle-hand` + arrange-deck-top (Revealed to all Watchers dm-85), `cancel-card-effects` with Under-deeps return (The Way is Shut dm-98), ally self-tap chain cancellation (Tom Bombadil tw-350), grouped ahunt attacks + faction-influence-restriction (Mordor in Arms dm-72), displace-stored-item (dm-73), force-opponent-discard (Rolled down to the Sea wh-29), withdraw-agent (Withdrawn to Mordor dm-165), and agent-discard-return-to-origin (Baduila dm-2)
+- Add corruption failure downgrade (eliminate → discard) for The Roving Eye (le-135)
+- Count agent-manifestation hazards as half a creature per rule 1.5.1, and fix deck validation to match
+- Combat fixes: wound (and remove) an agent when its strike is defeated; allow revealing on-guard modify-attack hazards on automatic attacks; preserve fresh phaseState when clearing ahunt group outcomes
+- Route influence-check-boost short events through the chain of effects; reject Withdrawn to Mordor (dm-165) with no valid target
+- Resolve raw player/company/instance codes in legal-action text so action labels read naturally
+
+### Web Client
+
+- Add a setup-step instruction banner for deck-draft clarity and a select-company prompt banner in the all-companies view
+- Add GCCG `.deck` file import and Markdown deck notes (type, challenge-deck data) to the decks page
+- Hide face-down deck-top order after "Revealed to all Watchers" (dm-85); show revealed opponent hand cards to the viewing player
+- Board UI fixes: tap Adûnaphel/Ûvatha permanent-events, make item-borne cancel-attack (Torque of Hues) clickable in combat, fix the combat arena collapsing the site card onto defenders, and fix Daelomin at Home (td-11) discard button and hazard-limit display
+- Fix strange `p1`-style code labels on deck-arranging actions
+
+### Cards
+
+- Certify ~35 more cards across all sets — characters, factions, items, agents, and hazards — including Strider (ba-1), Khamûl the Easterling (tw-47), Círdan (tw-137), Merry (tw-170), Elves of Lindon (tw-226), Palantír of Minas Tirith (tw-299), Southrons (tw-329), Variags of Khand (tw-357), Smaug Ahunt (td-70), Inner Cunning (dm-68), Longbottom Leaf (ba-30), To Fealty Sworn (ba-33), and Unabated in Malice (ba-26)
+
+### Infrastructure
+
+- run-ai: retry transient outages instead of dying silently, reset (not burn) requests on API capacity/usage limits, and sweep open PRs each loop to fix conflicts, comments, and failing CI, with a visible heartbeat
+- Mail: add success/failed end states and finalize processed messages by PR outcome
+- Resolve PR merge/close state via the `state` field; preserve unknown fields in `secrets.json` across lobby-server restarts
+- Test policy: run only changed tests locally; full suites move to PR review
+
+## 0.45.0 — 2026-07-02
+
+Challenge Deck V
+
+### Game Engine
+
+- Implement the MEBA (The Balrog) rules spec: The Balrog bears but cannot use items (§3), Balrog movement restrictions with Barad-dûr exceptions (§6/§7), Challenge the Power 9–10 band and per-turn limit (§8), destination-based card draws even at Darkhavens (§11), Balrog organization-phase rules (§12–16), the opponent ban on Balrog-banned cards (§17), and ignoring Balrog automatic-attacks once the Balrog is in play or defeated (§18)
+- Add avatar-specific sweep-and-gather (rule 3.09), follower influence protection (3.08), and the mid-strike hazard limit (8.12)
+- Add the mirror-match ban exemption (3.10), Fallen-wizard avatar declaration (1.37), and a discard-character organization action (3.22)
+- Defer follower general-influence subtraction while the follower relationship is suspended in combat (3.13/3.46/8.21)
+- Real engine fixes uncovered by rules work: end-of-turn site replacement (7.02), combat fixes for rescue attacks and prisoner handling (8.31/8.36), and alignment-based item usage (9.20) with fixture fixes for as-122/le-304
+- Add movement/hazard engine work for illegal movement, region-modification effects, and hazard-limit rules (5.04/5.09/5.21)
+- Add the balrog-specific keyword to BA cards marked as such in their text
+- Refuse to start an AI game without a selected deck
+
+### Rules & Tests
+
+- Rule-test coverage rises to 267/330 (80.9%): remaining deck-construction tests (section 01), the last untap-phase tests (02, now 100%), twelve more organization-phase tests (03), eleven movement/hazard tests (05), seven site-phase tests (06), end-of-turn (07, now 100%), combat tests (08), agents/events/items tests (09), and the corruption/influence/actions-timing/endgame suite (10)
+- Add MEBA confirmation tests for item bearing (§3) and automatic attacks (§18)
+
+### Card Certifications & Data
+
+- Certify 20 cards: The Balrog's avatars and Under-deeps sites — Bûthrakaur (ba-5), Crook-legged Orc (ba-6), Great Shadow (ba-62), Orders from the Great Demon (ba-70), Moria (ba-93), The Under-gates (ba-100), The Under-leas (ba-102), The Under-vaults (ba-103) — plus Ancient Black Axe (as-122), Iron Shield of Old (as-127), Thrall-ring (as-133), Troll Lout (le-44), Barrow-wight (le-61), Wild Trolls (le-100), Call of Home (le-105), Muster Disperses (le-126), War-warg (le-156), Catch an Elusive Scent (le-175), Broad-headed Spear (le-304), and Glittering Caves (le-376)
+- Add the Balrog challenge deck V (Great Shadow) from the CCG Challenge Decks Guide, fully data-complete and certified
+- Remove the development-only decks and the sample all-hero-sites deck
+- Move Ill-favoured Fellow to characters in challenge deck O
+- Fix Cracks of Doom (tw-205) image filename casing
+
+### Infrastructure
+
+- Stop gating card certification on the full test suite
+- Make certify-card's PR title and verified-status update mandatory and self-checked
+
 ## 0.44.0 — 2026-07-01
 
 Challenge Deck O

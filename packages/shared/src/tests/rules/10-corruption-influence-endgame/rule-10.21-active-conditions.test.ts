@@ -17,6 +17,19 @@
 
 import { describe, test } from 'vitest';
 
+// Definitional rule underlying the `ActionCost`/`play-condition` DSL used by
+// every costed action in the engine (tap/discard costs are paid atomically
+// with the action's declaration — see `cost-evaluator.ts` — never as a
+// separate step). The specific claim "a canceled action's active conditions
+// stay completed" (e.g. a tapped-as-cost character stays tapped even if the
+// action it paid for is later canceled) is true by construction: cost
+// payment (clonePlayers/updatePlayer mutating tap status) happens in the
+// same reducer step as the action's other effects, before any subsequent
+// cancel-attack-style action could run, and nothing in the cancel path
+// reverts prior state changes. There's no isolated scenario that exercises
+// "cancel this action after its cost was paid" distinctly from the many
+// cancel-attack tests already in section 08, which all implicitly rely on
+// this same non-refund behavior for the character who declared the attack.
 describe('Rule 10.21 — Active Conditions', () => {
   test.todo('Active conditions are prerequisites for action; include costs and state requirements; stay completed if action canceled');
 });

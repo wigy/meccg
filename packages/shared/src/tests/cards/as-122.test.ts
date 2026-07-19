@@ -52,7 +52,10 @@ const ANCIENT_BLACK_AXE = 'as-122' as CardDefinitionId;
 // Minion (ringwraith) characters.
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;    // warrior, non-unique, prowess 5, body 8
 const LUITPRAND = 'le-23' as CardDefinitionId;      // scout only (non-warrior), prowess 3, body 7
-const KHAMUL = 'le-55' as CardDefinitionId;         // warrior Ringwraith avatar, prowess 9
+// Highest-prowess non-avatar minion warrior in the pool (rule 9.20 / CRF
+// 6.1.R2: an actual Ringwraith avatar — race "ringwraith", mind null — may
+// bear but never use any item, so Khamul cannot be the bearer here).
+const LIEUTENANT_OF_MORGUL = 'le-22' as CardDefinitionId; // warrior/ranger, prowess 8
 
 // Minion Under-deeps sites (AS set).
 const UNDER_GATES = 'as-165' as CardDefinitionId;    // shadow-hold, under-deeps — valid
@@ -149,18 +152,21 @@ describe('Ancient Black Axe (as-122)', () => {
     expect(getCharacter(state, RESOURCE_PLAYER, ORC_CAPTAIN).effectiveStats.prowess).toBe(8); // base 5 + 3
   });
 
-  test('+3 prowess is capped at a maximum of 11', () => {
+  test('+3 prowess reaches the maximum of 11 (Lieutenant of Morgul base 8)', () => {
+    // No non-avatar minion warrior in the pool prints prowess above 8, so
+    // this can't demonstrate clamping strictly above 11 — but it does prove
+    // the configured maximum is exactly 11 (8 + 3 = 11, landing precisely on
+    // the card's stated cap).
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
       players: [
-        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [KHAMUL] }], hand: [], siteDeck: [] },
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [LIEUTENANT_OF_MORGUL] }], hand: [], siteDeck: [] },
         { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [] }], hand: [], siteDeck: [] },
       ],
     });
-    const state = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, KHAMUL, ANCIENT_BLACK_AXE));
-    // base 9 + 3 = 12, clamped to 11.
-    expect(getCharacter(state, RESOURCE_PLAYER, KHAMUL).effectiveStats.prowess).toBe(11);
+    const state = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, LIEUTENANT_OF_MORGUL, ANCIENT_BLACK_AXE));
+    expect(getCharacter(state, RESOURCE_PLAYER, LIEUTENANT_OF_MORGUL).effectiveStats.prowess).toBe(11);
   });
 
   test('+3 prowess does NOT apply to a non-warrior bearer', () => {

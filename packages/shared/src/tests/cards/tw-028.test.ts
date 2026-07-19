@@ -3,7 +3,7 @@
  *
  * Card test: Doors of Night (tw-28)
  * Type: hazard-event (permanent, environment)
- * Effects: 2 (duplication-limit scope:game max:1, on-event self-enters-play discard-cards-in-play filter:hero-resource-event+environment)
+ * Effects: 2 (duplication-limit scope:game max:1, on-event self-enters-play discard-cards-in-play filter:{hero,minion}-resource-event+environment)
  *
  * "Environment. When Doors of Night is played, all resource environment cards
  *  in play are immediately discarded, and all resource environment effects are
@@ -24,7 +24,10 @@ import {
   handCardId, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
-import type { CardInPlay, CardInstanceId, GameState } from '../../index.js';
+import type { CardDefinitionId, CardInPlay, CardInstanceId, GameState } from '../../index.js';
+
+// Skies of Fire — the minion "acts as Gates of Morning" resource environment.
+const SKIES_OF_FIRE = 'le-228' as CardDefinitionId;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -117,6 +120,33 @@ describe('Doors of Night (tw-28)', () => {
     expect(p2InPlay).toHaveLength(1);
     expect(p2InPlay[0].instanceId).toBe(donId);
     expect(s.players[1].discardPile.map(c => c.instanceId)).toContain('gom-1' as CardInstanceId);
+  });
+
+  test('discards Skies of Fire (minion resource environment) when played', () => {
+    const sofInPlay: CardInPlay = {
+      instanceId: 'sof-1' as CardInstanceId,
+      definitionId: SKIES_OF_FIRE,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA], cardsInPlay: [sofInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [DOORS_OF_NIGHT], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const mhGameState: GameState = { ...state, phaseState: makeMHState() };
+    const donId = handCardId(mhGameState, HAZARD_PLAYER);
+    const s = playHazardAndResolve(mhGameState, PLAYER_2, donId, P1_COMPANY);
+
+    // Doors of Night in play; Skies of Fire (minion resource environment) discarded.
+    expect(s.players[1].cardsInPlay).toHaveLength(1);
+    expect(s.players[1].cardsInPlay[0].instanceId).toBe(donId);
+    expect(s.players[0].cardsInPlay).toHaveLength(0);
+    expect(s.players[0].discardPile.map(c => c.instanceId)).toContain('sof-1' as CardInstanceId);
   });
 
   test('cannot be duplicated (duplication-limit scope game max 1)', () => {

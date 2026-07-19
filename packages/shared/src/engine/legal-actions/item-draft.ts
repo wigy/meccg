@@ -14,7 +14,7 @@ import { isItemCard } from '../../types/cards.js';
 import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
-import { defById, countStartingMinorItems } from '../reducer-utils.js';
+import { defById, countStartingMinorItems, hasAgentSummonsEffect, isAgentCharacter } from '../reducer-utils.js';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const ctx = setupStepContext(state, playerId, SetupStep.ItemDraft);
@@ -97,10 +97,16 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
     }
   }
 
-  // Offer starting-company-event placements from the play deck
+  // Offer starting-company-event placements. Cards "played with a starting
+  // company in lieu of a minor item" normally sit in the play deck (Open to the
+  // Summons wh-46, Orders from Lugbúrz as-94). Balrog-specific ones (Gangways
+  // over the Fire ba-60, Orders from the Great Demon ba-70) are resource-events
+  // with the `starting-item` keyword, so any left in the starting-company pool
+  // are sunk to the sideboard during setup — scan there as well so they are
+  // still offered rather than vanishing from the starting company.
   if (assignedCount < MAX_STARTING_ITEMS) {
     const seenEventDefIds = new Set<string>();
-    for (const deckCard of player.playDeck) {
+    for (const deckCard of [...player.playDeck, ...player.sideboard]) {
       const defId = deckCard.definitionId;
       if (seenEventDefIds.has(defId as string)) continue;
       const def = defById(state, defId);
@@ -110,8 +116,11 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
       seenEventDefIds.add(defId as string);
       // Recruitment vehicle (Thrall of the Voice, wh-82) is "placed with a
       // character": offer one placement per character in the starting company,
-      // so it attaches to that character and reduces its mind.
+      // so it attaches to that character and reduces its mind. Open to the
+      // Summons (wh-46) is an agent-summons vehicle — it may only be placed with
+      // an agent character ("place this card with the agent").
       const isRecruitmentVehicle = effects.some(e => e.type === 'recruitment-vehicle');
+      const agentOnly = hasAgentSummonsEffect(def);
       for (const company of player.companies) {
         // Skip if already placed on this company
         const alreadyOnCompany = player.cardsInPlay.some(
@@ -119,13 +128,16 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
         );
         if (alreadyOnCompany) continue;
         if (isRecruitmentVehicle) {
-          for (const charId of company.characters) {
+          const eligibleChars = company.characters.filter(
+            charId => !agentOnly || isAgentCharacter(defById(state, player.characters[charId]?.definitionId)),
+          );
+          for (const charId of eligibleChars) {
             evaluated.push({
               action: { type: 'place-starting-company-event', player: playerId, cardDefId: defId, companyId: company.id, targetCharacterInstanceId: charId },
               viable: true,
             });
           }
-          logDetail(`Recruitment vehicle '${def?.name ?? defId as string}' offered for ${company.characters.length} character(s) in company ${company.id as string}`);
+          logDetail(`Recruitment vehicle '${def?.name ?? defId as string}' offered for ${eligibleChars.length} character(s) in company ${company.id as string}${agentOnly ? ' (agents only)' : ''}`);
         } else {
           evaluated.push({
             action: { type: 'place-starting-company-event', player: playerId, cardDefId: defId, companyId: company.id },

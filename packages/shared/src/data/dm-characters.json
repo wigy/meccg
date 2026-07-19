@@ -47,7 +47,12 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "agent-discard-return-to-origin"
+      }
+    ],
+    "certified": "2026-07-03",
     "text": "Unique. Agent. Agent only: if you choose to discard Baduila at target company’s new site, company must return to its site of origin."
   },
   {
@@ -99,7 +104,8 @@
       "agent"
     ],
     "effects": [],
-    "text": "Unique. Agent."
+    "text": "Unique. Agent.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-character",
@@ -221,7 +227,31 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "elf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "opponent-influence-check",
+          "target.race": "elf"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "agent-may-move-to-haven"
+      }
+    ],
+    "certified": "2026-07-17",
     "text": "Unique. Agent. +2 direct influence against Elves and Elf Factions. Agent only: may move to a Haven [{H}]."
   },
   {
@@ -256,7 +286,7 @@
     "name": "Firiel",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Firiel.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "sage",
       "diplomat",
@@ -272,8 +302,35 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
-    "text": "Unique. Agent. Can use shadow-magic. +2 direct influence against Dúnedain and factions that can be played in Anfalas, Anórien, Belfalas, Lamedon, and Lebennin."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "$or": [
+            { "reason": "influence-check", "target.race": "dunadan" },
+            {
+              "$and": [
+                { "reason": "faction-influence-check" },
+                {
+                  "$or": [
+                    { "faction.race": "dunadan" },
+                    { "faction.playableRegions": { "$includes": "Anfalas" } },
+                    { "faction.playableRegions": { "$includes": "Anórien" } },
+                    { "faction.playableRegions": { "$includes": "Belfalas" } },
+                    { "faction.playableRegions": { "$includes": "Lamedon" } },
+                    { "faction.playableRegions": { "$includes": "Lebennin" } }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. Agent. Can use shadow-magic. +2 direct influence against Dúnedain and factions that can be played in Anfalas, Anórien, Belfalas, Lamedon, and Lebennin.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-character",
@@ -462,7 +519,8 @@
       "agent"
     ],
     "effects": [],
-    "text": "Unique. Agent."
+    "text": "Unique. Agent.",
+    "certified": "2026-07-17"
   },
   {
     "cardType": "minion-character",
@@ -487,7 +545,8 @@
       "agent"
     ],
     "effects": [],
-    "text": "Unique. Agent."
+    "text": "Unique. Agent.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "minion-character",
@@ -637,7 +696,8 @@
       "agent"
     ],
     "effects": [],
-    "text": "Unique. Agent."
+    "text": "Unique. Agent.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-character",
@@ -646,7 +706,7 @@
     "name": "Súrion",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Surion.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "sage",
@@ -662,8 +722,62 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
-    "text": "Unique. Agent. +2 direct influence against Dúnedain and factions that can be played in Anfalas, Anórien, Belfalas, Lamedon, and Lebennin."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "$or": [
+            {
+              "reason": "influence-check",
+              "target.race": "dunadan"
+            },
+            {
+              "$and": [
+                {
+                  "reason": "faction-influence-check"
+                },
+                {
+                  "$or": [
+                    {
+                      "faction.race": "dunadan"
+                    },
+                    {
+                      "faction.playableRegions": {
+                        "$includes": "Anfalas"
+                      }
+                    },
+                    {
+                      "faction.playableRegions": {
+                        "$includes": "Anórien"
+                      }
+                    },
+                    {
+                      "faction.playableRegions": {
+                        "$includes": "Belfalas"
+                      }
+                    },
+                    {
+                      "faction.playableRegions": {
+                        "$includes": "Lamedon"
+                      }
+                    },
+                    {
+                      "faction.playableRegions": {
+                        "$includes": "Lebennin"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. Agent. +2 direct influence against Dúnedain and factions that can be played in Anfalas, Anórien, Belfalas, Lamedon, and Lebennin.",
+    "certified": "2026-07-15"
   },
   {
     "cardType": "minion-character",
@@ -715,7 +829,8 @@
       "agent"
     ],
     "effects": [],
-    "text": "Unique. Agent."
+    "text": "Unique. Agent.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "minion-character",
@@ -864,7 +979,21 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": { "reason": "faction-influence-check", "faction.name": "Riders of Rohan" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": { "reason": "faction-influence-check", "faction.name": "Dunlendings" }
+      }
+    ],
+    "certified": "2026-07-17",
     "text": "Unique. Agent. +1 direct influence against Riders of Rohan and Dunlendings."
   },
   {

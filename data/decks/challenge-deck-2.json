@@ -1,0 +1,508 @@
+{
+  "id": "challenge-deck-2",
+  "name": "(#2) Balrog's Host",
+  "alignment": "balrog",
+  "notes": "The Balrog uses his Strangling Coils form in this deck to maximize direct influence and faction recruiting. He wants all Orc factions of the Misty Mountains in his Great Army. When the time is right, the Balrog burrows into the Iron Hill Dwarf-hold from the Under-deeps to claims the realm as his own -- much as he took Khazadûm now called Moria. The hazards contain a mix of two sub-themes: Dragons/Drakes and roadblock.\n\n### Starting Company (1) in Moria\n\n- Umagaur controls Bolg, Old Troll starts under general influence. Instead of two minor items, start with Orders from the Great Demon on the company and Gangways over the Fire.\n\n### Resource Play\n\nYou must recruit at least four of the five unique Orc factions to receive two marshalling points from Great Army of the North. This deck contains two Out He Sprangs to help The Balrog reach an opponent's company for company vs. company combat. Ultimately, you want to complete this expansion's ultimate quest -- invading the Iron Hill Dwarf-hold.\n\n### The Balrog\n\nThe Balrog with Strangling Coils recruits factions very well without enhancement -- and usually requires no tactical cards to remain untapped against creatures. When he is not attacking an opponent, The Balrog is your number one option for gathering the Great Army.\n\n### Hazard Play\n\nThe hazards feature several Dragon Ahunt manifestations, powerful Drakes, Long Winter to tap your opponent's deep Wilderness sites, and Doors of Night to make everything function efficiently.",
+  "pool": [
+    {
+      "name": "Bolg",
+      "card": "ba-4",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Umagaur",
+      "card": "ba-9",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Old Troll",
+      "card": "le-29",
+      "qty": 1,
+      "favourite": true
+    },
+    {
+      "name": "Orders from the Great Demon",
+      "card": "ba-70",
+      "qty": 1
+    },
+    {
+      "name": "Gangways over the Fire",
+      "card": "ba-60",
+      "qty": 1
+    },
+    {
+      "name": "Orc Tracker",
+      "card": "le-34",
+      "qty": 2
+    },
+    {
+      "name": "Orc Captain",
+      "card": "le-31",
+      "qty": 1
+    }
+  ],
+  "deck": {
+    "characters": [
+      {
+        "name": "The Balrog",
+        "card": "ba-3",
+        "qty": 3
+      },
+      {
+        "name": "Bûrat",
+        "card": "as-1",
+        "qty": 1
+      },
+      {
+        "name": "Tûma",
+        "card": "as-5",
+        "qty": 1
+      },
+      {
+        "name": "Wûluag",
+        "card": "as-6",
+        "qty": 1
+      }
+    ],
+    "hazards": [
+      {
+        "name": "Bairanax Ahunt",
+        "card": "td-4",
+        "qty": 1
+      },
+      {
+        "name": "Ghosts",
+        "card": "le-72",
+        "qty": 2
+      },
+      {
+        "name": "Marsh-drake",
+        "card": "le-84",
+        "qty": 2
+      },
+      {
+        "name": "Nameless Thing",
+        "card": "dm-109",
+        "qty": 2
+      },
+      {
+        "name": "Sellswords Between Charters",
+        "card": "le-89",
+        "qty": 2
+      },
+      {
+        "name": "Scatha Ahunt",
+        "card": "td-61",
+        "qty": 1
+      },
+      {
+        "name": "Scorba Ahunt",
+        "card": "td-64",
+        "qty": 1
+      },
+      {
+        "name": "Smaug Ahunt",
+        "card": "td-70",
+        "qty": 1
+      },
+      {
+        "name": "True Fire-drake",
+        "card": "le-95",
+        "qty": 2
+      },
+      {
+        "name": "An Unexpected Outpost",
+        "card": "dm-45",
+        "qty": 3
+      },
+      {
+        "name": "Doors of Night",
+        "card": "le-110",
+        "qty": 3
+      },
+      {
+        "name": "Foolish Words",
+        "card": "le-112",
+        "qty": 2
+      },
+      {
+        "name": "From the Pits of Angband",
+        "card": "td-27",
+        "qty": 2
+      },
+      {
+        "name": "Long Winter",
+        "card": "le-117",
+        "qty": 3
+      },
+      {
+        "name": "Mordor in Arms",
+        "card": "dm-72",
+        "qty": 1
+      },
+      {
+        "name": "Stench of Mordor",
+        "card": "le-141",
+        "qty": 1
+      },
+      {
+        "name": "Twilight",
+        "card": "le-145",
+        "qty": 2
+      }
+    ],
+    "resources": [
+      {
+        "name": "A Few Recruits",
+        "card": "ba-80",
+        "qty": 1
+      },
+      {
+        "name": "Breach the Hold",
+        "card": "ba-50",
+        "qty": 1
+      },
+      {
+        "name": "Great Army of the North",
+        "card": "ba-38",
+        "qty": 1
+      },
+      {
+        "name": "Nasty Slimy Thing",
+        "card": "ba-47",
+        "qty": 1
+      },
+      {
+        "name": "People Diminished",
+        "card": "ba-72",
+        "qty": 1
+      },
+      {
+        "name": "Roots of the Earth",
+        "card": "ba-74",
+        "qty": 1
+      },
+      {
+        "name": "Stabbing Tongue of Fire",
+        "card": "ba-81",
+        "qty": 1
+      },
+      {
+        "name": "Whip of Many Thongs",
+        "card": "ba-82",
+        "qty": 1
+      },
+      {
+        "name": "Iron Shield of Old",
+        "card": "as-127",
+        "qty": 1
+      },
+      {
+        "name": "Goblins of Goblin-gate",
+        "card": "le-265",
+        "qty": 1
+      },
+      {
+        "name": "Grey Mountain Goblins",
+        "card": "le-266",
+        "qty": 1
+      },
+      {
+        "name": "Orcs of Angmar",
+        "card": "le-274",
+        "qty": 1
+      },
+      {
+        "name": "Orcs of Gundabad",
+        "card": "le-276",
+        "qty": 1
+      },
+      {
+        "name": "Orcs of Moria",
+        "card": "le-278",
+        "qty": 1
+      },
+      {
+        "name": "A More Evil Hour",
+        "card": "ba-48",
+        "qty": 1
+      },
+      {
+        "name": "Ancient Secrets",
+        "card": "ba-36",
+        "qty": 1
+      },
+      {
+        "name": "Angband Revisited",
+        "card": "ba-49",
+        "qty": 2
+      },
+      {
+        "name": "Caverns Unchoked",
+        "card": "ba-51",
+        "qty": 1
+      },
+      {
+        "name": "Foe Dismayed",
+        "card": "ba-59",
+        "qty": 2
+      },
+      {
+        "name": "Great Fissure",
+        "card": "ba-61",
+        "qty": 1
+      },
+      {
+        "name": "Obey Him or Die",
+        "card": "ba-69",
+        "qty": 1
+      },
+      {
+        "name": "Out He Sprang",
+        "card": "ba-71",
+        "qty": 2
+      },
+      {
+        "name": "Strangling Coils",
+        "card": "ba-76",
+        "qty": 2
+      },
+      {
+        "name": "Crept Along Cleverly",
+        "card": "wh-43",
+        "qty": 1
+      },
+      {
+        "name": "Swift Strokes",
+        "card": "le-238",
+        "qty": 2
+      },
+      {
+        "name": "Voices of Malice",
+        "card": "le-250",
+        "qty": 1
+      }
+    ]
+  },
+  "sites": [
+    {
+      "name": "Moria",
+      "card": "ba-93",
+      "qty": 1
+    },
+    {
+      "name": "The Under-gates",
+      "card": "ba-100",
+      "qty": 1
+    },
+    {
+      "name": "Ancient Deep-hold",
+      "card": "ba-83",
+      "qty": 1
+    },
+    {
+      "name": "The Gem-deeps",
+      "card": "ba-90",
+      "qty": 1
+    },
+    {
+      "name": "The Pûkel-deeps",
+      "card": "ba-94",
+      "qty": 1
+    },
+    {
+      "name": "The Rusted-deeps",
+      "card": "ba-96",
+      "qty": 1
+    },
+    {
+      "name": "The Under-grottos",
+      "card": "ba-101",
+      "qty": 1
+    },
+    {
+      "name": "The Under-leas",
+      "card": "ba-102",
+      "qty": 1
+    },
+    {
+      "name": "The Under-vaults",
+      "card": "ba-103",
+      "qty": 1
+    },
+    {
+      "name": "The Wind-deeps",
+      "card": "ba-104",
+      "qty": 1
+    },
+    {
+      "name": "Beorn's House",
+      "card": "le-354",
+      "qty": 1
+    },
+    {
+      "name": "Eagle's Eyrie",
+      "card": "as-144",
+      "qty": 1
+    },
+    {
+      "name": "Goblin-gate",
+      "card": "le-378",
+      "qty": 1
+    },
+    {
+      "name": "Gondmaeglom",
+      "card": "le-379",
+      "qty": 1
+    },
+    {
+      "name": "Iron-hill Dwarf-hold",
+      "card": "le-383",
+      "qty": 1
+    },
+    {
+      "name": "Mount Gram",
+      "card": "le-394",
+      "qty": 1
+    },
+    {
+      "name": "Mount Gundabad",
+      "card": "le-395",
+      "qty": 1
+    },
+    {
+      "name": "Thranduil's Halls",
+      "card": "le-408",
+      "qty": 1
+    },
+    {
+      "name": "Wellinghall",
+      "card": "as-170",
+      "qty": 1
+    },
+    {
+      "name": "The Wind Throne",
+      "card": "le-413",
+      "qty": 1
+    }
+  ],
+  "sideboard": [
+    {
+      "name": "Crook-legged Orc",
+      "card": "ba-6",
+      "qty": 1
+    },
+    {
+      "name": "Crowned with Storm",
+      "card": "ba-54",
+      "qty": 1
+    },
+    {
+      "name": "Eddy in Fate's Tide",
+      "card": "ba-57",
+      "qty": 1
+    },
+    {
+      "name": "Flame of Udûn",
+      "card": "ba-58",
+      "qty": 1
+    },
+    {
+      "name": "Heart of Dark Fire",
+      "card": "ba-63",
+      "qty": 1
+    },
+    {
+      "name": "Hill-troll",
+      "card": "ba-7",
+      "qty": 1
+    },
+    {
+      "name": "Invade Their Domain",
+      "card": "ba-64",
+      "qty": 1
+    },
+    {
+      "name": "Lord and Usurper",
+      "card": "ba-65",
+      "qty": 1
+    },
+    {
+      "name": "Mine or No One's",
+      "card": "ba-68",
+      "qty": 1
+    },
+    {
+      "name": "Mountain-maggot",
+      "card": "ba-8",
+      "qty": 1
+    },
+    {
+      "name": "Prone to Violence",
+      "card": "ba-42",
+      "qty": 1
+    },
+    {
+      "name": "Roam the Waste",
+      "card": "ba-73",
+      "qty": 1
+    },
+    {
+      "name": "Scourge of Fire",
+      "card": "ba-75",
+      "qty": 1
+    },
+    {
+      "name": "Piercing All Shadows",
+      "card": "wh-47",
+      "qty": 2
+    },
+    {
+      "name": "Sudden Call",
+      "card": "le-235",
+      "qty": 1
+    },
+    {
+      "name": "Diminish and Depart",
+      "card": "ba-17",
+      "qty": 1
+    },
+    {
+      "name": "Fled into Darkness",
+      "card": "ba-18",
+      "qty": 1
+    },
+    {
+      "name": "Olog Warlords",
+      "card": "ba-12",
+      "qty": 1
+    },
+    {
+      "name": "Press-gang",
+      "card": "ba-22",
+      "qty": 1
+    },
+    {
+      "name": "Covetous Thoughts",
+      "card": "le-107",
+      "qty": 2
+    },
+    {
+      "name": "Eärcaraxë Ahunt",
+      "card": "td-21",
+      "qty": 1
+    },
+    {
+      "name": "Muster Disperses",
+      "card": "le-126",
+      "qty": 1
+    },
+    {
+      "name": "Stench of Mordor",
+      "card": "le-141",
+      "qty": 1
+    }
+  ]
+}

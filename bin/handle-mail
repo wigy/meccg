@@ -128,6 +128,40 @@ build_mail() {
   jq -n "$@"
 }
 
+# Detect an API-capacity / usage-limit condition in a claude stream-json log:
+# the subscription session/usage limit, a rate limit, a server overload, or a
+# transient 5xx. In all of these the skill never actually ran, so — exactly like
+# a 401 — the message must be RESET, not burned. The caller resets it to 'new'
+# and stops so a later, healthy run retries it once capacity returns.
+#
+# Precision matters as much as it does for the 401 check. In particular we must
+# NOT trigger on the bare strings "rate_limit"/"rateLimit": every single run's
+# stream carries a benign `_info` object like
+#   "..._info":{"status":"allowed",...,"rateLimitType":"five_hour",...}
+# reporting the CURRENT (allowed) rate-limit window — matching that would flag
+# every request as a limit hit. So we key off (a) the TERMINAL result line's own
+# error text ("You've hit your session limit", "usage limit reached") and (b)
+# structured, unambiguous markers the CLI/API only emit on a real error:
+# "API Error: 429", "API Error: 5xx", or an Anthropic error object of type
+# rate_limit_error / overloaded_error.
+#   $1 = path to the raw stream-json log
+is_api_capacity_error() {
+  local f="$1"
+  # (a) The terminal result line reports an error naming a usage/session limit.
+  if grep '"type":"result"' "$f" 2>/dev/null | grep -qiE '"is_error":[[:space:]]*true' \
+     && grep '"type":"result"' "$f" 2>/dev/null \
+        | grep -qiE "hit your (session|usage) limit|usage limit reached|claude usage limit"; then
+    return 0
+  fi
+  # (b) A structured capacity/rate/overload/5xx API error anywhere in the stream.
+  # (Numeric codes only — a bare "API Error: Connection closed" has no code and
+  # is left as an ordinary error, matching prior behavior.)
+  if grep -qiE 'API Error:[[:space:]]*(429|5[0-9][0-9])|"type":[[:space:]]*"(rate_limit_error|overloaded_error)"' "$f" 2>/dev/null; then
+    return 0
+  fi
+  return 1
+}
+
 # Run a Claude skill and capture the text output.
 # $1=skill prompt (full text with $ARGUMENTS already substituted)
 #
@@ -171,7 +205,14 @@ run_skill() {
   local raw_tmp
   raw_tmp=$(mktemp)
 
-  claude --dangerously-skip-permissions --verbose --output-format stream-json -p "$1" > "$raw_tmp" 2>&1 &
+  # The prompt goes in on stdin, NOT as `-p "$1"`. Linux caps a single argv
+  # string at MAX_ARG_STRLEN (32 pages = 128KB) — a limit separate from, and far
+  # below, the ~2MB total ARG_MAX, and not raisable via ulimit. handle-certify-card.md
+  # grew past 128KB, so execve rejected it with E2BIG and every certification died
+  # instantly with "Argument list too long" (exit 126) before claude ever started.
+  # A pipe has no such limit, and `claude -p` with no argument reads the prompt
+  # from stdin.
+  printf '%s' "$1" | claude --dangerously-skip-permissions --verbose --output-format stream-json -p > "$raw_tmp" 2>&1 &
   local claude_pid=$!
 
   local hard_deadline=$(( $(date +%s) + 3600 ))
@@ -226,6 +267,10 @@ run_skill() {
     status="success"
   elif grep -qiE 'API Error: 401|401 Invalid authentication|"status":[[:space:]]*401|authentication_error|Failed to authenticate' "$raw_tmp"; then
     status="auth"
+  elif is_api_capacity_error "$raw_tmp"; then
+    # Session/usage limit, rate limit, or overload — the skill never ran. Like
+    # a 401 this must NOT burn the message (see the apierror guard after dispatch).
+    status="apierror"
   elif [ "$term_reason" = "hard-deadline" ] && [ "$result_seen_at" -eq 0 ]; then
     status="timeout"
   fi
@@ -665,6 +710,12 @@ REVIEW_BODY=""
 REVIEW_RECIPIENTS=""
 REVIEW_KEYWORDS="{}"
 
+# The full requestor reply serialized for later delivery (Step 6). Set only when
+# the outcome opens a PR (HAS_PR_REVIEW); the message is then parked in
+# 'processed' carrying this so the run-ai finalize sweep can send it once the PR
+# merges. Empty for immediate-reply outcomes.
+PENDING_REPLY_JSON=""
+
 # Default reply recipient was resolved above (Step 2b) so we could run the
 # credit gate against the same account that will eventually be billed.
 # Reusing it here keeps the dispatch and billing in sync.
@@ -820,11 +871,11 @@ IMPORTANT: You MUST create a branch named certify-${CARD_ID}-<card-slug>, commit
 
       # Ground truth check: does the card actually carry a `certified` field on
       # that branch? SKILL_STATUS only tells us the claude session ended
-      # cleanly — handle-certify-card.md is *designed* to end its turn cleanly
-      # while deliberately refusing to certify (PR titled "NOT CERTIFIED
-      # (verifying)"), so session success is not certification. Read the
-      # authoritative artifact instead: the `certified` field on the card's
-      # own entry in the branch that will actually get reviewed/merged.
+      # cleanly — handle-certify-card.md may end its turn cleanly having decided
+      # a card is blocked on a human decision (PR titled "NOT CERTIFIED: <reason>"),
+      # so session success is not certification. Read the authoritative artifact
+      # instead: the `certified` field on the card's own entry in the branch that
+      # will actually get reviewed/merged.
       CARD_CERTIFIED=false
       if [ -n "$PR_HEAD_REF" ]; then
         (cd "$PROJECT_DIR" && git fetch origin "$PR_HEAD_REF" 2>/dev/null) || true
@@ -855,7 +906,7 @@ $DIRTY_FILES"
       elif [ -z "$PR_URL" ]; then
         CERT_FAIL_REASON="No PR was opened for certify-${CARD_ID}-* and no work was finalized."
       elif [ "$CARD_CERTIFIED" != true ]; then
-        CERT_FAIL_REASON="The skill opened a PR ($PR_URL) but did not set the \`certified\` field — per its own rules it determined the card is not fully playable yet and left the PR as NOT CERTIFIED. Review the PR to see what's missing."
+        CERT_FAIL_REASON="The skill opened a PR ($PR_URL) but did not set the \`certified\` field. Under the current rules the skill must implement any missing mechanic and certify; stopping without the field means it either hit a genuine human-decision blocker (the PR title should name the concrete question) or failed to finish. Review the PR."
       fi
 
       if [ -z "$CERT_FAIL_REASON" ]; then
@@ -1051,6 +1102,27 @@ if [ "${SKILL_STATUS:-}" = "auth" ]; then
   exit 4
 fi
 
+# ---------------------------------------------------------------------------
+# Step 4c: API-capacity guard — never burn a message on a usage/rate limit.
+# ---------------------------------------------------------------------------
+# Same "the skill never ran, so don't consume the message" contract as the auth
+# guard above, for a different non-fault cause: the headless claude hit the
+# subscription session/usage limit, a rate limit, or a server overload. Treating
+# that as a normal failure would mark the message processed/false and send a
+# failure reply — burning it — and run-ai would then march down the queue
+# burning every remaining request in seconds (the exact symptom this guards
+# against). Instead reset the message to 'new', send NO reply, charge NOTHING,
+# and exit with a DISTINCT code (5) so run-ai can tell this apart from a bad
+# token: run-ai backs off and retries THIS same message later, once the limit
+# resets, rather than halting the whole worker (which a dead token requires).
+if [ "${SKILL_STATUS:-}" = "apierror" ]; then
+  log "API capacity/usage limit hit (session/usage limit, rate limit, or overload)."
+  log "Skill did not run; leaving $MSG_ID unhandled (reset to 'new') so it is not burned."
+  set_status "ai" "$MSG_ID" '{"status":"new"}' || true
+  log "run-ai will back off and retry this message once capacity is available. Halting this run."
+  exit 5
+fi
+
 DISPATCH_END=$(date +%s)
 DISPATCH_DURATION_S=$(( DISPATCH_END - DISPATCH_START ))
 
@@ -1175,15 +1247,32 @@ if [ -n "$REVIEW_TOPIC" ] && [ -n "$REVIEW_RECIPIENTS" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Step 8: Mark message as processed
+# Step 8: Mark the message's end state
 # ---------------------------------------------------------------------------
-
-if $SUCCESS; then
-  log "Marking message as processed (success: true)"
-  set_status "ai" "$MSG_ID" '{"status":"processed","success":true}'
+# Three outcomes:
+#   - success that opened a PR   → 'processed' (INTERMEDIATE): the work is done
+#     but the PR is awaiting a merge/close decision. We stamp the PR URL and the
+#     stashed reply (pendingReplyJson) onto the message so the run-ai finalize
+#     sweep can resolve it later — 'success' + deliver the reply when the PR
+#     merges, 'failed' when it is closed unmerged. The reviewer's lobby approval
+#     can also resolve it first; the two coordinate via this same terminal state.
+#   - success with no PR (card added to master, planning reply) → 'success'
+#     (TERMINAL) immediately; the reply was already sent in Step 6.
+#   - failure → 'failed' (TERMINAL) immediately; the failure reply was sent.
+if $SUCCESS && $HAS_PR_REVIEW; then
+  PR_URL_FOR_MSG=$(echo "$REVIEW_KEYWORDS" | jq -r '.prUrl // empty')
+  log "Marking message as processed (PR awaiting review: ${PR_URL_FOR_MSG:-unknown})"
+  PROCESSED_BODY=$(jq -nc \
+    --arg prUrl "$PR_URL_FOR_MSG" \
+    --arg pending "$PENDING_REPLY_JSON" \
+    '{status: "processed", success: true, keywords: {prUrl: $prUrl, pendingReplyJson: $pending}}')
+  set_status "ai" "$MSG_ID" "$PROCESSED_BODY"
+elif $SUCCESS; then
+  log "Marking message as success (terminal, no PR)"
+  set_status "ai" "$MSG_ID" '{"status":"success","success":true}'
 else
-  log "Marking message as processed (success: false)"
-  set_status "ai" "$MSG_ID" '{"status":"processed","success":false}'
+  log "Marking message as failed (terminal)"
+  set_status "ai" "$MSG_ID" '{"status":"failed","success":false}'
 fi
 
 # ---------------------------------------------------------------------------

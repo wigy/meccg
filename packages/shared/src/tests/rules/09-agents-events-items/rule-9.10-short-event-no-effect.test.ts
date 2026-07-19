@@ -16,6 +16,15 @@
 
 import { describe, test } from 'vitest';
 
+// `handlePlayShortEvent` (reducer-events.ts) unconditionally moves the card
+// from hand to the discard pile once it resolves — there is no "did this
+// change the board state beyond the card itself moving" comparison, and no
+// return-to-hand path. Implementing this generically would require snapshotting
+// state before/after resolution (and after any responses in the same chain)
+// for every short-event play, which no other engine mechanism currently does.
+// Every certified short-event in the pool has *some* declared effect (a
+// roll, a modifier, a target), so there is also no reachable card whose
+// resolution is a true no-op to drive a test even if the check existed.
 describe('Rule 9.10 — Short-Event No Effect', () => {
   test.todo('If short-event resolves without affecting board state, returned to hand; allowance actions must be taken at next opportunity');
 });

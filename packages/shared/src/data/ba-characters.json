@@ -40,12 +40,24 @@
           "reason": "faction-influence-check",
           "faction.race": "orc"
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.keywords": {
+            "$includes": "balrog-specific"
+          }
+        }
       }
     ],
     "text": "Unique. Balrog specific. Leader. Discard on a body check result of 9. +3 direct influence against Orcs and Orc factions. +2 direct influence against Balrog specific characters.",
     "discardBodyCheck": [
       9
-    ]
+    ],
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-character",
@@ -127,12 +139,24 @@
           "reason": "faction-influence-check",
           "faction.race": "orc"
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.keywords": {
+            "$includes": "balrog-specific"
+          }
+        }
       }
     ],
     "text": "Unique. Balrog specific. Leader. Discard on a body check result of 9. +3 direct influence against Orcs and Orc factions. +2 direct influence against Balrog specific characters.",
     "discardBodyCheck": [
       9
-    ]
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "hero-character",
@@ -141,7 +165,7 @@
     "name": "Strider",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/Strider.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "scout",
@@ -155,8 +179,49 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Bree",
-    "effects": [],
-    "text": "Unique. Manifestation of Aragorn II. You may bring Aragorn II into play with Strider’s company, removing Strider from the game and automatically transferring all cards on Strider to Aragorn II. +3 direct influence against the Rangers of the North faction. Tap Strider to search your discard pile for any one item, ally, or faction playable at his current site. You may bring it to your hand. The site must be in Arthedain, Cardolan, Rhudaur, or The Shire."
+    "manifestId": "tw-120",
+    "effects": [
+      {
+        "type": "manifestation-swap",
+        "cardName": "Aragorn II"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Rangers of the North"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "fetch-playable-from-discard",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "site.region": {
+            "$in": ["Arthedain", "Cardolan", "Rhudaur", "The Shire"]
+          }
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["discard-pile"],
+          "fetchCount": 1,
+          "fetchShuffle": false,
+          "fetchTo": "hand",
+          "playableAtBearerSite": true,
+          "filter": {
+            "cardType": {
+              "$in": ["hero-resource-item", "hero-resource-ally", "hero-resource-faction"]
+            }
+          }
+        }
+      }
+    ],
+    "text": "Unique. Manifestation of Aragorn II. You may bring Aragorn II into play with Strider’s company, removing Strider from the game and automatically transferring all cards on Strider to Aragorn II. +3 direct influence against the Rangers of the North faction. Tap Strider to search your discard pile for any one item, ally, or faction playable at his current site. You may bring it to your hand. The site must be in Arthedain, Cardolan, Rhudaur, or The Shire.",
+    "certified": "2026-07-03"
   },
   {
     "cardType": "minion-character",
@@ -259,8 +324,12 @@
     "keywords": [
       "balrog-specific"
     ],
+    "discardBodyCheck": [
+      7
+    ],
     "effects": [],
-    "text": "Balrog specific. Discard on a body check result of 7."
+    "text": "Balrog specific. Discard on a body check result of 7.",
+    "certified": "2026-07-02"
   },
   {
     "cardType": "minion-character",
@@ -284,8 +353,12 @@
     "keywords": [
       "balrog-specific"
     ],
+    "discardBodyCheck": [
+      7
+    ],
     "effects": [],
-    "text": "Balrog specific. Discard on a body check result of 7."
+    "text": "Balrog specific. Discard on a body check result of 7.",
+    "certified": "2026-07-11"
   },
   {
     "cardType": "minion-character",
@@ -309,8 +382,12 @@
     "keywords": [
       "balrog-specific"
     ],
+    "discardBodyCheck": [
+      7
+    ],
     "effects": [],
-    "text": "Balrog specific. Discard on a body check result of 7."
+    "text": "Balrog specific. Discard on a body check result of 7.",
+    "certified": "2026-07-10"
   },
   {
     "cardType": "minion-character",
@@ -337,7 +414,59 @@
       "leader",
       "balrog-specific"
     ],
-    "effects": [],
-    "text": "Unique. Balrog specific. Leader. Manifestation of Umagaur the Pale. Discard on a body check result of 9. +2 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters."
+    "discardBodyCheck": [
+      9
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "troll"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.keywords": {
+            "$includes": "balrog-specific"
+          }
+        }
+      }
+    ],
+    "text": "Unique. Balrog specific. Leader. Manifestation of Umagaur the Pale. Discard on a body check result of 9. +2 direct influence against Trolls, Orcs, Troll factions, and Orc factions. +3 direct influence against Balrog specific characters.",
+    "certified": "2026-07-13"
   }
 ]

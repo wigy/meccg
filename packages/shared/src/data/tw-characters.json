@@ -1947,7 +1947,11 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Bree",
-    "effects": [],
+    "effects": [
+      { "type": "check-modifier", "check": "corruption", "value": -1 },
+      { "type": "check-modifier", "check": "influence", "value": -1, "when": { "reason": "faction-influence-check" } }
+    ],
+    "certified": "2026-07-16",
     "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions."
   },
   {
@@ -2037,7 +2041,30 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Grey Havens",
-    "effects": [],
+    "certified": "2026-07-04",
+    "effects": [
+      {
+        "type": "hand-size-modifier",
+        "value": 1,
+        "when": { "self.location": "Grey Havens" }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "self" },
+        "when": { "attack.keying": "coastal" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Elves of Lindon" }
+      },
+      {
+        "type": "mp-modifier",
+        "value": -3,
+        "when": { "reason": "elimination" }
+      }
+    ],
     "text": "Unique. When Círdan is at the Grey Havens, you may keep one more card than normal in your hand.May tap to cancel one attack against his company keyed to a Coastal Sea region.+2 direct influence against the Elves of Lindon faction.-3 marshalling points if eliminated."
   },
   {
@@ -2070,7 +2097,7 @@
     "name": "Damrod",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Damrod.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "scout",
       "ranger"
@@ -2083,8 +2110,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Vale of Erech",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Men of Lamedon faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Men of Lamedon"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Men of Lamedon faction.",
+    "certified": "2026-07-09"
   },
   {
     "cardType": "hero-character",
@@ -2151,8 +2189,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Edoras",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Riders of Rohan faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Riders of Rohan"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Riders of Rohan faction.",
+    "certified": "2026-07-08"
   },
   {
     "cardType": "hero-character",
@@ -2286,10 +2335,25 @@
     "directInfluence": 1,
     "marshallingPoints": 1,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Bag End",
-    "effects": [],
-    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "home-site-only",
+        "when": {
+          "$not": {
+            "reason": "starting-character"
+          }
+        }
+      }
+    ],
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2.",
+    "certified": "2026-07-03"
   },
   {
     "cardType": "hero-character",
@@ -2354,8 +2418,24 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Bag End",
-    "effects": [],
-    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "home-site-only",
+        "when": {
+          "$not": {
+            "reason": "starting-character"
+          }
+        }
+      }
+    ],
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2.",
+    "certified": "2026-07-03"
   },
   {
     "cardType": "hero-character",
@@ -2376,8 +2456,24 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Bag End",
-    "effects": [],
-    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "home-site-only",
+        "when": {
+          "$not": {
+            "reason": "starting-character"
+          }
+        }
+      }
+    ],
+    "text": "Unique. Unless he is one of the starting characters, he may only be brought into play at his home site. All of his corruption checks are modified by +2.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hero-character",

@@ -15,6 +15,13 @@
 
 import { describe, test } from 'vitest';
 
+// The engine handles specific "beginning of phase" effects with dedicated,
+// per-phase transition code (e.g. untap-phase auto-untapping, organization
+// draw) rather than a generic "collect all beginning-of-phase/turn passive
+// conditions into one chain, gated on both players confirming no more to
+// declare" step. There's no reachable scenario with two-plus independent
+// beginning-of-phase passives to prove the specific batching/ordering and
+// response-window behavior this rule describes.
 describe('Rule 10.33 — Beginning-of-Phase Passive Conditions', () => {
   test.todo('Passive conditions at beginning of phase/turn declared in single chain before other actions; players may respond with own beginning actions');
 });

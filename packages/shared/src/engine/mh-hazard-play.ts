@@ -16,11 +16,13 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard } from '../index.js';
-import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect } from '../types/effects.js';
+import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition } from '../index.js';
+import type { CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, PlayDiscardCostEffect, Condition } from '../types/effects.js';
+import type { CardInstance } from '../index.js';
+import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
-import type { CompanyId } from '../types/common.js';
+import type { CompanyId, CardDefinitionId, CardInstanceId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle } from '../rng.js';
 import { buildMovementMap, getReachableSites } from '../movement-map.js';
@@ -31,7 +33,7 @@ import { CardStatus, RegionType, Skill, Alignment } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveHandSize } from './effects/index.js';
-import { getItemGrantedSkills } from './effects/resolver.js';
+import { getEffectiveSkills } from './effects/resolver.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { initiateChain, initiateOrPushChain } from './chain-reducer.js';
@@ -40,15 +42,15 @@ import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js'
 import { getEffectiveRegionType } from './effective.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, playerById, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
-import { handlePlayCharacter } from './reducer-organization.js';
+import { handlePlayCharacter, handleManifestationSwap } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
-import { resolveAdjacency } from './legal-actions/organization-companies.js';
+import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { collectRegionKeyingBoosts, regionPathsWithBoosts } from './region-keying.js';
-import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite } from './mh-agents.js';
+import { collectRegionKeyingBoosts, regionPathsWithBoosts, collectRegionTypeRemaps, applyRegionTypeRemaps, collectRegionTypeConversions, applyRegionTypeConversions } from './region-keying.js';
+import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter } from './mh-agents.js';
 
 /**
  * Handle actions during the play-hazards step (CoE step 7).
@@ -130,12 +132,19 @@ export function handlePlayHazards(
   if (action.type === 'agent-key-creatures') return handleAgentKeyCreatures(state, action, mhState);
   if (action.type === 'agent-influence-attempt') return handleAgentInfluenceAttempt(state, action, mhState);
   if (action.type === 'agent-tap-attack') return handleAgentTapAttack(state, action, mhState);
+  if (action.type === 'agent-discard-return-to-origin') return handleAgentDiscardReturnToOrigin(state, action, mhState);
+
+  // --- Tap an in-play dual-mode creature-permanent-event → short-event (tw-2, tw-107) ---
+  if (action.type === 'tap-alt-permanent-event') return handleTapAltPermanentEvent(state, action, mhState);
 
   // --- Tap cardsInPlay hazard permanent event for +1 hazard limit (Power Built by Waiting) ---
   if (action.type === 'tap-hazard-card-for-limit') return handleTapHazardCardForLimit(state, action, mhState);
 
   // --- Pay hazard limit to untap a cardsInPlay hazard permanent event (Power Built by Waiting) ---
   if (action.type === 'pay-hazard-limit-to-untap-card') return handlePayHazardLimitToUntapCard(state, action, mhState);
+
+  // --- Discard a Dragon "At Home" permanent event for +hazard limit (METD §4) ---
+  if (action.type === 'discard-card-for-hazard-limit') return handleDiscardCardForHazardLimit(state, action, mhState);
 
   // --- Reserve a Dragon/Drake creature in the Summons from Long Sleep (as-39) slot ---
   if (action.type === 'reserve-creature') return handleReserveCreature(state, action, mhState);
@@ -145,6 +154,10 @@ export function handlePlayHazards(
 
   // --- Play a creature from the discard pile (Exhalation of Decay, dm-55) ---
   if (action.type === 'play-creature-from-discard') return handlePlayCreatureFromDiscard(state, action, mhState);
+
+  // --- Replay a Wolf/Animal creature that already attacked (Monstrosity of
+  //     Diverse Shape, ba-21) ---
+  if (action.type === 'spawn-replay-creature') return handleSpawnReplayCreature(state, action, mhState);
 
   // For all resource-player actions below: after the action resolves,
   // reset hazardPlayerPassed so the hazard player may resume (rule 5.27).
@@ -156,6 +169,12 @@ export function handlePlayHazards(
   //     one-character-per-turn bookkeeping. ---
   if (action.type === 'play-character' && action.viaEventInstanceId) {
     result = handlePlayCharacter(state, action);
+  }
+
+  // --- Manifestation swap (Strider ba-1 → Aragorn II): a resource-style
+  //     play, available whenever a normal resource could be played (CRF 22). ---
+  else if (action.type === 'manifestation-swap') {
+    result = handleManifestationSwap(state, action);
   }
 
   // --- Resource permanent event (e.g. Gates of Morning, rule 2.1.1) ---
@@ -628,6 +647,110 @@ export function handlePlayHazardCard(
     return { state: triggerCouncilCall(afterDiscard, action.player, 'self') };
   }
 
+  // --- Dual-mode creature played as a short-event (creature-alt-event) ---
+  // e.g. Mouth of Sauron (tw-65): "may be played as a hazard creature or as a
+  // short-event". The player chose the event mode: the card goes hand → discard,
+  // counts against the hazard limit like any short-event, and pushes a
+  // short-event chain entry. Its top-level effects (e.g. a `move` from discard
+  // to hand) then resolve through the very same hazard short-event chain path,
+  // so no behaviour is duplicated. Must precede the creature branch below.
+  if (def.cardType === 'hazard-creature'
+      && action.type === 'play-hazard'
+      && action.altEventMode === 'short-event') {
+    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
+    const newHazardCount = bypassesLimit
+      ? mhState.hazardsPlayedThisCompany
+      : mhState.hazardsPlayedThisCompany + 1;
+    logDetail(`Play-hazards: hazard player plays creature "${def.name}" as a short-event (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
+
+    // Short events are discarded at play time (they resolve off the chain).
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+    let newState: GameState = {
+      ...updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        hand: newHand,
+        discardPile: [...p.discardPile, handCard],
+      })),
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: newHazardCount,
+        resourcePlayerPassed: false,
+      },
+    };
+
+    const shortEventPayload: import('../index.js').ChainEntryPayload = {
+      type: 'short-event',
+      ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+    };
+    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload);
+    return { state: newState };
+  }
+
+  // --- Dual-mode creature played as a permanent-event (creature-alt-event) ---
+  // e.g. Ûvatha tw-107 / Adûnaphel tw-2: "may be played as a hazard creature or
+  // as a permanent-event". The card enters play (hazard player's cardsInPlay)
+  // via the standard permanent-event chain path and sits there until the hazard
+  // player taps it on a later turn (handleTapAltPermanentEvent). Counts one
+  // against the hazard limit like any permanent event. Must precede the creature
+  // branch below.
+  if (def.cardType === 'hazard-creature'
+      && action.type === 'play-hazard'
+      && action.altEventMode === 'permanent-event') {
+    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
+    const newHazardCount = bypassesLimit
+      ? mhState.hazardsPlayedThisCompany
+      : mhState.hazardsPlayedThisCompany + 1;
+    logDetail(`Play-hazards: hazard player plays creature "${def.name}" as a permanent-event (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''} — enters play`);
+
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+    let newState: GameState = {
+      ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: newHazardCount,
+        resourcePlayerPassed: false,
+      },
+    };
+    // General permanent-event (no character/site binding): resolvePermanentEvent
+    // places it into the hazard player's cardsInPlay untapped.
+    const payload: import('../index.js').ChainEntryPayload = { type: 'permanent-event' };
+    newState = initiateOrPushChain(newState, action.player, handCard, payload);
+    return { state: newState };
+  }
+
+  // --- Inner Cunning (dm-68) mode 2: dual permanent-event card played as a
+  //     short-event tutor. The player chose the short-event mode: card goes
+  //     hand → discard, counts against the hazard limit, and pushes a
+  //     short-event chain entry whose `fetch-agent-to-hand` effect resolves
+  //     into a fetch-from-pile pending resolution (chain-reducer). ---
+  if (def.cardType === 'hazard-event'
+      && action.type === 'play-hazard'
+      && action.altEventMode === 'short-event'
+      && getCardEffects(def).some(e => e.type === 'fetch-agent-to-hand')) {
+    const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
+    const newHazardCount = bypassesLimit
+      ? mhState.hazardsPlayedThisCompany
+      : mhState.hazardsPlayedThisCompany + 1;
+    logDetail(`Play-hazards: hazard player plays "${def.name}" as a short-event tutor (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
+
+    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+    let newState: GameState = {
+      ...updatePlayer(state, hazardIndex, p => ({
+        ...p,
+        hand: newHand,
+        discardPile: [...p.discardPile, handCard],
+      })),
+      phaseState: {
+        ...mhState,
+        hazardsPlayedThisCompany: newHazardCount,
+        resourcePlayerPassed: false,
+      },
+    };
+    const shortEventPayload: import('../index.js').ChainEntryPayload = { type: 'short-event' };
+    newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload);
+    return { state: newState };
+  }
+
   // --- Creature handling (via chain of effects) ---
   if (def.cardType === 'hazard-creature') {
     const viaKeyingBypass = action.type === 'play-hazard' && action.keyedBy?.method === 'keying-bypass';
@@ -678,12 +801,45 @@ export function handlePlayHazardCard(
       return handleTapAgentAtSite(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, tapAgentEff);
     }
 
+    // Pilfer Anything Unwatched (as-33): tap an untapped agent and roll to
+    // return an opponent character (home site == agent's current site) to hand.
+    const pilferEff = def.effects?.find(
+      (e): e is AgentTapReturnCharacterEffect => e.type === 'agent-tap-return-character',
+    );
+    if (pilferEff && action.type === 'play-hazard' && action.agentInstanceId && action.targetCharacterId) {
+      return handleAgentTapReturnCharacter(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, pilferEff);
+    }
+
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
     const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
     logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
 
     // Move card from hand to discard (short events are discarded after resolution)
-    const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+    let newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+
+    // play-discard-cost (Faces of the Dead dm-57): pay the play cost by discarding
+    // a matching card the player chose from hand. The chosen card is validated
+    // against the effect's filter; when the effect declares "show opponent"
+    // (revealToOpponent), its identity is revealed to the opponent.
+    const discardCostEffect = getCardEffects(def).find(
+      (e): e is PlayDiscardCostEffect => e.type === 'play-discard-cost',
+    );
+    let costDiscardCard: CardInstance | undefined;
+    if (discardCostEffect && action.type === 'play-hazard' && action.costDiscardInstanceId) {
+      const chosen = findById(hazardPlayer.hand, action.costDiscardInstanceId);
+      const costDef = chosen ? defById(state, chosen.definitionId) : undefined;
+      const matches = costDef
+        ? matchesCondition(discardCostEffect.filter, costDef as unknown as Record<string, unknown>)
+        : false;
+      if (chosen && matches) {
+        costDiscardCard = chosen;
+        newHand = removeById(newHand, chosen.instanceId);
+        logDetail(`Play-hazards: "${def.name}" discard cost paid — discarding "${costDef?.name ?? chosen.definitionId}" from hand${discardCostEffect.revealToOpponent ? ' (shown to opponent)' : ''}`);
+      }
+    }
+    if (discardCostEffect && !costDiscardCard) {
+      return { state, error: `${def.name} requires discarding a matching card from hand to play` };
+    }
 
     // CoE rule 7.2.1: only one corruption card may be played per character per
     // turn. Corruption-keyword short-events played on a character (e.g.
@@ -699,7 +855,7 @@ export function handlePlayHazardCard(
       ...updatePlayer(state, hazardIndex, p => ({
         ...p,
         hand: newHand,
-        discardPile: [...p.discardPile, handCard],
+        discardPile: [...p.discardPile, handCard, ...(costDiscardCard ? [costDiscardCard] : [])],
       })),
       phaseState: {
         ...mhState,
@@ -708,6 +864,11 @@ export function handlePlayHazardCard(
         corruptionCardsPlayedPerChar: shortCorruptionPerChar,
       },
     };
+
+    // "show opponent" — reveal the discarded cost card's identity.
+    if (costDiscardCard && discardCostEffect?.revealToOpponent) {
+      newState = revealInstances(newState, [costDiscardCard]);
+    }
 
     // creature-race-choice: add constraint for the chosen race. The kind
     // of constraint depends on the effect's `apply.constraint` name —
@@ -779,6 +940,9 @@ export function handlePlayHazardCard(
       ...(action.type === 'play-hazard' && action.optionId
         ? { optionId: action.optionId }
         : {}),
+      ...(action.type === 'play-hazard' && action.targetSiteDefinitionId
+        ? { targetSiteDefinitionId: action.targetSiteDefinitionId }
+        : {}),
     };
     newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload);
 
@@ -847,6 +1011,9 @@ export function handlePlayHazardCard(
         targetCharacterId: action.type === 'play-hazard' ? action.targetCharacterId : undefined,
         targetSiteDefinitionId: action.type === 'play-hazard' ? action.targetSiteDefinitionId : undefined,
         targetCompanyId: action.type === 'play-hazard' ? action.targetCompanyId : undefined,
+        targetStoredItemInstanceId: action.type === 'play-hazard' ? action.targetStoredItemInstanceId : undefined,
+        // Inner Cunning (dm-68) mode 1: bind to a face-down agent.
+        targetAgentId: action.type === 'play-hazard' ? action.targetAgentId : undefined,
       }
     : { type: 'long-event' };
   newState = initiateOrPushChain(newState, action.player, handCard, payload);
@@ -1083,6 +1250,15 @@ export function findForcingEnvironment(
 ): import('../index.js').CardInPlay | null {
   const path = mhState.resolvedSitePath;
   const terrainCount = (t: RegionType): number => path.filter(r => r === t).length;
+  // The Way is Shut (dm-98): "moving to or from an Under-deeps site" — true when
+  // either the company's origin (currentSite) or its declared destination is an
+  // Under-deeps site (`under-deeps` keyword on the site definition).
+  const siteIsUnderDeeps = (ref: { definitionId: import('../index.js').CardDefinitionId } | null | undefined): boolean => {
+    if (!ref) return false;
+    const siteDef = defById(state, ref.definitionId);
+    return isSiteCard(siteDef) && (siteDef.keywords?.includes('under-deeps') ?? false);
+  };
+  const underDeepsMove = siteIsUnderDeeps(company.currentSite) || siteIsUnderDeeps(company.destinationSite);
   const context = {
     sitePath: {
       wildernessCount: terrainCount(RegionType.Wilderness),
@@ -1093,6 +1269,7 @@ export function findForcingEnvironment(
       freeCount: terrainCount(RegionType.Free),
       length: path.length,
     },
+    underDeepsMove,
     player: { minion: isMinionOrBalrog(movingPlayer) },
   };
 
@@ -1100,7 +1277,7 @@ export function findForcingEnvironment(
     const charData = movingPlayer.characters[charId];
     const charDef = charData ? defById(state, charData.definitionId) : undefined;
     if (!charDef || !isCharacterCard(charDef)) return false;
-    const skills = [...charDef.skills, ...(charData ? getItemGrantedSkills(state, charData) : [])];
+    const skills = charData ? getEffectiveSkills(state, charData, charDef) : [...charDef.skills];
     return skills.includes(Skill.Ranger);
   });
 
@@ -1122,6 +1299,73 @@ export function findForcingEnvironment(
     }
   }
   return null;
+}
+
+/**
+ * Handle `agent-discard-return-to-origin` (e.g. Baduila dm-2): the hazard
+ * player discards an agent at the moving company's new site to force the
+ * company to return to its site of origin.
+ *
+ * - The agent's character card goes to the hazard player's discard pile; all
+ *   its site-stack sites return to the location deck (they were never in play).
+ * - Not an agent action, not against the hazard limit.
+ * - Per CoE rule 2.IV.4 the company's movement/hazard phase immediately ends:
+ *   `returnedToOrigin` is set (so {@link endCompanyMH} keeps the company at
+ *   its site of origin and clears the movement), a `site-phase-do-nothing`
+ *   constraint blocks the company's site phase, and end-of-M/H corruption
+ *   triggers fire before the phase completes.
+ */
+export function handleAgentDiscardReturnToOrigin(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'agent-discard-return-to-origin') return wrongActionType(state, action, 'agent-discard-return-to-origin');
+
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.id === action.agentId);
+  if (agentIdx === -1) return { state, error: 'Agent not found' };
+
+  const agent = hazardPlayer.agents[agentIdx];
+  const agentDef = defById(state, agent.character.definitionId);
+  if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent definition not found' };
+
+  const hasEffect = getCardEffects(agentDef).some(e => e.type === 'agent-discard-return-to-origin');
+  if (!hasEffect) return { state, error: 'Agent does not have agent-discard-return-to-origin effect' };
+
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[resourceIndex].companies[mhState.activeCompanyIndex];
+  if (!company) return { state, error: 'No active company' };
+  if (!company.destinationSite) return { state, error: 'Company is not moving to a new site' };
+  if (mhState.returnedToOrigin) return { state, error: 'Company was already returned to its site of origin' };
+
+  logDetail(`Agent discard-return-to-origin "${agentDef.name}": discarded at "${mhState.destinationSiteName ?? '?'}" — company ${company.id as string} returns to its site of origin (rule 2.IV.4)`);
+
+  // Discard the agent: character card to discard pile, stack sites back to
+  // the location deck (they were never in play).
+  let newState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    agents: p.agents.filter((_, i) => i !== agentIdx),
+    discardPile: [...p.discardPile, toCardInstance(agent.character)],
+    siteDeck: [...p.siteDeck, ...agent.siteStack],
+  }));
+
+  // Rule 2.IV.4: the company's player cannot initiate any actions during
+  // that company's site phase.
+  newState = addConstraint(newState, {
+    source: agent.character.instanceId,
+    sourceDefinitionId: agent.character.definitionId,
+    scope: { kind: 'company-site-phase', companyId: company.id },
+    target: { kind: 'company', companyId: company.id },
+    kind: { type: 'site-phase-do-nothing' },
+  });
+
+  // Rule 2.IV.4: the company's movement/hazard phase immediately ends.
+  const newMhState = { ...mhState, returnedToOrigin: true };
+  const withChecks = fireEndOfCompanyMHCorruptionChecks(newState, newMhState);
+  return endCompanyMH(withChecks, newMhState);
 }
 
 export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
@@ -1170,10 +1414,18 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
         && c.currentSite?.instanceId === company.destinationSite!.instanceId,
     );
 
+    // Eddy in Fate's Tide (ba-57): "This site … never untaps for you." The
+    // engine never untaps a stationary site, so the only refresh point is
+    // re-placement on movement — when the Eddy owner re-enters a version of the
+    // bound site definition, place it tapped instead of untapped.
+    const arrivesTapped = siteNeverUntapsForOwner(state, company.destinationSite.definitionId, resourcePlayer.id);
+    if (arrivesTapped) {
+      logDetail(`Step 8: destination ${company.destinationSite.definitionId as string} carries this player's site lock — arriving tapped (never untaps for you)`);
+    }
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
       ...company,
-      currentSite: { instanceId: company.destinationSite.instanceId, definitionId: company.destinationSite.definitionId, status: CardStatus.Untapped },
+      currentSite: { instanceId: company.destinationSite.instanceId, definitionId: company.destinationSite.definitionId, status: arrivesTapped ? CardStatus.Tapped : CardStatus.Untapped },
       destinationSite: null,
       moved: true,
       siteOfOrigin: null,
@@ -1200,8 +1452,18 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       } else {
         const originDef = defById(state, originSite.definitionId);
         const isHaven = originDef && isSiteCard(originDef) && originDef.siteType === 'haven';
-        const alwaysReturnToDeck = originDef && isSiteCard(originDef)
-          && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'always-return-to-deck');
+        // Caverns Unchoked (ba-51) / Breach the Hold (ba-50) / Roots of the
+        // Earth (ba-74): a bound
+        // Under-deeps site "is never discarded or returned to its location
+        // deck". There is no unoccupied-in-play site zone, so the closest
+        // faithful model is to always return it to the owner's location deck
+        // (never discard it) so it stays re-accessible.
+        const cavernsBound = resourcePlayer.cardsInPlay.some(
+          c => c.attachedToSite === originSite.definitionId
+            && cardKeepsBoundSitePermanent(defById(state, c.definitionId)),
+        );
+        const alwaysReturnToDeck = cavernsBound || (originDef && isSiteCard(originDef)
+          && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'always-return-to-deck'));
         const stolenKnowledge = originDef && isSiteCard(originDef)
           && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'stolen-knowledge');
         const isTapped = originSite.status === CardStatus.Tapped;
@@ -1264,42 +1526,120 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
   }
 
   // --- Step 8a-2: Fire bearer-company-moves discard ---
-  // When a company has moved, discard any character items with an
-  // on-event: bearer-company-moves + self-discard move effect (e.g. Align Palantír).
+  // When a company has moved, discard any character items or allies with an
+  // on-event: bearer-company-moves + self-discard move effect. An unconditional
+  // trigger always discards (e.g. Align Palantír, an item that leaves play the
+  // moment its bearer's company moves). A trigger carrying a `when` condition
+  // discards only when that condition matches the *destination* site — used by
+  // Mistress Lobelia (dm-178), an ally discarded whenever her company moves to a
+  // site outside her allowed home region.
   if (company.destinationSite && !mhStateLocal.returnedToOrigin) {
     const movedCompany = newPlayers[activeIndex].companies[mhState.activeCompanyIndex];
+    // The destination-site context the `when` clause is evaluated against.
+    const destDef = defById(state, company.destinationSite.definitionId) as
+      { name?: string; region?: string; siteType?: string } | undefined;
+    const moveCtx = {
+      // The movement type the company used to reach the destination. Lets a
+      // `bearer-company-moves` self-discard fire only for certain movement
+      // kinds — Evil Things Lingering (ba-45) discards "if its company moves
+      // using region or starter movement" (not Under-deeps/special movement),
+      // expressed as `when: { movementType: { $in: ["region", "starter"] } }`.
+      movementType: mhState.movementType,
+      destination: {
+        name: destDef?.name,
+        region: destDef?.region,
+        siteType: destDef?.siteType,
+      },
+      // The region types the company traversed this move. Lets a
+      // `bearer-company-moves` self-discard fire on "moves through a
+      // Free-domain/Dark-domain" path clauses — Memories of Old Torture
+      // (ba-67), whose ally is discarded via a `sitePath.regionTypes`
+      // `$includes` gate.
+      sitePath: { regionTypes: [...mhState.resolvedSitePath] },
+    };
+    // True when a `bearer-company-moves` self-discard effect should fire given
+    // its optional `when` gate against the destination site.
+    const shouldDiscardOnMove = (def: CardDefinition | undefined): boolean =>
+      getOnEventEffects(def, 'bearer-company-moves').some(
+        e => isSelfDiscardMove(e.apply) && (!e.when || matchesCondition(e.when, moveCtx)),
+      );
+    // A converted-creature ally (Memories of Old Torture ba-67 / Ready to His
+    // Will le-220) is the creature card itself, whose hazard-creature
+    // definition carries no discard-on-move rule. That rule lives on the
+    // `convert-creature-to-ally` event card "placed with the creature"
+    // (in cards-in-play, `attachedTo` the ally). When such an event's
+    // `bearer-company-moves` self-discard fires, discard the ally; the orphan
+    // sweep (`discardOrphanedConvertedAllyEvents`) then discards the event too.
+    const attachedEventDiscardsAllyOnMove = (allyInstanceId: CardInstanceId): boolean =>
+      newPlayers[activeIndex].cardsInPlay.some(cp => {
+        if (cp.attachedTo !== allyInstanceId) return false;
+        return shouldDiscardOnMove(defById(state, cp.definitionId));
+      });
+    // Radagast (wh-8): "Hero allies Radagast controls have no movement
+    // restrictions." An `ally-movement-restriction-exemption` effect the moving
+    // player carries (on an in-play character or in `cardsInPlay`) suppresses the
+    // `bearer-company-moves` self-discard for every ally matching its filter —
+    // CRF 22 defines an ally's "movement restriction" as exactly its "Discard if
+    // he/she moves to …" clause. Collected once per move for the active player.
+    const allyMovementExemptionFilters: (Condition | null)[] = [];
+    for (const def of [
+      ...newPlayers[activeIndex].cardsInPlay.map(c => defById(state, c.definitionId)),
+      ...Object.values(newPlayers[activeIndex].characters).map(c => defById(state, c.definitionId)),
+    ]) {
+      for (const eff of getCardEffects(def)) {
+        if (eff.type === 'ally-movement-restriction-exemption') {
+          allyMovementExemptionFilters.push(eff.filter ?? null);
+        }
+      }
+    }
+    // Whether a given ally definition is exempt from its movement-restriction
+    // discard (any exemption filter matches; a `null` filter exempts every ally).
+    const allyExemptFromMovementRestriction = (allyDef: CardDefinition | undefined): boolean =>
+      allyDef !== undefined
+      && allyMovementExemptionFilters.some(f => f === null || matchesDefinition(allyDef, f));
     let discardedAny = false;
     for (const charId of movedCompany.characters) {
       const charData = newPlayers[activeIndex].characters[charId];
       if (!charData) continue;
       const itemsToKeep: import('../index.js').ItemInPlay[] = [];
-      const itemsToDiscard: import('../index.js').CardInstance[] = [];
+      const alliesToKeep: import('../index.js').AllyInPlay[] = [];
+      const toDiscard: import('../index.js').CardInstance[] = [];
       for (const item of charData.items) {
         const itemDef = defById(state, item.definitionId);
-        const hasTrigger = getOnEventEffects(itemDef, 'bearer-company-moves').some(
-          e => isSelfDiscardMove(e.apply),
-        );
-        if (hasTrigger) {
-          logDetail(`bearer-company-moves: discarding "${itemDef?.name ?? item.definitionId}" from ${charId as string}`);
-          itemsToDiscard.push(toCardInstance(item));
+        if (shouldDiscardOnMove(itemDef)) {
+          logDetail(`bearer-company-moves: discarding item "${itemDef?.name ?? item.definitionId}" from ${charId as string}`);
+          toDiscard.push(toCardInstance(item));
         } else {
           itemsToKeep.push(item);
         }
       }
-      if (itemsToDiscard.length > 0) {
+      for (const ally of charData.allies) {
+        const allyDef = defById(state, ally.definitionId);
+        const wouldDiscard = shouldDiscardOnMove(allyDef) || attachedEventDiscardsAllyOnMove(ally.instanceId);
+        if (wouldDiscard && allyExemptFromMovementRestriction(allyDef)) {
+          logDetail(`bearer-company-moves: ally "${allyDef?.name ?? ally.definitionId}" would be discarded but has no movement restrictions (Radagast) — kept`);
+          alliesToKeep.push(ally);
+        } else if (wouldDiscard) {
+          logDetail(`bearer-company-moves: discarding ally "${allyDef?.name ?? ally.definitionId}" from ${charId as string} (moved to ${destDef?.name ?? '?'})`);
+          toDiscard.push(toCardInstance(ally));
+        } else {
+          alliesToKeep.push(ally);
+        }
+      }
+      if (toDiscard.length > 0) {
         discardedAny = true;
         newPlayers[activeIndex] = {
           ...newPlayers[activeIndex],
           characters: {
             ...newPlayers[activeIndex].characters,
-            [charId as string]: { ...charData, items: itemsToKeep },
+            [charId as string]: { ...charData, items: itemsToKeep, allies: alliesToKeep },
           },
-          discardPile: [...newPlayers[activeIndex].discardPile, ...itemsToDiscard],
+          discardPile: [...newPlayers[activeIndex].discardPile, ...toDiscard],
         };
       }
     }
     if (discardedAny) {
-      logDetail('bearer-company-moves: finished discarding items from moving company');
+      logDetail('bearer-company-moves: finished discarding cards from moving company');
     }
   }
 
@@ -1558,10 +1898,196 @@ export function fireAllyArrivalEffects(
 }
 
 /**
- * Advance to the next company's M/H sub-phase or to the Site phase
- * after the current company's step 8 is fully resolved.
+ * Enumerate the Under-deeps destination sites (instances in the active
+ * player's site deck) a company may reach via a Gangways over the Fire
+ * (ba-60) extra move: Under-deeps-adjacent to the company's current site and
+ * not among the sites it has already used this turn.
  */
+export function gangwaysExtraDestinations(
+  state: GameState,
+  activeIndex: number,
+  company: Company,
+  usedSiteDefIds: readonly CardDefinitionId[],
+): readonly CardInstance[] {
+  const player = state.players[activeIndex];
+  const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  if (!currentDef || !isSiteCard(currentDef)) return [];
+  const used = new Set(usedSiteDefIds.map(id => id as string));
+  const seenDefs = new Set<string>();
+  const dests: CardInstance[] = [];
+  for (const siteInst of player.siteDeck) {
+    if (used.has(siteInst.definitionId as string)) continue;
+    if (seenDefs.has(siteInst.definitionId as string)) continue;
+    const destDef = defById(state, siteInst.definitionId);
+    if (!destDef || !isSiteCard(destDef)) continue;
+    if (!isUnderDeepsAdjacent(state, currentDef, destDef)) continue;
+    seenDefs.add(siteInst.definitionId as string);
+    dests.push(siteInst);
+  }
+  return dests;
+}
+
+/**
+ * Advance after a company finishes its movement/hazard phase.
+ *
+ * Gangways over the Fire (ba-60): before finalizing the company, record that
+ * it completed one more M/H phase this turn (for the roll penalty) and which
+ * site it now occupies (for the "not used yet" restriction). If the active
+ * player has an `extra-under-deeps-mh-phase` effect in play, the company
+ * moved this turn, and a new Under-deeps destination remains available, offer
+ * the choice of another Under-deeps movement/hazard phase (`gangways-offer`)
+ * rather than finalizing. Otherwise the company is finalized normally.
+ */
+/**
+ * Reset all per-company movement/hazard fields and return to the select-company
+ * step, so the next unhandled company begins its M/H sub-phase from a clean
+ * slate. `handledCompanyIds` and `activeCompanyIndex` are taken from the supplied
+ * `mhState` unchanged (callers pre-set `handledCompanyIds` when finalizing a
+ * completed company). Shared by `finalizeCompanyMH` and the Left Behind
+ * lone-character extra-phase path in `advanceAfterCompanyMH`.
+ */
+function resetCompanyMHFields(mhState: MovementHazardPhaseState): MovementHazardPhaseState {
+  return {
+    ...mhState,
+    step: 'select-company' as const,
+    movementType: null,
+    declaredRegionPath: [],
+    maxRegionDistance: BASE_MAX_REGION_DISTANCE,
+    hazardsPlayedThisCompany: 0,
+    hazardLimitAtReveal: 0,
+    preRevealHazardLimitConstraintIds: [],
+    resolvedSitePath: [],
+    resolvedSitePathNames: [],
+    destinationSiteType: null,
+    destinationSiteName: null,
+    resourceDrawMax: 0,
+    hazardDrawMax: 0,
+    resourceDrawCount: 0,
+    hazardDrawCount: 0,
+    resourcePlayerPassed: false,
+    hazardPlayerPassed: false,
+    siteRevealed: false,
+    onGuardPlacedThisCompany: false,
+    returnedToOrigin: false,
+    hazardsEncountered: [],
+    spawnReplayUsedSources: [],
+    ahuntAttacksResolved: 0,
+    ahuntGroupOutcomes: [],
+  };
+}
+
+/**
+ * Left Behind (td-41): enqueue a `left-behind-rejoin` resolution for each
+ * `leftBehind` company of the active player whose original company still exists
+ * and occupies the same site. Called at the M/H→Site transition, so the offers
+ * short-circuit the Site phase and are resolved first. A company whose original
+ * company is gone (eliminated / at a different site) simply keeps its own
+ * separate existence and its `leftBehind` flag is cleared here.
+ */
+function enqueueLeftBehindRejoins(state: GameState, activeIndex: number): GameState {
+  const player = state.players[activeIndex];
+  const leftBehindCompanies = player.companies.filter(c => c.leftBehind && c.leftBehindOriginCompanyId);
+  if (leftBehindCompanies.length === 0) return state;
+
+  let s = state;
+  const clearFlags = new Set<string>();
+  for (const b of leftBehindCompanies) {
+    const origin = player.companies.find(c => c.id === b.leftBehindOriginCompanyId);
+    const sameSite = origin && origin.id !== b.id
+      && origin.currentSite && b.currentSite
+      && origin.currentSite.instanceId === b.currentSite.instanceId;
+    if (!origin || !sameSite) {
+      logDetail(`Left Behind: company ${b.id as string} cannot rejoin (original company absent or at a different site) — staying separate`);
+      clearFlags.add(b.id as string);
+      continue;
+    }
+    logDetail(`Left Behind: offering ${b.id as string} the option to rejoin ${origin.id as string}`);
+    s = enqueueResolution(s, {
+      source: null,
+      actor: player.id,
+      scope: { kind: 'phase', phase: Phase.Site },
+      kind: { type: 'left-behind-rejoin', companyId: b.id, originCompanyId: origin.id },
+    });
+  }
+
+  if (clearFlags.size > 0) {
+    s = updatePlayer(s, activeIndex, p => ({
+      ...p,
+      companies: p.companies.map(c => clearFlags.has(c.id as string)
+        ? { ...c, leftBehind: undefined, leftBehindOriginCompanyId: undefined, leftBehindExtraPhasePending: undefined }
+        : c),
+    }));
+  }
+  return s;
+}
+
 export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
+
+  // Left Behind (td-41), lone-character case: the flagged company runs one more
+  // (separate) movement/hazard phase this turn with a hazard limit of one. Clear
+  // the pending flag and return it to select-company without marking it handled,
+  // so the loop re-runs it once. Its `leftBehind` flag forces the limit-1 snapshot.
+  if (currentCompany.leftBehindExtraPhasePending) {
+    logDetail(`Left Behind: lone company ${currentCompany.id as string} takes its separate M/H phase (limit 1)`);
+    const clearedState = updatePlayer(state, activeIndex, p => ({
+      ...p,
+      companies: p.companies.map((c, idx) =>
+        idx !== mhState.activeCompanyIndex ? c : { ...c, leftBehindExtraPhasePending: false }),
+    }));
+    return { state: { ...clearedState, phaseState: resetCompanyMHFields(mhState) } };
+  }
+
+  // grant-extra-mh-phase (Forced March le-185, Bridge tw-202, Leg It Double
+  // Quick le-202): the company was flagged when the enabling resource event
+  // resolved. Now that its move has committed, clear the flag and offer another
+  // movement to an additional site — a fresh movement/hazard phase — via the
+  // dedicated offer step. The active player may instead pass to finish here.
+  if (currentCompany.extraMHPhasePending) {
+    logDetail(`Extra M/H phase: company ${currentCompany.id as string} may move to an additional site → extra-mh-move-offer`);
+    const clearedState = updatePlayer(state, activeIndex, p => ({
+      ...p,
+      companies: p.companies.map((c, idx) =>
+        idx !== mhState.activeCompanyIndex ? c : { ...c, extraMHPhasePending: false }),
+    }));
+    return { state: { ...clearedState, phaseState: { ...mhState, step: 'extra-mh-move-offer' as const } } };
+  }
+
+  if (playerHasExtraUnderDeepsMH(state, activeIndex)) {
+    const cid = currentCompany.id as string;
+    // Record this completed M/H phase and the site the company now occupies.
+    const phaseCounts = { ...(mhState.gangwaysPhaseCounts ?? {}) };
+    phaseCounts[cid] = (phaseCounts[cid] ?? 0) + 1;
+    const sitesUsed = { ...(mhState.gangwaysSitesUsed ?? {}) };
+    const prevUsed = sitesUsed[cid] ?? [];
+    const curDef = currentCompany.currentSite?.definitionId;
+    sitesUsed[cid] = curDef && !prevUsed.includes(curDef) ? [...prevUsed, curDef] : prevUsed;
+    const trackedMhState: MovementHazardPhaseState = {
+      ...mhState,
+      gangwaysPhaseCounts: phaseCounts,
+      gangwaysSitesUsed: sitesUsed,
+    };
+
+    const dests = currentCompany.moved
+      ? gangwaysExtraDestinations(state, activeIndex, currentCompany, sitesUsed[cid])
+      : [];
+    if (dests.length > 0) {
+      logDetail(`Gangways over the Fire: company ${cid} completed M/H phase #${phaseCounts[cid]} and may take another Under-deeps movement (${dests.length} destination(s), roll penalty -${phaseCounts[cid]}) → gangways-offer`);
+      return { state: { ...state, phaseState: { ...trackedMhState, step: 'gangways-offer' as const } } };
+    }
+    return finalizeCompanyMH(state, trackedMhState);
+  }
+
+  return finalizeCompanyMH(state, mhState);
+}
+
+/**
+ * Finalize the current company's movement/hazard phase: sweep company-scoped
+ * constraints, then advance to the next company's M/H sub-phase or to the Site
+ * phase once every company is handled.
+ */
+export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
   const updatedHandled = [...mhState.handledCompanyIds, currentCompany.id];
@@ -1620,18 +2146,83 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
       };
     }
 
+    // Left Behind (td-41): "He may rejoin his original company following all
+    // movement/hazard phases." Offer the optional rejoin for each left-behind
+    // company still at the same site as its original company.
+    const withRejoin = enqueueLeftBehindRejoins(cleanedState, activeIndex);
     logDetail(`Movement/Hazard: all companies handled → advancing to Site phase`);
-    return { state: cleanedState };
+    return { state: withRejoin };
   }
 
   logDetail(`Movement/Hazard: company ${currentCompany.id} done → returning to select-company (${remainingCount} remaining)`);
   return {
     state: {
       ...state,
+      phaseState: resetCompanyMHFields({ ...mhState, handledCompanyIds: updatedHandled }),
+    },
+  };
+}
+
+/**
+ * Handle the `gangways-offer` step (Gangways over the Fire, ba-60): the active
+ * player either finishes the company (`pass` → finalize) or selects a new
+ * Under-deeps destination for another movement/hazard phase.
+ *
+ * On selection, the chosen site is drawn from the site deck and installed as
+ * the company's destination; the phase re-enters at `reveal-new-site` with the
+ * per-phase state reset, so the company proceeds through the normal Under-deeps
+ * declare-path/roll flow. The roll for this extra phase is penalised by the
+ * number of complete phases the company has already taken this turn (applied in
+ * `handleRevealNewSite` from `gangwaysPhaseCounts`).
+ */
+export function handleGangwaysOffer(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+
+  if (action.type === 'pass') {
+    logDetail(`Gangways over the Fire: active player declined another Under-deeps movement — finalizing company`);
+    return finalizeCompanyMH(state, mhState);
+  }
+
+  if (action.type !== 'gangways-extra-move') {
+    return wrongActionType(state, action, 'gangways-extra-move', 'gangways-offer step');
+  }
+
+  const player = state.players[activeIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIdx !== mhState.activeCompanyIndex) {
+    return { state, error: 'Gangways extra move must target the company that just finished its M/H phase' };
+  }
+  const company = player.companies[companyIdx];
+
+  // The destination must be one of the offered Under-deeps sites (adjacent,
+  // in the site deck, not used this turn).
+  const usedSiteDefIds = mhState.gangwaysSitesUsed?.[action.companyId as string] ?? [];
+  const dest = gangwaysExtraDestinations(state, activeIndex, company, usedSiteDefIds)
+    .find(s => s.instanceId === action.destinationSite);
+  if (!dest) {
+    return { state, error: 'Chosen site is not a legal Gangways Under-deeps destination' };
+  }
+
+  const companies = [...player.companies];
+  companies[companyIdx] = {
+    ...company,
+    destinationSite: { ...toCardInstance(dest), status: CardStatus.Untapped },
+    movementPath: [],
+  };
+  const siteDeck = removeById(player.siteDeck, dest.instanceId);
+  const destName = cardNameLocal(state, dest.definitionId);
+  logDetail(`Gangways over the Fire: company ${action.companyId as string} sets Under-deeps destination ${destName} → re-entering reveal-new-site (extra M/H phase)`);
+
+  return {
+    state: {
+      ...updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })),
       phaseState: {
         ...mhState,
-        step: 'select-company' as const,
-        handledCompanyIds: updatedHandled,
+        step: 'reveal-new-site' as const,
         movementType: null,
         declaredRegionPath: [],
         maxRegionDistance: BASE_MAX_REGION_DISTANCE,
@@ -1648,12 +2239,112 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
         hazardDrawCount: 0,
         resourcePlayerPassed: false,
         hazardPlayerPassed: false,
-        siteRevealed: false,
+        siteRevealed: true,
         onGuardPlacedThisCompany: false,
         returnedToOrigin: false,
         hazardsEncountered: [],
+        spawnReplayUsedSources: [],
         ahuntAttacksResolved: 0,
+        ahuntGroupOutcomes: [],
       },
+    },
+  };
+}
+
+/** Local card-name lookup (definition name or the id as a fallback). */
+function cardNameLocal(state: GameState, defId: CardDefinitionId): string {
+  const def = defById(state, defId);
+  return def?.name ?? (defId as string);
+}
+
+/**
+ * Enumerate the destination sites (instances in the active player's site deck)
+ * a company may reach with a `grant-extra-mh-phase` extra movement (Forced March
+ * le-185, Bridge tw-202, Leg It Double Quick le-202): any site normally reachable
+ * from the company's current site (starter or region movement) whose card is
+ * still in the site deck. Restricted to the mover's own alignment so identically
+ * named sites of the other side don't leak in. De-duplicated by definition.
+ */
+export function extraMHMoveDestinations(
+  state: GameState,
+  activeIndex: number,
+  company: Company,
+): readonly CardInstance[] {
+  const player = state.players[activeIndex];
+  const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  if (!currentDef || !isSiteCard(currentDef)) return [];
+  const movementMap = buildMovementMap(state.cardPool, player.alignment);
+  const allSites = Object.values(state.cardPool).filter(
+    (s): s is SiteCard => isSiteCard(s) && s.alignment === player.alignment,
+  );
+  const reachableNames = new Set(getReachableSites(movementMap, currentDef, allSites).map(r => r.site.name));
+  const seenDefs = new Set<string>();
+  const dests: CardInstance[] = [];
+  for (const siteInst of player.siteDeck) {
+    if (seenDefs.has(siteInst.definitionId as string)) continue;
+    const destDef = defById(state, siteInst.definitionId);
+    if (!destDef || !isSiteCard(destDef)) continue;
+    if (!reachableNames.has(destDef.name)) continue;
+    seenDefs.add(siteInst.definitionId as string);
+    dests.push(siteInst);
+  }
+  return dests;
+}
+
+/**
+ * Handle the `extra-mh-move-offer` step (`grant-extra-mh-phase` resources —
+ * Forced March le-185, Bridge tw-202, Leg It Double Quick le-202): the active
+ * player either finishes the company (`pass` → finalize) or picks a new
+ * destination for another movement/hazard phase (`extra-mh-move`).
+ *
+ * On selection, the chosen site is drawn from the site deck and installed as the
+ * company's destination; the per-phase state is reset and the phase re-enters at
+ * `reveal-new-site`, so the company proceeds through the normal declare-path flow
+ * and faces a fresh set of hazards.
+ */
+export function handleExtraMHMoveOffer(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+
+  if (action.type === 'pass') {
+    logDetail(`Extra M/H phase: active player declined the additional move — finalizing company`);
+    return finalizeCompanyMH(state, mhState);
+  }
+
+  if (action.type !== 'extra-mh-move') {
+    return wrongActionType(state, action, 'extra-mh-move', 'extra-mh-move-offer step');
+  }
+
+  const player = state.players[activeIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === action.companyId);
+  if (companyIdx !== mhState.activeCompanyIndex) {
+    return { state, error: 'Extra M/H move must target the company that just finished its M/H phase' };
+  }
+  const company = player.companies[companyIdx];
+
+  const dest = extraMHMoveDestinations(state, activeIndex, company)
+    .find(s => s.instanceId === action.destinationSite);
+  if (!dest) {
+    return { state, error: 'Chosen site is not a legal extra-movement destination' };
+  }
+
+  const companies = [...player.companies];
+  companies[companyIdx] = {
+    ...company,
+    destinationSite: { ...toCardInstance(dest), status: CardStatus.Untapped },
+    movementPath: [],
+  };
+  const siteDeck = removeById(player.siteDeck, dest.instanceId);
+  const destName = cardNameLocal(state, dest.definitionId);
+  logDetail(`Extra M/H phase: company ${action.companyId as string} sets destination ${destName} → re-entering reveal-new-site (extra M/H phase)`);
+
+  return {
+    state: {
+      ...updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })),
+      phaseState: { ...resetCompanyMHFields(mhState), step: 'reveal-new-site' as const, siteRevealed: true },
     },
   };
 }
@@ -1749,9 +2440,24 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   // index-parallel (site-path types vs. just origin/destination names), so
   // the override is skipped there — there is no reliable region to attribute
   // it to.
-  const effectiveSitePath = mhState.resolvedSitePath.length === mhState.resolvedSitePathNames.length
+  const overriddenSitePath = mhState.resolvedSitePath.length === mhState.resolvedSitePathNames.length
     ? mhState.resolvedSitePath.map((rt, i) => getEffectiveRegionType(state, mhState.resolvedSitePathNames[i], rt))
     : mhState.resolvedSitePath;
+
+  // region-type-remap environments (Fell Winter le-111): reinterpret whole
+  // classes of region ("all Border-lands as Wildernesses") on the traversed
+  // path before keying. Evaluated live so the DoN gate tracks play/leave.
+  const regionRemaps = collectRegionTypeRemaps(state, inPlayNames);
+  const remappedSitePath = applyRegionTypeRemaps(overriddenSitePath, regionRemaps);
+
+  // region-type-conversion environments (Girdle of Radagast le-... wh-110):
+  // named regions bound to a Wizardhaven (and its adjacents) "become
+  // Wilderness". Applied last, keyed by region name, so those regions read as
+  // the converted type regardless of their printed type or any type-class remap.
+  const regionConversions = collectRegionTypeConversions(state);
+  const effectiveSitePath = mhState.resolvedSitePath.length === mhState.resolvedSitePathNames.length
+    ? applyRegionTypeConversions(remappedSitePath, mhState.resolvedSitePathNames, regionConversions)
+    : remappedSitePath;
 
   // region-keying-boost environments (Withered Lands): build the candidate
   // paths once. Each is the resolved path with at most one boost applied.
@@ -1840,6 +2546,99 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
 
 
 /**
+ * Handle tap-alt-permanent-event: the hazard player taps an in-play dual-mode
+ * creature that was played as a permanent-event (`creature-alt-event` mode
+ * `permanent-event`, e.g. Ûvatha tw-107 / Adûnaphel tw-2) during the opponent's
+ * movement/hazard phase. Per the card text the permanent-event "becomes a
+ * short-event": it is removed from play and discarded, counts one against the
+ * hazard limit, and its on-tap effects resolve through the ordinary short-event
+ * chain path (tw-107: a `move` fetch of a hazard creature from discard to hand;
+ * tw-2: a `tap-character` targeting the chosen `targetCharacterId`).
+ */
+function handleTapAltPermanentEvent(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'tap-alt-permanent-event') return wrongActionType(state, action, 'tap-alt-permanent-event');
+  const hazardIndex = getPlayerIndex(state, action.player);
+  const hazardPlayer = state.players[hazardIndex];
+  const card = hazardPlayer.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: 'tap-alt-permanent-event: card not found in cardsInPlay' };
+  if (card.status === CardStatus.Tapped) return { state, error: 'tap-alt-permanent-event: card is already tapped' };
+  const def = defById(state, card.definitionId);
+  const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
+  if (!altEvent || altEvent.mode !== 'permanent-event') {
+    return { state, error: 'tap-alt-permanent-event: not a creature-permanent-event' };
+  }
+
+  // CoE 2.1.2: a tap-character on-tap effect is a hazard directed at the opponent,
+  // so it may never target the hazard player's own characters.
+  if (action.targetCharacterId && hazardPlayer.characters[action.targetCharacterId]) {
+    return { state, error: 'tap-alt-permanent-event: cannot target your own character' };
+  }
+
+  // Tapping counts one against the hazard limit (per the card text).
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const activeCompany = state.players[resourceIndex].companies[mhState.activeCompanyIndex];
+  const bypassesLimit = !!def && 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+  if (activeCompany && !bypassesLimit) {
+    const limit = currentHazardLimit(state, mhState, activeCompany.id);
+    if (mhState.hazardsPlayedThisCompany >= limit) {
+      return { state, error: `tap-alt-permanent-event: hazard limit reached (${limit})` };
+    }
+  }
+  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+
+  logDetail(`Creature-permanent-event "${def?.name ?? card.definitionId}" tapped during opponent M/H → becomes a short-event (${newHazardCount})`);
+
+  // Khamûl the Easterling (tw-47): its on-tap short-event forces the opponent to
+  // discard one card "for every Nazgûl permanent-event in play (including this
+  // one) at the time of declaration". The CRF ruling fixes the number at
+  // declaration, so we count matching in-play cards NOW — while this card is
+  // still in play, so "including this one" falls out naturally — and thread the
+  // result to the chain resolution via the payload.
+  const forceDiscard = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').ForceOpponentDiscardEffect => e.type === 'force-opponent-discard',
+  );
+  let forcedDiscardCount: number | undefined;
+  if (forceDiscard?.count?.countCardsInPlay) {
+    const keyword = forceDiscard.count.countCardsInPlay.keyword;
+    forcedDiscardCount = 0;
+    for (const p of state.players) {
+      for (const inPlay of p.cardsInPlay) {
+        const d = defById(state, inPlay.definitionId);
+        const keywords: readonly string[] =
+          d && 'keywords' in d ? (d as { keywords?: readonly string[] }).keywords ?? [] : [];
+        if (keywords.includes(keyword)) forcedDiscardCount++;
+      }
+    }
+    logDetail(`force-opponent-discard: ${forcedDiscardCount} card(s) with keyword "${keyword}" in play at declaration → opponent discards ${forcedDiscardCount}`);
+  }
+
+  // "Becomes a short-event": remove from play, discard, and resolve its on-tap
+  // effects via the short-event chain path (identical to playing it as a
+  // short-event — its top-level effects resolve on chain resolution).
+  const cardInstance = toCardInstance(card);
+  let newState: GameState = {
+    ...updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+      discardPile: [...p.discardPile, cardInstance],
+    })),
+    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
+  };
+
+  const payload: import('../index.js').ChainEntryPayload = {
+    type: 'short-event',
+    ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+    ...(forcedDiscardCount !== undefined ? { forcedDiscardCount } : {}),
+  };
+  newState = initiateOrPushChain(newState, action.player, cardInstance, payload);
+  return { state: newState };
+}
+
+/**
  * Handle tap-hazard-card-for-limit: hazard player taps a cardsInPlay permanent
  * event (e.g. Power Built by Waiting) to increase the hazard limit against the
  * current target company by the card's HazardLimitSwapEffect.tapValue.
@@ -1926,6 +2725,55 @@ export function handlePayHazardLimitToUntapCard(
       phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount },
     },
   };
+}
+
+/**
+ * Handle discard-card-for-hazard-limit: the hazard player discards a Dragon
+ * "At Home" permanent event (METD §4) from play during the opponent's M/H
+ * phase to raise the hazard limit against the current target company by the
+ * card's {@link DiscardForHazardLimitEffect.value}.
+ *
+ * The card moves from cardsInPlay to the owner's discard pile (a routine
+ * discard — it does NOT break the Dragon manifestation chain, and it does NOT
+ * count against the hazard limit). The boost is added as a
+ * `hazard-limit-modifier` constraint scoped to the target company's current
+ * M/H phase, exactly like {@link handleTapHazardCardForLimit}.
+ */
+export function handleDiscardCardForHazardLimit(
+  state: GameState,
+  action: import('../types/actions-movement-hazard.js').DiscardCardForHazardLimitAction,
+  _mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!card) return { state, error: `discard-card-for-hazard-limit: card ${action.cardInstanceId as string} not found in cardsInPlay` };
+
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find((e): e is import('../types/effects.js').DiscardForHazardLimitEffect => e.type === 'discard-for-hazard-limit');
+  if (!effect) return { state, error: `discard-card-for-hazard-limit: no discard-for-hazard-limit effect on ${card.definitionId as string}` };
+
+  const defName = (def as { name?: string } | undefined)?.name ?? card.definitionId as string;
+  logDetail(`Discard for hazard limit: "${defName}" discarded from play → +${effect.value} hazard limit against company ${action.targetCompanyId as string}`);
+
+  // Discard the card from play (routine discard — chain is not broken).
+  const stateAfterDiscard = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+
+  // Add hazard-limit-modifier constraint on the target company.
+  const stateWithConstraint = addConstraint(stateAfterDiscard, {
+    source: action.cardInstanceId,
+    sourceDefinitionId: card.definitionId,
+    target: { kind: 'company', companyId: action.targetCompanyId },
+    kind: { type: 'hazard-limit-modifier', value: effect.value },
+    scope: { kind: 'company-mh-phase', companyId: action.targetCompanyId },
+  });
+
+  return { state: stateWithConstraint };
 }
 
 /**
@@ -2134,6 +2982,106 @@ export function handlePlayCreatureFromDiscard(
     prowessBonus: effect.prowessModifier,
   };
   newState = initiateChain(newState, action.player, creatureCard, payload);
+
+  return { state: newState };
+}
+
+/**
+ * Handle spawn-replay-creature: the hazard player replays a hazard creature
+ * from their own discard pile as an immediate attack, granted by an in-play
+ * permanent-event carrying a `grant-replay-attacked-creature` effect
+ * (Monstrosity of Diverse Shape, ba-21).
+ *
+ * The creature must match the effect's `filter` (Wolf / Animal) and must have
+ * already attacked the target company this M/H phase (its name is in
+ * `hazardsEncountered`). This play COUNTS against the hazard limit and may be
+ * used only once per company's M/H phase per source permanent-event. The
+ * creature enters a new chain and, after combat, is disposed by the normal
+ * combat-finalization rules.
+ */
+export function handleSpawnReplayCreature(
+  state: GameState,
+  action: import('../types/actions-movement-hazard.js').SpawnReplayCreatureAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const hazardIdx = getPlayerIndex(state, action.player);
+  const hazardPlayerState = state.players[hazardIdx];
+
+  // Validate the source permanent-event is in play and carries the effect.
+  const sourceCard = hazardPlayerState.cardsInPlay.find(c => c.instanceId === action.sourceInstanceId);
+  if (!sourceCard) {
+    return { state, error: `spawn-replay-creature: source ${action.sourceInstanceId as string} not in play` };
+  }
+  const sourceDef = defById(state, sourceCard.definitionId);
+  const effect = sourceDef
+    ? getCardEffects(sourceDef).find(
+        (e): e is import('../index.js').GrantReplayAttackedCreatureEffect =>
+          e.type === 'grant-replay-attacked-creature',
+      )
+    : undefined;
+  if (!effect) {
+    return { state, error: `spawn-replay-creature: ${sourceCard.definitionId as string} has no grant-replay-attacked-creature effect` };
+  }
+
+  // Once per company's M/H phase per source.
+  const usedSources = mhState.spawnReplayUsedSources ?? [];
+  if (usedSources.includes(action.sourceInstanceId)) {
+    return { state, error: `spawn-replay-creature: ${sourceCard.definitionId as string} already used this M/H phase` };
+  }
+
+  // Validate the target creature is in the discard pile and matches the filter.
+  const creatureCard = findById(hazardPlayerState.discardPile, action.creatureInstanceId);
+  if (!creatureCard) {
+    return { state, error: `spawn-replay-creature: creature ${action.creatureInstanceId as string} not found in discard pile` };
+  }
+  const creatureDef = defById(state, creatureCard.definitionId);
+  if (!creatureDef || creatureDef.cardType !== 'hazard-creature') {
+    return { state, error: `spawn-replay-creature: ${creatureCard.definitionId as string} is not a hazard-creature` };
+  }
+  if (!matchesCondition(effect.filter, creatureDef as unknown as Record<string, unknown>)) {
+    return { state, error: `spawn-replay-creature: ${creatureCard.definitionId as string} does not match the effect filter` };
+  }
+
+  // "This card must have already attacked the company this turn."
+  const creatureName = (creatureDef as { name?: string }).name ?? (creatureCard.definitionId as string);
+  if (!mhState.hazardsEncountered.includes(creatureName)) {
+    return { state, error: `spawn-replay-creature: "${creatureName}" has not attacked this company this turn` };
+  }
+
+  // Creatures must initiate a new chain.
+  if (state.chain !== null) {
+    return { state, error: `spawn-replay-creature: creatures must initiate a new chain` };
+  }
+
+  // This replay counts one against the hazard limit.
+  const limit = currentHazardLimit(state, mhState, action.targetCompanyId);
+  if (mhState.hazardsPlayedThisCompany >= limit) {
+    return { state, error: `spawn-replay-creature: hazard limit reached (${limit})` };
+  }
+  const newHazardCount = mhState.hazardsPlayedThisCompany + 1;
+
+  logDetail(
+    `Monstrosity of Diverse Shape: replaying "${creatureName}" from discard pile against company ${action.targetCompanyId as string} (${newHazardCount}/${limit} hazards)`,
+  );
+
+  // Remove the creature from the discard pile; mark the source used; count the
+  // hazard; resume the resource player's window (rule 5.27).
+  let newState = updatePlayer(state, hazardIdx, p => ({
+    ...p,
+    discardPile: removeById(p.discardPile, creatureCard.instanceId),
+  }));
+  newState = {
+    ...newState,
+    phaseState: {
+      ...mhState,
+      hazardsPlayedThisCompany: newHazardCount,
+      spawnReplayUsedSources: [...usedSources, action.sourceInstanceId],
+      resourcePlayerPassed: false,
+    },
+  };
+
+  // Initiate the creature combat. No prowess modifier.
+  newState = initiateChain(newState, action.player, creatureCard, { type: 'creature' });
 
   return { state: newState };
 }

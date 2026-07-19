@@ -159,16 +159,32 @@ export function readMessage(playerName: string, msgId: string): MailMessage | nu
 /**
  * Update a message's status and optionally set the success field.
  *
+ * @param keywordsPatch Optional key/value pairs merged onto the message's
+ *   existing keywords (existing keys are overwritten, others preserved). Used
+ *   to stamp e.g. `prUrl`/`pendingReplyJson` onto a message as it moves to
+ *   `processed`, so the run-ai finalize sweep can later resolve its PR.
  * @returns The updated message, or null if not found.
  */
-export function updateMessageStatus(playerName: string, msgId: string, status: MailStatus, success?: boolean): MailMessage | null {
+export function updateMessageStatus(
+  playerName: string,
+  msgId: string,
+  status: MailStatus,
+  success?: boolean,
+  keywordsPatch?: Readonly<Record<string, string>>,
+): MailMessage | null {
   const filePath = path.join(inboxDir(playerName), `${msgId}.json`);
   try {
     const message = loadMail(filePath);
     const updatedAt = new Date().toISOString();
-    const updated: MailMessage = { ...message, status, updatedAt, ...(success !== undefined ? { success } : {}) };
+    const updated: MailMessage = {
+      ...message,
+      status,
+      updatedAt,
+      ...(success !== undefined ? { success } : {}),
+      ...(keywordsPatch ? { keywords: { ...message.keywords, ...keywordsPatch } } : {}),
+    };
     fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
-    updateSentCopies(msgId, status, updatedAt, success);
+    updateSentCopies(msgId, status, updatedAt, success, keywordsPatch);
     notifyPlayer(playerName, { type: 'mail-notification', unreadCount: countUnread(playerName) });
     return updated;
   } catch {
@@ -177,7 +193,13 @@ export function updateMessageStatus(playerName: string, msgId: string, status: M
 }
 
 /** Update all sent-folder copies of a message across all players. */
-function updateSentCopies(msgId: string, status: MailStatus, updatedAt: string, success?: boolean): void {
+function updateSentCopies(
+  msgId: string,
+  status: MailStatus,
+  updatedAt: string,
+  success?: boolean,
+  keywordsPatch?: Readonly<Record<string, string>>,
+): void {
   try {
     const entries = fs.readdirSync(PLAYERS_DIR, { withFileTypes: true });
     for (const entry of entries) {
@@ -185,7 +207,13 @@ function updateSentCopies(msgId: string, status: MailStatus, updatedAt: string, 
       const filePath = path.join(PLAYERS_DIR, entry.name, 'mail', 'sent', `${msgId}.json`);
       try {
         const message = loadMail(filePath);
-        const updated: MailMessage = { ...message, status, updatedAt, ...(success !== undefined ? { success } : {}) };
+        const updated: MailMessage = {
+          ...message,
+          status,
+          updatedAt,
+          ...(success !== undefined ? { success } : {}),
+          ...(keywordsPatch ? { keywords: { ...message.keywords, ...keywordsPatch } } : {}),
+        };
         fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
       } catch { /* file doesn't exist for this player */ }
     }

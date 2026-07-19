@@ -9,7 +9,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Númeriador",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Drake",
@@ -38,8 +41,23 @@
             "coastal"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-keying",
+        "keying": {
+          "regionTypes": [
+            "coastal"
+          ]
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "drake"
       }
-    ]
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
@@ -51,7 +69,11 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gap of Isen",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -69,8 +91,9 @@
     },
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (8), The Under-gates (6)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2): (1st) Undead — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (8), The Under-gates (6)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2): (1st) Undead — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Any Undead creature or Pûkel-creature may be keyed to this site.",
     "unique": true,
+    "certified": "2026-07-14",
     "effects": [
       {
         "type": "site-rule",
@@ -80,6 +103,16 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "pûkel-creature"
       }
     ]
   },
@@ -93,7 +126,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Angmar",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -111,8 +147,9 @@
     },
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Adjacent Sites: Carn Dûm (0), The Under-leas (6), The Under-vaults (7)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Trolls — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins and Lairs.",
+    "text": "Adjacent Sites: Carn Dûm (0), The Under-leas (6), The Under-vaults (7)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Trolls — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins and Lairs.\nSpecial: Creatures keyed to this site attack normally, not as detainment. Any Drake creature (except Sea Serpent) may be keyed to this site.",
     "unique": true,
+    "certified": "2026-07-09",
     "effects": [
       {
         "type": "site-rule",
@@ -121,6 +158,18 @@
           "siteTypes": [
             "ruins-and-lairs"
           ]
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "drake",
+        "except": {
+          "name": "Sea Serpent"
         }
       }
     ]
@@ -167,7 +216,11 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Rohan",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Pûkel-creature",
@@ -185,7 +238,7 @@
     },
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Adjacent Sites: Dunharrow (0), The Gem-deeps (8), The Sulfur-deeps (9)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2): (1st) Pûkel-creature — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "text": "Adjacent Sites: Dunharrow (0), The Gem-deeps (8), The Sulfur-deeps (9)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2): (1st) Pûkel-creature — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Any Undead creature or Pûkel-creature may be keyed to this site.",
     "unique": true,
     "effects": [
       {
@@ -196,8 +249,19 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "pûkel-creature"
       }
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "balrog-site",
@@ -209,7 +273,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "",
-    "playableResources": [],
+    "playableResources": ["information", "minor", "major", "greater"],
     "automaticAttacks": [
       {
         "creatureType": "Drake",
@@ -227,10 +291,20 @@
     "hazardDraws": 2,
     "text": "Adjacent Sites: no surface site, The Drowning-deeps (9)\nPlayable: Information, Items (minor, major, greater)\nAutomatic-attacks (2): (1st) Drake — 2 strikes with 12 prowess\n(2nd) Opponent may play as an automatic-attack one hazard creature from his hand normally keyed to Coastal Sea.\nSpecial: Creatures keyed to Coastal Seas may be keyed to this site.",
     "unique": true,
+    "certified": "2026-07-09",
     "effects": [
       {
         "type": "site-rule",
         "rule": "dynamic-auto-attack",
+        "keying": {
+          "regionTypes": [
+            "coastal"
+          ]
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-keying",
         "keying": {
           "regionTypes": [
             "coastal"
@@ -249,7 +323,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Iron Hills",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Drake",
@@ -266,7 +343,7 @@
     },
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "text": "Adjacent Sites: Iron Hill Dwarf-hold (13), The Wind-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Drake — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "text": "Adjacent Sites: Iron Hill Dwarf-hold (13), The Wind-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Drake — 2 strikes with 11 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Any Dragon creature (except Eärcaraxë) may be keyed to this site.",
     "unique": true,
     "effects": [
       {
@@ -277,8 +354,17 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "dragon",
+        "except": {
+          "name": "Eärcaraxë"
+        }
       }
-    ]
+    ],
+    "certified": "2026-07-14"
   },
   {
     "cardType": "balrog-site",
@@ -290,7 +376,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Southern Mirkwood",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Troll",
@@ -310,7 +399,7 @@
     },
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Adjacent Sites: Dol Guldur (0), The Under-gates (6), The Pûkel-deeps (9), The Under-galleries (9), The Under-courts (7)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Troll — 2 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "text": "Adjacent Sites: Dol Guldur (0), The Under-gates (6), The Pûkel-deeps (9), The Under-galleries (9), The Under-courts (7)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Troll — 2 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Creatures keyed to this site attack normally, not as detainment.",
     "unique": true,
     "effects": [
       {
@@ -321,8 +410,13 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
       }
-    ]
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
@@ -334,7 +428,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gorgoroth",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -364,7 +461,8 @@
           ]
         }
       }
-    ]
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
@@ -376,7 +474,7 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Ûdun",
-    "playableResources": [],
+    "playableResources": ["information", "minor", "major"],
     "automaticAttacks": [
       {
         "creatureType": "Trolls",
@@ -394,7 +492,7 @@
     },
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Adjacent Sites: Any site in Ûdun (0), The Under-courts (6), The Sulfur-deeps (9)\nPlayable: Information, Items (minor, major)\nAutomatic-attacks (2): (1st) Trolls — 4 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "text": "Adjacent Sites: Any site in Ûdun (0), The Under-courts (6), The Sulfur-deeps (9)\nPlayable: Information, Items (minor, major)\nAutomatic-attacks (2): (1st) Trolls — 4 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Creatures keyed to this site attack normally, not as detainment.",
     "unique": true,
     "effects": [
       {
@@ -405,8 +503,13 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
       }
-    ]
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
@@ -460,7 +563,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "High Pass",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -478,7 +584,7 @@
     },
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Adjacent Sites: Goblin-gate (0), The Under-leas (6), The Under-gates (6)\nPlayable: Items (minor, gold ring)\nAutomatic-attacks (2): (1st) Undead — 4 strikes with 7 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "text": "Adjacent Sites: Goblin-gate (0), The Under-leas (6), The Under-gates (6)\nPlayable: Items (minor, gold ring)\nAutomatic-attacks (2): (1st) Undead — 4 strikes with 7 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: When a gold ring is tested in a company at this site, the result of the roll is modified by +1.",
     "unique": true,
     "effects": [
       {
@@ -489,8 +595,14 @@
             "shadow-hold"
           ]
         }
+      },
+      {
+        "type": "site-rule",
+        "rule": "auto-test-gold-ring",
+        "rollModifier": 1
       }
-    ]
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
@@ -612,7 +724,10 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Grey Mountain Narrows",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Orcs",
@@ -630,8 +745,9 @@
     },
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Adjacent Sites: The Wind Throne (0), The Under-leas (5), The Rusted-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Orcs — 3 strikes with 7 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.",
+    "text": "Adjacent Sites: The Wind Throne (0), The Under-leas (5), The Rusted-deeps (8)\nPlayable: Items (minor, major)\nAutomatic-attacks (2): (1st) Orcs — 3 strikes with 7 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold.\nSpecial: Any Drake creature (except Sea Serpent) may be keyed to this site.",
     "unique": true,
+    "certified": "2026-07-14",
     "effects": [
       {
         "type": "site-rule",
@@ -640,6 +756,14 @@
           "siteTypes": [
             "shadow-hold"
           ]
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "drake",
+        "except": {
+          "name": "Sea Serpent"
         }
       }
     ]
@@ -654,11 +778,72 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "information",
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 4,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Undead",
+        "strikes": 2,
+        "prowess": 10
+      }
+    ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "unique": true,
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Adjacent Sites: no surface site, one Under-deeps Ruins & Lairs [{R}] chosen by you when playing this card (8)Playable: Information, Items (minor, major, greater, gold ring)Automatic-attacks (3): (1st) Undead — 4 strikes with 7 prowess (2nd) Undead — 3 strikes with 8 prowess (3rd) Undead — 2 strikes with 10 prowess Each character wounded must make a corruption check modified by -2.Special: Any Undead and Spider creatures may be keyed to this site. This site is never discarded or returned to its location deck."
+    "text": "Adjacent Sites: no surface site, one Under-deeps Ruins & Lairs [{R}] chosen by you when playing this card (8)Playable: Information, Items (minor, major, greater, gold ring)Automatic-attacks (3): (1st) Undead — 4 strikes with 7 prowess (2nd) Undead — 3 strikes with 8 prowess (3rd) Undead — 2 strikes with 10 prowess Each character wounded must make a corruption check modified by -2.Special: Any Undead and Spider creatures may be keyed to this site. This site is never discarded or returned to its location deck.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-under-deeps-adjacency",
+        "siteTypes": [
+          "ruins-and-lairs"
+        ],
+        "roll": 8
+      },
+      {
+        "type": "site-rule",
+        "rule": "always-return-to-deck"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "spiders"
+      },
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -2
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-07-13"
   },
   {
     "cardType": "balrog-site",
@@ -670,10 +855,42 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Gorgoroth",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Trolls",
+        "strikes": 3,
+        "prowess": 9
+      },
+      {
+        "creatureType": "Maia",
+        "strikes": 1,
+        "prowess": 24,
+        "combatRules": [
+          "cannot-be-canceled",
+          "wound-eliminates"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 4,
+    "unique": true,
+    "certified": "2026-07-09",
     "text": "Playable: Items (minor, major, greater)Automatic-attacks (3): (1st) Orcs — 4 strikes with 7 prowess (2nd) Trolls — 3 strikes with 9 prowess (3rd) Maia (cannot be canceled) — 1 strike with 24 prowess. Any character wounded by the Maia’s attack is automatically eliminatedSpecial: Creatures keyed to this site attack normally, not as detainment."
   },
   {
@@ -686,11 +903,33 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Angmar",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": ["minor", "major"],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Nazgûl",
+        "strikes": 1,
+        "prowess": 15,
+        "combatRules": [
+          "cannot-be-canceled"
+        ]
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Playable: Items (minor, major)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Nazgûl (cannot be canceled) — 1 strike with 15 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+    "text": "Playable: Items (minor, major)\nAutomatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess\n(2nd) Nazgûl (cannot be canceled) — 1 strike with 15 prowess\nSpecial: Creatures keyed to this site attack normally, not as detainment.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
@@ -702,11 +941,34 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Udûn",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 5,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Trolls",
+        "strikes": 2,
+        "prowess": 10
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 8 prowess (2nd) Trolls — 2 strikes with 10 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+    "unique": true,
+    "text": "Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 5 strikes with 8 prowess (2nd) Trolls — 2 strikes with 10 prowessSpecial: Creatures keyed to this site attack normally, not as detainment.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
@@ -718,11 +980,25 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Imlad Morgul",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": ["minor", "major"],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 4,
+        "prowess": 7
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Playable: Items (minor, major)Automatic-attacks (1): Orcs — 4 strikes with 7 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+    "text": "Playable: Items (minor, major)\nAutomatic-attacks (1): Orcs — 4 strikes with 7 prowess\nSpecial: Creatures keyed to this site attack normally, not as detainment.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
@@ -734,11 +1010,40 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Southern Mirkwood",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "information",
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Orcs",
+        "strikes": 3,
+        "prowess": 7
+      },
+      {
+        "creatureType": "Trolls",
+        "strikes": 2,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Nazgûl",
+        "strikes": 1,
+        "prowess": 15,
+        "combatRules": ["cannot-be-canceled"]
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "text": "Playable: Information, Items (minor, major)Automatic-attacks (3): (1st) Orcs — 3 strikes with 7 prowess (2nd) Trolls — 2 strikes with 8 prowess (3rd) Nazgûl (cannot be canceled) — 1 strike with 15 prowessSpecial: Creatures keyed to this site attack normally, not as detainment."
+    "text": "Playable: Information, Items (minor, major)Automatic-attacks (3): (1st) Orcs — 3 strikes with 7 prowess (2nd) Trolls — 2 strikes with 8 prowess (3rd) Nazgûl (cannot be canceled) — 1 strike with 15 prowessSpecial: Creatures keyed to this site attack normally, not as detainment.",
+    "unique": true,
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ],
+    "certified": "2026-07-09"
   },
   {
     "cardType": "balrog-site",
@@ -750,10 +1055,36 @@
     "sitePath": [],
     "nearestHaven": "",
     "region": "Imlad Morgul",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Undead",
+        "strikes": 3,
+        "prowess": 8
+      },
+      {
+        "creatureType": "Nazgûl",
+        "strikes": 1,
+        "prowess": 15,
+        "combatRules": [
+          "cannot-be-canceled"
+        ]
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 4,
-    "text": "Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess (2nd) Nazgûl (cannot be canceled) — 1 strike with 15 prowess Special: Creatures keyed to this site attack normally, not as detainment."
+    "unique": true,
+    "certified": "2026-07-09",
+    "text": "Playable: Items (minor, major, greater)Automatic-attacks (2): (1st) Undead — 3 strikes with 8 prowess (2nd) Nazgûl (cannot be canceled) — 1 strike with 15 prowess Special: Creatures keyed to this site attack normally, not as detainment.",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment"
+      }
+    ]
   }
 ]

@@ -9,11 +9,40 @@ Long-running worker loop that polls for unhandled ai requests and
 dispatches them to bin/handle-mail one at a time. Pulls master between
 iterations and skips feature-requests (which require human review).
 
+Requests are served by topic priority rather than arrival order: bug reports
+first, then feature planning/implementation requests, then anything else
+(card requests, review fixes), and certification requests last — so a large
+certification backlog never delays a bug fix. Within one priority tier the
+oldest request goes first.
+
+At the start of every iteration it also sweeps all open PRs: for any PR
+that conflicts with master, has failing CI checks, or carries review
+comments it runs a headless claude to resolve the conflict, fix the CI
+failure, and/or address the comments on that PR's branch. An idle PR is not
+re-processed every tick: a PR whose state (head commit, mergeable status,
+comment counts, failed-CI count) is unchanged from the last pass is retried
+up to 3 times and then left alone, and giving up is logged loudly. The retry
+matters because a fix attempt that crashed or hit a usage limit leaves the PR
+byte-identical to one that was genuinely unfixable — skipping on identical
+state alone would blacklist a still-broken PR for the worker's whole life.
+The fix agent's output is kept in ~/.meccg/logs/ai-pr-raw.log.
+
 On startup it preflight-checks the headless claude OAuth token: it resolves
 the token (env or secrets.json) and validates it with a tiny test prompt. If
 the token is missing or expired it prints setup instructions and exits (code
 4) instead of failing inside the first request. The token itself cannot be
 created automatically — `claude setup-token` is interactive (browser login).
+
+If handle-mail hits an API capacity/usage limit (subscription session limit,
+rate limit, or server overload) mid-request, it resets that message to 'new'
+(never burning it) and exits 5; run-ai treats 5 as retryable — it backs off on
+the idle schedule and retries the same message later, once the limit resets,
+instead of marching down the queue marking every request failed.
+
+Ctrl+C (SIGINT) and SIGTERM are caught: any request that was in flight is reset
+from 'processing' back to 'new' before exiting (code 130), so an interrupted
+request is picked up again by the next run instead of being stranded as
+'processing' forever.
 
 Arguments:
   <n>             Optional maximum number of requests to handle, then exit.
@@ -46,6 +75,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$HOME/.meccg/logs"
 LOG_FILE="$LOG_DIR/ai.log"
 SECRETS="$HOME/.meccg/secrets.json"
+AI_INFO="$HOME/.meccg/players/ai/info.json"
 BASE_URL="${MECCG_LOBBY_URL:-http://localhost:8080}"
 BASE_URL="${BASE_URL%/}"
 
@@ -64,13 +94,123 @@ master_key() {
   return 1
 }
 
-# Fetch unhandled requests from the lobby system API and print the first
-# non-feature-request message ID. Feature-requests need human review
-# (approve/decline) and cannot be auto-handled.
+# PUT a status on an ai-inbox message.  $1=msg-id  $2=status
+set_message_status() {
+  curl -sf -X PUT "$BASE_URL/api/system/mail/ai/$1" \
+    -H "Authorization: Bearer $(master_key)" \
+    -H 'Content-Type: application/json' \
+    -d "{\"status\":\"$2\"}" >/dev/null 2>&1 \
+    || echo "[run-ai] WARNING: failed to set message $1 -> $2" | tee -a "$LOG_FILE"
+}
+
+# Print the current status of an ai-inbox message.  $1=msg-id
+# Non-zero (and empty output) if the lobby could not be reached.
+message_status() {
+  local resp
+  resp=$(curl -sf -X GET "$BASE_URL/api/system/ai-requests?all=true" \
+    -H "Authorization: Bearer $(master_key)" 2>/dev/null) || return 1
+  jq -r --arg id "$1" '[.requests[] | select(.id == $id)][0].status // empty' <<<"$resp" 2>/dev/null
+}
+
+# ---------------------------------------------------------------------------
+# Interrupt handling
+# ---------------------------------------------------------------------------
+# handle-mail marks a message 'processing' the moment it starts. If the operator
+# hits Ctrl+C (or something SIGTERMs us) mid-request, handle-mail dies with the
+# message still 'processing' — a state nothing ever clears, so that request is
+# stranded forever: never retried, never failed, invisible to the next run-ai.
+# Catch the signal, reset the in-flight message back to 'new' (it was not
+# handled, so it must not be burned), and exit 130. CURRENT_MSG_ID is set only
+# for the window in which a message is actually in flight.
+CURRENT_MSG_ID=""
+HANDLE_PID=""
+
+# TERM a process and everything below it, children first. Terminating only the
+# direct child is not enough: the work runs in a grandchild (handle-mail spawns
+# the headless claude), which would otherwise keep running — and keep writing to
+# the repo — after we exit.
+kill_tree() {
+  local pid="$1" child
+  for child in $(pgrep -P "$pid" 2>/dev/null); do
+    kill_tree "$child"
+  done
+  kill -TERM "$pid" 2>/dev/null || true
+}
+
+on_interrupt() {
+  local sig="$1"
+  # Restore default handling: a second Ctrl+C during cleanup kills us outright
+  # rather than re-entering this handler.
+  trap - INT TERM
+
+  echo | tee -a "$LOG_FILE"
+  echo "=== Interrupted (SIG$sig) at $(date -Iseconds). Cleaning up. ===" | tee -a "$LOG_FILE"
+
+  # Stop everything we spawned (handle-mail + its headless claude). A terminal
+  # Ctrl+C already signalled the whole foreground process group, but an explicit
+  # SIGTERM to run-ai alone did not — so do it ourselves either way.
+  if [ -n "$HANDLE_PID" ]; then
+    kill_tree "$HANDLE_PID"
+  fi
+  pkill -TERM -P $$ 2>/dev/null || true
+
+  if [ -n "$CURRENT_MSG_ID" ]; then
+    # Only rewind a message that is genuinely still in flight. If the signal
+    # landed in the window where handle-mail had already recorded its outcome
+    # (success / failed / processed-awaiting-PR, or its own reset to 'new'),
+    # resetting on top of that would re-run finished work — so leave it alone.
+    # An unreadable status (lobby down) is treated as still-processing: a reset
+    # attempt that fails is harmless, a stranded 'processing' message is not.
+    local st
+    st=$(message_status "$CURRENT_MSG_ID" 2>/dev/null || true)
+    if [ -n "$st" ] && [ "$st" != "processing" ]; then
+      echo "=== Interrupted request $CURRENT_MSG_ID already resolved (status=$st); leaving it as-is ===" | tee -a "$LOG_FILE"
+    else
+      echo "=== Resetting interrupted request $CURRENT_MSG_ID to 'new' (not burned) ===" | tee -a "$LOG_FILE"
+      set_message_status "$CURRENT_MSG_ID" new
+    fi
+    CURRENT_MSG_ID=""
+  fi
+
+  exit 130
+}
+trap 'on_interrupt INT' INT
+trap 'on_interrupt TERM' TERM
+
+# Fetch unhandled requests from the lobby system API and print the ID of the
+# highest-priority handleable message. Feature-requests need human review
+# (approve/decline) and cannot be auto-handled, so they are excluded.
+#
+# The queue is served by topic priority, not arrival order:
+#   1. bug-report                    — broken behaviour blocks everyone; fix first
+#   2. feature-planning-request /
+#      feature-implementation-request — requested work
+#   3. everything else (card-request, review-fix-request, ...) — small and rare;
+#      kept above certification so a long certification backlog cannot starve them
+#   4. certification-request          — the bulk backlog; drained last
+# Within a tier the lobby's own order (oldest first) is preserved, because
+# jq's sort_by is stable.
+#
+# Returns non-zero if the lobby could not be reached (curl failure). The caller
+# MUST distinguish this from an empty result: under `set -eo pipefail` a bare
+# `MSG_ID=$(next_request_id)` would otherwise abort the whole loop silently the
+# first time the lobby is down or hiccups, killing the worker with no log line.
+# Fetching into a variable first keeps the curl failure out of a pipeline so it
+# surfaces as this function's return code instead of a pipefail abort.
 next_request_id() {
-  curl -sf -X GET "$BASE_URL/api/system/ai-requests" \
-    -H "Authorization: Bearer $(master_key)" 2>/dev/null \
-    | jq -r '[.requests[] | select(.topic != "feature-request")][0].id // empty' 2>/dev/null
+  local resp
+  resp=$(curl -sf -X GET "$BASE_URL/api/system/ai-requests" \
+    -H "Authorization: Bearer $(master_key)" 2>/dev/null) || return 1
+  jq -r '
+    def priority:
+      if   . == "bug-report" then 0
+      elif . == "feature-planning-request" or . == "feature-implementation-request" then 1
+      elif . == "certification-request" then 3
+      else 2 end;
+    [.requests[] | select(.topic != "feature-request")]
+      | sort_by(.topic | priority)
+      | .[0].id // empty
+  ' <<<"$resp" 2>/dev/null
 }
 
 # Resolve the long-lived headless-claude OAuth token the same way handle-mail
@@ -205,6 +345,362 @@ fi
 IDLE_BACKOFF=(60 120 240 480 960 1920 3600)
 idle_index=0
 
+# Sleep on the idle-backoff schedule and advance the index, logging the given
+# reason. Shared by every "nothing to do yet / can't reach X yet" branch so a
+# transient outage (no pending work, lobby down, git remote unreachable) backs
+# off and retries instead of spinning hot or dying under `set -e`.
+idle_backoff() {
+  local reason="$1"
+  local delay="${IDLE_BACKOFF[$idle_index]}"
+  echo "=== $reason at $(date -Iseconds), sleeping ${delay}s ===" | tee -a "$LOG_FILE"
+  sleep "$delay"
+  if [ "$idle_index" -lt $((${#IDLE_BACKOFF[@]} - 1)) ]; then
+    idle_index=$((idle_index + 1))
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Open-PR maintenance
+# ---------------------------------------------------------------------------
+# At the top of every loop iteration we sweep ALL open PRs and, for any PR that
+# has a merge conflict or carries review feedback, hand it to a headless claude
+# to resolve the conflict and/or address the comments on the PR's own branch.
+# This keeps the review queue moving without waiting for a declined-review mail
+# to arrive.
+#
+# Guardrails for an unattended loop:
+#   - A per-process signature cache (PR_STATE_SIG) skips a PR whose head commit,
+#     mergeable state, and comment/review counts are byte-identical to the last
+#     time we processed it, so an unchanging PR is not re-fixed on every tick.
+#     A fresh commit or a new comment changes the signature and re-triggers a
+#     pass. This does not narrow the trigger (any conflict / any comment still
+#     fires) — it only suppresses redundant re-runs on identical state.
+#   - An unchanged signature does NOT mean the PR is healthy: a fix attempt that
+#     crashed, hit a usage limit, or aborted cleanly leaves the PR byte-identical
+#     too. Skipping on identical state alone therefore blacklisted a still-broken
+#     PR for the worker's entire life — it stayed conflicted forever and was
+#     never retried. So an unchanged signature is retried up to
+#     MAX_PR_FIX_ATTEMPTS times (transient claude failures are the common case)
+#     before the PR is finally left alone, and giving up is logged loudly rather
+#     than silently.
+#   - Failing to fix one PR never aborts the worker: we log, clean the tree,
+#     and move on to the next PR / to mail handling.
+declare -A PR_STATE_SIG
+declare -A PR_FIX_ATTEMPTS
+MAX_PR_FIX_ATTEMPTS=3
+
+# Build the single-PR maintenance prompt handed to the headless claude.
+#   $1=PR number  $2=PR url  $3=has_conflict(0/1)  $4=comment count  $5=failed-CI count
+pr_fix_prompt() {
+  local n="$1" url="$2" has_conflict="$3" total_comments="$4" failed_ci="$5"
+  cat <<EOF
+You are the MECCG unattended maintenance worker. Handle exactly ONE open pull request and then stop: PR #$n ($url). Work fully autonomously — never pause to ask for confirmation.
+
+Context detected by the loop: mergeable-conflict=$([ "$has_conflict" -eq 1 ] && echo yes || echo no), comment/review-count=$total_comments, failed-CI-checks=$failed_ci.
+
+Do the following:
+
+1. Find the PR branch and check it out, then pull latest:
+     BR=\$(gh pr view $n --json headRefName -q .headRefName)
+     git checkout "\$BR" && git pull
+2. RESOLVE CONFLICTS: if the PR conflicts with master (\`gh pr view $n --json mergeable -q .mergeable\` is CONFLICTING), merge origin/master into the branch and resolve every conflict correctly and conservatively:
+     git fetch origin master && git merge origin/master
+   Understand both sides before resolving; commit the merge. Never rebase, never amend, never force-push.
+3. FIX FAILING CI: inspect the PR's CI checks and fix whatever is red:
+     gh pr checks $n
+     gh run view <run-id> --log-failed        # for the failing run's logs
+   Reproduce each failure locally and fix the root cause in the code (a real type error, lint violation, or a genuinely failing test). Follow CLAUDE.md's test policy: to reproduce, run ONLY the failing/changed tests locally, NEVER the full \`npm test\` / \`npm run test:nightly\` suites — the full suites are what CI itself runs. Do not paper over a failure by weakening or deleting a test to make it pass; if a test failure reflects a real product bug, fix the product code.
+4. ADDRESS COMMENTS: read all feedback on the PR — review summaries, issue comments, and inline code-line comments (resolve the repo with \`gh repo view --json nameWithOwner -q .nameWithOwner\`):
+     gh pr view $n --json reviews,comments
+     gh api "repos/<owner>/<repo>/pulls/$n/comments"
+   Make code changes that address every actionable, unaddressed reviewer comment. SKIP comments that are already addressed, are your own bot/worker comments, or are not actionable requests.
+5. If you changed any code, verify before pushing (follow CLAUDE.md — NEVER run the full \`npm test\` / \`npm run test:nightly\` suites, only changed tests):
+     - npm run build
+     - changed test files only: git diff --name-only origin/master...HEAD -- '*.test.ts' | xargs -r npx vitest run
+     - npm run lint   (auto-fix with npm run lint:fix)
+   Iterate until all pass.
+6. Commit new commits on the SAME branch (never amend/rebase) and \`git push\`.
+7. WORKING-TREE CONTRACT: your turn MUST end with a clean tree (\`git status --porcelain\` empty).
+     - Success: everything committed on the branch and pushed.
+     - Cannot resolve (ambiguous, needs architecture you can't do, tests won't pass): abort cleanly — \`git merge --abort\` if mid-merge, then \`git checkout -- .\` and delete any new files — leaving the tree clean and the PR untouched.
+8. Do NOT send mail, do NOT change any mail message status, do NOT open a new PR, and do NOT merge the PR. Only push commits to the existing branch.
+
+Finish with a single-line summary of what you did (or "nothing actionable") — nothing else.
+EOF
+}
+
+# Run the headless claude on a single-PR maintenance prompt. Mirrors the
+# background-watch pattern used by preflight_token (and handle-mail's
+# run_skill): claude sometimes prints its terminal result without exiting, so
+# we watch the stream-json output for the result line (or a timeout) and then
+# make sure the process is gone. The OAuth token is already exported by
+# preflight_token, so the child inherits it. Returns 0 if claude reached a
+# terminal result, non-zero otherwise (caller only logs — never fatal).
+run_pr_fix() {
+  local prompt="$1"
+  local tmp
+  tmp=$(mktemp)
+  ( cd "$SCRIPT_DIR/.." && claude --dangerously-skip-permissions \
+      --output-format stream-json --verbose -p "$prompt" ) > "$tmp" 2>&1 &
+  local pid=$!
+  local deadline=$(( $(date +%s) + 1800 ))
+  local done=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if grep -q '"type":"result"' "$tmp" 2>/dev/null; then done=1; break; fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then break; fi
+    sleep 5
+  done
+  kill -TERM "$pid" 2>/dev/null || true
+  sleep 1
+  kill -KILL "$pid" 2>/dev/null || true
+
+  # Keep the agent's stream so a failed sweep can be diagnosed. Discarding this
+  # (the old `rm -f "$tmp"`) meant a PR fix that crashed, hit a usage limit, or
+  # gave up left no trace at all — the only symptom was the PR silently staying
+  # broken. Mirrors handle-mail's ai-raw.log.
+  cat "$tmp" >> "$LOG_DIR/ai-pr-raw.log"
+  rm -f "$tmp"
+  [ "$done" -eq 1 ]
+}
+
+# ---------------------------------------------------------------------------
+# Finalize 'processed' messages by their pull-request outcome
+# ---------------------------------------------------------------------------
+# 'processed' is the INTERMEDIATE state handle-mail parks PR-backed work in: the
+# handler finished and opened a PR, and stamped the PR URL (`prUrl`) plus the
+# stashed requestor reply (`pendingReplyJson`) onto the message's keywords. Once
+# per loop we resolve each such message from its PR's merge/close state:
+#   - PR merged            → deliver the stashed reply, mark 'success'
+#   - PR closed (unmerged) → notify the requestor it was declined, mark 'failed'
+#   - PR still open        → leave 'processed' for a later tick
+#   - no PR link           → mark 'failed' (a new-flow parked message should
+#                            always carry one)
+#
+# The lobby reviewer's "approve" action can finalize the same message first —
+# both finalizers move the ORIGINAL message to a terminal 'success'/'failed' and
+# act only while it is still 'processed', and the lobby approve handler skips its
+# send when the message is already terminal, so the reply is never sent twice.
+#
+# We only touch messages carrying `pendingReplyJson` (i.e. parked by the CURRENT
+# handle-mail). Legacy 'processed' messages from before this feature lack it and
+# are left untouched, so historically-successful work is never re-flagged failed.
+ai_display_name() {
+  if [ -f "$AI_INFO" ]; then jq -r '.displayName // "ai"' "$AI_INFO" 2>/dev/null || echo ai; else echo ai; fi
+}
+
+# POST a mail payload (built from a pendingReplyJson object).  $1=json-payload
+finalize_send_mail() {
+  curl -sf -X POST "$BASE_URL/api/system/mail" \
+    -H "Authorization: Bearer $(master_key)" \
+    -H 'Content-Type: application/json' \
+    -d "$1" >/dev/null 2>&1 \
+    || echo "[run-ai] WARNING: failed to send finalize mail" | tee -a "$LOG_FILE"
+}
+
+finalize_processed_messages() {
+  local resp
+  if ! resp=$(curl -sf -X GET "$BASE_URL/api/system/ai-requests?all=true" \
+      -H "Authorization: Bearer $(master_key)" 2>/dev/null); then
+    echo "=== Could not list processed messages (lobby unreachable) at $(date -Iseconds); skipping finalize ===" | tee -a "$LOG_FILE"
+    return 0
+  fi
+
+  local processed count
+  processed=$(jq -c '[.requests[] | select(.status == "processed") | select((.keywords.pendingReplyJson // "") != "")]' <<<"$resp" 2>/dev/null || echo '[]')
+  count=$(jq 'length' <<<"$processed" 2>/dev/null || echo 0)
+  if [ "$count" -eq 0 ]; then
+    return 0
+  fi
+  echo "=== Finalize sweep: $count processed message(s) awaiting a PR decision at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+
+  local from_name
+  from_name=$(ai_display_name)
+
+  cd "$SCRIPT_DIR/.."
+  local row id pr_url pending pr_json state
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    id=$(jq -r '.id' <<<"$row" 2>/dev/null || echo "")
+    pr_url=$(jq -r '.keywords.prUrl // empty' <<<"$row" 2>/dev/null || echo "")
+    pending=$(jq -c '.keywords.pendingReplyJson | fromjson? // empty' <<<"$row" 2>/dev/null || echo "")
+    [ -n "$id" ] || continue
+
+    if [ -z "$pr_url" ]; then
+      echo "=== Finalize: $id has no PR link -> failed ===" | tee -a "$LOG_FILE"
+      set_message_status "$id" failed
+      continue
+    fi
+
+    # Resolve the PR's merge/close state. A gh hiccup on one PR just defers it.
+    # `state` is OPEN/MERGED/CLOSED and stable across gh versions; the older
+    # `merged` boolean field was removed, so relying on it made this whole call
+    # fail and every message got deferred forever.
+    if ! pr_json=$(gh pr view "$pr_url" --json state 2>/dev/null); then
+      echo "=== Finalize: $id PR $pr_url unreadable (gh); deferring ===" | tee -a "$LOG_FILE"
+      continue
+    fi
+    state=$(jq -r '.state // ""' <<<"$pr_json" 2>/dev/null || echo "")
+
+    if [ "$state" = "MERGED" ]; then
+      echo "=== Finalize: $id PR merged -> success (delivering reply) ===" | tee -a "$LOG_FILE"
+      if [ -n "$pending" ]; then
+        finalize_send_mail "$(jq -nc --arg from "$from_name" --argjson p "$pending" \
+          '{recipients: [$p.recipient], from: $from, sender: "ai", topic: $p.topic,
+            subject: $p.subject, body: $p.body, keywords: ($p.keywords // {}),
+            replyTo: ($p.replyTo // null), sentBy: "ai"}')"
+      fi
+      set_message_status "$id" success
+    elif [ "$state" = "CLOSED" ]; then
+      echo "=== Finalize: $id PR closed unmerged -> failed (notifying) ===" | tee -a "$LOG_FILE"
+      if [ -n "$pending" ]; then
+        finalize_send_mail "$(jq -nc --arg from "$from_name" --argjson p "$pending" \
+          '{recipients: [$p.recipient], from: $from, sender: "ai", topic: $p.topic,
+            subject: ("Declined: " + $p.subject),
+            body: ("The pull request for this request was closed without being merged, so the change was not applied. If you still need it, please re-submit the request.\n\n---\n\n" + $p.body),
+            keywords: ($p.keywords // {}), replyTo: ($p.replyTo // null), sentBy: "ai"}')"
+      fi
+      set_message_status "$id" failed
+    fi
+    # OPEN (or a merge not yet reflected) — leave 'processed' for a later tick.
+  done < <(jq -c '.[]' <<<"$processed")
+}
+
+# Sweep every open PR once. For each PR that conflicts with master or carries
+# reviewer feedback, run the single-PR fixer. Always returns 0 — a failure on
+# any one PR is logged and skipped so the worker keeps running. Leaves the repo
+# on master with a clean tree.
+handle_open_prs() {
+  cd "$SCRIPT_DIR/.."
+
+  # gh failing (network/auth) is transient — skip the sweep this tick rather
+  # than aborting the loop.
+  local prs
+  if ! prs=$(gh pr list --state open --limit 200 --json number,url 2>/dev/null); then
+    echo "=== Could not list open PRs (gh unavailable) at $(date -Iseconds); skipping PR sweep ===" | tee -a "$LOG_FILE"
+    return 0
+  fi
+
+  local count
+  count=$(jq 'length' <<<"$prs" 2>/dev/null || echo 0)
+  if [ "$count" -eq 0 ]; then
+    echo "=== PR sweep: no open PRs at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+    return 0
+  fi
+
+  # Visible heartbeat so the sweep is observable every iteration, even when no
+  # PR needs work (a PR that is mergeable with no comments is skipped silently
+  # below, so without this line a working sweep looks like it never ran).
+  echo "=== PR sweep: checking $count open PR(s) for conflicts/comments at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+
+  local repo
+  repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+
+  local n url
+  while IFS=$'\t' read -r n url; do
+    if [ -z "$n" ]; then
+      continue
+    fi
+
+    # Per-PR detail: mergeable state, review decision, and comment/review
+    # counts. A gh hiccup on one PR just skips that PR.
+    local detail mergeable review_decision issue_comments review_bodies head_oid failed_ci
+    if ! detail=$(gh pr view "$n" --json mergeable,reviewDecision,comments,reviews,headRefOid,statusCheckRollup 2>/dev/null); then
+      continue
+    fi
+    mergeable=$(jq -r '.mergeable // "UNKNOWN"' <<<"$detail" 2>/dev/null || echo UNKNOWN)
+    review_decision=$(jq -r '.reviewDecision // ""' <<<"$detail" 2>/dev/null || echo "")
+    issue_comments=$(jq '[.comments[]? | select((.body // "") != "")] | length' <<<"$detail" 2>/dev/null || echo 0)
+    review_bodies=$(jq '[.reviews[]? | select((.body // "") != "")] | length' <<<"$detail" 2>/dev/null || echo 0)
+    head_oid=$(jq -r '.headRefOid // ""' <<<"$detail" 2>/dev/null || echo "")
+
+    # Count definitively-failed CI checks (a CheckRun exposes .conclusion, a
+    # legacy StatusContext exposes .state). Only terminal failures count —
+    # PENDING/IN_PROGRESS checks are still running and are left alone.
+    failed_ci=$(jq '[.statusCheckRollup[]? | (.conclusion // .state // "")
+      | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED"
+             or . == "TIMED_OUT" or . == "STARTUP_FAILURE" or . == "ACTION_REQUIRED")]
+      | length' <<<"$detail" 2>/dev/null || echo 0)
+
+    # Inline (code-line) review comments live outside `gh pr view`; count them
+    # via the REST API so "there are comments" also covers line comments.
+    local inline_comments=0
+    if [ -n "$repo" ]; then
+      inline_comments=$(gh api "repos/$repo/pulls/$n/comments" -q 'length' 2>/dev/null || echo 0)
+    fi
+
+    local total_comments=$(( issue_comments + review_bodies + inline_comments ))
+    local has_conflict=0
+    if [ "$mergeable" = "CONFLICTING" ]; then
+      has_conflict=1
+    fi
+
+    # Nothing to do: no conflict, no comments, no failed CI.
+    if [ "$has_conflict" -eq 0 ] && [ "$total_comments" -eq 0 ] && [ "$failed_ci" -eq 0 ]; then
+      continue
+    fi
+
+    # This exact state was already processed in this run. That means the last
+    # attempt changed nothing — it may have genuinely given up, but it may just
+    # as well have crashed or hit a usage limit. Retry a bounded number of times
+    # instead of blacklisting a still-broken PR for the life of the worker.
+    local sig="${head_oid}:${mergeable}:${total_comments}:${review_decision}:${failed_ci}"
+    local attempts=0
+    if [ "${PR_STATE_SIG[$n]:-}" = "$sig" ]; then
+      attempts="${PR_FIX_ATTEMPTS[$n]:-0}"
+      if [ "$attempts" -ge "$MAX_PR_FIX_ATTEMPTS" ]; then
+        continue
+      fi
+    fi
+    PR_FIX_ATTEMPTS[$n]=$(( attempts + 1 ))
+
+    echo "=== PR #$n needs attention (conflict=$has_conflict, comments=$total_comments, failed-ci=$failed_ci, attempt ${PR_FIX_ATTEMPTS[$n]}/$MAX_PR_FIX_ATTEMPTS) at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+    if run_pr_fix "$(pr_fix_prompt "$n" "$url" "$has_conflict" "$total_comments" "$failed_ci")"; then
+      echo "=== PR #$n sweep done at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+    else
+      echo "=== WARNING: PR #$n sweep did not reach a terminal result at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+    fi
+
+    # Record the state we acted on, re-reading BOTH the head (which moves if
+    # claude pushed) and the mergeable state (which flips to MERGEABLE when a
+    # conflict was actually resolved). Recording the stale pre-fix `mergeable`
+    # here would keep the signature looking "unchanged" even on a successful
+    # resolve, wasting a retry on an already-fixed PR.
+    local new_head new_mergeable new_detail
+    if new_detail=$(gh pr view "$n" --json headRefOid,mergeable 2>/dev/null); then
+      new_head=$(jq -r '.headRefOid // ""' <<<"$new_detail" 2>/dev/null || echo "$head_oid")
+      new_mergeable=$(jq -r '.mergeable // "UNKNOWN"' <<<"$new_detail" 2>/dev/null || echo "$mergeable")
+    else
+      new_head="$head_oid"
+      new_mergeable="$mergeable"
+    fi
+    PR_STATE_SIG[$n]="${new_head}:${new_mergeable}:${total_comments}:${review_decision}:${failed_ci}"
+
+    # Nothing moved and we are out of retries: surface it instead of silently
+    # dropping the PR — an unattended worker that quietly abandons a conflicted
+    # PR is indistinguishable from one that is doing nothing at all.
+    if [ "$new_head" = "$head_oid" ] && [ "${PR_FIX_ATTEMPTS[$n]}" -ge "$MAX_PR_FIX_ATTEMPTS" ]; then
+      echo "=== GIVING UP on PR #$n after ${PR_FIX_ATTEMPTS[$n]} attempts (still conflict=$has_conflict, comments=$total_comments, failed-ci=$failed_ci); needs a human. See $LOG_DIR/ai-pr-raw.log ===" | tee -a "$LOG_FILE"
+    fi
+
+    # Backstop: claude must leave the tree clean, but if a run died mid-merge
+    # we clean up here so the loop's top-of-iteration dirty-tree guard does not
+    # fatally halt the whole worker. No `reset --hard` / rebase — git policy.
+    cd "$SCRIPT_DIR/.."
+    if [ -n "$(git status --porcelain)" ]; then
+      echo "[run-ai] PR #$n left a dirty tree; aborting any in-progress merge and discarding leftovers." | tee -a "$LOG_FILE"
+      git merge --abort 2>/dev/null || true
+      git checkout -- . 2>/dev/null || true
+      git clean -fd 2>/dev/null || true
+    fi
+    git checkout master 2>&1 | tee -a "$LOG_FILE" || true
+  done < <(jq -r '.[] | "\(.number)\t\(.url)"' <<<"$prs")
+
+  # Always end the sweep back on master.
+  cd "$SCRIPT_DIR/.."
+  git checkout master 2>&1 | tee -a "$LOG_FILE" || true
+  return 0
+}
+
 while true; do
   # Refuse to keep looping on a dirty tree. A previous skill that
   # ended without committing would otherwise contaminate the next
@@ -220,24 +716,78 @@ while true; do
   fi
 
   git checkout master 2>&1 | tee -a "$LOG_FILE"
-  git pull 2>&1 | tee -a "$LOG_FILE"
 
-  MSG_ID=$(next_request_id)
+  # A failed pull means the git remote is unreachable (DNS/network hiccup,
+  # remote restarting). That's transient, not fatal — back off and retry
+  # rather than letting the `| tee` pipeline abort the loop under pipefail.
+  # The `if !` guard both inverts the status and shields it from `set -e`;
+  # with pipefail the pipeline reports git's failure (tee succeeds).
+  if ! git pull 2>&1 | tee -a "$LOG_FILE"; then
+    idle_backoff "git pull failed (remote unreachable?)"
+    continue
+  fi
+
+  # Sweep all open PRs before touching mail: resolve merge conflicts and
+  # address review comments on each PR's own branch. Never fatal — handle_open_prs
+  # logs and skips any PR it can't fix, and always returns to master clean.
+  handle_open_prs || true
+
+  # Finalize any 'processed' messages whose PR has since merged or closed:
+  # deliver the stashed reply + mark 'success', or notify + mark 'failed'. Never
+  # fatal — logs and skips anything it can't resolve, leaving it for a later tick.
+  finalize_processed_messages || true
+
+  # A failed poll means the lobby is unreachable (down, restarting, or a
+  # transient network hiccup) — NOT that there is no work. Treat it like an
+  # idle tick: back off and retry, rather than letting `set -e` abort the loop
+  # with no message.
+  if ! MSG_ID=$(next_request_id); then
+    idle_backoff "Lobby unreachable"
+    continue
+  fi
 
   if [ -z "$MSG_ID" ]; then
-    delay="${IDLE_BACKOFF[$idle_index]}"
-    echo "=== No pending requests at $(date -Iseconds), sleeping ${delay}s ===" | tee -a "$LOG_FILE"
-    sleep "$delay"
-    if [ "$idle_index" -lt $((${#IDLE_BACKOFF[@]} - 1)) ]; then
-      idle_index=$((idle_index + 1))
-    fi
+    idle_backoff "No pending requests"
     continue
   fi
 
   idle_index=0
   iterations=$((iterations + 1))
   echo "=== Handling $MSG_ID at $(date -Iseconds) (iteration $iterations) ===" | tee -a "$LOG_FILE"
-  if ! "$SCRIPT_DIR/handle-mail" "$MSG_ID" 2>&1 | tee -a "$LOG_FILE"; then
+  # In flight from here: an interrupt now must reset this message to 'new'
+  # (handle-mail marks it 'processing' as its first act).
+  CURRENT_MSG_ID="$MSG_ID"
+
+  # Run handle-mail as a BACKGROUND child and `wait` on it, rather than as a
+  # foreground `handle-mail | tee` pipeline. Two reasons:
+  #   - Signals: bash defers a trap until the current FOREGROUND command returns,
+  #     so with a foreground pipeline a SIGTERM aimed at run-ai alone would not
+  #     run on_interrupt until handle-mail finished on its own — i.e. not for
+  #     hours. `wait` is interruptible, so the trap fires immediately.
+  #   - Exit code: `wait` yields handle-mail's OWN status directly, with no
+  #     PIPESTATUS/pipefail juggling around tee. Logging still goes through tee
+  #     via process substitution.
+  # `|| handle_rc=$?` also shields the non-zero case from `set -e`.
+  #
+  # Exit 5 is the API-capacity/usage-limit signal: handle-mail detected a
+  # session/usage limit, rate limit, or overload in the final stream-json result,
+  # already reset the message to 'new' (NOT burned), and stopped. This is NOT a
+  # failure to halt on — if we did, one limit hit would strand the whole queue.
+  # Back off (escalating) and retry the SAME message later; the limit resets in
+  # time. Any OTHER non-zero code is a real failure and halts as before.
+  handle_rc=0
+  "$SCRIPT_DIR/handle-mail" "$MSG_ID" > >(tee -a "$LOG_FILE") 2>&1 &
+  HANDLE_PID=$!
+  wait "$HANDLE_PID" || handle_rc=$?
+  HANDLE_PID=""
+  # handle-mail returned on its own; it owns the message's final status now.
+  CURRENT_MSG_ID=""
+  if [ "$handle_rc" -eq 5 ]; then
+    # Don't let a capacity-blocked retry consume the --max-iterations budget.
+    iterations=$((iterations - 1))
+    idle_backoff "API capacity/usage limit hit; $MSG_ID reset to 'new', retrying later"
+    continue
+  elif [ "$handle_rc" -ne 0 ]; then
     echo "=== FATAL: handle-mail failed for $MSG_ID at $(date -Iseconds). Stopping run-ai. ===" | tee -a "$LOG_FILE"
     exit 3
   fi

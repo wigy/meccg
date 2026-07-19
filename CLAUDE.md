@@ -33,7 +33,19 @@ For implementation-specific terminology (mail, game state, card instances, etc.)
 
 ### Verification During Development
 
-Do NOT run tests or lint after making changes. Tests and lint are run once before pushing, not during development.
+Do NOT run tests or lint after making changes. Verification happens once before pushing, not during development.
+
+### Test Policy: Changed Tests Only
+
+**Never run the full test suite (`npm test` or `npm run test:nightly`) as part of development, committing, pushing, or card certification.** Full-suite runs are slow; waiting for them is part of the **review process** — the reviewer and branch CI run and wait for the full suites during PR review, not the author.
+
+Instead, run only the tests that changed: the test files added or modified by your work. Find them and run them directly:
+
+```sh
+git diff --name-only origin/master...HEAD -- '*.test.ts' | xargs npx vitest run
+```
+
+(Include uncommitted test files too: `git status --porcelain -- '*.test.ts'`.)
 
 ### Pre-Commit Checklist
 
@@ -43,13 +55,14 @@ Before every commit, run:
 
 ### Pre-Push Checklist
 
-Before every push, always run all five of these **in parallel** and fix any failures:
+Before every push, run these **in parallel** and fix any failures:
 
 1. `npm run build` — type-check (must pass)
-2. `npm test` — rules tests (must all pass)
-3. `npm run test:nightly` — card tests (must not introduce new failures)
-4. `npm run lint` — linting (fix with `npm run lint:fix`)
-5. `npm run lint:md` — markdown linting (fix with `npm run lint:md:fix`)
+2. Changed tests only — the test files added/modified on the branch (see Test Policy above); must pass
+3. `npm run lint` — linting (fix with `npm run lint:fix`)
+4. `npm run lint:md` — markdown linting (fix with `npm run lint:md:fix`)
+
+Do NOT run `npm test` or `npm run test:nightly` before pushing — full suites run during PR review (reviewer + branch CI).
 
 ### Git Policy
 

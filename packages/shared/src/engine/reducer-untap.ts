@@ -12,12 +12,14 @@ import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard } from '../types/cards.js';
 import { CardStatus, SiteType } from '../types/common.js';
-import type { CardInstanceId } from '../types/common.js';
+import type { CardInstanceId, CompanyId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
+import { ownerOf } from '../types/state.js';
+import { getEffectiveSiteType, resolveSiteInstanceTransform } from './effective.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, defById, getCardEffects, isHavenForPlayer, isSelfDiscardMove, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
-import { enqueueCorruptionCheck } from './pending.js';
+import { clonePlayers, defById, getCardEffects, isHavenForPlayer, isSelfDiscardMove, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import type { OnEventEffect, CardEffect } from '../types/effects.js';
 
 
@@ -188,6 +190,21 @@ function performUntap(state: GameState): GameState {
         e => e.type === 'site-rule' && e.rule === 'heal-during-untap',
       );
     }
+    // Roots of the Earth (ba-74): the controller's associated Under-deeps
+    // instance is transformed into a Darkhaven. Only an actual instance-scoped
+    // `site-instance-transform` may promote a non-haven site to a healing haven
+    // here — a plain METW Haven / MELE Darkhaven must still be gated by the
+    // MEWH check above (a Fallen-wizard does not heal at a METW Haven), so we
+    // require the transform to be present before honouring the effective type.
+    if (!isHaven) {
+      const transform = resolveSiteInstanceTransform(
+        state, company.currentSite.definitionId, company.currentSite.instanceId,
+      );
+      isHaven = transform !== undefined
+        && getEffectiveSiteType(
+          state, company.currentSite.definitionId, siteDef.siteType, company.currentSite.instanceId,
+        ) === SiteType.Haven;
+    }
     if (isHaven) {
       for (const charId of company.characters) {
         charsAtHaven.add(charId as string);
@@ -200,14 +217,28 @@ function performUntap(state: GameState): GameState {
   // Prisoners are fully locked — they cannot untap or heal (rule 8.35).
   const cannotUntapIds = new Set<string>();
   const prisonerIds = new Set<string>();
+  // Fled into Darkness (ba-18): one-shot untap skips. Each maps a character to
+  // the constraint id + the in-play card instance to discard when the skip
+  // fires. Treated like `cannot-untap` for the tap logic below, then consumed
+  // (constraint removed, card discarded) after the untap sweep.
+  const skipNextUntap = new Map<string, { constraintId: string; cardInstanceId: string }>();
   for (const c of state.activeConstraints) {
     if (c.target.kind !== 'character') continue;
     if (c.kind.type === 'bearer-cannot-untap') {
       cannotUntapIds.add(c.target.characterId as string);
     }
-    if (c.kind.type === 'character-is-prisoner') {
+    if (c.kind.type === 'character-is-prisoner' || c.kind.type === 'character-pressed') {
+      // Prisoners (8.35) and Press-ganged characters (ba-22) are locked "off to
+      // the side": they never untap or heal.
       prisonerIds.add(c.target.characterId as string);
       cannotUntapIds.add(c.target.characterId as string);
+    }
+    if (c.kind.type === 'skip-next-untap') {
+      cannotUntapIds.add(c.target.characterId as string);
+      skipNextUntap.set(c.target.characterId as string, {
+        constraintId: c.id as string,
+        cardInstanceId: c.kind.cardInstanceId as string,
+      });
     }
   }
 
@@ -314,6 +345,51 @@ function performUntap(state: GameState): GameState {
     }));
   }
 
+  // Consume the one-shot untap skips: the character was just held tapped (via
+  // cannotUntapIds); now remove the constraint and discard the source card to
+  // its owner's (the active player's) discard pile. The source may sit either in
+  // `cardsInPlay` (Fled into Darkness ba-18's `flee-from-strike` card) or
+  // attached to a character's `items` (Fireworks dm-130, a resource
+  // permanent-event played on the sage).
+  if (skipNextUntap.size > 0) {
+    const consumedConstraintIds = new Set<string>();
+    const discardCardIds = new Set<string>();
+    for (const [charId, { constraintId, cardInstanceId }] of skipNextUntap) {
+      logDetail(`Untap: consuming skip-next-untap on ${charId} — character stays tapped, discarding ${cardInstanceId}`);
+      consumedConstraintIds.add(constraintId);
+      discardCardIds.add(cardInstanceId);
+    }
+    // Collect the source cards wherever they live (general cards-in-play or a
+    // character's items), then remove them from every zone in one player update.
+    const player = stateAfterUntap.players[playerIndex];
+    const cardsToDiscard: import('../types/state-cards.js').CardInstance[] = [];
+    for (const c of player.cardsInPlay) {
+      if (discardCardIds.has(c.instanceId as string)) cardsToDiscard.push(toCardInstance(c));
+    }
+    for (const ch of Object.values(player.characters)) {
+      for (const item of ch.items) {
+        if (discardCardIds.has(item.instanceId as string)) cardsToDiscard.push(toCardInstance(item));
+      }
+    }
+    stateAfterUntap = updatePlayer(stateAfterUntap, playerIndex, p => ({
+      ...p,
+      cardsInPlay: p.cardsInPlay.filter(c => !discardCardIds.has(c.instanceId as string)),
+      characters: Object.fromEntries(
+        Object.entries(p.characters).map(([id, ch]) => [
+          id,
+          { ...ch, items: ch.items.filter(item => !discardCardIds.has(item.instanceId as string)) },
+        ]),
+      ),
+      discardPile: [...p.discardPile, ...cardsToDiscard],
+    }));
+    stateAfterUntap = {
+      ...stateAfterUntap,
+      activeConstraints: stateAfterUntap.activeConstraints.filter(
+        c => !consumedConstraintIds.has(c.id as string),
+      ),
+    };
+  }
+
   return stateAfterUntap;
 }
 
@@ -374,18 +450,37 @@ function advanceToOrganization(state: GameState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[activeIndex];
   const charSiteType = new Map<string, SiteType | null>();
+  const charCompanySize = new Map<string, number>();
   for (const company of player.companies) {
     const siteDef = company.currentSite ? state.cardPool[company.currentSite.definitionId] : undefined;
     const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : null;
-    for (const charId of company.characters) charSiteType.set(charId as string, siteType);
+    for (const charId of company.characters) {
+      charSiteType.set(charId as string, siteType);
+      charCompanySize.set(charId as string, company.characters.length);
+    }
   }
 
   // Collect items to self-discard from untap-phase-end triggers (processed after scan).
   const untapEndDiscards: Array<{ charId: CardInstanceId; slot: 'items' | 'hazards' | 'allies'; cardInstanceId: string }> = [];
+  // Collect cards to self-discard from organization-phase-start triggers (routed
+  // to each card's owner, so an opponent-owned hazard returns to their pile).
+  const orgStartDiscards: Array<{ charId: CardInstanceId; slot: 'items' | 'hazards' | 'allies'; cardInstanceId: string }> = [];
 
   for (const [charId, char] of Object.entries(player.characters)) {
     const siteType = charSiteType.get(charId) ?? null;
-    const bearerCtx = { bearer: { siteType, atHaven: siteType === SiteType.Haven } };
+    const atHaven = siteType === SiteType.Haven;
+    const companyCharCount = charCompanySize.get(charId) ?? 0;
+    const bearerCtx = { bearer: { siteType, atHaven } };
+    // Host character (the bearer of the attached cards) identity, for
+    // conditions gated on who controls an ally — Evil Things Lingering (ba-45):
+    // "If this ally's controlling character is not The Balrog …".
+    const hostDef = defById(state, char.definitionId);
+    const hostName = hostDef && isCharacterCard(hostDef) ? hostDef.name : undefined;
+    const hostMind = hostDef && isCharacterCard(hostDef) && hostDef.mind !== null ? hostDef.mind : 0;
+    // Context for `organization-phase-start` self-discard conditions that also
+    // care about company size, e.g. So You've Come Back (le-138): "Discard …
+    // if target character is in a company by himself and at a Haven [{H}]."
+    const orgStartCtx = { bearer: { siteType, atHaven, name: hostName, mind: hostMind }, company: { characterCount: companyCharCount } };
     // Scan attached hazards, items, allies for matching on-event effects
     const attached = [...char.hazards, ...char.items, ...char.allies];
     for (const card of attached) {
@@ -393,6 +488,50 @@ function advanceToOrganization(state: GameState): ReducerResult {
       for (const e of getCardEffects(def)) {
         if (e.type !== 'on-event') continue;
         const oe: OnEventEffect = e;
+        // `organization-phase-start` on an attached card: either a self-discard
+        // (le-138) or an opponent elimination roll (ba-45). Both honour the same
+        // optional `when` gate evaluated at org-phase start.
+        if (oe.event === 'organization-phase-start') {
+          if (oe.when && !matchesContext(oe.when, orgStartCtx)) {
+            logDetail(`organization-phase-start: skipping ${def?.name ?? '?'} on ${char.instanceId as string} — when not met (size=${companyCharCount}, atHaven=${atHaven})`);
+            continue;
+          }
+          if (isSelfDiscardMove(oe.apply)) {
+            const slot: 'items' | 'hazards' | 'allies' =
+              char.items.some(i => i.instanceId === card.instanceId) ? 'items'
+              : char.hazards.some(h => h.instanceId === card.instanceId) ? 'hazards' : 'allies';
+            logDetail(`organization-phase-start: queuing self-discard for ${def?.name ?? '?'} on ${charId} (slot=${slot}, size=${companyCharCount}, atHaven=${atHaven})`);
+            orgStartDiscards.push({ charId: charId as CardInstanceId, slot, cardInstanceId: card.instanceId as string });
+            continue;
+          }
+          if (oe.apply.type === 'enqueue-opponent-elimination-roll') {
+            // The opponent (the active player's opponent) rolls 2d6 + modifier;
+            // the controlling character (this bearer) is eliminated if the total
+            // exceeds his mind. Enqueued as a generic dice-check resolution.
+            const opponentIndex = activeIndex === 0 ? 1 : 0;
+            const opponentId = state.players[opponentIndex].id;
+            logDetail(`organization-phase-start: enqueuing opponent elimination roll for ${def?.name ?? '?'} on ${charId} (opponent ${opponentId as string} rolls, modifier ${oe.apply.modifier}, threshold mind ${hostMind})`);
+            advanced = enqueueResolution(advanced, {
+              source: card.instanceId,
+              actor: opponentId,
+              scope: { kind: 'phase', phase: Phase.Organization },
+              kind: {
+                type: 'dice-check',
+                label: `${def?.name ?? 'Elimination roll'}: ${hostName ?? '?'}`,
+                roller: opponentId,
+                modifiers: [{ kind: 'constant', value: oe.apply.modifier }],
+                threshold: hostMind,
+                comparison: 'gt',
+                onPass: { type: 'eliminate-character' },
+                continuation: { kind: 'dequeue-only' },
+                requireTargetPresent: true,
+                targetCharacterId: char.instanceId,
+              },
+            });
+            continue;
+          }
+          continue;
+        }
         if (oe.event !== 'untap-phase-end') continue;
         if (oe.when && !matchesContext(oe.when, bearerCtx)) {
           logDetail(`Untap-phase-end: skipping ${def?.name ?? '?'} on ${char.instanceId as string} — when condition not met (siteType=${siteType ?? 'none'})`);
@@ -438,6 +577,31 @@ function advanceToOrganization(state: GameState): ReducerResult {
     }));
   }
 
+  // Apply organization-phase-start self-discards. The card is removed from the
+  // active player's character and returned to *its owner's* discard pile — a
+  // hazard (owned by the opponent) goes back to the opponent's pile.
+  for (const { charId, slot, cardInstanceId } of orgStartDiscards) {
+    const char = advanced.players[activeIndex].characters[charId];
+    if (!char) continue;
+    const cardToDiscard = char[slot].find(c => c.instanceId === cardInstanceId);
+    if (!cardToDiscard) continue;
+    const ownerIndex = getPlayerIndex(advanced, ownerOf(cardToDiscard.instanceId));
+    logDetail(`organization-phase-start: discarding ${cardInstanceId} from ${charId} to owner player ${ownerIndex}`);
+    // Detach from the active player's character.
+    advanced = updatePlayer(advanced, activeIndex, p => ({
+      ...p,
+      characters: {
+        ...p.characters,
+        [charId]: { ...p.characters[charId], [slot]: p.characters[charId][slot].filter(c => c.instanceId !== cardInstanceId) },
+      },
+    }));
+    // Return to the owner's discard pile.
+    advanced = updatePlayer(advanced, ownerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, toCardInstance(cardToDiscard)],
+    }));
+  }
+
   // Sweep `organization-phase-start` on-event triggers on company-bound permanent events.
   // Scan all players' cardsInPlay for entries with companyId bound to an active-player company;
   // evaluate the `when` condition against that company's site context and discard if it matches.
@@ -461,6 +625,9 @@ function advanceToOrganization(state: GameState): ReducerResult {
       }
     }
     const toDiscard: typeof p.cardsInPlay[0][] = [];
+    // Companies whose Ringwraith followers must also be discarded when the mode
+    // card self-discards (Black Rider le-170's `alsoDiscardCompanyFollowers`).
+    const followerPurgeCompanyIds: string[] = [];
     for (const card of p.cardsInPlay) {
       const cid = card.companyId as string | undefined;
       if (!cid || !activePlayerCompanyIds.has(cid)) continue;
@@ -476,6 +643,10 @@ function advanceToOrganization(state: GameState): ReducerResult {
         if (oe.when && !matchesContext(oe.when, ctx)) continue;
         logDetail(`organization-phase-start: discarding "${eDef.name ?? card.definitionId}" from company ${cid} (siteType=${siteType ?? 'none'})`);
         toDiscard.push(card);
+        if ((oe.apply as { readonly alsoDiscardCompanyFollowers?: boolean }).alsoDiscardCompanyFollowers) {
+          logDetail(`organization-phase-start: also discarding Ringwraith followers in company ${cid} (${eDef.name ?? card.definitionId})`);
+          followerPurgeCompanyIds.push(cid);
+        }
         break;
       }
     }
@@ -492,6 +663,9 @@ function advanceToOrganization(state: GameState): ReducerResult {
         };
       }) as unknown as typeof advanced.players,
     };
+    for (const cid of followerPurgeCompanyIds) {
+      advanced = purgeCompanyFollowers(advanced, pi, cid as CompanyId);
+    }
   }
 
   // Clear `influenceUnsubtracted` flags on the active player's characters: any

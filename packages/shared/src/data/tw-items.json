@@ -1092,7 +1092,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DwarvenRingofBarinsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -1110,7 +1112,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DwarvenRingofBavorsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -1128,7 +1132,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DwarvenRingofDruinsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -1146,7 +1152,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DwarvenRingofDurinsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -1164,7 +1172,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DwarvenRingofDwalinsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -1182,7 +1192,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DwarvenRingofThelorsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -1200,7 +1212,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DwarvenRingofThrarsTribe.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -1272,7 +1286,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FairGoldRing.jpg",
     "unique": false,
     "subtype": "gold-ring",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 1,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -1308,7 +1324,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MagicRingofCourage.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -1326,7 +1344,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MagicRingofLore.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -1344,7 +1364,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MagicRingofNature.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -1362,7 +1384,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/MagicRingofWords.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -1452,15 +1476,52 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PalantirofMinasTirith.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "palantir"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Palantír. Playable only at Minas Tirith. With its bearer able to use a Palantír, tap Palantír of Minas Tirith to look at the top five cards of your play deck; shuffle these 5 cards and return them to the top of your play deck. Do the same to your opponent’s play deck. Bearer makes a corruption check."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": [
+          "Minas Tirith"
+        ]
+      },
+      {
+        "type": "grant-action",
+        "action": "palantir-peek-shuffle",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "bearer.canUsePalantir": true
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "shuffle-deck-top",
+              "count": 5
+            },
+            {
+              "type": "shuffle-deck-top",
+              "count": 5,
+              "toOwner": "opponent"
+            },
+            {
+              "type": "enqueue-corruption-check"
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. Palantír. Playable only at Minas Tirith. With its bearer able to use a Palantír, tap Palantír of Minas Tirith to look at the top five cards of your play deck; shuffle these 5 cards and return them to the top of your play deck. Do the same to your opponent’s play deck. Bearer makes a corruption check.",
+    "certified": "2026-07-06"
   },
   {
     "cardType": "hero-resource-item",
@@ -1542,7 +1603,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsRing.jpg",
     "unique": false,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "ring"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 4,
@@ -1587,7 +1650,34 @@
     "prowessModifier": 2,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Weapon. Warrior only: +2 prowess (to a maximum of 7); +3 prowess if held by a Dwarf (to a maximum of 8)."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "max": 7,
+        "id": "dwarven-axe-prowess",
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "max": 8,
+        "overrides": "dwarven-axe-prowess",
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          },
+          "bearer.race": "dwarf"
+        }
+      }
+    ],
+    "text": "Weapon. Warrior only: +2 prowess (to a maximum of 7); +3 prowess if held by a Dwarf (to a maximum of 8).",
+    "certified": "2026-07-09"
   }
 ]
