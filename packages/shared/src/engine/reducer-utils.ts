@@ -752,6 +752,27 @@ export function getCardEffects(
 }
 
 /**
+ * True when the given character bears an attached card (stored in its `items` —
+ * where a resource permanent-event played "on a character" is kept) whose
+ * effects include one of the given `effectType`. Used to detect the continuous
+ * markers placed by *Await the Advent of Allies* (dm-117):
+ * `general-influence-exempt`, `own-mp-not-counted`, and
+ * `company-immobile-while-attached`. Detected by effect type — not card id — so
+ * any future card carrying the same marker works unchanged.
+ */
+export function characterBearsAttachedEffect(
+  state: GameState,
+  char: CharacterInPlay,
+  effectType: CardEffect['type'],
+): boolean {
+  for (const item of char.items) {
+    const def = defById(state, item.definitionId);
+    if (getCardEffects(def).some(e => e.type === effectType)) return true;
+  }
+  return false;
+}
+
+/**
  * True when the player at `playerIndex` has any card in play carrying an
  * `extra-under-deeps-mh-phase` effect (Gangways over the Fire, ba-60). Such a
  * card lets each of the player's moving companies take repeated Under-deeps

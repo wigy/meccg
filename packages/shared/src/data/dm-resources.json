@@ -374,8 +374,39 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a non-Wizard character with a mind of six or less at a non-Haven site. The character’s company may not move. Target character does not count against general influence and its marshalling points do not count. Discard this card when the character leaves play or becomes wounded, or when you play a resource that taps or requires the site (as an active condition of playing the resource itself). Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.isAvatar": { "$ne": true } },
+            { "target.mind": { "$lte": 6 } }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-type",
+        "siteTypes": ["free-hold", "border-hold", "ruins-and-lairs", "shadow-hold", "dark-hold"]
+      },
+      { "type": "general-influence-exempt" },
+      { "type": "own-mp-not-counted" },
+      { "type": "play-flag", "flag": "bearer-cannot-move" },
+      {
+        "type": "on-event",
+        "event": "bearer-wounded",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      },
+      {
+        "type": "on-event",
+        "event": "resource-taps-or-requires-site",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      },
+      { "type": "duplication-limit", "scope": "character", "max": 1 }
+    ],
+    "text": "Playable on a non-Wizard character with a mind of six or less at a non-Haven site. The character’s company may not move. Target character does not count against general influence and its marshalling points do not count. Discard this card when the character leaves play or becomes wounded, or when you play a resource that taps or requires the site (as an active condition of playing the resource itself). Cannot be duplicated on a given character.",
+    "certified": "2026-07-19"
   },
   {
     "cardType": "hero-resource-event",

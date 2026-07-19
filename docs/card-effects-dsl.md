@@ -2010,7 +2010,14 @@ Events:
     "when": { "$not": { "target.race": { "$in": ["wizard", "ringwraith"] } } } }
   ```
 
-- `bearer-wounded` -- fires after combat finalization for each ally whose bearer (controlling character) was wounded (result `'wounded'`, not tapped under detainment rules; detainment strikes tap, not wound). Scans every wounded character's attached allies for this event. Supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`), which removes the ally from the bearer and places it in the defending player's discard pile. Implemented in `reducer-combat.ts` combat finalization. Used by *Regiment of Black Crows* (as-76) and *Great Bats* (as-74).
+- `bearer-wounded` -- fires after combat finalization for each character that was wounded (result `'wounded'`, not tapped under detainment rules; detainment strikes tap, not wound). Scans every wounded character's attached **allies AND items/permanent-events** for this event. Supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`), which removes the card from the bearer and places it in the defending player's discard pile. Implemented in `combat-finalize.ts` combat finalization. Used by *Regiment of Black Crows* (as-76) and *Great Bats* (as-74) — attached allies; and *Await the Advent of Allies* (dm-117) — an attached permanent-event stored in the host character's `items` ("Discard this card when the character … becomes wounded"). A character *eliminated* (not merely wounded) never reaches this scan; its attached cards are already discarded by the elimination / leaves-play path (`eliminateCombatantFromStrike` / `discardCharacter`), so the same self-discard covers "when the character leaves play" for free.
+
+- `resource-taps-or-requires-site` -- fires when a resource play in the site phase **taps** the current site of the company that played it. `fireResourceTapsSiteDiscards` (`reducer-site.ts`) runs on both site-tapping resource paths — the item/ally attach path and the faction-influence path — gated on the site actually tapping (skipped for never-taps sites, Thorough Search, a leader taking a faction under control, etc.). It scans every character in the playing company for an attached card carrying this event with a self-discard `move` apply, and moves each to its owner's discard pile. Models "Discard this card when you play a resource that taps or requires the site (as an active condition of playing the resource itself)". Used by *Await the Advent of Allies* (dm-117).
+
+  ```json
+  { "type": "on-event", "event": "resource-taps-or-requires-site",
+    "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+  ```
 
   ```json
   { "type": "on-event", "event": "bearer-wounded",
@@ -5899,6 +5906,34 @@ and `reducer-movement-hazard.ts` (opponent/agent influence-away threshold).
 > Note: the separate "this character cannot be controlled by direct influence at
 > all" rule (Rebel-talk le-132) is the `no-direct-influence` **play-flag**, not
 > this effect — see the play-flag list.
+
+### 29. `general-influence-exempt` / `own-mp-not-counted`
+
+Two field-less **marker** effects carried by a resource permanent-event attached
+to a character (stored in the host's `items`, like `control-restriction`). Each
+is read off the host by `characterBearsAttachedEffect` (`reducer-utils.ts`,
+scanning `char.items` by effect type) and consumed in `recompute-derived.ts`:
+
+- `general-influence-exempt` — the host character "does not count against general
+  influence": its mind is skipped in the `generalInfluenceUsed` accumulator while
+  the card is attached. Unlike a `control-restriction` `cost: 0`, it touches
+  **only** general influence — the direct-influence-to-control cost and the
+  opponent's influence-away threshold are unchanged.
+- `own-mp-not-counted` — the host character's **own** printed character MP does
+  not count (nullified in the character-scoring loop). The items and allies the
+  character bears still score normally — only "its" (the character's own) MP is
+  dropped.
+
+Both markers vanish the instant the card leaves the host's `items` (any of its
+discard triggers), so the character reverts to an ordinary company member with no
+lifecycle to unwind. Used together by *Await the Advent of Allies* (dm-117),
+alongside the `play-flag: bearer-cannot-move` movement lock and the
+`bearer-wounded` / `resource-taps-or-requires-site` self-discard triggers.
+
+```json
+{ "type": "general-influence-exempt" }
+{ "type": "own-mp-not-counted" }
+```
 
 ### 30. `dragon-at-home`
 
