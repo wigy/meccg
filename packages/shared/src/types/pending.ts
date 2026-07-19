@@ -1047,6 +1047,16 @@ export interface ActiveConstraint {
          * When present and non-matching, the modifier is skipped.
          */
         readonly filter?: Condition;
+        /**
+         * For a `site.type` `override`: when true, this override is scoped to
+         * the untap-phase healing check only. {@link getEffectiveSiteType}
+         * skips it, so hazard keying, movement, bring-into-play, and
+         * item/faction/ally playability all still see the printed site type;
+         * only the haven-healing sweep in `reducer-untap.ts` honours it.
+         * Houses of Healing (td-125): "Site becomes a Haven [{H}] for the
+         * purposes of healing."
+         */
+        readonly healingOnly?: boolean;
       }
     | {
         /**
