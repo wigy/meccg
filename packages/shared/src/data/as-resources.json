@@ -1007,8 +1007,38 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a character at a Free-hold [{F}] if Gates of Morning is in play. Remove all hazard permanent-events on the character and, if tapped, untap him.Cannot be included in a Fallen-wizard's deck."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "company.siteType": "free-hold" },
+            { "inPlay": "Gates of Morning" }
+          ]
+        }
+      },
+      {
+        "type": "move",
+        "select": "filter-all",
+        "from": "hazards-on-target",
+        "to": "discard",
+        "toOwner": "source-owner",
+        "filter": {
+          "$and": [
+            { "cardType": "hazard-event" },
+            { "eventType": "permanent" }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "set-character-status", "status": "untapped" }
+      }
+    ],
+    "text": "Playable on a character at a Free-hold [{F}] if Gates of Morning is in play. Remove all hazard permanent-events on the character and, if tapped, untap him.Cannot be included in a Fallen-wizard's deck.",
+    "certified": "2026-07-19"
   },
   {
     "cardType": "hero-resource-event",

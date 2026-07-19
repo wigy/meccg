@@ -5551,6 +5551,12 @@ export type MoveZone =
   | 'in-play'
   | 'items-on-target'
   | 'allies-on-target'
+  /** Source: hazard permanent-events attached to the target character
+   *  (`ctx.targetCharacterId`). Owner is resolved from the instance-id prefix
+   *  (fallback: the holder's opponent, since hazards on a character are played
+   *  by the opposing hazard player). Used by "remove all hazard
+   *  permanent-events on the character" (The Sun Unveiled as-56). */
+  | 'hazards-on-target'
   | 'items-on-wounded'
   | 'attached-to-target-company'
   /** Source: a single instance attached to ANY character's `hazards` or
