@@ -313,6 +313,23 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
   // resolutions (e.g. Corpse-candle pre-defense corruption checks) must
   // still be resolved before combat actions are legal.
   if (state.combat != null) {
+    // A pending card effect must resolve BEFORE combat actions. This arises
+    // when a chain collapses carrying both a higher-priority resource event
+    // (whose fetch-to-deck queues a pending effect) and a lower creature entry
+    // (whose resolution starts combat) in the same step: the event resolves
+    // first per LIFO chain order, so its interactive fetch takes precedence.
+    // Without this the fetch was deferred behind combat and then swept away by
+    // a later phase `pass` — Smoke Rings (dm-159) "disappeared without effect"
+    // (game mrs06zup-du4wde, seq 128).
+    if (state.pendingEffects.length > 0) {
+      const effectActor = state.pendingEffects[0].actor ?? state.activePlayer;
+      if (playerId !== effectActor) {
+        logResult(0, []);
+        return [];
+      }
+      logHeading(`Combat active but pending effect queued (${state.pendingEffects[0].type}) — resolving effect before combat`);
+      return logEvaluated(pendingEffectLegalActions(state, playerId));
+    }
     const pendingTop = topResolutionFor(state, playerId);
     if (pendingTop !== null) {
       logHeading(`Combat: pending resolution (${pendingTop.kind.type}) — delegating to resolution actions`);
