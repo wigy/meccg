@@ -19,7 +19,7 @@
  * this needs the pre-action state to see which card *left*.
  */
 
-import type { GameState, PlayerState, CardInstanceId } from '../index.js';
+import type { GameState, PlayerState } from '../index.js';
 import { Phase } from '../types/state-phases.js';
 import { matchesContext } from '../effects/index.js';
 import { logDetail } from './legal-actions/log.js';

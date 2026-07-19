@@ -50,7 +50,6 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, viableActions, findHandCardId,
-  addCardInPlay,
   ARAGORN, RIVENDELL, LORIEN,
   Phase, CardStatus, Alignment, PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
 } from '../test-helpers.js';
