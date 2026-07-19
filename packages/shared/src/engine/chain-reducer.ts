@@ -1831,17 +1831,14 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       } else if (effect.apply.type === 'add-constraint') {
         newState = applyAddConstraintFromOnEvent(newState, entry, effect, def?.name ?? '?');
       } else if (effect.apply.type === 'offer-resource-play') {
-        const activePlayer = newState.activePlayer ?? entry.declaredBy;
-        newState = enqueueResolution(newState, {
-          source: card.instanceId,
-          actor: activePlayer,
-          scope: { kind: 'phase', phase: newState.phaseState.phase },
-          kind: {
-            type: 'resource-play-offer',
-            linkToInstanceId: card.instanceId,
-          },
-        });
-        logDetail(`"${def?.name ?? card.definitionId as string}" entered play — queued resource-play-offer for player ${activePlayer as string}`);
+        // Crown of Flowers (dm-121) enters play unlinked and simply remains in
+        // play as an environment with "no effect until you play a resource with
+        // it". The one-time option to pair a resource is a non-blocking
+        // organization-phase action (`pair-resource-with-cof`, see
+        // `legal-actions/organization.ts`) — NOT a blocking pending resolution.
+        // Enqueuing a resolution here would collapse the legal-action menu to
+        // "pair or pass" and prevent the player from organizing at all.
+        logDetail(`"${def?.name ?? card.definitionId as string}" entered play — resource-play offer available as an organization action`);
       } else if (effect.apply.type === 'heal-target-character') {
         // Set the target character's status from wounded (Inverted) to Tapped.
         if (targetCharId) {

@@ -304,7 +304,8 @@ export interface PlayPermanentEventAction {
 /**
  * Pair a resource card from hand with an in-play Crown of Flowers, directly
  * entering the resource into play linked to Crown of Flowers.
- * Offered under a `resource-play-offer` pending resolution.
+ * Offered as a non-blocking organization-phase action while an unpaired
+ * Crown of Flowers is in play (see `cofPairResourceActions`).
  *
  * The paired resource is considered to be played and in play as though
  * Gates of Morning were in play and Doors of Night were not.

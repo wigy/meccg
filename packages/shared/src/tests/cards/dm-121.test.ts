@@ -15,7 +15,7 @@
  *
  * | # | Effect Type                  | Status | Notes                                          |
  * |---|------------------------------|--------|------------------------------------------------|
- * | 1 | on-event/offer-resource-play | OK     | Pending resolution offered when CoF plays      |
+ * | 1 | on-event/offer-resource-play | OK     | Non-blocking org action; does not block org    |
  * | 2 | assumeInPlay/assumeNotInPlay | OK     | Paired resource evaluates as if GoM in play    |
  * | 3 | linkedInstanceId cascade     | OK     | Mutual discard when either card is discarded   |
  *
@@ -55,10 +55,14 @@ describe('Crown of Flowers (dm-121)', () => {
     expect(playActions).toHaveLength(1);
   });
 
-  test('after chain resolves, enters cardsInPlay and queues resource-play-offer', () => {
-    const state = buildSitePhaseState({
-      site: MORIA,
-      hand: [CROWN_OF_FLOWERS],
+  test('after chain resolves, enters cardsInPlay WITHOUT queuing a blocking resolution', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [CROWN_OF_FLOWERS], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
     });
 
     const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
@@ -66,33 +70,44 @@ describe('Crown of Flowers (dm-121)', () => {
     const resolved = resolveChain(afterPlay);
 
     expect(resolved.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(1);
-    const resourcePlayOffer = resolved.pendingResolutions.find(
-      r => r.kind.type === 'resource-play-offer',
-    );
-    expect(resourcePlayOffer).toBeDefined();
+    // Crown of Flowers must NOT collapse the legal-action menu: no pending
+    // resolution is queued, so the player may continue to organize.
+    expect(resolved.pendingResolutions).toHaveLength(0);
   });
 
-  test('player can pass the resource-play-offer (CoF stays in play alone)', () => {
-    const state = buildSitePhaseState({
-      site: MORIA,
-      hand: [CROWN_OF_FLOWERS],
+  // Regression (Bug Report: Organization, game mrs06zup-du4wde seq 84): playing
+  // Crown of Flowers used to enqueue a blocking `resource-play-offer` pending
+  // resolution that collapsed the menu to "pair or pass", so the player could
+  // not play or organize characters during the organization phase.
+  test('playing Crown of Flowers does NOT block organizing characters', () => {
+    // Two characters in one company at a Haven → split-company is a normal
+    // organization action available independent of the Crown offer.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS] }], hand: [CROWN_OF_FLOWERS], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
     });
 
     const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
     const afterPlay = dispatch(state, playActions[0].action);
     const resolved = resolveChain(afterPlay);
 
-    const passActions = viableActions(resolved, PLAYER_1, 'pass');
-    expect(passActions).toHaveLength(1);
-    const afterPass = dispatch(resolved, passActions[0].action);
-    expect(afterPass.pendingResolutions.filter(r => r.kind.type === 'resource-play-offer')).toHaveLength(0);
-    expect(afterPass.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(1);
+    // The organization menu still offers ordinary actions (e.g. split-company),
+    // proving the phase was not collapsed by the Crown of Flowers offer.
+    expect(viableActions(resolved, PLAYER_1, 'split-company').length).toBeGreaterThan(0);
   });
 
-  test('player can pair a resource from hand with CoF', () => {
-    const state = buildSitePhaseState({
-      site: MORIA,
-      hand: [CROWN_OF_FLOWERS, SUN],
+  test('player can still pair a resource from hand with CoF (as an org action)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [CROWN_OF_FLOWERS, SUN], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
     });
 
     const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
@@ -103,6 +118,9 @@ describe('Crown of Flowers (dm-121)', () => {
     expect(pairActions).toHaveLength(1);
 
     const afterPair = dispatch(resolved, pairActions[0].action);
+
+    // Once paired, the Crown is linked and no longer offers a pairing action.
+    expect(viableActions(afterPair, PLAYER_1, 'pair-resource-with-cof')).toHaveLength(0);
 
     // CoF and the paired resource are both in cardsInPlay
     expect(afterPair.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(2);

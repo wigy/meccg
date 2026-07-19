@@ -57,6 +57,7 @@ import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFac
 import { topResolutionFor } from './pending.js';
 import { applyEvilHourTaps } from './evil-hour.js';
 import { applyResolution } from './pending-handlers.js';
+import { applyPairResourceWithCof } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';
 import { handleUntap } from './reducer-untap.js';
 import { handleOrganization } from './reducer-organization.js';
@@ -171,6 +172,17 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
       return resolutionResult;
     }
     // Stub returned null — fall through to legacy phase reducer.
+  }
+
+  // Crown of Flowers (dm-121): pairing a resource with an in-play Crown of
+  // Flowers is a non-blocking organization-phase action (not a pending
+  // resolution), so it is dispatched here directly. Its legality is gated by
+  // `cofPairResourceActions` in `legal-actions/organization.ts`.
+  if (action.type === 'pair-resource-with-cof') {
+    const pairResult = applyPairResourceWithCof(state, action);
+    if (pairResult.error) return pairResult;
+    const recomputed = postReduce(pairResult.state, state);
+    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 }, effects: pairResult.effects };
   }
 
   // Cross-phase `reshuffle-card-from-hand` (e.g. Sudden Call, le-235):
