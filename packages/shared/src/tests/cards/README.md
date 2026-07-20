@@ -6,16 +6,16 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 878 | 875 | 3 | 99.7% |
+| 884 | 881 | 3 | 99.7% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 59 | 59 | 100.0% |
+| AS | 62 | 62 | 100.0% |
 | BA | 94 | 94 | 100.0% |
-| DM | 77 | 77 | 100.0% |
-| LE | 250 | 248 | 99.2% |
+| DM | 78 | 78 | 100.0% |
+| LE | 252 | 250 | 99.2% |
 | TD | 67 | 67 | 100.0% |
 | TW | 269 | 268 | 99.6% |
 | WH | 62 | 62 | 100.0% |
@@ -52,6 +52,7 @@
 | as-76 | Regiment of Black Crows | — | 16 | ☑ |
 | as-77 | Above the Abyss | — | 7 | ☑ |
 | as-80 | Dark Tryst | — | 4 | ☑ |
+| as-83 | Faithless Steward | — | 14 | ☑ |
 | as-88 | Hold Rebuilt and Repaired | — | 11 | ☑ |
 | as-90 | Join With That Power | — | 12 | ☑ |
 | as-94 | Orders from Lugbúrz | — | 13 | ☑ |
@@ -83,6 +84,8 @@
 | as-151 | Irerock | — | 9 | ☑ |
 | as-169 | Weathertop | — | 6 | ☑ |
 | as-170 | Wellinghall | — | 10 | ☑ |
+| as-79-the-dark-power | — | — | 7 | ☑ |
+| as-82-eye-never-sleeping | — | — | 6 | ☑ |
 | ba-1 | Strider | — | 16 | ☑ |
 | ba-2 | Azog | — | 6 | ☑ |
 | ba-3 | The Balrog | — | 8 | ☑ |
@@ -220,6 +223,7 @@
 | dm-72 | Mordor in Arms | — | 10 | ☑ |
 | dm-73 | Neither so Ancient Nor so Potent | — | 7 | ☑ |
 | dm-75 | No Way Forward | — | 8 | ☑ |
+| dm-76 | Nobody’s Friend | — | 14 | ☑ |
 | dm-80 | Rank upon Rank | — | 10 | ☑ |
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-85 | Revealed to all Watchers | — | 5 | ☑ |
@@ -369,6 +373,7 @@
 | le-173 | Burning Rick, Cot, and Tree | — | 13 | ☑ |
 | le-174 | By the Ringwraith’s Word | — | 17 | ☑ |
 | le-175 | Catch an Elusive Scent | — | 15 | ☑ |
+| le-176 | Come By Night Upon Them | — | 10 | ☑ |
 | le-178 | Crooked Promptings | — | 9 | ☑ |
 | le-179 | Deeper Shadow | — | 13 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
@@ -503,6 +508,7 @@
 | le-415 | The Worthy Hills | — | 19 | ☑ |
 | le-417 | Zarak Dûm | — | 5 | ☑ |
 | le-418 | The Arkenstone | — | 16 | ☑ |
+| le-203-the-lidless-eye | — | — | 11 | ☑ |
 | le-pending-effects-parity | — | — | 3 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 16 | ☑ |

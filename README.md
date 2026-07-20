@@ -22,10 +22,10 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
 | Rule tests | 269 | 332 | 81.0% |
-| Card tests | 875 | 878 | 99.7% |
+| Card tests | 881 | 884 | 99.7% |
 | Cards created | 1683 | 1683 | 100.0% |
-| Cards certified | 926 | 1683 | 55.0% |
-| **Total** | **3753** | **4576** | **82.0%** |
+| Cards certified | 932 | 1683 | 55.4% |
+| **Total** | **3765** | **4582** | **82.2%** |
 
 ### Deck Catalog
 
@@ -53,7 +53,7 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (S) Await the Onset | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (T) Feel Free | hero | 110 | 110 (100.0%) | 110 (100.0%) |
-| (U) Come by Night upon them | minion | 110 | 110 (100.0%) | 100 (90.9%) |
+| (U) Come by Night upon them | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (V) Great Shadow | balrog | 110 | 110 (100.0%) | 110 (100.0%) |
 
 ## Getting Started

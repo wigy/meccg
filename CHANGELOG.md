@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.56.0 — 2026-07-20
+
+Challenge Deck U
+
+### Game Engine
+
+- Completed the card pool for challenge deck (U) "Come by Night upon them" — all 110 cards are now certified, making the deck playable end to end
+- Certified The Lidless Eye (le-203) with a Sauron play-mode: a `play-as-sauron` marker, `discard-named-in-play`, and a dual-mode organization grant (sideboard-fetch / peek-hand)
+- Certified Come By Night Upon Them (le-176) with a persistent site-scoped `auto-attack-prowess-boost` (-1 prowess to all automatic-attacks at the site, -2 with Doors of Night) and a `firstItemNoTapAvailable` site-phase flag so the first item played at the site does not tap it
+- Certified Faithless Steward (as-83) with a new `agent-home-site-faction-lock` effect — while the unwounded agent bearer stands at a Border-/Free-hold home site, factions are locked at any version of that site and the controller gains the card's marshalling points
+- Certified The Dark Power (as-79): `player.playsAsSauron` play-condition context, an `isInfluencing` play-target pin to the character making the live influence check, and an `onFailure: shuffle-faction-into-deck` variant on the influence-check modifier
+- Certified Eye Never Sleeping (as-82), a Sauron-gated costless cancel of one hazard creature attack; play-condition gates now hold on the from-hand combat cancel paths and gated cancel cards are no longer offered as do-nothing generic short events outside combat
+- Certified Nobody's Friend (dm-76), the Border-hold/Free-hold sibling of Inner Cunning (dm-68), reusing the `agent-reveal-site-override` + `fetch-agent-to-hand` primitives with no new engine code
+- Migrated hardcoded card logic into DSL declarations: opponent-alignment play bans (vs-Balrog / vs-Ringwraith lists) became a generic `unplayable-when` play-restriction, the Ringwraith One Ring win at Barad-dûr became an `end-of-turn-win` site-rule, A New Ringlord's roll gate moved into its own `when` condition, and the Balrog ring-test skip became a `skipForAlignments` field
+
+### Infrastructure
+
+- run-ai: fixed the `gh` timeout wrapper that silently broke every `gh` call (`timeout … command gh` looked up a binary named `command` and exited 127), which had prevented the open-PR sweep from ever resolving merge conflicts
+- run-ai: the worker no longer dies on recoverable errors — network calls (`gh`/`curl`/`git pull`) are bounded by timeouts, an unusable OAuth token backs off and retries, a failed mail handler marks its message terminal and continues, and a dirty working tree pauses instead of exiting
+
 ## 0.55.0 — 2026-07-20
 
 Challenge Deck T
