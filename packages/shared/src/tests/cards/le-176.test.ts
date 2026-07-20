@@ -44,7 +44,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  resetMint, Phase,
+  resetMint,
   PLAYER_1, RESOURCE_PLAYER, HAZARD_PLAYER,
   CardStatus, CardDefinitionId,
   buildMinionSitePhaseState, setupAutoAttackStep,
