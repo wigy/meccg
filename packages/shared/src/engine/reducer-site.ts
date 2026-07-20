@@ -1699,22 +1699,26 @@ export function executeDeferredSiteAction(
 }
 
 /**
- * Handle the Hermit's Hill (dm-32) special site grant-action: the company
- * discards two minor items they bear to unlock major item playability at the
- * current untapped site for the rest of this company's site phase.
+ * Handle the Hermit's Hill special site grant-actions: the company discards
+ * two minor items they bear to unlock item playability at the current
+ * untapped site for the rest of this company's site phase. The hero version
+ * (dm-32, `discard-minors-for-major`) unlocks major/hoard items via a
+ * `major-item-unlocked` constraint; the minion version (le-382,
+ * `discard-minors-for-gold-ring`, covert companies only) unlocks one gold
+ * ring regardless of its text restrictions via `gold-ring-item-unlocked`.
  *
  * Locates both items by instance ID (`targetCardId` and `secondTargetCardId`),
  * detaches them from their bearers, moves them to the discard pile, then adds
- * a `major-item-unlocked` constraint scoped to the company's site phase.
+ * the unlock constraint scoped to the company's site phase.
  */
-function handleDiscardMinorsForMajor(
+function handleDiscardMinorsForUnlock(
   state: GameState,
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
   if (action.type !== 'activate-granted-action') return { state, error: 'Expected activate-granted-action' };
   if (!action.targetCardId || !action.secondTargetCardId) {
-    return { state, error: 'discard-minors-for-major: missing targetCardId or secondTargetCardId' };
+    return { state, error: `${action.actionId}: missing targetCardId or secondTargetCardId` };
   }
 
   const playerIndex = getPlayerIndex(state, action.player);
@@ -1728,26 +1732,29 @@ function handleDiscardMinorsForMajor(
     const currentPlayer = workingState.players[playerIndex];
     const removed = removeAttachment(currentPlayer, 'items', itemId);
     if (!removed) {
-      return { state, error: `discard-minors-for-major: item ${itemId as string} not found on any character` };
+      return { state, error: `${action.actionId}: item ${itemId as string} not found on any character` };
     }
 
     workingState = updatePlayer(workingState, playerIndex, () => ({
       ...removed.player,
       discardPile: [...removed.player.discardPile, toCardInstance(removed.attachment)],
     }));
-    logDetail(`Site: discard-minors-for-major discarded item ${itemId as string} from ${removed.charId as string}`);
+    logDetail(`Site: ${action.actionId} discarded item ${itemId as string} from ${removed.charId as string}`);
   }
 
-  // Add major-item-unlocked constraint scoped to this company's site phase
+  // Add the unlock constraint scoped to this company's site phase
+  const unlockKind = action.actionId === 'discard-minors-for-gold-ring'
+    ? { type: 'gold-ring-item-unlocked' as const }
+    : { type: 'major-item-unlocked' as const };
   const newState = addConstraint(workingState, {
     source: action.sourceCardId,
     sourceDefinitionId: action.sourceCardDefinitionId,
     scope: { kind: 'company-site-phase', companyId: company.id },
     target: { kind: 'company', companyId: company.id },
-    kind: { type: 'major-item-unlocked' },
+    kind: unlockKind,
   });
 
-  logDetail(`Site: discard-minors-for-major activated for company ${company.id as string} — major items now playable`);
+  logDetail(`Site: ${action.actionId} activated for company ${company.id as string} — ${unlockKind.type === 'gold-ring-item-unlocked' ? 'one gold ring now playable regardless of text restrictions' : 'major items now playable'}`);
   return { state: newState };
 }
 
@@ -1953,11 +1960,13 @@ function handleSitePlayResources(
     return handleOpponentInfluenceAttempt(state, action, siteState);
   }
 
-  // Site-phase grant-action: Hermit's Hill discard-minors-for-major (dm-32).
-  // Handled before the generic grant-action path because it has no character
-  // actor to tap — the cost is discarding two minor items directly.
-  if (action.type === 'activate-granted-action' && action.actionId === 'discard-minors-for-major') {
-    return handleDiscardMinorsForMajor(state, action, siteState);
+  // Site-phase grant-action: Hermit's Hill discard-minors-for-major (dm-32) /
+  // discard-minors-for-gold-ring (le-382). Handled before the generic
+  // grant-action path because it has no character actor to tap — the cost is
+  // discarding two minor items directly.
+  if (action.type === 'activate-granted-action'
+    && (action.actionId === 'discard-minors-for-major' || action.actionId === 'discard-minors-for-gold-ring')) {
+    return handleDiscardMinorsForUnlock(state, action, siteState);
   }
 
   // Rule 2.1.1: any-phase grant-actions (Cram, Orc-draughts). The

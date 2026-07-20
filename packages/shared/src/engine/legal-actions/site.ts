@@ -801,6 +801,16 @@ function playResourcesActions(
       && c.target.companyId === company.id,
   );
 
+  // Check for gold-ring-item-unlocked constraint (Hermit's Hill le-382
+  // special ability): a covert company discarded two minor items to make one
+  // gold ring playable at this untapped site, regardless of the ring's text
+  // restrictions.
+  const goldRingItemUnlocked = state.activeConstraints.some(
+    c => c.kind.type === 'gold-ring-item-unlocked'
+      && c.target.kind === 'company'
+      && c.target.companyId === company.id,
+  );
+
   // Find untapped characters in this company for item attachment
   const untappedCharacters = company.characters
     .map(cId => player.characters[cId])
@@ -1374,13 +1384,24 @@ function playResourcesActions(
         logDetail(`Item ${itemDef.name}: Technology item unlocked at ${siteName} (Saruman's Machinery) — tap state and site restriction bypassed`);
       }
 
+      // Hermit's Hill (le-382): while a `gold-ring-item-unlocked` constraint
+      // binds this company, a gold ring item is playable at the (untapped)
+      // site "regardless of its text restrictions" — both the site's
+      // `playableResources` gate and the ring's own `item-play-site`
+      // restriction are bypassed. The site tapping on the ring's play limits
+      // the unlock to one gold ring.
+      const goldRingUnlockActive = goldRingItemUnlocked && itemDef.subtype === 'gold-ring';
+      if (goldRingUnlockActive) {
+        logDetail(`Item ${itemDef.name}: gold ring unlocked at ${siteName} (Hermit's Hill) — site restriction and playable-resources gate bypassed`);
+      }
+
       if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped && !technologyUnlockActive) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: site is already tapped`));
         continue;
       }
 
-      const siteRestriction = technologyUnlockActive ? undefined : itemSiteRestriction;
+      const siteRestriction = technologyUnlockActive || goldRingUnlockActive ? undefined : itemSiteRestriction;
       if (siteRestriction) {
         const matchesSiteList = siteRestriction.sites
           ? siteRestriction.sites.includes(siteName)
@@ -1408,7 +1429,7 @@ function playResourcesActions(
           actions.push(notPlayable(playerId, cardInstanceId, siteRestriction.sites ? `${itemDef.name}: ${reason}` : reason));
           continue;
         }
-      } else if (!playableTypes.has(itemDef.subtype) && !minorItemBonus && !technologyUnlockActive) {
+      } else if (!playableTypes.has(itemDef.subtype) && !minorItemBonus && !technologyUnlockActive && !goldRingUnlockActive) {
         // major-item-unlocked allows major items (subtype "major") at the site
         if (majorItemUnlocked && itemDef.subtype === 'major') {
           logDetail(`Item ${itemDef.name} (major): allowed via major-item-unlocked constraint`);
@@ -2258,6 +2279,12 @@ function playResourcesActions(
  *   minor items from the company to unlock major/hoard item playability for
  *   the rest of the company's site phase. Only offered when the site is
  *   untapped and the company holds at least two minor items.
+ *
+ * - `"discard-minors-for-gold-ring"` action (Hermit's Hill le-382): the
+ *   minion sibling — discards two minor items to unlock gold ring
+ *   playability (regardless of the ring's text restrictions) for the rest
+ *   of the company's site phase. Same preconditions, plus the company must
+ *   be covert.
  */
 function sitePhaseGrantActions(
   state: GameState,
@@ -2329,9 +2356,18 @@ function sitePhaseGrantActions(
       continue;
     }
 
-    // discard-minors-for-major: site must be untapped; company needs ≥2 minor items
-    if (effect.action === 'discard-minors-for-major') {
+    // discard-minors-for-major (Hermit's Hill dm-32) /
+    // discard-minors-for-gold-ring (Hermit's Hill le-382): site must be
+    // untapped; company needs ≥2 minor items. The minion variant is
+    // additionally restricted to covert companies ("a covert company may
+    // discard two minor items…").
+    if (effect.action === 'discard-minors-for-major' || effect.action === 'discard-minors-for-gold-ring') {
       if (siteIsTapped) continue;
+
+      if (effect.action === 'discard-minors-for-gold-ring' && !isCovertCompany(company, player, state)) {
+        logDetail(`Site grant-action "${effect.action}": company is overt — covert company required`);
+        continue;
+      }
 
       // Collect all minor items across the company's characters
       const minorItems: { itemId: import('../../index.js').CardInstanceId; bearerId: import('../../index.js').CardInstanceId }[] = [];

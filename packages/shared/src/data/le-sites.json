@@ -2167,7 +2167,9 @@
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Wold & Foothills",
-    "playableResources": [],
+    "playableResources": [
+      "minor"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Men",
@@ -2177,7 +2179,15 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor)Automatic-attacks: Men — 3 strikes with 6 prowessSpecial: During the site phase, a covert company may discard two minor items they bear to make any one gold ring item (regardless of its text restrictions) playable at this untapped site this turn."
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor)Automatic-attacks: Men — 3 strikes with 6 prowessSpecial: During the site phase, a covert company may discard two minor items they bear to make any one gold ring item (regardless of its text restrictions) playable at this untapped site this turn.",
+    "certified": "2026-07-20",
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "discard-minors-for-gold-ring",
+        "cost": {}
+      }
+    ]
   },
   {
     "cardType": "minion-site",
