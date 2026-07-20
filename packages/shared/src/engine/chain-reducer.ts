@@ -3971,6 +3971,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               // Carry the optional target-gating condition so an opponent-influence
               // booster (Mine or No One's ba-68) fires only on a matching attempt.
               ...(apply.constraintWhen ? { when: apply.constraintWhen } : {}),
+              // Carry the failure fate for the boosted faction (The Dark Power
+              // as-79: failed check → shuffle the faction into the play deck).
+              ...(apply.onFailure ? { onFailure: apply.onFailure } : {}),
             },
           });
         } else {

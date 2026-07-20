@@ -38,7 +38,7 @@ import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -2104,6 +2104,7 @@ export function buildPlayOptionContext(
   let inAvatarCompany = false;
   let isRevealedAvatar = false;
   let hasFactionInHand = false;
+  let isInfluencing = false;
   let companySiteType: string | null = null;
   let containsDiplomat = false;
   let companyMoving = false;
@@ -2129,6 +2130,16 @@ export function buildPlayOptionContext(
     // active influence check, not speculatively before one is declared.
     hasFactionInHand = Boolean(state.chain?.entries.some(
       e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt' && e.declaredBy === player.id,
+    ));
+    // `isInfluencing` is true only for the character whose influence-attempt is
+    // live in the chain. Lets a boost event that modifies "an influence check"
+    // without naming a target (The Dark Power as-79) pin its play-target to the
+    // influencing character, so the resulting one-shot constraint is consumed
+    // by the very check the card was played on.
+    isInfluencing = Boolean(state.chain?.entries.some(
+      e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt'
+        && e.declaredBy === player.id
+        && e.payload.influencingCharacterId === char.instanceId,
     ));
     const charCompany = findCharacterCompany(player.companies, char.instanceId);
     if (charCompany?.currentSite) {
@@ -2190,6 +2201,7 @@ export function buildPlayOptionContext(
       mind: def.mind,
       inAvatarCompany,
       isRevealedAvatar,
+      isInfluencing,
       itemNames,
       allyNames,
     },
@@ -2326,6 +2338,10 @@ export function buildPlayerStateContext(
       characterCount,
       hasProtectedWizardhaven: playerHasProtectedWizardhaven(state, playerId),
       protectedWizardhavenCount: protectedWizardhavenCount(state, playerId),
+      // "Playable if you are Sauron" (The Dark Power as-79): true while the
+      // player counts as Sauron via a `play-as-sauron` marker in play (The
+      // Lidless Eye le-203 / Sauron ba-43).
+      playsAsSauron: playerPlaysAsSauron(state, player),
     },
     opponent: { alignment: opponent?.alignment },
     inPlay: buildControllerInPlayNames(state, playerId),
