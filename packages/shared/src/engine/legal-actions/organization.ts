@@ -38,7 +38,7 @@ import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -2326,6 +2326,10 @@ export function buildPlayerStateContext(
       characterCount,
       hasProtectedWizardhaven: playerHasProtectedWizardhaven(state, playerId),
       protectedWizardhavenCount: protectedWizardhavenCount(state, playerId),
+      // "Playable if you are Sauron" (The Dark Power as-79): true while the
+      // player counts as Sauron via a `play-as-sauron` marker in play (The
+      // Lidless Eye le-203 / Sauron ba-43).
+      playsAsSauron: playerPlaysAsSauron(state, player),
     },
     opponent: { alignment: opponent?.alignment },
     inPlay: buildControllerInPlayNames(state, playerId),
@@ -2744,7 +2748,11 @@ export function playResourceShortEventActions(
     // combat (e.g. The Cock Crows' GoM discard mode). A play-option effect
     // with a met `when` also represents a non-combat mode (e.g. Many Turns
     // and Doublings' hazard-limit reduction).
-    const combatSupportTypes = new Set([...combatOnlyTypes, 'modify-attack', 'play-target', 'set-character-status']);
+    // play-condition is a gate on playing the card, never an independent
+    // effect — a gated combat-only card (Eye Never Sleeping as-82: "Playable
+    // if you are Sauron. Cancel one hazard creature attack.") stays
+    // combat-only.
+    const combatSupportTypes = new Set([...combatOnlyTypes, 'modify-attack', 'play-target', 'set-character-status', 'play-condition']);
     const hasEffects = def.effects && def.effects.length > 0;
     const allCombatOnly = hasEffects && def.effects.every(e => {
       if (combatSupportTypes.has(e.type)) return true;

@@ -232,6 +232,11 @@ export function heroResourceShortEventActions(
       if (e.type === 'move' && e.when && !matchesCondition(e.when, { inPlay: inPlayNames })) return true;
       if (hasCancelAttack && (e.type === 'play-target' || (e.type === 'set-character-status' && e.status === 'inverted'))) return true;
       if (hasCombatEffect && e.type === 'duplication-limit') return true;
+      // A play-condition is a gate on playing the card, not an independent
+      // non-combat effect — a gated cancel-attack card (Eye Never Sleeping
+      // as-82: "Playable if you are Sauron. Cancel one hazard creature
+      // attack.") is still combat-only.
+      if (hasCombatEffect && e.type === 'play-condition') return true;
       return false;
     });
     if (allCombatOnly) {
