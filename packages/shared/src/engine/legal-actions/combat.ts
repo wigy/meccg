@@ -27,7 +27,7 @@ import { computeCombatProwess, buildInPlayNames } from '../recompute-derived.js'
 import { resolveDef } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
-import { buildPlayOptionContext, getPlayTargetEffect } from './organization.js';
+import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect } from './organization.js';
 import { findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess } from '../ally-stats.js';
@@ -2152,6 +2152,15 @@ function cancelAttackActions(
       (e): e is CancelAttackEffect => e.type === 'cancel-attack',
     );
     if (!cancelEffect || !cancelEffect.handModeRequiresCovert) continue;
+    // "Playable if …" gates on the player's own state (e.g. Eye Never
+    // Sleeping as-82: playable only while the player counts as Sauron) apply
+    // whenever the card is played from hand.
+    const covertModePlayerState = findPlayConditionEffect(def, 'player-state');
+    if (covertModePlayerState?.condition
+      && !matchesCondition(covertModePlayerState.condition, buildPlayerStateContext(state, player, playerId))) {
+      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: play-condition player-state not satisfied`);
+      continue;
+    }
     // Minion resource card, only playable by a character in a covert company.
     if (player.alignment !== Alignment.Ringwraith) {
       logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: hand (minion resource) mode requires a minion player`);
@@ -2191,6 +2200,17 @@ function cancelAttackActions(
     // A `discard: "self"` cancel-attack is the Wild Hounds dual-faction mode
     // handled by the dedicated blocks above — do not also offer it here.
     if (cancelEffect.cost?.discard === 'self') {
+      continue;
+    }
+
+    // play-condition requires: "player-state" — a "Playable if …" gate on the
+    // player's own state, evaluated against the same context as the
+    // organization-phase and any-phase short-event paths. Eye Never Sleeping
+    // (as-82): "Playable if you are Sauron" via player.playsAsSauron.
+    const playerStateCondition = findPlayConditionEffect(cardDef, 'player-state');
+    if (playerStateCondition?.condition
+      && !matchesCondition(playerStateCondition.condition, buildPlayerStateContext(state, player, playerId))) {
+      logDetail(`Cancel-attack ${handCard.definitionId as string}: play-condition player-state not satisfied`);
       continue;
     }
 

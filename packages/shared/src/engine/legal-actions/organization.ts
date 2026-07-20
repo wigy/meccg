@@ -2760,7 +2760,11 @@ export function playResourceShortEventActions(
     // combat (e.g. The Cock Crows' GoM discard mode). A play-option effect
     // with a met `when` also represents a non-combat mode (e.g. Many Turns
     // and Doublings' hazard-limit reduction).
-    const combatSupportTypes = new Set([...combatOnlyTypes, 'modify-attack', 'play-target', 'set-character-status']);
+    // play-condition is a gate on playing the card, never an independent
+    // effect — a gated combat-only card (Eye Never Sleeping as-82: "Playable
+    // if you are Sauron. Cancel one hazard creature attack.") stays
+    // combat-only.
+    const combatSupportTypes = new Set([...combatOnlyTypes, 'modify-attack', 'play-target', 'set-character-status', 'play-condition']);
     const hasEffects = def.effects && def.effects.length > 0;
     const allCombatOnly = hasEffects && def.effects.every(e => {
       if (combatSupportTypes.has(e.type)) return true;
