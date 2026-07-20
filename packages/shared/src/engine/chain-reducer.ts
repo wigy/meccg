@@ -1426,6 +1426,92 @@ function resolveDisplaceStoredItem(state: GameState, entry: ChainEntry, storedIt
 }
 
 /**
+ * Discard every in-play instance of a card named `cardName`, scanning both
+ * players' `cardsInPlay` **and** every character's attached `items`/`hazards`
+ * (a resource permanent-event played "on a character" — e.g. Bade to Rule
+ * le-167 on a Ringwraith — lives in that character's `items`, not in
+ * `cardsInPlay`). Each removed instance is routed to its *owner's* discard pile
+ * (owner derived from the instance-id prefix `<owner>-<counter>`, matching the
+ * move primitive). No instance is lost: every card removed from a collection is
+ * pushed onto exactly one discard pile.
+ *
+ * Backs the `discard-named-in-play` self-enters-play apply of The Lidless Eye
+ * (le-203) / Sauron (ba-43): "Discards ... Bade to Rule."
+ */
+function discardNamedCardsInPlay(state: GameState, cardName: string): GameState {
+  const players: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  const nameMatches = (definitionId: CardDefinitionId): boolean =>
+    defById(state, definitionId)?.name === cardName;
+  // Owner of a removed card: prefer the instance-id owner prefix
+  // (`<owner>-<counter>`), falling back to the collection it was found in when
+  // the prefix does not resolve to a player (e.g. synthetic test instance ids).
+  const ownerIndexOf = (instanceId: CardInstanceId, containingIndex: number): number => {
+    const idx = players.findIndex(p => (p.id as string) === (instanceId as string).split('-')[0]);
+    return idx >= 0 ? idx : containingIndex;
+  };
+  const removed: { inst: CardInstance; ownerIndex: number }[] = [];
+  const record = (inst: CardInstance, containingIndex: number): void => {
+    removed.push({ inst, ownerIndex: ownerIndexOf(inst.instanceId, containingIndex) });
+  };
+
+  for (let pi = 0; pi < 2; pi++) {
+    // Bare cards in play.
+    const keptCip = players[pi].cardsInPlay.filter(c => {
+      if (nameMatches(c.definitionId)) {
+        logDetail(`discard-named-in-play: discarding "${cardName}" ${c.instanceId as string} from cardsInPlay`);
+        record({ instanceId: c.instanceId, definitionId: c.definitionId }, pi);
+        return false;
+      }
+      return true;
+    });
+
+    // Attached cards on each character (items where a resource permanent-event
+    // played "on a character" lives, plus hazards).
+    const chars = { ...players[pi].characters };
+    let charsChanged = false;
+    for (const [cid, char] of Object.entries(players[pi].characters)) {
+      const keptItems = char.items.filter(it => {
+        if (nameMatches(it.definitionId)) {
+          logDetail(`discard-named-in-play: discarding "${cardName}" ${it.instanceId as string} from ${cid}'s items`);
+          record({ instanceId: it.instanceId, definitionId: it.definitionId }, pi);
+          return false;
+        }
+        return true;
+      });
+      const keptHazards = char.hazards.filter(hz => {
+        if (nameMatches(hz.definitionId)) {
+          logDetail(`discard-named-in-play: discarding "${cardName}" ${hz.instanceId as string} from ${cid}'s hazards`);
+          record({ instanceId: hz.instanceId, definitionId: hz.definitionId }, pi);
+          return false;
+        }
+        return true;
+      });
+      if (keptItems.length !== char.items.length || keptHazards.length !== char.hazards.length) {
+        chars[cid as CardInstanceId] = { ...char, items: keptItems, hazards: keptHazards };
+        charsChanged = true;
+      }
+    }
+
+    players[pi] = {
+      ...players[pi],
+      ...(keptCip.length !== players[pi].cardsInPlay.length ? { cardsInPlay: keptCip } : {}),
+      ...(charsChanged ? { characters: chars } : {}),
+    };
+  }
+
+  if (removed.length === 0) {
+    logDetail(`discard-named-in-play: no "${cardName}" in play — nothing to discard`);
+    return state;
+  }
+
+  for (const { inst, ownerIndex } of removed) {
+    players[ownerIndex] = { ...players[ownerIndex], discardPile: [...players[ownerIndex].discardPile, inst] };
+  }
+
+  return { ...state, players };
+}
+
+/**
  * Resolves a permanent-event chain entry: moves the card from the chain
  * into the declaring player's `cardsInPlay` and executes `self-enters-play`
  * effects (e.g. Gates of Morning discarding hazard environments).
@@ -1919,6 +2005,12 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         } else {
           logDetail(`"${def?.name ?? '?'}" win-condition-roll: no avatar target — fizzle`);
         }
+      } else if (effect.apply.type === 'discard-named-in-play') {
+        // The Lidless Eye (le-203) / Sauron (ba-43): on entering play, discard
+        // every in-play copy of the named card (Bade to Rule le-167) — wherever
+        // it sits (bare in play, or attached to a Ringwraith as an item).
+        logDetail(`"${def?.name ?? '?'}" entered play — discard-named-in-play "${effect.apply.cardName}"`);
+        newState = discardNamedCardsInPlay(newState, effect.apply.cardName);
       }
   }
 

@@ -38,6 +38,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { evaluateExpr } from './expression-eval.js';
 import { pickActiveItemsForCharacter } from '../item-slots.js';
 import { getCardEffects, findPlayerAndCompany, isCardNameInPlayForPlayer } from '../reducer-utils.js';
+import { logDetail } from '../legal-actions/log.js';
 
 /**
  * Context object passed to conditions and expressions when resolving effects.
@@ -1378,6 +1379,26 @@ export function resolveHandSize(state: GameState, playerIndex: number): number {
     if (constraint.target.kind !== 'player') continue;
     if (constraint.target.playerId !== player.id) continue;
     total += constraint.kind.value;
+  }
+
+  // Sum hand-size-modifier effects carried by bare permanent-events sitting in
+  // the player's `cardsInPlay` (not attached to any character). The Lidless Eye
+  // (le-203): "You may keep one more card than normal in your hand." Such a card
+  // is a general permanent event, so its modifier is not reached by the
+  // per-character collection above. (Set-aside hosts are skipped — their effects
+  // are dormant.)
+  for (const card of player.cardsInPlay) {
+    if (card.setAsideHost !== undefined) continue;
+    const def = resolveDef(state, card.instanceId);
+    for (const effect of getCardEffects(def)) {
+      if (effect.type === 'hand-size-modifier') {
+        const delta = typeof effect.value === 'number' ? effect.value : 0;
+        if (delta !== 0) {
+          logDetail(`Hand-size: +${delta} from ${(def as { name?: string }).name ?? '?'} in play`);
+          total += delta;
+        }
+      }
+    }
   }
 
   return total;
