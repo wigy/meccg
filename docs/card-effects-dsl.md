@@ -2692,7 +2692,29 @@ spends the card by discarding it from hand regardless of the in-play cost.
 
 Both sources share the same `when` attack filter and are emitted by
 `cancelAttackActions` (combat.ts); the in-play source applies immediately,
-the hand play routes through the chain. Example (Wild Hounds — discard):
+the hand play routes through the chain.
+
+**Player-state gate on the hand play.** A `play-condition` with
+`requires: "player-state"` on a cancel-attack card is honoured by both
+from-hand paths in `cancelAttackActions` (evaluated against the same
+player-state context as the organization-phase / any-phase short-event
+paths). Used by *Eye Never Sleeping* (as-82): "Playable if you are Sauron.
+Cancel one hazard creature attack." — the gate is
+`{ "player.playsAsSauron": true }` and the cancel is costless, restricted
+to hazard creature attacks:
+
+```json
+{ "type": "play-condition", "requires": "player-state",
+  "condition": { "player.playsAsSauron": true } },
+{ "type": "cancel-attack",
+  "when": { "attack.source": { "$in": ["creature", "on-guard-creature"] } } }
+```
+
+A combat-only short event carrying such a gate is still classified
+combat-only (the `play-condition` is a neutral companion effect in both
+short-event classifiers), so it is never offered outside combat.
+
+Example (Wild Hounds — discard):
 
 ```json
 { "type": "cancel-attack",

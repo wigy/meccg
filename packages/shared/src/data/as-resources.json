@@ -1299,8 +1299,28 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable if you are Sauron. Cancel one hazard creature attack."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "player.playsAsSauron": true
+        }
+      },
+      {
+        "type": "cancel-attack",
+        "when": {
+          "attack.source": {
+            "$in": [
+              "creature",
+              "on-guard-creature"
+            ]
+          }
+        }
+      }
+    ],
+    "text": "Playable if you are Sauron. Cancel one hazard creature attack.",
+    "certified": "2026-07-20"
   },
   {
     "cardType": "minion-resource-event",
