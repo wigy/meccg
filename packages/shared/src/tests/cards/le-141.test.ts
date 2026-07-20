@@ -162,8 +162,9 @@ describe('Stench of Mordor (le-141)', () => {
     const viableTypes = actions.filter(a => a.viable).map(a => a.action.type);
     // One tap action per untapped character
     expect(viableTypes.filter(t => t === 'tap-character-by-effect')).toHaveLength(2);
-    // Pass always available
-    expect(viableTypes).toContain('pass');
+    // The tap is mandatory ("must tap one untapped character if available"):
+    // pass is not offered while an untapped character remains
+    expect(viableTypes).not.toContain('pass');
     // enter-site blocked until pending clears
     expect(viableTypes).not.toContain('enter-site');
   });

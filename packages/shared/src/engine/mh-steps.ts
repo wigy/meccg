@@ -32,7 +32,8 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, playerById, playerConvertsDetainmentToNormal, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
+import { makeCombatState, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCovertCompany, playerById, playerConvertsDetainmentToNormal, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
+import { enqueueResolution } from './pending.js';
 import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance, dynamicUnderDeepsAdjacencyRoll } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
 import { companyMovementRestrictions } from './effects/company-restrictions.js';
@@ -179,6 +180,55 @@ export function handleSelectCompany(
 }
 
 /**
+ * Fire `site-revealed-as-new-site` on-event effects printed on a company's
+ * destination site, at the moment the site is revealed and the movement path
+ * declared (CoE step 1).
+ *
+ * Used by the Himring (as-150) family of minion sites: "An overt company must
+ * tap an untapped character (if available) if this site is revealed as its
+ * new site." The effect's `when` condition is evaluated against a context
+ * exposing `company.covert` ({@link isCovertCompany}) — the overt gate is
+ * `{ "company.covert": false }`, the covert-company variant (Isles of the
+ * Dead That Live as-154) uses `true`. A matching `tap-one-character` apply
+ * enqueues the existing tap-one-character pending resolution (Stench of
+ * Mordor le-141) scoped to the company's movement/hazard subphase, so the
+ * resource player must choose the character to tap before hazards are drawn.
+ */
+function fireSiteRevealedAsNewSite(
+  state: GameState,
+  actor: import('../types/common.js').PlayerId,
+  company: Company,
+  destDef: import('../index.js').SiteCard,
+): GameState {
+  const player = playerById(state, actor);
+  if (!player) return state;
+  let result = state;
+  for (const e of getCardEffects(destDef)) {
+    if (e.type !== 'on-event' || e.event !== 'site-revealed-as-new-site') continue;
+    if (e.when) {
+      const covert = isCovertCompany(company, player, state);
+      if (!matchesContext(e.when, { company: { covert } })) {
+        logDetail(`site-revealed-as-new-site: skipping "${destDef.name}" — condition not met (covert=${covert})`);
+        continue;
+      }
+    }
+    if (e.apply?.type !== 'tap-one-character') continue;
+    logDetail(`site-revealed-as-new-site: "${destDef.name}" — company ${company.id as string} must tap one untapped character`);
+    result = enqueueResolution(result, {
+      source: company.destinationSite ? company.destinationSite.instanceId : null,
+      actor,
+      scope: { kind: 'company-mh-subphase', companyId: company.id },
+      kind: {
+        type: 'tap-one-character',
+        companyId: company.id,
+        sourceDefinitionId: destDef.id,
+      },
+    });
+  }
+  return result;
+}
+
+/**
  * Handle the 'reveal-new-site' step (CoE step 1): the new site card is
  * revealed and the resource player declares their movement path.
  *
@@ -247,6 +297,12 @@ export function handleRevealNewSite(
   if (!originDef || !isSiteCard(originDef) || !destDef || !isSiteCard(destDef)) {
     return { state, error: `Could not resolve origin or destination site definitions` };
   }
+
+  // The destination site is now revealed as the company's new site — fire any
+  // `site-revealed-as-new-site` on-event effects printed on it (Himring
+  // as-150 family). Only appends pending resolutions, so the company/player
+  // references resolved above remain valid.
+  state = fireSiteRevealedAsNewSite(state, action.player, company, destDef);
 
   // Compute resolved site path (region types) and region names
   let resolvedSitePath: RegionType[] = [];
