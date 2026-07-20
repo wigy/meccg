@@ -1560,6 +1560,28 @@ export function findPlayerAvatar(
 }
 
 /**
+ * True when the player counts as **Sauron** rather than a Ringwraith — i.e. they
+ * have a bare permanent-event in `cardsInPlay` carrying a `play-as-sauron`
+ * marker (The Lidless Eye le-203; its sibling manifestation Sauron ba-43).
+ *
+ * While this holds the player "is Sauron, not a Ringwraith": they may not reveal
+ * a Ringwraith avatar nor play any Ringwraith follower. Detected by effect type
+ * (not card id) so any future card carrying the marker works unchanged. Set-aside
+ * hosts are skipped (their effects are dormant).
+ */
+export function playerPlaysAsSauron(
+  state: GameState,
+  player: { readonly cardsInPlay: readonly CardInPlay[] },
+): boolean {
+  for (const card of player.cardsInPlay) {
+    if (card.setAsideHost !== undefined) continue;
+    const def = defById(state, card.definitionId);
+    if (getCardEffects(def).some(e => e.type === 'play-as-sauron')) return true;
+  }
+  return false;
+}
+
+/**
  * Keywords that mark a card as a *magic card* (a spell). Any of these on a
  * card's `keywords` list qualifies: the generic `spell` tag plus the three
  * casting classes. Backs Akhôrahil the Ringwraith's (le-51) magic-recycling

@@ -466,6 +466,41 @@ with a target `CharacterCard`) only ever describes a character, so an unqualifie
 faction-influence roll uses `reason: "faction-influence-check"`, which matches
 neither condition, so the bonus is correctly excluded against factions.
 
+### `play-as-sauron` + Sauron's granted abilities (The Lidless Eye le-203)
+
+`{ "type": "play-as-sauron" }` is a marker on a bare permanent-event in
+`cardsInPlay` declaring its controller "is Sauron, not a Ringwraith". While it is
+in play the player may not reveal a Ringwraith avatar nor play a Ringwraith
+follower — both enforced in `organization-characters.ts` via the
+`playerPlaysAsSauron` helper (detected by effect type, not card id). No fields.
+
+`{ "type": "discard-named-in-play", "cardName": "<Card Name>" }` is a triggered
+apply used under `on-event: self-enters-play`: when the carrying permanent-event
+enters play, every in-play instance of the named card (scanning both players'
+`cardsInPlay` and every character's attached `items`/`hazards`) is discarded to
+its owner's pile. Pair it with `card-not-in-play` play-conditions on the named
+card to also forbid replaying it (le-167 Bade to Rule bars The Lidless Eye and
+Sauron).
+
+`{ "type": "sauron-sideboard-fetch" }` and `{ "type": "peek-opponent-hand",
+"count": 5 }` are the two `apply` payloads of the `grant-action`s that back The
+Lidless Eye's once-per-organization-phase dual-mode ability
+(`sauronOrgGrantActions`, gated by `OrganizationPhaseState.sauronOrgActionUsed`).
+`sauron-sideboard-fetch` moves a chosen sideboard resource/character into the
+play deck and shuffles; `peek-opponent-hand` discards a chosen hand card and
+reveals `min(count, oppHandSize)` random opponent-hand cards (they stay in hand).
+The chosen card travels on `activate-granted-action.targetCardId` for both modes.
+
+```json
+{ "type": "play-as-sauron" },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "discard-named-in-play", "cardName": "Bade to Rule" } },
+{ "type": "grant-action", "action": "sauron-sideboard-fetch", "cost": {},
+  "apply": { "type": "sauron-sideboard-fetch" } },
+{ "type": "grant-action", "action": "sauron-peek-hand", "cost": {},
+  "apply": { "type": "peek-opponent-hand", "count": 5 } }
+```
+
 ### 2z. `site-path-reduction` active constraint
 
 A **player-scoped, turn-scoped** constraint that makes each of the player's

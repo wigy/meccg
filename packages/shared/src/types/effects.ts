@@ -771,6 +771,25 @@ export interface AutoInfluenceFactionEffect extends EffectBase {
 }
 
 /**
+ * Marker carried by a bare permanent-event in `cardsInPlay` declaring that its
+ * controller "is Sauron, not a Ringwraith" (The Lidless Eye le-203; its sibling
+ * manifestation Sauron ba-43). While such a card is in play the player counts as
+ * Sauron and therefore **may not reveal a Ringwraith avatar** nor **play any
+ * Ringwraith follower** (CoE: "You are Sauron, not a Ringwraith. You may not
+ * reveal a Ringwraith or play Ringwraith followers.").
+ *
+ * The marker carries no data — the two enforcement hooks live in the
+ * legal-action layer (`organization-characters.ts`) and detect the marker via
+ * the {@link playerPlaysAsSauron} helper (by effect type, not card id, so any
+ * future card carrying it works unchanged). All the card's other continuous
+ * effects (+7 general influence, +1 hand size, etc.) are separate bare effects
+ * collected from `cardsInPlay` by the usual recompute paths.
+ */
+export interface PlayAsSauronEffect extends EffectBase {
+  readonly type: 'play-as-sauron';
+}
+
+/**
  * Marker carried by a permanent-event attached to a character (stored in the
  * host character's `items`). While it is attached, the host character's own
  * printed marshalling points do not count toward the controller's MP tally
@@ -1733,6 +1752,9 @@ export type TriggeredActionType =
   | 'modify-current-strike-prowess'
   | 'move'
   | 'place-item-on-character'
+  | 'discard-named-in-play'
+  | 'sauron-sideboard-fetch'
+  | 'peek-opponent-hand'
   | 'roll-check'
   | 'roll-then-apply'
   | 'transform-site'
@@ -2140,6 +2162,46 @@ export interface PlaceItemOnCharacterAction extends TriggeredActionBase {
   readonly filter?: Condition;
 }
 
+/**
+ * `discard-named-in-play` — on `self-enters-play`, find every in-play card with
+ * the given name (scanning both players' `cardsInPlay` plus every character's
+ * attached `items`/`hazards`) and move each instance to its owner's discard
+ * pile. Used by The Lidless Eye (le-203) / Sauron (ba-43): "Discards and
+ * prevents the subsequent play of Bade to Rule." (The *prevents subsequent play*
+ * half is data — `card-not-in-play` play-conditions on Bade to Rule le-167.)
+ */
+export interface DiscardNamedInPlayAction extends TriggeredActionBase {
+  readonly type: 'discard-named-in-play';
+  /** Exact card name whose in-play instances are discarded. */
+  readonly cardName: string;
+}
+
+/**
+ * `sauron-sideboard-fetch` — the first mode of The Lidless Eye's (le-203)
+ * once-per-organization-phase granted ability: "bring a resource or character
+ * from your sideboard into your play deck and shuffle." The chosen sideboard
+ * instance travels via `activate-granted-action.targetCardId`. Type-only marker;
+ * the once-per-phase lock is `OrganizationPhaseState.sauronOrgActionUsed`.
+ */
+export interface SauronSideboardFetchAction extends TriggeredActionBase {
+  readonly type: 'sauron-sideboard-fetch';
+}
+
+/**
+ * `peek-opponent-hand` — the second mode of The Lidless Eye's (le-203)
+ * once-per-organization-phase granted ability: "choose and discard a card from
+ * your hand to look at up to N random cards at once from your opponent's hand."
+ * The hand card discarded as cost travels via `activate-granted-action.targetCardId`.
+ * The engine reveals `min(count, oppHandSize)` random opponent-hand instances via
+ * `revealInstances` (they stay in the opponent's hand). Once-per-phase lock is
+ * `OrganizationPhaseState.sauronOrgActionUsed`.
+ */
+export interface PeekOpponentHandAction extends TriggeredActionBase {
+  readonly type: 'peek-opponent-hand';
+  /** Maximum number of random opponent-hand cards revealed (le-203: 5). */
+  readonly count: number;
+}
+
 /** `roll-discard-opponent-non-unique-ally` — roll 2d6 ≥ threshold to discard a non-unique ally (CvCC pre-strike). */
 export interface RollDiscardOpponentNonUniqueAllyAction extends TriggeredActionBase {
   readonly type: 'roll-discard-opponent-non-unique-ally';
@@ -2335,6 +2397,9 @@ export type TriggeredAction =
   | ReturnCharacterToHandAction
   | TapOneCharacterAction
   | PlaceItemOnCharacterAction
+  | DiscardNamedInPlayAction
+  | SauronSideboardFetchAction
+  | PeekOpponentHandAction
   | RollDiscardOpponentNonUniqueAllyAction
   | OfferCharJoinAttackAction
   | OfferResourcePlayAction
@@ -5983,6 +6048,7 @@ export type CardEffect =
   | ControlRestrictionEffect
   | GeneralInfluenceExemptEffect
   | AutoInfluenceFactionEffect
+  | PlayAsSauronEffect
   | OwnMpNotCountedEffect
   | FactionMpOverrideEffect
   | PermanentEventMpEffect

@@ -15,7 +15,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RingwraithSelfFollowerEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
@@ -410,6 +410,14 @@ function ringwraithFollowerPlayAction(
     };
   };
 
+  // The Lidless Eye (le-203) / Sauron (ba-43): "You may not... play Ringwraith
+  // followers." While the acting player counts as Sauron, no Ringwraith follower
+  // may be played (even one enabled by a slot ability on the revealed avatar).
+  const actingPlayer = playerById(state, playerId);
+  if (actingPlayer && playerPlaysAsSauron(state, actingPlayer)) {
+    return blocked(`${cardDef.name}: you are Sauron — you may not play Ringwraith followers while The Lidless Eye is in play`);
+  }
+
   const avatarDef = resolveDef(state, avatar.instanceId);
   if (!isCharacterCard(avatarDef)) {
     return blocked(`${cardDef.name}: an avatar is already revealed — a different avatar cannot be played (rule 2.II.2.1.1)`);
@@ -539,6 +547,21 @@ export function playCharacterActions(
     const isAvatar = cardDef.mind === null;
 
     logDetail(`Evaluating play-character: ${charName} (mind ${cardDef.mind ?? 'avatar'}, DI ${cardDef.directInfluence})`);
+
+    // The Lidless Eye (le-203) / Sauron (ba-43): "You are Sauron, not a
+    // Ringwraith. You may not reveal a Ringwraith..." — while the player counts
+    // as Sauron they cannot reveal a Ringwraith avatar. (Ringwraith followers
+    // are blocked separately in ringwraithFollowerPlayAction.)
+    if (isAvatar && cardDef.race === Race.Ringwraith && playerPlaysAsSauron(state, player)) {
+      const reason = `${charName}: you are Sauron — you may not reveal a Ringwraith while The Lidless Eye is in play`;
+      logDetail(`  → blocked: ${reason}`);
+      results.push({
+        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+        viable: false,
+        reason,
+      });
+      continue;
+    }
 
     // Pure "Hazard Agent" cards (Lobelia dm-28, My Precious dm-29) are deploy-only:
     // played only as agent hazards, never recruited/played as company characters
