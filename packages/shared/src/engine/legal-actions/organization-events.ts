@@ -296,17 +296,25 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       continue;
     }
 
-    // play-condition: card-not-in-play — blocked if named card is in play
-    const cardNotInPlayCondition = findPlayConditionEffect(def, 'card-not-in-play');
-    if (cardNotInPlayCondition?.cardName) {
-      const blockerName = cardNotInPlayCondition.cardName;
-      const blockerInPlay = isCardNameInPlayOrCharacters(state, blockerName);
-      if (blockerInPlay) {
+    // play-condition: card-not-in-play — blocked if any named card is in play.
+    // A card may declare several such conditions (Bade to Rule le-167 forbids
+    // both The Lidless Eye le-203 and its sibling Sauron ba-43), so every
+    // card-not-in-play condition is checked, not just the first.
+    const cardNotInPlayConditions = getCardEffects(def).filter(
+      (e): e is import('../../types/effects.js').PlayConditionEffect =>
+        e.type === 'play-condition' && e.requires === 'card-not-in-play' && !!e.cardName,
+    );
+    let blockedByCardInPlay = false;
+    for (const cardNotInPlayCondition of cardNotInPlayConditions) {
+      const blockerName = cardNotInPlayCondition.cardName!;
+      if (isCardNameInPlayOrCharacters(state, blockerName)) {
         logDetail(`Permanent event ${def.name}: blocked because ${blockerName} is in play`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: cannot be played while ${blockerName} is in play`));
-        continue;
+        blockedByCardInPlay = true;
+        break;
       }
     }
+    if (blockedByCardInPlay) continue;
 
     // play-target DSL: character-targeting permanent events get one action per qualifying character
     const playTarget = def.effects?.find(

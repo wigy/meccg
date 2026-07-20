@@ -262,6 +262,14 @@ export interface OrganizationPhaseState {
    */
   readonly movementTaxPaid?: Readonly<Record<string, number>>;
   /**
+   * The Lidless Eye (le-203) / Sauron (ba-43): "Once during each of your
+   * organization phases, you may..." — whether that dual-mode granted ability
+   * (sideboard-fetch or peek-opponent-hand) has already been used this
+   * organization phase. Fresh each org phase (the phase state is rebuilt on
+   * entry), so no manual reset is needed. Optional — absent/false means unused.
+   */
+  readonly sauronOrgActionUsed?: boolean;
+  /**
    * The active sub-step within the organization phase.
    *
    * - `'play-actions'` (default): the active player is taking their

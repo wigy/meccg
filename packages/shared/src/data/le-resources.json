@@ -721,6 +721,16 @@
         "type": "duplication-limit",
         "scope": "player",
         "max": 1
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-not-in-play",
+        "cardName": "The Lidless Eye"
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-not-in-play",
+        "cardName": "Sauron"
       }
     ],
     "text": "Playable at a Darkhaven [{DH}] during the organization phase on your Ringwraith. -2 to his direct influence, +5 general influence. You may discard this card during any of your organization phases. Discard this card if your Ringwraith moves. Alternatively, playable if your Ringwraith is not in play. +5 general influence. Place this card with your Ringwraith when he comes into play. Cannot be duplicated by a given player.Cannot be included in a Balrog's deck.",
@@ -3510,7 +3520,40 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "certified": "2026-07-20",
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "opponent.alignment": "wizard" },
+            { "player.hasRingwraithInPlay": false }
+          ]
+        }
+      },
+      { "type": "stat-modifier", "stat": "general-influence", "value": 7 },
+      { "type": "hand-size-modifier", "value": 1 },
+      { "type": "play-as-sauron" },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "discard-named-in-play", "cardName": "Bade to Rule" }
+      },
+      {
+        "type": "grant-action",
+        "action": "sauron-sideboard-fetch",
+        "cost": {},
+        "apply": { "type": "sauron-sideboard-fetch" }
+      },
+      {
+        "type": "grant-action",
+        "action": "sauron-peek-hand",
+        "cost": {},
+        "apply": { "type": "peek-opponent-hand", "count": 5 }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
     "text": "Playable if your opponent is a Wizard and you have not revealed a Ringwraith. You are Sauron, not a Ringwraith. You may not reveal a Ringwraith or play Ringwraith followers. +7 to your general influence. You may keep one more card than normal in your hand. Discards and prevents the subsequent play of Bade of Rule. Once during each of your organization phases, you may: bring a resource or character from your sideboard into your play deck and shuffle or choose and discard a card from your hand to look at up to 5 random cards at once from your opponent’s hand. Cannot be duplicated. Cannot be included in a Balrog's/Fallen-wizard's deck."
   },
   {

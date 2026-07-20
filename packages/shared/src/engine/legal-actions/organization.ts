@@ -601,6 +601,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // (e.g. A Panoply of Wings wh-37)
   actions.push(...inPlayFactionGrantActions(state, playerId));
 
+  // The Lidless Eye (le-203) / Sauron (ba-43): once-per-org-phase dual-mode
+  // ability (sideboard-fetch or peek-opponent-hand)
+  actions.push(...sauronOrgGrantActions(state, playerId));
+
   // Sage-tap ring tests granted by the company's current site (e.g. Mount Doom)
   actions.push(...siteSageRingTestActivations(state, playerId));
 
@@ -1445,6 +1449,105 @@ export function inPlayFactionGrantActions(state: GameState, playerId: PlayerId):
         },
         viable: true,
       });
+    }
+  }
+  return actions;
+}
+
+/**
+ * The Lidless Eye (le-203) / Sauron (ba-43): "Once during each of your
+ * organization phases, you may: bring a resource or character from your
+ * sideboard into your play deck and shuffle **or** choose and discard a card
+ * from your hand to look at up to 5 random cards at once from your opponent's
+ * hand."
+ *
+ * A bare permanent-event in `cardsInPlay` grants this dual-mode ability. The two
+ * modes are mutually exclusive and the whole ability may be used at most once
+ * per the controller's organization phase (tracked by
+ * {@link OrganizationPhaseState.sauronOrgActionUsed}, which is fresh each org
+ * phase). Each candidate is surfaced as an `activate-granted-action` whose
+ * `targetCardId` carries the chosen card:
+ *  - `sauron-sideboard-fetch`: one action per eligible sideboard card (a minion
+ *    resource or a character) — the card relocated to the play deck.
+ *  - `sauron-peek-hand`: one action per hand card (the card discarded as cost),
+ *    offered only when the opponent has at least one card in hand.
+ *
+ * There is no activating character, so `characterId` self-references the source
+ * instance (the reducer routes bearer-less sources to
+ * `handleInPlayCardGrantAction`).
+ */
+export function sauronOrgGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  if (state.phaseState.phase !== Phase.Organization) return [];
+  if (state.activePlayer !== playerId) return [];
+  const orgState = requirePhaseState(state, Phase.Organization);
+  if (orgState.sauronOrgActionUsed) {
+    logDetail('Sauron org-action already used this organization phase — no actions');
+    return [];
+  }
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const opponent = state.players.find(p => p.id !== playerId);
+
+  // Minion resource card types eligible for sideboard-fetch ("a resource").
+  const MINION_RESOURCE_TYPES = new Set<string>([
+    'minion-resource-item', 'minion-resource-ally', 'minion-resource-faction', 'minion-resource-event',
+  ]);
+
+  const actions: EvaluatedAction[] = [];
+  for (const cip of player.cardsInPlay) {
+    const def = defById(state, cip.definitionId);
+    if (!def || def.cardType !== 'minion-resource-event' || (def as { eventType?: string }).eventType !== 'permanent') continue;
+    const effects = getCardEffects(def);
+    const hasFetch = effects.some(e => e.type === 'grant-action' && e.action === 'sauron-sideboard-fetch');
+    const hasPeek = effects.some(e => e.type === 'grant-action' && e.action === 'sauron-peek-hand');
+    if (!hasFetch && !hasPeek) continue;
+
+    if (hasFetch) {
+      for (const sb of player.sideboard) {
+        const sbDef = defById(state, sb.definitionId);
+        if (!sbDef) continue;
+        const eligible = MINION_RESOURCE_TYPES.has(sbDef.cardType) || isCharacterCard(sbDef);
+        if (!eligible) continue;
+        logDetail(`Sauron sideboard-fetch available (${def.name}): bring ${sbDef.name} (${sb.instanceId as string}) from sideboard into the play deck and shuffle`);
+        actions.push({
+          action: {
+            type: 'activate-granted-action',
+            player: playerId,
+            characterId: cip.instanceId,
+            sourceCardId: cip.instanceId,
+            sourceCardDefinitionId: cip.definitionId,
+            actionId: 'sauron-sideboard-fetch',
+            rollThreshold: 0,
+            targetCardId: sb.instanceId,
+          },
+          viable: true,
+        });
+      }
+    }
+
+    if (hasPeek) {
+      const oppHandSize = opponent?.hand.length ?? 0;
+      if (oppHandSize >= 1) {
+        for (const hc of player.hand) {
+          const hcDef = defById(state, hc.definitionId);
+          logDetail(`Sauron peek-hand available (${def.name}): discard ${hcDef?.name ?? '?'} (${hc.instanceId as string}) to look at up to 5 random opponent-hand cards`);
+          actions.push({
+            action: {
+              type: 'activate-granted-action',
+              player: playerId,
+              characterId: cip.instanceId,
+              sourceCardId: cip.instanceId,
+              sourceCardDefinitionId: cip.definitionId,
+              actionId: 'sauron-peek-hand',
+              rollThreshold: 0,
+              targetCardId: hc.instanceId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        logDetail(`Sauron peek-hand unavailable (${def.name}): opponent has no cards in hand`);
+      }
     }
   }
   return actions;

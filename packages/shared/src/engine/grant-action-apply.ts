@@ -17,7 +17,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, GameAction, GameEffect, CharacterInPlay, PlayerState, CardInstanceId } from '../index.js';
+import type { GameState, GameAction, GameEffect, CharacterInPlay, PlayerState, CardInstanceId, CardInstance } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { shuffle } from '../rng.js';
@@ -28,6 +28,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { roll2d6, diceRollEffect, clonePlayers, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById } from './reducer-utils.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
+import { revealInstances } from './visibility.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveDef } from './effects/index.js';
 import { applyMove as applyMoveLocal } from './reducer-move.js';
@@ -1007,6 +1008,69 @@ function handleInPlayCardGrantAction(
   if (!source) return { state, error: `in-play grant-action: source ${action.sourceCardId as string} not in play` };
   const sourceDef = defById(state, source.definitionId);
   const sourceName = sourceDef?.name ?? '?';
+
+  // The Lidless Eye (le-203) / Sauron (ba-43) dual-mode once-per-organization-
+  // phase granted ability. Both modes carry the chosen card in
+  // `action.targetCardId` and are distinguished by `action.actionId`. Neither
+  // pays a discard-self cost (the source stays in play), so they are handled
+  // before the generic discard-self path below. The once-per-phase lock is
+  // `OrganizationPhaseState.sauronOrgActionUsed`.
+  if (action.actionId === 'sauron-sideboard-fetch' || action.actionId === 'sauron-peek-hand') {
+    const markUsed = (s: GameState): GameState =>
+      s.phaseState.phase === Phase.Organization
+        ? { ...s, phaseState: { ...s.phaseState, sauronOrgActionUsed: true } }
+        : s;
+
+    if (action.actionId === 'sauron-sideboard-fetch') {
+      const targetId = action.targetCardId;
+      if (!targetId) return { state, error: `${sourceName} sauron-sideboard-fetch: no target card` };
+      const sbCard = player.sideboard.find(c => c.instanceId === targetId);
+      if (!sbCard) return { state, error: `${sourceName} sauron-sideboard-fetch: ${targetId as string} not in sideboard` };
+      const newPlayers = clonePlayers(state);
+      // Bring the card into the play deck, then shuffle the whole deck.
+      const [shuffledDeck, newRng] = shuffle(
+        [...newPlayers[playerIndex].playDeck, { instanceId: sbCard.instanceId, definitionId: sbCard.definitionId }],
+        state.rng,
+      );
+      newPlayers[playerIndex] = {
+        ...newPlayers[playerIndex],
+        sideboard: newPlayers[playerIndex].sideboard.filter(c => c.instanceId !== targetId),
+        playDeck: shuffledDeck,
+      };
+      const sbDef = defById(state, sbCard.definitionId);
+      logDetail(`${sourceName}: brought ${sbDef?.name ?? '?'} from sideboard into the play deck and shuffled`);
+      const finalState = markUsed({ ...state, players: newPlayers, rng: newRng });
+      return { state: recomputeDerived(finalState), effects: [] };
+    }
+
+    // sauron-peek-hand: discard the chosen hand card, then look at up to N random
+    // opponent-hand cards (revealed to this player; they stay in the opponent's hand).
+    const targetId = action.targetCardId;
+    if (!targetId) return { state, error: `${sourceName} sauron-peek-hand: no target card` };
+    const discardCard = player.hand.find(c => c.instanceId === targetId);
+    if (!discardCard) return { state, error: `${sourceName} sauron-peek-hand: ${targetId as string} not in hand` };
+    const opponentIndex = 1 - playerIndex;
+    const newPlayers = clonePlayers(state);
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      hand: newPlayers[playerIndex].hand.filter(c => c.instanceId !== targetId),
+      discardPile: [...newPlayers[playerIndex].discardPile, { instanceId: discardCard.instanceId, definitionId: discardCard.definitionId }],
+    };
+    const grantEffect = getCardEffects(sourceDef).find(
+      (e): e is import('../types/effects.js').GrantActionEffect =>
+        e.type === 'grant-action' && e.action === action.actionId,
+    );
+    const count = grantEffect?.apply?.type === 'peek-opponent-hand' ? grantEffect.apply.count : 5;
+    const oppHand = newPlayers[opponentIndex].hand;
+    const [shuffledHand, peekRng] = shuffle([...oppHand], state.rng);
+    const peekCount = Math.min(count, shuffledHand.length);
+    const peeked: CardInstance[] = shuffledHand.slice(0, peekCount);
+    let finalState: GameState = { ...state, players: newPlayers, rng: peekRng };
+    finalState = revealInstances(finalState, peeked);
+    finalState = markUsed(finalState);
+    logDetail(`${sourceName}: discarded ${defById(state, discardCard.definitionId)?.name ?? '?'} and looked at ${peekCount} random card(s) from opponent's hand`);
+    return { state: recomputeDerived(finalState), effects: [] };
+  }
 
   const effect = getCardEffects(sourceDef).find(
     (e): e is import('../types/effects.js').GrantActionEffect =>
