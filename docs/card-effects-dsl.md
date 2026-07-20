@@ -4721,6 +4721,22 @@ Rules:
   { "type": "site-rule", "rule": "cancel-first-attack-if-in-play", "definitionId": "tw-12" }
   ```
 
+- `cancel-attacks-if-character-in-play` — removes ALL of this site's
+  *printed* automatic-attacks while a character whose card name equals
+  `characterName` is in play for either player (present in a player's
+  `characters` record). Matched by name rather than definition ID so every
+  version of the card counts (Wizard avatars exist in multiple sets — e.g.
+  Radagast is tw-178 as a hero Wizard and wh-8 as a Fallen-wizard). Only the
+  printed attacks are removed; attacks added to the site by hazard effects
+  (Spawn permanent-events, `extra-automatic-attack` constraints) are separate
+  hazard attacks and are unaffected. Consumed by `getActiveAutoAttacks()` in
+  `engine/manifestations.ts`. Used by *Rhosgobel* (as-159) — "If the Wizard
+  card Radagast is in play, the automatic-attacks are removed."
+
+  ```json
+  { "type": "site-rule", "rule": "cancel-attacks-if-character-in-play", "characterName": "Radagast" }
+  ```
+
 - `deep-mines-movement` — marks a Fallen-wizard site as an Under-deeps-style
   destination reachable **only** from one of the moving player's *protected
   Wizardhavens* (a Wizardhaven for that player — `isHavenForPlayer` — that also
