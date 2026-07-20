@@ -1,10 +1,14 @@
 # Player Guide
 
-## Credits
+## Card Lifecycle
 
-Your credit balance is visible in the lobby navigation bar. Credits exist solely to cap unintended AI expenses — they are not a payment of any kind. Each bug report or feature request you submit costs a small number of credits when the AI processes it.
+Not all cards in the game are fully playable yet. Each card goes through several stages before it works correctly:
 
-If you run out of credits and want to keep contributing, ask the admin for a top-up.
+1. **Created** — the card's data is defined (name, stats, card text). The card exists in the game but its special effects do nothing.
+2. **Certified** — the AI verifies that every effect on the card is implemented and working. Certification costs credits and takes time. Only certified cards are considered reliable to play.
+3. **Tested and tuned** — even after certification, edge cases may surface during real games. Bug reports drive further fixes until the card is fully playable in all situations.
+
+You can see how many cards are created and certified in the project status table in the README. If a card you want to play behaves incorrectly, filing a bug report is the fastest way to get it fixed — it will usually be addressed and released in the next release.
 
 ## Reporting a Bug
 
@@ -32,15 +36,11 @@ Processing flow:
 
 Feature requests are not guaranteed to be implemented, and implementation order is decided by the admin. You will be kept informed through replies in your inbox.
 
-## Card Lifecycle
+## Credits
 
-Not all cards in the game are fully playable yet. Each card goes through several stages before it works correctly:
+Your credit balance is visible in the lobby navigation bar. Credits exist solely to cap unintended AI expenses — they are not a payment of any kind. Each bug report or feature request you submit costs a small number of credits when the AI processes it.
 
-1. **Created** — the card's data is defined (name, stats, card text). The card exists in the game but its special effects do nothing.
-2. **Certified** — the AI verifies that every effect on the card is implemented and working. Certification costs credits and takes time. Only certified cards are considered reliable to play.
-3. **Tested and tuned** — even after certification, edge cases may surface during real games. Bug reports drive further fixes until the card is fully playable in all situations.
-
-You can see how many cards are created and certified in the project status table in the README. If a card you want to play behaves incorrectly, filing a bug report is the fastest way to get it fixed — it will usually be addressed and released in the next release.
+If you run out of credits and want to keep contributing, ask the admin for a top-up.
 
 ## The Inbox
 
