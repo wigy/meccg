@@ -1248,8 +1248,33 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable if you are Sauron. +3 to an influence check against a faction. If the check is not successful, shuffle the faction into your play deck."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.playsAsSauron": true }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.isInfluencing": true }
+      },
+      {
+        "type": "play-option",
+        "id": "dark-power-boost",
+        "when": { "player.hasFactionInHand": true },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "value": 3,
+          "scope": "until-cleared",
+          "onFailure": "shuffle-faction-into-deck"
+        }
+      }
+    ],
+    "text": "Playable if you are Sauron. +3 to an influence check against a faction. If the check is not successful, shuffle the faction into your play deck.",
+    "certified": "2026-07-20"
   },
   {
     "cardType": "minion-resource-event",

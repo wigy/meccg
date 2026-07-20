@@ -949,6 +949,14 @@ export interface ActiveConstraint {
          * faction-influence roll only (legacy default).
          */
         readonly when?: import('./effects.js').Condition;
+        /**
+         * For an influence modifier: the fate of the faction card when the
+         * boosted (consuming) check fails. `'shuffle-faction-into-deck'` —
+         * the faction is shuffled back into its player's play deck instead
+         * of being discarded. The Dark Power (as-79): "If the check is not
+         * successful, shuffle the faction into your play deck."
+         */
+        readonly onFailure?: 'shuffle-faction-into-deck';
       }
     | {
         /**

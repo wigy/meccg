@@ -2104,6 +2104,7 @@ export function buildPlayOptionContext(
   let inAvatarCompany = false;
   let isRevealedAvatar = false;
   let hasFactionInHand = false;
+  let isInfluencing = false;
   let companySiteType: string | null = null;
   let containsDiplomat = false;
   let companyMoving = false;
@@ -2129,6 +2130,16 @@ export function buildPlayOptionContext(
     // active influence check, not speculatively before one is declared.
     hasFactionInHand = Boolean(state.chain?.entries.some(
       e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt' && e.declaredBy === player.id,
+    ));
+    // `isInfluencing` is true only for the character whose influence-attempt is
+    // live in the chain. Lets a boost event that modifies "an influence check"
+    // without naming a target (The Dark Power as-79) pin its play-target to the
+    // influencing character, so the resulting one-shot constraint is consumed
+    // by the very check the card was played on.
+    isInfluencing = Boolean(state.chain?.entries.some(
+      e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt'
+        && e.declaredBy === player.id
+        && e.payload.influencingCharacterId === char.instanceId,
     ));
     const charCompany = findCharacterCompany(player.companies, char.instanceId);
     if (charCompany?.currentSite) {
@@ -2190,6 +2201,7 @@ export function buildPlayOptionContext(
       mind: def.mind,
       inAvatarCompany,
       isRevealedAvatar,
+      isInfluencing,
       itemNames,
       allyNames,
     },

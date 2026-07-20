@@ -29,6 +29,7 @@ import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reduce
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
+import { shuffle } from '../rng.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
 import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
@@ -2509,6 +2510,9 @@ export function resolveInfluenceAttemptRoll(
 
   // Calculate influence modifier using current state (post-on-guard effects)
   let modifier = 0;
+  // The Dark Power (as-79): a consumed one-shot boost may flag that a failed
+  // check shuffles the faction into the play deck instead of discarding it.
+  let shuffleFactionOnFailure = false;
   // Red Arrow (tw-312): an `auto-influence-faction` grant on the influencer (or
   // an item they bear) lets this faction be influenced with no 2d6 check.
   let autoInfluence = false;
@@ -2599,6 +2603,9 @@ export function resolveInfluenceAttemptRoll(
       }
       modifier += constraint.kind.value;
       consumedConstraintIds.push(constraint.id as string);
+      if (constraint.kind.onFailure === 'shuffle-faction-into-deck') {
+        shuffleFactionOnFailure = true;
+      }
       logDetail(`Influence one-shot constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);
     }
     if (consumedConstraintIds.length > 0) {
@@ -2777,13 +2784,22 @@ export function resolveInfluenceAttemptRoll(
   }
 
   logDetail(`Influence attempt failed (${total} < ${influenceNumber})`);
-  const newDiscard = [...player.discardPile, entry.card];
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], discardPile: newDiscard };
+  let failRng = rng;
+  if (shuffleFactionOnFailure) {
+    // The Dark Power (as-79): the consumed boost sends the failed faction back
+    // into its player's play deck (reshuffled) instead of the discard pile.
+    const [shuffledDeck, nextRng] = shuffle([...newPlayers[playerIndex].playDeck, entry.card], failRng);
+    failRng = nextRng;
+    newPlayers[playerIndex] = { ...newPlayers[playerIndex], playDeck: shuffledDeck };
+    logDetail(`Influence: ${def.name} shuffled into ${player.name}'s play deck (failed check under shuffle-on-failure boost)`);
+  } else {
+    newPlayers[playerIndex] = { ...newPlayers[playerIndex], discardPile: [...player.discardPile, entry.card] };
+  }
 
   const failureState = fireResourceTapsSiteDiscards({
     ...state,
     players: newPlayers,
-    rng, cheatRollTotal,
+    rng: failRng, cheatRollTotal,
     phaseState: { ...siteState, resourcePlayed: true },
   }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);
   return { state: failureState, effects: rollEffect ? [rollEffect] : [] };
