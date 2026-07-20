@@ -1350,6 +1350,33 @@ export function companyHasRingwraith(state: GameState, owner: PlayerState, compa
 }
 
 /**
+ * Build the condition-matcher context describing a prospective CvCC attack:
+ * `{ attacker: { alignment, isMinion, hasRingwraith }, defender: { … } }`.
+ * Shared by `cvcc-attack-permission` (extra permission grants) and the
+ * `deny-company-attack` site-rule (site-based prohibitions).
+ */
+function buildCvCCContext(
+  state: GameState,
+  attacker: PlayerState,
+  attackerCompany: Company,
+  defender: PlayerState,
+  defenderCompany: Company,
+): Record<string, unknown> {
+  return {
+    attacker: {
+      alignment: attacker.alignment,
+      isMinion: isMinionAlignment(attacker.alignment),
+      hasRingwraith: companyHasRingwraith(state, attacker, attackerCompany),
+    },
+    defender: {
+      alignment: defender.alignment,
+      isMinion: isMinionAlignment(defender.alignment),
+      hasRingwraith: companyHasRingwraith(state, defender, defenderCompany),
+    },
+  };
+}
+
+/**
  * Whether an in-play permanent-event grants an *extra* CvCC attack permission
  * (beyond {@link canAttackAlignment}) for this specific attacker→defender pair.
  *
@@ -1368,18 +1395,7 @@ export function cvccAttackPermitted(
   defender: PlayerState,
   defenderCompany: Company,
 ): boolean {
-  const ctx = {
-    attacker: {
-      alignment: attacker.alignment,
-      isMinion: isMinionAlignment(attacker.alignment),
-      hasRingwraith: companyHasRingwraith(state, attacker, attackerCompany),
-    },
-    defender: {
-      alignment: defender.alignment,
-      isMinion: isMinionAlignment(defender.alignment),
-      hasRingwraith: companyHasRingwraith(state, defender, defenderCompany),
-    },
-  };
+  const ctx = buildCvCCContext(state, attacker, attackerCompany, defender, defenderCompany);
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       const def = defById(state, card.definitionId);
@@ -1391,6 +1407,63 @@ export function cvccAttackPermitted(
         return true;
       }
     }
+  }
+  return false;
+}
+
+/**
+ * Whether a `deny-company-attack` site-rule forbids this CvCC attack.
+ *
+ * CvCC requires both companies at the same location, but each player holds his
+ * own version of the site card (hero/minion twins share a name), so the rule is
+ * looked up on **both** companies' current site definitions. Each rule's
+ * optional `when` is matched against the shared CvCC context
+ * (`{ attacker, defender }` — see {@link cvccAttackPermitted}); a match denies
+ * the attack outright (site prohibitions beat `cvcc-attack-permission` grants).
+ * Backs Rivendell (as-160): "A minion company may not attack another company
+ * at this site."
+ */
+export function siteDeniesCompanyAttack(
+  state: GameState,
+  attacker: PlayerState,
+  attackerCompany: Company,
+  defender: PlayerState,
+  defenderCompany: Company,
+): boolean {
+  const ctx = buildCvCCContext(state, attacker, attackerCompany, defender, defenderCompany);
+  const siteDefIds = [attackerCompany.currentSite?.definitionId, defenderCompany.currentSite?.definitionId];
+  for (const siteDefId of siteDefIds) {
+    if (!siteDefId) continue;
+    const siteDef = defById(state, siteDefId);
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    for (const eff of siteDef.effects ?? []) {
+      if (eff.type !== 'site-rule' || eff.rule !== 'deny-company-attack') continue;
+      if (eff.when && !matchesCondition(eff.when, ctx)) continue;
+      logDetail(`CvCC attack denied by site-rule on ${siteDef.name}: ${attacker.alignment} ${attackerCompany.id} → ${defender.alignment} ${defenderCompany.id}`);
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Whether a `deny-company-move` site-rule on `siteDef` forbids `company` from
+ * declaring movement to that site. The rule's optional `when` is matched
+ * against `{ company: { hasRingwraith } }`. Backs Rivendell (as-160):
+ * "A Ringwraith may not move to this site."
+ */
+export function siteDeniesCompanyMove(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  siteDef: SiteCard,
+): boolean {
+  for (const eff of siteDef.effects ?? []) {
+    if (eff.type !== 'site-rule' || eff.rule !== 'deny-company-move') continue;
+    const ctx = { company: { hasRingwraith: companyHasRingwraith(state, player, company) } };
+    if (eff.when && !matchesCondition(eff.when, ctx)) continue;
+    logDetail(`Movement to ${siteDef.name} denied for company ${company.id as string} by deny-company-move site-rule`);
+    return true;
   }
   return false;
 }
