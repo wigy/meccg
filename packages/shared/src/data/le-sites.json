@@ -2403,7 +2403,10 @@
     ],
     "nearestHaven": "Geann a-Lisch",
     "region": "Old Pûkel Gap",
-    "playableResources": [],
+    "playableResources": [
+      "information",
+      "minor"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Pûkel-creature",
@@ -2413,7 +2416,9 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Geann a-LischPlayable: Information, Items (minor)Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess"
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Information, Items (minor)Automatic-attacks: Pûkel-creature — 1 strike with 9 prowess",
+    "unique": true,
+    "certified": "2026-07-20"
   },
   {
     "cardType": "minion-site",
