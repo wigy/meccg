@@ -28,16 +28,29 @@ state alone would blacklist a still-broken PR for the worker's whole life.
 The fix agent's output is kept in ~/.meccg/logs/ai-pr-raw.log.
 
 On startup it preflight-checks the headless claude OAuth token: it resolves
-the token (env or secrets.json) and validates it with a tiny test prompt. If
-the token is missing or expired it prints setup instructions and exits (code
-4) instead of failing inside the first request. The token itself cannot be
-created automatically — `claude setup-token` is interactive (browser login).
+the token (env or secrets.json) and validates it with a tiny test prompt, so a
+missing/expired token surfaces immediately instead of failing inside the first
+request. If the token is unusable it prints setup instructions and then waits
+on the idle-backoff schedule, re-checking until one works — it does not exit,
+so dropping a valid token in resumes the worker without a restart. The token
+cannot be created automatically — `claude setup-token` is interactive.
+
+The loop is designed never to die on a recoverable error: a dirty working tree
+pauses the worker (with the leftovers listed) until a human turns them into a
+PR or reverts them; a handle-mail failure marks that one request 'failed' and
+moves on to the next; an unusable token, an unreachable lobby, and an
+unreachable git remote all back off and retry. Every gh/curl/git-pull network
+call is bounded by a timeout, so a hung remote cannot silently freeze the loop.
+Only Ctrl+C/SIGTERM (130) and --max-iterations (0) stop it.
 
 If handle-mail hits an API capacity/usage limit (subscription session limit,
 rate limit, or server overload) mid-request, it resets that message to 'new'
 (never burning it) and exits 5; run-ai treats 5 as retryable — it backs off on
 the idle schedule and retries the same message later, once the limit resets,
-instead of marching down the queue marking every request failed.
+instead of marching down the queue marking every request failed. Any other
+non-zero exit is a genuine failure of that one request: run-ai forces the
+message terminal ('failed') if the crashed handler left it 'new'/'processing',
+so the queue cannot loop on it, then continues with the next request.
 
 Ctrl+C (SIGINT) and SIGTERM are caught: any request that was in flight is reset
 from 'processing' back to 'new' before exiting (code 130), so an interrupted
@@ -80,6 +93,19 @@ BASE_URL="${MECCG_LOBBY_URL:-http://localhost:8080}"
 BASE_URL="${BASE_URL%/}"
 
 mkdir -p "$LOG_DIR"
+
+# Every `gh` call goes through a timeout. An unattended worker must never be
+# able to block forever on a network call: a `gh pr view` that hangs (remote
+# stall, half-open connection) silently freezes the whole loop with no output
+# at all — indistinguishable from "nothing to do" — until an operator notices
+# hours later and kills it. A timed-out call fails like any other gh hiccup,
+# and every call site already treats gh failure as "skip this tick".
+GH_TIMEOUT=120
+gh() { timeout "$GH_TIMEOUT" command gh "$@"; }
+
+# Same reasoning for the lobby: bound every curl so an unresponsive (as opposed
+# to down) lobby can't wedge the loop.
+curl() { command curl --max-time 30 "$@"; }
 
 master_key() {
   if [ -n "${MECCG_MASTER_KEY:-}" ]; then
@@ -336,12 +362,6 @@ preflight_token() {
   esac
 }
 
-# Validate the token up front; abort with guidance if it's missing/expired.
-if ! preflight_token; then
-  echo "=== FATAL: headless claude token unusable at $(date -Iseconds). Stopping run-ai. ===" | tee -a "$LOG_FILE" >&2
-  exit 4
-fi
-
 IDLE_BACKOFF=(60 120 240 480 960 1920 3600)
 idle_index=0
 
@@ -358,6 +378,21 @@ idle_backoff() {
     idle_index=$((idle_index + 1))
   fi
 }
+
+# Validate the token up front — but WAIT for a usable one instead of exiting.
+# This used to `exit 4`, which meant a token that was merely missing at boot (or
+# briefly rejected while the API was overloaded) killed the worker outright and
+# it stayed dead until a human noticed and restarted it. Now we back off and
+# re-check on the idle schedule, so the worker resumes on its own the moment the
+# operator drops a valid token in.
+if ! preflight_token; then
+  echo "=== Headless claude token unusable at $(date -Iseconds). Waiting for a usable token; run-ai will resume automatically. ===" | tee -a "$LOG_FILE" >&2
+  until preflight_token; do
+    idle_backoff "Headless claude token still unusable"
+  done
+  echo "=== Token usable again at $(date -Iseconds). Resuming. ===" | tee -a "$LOG_FILE"
+fi
+idle_index=0
 
 # ---------------------------------------------------------------------------
 # Open-PR maintenance
@@ -709,10 +744,17 @@ while true; do
   # revert) before restarting.
   cd "$SCRIPT_DIR/.."
   if [ -n "$(git status --porcelain)" ]; then
-    echo "=== FATAL: working tree dirty at $(date -Iseconds). Stopping run-ai. ===" | tee -a "$LOG_FILE"
+    # Leftovers from a skill that ended without committing would contaminate the
+    # next run's branch, so we must not proceed — but we must not die either.
+    # Discarding is not ours to decide (the leftovers may be real work), so we
+    # park: log loudly, back off, and re-check. The operator converts them into
+    # a PR or reverts them and the worker picks up again by itself, with no
+    # restart needed.
+    echo "=== Working tree dirty at $(date -Iseconds). Pausing until it is clean. ===" | tee -a "$LOG_FILE"
     git status --porcelain | sed 's/^/[run-ai]   /' | tee -a "$LOG_FILE"
-    echo "[run-ai] Turn these files into a PR or revert them, then restart run-ai." | tee -a "$LOG_FILE"
-    exit 2
+    echo "[run-ai] Turn these files into a PR or revert them; run-ai will resume on its own." | tee -a "$LOG_FILE"
+    idle_backoff "Working tree still dirty"
+    continue
   fi
 
   git checkout master 2>&1 | tee -a "$LOG_FILE"
@@ -722,7 +764,9 @@ while true; do
   # rather than letting the `| tee` pipeline abort the loop under pipefail.
   # The `if !` guard both inverts the status and shields it from `set -e`;
   # with pipefail the pipeline reports git's failure (tee succeeds).
-  if ! git pull 2>&1 | tee -a "$LOG_FILE"; then
+  # `timeout` for the same reason gh is wrapped: a stalled remote must fail the
+  # pull (and back off) rather than hang the loop indefinitely.
+  if ! timeout 300 git pull 2>&1 | tee -a "$LOG_FILE"; then
     idle_backoff "git pull failed (remote unreachable?)"
     continue
   fi
@@ -788,8 +832,19 @@ while true; do
     idle_backoff "API capacity/usage limit hit; $MSG_ID reset to 'new', retrying later"
     continue
   elif [ "$handle_rc" -ne 0 ]; then
-    echo "=== FATAL: handle-mail failed for $MSG_ID at $(date -Iseconds). Stopping run-ai. ===" | tee -a "$LOG_FILE"
-    exit 3
+    # One bad request must not take the worker down with it. handle-mail owns
+    # the message's final status and normally marks it 'failed' itself; if it
+    # died before doing so the message would still be 'new'/'processing' and we
+    # would pick the very same one again next tick and fail forever. So force it
+    # terminal here, then carry on with the rest of the queue.
+    echo "=== handle-mail failed for $MSG_ID (exit $handle_rc) at $(date -Iseconds). Marking it failed and continuing. ===" | tee -a "$LOG_FILE"
+    status_now=$(message_status "$MSG_ID" 2>/dev/null || echo "")
+    if [ -z "$status_now" ] || [ "$status_now" = "new" ] || [ "$status_now" = "processing" ]; then
+      echo "[run-ai] $MSG_ID left in '${status_now:-unknown}' by a crashed handler; forcing 'failed' so the queue advances." | tee -a "$LOG_FILE"
+      set_message_status "$MSG_ID" failed
+    fi
+    idle_backoff "Recovering from handle-mail failure on $MSG_ID"
+    continue
   fi
   echo "=== Finished $MSG_ID at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
   echo
