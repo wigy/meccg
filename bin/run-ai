@@ -656,6 +656,29 @@ handle_open_prs() {
       continue
     fi
     mergeable=$(jq -r '.mergeable // "UNKNOWN"' <<<"$detail" 2>/dev/null || echo UNKNOWN)
+
+    # GitHub computes mergeability lazily: whenever the base branch moves the
+    # field resets and the first query only KICKS OFF the recomputation,
+    # returning UNKNOWN. Treating UNKNOWN as "no conflict" made the sweep
+    # silently skip a genuinely conflicted PR right after a master merge or a
+    # worker restart — it fell through to the mail queue and the conflict sat
+    # unfixed until some later tick happened to see a computed value. Poll
+    # briefly until GitHub reports a definite answer; if it still hasn't
+    # decided, defer the PR loudly to the next tick instead of skipping it as
+    # healthy.
+    if [ "$mergeable" = "UNKNOWN" ]; then
+      local mq_try
+      for mq_try in 1 2 3 4 5; do
+        sleep 5
+        mergeable=$(gh pr view "$n" --json mergeable -q '.mergeable // "UNKNOWN"' 2>/dev/null || echo UNKNOWN)
+        if [ "$mergeable" != "UNKNOWN" ]; then break; fi
+      done
+      if [ "$mergeable" = "UNKNOWN" ]; then
+        echo "=== PR #$n mergeability still UNKNOWN after $mq_try re-checks; deferring to next tick ===" | tee -a "$LOG_FILE"
+        continue
+      fi
+    fi
+
     review_decision=$(jq -r '.reviewDecision // ""' <<<"$detail" 2>/dev/null || echo "")
     issue_comments=$(jq '[.comments[]? | select((.body // "") != "")] | length' <<<"$detail" 2>/dev/null || echo 0)
     review_bodies=$(jq '[.reviews[]? | select((.body // "") != "")] | length' <<<"$detail" 2>/dev/null || echo 0)
