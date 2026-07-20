@@ -599,6 +599,7 @@
     "alignment": "ringwraith",
     "id": "as-150",
     "name": "Himring",
+    "certified": "2026-07-20",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Himring.jpg",
     "unique": true,
     "siteType": "ruins-and-lairs",
@@ -622,7 +623,28 @@
     ],
     "resourceDraws": 3,
     "hazardDraws": 3,
-    "effects": [],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -2
+        },
+        "target": "wounded-character"
+      },
+      {
+        "type": "on-event",
+        "event": "site-revealed-as-new-site",
+        "when": {
+          "company.covert": false
+        },
+        "apply": {
+          "type": "tap-one-character"
+        }
+      }
+    ],
     "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major)Automatic-attacks:Undead — 1 strike with 8 prowess; each character wounded must make a corruption check modified by -2Special: An overt company must tap an untapped character (if available) if this site is revealed as its new site."
   },
   {

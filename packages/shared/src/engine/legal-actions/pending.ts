@@ -1943,7 +1943,10 @@ export function eligibleRingCategories(table: RingTestTableEffect['table'], roll
  *
  * The resource player must tap one untapped character in the company.
  * One `tap-character-by-effect` action is emitted per untapped character.
- * A `pass` action is always emitted (required when no untapped characters remain).
+ * The producing card texts read "must tap one untapped character if
+ * available" (Stench of Mordor le-141, Himring as-150), so `pass` is only
+ * emitted when the company has no untapped character left to tap — the tap
+ * is mandatory whenever it is possible.
  */
 export function tapOneCharacterActions(
   state: GameState,
@@ -1975,8 +1978,11 @@ export function tapOneCharacterActions(
     });
   }
 
-  // pass is always available (required when no untapped characters exist)
-  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  // pass is only legal when no untapped character exists — the tap is
+  // mandatory ("must tap one untapped character if available")
+  if (actions.length === 0) {
+    actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  }
 
   return actions;
 }
