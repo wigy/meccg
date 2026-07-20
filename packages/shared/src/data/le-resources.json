@@ -3150,8 +3150,35 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a Border-hold [{B}]. -1 to the prowess of all automatic-attacks at the site (-2 if Doors of Night is in play). The first item played at the site does not tap the site."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site",
+        "siteTypes": ["border-hold"]
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-prowess-boost",
+          "scope": "company-site-phase",
+          "value": -1,
+          "siteType": "border-hold",
+          "doublesWithDoorsOfNight": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-site-phase-flag",
+          "flag": "firstItemNoTapAvailable"
+        }
+      }
+    ],
+    "text": "Playable on a Border-hold [{B}]. -1 to the prowess of all automatic-attacks at the site (-2 if Doors of Night is in play). The first item played at the site does not tap the site.",
+    "certified": "2026-07-20"
   },
   {
     "cardType": "minion-resource-event",

@@ -2106,17 +2106,26 @@ function handleSitePlayHeroResource(
     && (itemSubtypeForBounty === 'minor' || itemSubtypeForBounty === 'major' || itemSubtypeForBounty === 'gold-ring');
   const nextThoroughSearchAvailable = usingThoroughSearch ? false : siteState.thoroughSearchAvailable;
 
+  // Come By Night Upon Them (le-176): if played, the first item played at the
+  // site (any subtype) does not tap the site. Consume the flag when any item
+  // is played.
+  const usingFirstItemNoTap = isItem && siteState.firstItemNoTapAvailable === true;
+  const nextFirstItemNoTapAvailable = usingFirstItemNoTap ? false : siteState.firstItemNoTapAvailable;
+  if (usingFirstItemNoTap) {
+    logDetail(`Site: ${def.name} is the first item played at the site (Come By Night Upon Them) — leaving site untapped`);
+  }
+
   // Thorough Search (and the Saruman's Machinery Technology bonus, and a
   // no-tap-on-play ally) prevent site tap and do not count as the "first
   // resource played" (so the opening minor-item bonus does not fire for them).
-  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus && !noTapOnPlay;
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus && !noTapOnPlay && !usingFirstItemNoTap;
   const nextMinorItemAvailableActual = openingBonusActual
     ? true
     : consumingBonus
       ? false
       : siteState.minorItemAvailable;
 
-  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || noTapOnPlay;
+  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || noTapOnPlay || usingFirstItemNoTap;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
     ...company,
@@ -2127,10 +2136,11 @@ function handleSitePlayHeroResource(
     ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscardPile, characters: newCharacters, companies: newCompaniesActual })),
     phaseState: {
       ...siteState,
-      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || noTapOnPlay) ? siteState.resourcePlayed : true,
+      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || noTapOnPlay || usingFirstItemNoTap) ? siteState.resourcePlayed : true,
       minorItemAvailable: nextMinorItemAvailableActual,
       hoardBountyAvailable: nextHoardBountyAvailable,
       thoroughSearchAvailable: nextThoroughSearchAvailable,
+      firstItemNoTapAvailable: nextFirstItemNoTapAvailable,
       ...(usingTechnologyBonus ? { technologyItemPlayed: true } : {}),
     },
   };

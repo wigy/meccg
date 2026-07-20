@@ -1956,6 +1956,15 @@ export interface AddConstraintAction extends TriggeredActionBase {
   /** Site type for site-type-override / site-resource-unlocked / auto-attack-prowess-boost. */
   readonly siteType?: string;
   /**
+   * For an `auto-attack-prowess-boost` add-constraint (Come By Night Upon Them
+   * le-176: "-1 to the prowess of all automatic-attacks at the site, -2 if Doors
+   * of Night is in play"): when true, the effect's {@link value} is doubled at
+   * play time if Doors of Night is in play. The doubled amount is baked into the
+   * constraint when it is created, since the card is played immediately before
+   * the site's automatic-attacks resolve.
+   */
+  readonly doublesWithDoorsOfNight?: boolean;
+  /**
    * Compound site selector for a `site-resource-unlocked` add-constraint whose
    * "such a site" is not a single site type — evaluated against the site
    * context (A Panoply of Wings wh-37: "any non-Haven, non-Shadow-hold,
@@ -2037,7 +2046,7 @@ export interface RemoveConstraintAction extends TriggeredActionBase {
 export interface SetSitePhaseFlagAction extends TriggeredActionBase {
   readonly type: 'set-site-phase-flag';
   /** The `SitePhaseState` boolean key to set. */
-  readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable';
+  readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable' | 'firstItemNoTapAvailable';
 }
 
 /** `discard-character` — discard the wound/body-check-context character (type-only marker). */

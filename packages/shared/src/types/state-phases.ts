@@ -794,6 +794,15 @@ export interface SitePhaseState {
    */
   readonly thoroughSearchAvailable: boolean;
   /**
+   * Whether a "Come By Night Upon Them" (le-176) event has been played this
+   * site phase, letting the **first item** played at the site (any subtype) be
+   * played without tapping the site. Cleared after that item is played. Absent
+   * (undefined → treated as false) until such an event resolves; reset to absent
+   * when a new company's site phase begins (a fresh {@link SitePhaseState} is
+   * built).
+   */
+  readonly firstItemNoTapAvailable?: boolean;
+  /**
    * Whether the current company has already played its one allowed Technology
    * item at the site this site phase via a `technology-item-unlocked` constraint
    * (Saruman's Machinery, wh-120 — "One Technology item is playable at the site
