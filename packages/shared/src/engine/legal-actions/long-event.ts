@@ -24,9 +24,9 @@ import { CardStatus, cardStatusToName } from '../../types/common.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, buildPlayerStateContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, altShortEventReshuffleEffect, playerHasReshuffleMatch } from '../reducer-utils.js';
+import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -204,6 +204,20 @@ export function heroResourceShortEventActions(
           actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played at ${playWindow.siteTypes.join(' or ')}`));
           continue;
         }
+      }
+    }
+
+    // play-condition requires: "player-state" — a generic DSL condition
+    // evaluated against the player's avatar/alignment context. Mirrors the
+    // organization-phase path so any-phase and chain-window plays honour the
+    // same gate (The Dark Power as-79: "Playable if you are Sauron" via
+    // player.playsAsSauron).
+    const playerStateCondition = findPlayConditionEffect(def, 'player-state');
+    if (playerStateCondition?.condition) {
+      if (!matchesCondition(playerStateCondition.condition, buildPlayerStateContext(state, player, playerId))) {
+        logDetail(`${def.name}: play-condition player-state not satisfied`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play conditions not met`));
+        continue;
       }
     }
 

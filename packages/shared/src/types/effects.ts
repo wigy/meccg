@@ -1945,6 +1945,16 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly valueExpr?: string;
   /** Which check a check-modifier applies to. */
   readonly check?: string;
+  /**
+   * For an influence `check-modifier` payload: what happens to the faction card
+   * when the boosted influence check fails. `'shuffle-faction-into-deck'` sends
+   * the faction back into its player's play deck (reshuffled) instead of the
+   * discard pile. The Dark Power (as-79): "+3 to an influence check against a
+   * faction. If the check is not successful, shuffle the faction into your play
+   * deck." Carried onto the constraint kind and honoured by
+   * `resolveInfluenceAttemptRoll` when the consuming check fails.
+   */
+  readonly onFailure?: 'shuffle-faction-into-deck';
   /** Which stat a company/character-stat-modifier applies to. */
   readonly stat?: 'prowess' | 'body' | 'direct-influence';
   /** Creature race filter for creature-attack-boost. */

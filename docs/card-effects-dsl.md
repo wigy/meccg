@@ -440,6 +440,34 @@ enforces the last sentence.)
                                     { "target.race": { "$in": ["orc", "troll"] } } ] } ] } } }
 ```
 
+A one-shot faction-influence booster may also change the **fate of the faction
+card on failure**: `onFailure: "shuffle-faction-into-deck"` on the
+`add-constraint check-modifier` apply is carried onto the constraint, and when
+the consuming faction-influence roll fails, the faction is shuffled back into
+its player's play deck instead of going to the discard pile
+(`resolveInfluenceAttemptRoll` in `reducer-site.ts`). Because such a card boosts
+"an influence check" without naming a character, its `play-target` uses the
+`target.isInfluencing` context flag — true only for the character whose
+influence-attempt is live in the chain (`buildPlayOptionContext`) — so the
+constraint lands on, and is consumed by, exactly the check the card was played
+on. The "Playable if you are Sauron" gate is a `play-condition` `player-state`
+against `player.playsAsSauron`, true while the player counts as Sauron via a
+`play-as-sauron` marker in play (The Lidless Eye le-203 / Sauron ba-43). Used by
+The Dark Power (as-79): "Playable if you are Sauron. +3 to an influence check
+against a faction. If the check is not successful, shuffle the faction into your
+play deck."
+
+```json
+{ "type": "play-condition", "requires": "player-state",
+  "condition": { "player.playsAsSauron": true } },
+{ "type": "play-target", "target": "character",
+  "filter": { "target.isInfluencing": true } },
+{ "type": "play-option", "id": "dark-power-boost",
+  "when": { "player.hasFactionInHand": true },
+  "apply": { "type": "add-constraint", "constraint": "check-modifier", "check": "influence",
+             "value": 3, "scope": "until-cleared", "onFailure": "shuffle-faction-into-deck" } }
+```
+
 Beyond one-shot constraints, a **persistent** `stat-modifier direct-influence`
 borne by the influencer is also folded into an opponent-influence attempt when
 its `when` matches the `opponent-influence-check` context. `reducer-site.ts`
@@ -5186,6 +5214,9 @@ check) and `reducer-events.ts` (discard execution).
   - `player.hasProtectedWizardhaven` — `true` when the player controls a
     protected Wizardhaven (a Fallen-wizard haven / converted Wizardhaven carrying
     a `site-protected` constraint for that player).
+  - `player.playsAsSauron` — `true` while the player counts as Sauron via a
+    `play-as-sauron` marker in play (The Lidless Eye le-203 / Sauron ba-43).
+    Used by *The Dark Power* (as-79): "Playable if you are Sauron."
   - `inPlay` — the list of card names the active player has in play, so a
     condition can require a named prerequisite via `{ "inPlay": "<name>" }`.
 
