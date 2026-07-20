@@ -679,22 +679,26 @@ export function buildFallenWizardOrgPhaseState(opts: {
  * with one company at `site`. Mirrors {@link buildSitePhaseState} but for
  * minion card tests, where alignment-sensitive logic (detainment, item MP,
  * dark-haven gates) must run against a Ringwraith company. P1 is the active
- * resource player; P2 is a placeholder minion company at a haven.
+ * resource player; P2 is a placeholder minion company at a haven, unless
+ * `opponent` overrides it (e.g. a hero company whose in-play characters gate
+ * a site rule, like Radagast removing Rhosgobel's automatic-attacks).
  */
 export function buildMinionSitePhaseState(opts: {
   characters: CharacterEntry[];
   site: CardDefinitionId;
   hand?: CardDefinitionId[];
   siteStatus?: CardStatus;
+  opponent?: { alignment: Alignment; site: CardDefinitionId; characters: CharacterEntry[] };
 }): GameState {
   const MINAS_MORGUL = 'le-390' as CardDefinitionId;
   const DOL_GULDUR = 'le-367' as CardDefinitionId;
+  const opponent = opts.opponent ?? { alignment: Alignment.Ringwraith, site: DOL_GULDUR, characters: [] };
   const state = buildTestState({
     activePlayer: PLAYER_1,
     recompute: true,
     players: [
       { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: opts.site, characters: opts.characters }], hand: opts.hand ?? [], siteDeck: [MINAS_MORGUL] },
-      { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [] }], hand: [], siteDeck: [MINAS_MORGUL] },
+      { id: PLAYER_2, alignment: opponent.alignment, companies: [{ site: opponent.site, characters: opponent.characters }], hand: [], siteDeck: [opts.opponent ? opponent.site : MINAS_MORGUL] },
     ],
     phase: Phase.Site,
   });
