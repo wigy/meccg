@@ -6925,6 +6925,47 @@ only via this bonus).
                             "unique": true, "excludePlayableAtSiteType": "dark-hold" } }
 ```
 
+### `agent-home-site-faction-lock`
+
+A permanent-event kept attached to an **agent character** (in `char.items`)
+whose ongoing effect switches on only while the bearer is **unwounded and
+standing at one of his home sites** of a type in `homeSiteTypes`. While active it:
+
+1. Bars **every** faction play at any version of that site — matched by the
+   site's printed *name*, so all in-play copies of the same site card are
+   covered ("any version of that site"). Enforced in the site-phase faction
+   legal-action gate (`legal-actions/site.ts`), beside the
+   `site-instance-transform` `noFactions` branch (ba-65), via
+   `siteFactionLockedByAgentHomeSite`.
+2. Credits the carrying card's printed marshalling points to its controller
+   ("you receive this card's marshalling points"). The MP is therefore
+   **conditional**: the card's own printed MP is suppressed in the normal
+   item-MP tally (`recompute-derived.ts`) and added back only while the lock is
+   active. (No `conditional-mp` effect is needed — the printed MP stays on the
+   card and is gated by the same predicate.)
+
+When the bearer is wounded, moves off its home site, or the current site is not
+of a qualifying type, the lock and its MP switch off; the card stays attached
+and re-activates dynamically. It is discarded only when the bearer leaves play.
+
+The play restriction ("Playable on an agent character at a Darkhaven who has a
+Border-hold or Free-hold as a home site") is expressed with a `play-target`
+`character` filter — `target.keywords` `$includes` `"agent"` AND a `$or` over
+`target.homeSiteTypes` `$includes` `"border-hold"` / `"free-hold"` (the
+`target.homeSiteTypes` play-target context field lists the printed site types of
+the character's home sites) — plus a `play-condition` `site-type: ["haven"]`
+(a minion company at a haven is at a Darkhaven).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `homeSiteTypes` | yes | Printed `SiteType`s that qualify (e.g. `["border-hold", "free-hold"]`). |
+
+```json
+{ "type": "agent-home-site-faction-lock", "homeSiteTypes": ["border-hold", "free-hold"] }
+```
+
+Used by Faithless Steward (as-83).
+
 ### `evil-hour-tap-trigger`
 
 Marks an in-play permanent-event that **taps itself** when the controller's

@@ -3191,6 +3191,44 @@ export interface DuplicationLimitEffect extends EffectBase {
 }
 
 /**
+ * `agent-home-site-faction-lock` — a permanent-event kept attached to an agent
+ * character (in `char.items`) whose ongoing effect switches on only while the
+ * bearer is **unwounded and standing at one of his home sites** of a type in
+ * {@link homeSiteTypes}. While active it does two things:
+ *
+ * 1. Bars **every** faction play at any version of that site — matched by the
+ *    site's printed *name*, so all in-play copies of the same site card are
+ *    covered ("any version of that site"). Enforced in the site-phase faction
+ *    legal-action gate (`legal-actions/site.ts`), alongside the
+ *    `site-instance-transform` `noFactions` branch.
+ * 2. Credits the carrying card's printed marshalling points to its controller
+ *    ("you receive this card's marshalling points"). The MP is therefore
+ *    **conditional**: the card's own printed MP is suppressed in the normal
+ *    item-MP tally (`recompute-derived.ts`) and added back only while the lock
+ *    is active.
+ *
+ * When the bearer is wounded, moves off its home site, or the home site is not
+ * of a qualifying type, the lock (and its MP) simply switch off — the card
+ * stays attached and re-activates dynamically. The card is only discarded when
+ * the bearer leaves play (orphaned-attachment sweep).
+ *
+ * Used by Faithless Steward (as-83): "Playable on an agent character at a
+ * Darkhaven who has a Border-hold or Free-hold as a home site. If target
+ * character is unwounded and at one of his Border-hold or Free-hold home sites,
+ * no factions can be played at any version of that site and you receive this
+ * card's marshalling points."
+ */
+export interface AgentHomeSiteFactionLockEffect extends EffectBase {
+  readonly type: 'agent-home-site-faction-lock';
+  /**
+   * Home-site types (printed {@link SiteType}) that qualify. The lock is active
+   * only when the bearer's current site is one of his home sites of one of
+   * these types. Faithless Steward uses `["border-hold", "free-hold"]`.
+   */
+  readonly homeSiteTypes: readonly SiteType[];
+}
+
+/**
  * Movement/hazard restrictions imposed on the company a permanent-event is
  * bound to (`CardInPlay.companyId`). Consulted at the movement legal-action
  * sites (organization plan-movement, M/H select-company / declare-path) and at
@@ -5847,6 +5885,7 @@ export type CardEffect =
   | EvilHourTapTriggerEffect
   | EvilHourGrantMovementEffect
   | AllyMovementRestrictionExemptionEffect
+  | AgentHomeSiteFactionLockEffect
   | StatModifierEffect
   | CheckModifierEffect
   | BodyCheckModifierEffect
