@@ -1442,6 +1442,20 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Hermit's Hill (le-382): a covert company discarded two minor
+         * items to make any one gold ring item playable at the current
+         * untapped site this turn, "regardless of its text restrictions"
+         * — the unlock bypasses both the site's `playableResources` gate
+         * and the ring's own `item-play-site` restriction. The minion
+         * sibling of `major-item-unlocked`; scoped to
+         * `company-site-phase` so it is swept when the company's site
+         * phase ends (the site tapping on the ring's play naturally
+         * limits the unlock to one gold ring).
+         */
+        readonly type: 'gold-ring-item-unlocked';
+      }
+    | {
+        /**
          * Records Unread (as-130): a player discarded the item to "make
          * Information playable at any Shadow-hold". While this constraint
          * is active, a resource of category {@link subtype} (e.g.
