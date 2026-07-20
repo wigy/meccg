@@ -3515,20 +3515,21 @@ function fireEndOfTurnGoldRingTests(state: GameState): GameState {
     if (company.currentSite) {
       const siteDefId = resolveInstanceId(newState, company.currentSite.instanceId);
       const siteDef = siteDefId ? defById(newState, siteDefId) : undefined;
-      // MEBA: "Rings are not automatically tested for a Balrog player at
-      // Barad-dûr" (Barad-dûr is not one of the Balrog's Darkhavens). Skip the
-      // whole company's auto-test there; the -2 company modifier from rule 9.23
-      // still applies to ring tests triggered by other means.
-      if (resourcePlayer.alignment === Alignment.Balrog && siteDef && isSiteCard(siteDef) && siteDef.name === 'Barad-dûr') {
-        logDetail(`end-of-turn: skipping gold-ring auto-test for Balrog company at ${siteDef.name}`);
-        continue;
-      }
       const rule = siteDef && isSiteCard(siteDef)
         ? siteDef.effects?.find(
             (e): e is SitePhaseRingAutoTestSiteRule =>
               e.type === 'site-rule' && e.rule === 'site-phase-ring-auto-test',
           )
         : undefined;
+      // A site may exempt whole alignments from its auto-test — MEBA: "Rings
+      // are not automatically tested for a Balrog player at Barad-dûr"
+      // (`skipForAlignments: ["balrog"]` on le-352). Skip the whole company's
+      // auto-test there; the -2 company modifier from rule 9.23 still applies
+      // to ring tests triggered by other means.
+      if (rule?.skipForAlignments?.includes(resourcePlayer.alignment)) {
+        logDetail(`end-of-turn: skipping gold-ring auto-test for ${resourcePlayer.alignment} company at ${siteDef && isSiteCard(siteDef) ? siteDef.name : siteDefId as string} (site-rule skipForAlignments)`);
+        continue;
+      }
       if (rule) baseModifier = rule.rollModifier;
     }
 

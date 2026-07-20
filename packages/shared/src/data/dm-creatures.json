@@ -221,7 +221,19 @@
     "killMarshallingPoints": 5,
     "race": "balrog,spawn",
     "keyedTo": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "unplayable-when",
+        "when": {
+          "opponent.alignment": "balrog",
+          "actor.alignment": {
+            "$ne": "balrog"
+          }
+        },
+        "reason": "cannot be played against a Balrog player (MEBA)"
+      }
+    ],
     "text": "Unique.Manifestation of Balrog of Moria. Balrog. Two strikes—all body checks resulting from a successful strike are modified by +1. May be played at The Under-gates and at all of its adjacent sites. If Doors of Night is in play, Durin's Bane may be played at any Under-deeps site.Cannot be included in a Balrog's deck and cannot be played if your opponent is a Balrog player."
   },
   {

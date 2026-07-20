@@ -4307,6 +4307,40 @@ export interface StorableAtEffect extends EffectBase {
 }
 
 /**
+ * Declarative restriction on when this card may be played at all, checked by
+ * the legal-action computer before offering the play action.
+ *
+ * - `only-at-site-with-auto-attack` — playable only on a company moving to a
+ *   site with at least one automatic-attack. Used by Tidings of Bold Spies
+ *   (le-143): "Playable on a company moving to a site with an
+ *   automatic-attack."
+ *
+ * - `unplayable-when` — the card cannot be played while the inherited `when`
+ *   condition matches the play context
+ *   `{ actor: { alignment }, opponent: { alignment } }` (the acting player and
+ *   their opponent). `reason` is the human-readable explanation surfaced in the
+ *   not-playable tooltip. This carries the opponent-conditional play bans that
+ *   are otherwise invisible in deck construction: MEBA's "if you are a Balrog
+ *   player, your opponent may not play …" list (with the CoE 3.10 mirror-match
+ *   exemption expressed as `actor.alignment: { $ne: "balrog" }`) and CoE 1.35's
+ *   cards with no effect against a Ringwraith player. Example (Durin's Bane
+ *   dm-107):
+ *
+ * ```json
+ * { "type": "play-restriction", "rule": "unplayable-when",
+ *   "when": { "opponent.alignment": "balrog",
+ *             "actor.alignment": { "$ne": "balrog" } },
+ *   "reason": "cannot be played against a Balrog player (MEBA)" }
+ * ```
+ */
+export interface PlayRestrictionEffect extends EffectBase {
+  readonly type: 'play-restriction';
+  readonly rule: 'only-at-site-with-auto-attack' | 'unplayable-when';
+  /** For `unplayable-when`: tooltip text explaining why the card is not playable. */
+  readonly reason?: string;
+}
+
+/**
  * Gates playability on a game-state condition evaluated at legal-action
  * time. The `requires` field names the context source:
  *
@@ -5763,6 +5797,7 @@ export type CardEffect =
   | PlayTargetEffect
   | PlayOptionEffect
   | PlayWindowEffect
+  | PlayRestrictionEffect
   | PlayConditionEffect
   | CreatureRaceChoiceEffect
   | OnGuardRevealEffect

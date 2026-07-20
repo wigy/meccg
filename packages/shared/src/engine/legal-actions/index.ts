@@ -12,7 +12,9 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInstanceId } from '../../index.js';
+import type { PlayRestrictionEffect } from '../../types/effects.js';
 import { Alignment } from '../../types/common.js';
+import { matchesContext } from '../../effects/condition-matcher.js';
 import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes } from '../reducer-utils.js';
 import { isAvatarCharacter, isSiteCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -161,60 +163,31 @@ function fillNotPlayable(state: GameState, playerId: PlayerId, evaluated: Evalua
 }
 
 /**
- * MEBA: cards an opponent of a Balrog player may not play. "If you are a Balrog
- * player, your opponent may not play any of the following cards: The Balrog
- * (Ally), The Black Council, Durin's Bane, Balrog of Moria, Reluctant Final
- * Parting." This is an opponent-conditional *play* ban (distinct from the
- * unconditional deck-build bans in deck-validation), enforced at runtime.
- */
-const BANNED_VS_BALROG_OPPONENT: ReadonlySet<string> = new Set([
-  'as-71',  // The Balrog (ally)
-  'wh-41',  // The Black Council
-  'dm-107', // Durin's Bane
-  'tw-12',  // Balrog of Moria
-  'dm-84',  // Reluctant Final Parting
-]);
-
-// CoE rule 1.35: cards with no effect on (and unplayable against) a
-// Ringwraith opponent. The "hazards that require an agent (as an active
-// condition)" clause is not yet covered — no hazard cards currently declare
-// a machine-readable agent-requirement.
-const BANNED_VS_RINGWRAITH_OPPONENT: ReadonlySet<string> = new Set([
-  'tw-13',  // Bane of the Ithil-stone
-  'dm-47',  // The Black Enemy's Wrath
-  'tw-36',  // Foul Fumes
-  'dm-67',  // In the Heart of his Realm
-  'dm-72',  // Mordor in Arms
-  'tw-66',  // Mûmak (Oliphant)
-  'td-89',  // Worn and Famished
-]);
-
-/**
- * Rewrites any `play-*` action that would play a banned card into a
- * not-playable entry, when the acting player's opponent has the given
- * alignment. Pass-through for every other situation.
+ * Rewrites any `play-*` action for a card that declares an `unplayable-when`
+ * play-restriction whose condition matches the current play context into a
+ * not-playable entry. Pass-through for every other action.
  *
- * When `exemptSameAlignment` is set, the ban is skipped if the acting
- * player shares the opponent's alignment — CoE rule 3.10: in a Balrog
- * mirror match both players may continue to play Balrog-specific cards
- * regardless of which plays their avatar first.
+ * The condition is evaluated against
+ * `{ actor: { alignment }, opponent: { alignment } }`, so cards can declare
+ * opponent-conditional play bans (distinct from the unconditional deck-build
+ * bans in deck-validation) directly in their JSON — e.g. MEBA's "if you are a
+ * Balrog player, your opponent may not play …" list and CoE 1.35's cards with
+ * no effect against a Ringwraith player. The CoE 3.10 mirror-match exemption
+ * (both players Balrog → Balrog-specific cards stay playable) is expressed in
+ * the cards' own conditions via `actor.alignment: { $ne: "balrog" }`.
  */
-function applyOpponentAlignmentBans(
+function applyDeclaredPlayRestrictions(
   state: GameState,
   playerId: PlayerId,
   evaluated: EvaluatedAction[],
-  opponentAlignment: Alignment,
-  banned: ReadonlySet<string>,
-  reasonSuffix: string,
-  exemptSameAlignment = false,
 ): EvaluatedAction[] {
-  const opponent = state.players.find(p => p.id !== playerId);
-  if (!opponent || opponent.alignment !== opponentAlignment) return evaluated;
   const actor = state.players.find(p => p.id === playerId);
-  if (exemptSameAlignment && actor && actor.alignment === opponentAlignment) {
-    logDetail(`Opponent-alignment ban skipped: both players are ${opponentAlignment} (mirror match, CoE 3.10)`);
-    return evaluated;
-  }
+  const opponent = state.players.find(p => p.id !== playerId);
+  if (!actor || !opponent) return evaluated;
+  const context = {
+    actor: { alignment: actor.alignment },
+    opponent: { alignment: opponent.alignment },
+  };
   return evaluated.map(ea => {
     const a = ea.action as unknown as Record<string, unknown>;
     const type = a['type'];
@@ -222,10 +195,18 @@ function applyOpponentAlignmentBans(
     const instId = (a['cardInstanceId'] ?? a['characterInstanceId'] ?? a['instanceId']) as string | undefined;
     if (typeof instId !== 'string') return ea;
     const defId = resolveInstanceId(state, instId as CardInstanceId);
-    if (!defId || !banned.has(defId as string)) return ea;
-    const def = defById(state, defId);
-    const name = def ? (def as unknown as Record<string, unknown>)['name'] as string : (defId as string);
-    return notPlayable(playerId, instId as CardInstanceId, `${name}: ${reasonSuffix}`);
+    const def = defId ? defById(state, defId) : undefined;
+    if (!def) return ea;
+    const restriction = getCardEffects(def).find(
+      (e): e is PlayRestrictionEffect => e.type === 'play-restriction'
+        && e.rule === 'unplayable-when'
+        && e.when !== undefined
+        && matchesContext(e.when, context),
+    );
+    if (!restriction) return ea;
+    const name = (def as unknown as Record<string, unknown>)['name'] as string ?? (defId as string);
+    logDetail(`Play restriction: ${name} is unplayable (actor ${actor.alignment}, opponent ${opponent.alignment}) — ${restriction.reason ?? 'declared unplayable-when matched'}`);
+    return notPlayable(playerId, instId as CardInstanceId, `${name}: ${restriction.reason ?? 'cannot be played in the current situation'}`);
   });
 }
 
@@ -258,22 +239,14 @@ function applyFwOpponentAvatarBan(
   });
 }
 
-/** Applies the Balrog-, Ringwraith-, and Fallen-wizard-avatar opponent play bans, in sequence. */
+/** Applies card-declared `unplayable-when` play restrictions, then the Fallen-wizard-avatar opponent ban. */
 function applyOpponentBans(
   state: GameState,
   playerId: PlayerId,
   evaluated: EvaluatedAction[],
 ): EvaluatedAction[] {
-  const afterBalrog = applyOpponentAlignmentBans(
-    state, playerId, evaluated, Alignment.Balrog, BANNED_VS_BALROG_OPPONENT,
-    'cannot be played against a Balrog player (MEBA)',
-    true, // Balrog mirror match: both players keep their Balrog-specific cards (CoE 3.10)
-  );
-  const afterRingwraith = applyOpponentAlignmentBans(
-    state, playerId, afterBalrog, Alignment.Ringwraith, BANNED_VS_RINGWRAITH_OPPONENT,
-    'cannot be played against a Ringwraith player',
-  );
-  return applyFwOpponentAvatarBan(state, playerId, afterRingwraith);
+  const afterDeclared = applyDeclaredPlayRestrictions(state, playerId, evaluated);
+  return applyFwOpponentAvatarBan(state, playerId, afterDeclared);
 }
 
 /**

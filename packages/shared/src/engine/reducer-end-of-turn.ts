@@ -12,7 +12,8 @@ import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard } from '../types/cards.js';
 import { CardStatus, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
-import { BARAD_DUR_HERO, BARAD_DUR_MINION, THE_ONE_RING } from '../card-ids.js';
+import type { EndOfTurnWinSiteRule } from '../types/effects.js';
+import { matchesContext } from '../effects/condition-matcher.js';
 import { shuffle } from '../rng.js';
 import { resolveHandSize } from './effects/index.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
@@ -292,33 +293,41 @@ function handleEndOfTurnResetHand(
 }
 
 /**
- * Checks whether the active player satisfies the One Ring Ringwraith win condition.
+ * Checks whether the active player satisfies a positional end-of-turn win
+ * condition declared by a site their company occupies.
  *
- * MELE §1: if a Ringwraith player's company is bearing The One Ring at
- * Barad-dûr (either the hero site tw-374 or the minion site le-352), that
- * player wins immediately. Returns the winning player's ID if the condition
- * is met, or null otherwise.
+ * Sites declare these via the `end-of-turn-win` site-rule, whose `when`
+ * condition is evaluated against
+ * `{ player: { alignment }, company: { itemNames } }`. The canonical case is
+ * MELE §1: a Ringwraith player's company bearing The One Ring at Barad-dûr
+ * (tw-374 / le-352) wins immediately. Returns the winning player's ID if any
+ * declared condition is met, or null otherwise.
  */
-function checkOneRingWin(state: GameState): PlayerId | null {
+function checkEndOfTurnSiteWin(state: GameState): PlayerId | null {
   const activePlayer = state.players.find(p => p.id === state.activePlayer);
-  if (!activePlayer || activePlayer.alignment !== 'ringwraith') return null;
-
-  const baradDurIds = new Set<string>([BARAD_DUR_HERO as string, BARAD_DUR_MINION as string]);
-  const oneRingId = THE_ONE_RING as string;
+  if (!activePlayer) return null;
 
   for (const company of activePlayer.companies) {
-    const currentSiteDefId = company.currentSite?.definitionId as string | undefined;
-    if (!currentSiteDefId || !baradDurIds.has(currentSiteDefId)) continue;
+    const siteDefId = company.currentSite?.definitionId;
+    const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    const rules = (siteDef.effects ?? []).filter(
+      (e): e is EndOfTurnWinSiteRule => e.type === 'site-rule' && e.rule === 'end-of-turn-win',
+    );
+    if (rules.length === 0) continue;
 
-    // Company is at Barad-dûr — check for The One Ring in any character's items
-    for (const charId of company.characters) {
+    const itemNames = company.characters.flatMap(charId => {
       const char = activePlayer.characters[charId];
-      if (!char) continue;
-      for (const item of char.items) {
-        if ((item.definitionId as string) === oneRingId) {
-          logDetail(`One Ring win condition: ${activePlayer.name} has The One Ring at Barad-dûr — Ringwraith wins immediately (MELE §1)`);
-          return activePlayer.id;
-        }
+      if (!char) return [];
+      return char.items
+        .map(item => defById(state, item.definitionId)?.name)
+        .filter((name): name is string => name !== undefined);
+    });
+    const context = { player: { alignment: activePlayer.alignment }, company: { itemNames } };
+    for (const rule of rules) {
+      if (matchesContext(rule.when, context)) {
+        logDetail(`End-of-turn site win: "${siteDef.name}" condition met for ${activePlayer.name} (${activePlayer.alignment}, company items: [${itemNames.join(', ')}])`);
+        return activePlayer.id;
       }
     }
   }
@@ -350,15 +359,18 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
       state = ringlordRoll.state;
     }
 
-    // MELE §1: check Ringwraith One Ring win condition before the turn ends
-    const oneRingWinner = checkOneRingWin(state);
-    if (oneRingWinner) {
-      logHeading(`One Ring win condition triggered — ${oneRingWinner as string} wins immediately (Ringwraith at Barad-dûr, MELE §1)`);
+    // Site-declared positional win conditions (`end-of-turn-win` site-rule,
+    // e.g. MELE §1: Ringwraith bearing The One Ring at Barad-dûr) — checked
+    // before the turn ends.
+    const siteWinner = checkEndOfTurnSiteWin(state);
+    if (siteWinner) {
+      const winnerAlignment = state.players.find(p => p.id === siteWinner)?.alignment ?? Alignment.Ringwraith;
+      logHeading(`End-of-turn site win condition triggered — ${siteWinner as string} wins immediately`);
       return {
         state: endGame(
           state,
-          { kind: 'one-ring', alignment: Alignment.Ringwraith, card: null },
-          oneRingWinner,
+          { kind: 'one-ring', alignment: winnerAlignment, card: null },
+          siteWinner,
         ),
       };
     }

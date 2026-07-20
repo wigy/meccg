@@ -8,7 +8,7 @@
  * the public `types/effects.js` import path is unchanged.
  */
 
-import type { CardDefinitionId, RegionType, SiteType } from '../common.js';
+import type { Alignment, CardDefinitionId, RegionType, SiteType } from '../common.js';
 import type { EffectBase, Condition } from '../effects.js';
 
 /**
@@ -46,7 +46,8 @@ export type SiteRuleEffect =
   | HazardSiteTypeOverrideSiteRule
   | AllowAgentPlaySiteRule
   | ProtectedWizardhavenSiteRule
-  | DynamicUnderDeepsAdjacencySiteRule;
+  | DynamicUnderDeepsAdjacencySiteRule
+  | EndOfTurnWinSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -167,6 +168,15 @@ export interface SitePhaseRingAutoTestSiteRule extends EffectBase {
   readonly rule: 'site-phase-ring-auto-test';
   /** Roll modifier applied to every auto-test (e.g. -3 for Barad-dûr). */
   readonly rollModifier: number;
+  /**
+   * Player alignments for which the automatic test is skipped entirely at
+   * this site. MEBA: "Rings are not automatically tested for a Balrog player
+   * at Barad-dûr" (Barad-dûr is not one of the Balrog's Darkhavens) — encoded
+   * on Barad-dûr (le-352) as `"skipForAlignments": ["balrog"]`. The company's
+   * default rule-9.23 modifier still applies to ring tests triggered by other
+   * means.
+   */
+  readonly skipForAlignments?: readonly Alignment[];
 }
 
 /**
@@ -638,6 +648,31 @@ export interface NoStorageSiteRule extends EffectBase {
 export interface ProtectedWizardhavenSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'protected-wizardhaven';
+}
+
+/**
+ * Declares a positional win condition checked at the start of each of the
+ * site owner's end-of-turn phases: if a company of the active player is at
+ * this site and the `when` condition matches, that player immediately wins
+ * the game (via the shared `oneRingWin` endgame primitive). The condition is
+ * evaluated against
+ * `{ player: { alignment }, company: { itemNames } }` — the active player's
+ * alignment and the names of every item borne by the company's characters.
+ *
+ * Example — Barad-dûr (tw-374 / le-352), MELE §1: a Ringwraith player whose
+ * company is bearing The One Ring at Barad-dûr wins immediately:
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "end-of-turn-win",
+ *   "when": { "player.alignment": "ringwraith",
+ *             "company.itemNames": { "$includes": "The One Ring" } } }
+ * ```
+ */
+export interface EndOfTurnWinSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'end-of-turn-win';
+  /** Condition on `{ player: { alignment }, company: { itemNames } }`. */
+  readonly when: Condition;
 }
 
 /**
