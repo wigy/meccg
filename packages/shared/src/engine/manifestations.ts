@@ -268,6 +268,21 @@ export function getActiveAutoAttacks(
     }
   }
 
+  // Rhosgobel (as-159): "If the Wizard card Radagast is in play, the
+  // automatic-attacks are removed." A `cancel-attacks-if-character-in-play`
+  // site rule strips all of the site's *printed* automatic-attacks while a
+  // character with the given name — any version of it (Radagast tw-178 /
+  // wh-8) — is in play for either player. Applied before hazard augments so
+  // attacks added to the site by hazard effects are unaffected.
+  const printedCancelRule = (siteDef as { effects?: readonly CardEffect[] }).effects?.find(
+    (e): e is Extract<CardEffect, { type: 'site-rule'; rule: 'cancel-attacks-if-character-in-play' }> =>
+      e.type === 'site-rule' && e.rule === 'cancel-attacks-if-character-in-play',
+  );
+  if (printedCancelRule && printed.length > 0 && isNamedCharacterInPlay(state, printedCancelRule.characterName)) {
+    logDetail(`cancel-attacks-if-character-in-play: "${printedCancelRule.characterName}" is in play — all ${printed.length} printed automatic-attack(s) at ${siteDef.name} removed`);
+    printed = [];
+  }
+
   // Augment with any permanent-event-auto-attack effects targeting this site.
   const peAugments = collectPermanentEventAttacks(state, siteDef);
   let combined: readonly AutomaticAttack[] = peAugments.length === 0 ? printed : [...printed, ...peAugments];
@@ -369,6 +384,21 @@ export function getActiveAutoAttacks(
   }
 
   return combined;
+}
+
+/**
+ * True iff a character with the given card name is in play — present in any
+ * player's `characters` record. Matched by name so every version of the card
+ * counts (e.g. Radagast exists as hero Wizard tw-178 and Fallen-wizard wh-8).
+ * Backs the `cancel-attacks-if-character-in-play` site rule (Rhosgobel as-159).
+ */
+function isNamedCharacterInPlay(state: GameState, name: string): boolean {
+  for (const player of state.players) {
+    for (const char of Object.values(player.characters)) {
+      if (defById(state, char.definitionId)?.name === name) return true;
+    }
+  }
+  return false;
 }
 
 /**

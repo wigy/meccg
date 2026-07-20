@@ -40,6 +40,7 @@ export type SiteRuleEffect =
   | CreaturesAlwaysKeyedToSiteSiteRule
   | AllowItemsWhenTappedSiteRule
   | CancelFirstAttackIfInPlaySiteRule
+  | CancelAttacksIfCharacterInPlaySiteRule
   | StolenKnowledgeSiteRule
   | DeepMinesMovementSiteRule
   | NoStorageSiteRule
@@ -543,6 +544,32 @@ export interface CancelFirstAttackIfInPlaySiteRule extends EffectBase {
   readonly rule: 'cancel-first-attack-if-in-play';
   /** Definition ID of the card that, when in play, causes the first attack to be canceled. */
   readonly definitionId: CardDefinitionId;
+}
+
+/**
+ * Declares that ALL of this site's printed automatic-attacks are removed
+ * while a character with the given card name is in play for either player.
+ * Matched by name rather than definition ID so every version of the card
+ * counts (Wizard avatars exist in multiple sets).
+ *
+ * Used by Rhosgobel (as-159): "If the Wizard card Radagast is in play, the
+ * automatic-attacks are removed." — Radagast may be in play as the hero
+ * Wizard (tw-178) or the Fallen-wizard (wh-8).
+ *
+ * Only the site's own printed attacks are removed; attacks added to the
+ * site by hazard effects (Spawn permanent-events, extra-automatic-attack
+ * constraints) are separate hazard attacks and are unaffected.
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "cancel-attacks-if-character-in-play",
+ *   "characterName": "Radagast" }
+ * ```
+ */
+export interface CancelAttacksIfCharacterInPlaySiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'cancel-attacks-if-character-in-play';
+  /** Card name of the character that, while in play, removes the site's printed automatic-attacks. */
+  readonly characterName: string;
 }
 
 /**

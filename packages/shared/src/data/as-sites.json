@@ -284,6 +284,11 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major) Automatic-attacks: Dragon — 1 strike with 12 prowess",
+    "lairOf": "td-3",
+    "keywords": [
+      "hoard"
+    ],
+    "certified": "2026-07-20",
     "unique": true
   },
   {
@@ -852,8 +857,15 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "effects": [],
-    "text": "Nearest Darkhaven: Dol GuldurPlayable: Information, Items (minor)Automatic-attacks (2):(1st) Maia — 1 strike with 13 prowess(2nd) Maia — 1 strike with 13 prowessSpecial: If the Wizard card Radagast is in play, the automatic-attacks are removed."
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "cancel-attacks-if-character-in-play",
+        "characterName": "Radagast"
+      }
+    ],
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Information, Items (minor)Automatic-attacks (2):(1st) Maia — 1 strike with 13 prowess(2nd) Maia — 1 strike with 13 prowessSpecial: If the Wizard card Radagast is in play, the automatic-attacks are removed.",
+    "certified": "2026-07-20"
   },
   {
     "cardType": "minion-site",
