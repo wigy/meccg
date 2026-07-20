@@ -34,7 +34,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -1744,18 +1744,19 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   }
 
   // eddy-lock (Eddy in Fate's Tide ba-57): "Tap The Balrog and the site." The
-  // site is tapped by the tap-site-on-play flag above; here we tap The Balrog in
-  // the active company (its presence is guaranteed by the company-context
-  // play-condition). The card attaches to the site (targetSiteDefinitionId), so
-  // there is no targetCharId — the Balrog is a play cost, not the attachment.
+  // site is tapped by the tap-site-on-play flag above; here we tap the player's
+  // avatar (The Balrog) in the active company (its presence is guaranteed by
+  // the company-context play-condition). The card attaches to the site
+  // (targetSiteDefinitionId), so there is no targetCharId — the Balrog is a
+  // play cost, not the attachment.
   if (getCardEffects(def).some(e => e.type === 'eddy-lock')) {
     const ps = newState.phaseState as { activeCompanyIndex?: number };
     const activeCompanyIndex = ps.activeCompanyIndex ?? 0;
     const company = newState.players[playerIndex].companies[activeCompanyIndex];
-    const balrogId = company?.characters.find(cid => {
-      const ch = newState.players[playerIndex].characters[cid];
-      return ch && defById(newState, ch.definitionId)?.name === 'The Balrog';
-    });
+    const avatar = findPlayerAvatar(newState, newState.players[playerIndex]);
+    const balrogId = avatar && company?.characters.includes(avatar.instanceId)
+      ? avatar.instanceId
+      : undefined;
     if (balrogId) {
       const balrog = newState.players[playerIndex].characters[balrogId];
       if (balrog && balrog.status !== CardStatus.Tapped) {

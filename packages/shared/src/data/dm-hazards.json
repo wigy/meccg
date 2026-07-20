@@ -561,7 +561,16 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/TheBlackEnemysWrath.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "unplayable-when",
+        "when": {
+          "opponent.alignment": "ringwraith"
+        },
+        "reason": "cannot be played against a Ringwraith player"
+      }
+    ],
     "text": "Each Under-deeps site, Dark-hold [{D}], and Shadow-hold [{S}] has an additional automatic-attack (cannot be canceled): Lava Flows — 1 strike against each character with 6 prowess (weapons do not modify prowess against these strikes). The penalty for an untapped character not tapping against one of these strikes is -5.This card has no effect on a minion player. Cannot be duplicated."
   },
   {
@@ -794,7 +803,16 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/IntheHeartofhisRealm.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "unplayable-when",
+        "when": {
+          "opponent.alignment": "ringwraith"
+        },
+        "reason": "cannot be played against a Ringwraith player"
+      }
+    ],
     "text": "Each company moving in a Dark-domain [{d}] draws one less card at the start of its movement/hazard phase (to no minimum).Additionally, any sage at a site in a Dark-domain [{d}] or Gorgoroth, or moving with a Dark-domain [{d}] or Gorgoroth in his site path, loses his sage skill. No character at a site in a Dark-domain [{d}] or Gorgoroth, or moving with a Dark-domain [{d}] or Gorgoroth in his site path, can use spells, light enchantments, or rituals. Discard when any play deck is exhausted. This card has no effect on a minion player."
   },
   {
@@ -839,6 +857,14 @@
     "unique": false,
     "eventType": "permanent",
     "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "unplayable-when",
+        "when": {
+          "opponent.alignment": "ringwraith"
+        },
+        "reason": "cannot be played against a Ringwraith player"
+      },
       { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 5, "prowess": 8, "race": "orc", "noEffectOnMinion": true },
       { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 4, "prowess": 10, "race": "orc", "noEffectOnMinion": true },
       { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 3, "prowess": 12, "race": "troll", "noEffectOnMinion": true, "groupReward": { "toDefenderKillPile": true } },
@@ -1056,7 +1082,19 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ReluctantFinalParting.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "unplayable-when",
+        "when": {
+          "opponent.alignment": "balrog",
+          "actor.alignment": {
+            "$ne": "balrog"
+          }
+        },
+        "reason": "cannot be played against a Balrog player (MEBA)"
+      }
+    ],
     "text": "Discard any ally if its current site is an Under-deeps site or if its current site’s nearest Haven/Darkhaven [{H}] is not the same as the nearest Haven/Darkhaven [{H}] for the site at which the ally can be played. Determine nearest Haven using site cards of the same alignment (minion/hero) as the ally. Discard this card when any play deck is exhausted.Cannot be duplicated. This card has no effect on The Balrog ally and cannot be played if your opponent is a Balrog player."
   },
   {

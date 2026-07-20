@@ -2293,9 +2293,16 @@ Apply types:
   declares only its conditions and roll thresholds, never bespoke win
   plumbing. The Ringwraith positional win at Barad-dûr funnels through the
   same `endGame` primitive from `reducer-end-of-turn.ts` (no card, so the
-  recorded `card` is `null`). Implemented in `reducer-events.ts`
-  (`applyShortEventOnEntersPlay`), `pending-reducers.ts`
-  (`applyCorruptionCheckResolution`), and the end-of-turn scanner.
+  recorded `card` is `null`); it is declared on the Barad-dûr sites
+  themselves via the `end-of-turn-win` site-rule, not hardcoded in the
+  engine. A New Ringlord's own gate — "bearing The One Ring at a Ruins &
+  Lairs where Information is playable" — is likewise declared as the `when`
+  condition on its `owner-end-of-turn` on-event effect, evaluated by the
+  end-of-turn scanner (`scanEndOfTurnWinConditions`) against
+  `{ bearer: { itemNames }, site: { siteType, playableResources } }`.
+  Implemented in `reducer-events.ts` (`applyShortEventOnEntersPlay`),
+  `pending-reducers.ts` (`applyCorruptionCheckResolution`), and the
+  end-of-turn scanner.
 
   ```json
   { "type": "on-event", "event": "self-enters-play",
@@ -3575,6 +3582,34 @@ Constrains when or where a card can enter play.
   "when": { "$not": { "reason": "starting-character" } } }
 ```
 
+**`unplayable-when`** — the card cannot be played while the `when` condition
+matches the play context `{ actor: { alignment }, opponent: { alignment } }`
+(the acting player and their opponent). The `reason` field is the
+human-readable explanation surfaced in the not-playable tooltip. Applied by
+`applyDeclaredPlayRestrictions` in `legal-actions/index.ts`, which rewrites
+any `play-*` action for a matching card into a not-playable entry. This
+carries the opponent-conditional play bans: MEBA's "if you are a Balrog
+player, your opponent may not play any of the following cards" list (The
+Balrog ally as-71, The Black Council wh-41, Durin's Bane dm-107, Balrog of
+Moria tw-12, Reluctant Final Parting dm-84) and CoE 1.35's cards with no
+effect against a Ringwraith player (Bane of the Ithil-stone tw-13, The Black
+Enemy's Wrath dm-47, Foul Fumes tw-36, In the Heart of his Realm dm-67,
+Mordor in Arms dm-72, Mûmak tw-66, Worn and Famished td-89). The CoE 3.10
+mirror-match exemption — in a Balrog mirror both players keep their
+Balrog-specific cards — is expressed in the condition itself via
+`actor.alignment: { "$ne": "balrog" }`, not by engine special-casing.
+
+```json
+{ "type": "play-restriction", "rule": "unplayable-when",
+  "when": { "opponent.alignment": "balrog",
+            "actor.alignment": { "$ne": "balrog" } },
+  "reason": "cannot be played against a Balrog player (MEBA)" }
+```
+
+The CoE 1.35 clause "hazards that require an agent (as an active condition)"
+is not yet covered — no hazard cards currently declare a machine-readable
+agent-requirement.
+
 **Starting-company exclusion.** "Cannot be included with a starting
 company" (e.g. Records Unread as-130) is modelled with the
 `no-starting-company` play-flag, not a play-restriction rule. The
@@ -4428,8 +4463,33 @@ Rules:
   tested during the site phase (the site need not be entered). All ring tests
   at this site are modified by -3."
 
+  The optional `skipForAlignments` field lists player alignments for which
+  the end-of-turn automatic test (rule 9.23) is skipped entirely at this
+  site — MEBA: "Rings are not automatically tested for a Balrog player at
+  Barad-dûr" (Barad-dûr is not one of the Balrog's Darkhavens), encoded as
+  `"skipForAlignments": ["balrog"]` on le-352. The default rule-9.23 company
+  modifier still applies to ring tests triggered by other means.
+
   ```json
-  { "type": "site-rule", "rule": "site-phase-ring-auto-test", "rollModifier": -3 }
+  { "type": "site-rule", "rule": "site-phase-ring-auto-test", "rollModifier": -3,
+    "skipForAlignments": ["balrog"] }
+  ```
+
+- `end-of-turn-win` — declares a positional win condition checked at the
+  start of each of the active player's end-of-turn phases
+  (`checkEndOfTurnSiteWin` in `reducer-end-of-turn.ts`): if a company of the
+  active player is at this site and the `when` condition matches the context
+  `{ player: { alignment }, company: { itemNames } }` (the active player's
+  alignment and the names of every item borne by the company's characters),
+  that player immediately wins via the shared `endGame` one-ring primitive.
+  Used by *Barad-dûr* (tw-374 / le-352) for the MELE §1 Ringwraith win: a
+  Ringwraith player whose company bears The One Ring at Barad-dûr wins
+  immediately.
+
+  ```json
+  { "type": "site-rule", "rule": "end-of-turn-win",
+    "when": { "player.alignment": "ringwraith",
+              "company.itemNames": { "$includes": "The One Ring" } } }
   ```
 
 - `sage-tap-ring-test` — an active, player-initiated ring test granted by the

@@ -37,6 +37,15 @@
       {
         "type": "on-event",
         "event": "owner-end-of-turn",
+        "when": {
+          "bearer.itemNames": {
+            "$includes": "The One Ring"
+          },
+          "site.siteType": "ruins-and-lairs",
+          "site.playableResources": {
+            "$includes": "information"
+          }
+        },
         "apply": {
           "type": "win-condition-roll",
           "rollModifiers": [
@@ -611,7 +620,19 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "unplayable-when",
+        "when": {
+          "opponent.alignment": "balrog",
+          "actor.alignment": {
+            "$ne": "balrog"
+          }
+        },
+        "reason": "cannot be played against a Balrog player (MEBA)"
+      }
+    ],
     "text": "Playable during your organization phase in your marshalling points pile if your Ringwraith is in a Darkhaven [{DH}] and you have more marshalling points than your opponent and your opponent is a Ringwraith.Cannot be duplicated on a given turn. Cannot be included in a Balrog's deck and cannot be played if your opponent is a Balrog player."
   },
   {

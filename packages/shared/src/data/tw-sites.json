@@ -1408,7 +1408,17 @@
     "hazardDraws": 6,
     "text": "Nearest Haven: LórienPlayable: Items (minor, major, greater)Automatic-attacks (2): (1st) Orcs — 4 strikes with 7 prowess (2nd) Trolls — 3 strikes with 9 prowessSpecial: Any company moving to this site has its hazard limit increased by 2.",
     "effects": [
-      { "type": "site-rule", "rule": "hazard-limit-modifier", "value": 2 }
+      { "type": "site-rule", "rule": "hazard-limit-modifier", "value": 2 },
+      {
+        "type": "site-rule",
+        "rule": "end-of-turn-win",
+        "when": {
+          "player.alignment": "ringwraith",
+          "company.itemNames": {
+            "$includes": "The One Ring"
+          }
+        }
+      }
     ],
     "unique": true,
     "certified": "2026-05-09"

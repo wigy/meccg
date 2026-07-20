@@ -1387,7 +1387,16 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WornandFamished.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "unplayable-when",
+        "when": {
+          "opponent.alignment": "ringwraith"
+        },
+        "reason": "cannot be played against a Ringwraith player"
+      }
+    ],
     "text": "Each non-Wizard character that is not in a Haven [{H}], Free-hold [{F}], or Border-hold [{B}] does not untap normally during his untap phase. Character's player may instead make a roll adding his mind. If the result is greater than 12, he untaps.This card has no effect on a minion player. Cannot be duplicated."
   },
   {

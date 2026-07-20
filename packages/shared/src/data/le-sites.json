@@ -377,7 +377,20 @@
       {
         "type": "site-rule",
         "rule": "site-phase-ring-auto-test",
-        "rollModifier": -3
+        "rollModifier": -3,
+        "skipForAlignments": [
+          "balrog"
+        ]
+      },
+      {
+        "type": "site-rule",
+        "rule": "end-of-turn-win",
+        "when": {
+          "player.alignment": "ringwraith",
+          "company.itemNames": {
+            "$includes": "The One Ring"
+          }
+        }
       }
     ],
     "certified": "2026-06-02",

@@ -1178,7 +1178,19 @@
     "marshallingPoints": 4,
     "marshallingCategory": "ally",
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "unplayable-when",
+        "when": {
+          "opponent.alignment": "balrog",
+          "actor.alignment": {
+            "$ne": "balrog"
+          }
+        },
+        "reason": "cannot be played against a Balrog player (MEBA)"
+      }
+    ],
     "text": "Unique. Manifestation of Balrog of Moria. Playable by a non-Ringwraith character at the Under-gates. Its controlling character's company is overt. Discard this ally if its company moves from a non-Under-deeps site to a non-Under-deeps site. During your organization phase, your opponent makes a roll and subtracts two. If the result is greater than the mind of this ally’s controlling character, the character is eliminated. Cannot be included in a Balrog's/Fallen-wizard's deck and cannot be played if your opponent is a Balrog player."
   },
   {

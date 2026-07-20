@@ -655,6 +655,14 @@
     ],
     "effects": [
       {
+        "type": "play-restriction",
+        "rule": "unplayable-when",
+        "when": {
+          "opponent.alignment": "ringwraith"
+        },
+        "reason": "cannot be played against a Ringwraith player"
+      },
+      {
         "type": "force-return-to-origin",
         "condition": {
           "$and": [
@@ -859,6 +867,17 @@
     "marshallingPoints": 5,
     "marshallingPointsType": "kill",
     "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "unplayable-when",
+        "when": {
+          "opponent.alignment": "balrog",
+          "actor.alignment": {
+            "$ne": "balrog"
+          }
+        },
+        "reason": "cannot be played against a Balrog player (MEBA)"
+      },
       {
         "type": "permanent-event-auto-attack",
         "siteIds": [
@@ -1114,7 +1133,16 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BaneoftheIthilstone.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-restriction",
+        "rule": "unplayable-when",
+        "when": {
+          "opponent.alignment": "ringwraith"
+        },
+        "reason": "cannot be played against a Ringwraith player"
+      }
+    ],
     "text": "Corruption points for Palantíri are doubled.Automatically cancels any effect that causes a player to search through or look at any portion of a play deck or a discard pile outside of the normal sequence of play. Discard Bane of the Ithil-stone whenever a play deck is exhausted.This card has no effect on a minion player.Cannot be duplicated."
   },
   {

@@ -262,8 +262,6 @@ export const MORIA = did('tw-413');
 export const MINAS_TIRITH = did('tw-412');
 /** Mount Doom — the only site where The One Ring can be destroyed. */
 export const MOUNT_DOOM = did('tw-414');
-/** Barad-dûr — hero dark-hold (TW set). Also the Ringwraith win-condition site. */
-export const BARAD_DUR_HERO = did('tw-374');
 /** Barad-dûr — minion dark-hold (LE set). Ringwraith win-condition site. */
 export const BARAD_DUR_MINION = did('le-352');
 /** Ettenmoors — hero ruins-and-lairs in Rhudaur, nearest haven Rivendell. */
