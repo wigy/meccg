@@ -813,6 +813,55 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
 }
 
 /**
+ * Build a Ringwraith-player Movement/Hazard state stopped at the
+ * reveal-new-site step: one P1 company at `origin` with `destinationSite`
+ * declared, ready for the resource player to declare its movement path.
+ * Used by tests for site-printed `site-revealed-as-new-site` effects
+ * (Himring as-150 family), which fire the moment the path is declared.
+ */
+export function buildMinionMHRevealState(opts: {
+  origin: CardDefinitionId;
+  destination: CardDefinitionId;
+  characters: CharacterEntry[];
+}): GameState {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    players: [
+      {
+        id: PLAYER_1,
+        alignment: Alignment.Ringwraith,
+        companies: [{ site: opts.origin, characters: opts.characters, destinationSite: opts.destination }],
+        hand: [],
+        siteDeck: [],
+        playDeck: [],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [] }],
+        hand: [],
+        siteDeck: [],
+        playDeck: [],
+      },
+    ],
+  });
+  return { ...state, phaseState: makeMHState({ step: 'reveal-new-site', activeCompanyIndex: 0 }) };
+}
+
+/**
+ * Dispatch P1's starter-movement declare-path action for the active company
+ * at the reveal-new-site step (see {@link buildMinionMHRevealState}). Throws
+ * if no starter declare-path action is viable.
+ */
+export function declareStarterPath(state: GameState): GameState {
+  const declare = viableFor(state, PLAYER_1)
+    .map(a => a.action)
+    .find(a => a.type === 'declare-path' && a.movementType === 'starter');
+  if (!declare) throw new Error('no viable starter declare-path action for PLAYER_1');
+  return dispatch(state, declare);
+}
+
+/**
  * Drive the Movement/Hazard phase hazard-limit snapshot for a single P1
  * company and return the resulting `hazardLimitAtReveal`.
  *
