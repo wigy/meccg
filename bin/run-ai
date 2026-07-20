@@ -100,8 +100,21 @@ mkdir -p "$LOG_DIR"
 # at all — indistinguishable from "nothing to do" — until an operator notices
 # hours later and kills it. A timed-out call fails like any other gh hiccup,
 # and every call site already treats gh failure as "skip this tick".
+#
+# `timeout` execs a PROGRAM and does its own PATH lookup, so it cannot be given
+# `command gh`: `command` is a shell builtin with no binary behind it, so every
+# wrapped call died with 127 before gh ever ran. Each call site sends gh's
+# stderr to /dev/null and treats failure as "skip this tick", so the breakage
+# was silent — the PR sweep and the finalize sweep simply stopped doing
+# anything, and conflicted PRs were never fixed. Resolve gh's path once and
+# exec that directly.
 GH_TIMEOUT=120
-gh() { timeout "$GH_TIMEOUT" command gh "$@"; }
+GH_BIN="$(command -v gh || true)"
+if [ -z "$GH_BIN" ]; then
+  echo "[run-ai] ERROR: 'gh' (GitHub CLI) not found in PATH; PR maintenance cannot run." >&2
+  exit 4
+fi
+gh() { timeout "$GH_TIMEOUT" "$GH_BIN" "$@"; }
 
 # Same reasoning for the lobby: bound every curl so an unresponsive (as opposed
 # to down) lobby can't wedge the loop.
