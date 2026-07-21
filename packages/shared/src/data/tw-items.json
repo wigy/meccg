@@ -1422,7 +1422,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PalantirofAmonSul.jpg",
     "unique": true,
     "subtype": "greater",
-    "keywords": [],
+    "keywords": [
+      "palantir"
+    ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
     "corruptionPoints": 3,
@@ -1440,7 +1442,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PalantirofAnnuminas.jpg",
     "unique": true,
     "subtype": "greater",
-    "keywords": [],
+    "keywords": [
+      "palantir"
+    ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -1458,7 +1462,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PalantirofElostirion.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "palantir"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
@@ -1531,7 +1537,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PalantirofOsgiliath.jpg",
     "unique": true,
     "subtype": "greater",
-    "keywords": [],
+    "keywords": [
+      "palantir"
+    ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
     "corruptionPoints": 3,

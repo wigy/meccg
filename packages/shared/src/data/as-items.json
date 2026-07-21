@@ -505,6 +505,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheIthilstone.jpg",
     "unique": true,
     "subtype": "special",
+    "keywords": [
+      "palantir"
+    ],
     "marshallingPoints": 5,
     "marshallingCategory": "item",
     "corruptionPoints": 4,
