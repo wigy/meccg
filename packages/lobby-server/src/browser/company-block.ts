@@ -173,6 +173,13 @@ export function renderCompanyBlock(
     grantedActions?: Map<string, ActivateGrantedAction[]>;
     /** Map from character instance ID to select-card-bearer action. */
     selectCardBearerActions?: Map<string, SelectCardBearerAction>;
+    /**
+     * Shared set of site instance ids already rendered in the current
+     * all-companies overview pass, forwarded to {@link renderSiteArea} so a
+     * site shared by sibling companies gets a company-scoped
+     * `data-instance-id` on repeat occurrences (stable FLIP identity).
+     */
+    renderedSiteInstances?: Set<string>;
   },
 ): HTMLElement {
   const cachedInstanceLookup = getCachedInstanceLookup();
@@ -245,6 +252,7 @@ export function renderCompanyBlock(
     grantedActions: options?.grantedActions,
     agentAttackActions,
     cardsInPlay: owner === 'self' ? view.self.cardsInPlay : view.opponent.cardsInPlay,
+    renderedSiteInstances: options?.renderedSiteInstances,
   }));
 
   // Characters — title character always rendered first (leftmost after site).
