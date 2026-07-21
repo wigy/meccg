@@ -328,7 +328,19 @@ export function resolveStrikeCore(
   // absorb-wound: record 'absorbed' (not 'success') so finalizeCombat does not
   // treat the absorb as a creature defeat.
   const wasAlreadyWounded = targetStatus === CardStatus.Inverted;
-  const assignmentResult = absorbWoundItem ? ('absorbed' as const) : result;
+  // A tie (characterTotal === effectiveProwess) leaves the character unharmed and
+  // tapped (local `result` stays 'success' so the tap/status logic below fires),
+  // but the strike is NOT defeated (CoE rule 8.19 / 3.iv.7 — "ineffectual"). Record
+  // it as 'tie' rather than 'success' so finalizeCombat does not count the strike as
+  // defeating the creature and award kill-MP for it. Note: absorb-wound and the
+  // wounded-derived overrides (discard-item) only fire when result was 'wounded',
+  // so they never coincide with a tie.
+  const isTie = characterTotal === effectiveProwess;
+  const assignmentResult = absorbWoundItem
+    ? ('absorbed' as const)
+    : isTie
+      ? ('tie' as const)
+      : result;
   const newAssignments = combat.strikeAssignments.map((a, i) =>
     i === combat.currentStrikeIndex
       ? {

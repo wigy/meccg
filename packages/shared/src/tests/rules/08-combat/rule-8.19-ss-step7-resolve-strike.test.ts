@@ -20,6 +20,8 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1,
   RESOURCE_PLAYER,
+  HAZARD_PLAYER,
+  BARROW_WIGHT,
   makeDetainmentStrikeState,
   executeAction,
   resetMint,
@@ -69,5 +71,35 @@ describe('Rule 8.19 — Strike Step 7: Resolve the Strike', () => {
     expect(afterTie.combat).toBeNull();
     const charAfterTie = afterTie.players[RESOURCE_PLAYER].characters[tieCharId];
     expect(charAfterTie?.status).toBe(CardStatus.Tapped);
+  });
+
+  // Regression (bug report game mruvf51s-a9ge5j, seq 60): a defender whose
+  // modified roll exactly ties the strike's prowess taps but does NOT defeat the
+  // strike (rule 8.19 "ineffectual"; rule 3.iv.7 — the attack is defeated only if
+  // all strikes are defeated "without any ties"). The tied creature must therefore
+  // be discarded by the attacker, NOT moved to the defender's kill pile, and the
+  // defender must gain no kill marshalling points.
+  test('A tie does not defeat the strike: creature discarded, no kill-MP awarded', () => {
+    // Aragorn prowess=6, strikeProwess=10, creatureBody=null (no body check).
+    // roll=4 → total=10 = 10 → tie (ineffectual). The creature survives.
+    const { state, characterId, creatureInstanceId } = makeDetainmentStrikeState({
+      detainment: false,
+      strikeProwess: 10,
+      creatureBody: null,
+      creatureInPlay: BARROW_WIGHT,
+    });
+    const killBefore = state.players[RESOURCE_PLAYER].marshallingPoints.kill;
+
+    const after = executeAction(state, PLAYER_1, 'resolve-strike', 4, true);
+
+    // Character taps but is unharmed.
+    expect(after.combat).toBeNull();
+    expect(after.players[RESOURCE_PLAYER].characters[characterId]?.status).toBe(CardStatus.Tapped);
+
+    // Creature is NOT defeated: it goes to the attacker's discard pile, not the
+    // defender's kill pile, and awards no kill marshalling points.
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
+    expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(killBefore);
   });
 });
