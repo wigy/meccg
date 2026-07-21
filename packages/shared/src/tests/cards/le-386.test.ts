@@ -61,7 +61,7 @@ import {
   LEGOLAS, LORIEN, MINAS_TIRITH, PRECIOUS_GOLD_RING, SCROLL_OF_ISILDUR,
   resetMint, pool,
   buildTestState, makeSitePhase, setupAutoAttackStep,
-  viableActions, dispatch, runAutoAttackCombatMulti,
+  viableActions, runAutoAttackCombatMulti,
 } from '../test-helpers.js';
 import {
   isSiteCard, buildMovementMap, getReachableSites, Phase, Alignment, SiteType, type Race,
