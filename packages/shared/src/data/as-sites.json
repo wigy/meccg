@@ -1411,7 +1411,7 @@
     ],
     "automaticAttacks": [
       {
-        "creatureType": "",
+        "creatureType": "Orcs",
         "strikes": 5,
         "prowess": 7
       }
@@ -1419,10 +1419,44 @@
     "keywords": [
       "under-deeps"
     ],
+    "adjacentSites": {
+      "Mount Gundabad": 0,
+      "The Iron-deeps": 5,
+      "The Under-gates": 5,
+      "The Under-grottos": 7,
+      "The Under-vaults": 6
+    },
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "effects": [],
-    "text": "Adjacent Sites: Mount Gundabad (0), The Iron-deeps (5), The Under-grottos (7), The Under-gates (5), The Under-vaults (6)Playable: Items (minor, major)Automatic-attacks (2):(1st) Orcs — 5 strikes with 7 prowess (detainment against overt company) (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins & Lairs [{R}]Special: Non-Nazgûl creatures played at this site attack normally, not as detainment."
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": [
+            "ruins-and-lairs"
+          ]
+        }
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": false
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment",
+        "filter": {
+          "attack.automatic": false,
+          "enemy.race": {
+            "$ne": "nazgul"
+          }
+        }
+      }
+    ],
+    "text": "Adjacent Sites: Mount Gundabad (0), The Iron-deeps (5), The Under-grottos (7), The Under-gates (5), The Under-vaults (6)Playable: Items (minor, major)Automatic-attacks (2):(1st) Orcs — 5 strikes with 7 prowess (detainment against overt company) (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins & Lairs [{R}]Special: Non-Nazgûl creatures played at this site attack normally, not as detainment.",
+    "certified": "2026-07-21"
   },
   {
     "cardType": "minion-site",
