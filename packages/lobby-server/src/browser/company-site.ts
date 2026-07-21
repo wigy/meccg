@@ -27,6 +27,38 @@ import { getCachedInstanceLookup } from './company-view-state.js';
 import { showGrantedActionTooltip } from './company-modals.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 
+/**
+ * Compute the DOM `data-instance-id` for a company's site card element.
+ *
+ * Site card instances are deliberately shared across sibling companies that
+ * occupy — or are moving to — the same physical location: the engine models a
+ * single site card drawn once from the location deck (see `handlePlanMovement`
+ * in `reducer-organization`), so several companies legitimately carry the same
+ * underlying `instanceId` for their current/destination site. The FLIP card
+ * animation tracks elements by `data-instance-id` and collapses duplicates to a
+ * single remembered position, which made these shared site cards "jump" from
+ * one another's previous slot on every re-render of the all-companies overview.
+ *
+ * To keep each rendered site element uniquely and stably identified, the first
+ * company to render a given site instance keeps the raw id (so its card still
+ * animates in from the site deck pile), and every later company rendering the
+ * same instance gets a company-scoped id. `rendered` accumulates the instance
+ * ids already emitted this render pass — pass one shared set across all
+ * companies of the overview. When no set is supplied (single-company views,
+ * where duplication is impossible) the raw id is always used.
+ */
+export function siteElementInstanceId(
+  companyId: string,
+  siteInstanceId: CardInstanceId,
+  rendered?: Set<string>,
+): string {
+  const raw = siteInstanceId as string;
+  if (!rendered) return raw;
+  if (rendered.has(raw)) return `${companyId}:${raw}`;
+  rendered.add(raw);
+  return raw;
+}
+
 /** Resolve a card instance ID to its definition via the cached instance lookup. */
 export function resolveCardDef(
   instanceId: CardInstanceId,
@@ -157,6 +189,14 @@ export function renderSiteArea(
      * a character.
      */
     cardsInPlay?: readonly CardInPlay[];
+    /**
+     * Shared set accumulating the site instance ids already rendered this pass.
+     * Threaded across all companies of the all-companies overview so a site
+     * instance shared by sibling companies gets a company-scoped
+     * `data-instance-id` on every occurrence after the first — see
+     * {@link siteElementInstanceId}. Omitted for single-company views.
+     */
+    renderedSiteInstances?: Set<string>;
   },
 ): HTMLElement {
   const cachedInstanceLookup = getCachedInstanceLookup();
@@ -176,7 +216,8 @@ export function renderSiteArea(
           if (company.currentSite.status === CardStatus.Tapped) cls += ' company-card--tapped';
           if (options?.hasLegalMovement) cls += ' company-card--movable';
           if (!siteOwned) cls += ' company-card--site-ghost';
-          const img = createCardImage(siteDefId as string, siteDef, imgPath, cls, company.currentSite.instanceId);
+          const siteElId = siteElementInstanceId(company.id as string, company.currentSite.instanceId, options?.renderedSiteInstances);
+          const img = createCardImage(siteDefId as string, siteDef, imgPath, cls, siteElId);
           if (options?.hasLegalMovement && options.onAction) {
             const companyId = company.id as string;
             const onAction = options.onAction;
@@ -301,7 +342,8 @@ export function renderSiteArea(
           const cls = cancelAction
             ? 'company-card company-card--site company-card--cancelable'
             : 'company-card company-card--site';
-          const img = createCardImage(destDefId as string, destDef, imgPath, cls, company.destinationSite.instanceId as string);
+          const destElId = siteElementInstanceId(company.id as string, company.destinationSite.instanceId, options?.renderedSiteInstances);
+          const img = createCardImage(destDefId as string, destDef, imgPath, cls, destElId);
           // Show site-back until the site is revealed during M/H. Covers Org,
           // Long-Event, and early M/H steps before reveal-new-site.
           const notYetRevealed = view.phaseState.phase !== Phase.MovementHazard
@@ -335,7 +377,8 @@ export function renderSiteArea(
     const revealedDef = revealedDefId ? cardPool[revealedDefId as string] : undefined;
     const revealedImg = revealedDef ? cardImageProxyPath(revealedDef) : undefined;
     if (revealedDefId && revealedDef && revealedImg) {
-      const siteImg = createCardImage(revealedDefId as string, revealedDef, revealedImg, 'company-card company-card--site', revealedSite.instanceId as string);
+      const revealedElId = siteElementInstanceId(company.id as string, revealedSite.instanceId, options?.renderedSiteInstances);
+      const siteImg = createCardImage(revealedDefId as string, revealedDef, revealedImg, 'company-card company-card--site', revealedElId);
       applyHazardOnGuardClick(siteImg, options?.onAction);
       area.appendChild(siteImg);
     } else {

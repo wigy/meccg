@@ -242,10 +242,16 @@ export function renderAllCompaniesView(
     if (company.currentSite) companySiteIds.add(company.currentSite.instanceId as string);
   }
 
+  // Sibling companies at the same location share one site card instance (the
+  // engine draws it once). Track the site ids emitted this pass so repeat
+  // occurrences get a company-scoped `data-instance-id` and the shared site
+  // cards keep a stable FLIP identity instead of jumping between company slots.
+  const renderedSiteInstances = new Set<string>();
+
   // Self companies
   for (const company of view.self.companies) {
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs, renderedSiteInstances });
 
     if (selectCompanyActions.size > 0) {
       // M/H phase select-company step: highlight selectable companies
@@ -368,7 +374,7 @@ export function renderAllCompaniesView(
     : [];
 
   for (const company of view.opponent.companies) {
-    const block = renderCompanyBlock(company, view.opponent.characters, view, cardPool, 'opponent');
+    const block = renderCompanyBlock(company, view.opponent.characters, view, cardPool, 'opponent', { renderedSiteInstances });
 
     // When targeting, add click handlers to opponent cards
     if (oppInfluencer && oppInfluenceActions.length > 0 && lastOnAction) {
