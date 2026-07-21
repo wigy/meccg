@@ -1311,7 +1311,7 @@
     ],
     "automaticAttacks": [
       {
-        "creatureType": "",
+        "creatureType": "Undead",
         "strikes": 3,
         "prowess": 8
       }
@@ -1319,10 +1319,31 @@
     "keywords": [
       "under-deeps"
     ],
+    "adjacentSites": {
+      "Mount Gram": 0,
+      "The Iron-deeps": 6,
+      "The Under-leas": 6
+    },
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "effects": [],
-    "text": "Adjacent Sites: Mount Gram (0), The Iron-deeps (6), The Under-leas (6)Playable: Items (minor, major)Automatic-attacks (2):(1st) Undead — 3 strikes with 8 prowess(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}]Special: Any Undead creature may be played at this site."
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": [
+            "shadow-hold"
+          ]
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      }
+    ],
+    "text": "Adjacent Sites: Mount Gram (0), The Iron-deeps (6), The Under-leas (6)Playable: Items (minor, major)Automatic-attacks (2):(1st) Undead — 3 strikes with 8 prowess(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}]Special: Any Undead creature may be played at this site.",
+    "certified": "2026-07-21"
   },
   {
     "cardType": "minion-site",
