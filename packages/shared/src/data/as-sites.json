@@ -1125,9 +1125,19 @@
     "keywords": [
       "under-deeps"
     ],
+    "adjacentSites": {
+      "*region:Udûn": 0,
+      "The Under-courts": 4,
+      "The Sulfur-deeps": 7
+    },
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "effects": [],
+    "effects": [
+      {
+        "type": "combat-detainment"
+      }
+    ],
+    "certified": "2026-07-21",
     "text": "Adjacent Sites: Any site in Udûn (0), The Under-courts (4), The Sulfur-deeps (7)Playable: Information, Items (minor)Automatic-attacks:Trolls — 4 strikes with 10 prowess (detainment)"
   },
   {
