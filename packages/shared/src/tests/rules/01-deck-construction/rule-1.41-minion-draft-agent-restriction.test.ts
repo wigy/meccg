@@ -13,9 +13,10 @@
  * [MINION] A Ringwraith player cannot reveal agent characters during the character draft unless they have already drafted a resource that specifically allows them to play agent characters (e.g. Open to the Summons).
  *
  * The restriction is lifted only by an enabling resource (Open to the Summons,
- * wh-46) the Ringwraith holds for the starting company — in the play deck or
- * brought in the pool "in lieu of a minor item" (covered by the wh-46 card
- * test). Drafting an ordinary (non-enabling) character never lifts it.
+ * wh-46) the Ringwraith has **drafted** for the starting company — brought in
+ * the pool "in lieu of a minor item" and drafted as any other card in an earlier
+ * round (covered by the wh-46 card test). A copy still undrafted in the pool, and
+ * drafting an ordinary (non-enabling) character, never lift it.
  */
 
 import { describe, test, expect } from 'vitest';

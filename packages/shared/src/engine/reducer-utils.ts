@@ -84,37 +84,31 @@ export function hasAgentSummonsEffect(def: CardDefinition | undefined): boolean 
 }
 
 /**
- * Counts the agent-summons enablers (Open to the Summons, wh-46) a player holds
- * for the starting company during the character draft. Each such enabler lets
- * the player draft **one** agent as a starting character — the enabler is later
- * placed with that agent "in lieu of a minor item" during the item draft (rules
- * 1.41/1.42, CoE 1.9.R2/1.9.F1).
+ * Counts the agent-summons enablers (Open to the Summons, wh-46) a player has
+ * **drafted** during the character draft. Each such enabler lets the player
+ * draft **one** agent as a starting character (rules 1.41/1.42, CoE
+ * 1.9.R2/1.9.F1).
  *
- * The enabler may reach the starting company from three places, all of which
- * count here:
- *  - the **play deck** — a copy held there (the original certification model);
- *  - the current **draft pool** — an Open to the Summons dropped among the
- *    starting minor items ("in lieu of a minor item"). A Ringwraith cannot draft
- *    a Stage resource, so its copy simply rides in the pool until the item draft
- *    (where {@link applyDraftResults} sinks any undrafted one to the sideboard so
- *    it can still be placed on the agent);
- *  - already-drafted **Stage resources** — a Fallen-wizard who drafted the
- *    enabler from the pool (CoE 1.9.F1: the resource must be "already drafted").
- *
- * Counting all three keeps the agent draft-gate lifted whether the enabler was
- * pre-loaded in the deck or brought as a pool minor-item substitute.
+ * Only enablers already drafted into {@link DraftPlayerState.draftedStageResources}
+ * count. Open to the Summons is brought "in lieu of a minor item" and revealed
+ * "as if it were a character" when starting companies are determined, so it must
+ * be drafted from the pool as any other card in an earlier round *before* an
+ * agent may be drafted — a copy merely sitting undrafted in the pool (or held in
+ * the play deck) does NOT lift the gate. Both a Ringwraith and a Fallen-wizard
+ * may draft the enabler (it carries the `starting-item` keyword and an
+ * agent-summons effect); at finalize {@link resolveThrallCharacterPairings}
+ * places it with the drafted agent, reducing that agent's mind.
  */
 export function countAgentSummonsEnablersForDraft(
   state: GameState,
-  player: { readonly playDeck: readonly { readonly definitionId: CardDefinitionId }[] },
   draft: {
-    readonly pool: readonly { readonly definitionId: CardDefinitionId }[];
     readonly draftedStageResources: readonly { readonly definitionId: CardDefinitionId }[];
   },
 ): number {
-  const countIn = (list: readonly { readonly definitionId: CardDefinitionId }[]): number =>
-    list.reduce((n, card) => (hasAgentSummonsEffect(defById(state, card.definitionId)) ? n + 1 : n), 0);
-  return countIn(player.playDeck) + countIn(draft.pool) + countIn(draft.draftedStageResources);
+  return draft.draftedStageResources.reduce(
+    (n, card) => (hasAgentSummonsEffect(defById(state, card.definitionId)) ? n + 1 : n),
+    0,
+  );
 }
 
 /**
