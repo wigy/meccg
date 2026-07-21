@@ -2433,17 +2433,23 @@
     ],
     "nearestHaven": "Geann a-Lisch",
     "region": "Andrast",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater"
+    ],
     "automaticAttacks": [
       {
-        "creatureType": "Pûkel-creatures",
+        "creatureType": "Pûkel-creature",
         "strikes": 2,
         "prowess": 9
       }
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major, greater)Automatic-attacks: Pûkel-creature — 2 strikes with 9 prowess"
+    "text": "Nearest Darkhaven: Geann a-LischPlayable: Items (minor, major, greater)Automatic-attacks: Pûkel-creature — 2 strikes with 9 prowess",
+    "unique": true,
+    "certified": "2026-07-21"
   },
   {
     "cardType": "minion-site",
