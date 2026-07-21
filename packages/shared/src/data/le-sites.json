@@ -786,8 +786,31 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 1,
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -2
+        },
+        "target": "wounded-character"
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-item",
+        "when": {
+          "$and": [
+            { "subtype": "greater" },
+            { "$not": { "keywords": { "$includes": "palantir" } } }
+          ]
+        }
+      }
+    ],
     "text": "Nearest Darkhaven: Carn Dûm Playable: Items (minor, major, greater*) *—Palantíri only Automatic-attacks: Undead — 2 strikes with 8 prowess; each character wounded must make a corruption check modified by -2",
-    "unique": true
+    "unique": true,
+    "certified": "2026-07-21"
   },
   {
     "cardType": "minion-site",
