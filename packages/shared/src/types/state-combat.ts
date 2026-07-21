@@ -160,11 +160,16 @@ export interface StrikeAssignment {
    *   body check, so the strike was NOT defeated (the creature survives). The
    *   character is unharmed. Distinct from `'success'` so the creature is not
    *   counted as defeated when deciding kill-MP vs discard (CoE 3.v).
+   * - `'tie'` -- The character's modified roll exactly equalled the strike's
+   *   modified prowess. The strike is ineffectual (CoE 3.iv.7 / rule 8.19): the
+   *   character taps but is unharmed, and the strike is NOT defeated. Distinct
+   *   from `'success'` so a tie does not count toward defeating the creature and
+   *   award kill-MP (the creature must be beaten outright, "without any ties").
    * - `'wounded'` -- The character survived but is wounded (reduced capability).
    * - `'eliminated'` -- The character was killed and removed from play.
    * - `'canceled'` -- The strike was canceled before resolution (e.g. Fatty Bolger).
    */
-  readonly result?: 'success' | 'survived' | 'wounded' | 'eliminated' | 'canceled' | 'absorbed';
+  readonly result?: 'success' | 'survived' | 'tie' | 'wounded' | 'eliminated' | 'canceled' | 'absorbed';
   /**
    * Whether the character was already wounded before this strike was resolved.
    * Used for body check calculation: +1 if already wounded (CoE rule 3.I).
