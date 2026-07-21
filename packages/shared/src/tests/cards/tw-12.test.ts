@@ -38,12 +38,17 @@ import {
   addP2CardsInPlay, setupAutoAttackStep,
   viableActions, dispatch,
   findCharInstanceId, findInPile,
+  attachItemToChar,
   resetMint,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId, GameState } from '../../index.js';
 import { reduce } from '../../index.js';
 
 const BALROG_OF_MORIA = 'tw-12' as CardDefinitionId;
+// Sword of Gondolin: +2 prowess to a warrior bearer. Aragorn II (prowess 6) needs
+// this to beat the Balrog's 18-prowess strike outright — 8 + a 12 roll = 20 > 18.
+// Without it, his best possible total is 6 + 12 = 18, which only ties (ineffectual).
+const SWORD_OF_GONDOLIN = 'tw-336' as CardDefinitionId;
 
 describe('Balrog of Moria (tw-12)', () => {
   beforeEach(() => resetMint());
@@ -114,7 +119,12 @@ describe('Balrog of Moria (tw-12)', () => {
 
   test('defeating the Balrog attack removes it from hazard cardsInPlay', () => {
     const base = setupAutoAttackStep(
-      addP2CardsInPlay(buildSitePhaseState({ site: MORIA, characters: [ARAGORN] }), [balrogInPlay]),
+      attachItemToChar(
+        addP2CardsInPlay(buildSitePhaseState({ site: MORIA, characters: [ARAGORN] }), [balrogInPlay]),
+        0,
+        ARAGORN,
+        SWORD_OF_GONDOLIN,
+      ),
     );
     const state = {
       ...base,
@@ -131,7 +141,8 @@ describe('Balrog of Moria (tw-12)', () => {
     // Assign Aragorn to the single Balrog strike
     next = dispatch(next, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
 
-    // Resolve with a winning roll (tap to fight): Aragorn prowess 9 + 12 = 21 > 18.
+    // Resolve with a winning roll (tap to fight): Aragorn prowess 6 + Sword +2 + 12 = 20 > 18.
+    // A total of exactly 18 would tie and NOT defeat the strike, so beat it outright.
     // Must explicitly pick the tapToFight:true variant — the first action may be not-tap.
     const resolveActions = viableActions({ ...next, cheatRollTotal: 12 } as GameState, PLAYER_1, 'resolve-strike');
     expect(resolveActions.length).toBeGreaterThan(0);
@@ -153,7 +164,12 @@ describe('Balrog of Moria (tw-12)', () => {
 
   test('defeating the Balrog attack puts it in the defending player\'s kill pile', () => {
     const base = setupAutoAttackStep(
-      addP2CardsInPlay(buildSitePhaseState({ site: MORIA, characters: [ARAGORN] }), [balrogInPlay]),
+      attachItemToChar(
+        addP2CardsInPlay(buildSitePhaseState({ site: MORIA, characters: [ARAGORN] }), [balrogInPlay]),
+        0,
+        ARAGORN,
+        SWORD_OF_GONDOLIN,
+      ),
     );
     const state = {
       ...base,
@@ -165,6 +181,7 @@ describe('Balrog of Moria (tw-12)', () => {
     let next = dispatch(state, { type: 'pass', player: PLAYER_1 });
     next = dispatch(next, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
 
+    // Prowess 6 + Sword +2 + 12 = 20 > 18 beats the strike outright (a total of 18 only ties).
     const resolveActions = viableActions({ ...next, cheatRollTotal: 12 } as GameState, PLAYER_1, 'resolve-strike');
     const tapAction = resolveActions.find(a => 'tapToFight' in a.action && (a.action as { tapToFight: boolean }).tapToFight)?.action
       ?? resolveActions[0].action;
