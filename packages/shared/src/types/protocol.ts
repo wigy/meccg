@@ -23,6 +23,7 @@
 import type { PlayerId, CardDefinitionId, Alignment, DieRoll, ById } from './common.js';
 import type { GameAction } from './actions.js';
 import type { PlayerView } from './player-view.js';
+import type { DeckList } from './cards-deck.js';
 
 // ---- Client → Server ----
 
@@ -55,6 +56,24 @@ export interface JoinMessage {
    * sideboard at game start when the opponent is a Fallen-wizard.
    */
   readonly antiFwSideboard?: readonly CardDefinitionId[];
+  /**
+   * The structured deck list exactly as the deck editor validated it.
+   *
+   * Carried so the server runs deck validation on the SAME input the editor
+   * did, rather than reconstructing the play-deck section grouping from the
+   * flat {@link playDeck}. That reconstruction re-bucketed cards by their
+   * `cardType`, mis-filing character-typed cards a player legitimately placed
+   * in the hazard section — agents (e.g. Baduila) and Nazgûl played as hazard
+   * creatures — into the character bucket, so the server could compute
+   * different resource/hazard/creature totals and reject a deck the editor
+   * accepted. When present, the server validates this verbatim; when absent
+   * (older clients, the pseudo-AI, or a minimal reconnect join) it falls back
+   * to reconstructing the deck list from the flat card lists above.
+   *
+   * Only used for validation — the flat {@link playDeck}/{@link draftPool}
+   * lists still drive gameplay deck construction.
+   */
+  readonly deckList?: DeckList;
   /** Optional JWT token for authenticated game server connections (lobby mode). */
   readonly token?: string;
 }
