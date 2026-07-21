@@ -182,13 +182,11 @@ const SITE_DANGER: Record<string, number> = {
 
 /** Whether a hand resource card can be played at the given site. */
 export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): boolean {
-  // Items: old-format uses playableAt site-type list; new DSL-format uses item-play-site effect.
+  // Items: playability mirrors the engine (legal-actions/site.ts).
   if (def.cardType === 'hero-resource-item' || def.cardType === 'minion-resource-item') {
-    // Old format: non-empty playableAt site-type array.
-    if (def.playableAt.length > 0) {
-      return def.playableAt.includes(site.siteType);
-    }
-    // New DSL format: check item-play-site effect first.
+    // An item that carries its own `item-play-site` effect defines exactly
+    // where it may be played (gold rings, Shadow/Dark-hold-restricted items,
+    // etc.). Honour that first — it mirrors the engine's `item-play-site` gate.
     const itemPlaySite = (def.effects ?? []).find(
       (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
     );
@@ -202,7 +200,13 @@ export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): bool
       }
       return false;
     }
-    // Fallback: no item-play-site effect — use the site's playableResources list.
+    // Standard items: the engine gates play solely on whether the site's
+    // printed `playableResources` list includes the item's class (subtype).
+    // The item's own `playableAt` site-type list is NOT consulted for items,
+    // so relying on it here made the AI enter sites for items the engine then
+    // refused to let it play — e.g. a "greater" item (Scroll of Isildur) at a
+    // site that only lists "minor"/"major" (Isle of the Ulond) — and take the
+    // site's automatic-attack for no payoff.
     return (site.playableResources as readonly string[]).includes(def.subtype);
   }
   // Factions / allies: matched by named site or site type.
