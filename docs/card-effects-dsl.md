@@ -4637,6 +4637,42 @@ Rules:
   { "type": "site-rule", "rule": "hazard-limit-modifier", "value": 2 }
   ```
 
+- `deny-company-move` — forbids a company matching the optional `when`
+  condition from declaring movement **to** this site. Enforced at
+  organization-phase plan-movement (`engine/legal-actions/organization-companies.ts`
+  drops the destination from the company's candidate list across the
+  regular/starter, Eagle/Gwaihir, Under-deeps and Deep Mines passes), with a
+  reducer backstop in `engine/reducer-organization.ts` `handlePlanMovement`.
+  Both delegate to `reducer-utils.ts` `siteDeniesCompanyMove`. The `when`
+  condition is evaluated against `{ company: { hasRingwraith } }` —
+  `hasRingwraith` is true when any character in the moving company has
+  `race: ringwraith` (avatar or follower). Absent `when` bars every company.
+  Used by *Rivendell* (as-160) — "A Ringwraith may not move to this site."
+
+  ```json
+  { "type": "site-rule", "rule": "deny-company-move",
+    "when": { "company.hasRingwraith": true } }
+  ```
+
+- `deny-company-attack` — forbids company-vs-company attacks at this site.
+  Checked wherever a CvCC attack is offered or declared
+  (`engine/legal-actions/site.ts` `declareCompanyAttackActions`,
+  `engine/reducer-site.ts` `opponentHasAttackableCompanyAtSite` and
+  `handleDeclareCompanyAttack`), all delegating to `reducer-utils.ts`
+  `siteDeniesCompanyAttack`. Because each player holds his own version of the
+  shared location (hero/minion twins share a name), the rule is looked up on
+  **both** companies' current site cards; a match denies the attack outright,
+  beating any `cvcc-attack-permission` grant. The optional `when` condition is
+  evaluated against the same context as `cvcc-attack-permission`:
+  `{ attacker: { alignment, isMinion, hasRingwraith }, defender: { … } }`.
+  Absent `when` bars every CvCC attack here. Used by *Rivendell* (as-160) —
+  "A minion company may not attack another company at this site."
+
+  ```json
+  { "type": "site-rule", "rule": "deny-company-attack",
+    "when": { "attacker.isMinion": true } }
+  ```
+
 - `allow-creature-by-race` — bypasses the normal keying check for hazard
   creatures whose race matches `race`. Any creature of that race may be
   played against a company whose effective site (destination if moving,

@@ -24,7 +24,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
+import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -3652,6 +3652,8 @@ function hasCvCCAttackTargets(
     const defenderCovert = isCovertCompany(opponentCompany, opponent, state);
     if (!canAttackAlignment(attackingPlayer.alignment, opponent.alignment, attackerCovert, defenderCovert)
       && !cvccAttackPermitted(state, attackingPlayer, attackingCompany, opponent, opponentCompany)) continue;
+    // A deny-company-attack site-rule (Rivendell as-160) bars attacks here.
+    if (siteDeniesCompanyAttack(state, attackingPlayer, attackingCompany, opponent, opponentCompany)) continue;
     return true;
   }
   return false;
@@ -3721,6 +3723,11 @@ function handleDeclareCompanyAttack(
   if (!canAttackAlignment(player.alignment, hazardPlayerState.alignment, attackerCovert, defenderCovert)
     && !cvccAttackPermitted(state, player, company, hazardPlayerState, targetCompany)) {
     return { state, error: 'Alignment restrictions prevent this CvCC attack' };
+  }
+
+  // A deny-company-attack site-rule (Rivendell as-160) bars attacks here.
+  if (siteDeniesCompanyAttack(state, player, company, hazardPlayerState, targetCompany)) {
+    return { state, error: 'A site rule forbids company-vs-company attacks at this site' };
   }
 
   // Count attackers: characters in attacking company

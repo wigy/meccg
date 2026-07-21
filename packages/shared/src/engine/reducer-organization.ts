@@ -19,7 +19,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
-import { clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove } from './reducer-utils.js';
+import { clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -1874,6 +1874,15 @@ function handlePlanMovement(state: GameState, action: GameAction): ReducerResult
 
   if (!deckCard && !sharedSite) {
     return { state, error: 'Destination site not in site deck and not in play' };
+  }
+
+  // A deny-company-move site-rule (Rivendell as-160: "A Ringwraith may not
+  // move to this site") bars this company from declaring movement to the
+  // destination — backstop behind the plan-movement legal-action filter.
+  const destDef = defById(state, deckCard ? deckCard.definitionId : sharedSite!.definitionId);
+  if (destDef && isSiteCard(destDef) && siteDeniesCompanyMove(state, player, company, destDef)) {
+    logDetail(`Plan movement rejected: deny-company-move site-rule on ${destDef.name} bars company ${company.id as string}`);
+    return { state, error: 'A site rule forbids this company from moving to this site' };
   }
 
   // Rule 2.II.7.1: no two companies sharing an origin may target the same
