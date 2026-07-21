@@ -1915,7 +1915,9 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Minas MorgulAutomatic-attacks: Men — 3 strikes with 6 prowess"
+    "text": "Nearest Darkhaven: Minas MorgulAutomatic-attacks: Men — 3 strikes with 6 prowess",
+    "unique": true,
+    "certified": "2026-07-21"
   },
   {
     "cardType": "minion-site",
