@@ -1674,7 +1674,12 @@
     ],
     "nearestHaven": "Carn Dûm",
     "region": "Númeriador",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major",
+      "greater",
+      "gold-ring"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Dwarves",
@@ -1684,7 +1689,8 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major, greater, gold ring)Automatic-attacks: Dwarves — 4 strikes with 10 prowess"
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major, greater, gold ring)Automatic-attacks: Dwarves — 4 strikes with 10 prowess",
+    "certified": "2026-07-21"
   },
   {
     "cardType": "minion-site",
