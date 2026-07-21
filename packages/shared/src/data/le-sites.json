@@ -1974,11 +1974,69 @@
     ],
     "nearestHaven": "Carn Dûm",
     "region": "Dunland",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 7,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major*) *—weapon, armor, shield, or helmet onlyAutomatic-attacks: Men — each character faces 1 strike with 7 prowess (detainment against covert company)"
+    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (minor, major*) *—weapon, armor, shield, or helmet onlyAutomatic-attacks: Men — each character faces 1 strike with 7 prowess (detainment against covert company)",
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-item",
+        "when": {
+          "$and": [
+            {
+              "subtype": "major"
+            },
+            {
+              "$not": {
+                "$or": [
+                  {
+                    "keywords": {
+                      "$includes": "weapon"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "armor"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "shield"
+                    }
+                  },
+                  {
+                    "keywords": {
+                      "$includes": "helmet"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-07-21"
   },
   {
     "cardType": "minion-site",
