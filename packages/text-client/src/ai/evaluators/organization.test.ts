@@ -19,7 +19,7 @@ const GLITTERING_CAVES: CardDefinition = {
   cardType: 'hero-site',
   name: 'Glittering Caves',
   siteType: 'ruins-and-lairs',
-  playableResources: [],
+  playableResources: ['minor', 'major'],
   sitePath: [],
   resourceDraws: 2,
 } as unknown as CardDefinition;

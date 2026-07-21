@@ -40,6 +40,28 @@ const HALFLING_STRENGTH: CardDefinition = {
   ],
 } as unknown as CardDefinition;
 
+// Isle of the Ulond (td-178): a ruins-and-lairs site that lists only
+// information/minor/major items as playable and carries a Dragon
+// automatic-attack.
+const ISLE_OF_THE_ULOND: CardDefinition = {
+  cardType: 'hero-site',
+  name: 'Isle of the Ulond',
+  siteType: 'ruins-and-lairs',
+  playableResources: ['information', 'minor', 'major'],
+  sitePath: ['wilderness', 'coastal', 'coastal'],
+  resourceDraws: 2,
+} as unknown as CardDefinition;
+
+// Scroll of Isildur (tw-323): a *greater* item. Its printed `playableAt`
+// lists ruins-and-lairs, but the engine gates item play on the site's
+// `playableResources`, which at Isle of the Ulond does not include "greater".
+const SCROLL_OF_ISILDUR: CardDefinition = {
+  cardType: 'hero-resource-item',
+  subtype: 'greater',
+  playableAt: ['ruins-and-lairs', 'shadow-hold', 'dark-hold'],
+  marshallingPoints: 3,
+} as unknown as CardDefinition;
+
 const THEODEN: CardDefinition = {
   cardType: 'hero-character',
   race: 'man',
@@ -54,11 +76,36 @@ const HOBBIT: CardDefinition = {
 
 const POOL: Record<string, CardDefinition> = {
   'tw-404': ISENGARD,
+  'td-178': ISLE_OF_THE_ULOND,
   'tw-254': HAUBERK,
+  'tw-323': SCROLL_OF_ISILDUR,
   'tw-253': HALFLING_STRENGTH,
   'tw-182': THEODEN,
   hobbit: HOBBIT,
 };
+
+/**
+ * Build a view: one company at Isle of the Ulond with a single UNTAPPED
+ * character, holding only Scroll of Isildur (a greater item). Tapping is not
+ * the obstacle here — the site simply does not allow greater items.
+ */
+function makeScrollView(): PlayerView {
+  return {
+    self: {
+      hand: [{ instanceId: 'h1', definitionId: 'tw-323' }],
+      characters: {
+        c1: { instanceId: 'c1', definitionId: 'tw-182', status: 'untapped', items: [] },
+      },
+      companies: [
+        {
+          id: 'company-p2-0',
+          currentSite: { instanceId: 's1', definitionId: 'td-178' },
+          characters: ['c1'],
+        },
+      ],
+    },
+  } as unknown as PlayerView;
+}
 
 /**
  * Build a minimal player view: one company at Isengard with a single tapped
@@ -107,5 +154,17 @@ describe('sitePhaseEvaluator enter-site', () => {
     const view = makeView('hobbit');
     const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
     expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(50);
+  });
+
+  // Regression (game mruvf51s-a9ge5j, seq 81): the AI entered Isle of the Ulond
+  // holding only Scroll of Isildur — a *greater* item whose printed `playableAt`
+  // lists ruins-and-lairs, so the old heuristic thought it was playable. But the
+  // site lists only information/minor/major, so the engine offered no play and
+  // the company just took the Dragon automatic-attack for no payoff. A greater
+  // item is not playable at a site that does not list "greater".
+  test('scores 0 for a greater item at a site that only allows minor/major items', () => {
+    const view = makeScrollView();
+    const context: AiContext = { view, cardPool: POOL, legalActions: [ENTER_SITE] };
+    expect(sitePhaseEvaluator.score(ENTER_SITE, context)).toBe(0);
   });
 });
