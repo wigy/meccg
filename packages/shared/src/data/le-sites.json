@@ -2438,10 +2438,31 @@
     ],
     "nearestHaven": "Carn Dûm",
     "region": "Forochel",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 5,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 1,
+    "unique": true,
+    "certified": "2026-07-21",
     "text": "Nearest Darkhaven: Carn DûmPlayable: Items (gold ring)Automatic-attacks: Men — each character faces 1 strike with 5 prowess (detainment against covert company)"
   },
   {
