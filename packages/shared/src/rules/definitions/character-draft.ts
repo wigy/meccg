@@ -25,10 +25,10 @@
  * - `ctx.fwAgentGateActive` — true under the same Fallen-wizard condition;
  *   while active, agent characters cannot be drafted (rule 1.42)
  * - `ctx.ringwraithAgentGateActive` — true when the drafting player is a
- *   Ringwraith; while active, agent characters cannot be drafted (rule 1.41).
- *   A Ringwraith never drafts resources during the character draft, so unlike
- *   the Fallen-wizard agent gate there is no enabling card that can lift it —
- *   the gate is active for the entire draft (CoE 1.9.R2).
+ *   Ringwraith who has no unconsumed agent-summons enabler (Open to the Summons);
+ *   while active, agent characters cannot be drafted (rule 1.41). The enabler
+ *   must be drafted "in lieu of a minor item" in an earlier round before it lifts
+ *   the gate; each drafted one lifts it for a single agent (CoE 1.9.R2).
  * - `card.isOrcOrTroll` — true when the drafting player is a Fallen-wizard and
  *   this candidate is an Orc or Troll character (Half-orcs count as Orcs)
  * - `ctx.fwOrcTrollPermitted` — true when `card.isOrcOrTroll` is false, or a
@@ -106,10 +106,10 @@ export const CHARACTER_DRAFT_RULES: RuleSet = {
     },
     {
       // Rule 1.41 (CoE 1.9.R2): a Ringwraith cannot reveal an agent character
-      // during the draft unless an enabling resource (e.g. Open to the Summons)
-      // has already been drafted. A Ringwraith does not draft resources during
-      // the character draft, so the gate cannot be lifted and agents are never
-      // draftable for a Ringwraith.
+      // during the draft unless an enabling resource (Open to the Summons) has
+      // been drafted for the starting company "in lieu of a minor item" in an
+      // earlier round. Each drafted enabler lifts the gate for one agent; without
+      // one the gate stays active.
       id: 'rw-draft-agent',
       condition: {
         $or: [
@@ -144,7 +144,11 @@ export const CHARACTER_DRAFT_RULES: RuleSet = {
  * The context builder must provide:
  * - `card.name` — card name for messages
  * - `card.isStageResource` — whether this pool card is a recognized Stage resource
+ * - `card.isAgentSummonsEnabler` — whether this card is an agent-summons enabler
+ *   (Open to the Summons, wh-46), the one Stage resource a Ringwraith may draft
+ *   "in lieu of a minor item" (CoE 1.9.R2)
  * - `ctx.isFallenWizard` — whether the drafting player is a Fallen-wizard
+ * - `ctx.isRingwraith` — whether the drafting player is a Ringwraith
  */
 export const STAGE_RESOURCE_DRAFT_RULES: RuleSet = {
   name: 'Stage Resource Draft Eligibility',
@@ -155,8 +159,22 @@ export const STAGE_RESOURCE_DRAFT_RULES: RuleSet = {
       failMessage: '{{card.name}} is not a draftable Stage resource',
     },
     {
+      // Stage resources are Fallen-wizard-only (CoE 1.9.F4), with one exception:
+      // an agent-summons enabler (Open to the Summons, wh-46) is a Ringwraith
+      // resource brought "in lieu of a minor item", so a Ringwraith may draft it
+      // too (CoE 1.9.R2).
       id: 'fallen-wizard-only',
-      condition: { 'ctx.isFallenWizard': true },
+      condition: {
+        $or: [
+          { 'ctx.isFallenWizard': true },
+          {
+            $and: [
+              { 'ctx.isRingwraith': true },
+              { 'card.isAgentSummonsEnabler': true },
+            ],
+          },
+        ],
+      },
       failMessage: '{{card.name}} is a Fallen-wizard Stage resource and cannot be drafted by this player',
     },
   ],

@@ -84,17 +84,28 @@ export function hasAgentSummonsEffect(def: CardDefinition | undefined): boolean 
 }
 
 /**
- * Counts the agent-summons enablers (Open to the Summons, wh-46) sitting in a
- * player's play deck. During the character draft each such enabler lets the
- * player draft **one** agent as a starting character — the play-deck copy is
- * later placed with that agent "in lieu of a minor item" during the item draft.
- * Used to lift the Ringwraith/Fallen-wizard agent draft-gate for that many agents.
+ * Counts the agent-summons enablers (Open to the Summons, wh-46) a player has
+ * **drafted** during the character draft. Each such enabler lets the player
+ * draft **one** agent as a starting character (rules 1.41/1.42, CoE
+ * 1.9.R2/1.9.F1).
+ *
+ * Only enablers already drafted into {@link DraftPlayerState.draftedStageResources}
+ * count. Open to the Summons is brought "in lieu of a minor item" and revealed
+ * "as if it were a character" when starting companies are determined, so it must
+ * be drafted from the pool as any other card in an earlier round *before* an
+ * agent may be drafted — a copy merely sitting undrafted in the pool (or held in
+ * the play deck) does NOT lift the gate. Both a Ringwraith and a Fallen-wizard
+ * may draft the enabler (it carries the `starting-item` keyword and an
+ * agent-summons effect); at finalize {@link resolveThrallCharacterPairings}
+ * places it with the drafted agent, reducing that agent's mind.
  */
-export function countAgentSummonsEnablersInDeck(
+export function countAgentSummonsEnablersForDraft(
   state: GameState,
-  player: { readonly playDeck: readonly { readonly definitionId: CardDefinitionId }[] },
+  draft: {
+    readonly draftedStageResources: readonly { readonly definitionId: CardDefinitionId }[];
+  },
 ): number {
-  return player.playDeck.reduce(
+  return draft.draftedStageResources.reduce(
     (n, card) => (hasAgentSummonsEffect(defById(state, card.definitionId)) ? n + 1 : n),
     0,
   );
@@ -103,7 +114,7 @@ export function countAgentSummonsEnablersInDeck(
 /**
  * Counts how many agent characters a player has already drafted into their
  * starting company (rules 1.41/1.42 — each requires an enabler). Used together
- * with {@link countAgentSummonsEnablersInDeck} to decide whether one more agent
+ * with {@link countAgentSummonsEnablersForDraft} to decide whether one more agent
  * may be drafted via an Open-to-the-Summons enabler.
  */
 export function countDraftedAgents(
