@@ -265,6 +265,10 @@ function handleSiteSelectCompany(
       minorItemAvailable: false,
       hoardBountyAvailable: false,
       thoroughSearchAvailable: false,
+      // Framsburg (as-146): if the company's current site grants "first minor
+      // item does not tap the site each turn", refresh the free-minor-item
+      // allowance for this site phase.
+      firstMinorItemNoTapAvailable: siteFirstMinorItemNoTap(state, company.currentSite),
       declaredAgentAttack: null,
       awaitingOnGuardReveal: false,
       pendingResourceAction: null,
@@ -1997,6 +2001,23 @@ function siteNeverTaps(
 }
 
 /**
+ * Returns `true` when the given site definition carries the
+ * `first-minor-item-no-tap` site-rule (Framsburg, as-146). Used to seed the
+ * per-site-phase free-minor-item allowance when a company selects its site.
+ */
+function siteFirstMinorItemNoTap(
+  state: GameState,
+  site: { readonly definitionId: import('../index.js').CardDefinitionId } | null | undefined,
+): boolean {
+  if (!site) return false;
+  const def = defById(state, site.definitionId);
+  if (!def || !isSiteCard(def)) return false;
+  return (def.effects ?? []).some(
+    e => e.type === 'site-rule' && e.rule === 'first-minor-item-no-tap',
+  );
+}
+
+/**
  * Handle playing a hero resource (item) at a site.
  *
  * Validates the card is in hand, is an item playable at this site type,
@@ -2125,17 +2146,28 @@ function handleSitePlayHeroResource(
     logDetail(`Site: ${def.name} is the first item played at the site (Come By Night Upon Them) — leaving site untapped`);
   }
 
+  // Framsburg (as-146): the first minor item played at the site each turn does
+  // not tap the site. Passive, per-site counterpart to firstItemNoTapAvailable,
+  // restricted to minor-subtype items. Consume the allowance once used.
+  const usingFirstMinorItemNoTap = isItem
+    && itemSubtypeForBounty === 'minor'
+    && siteState.firstMinorItemNoTapAvailable === true;
+  const nextFirstMinorItemNoTapAvailable = usingFirstMinorItemNoTap ? false : siteState.firstMinorItemNoTapAvailable;
+  if (usingFirstMinorItemNoTap) {
+    logDetail(`Site: ${def.name} is the first minor item played at the site (Framsburg) — leaving site untapped`);
+  }
+
   // Thorough Search (and the Saruman's Machinery Technology bonus, and a
   // no-tap-on-play ally) prevent site tap and do not count as the "first
   // resource played" (so the opening minor-item bonus does not fire for them).
-  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus && !noTapOnPlay && !usingFirstItemNoTap;
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus && !noTapOnPlay && !usingFirstItemNoTap && !usingFirstMinorItemNoTap;
   const nextMinorItemAvailableActual = openingBonusActual
     ? true
     : consumingBonus
       ? false
       : siteState.minorItemAvailable;
 
-  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || noTapOnPlay || usingFirstItemNoTap;
+  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
     ...company,
@@ -2146,11 +2178,12 @@ function handleSitePlayHeroResource(
     ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscardPile, characters: newCharacters, companies: newCompaniesActual })),
     phaseState: {
       ...siteState,
-      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || noTapOnPlay || usingFirstItemNoTap) ? siteState.resourcePlayed : true,
+      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap) ? siteState.resourcePlayed : true,
       minorItemAvailable: nextMinorItemAvailableActual,
       hoardBountyAvailable: nextHoardBountyAvailable,
       thoroughSearchAvailable: nextThoroughSearchAvailable,
       firstItemNoTapAvailable: nextFirstItemNoTapAvailable,
+      firstMinorItemNoTapAvailable: nextFirstMinorItemNoTapAvailable,
       ...(usingTechnologyBonus ? { technologyItemPlayed: true } : {}),
     },
   };

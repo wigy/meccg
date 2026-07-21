@@ -31,6 +31,7 @@ export type SiteRuleEffect =
   | KeyedCreaturesDetainmentSiteRule
   | AttacksAreDetainmentSiteRule
   | NeverTapsSiteRule
+  | FirstMinorItemNoTapSiteRule
   | HealDuringUntapSiteRule
   | DynamicAutoAttackSiteRule
   | AlwaysReturnToDeckSiteRule
@@ -282,6 +283,23 @@ export interface AttacksAreDetainmentSiteRule extends EffectBase {
 export interface NeverTapsSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'never-taps';
+}
+
+/**
+ * Declares that the **first minor item** played at this site each turn does
+ * not tap the site (Framsburg, as-146 — "The first minor item played at this
+ * site each turn does not tap the site"). Unlike {@link NeverTapsSiteRule},
+ * only the first minor-subtype item played by the company each site phase
+ * escapes tapping; a subsequent item taps the site normally. This is the
+ * passive, per-site counterpart to the event-driven `firstItemNoTapAvailable`
+ * flag (Come By Night Upon Them, le-176), restricted to minor items. The
+ * one-per-turn availability is tracked by
+ * {@link SitePhaseState.firstMinorItemNoTapAvailable}, refreshed when a new
+ * company's site phase begins.
+ */
+export interface FirstMinorItemNoTapSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'first-minor-item-no-tap';
 }
 
 /**
