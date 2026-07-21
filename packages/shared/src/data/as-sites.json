@@ -1043,6 +1043,7 @@
     "alignment": "ringwraith",
     "id": "as-162",
     "name": "Tolfalas",
+    "certified": "2026-07-21",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Tolfalas.jpg",
     "unique": true,
     "siteType": "ruins-and-lairs",
@@ -1068,7 +1069,38 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "effects": [],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -2
+        },
+        "target": "wounded-character"
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-item",
+        "when": {
+          "subtype": "greater",
+          "name": {
+            "$ne": "Scroll of Isildur"
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "site-revealed-as-new-site",
+        "when": {
+          "company.covert": false
+        },
+        "apply": {
+          "type": "tap-one-character"
+        }
+      }
+    ],
     "text": "Nearest Darkhaven: Minas MorgulPlayable: Items (minor, major, greater*)*—Scroll of Isildur onlyAutomatic-attacks:Undead — 3 strikes with 7 prowess;each character wounded must make a corruption check modified by -2Special: An overt company must tap an untapped character (if available) if this site is revealed as its new site."
   },
   {
