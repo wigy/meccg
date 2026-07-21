@@ -52,13 +52,16 @@ export interface DetainmentContext {
   /** Alignment of the defending player. */
   readonly defendingAlignment: Alignment;
   /**
-   * Whether the defending company is in covert mode (Fallen-wizard
-   * covert toggle). Referenced by card-level `combat-detainment` `when`
-   * clauses such as "detainment against covert and hero companies".
-   * Covert/overt mode is not yet implemented on companies — call sites
-   * currently pass `false`. When the toggle is wired, threading the
-   * real company value here makes the affected cards automatically
-   * correct.
+   * Whether the defending company is covert (rule glossary "covert/overt":
+   * a company with no Orc/Troll character, Balrog avatar, or company-overt
+   * ally/permanent-event). Computed by {@link isCovertCompany} and threaded
+   * by the site auto-attack path. Referenced both by card-level
+   * `combat-detainment` `when` clauses (e.g. "detainment against covert and
+   * hero companies") and by `site-rule: attacks-not-detainment` filters via
+   * `defender.covert` (e.g. The Under-leas as-167's Orcs auto-attack is
+   * "detainment against overt company" — it resolves as a normal attack
+   * against a covert company). Paths that do not supply it (dynamic
+   * played-auto-attack, movement/hazard) default to `false` (overt).
    */
   readonly defendingCovert?: boolean;
   /**
@@ -181,6 +184,15 @@ export function isDetainmentAttack(ctx: DetainmentContext): boolean {
     const filterContext = {
       enemy: { race: ctx.attackRace ?? null },
       attack: { automatic: ctx.isAutomaticAttack ?? false },
+      // Covert/overt status of the defending company, so an override can be
+      // gated on it — e.g. The Under-leas (as-167): the site's own Orcs
+      // automatic-attack is "detainment against overt company", i.e. it
+      // resolves as a *normal* attack against a covert company. Threaded via
+      // `defender.covert: true`. Only the site's listed auto-attack path
+      // supplies a real `defendingCovert`; the dynamic played-auto-attack and
+      // movement/hazard paths pass none, so it defaults to `false` (overt)
+      // there and such attacks fall through to their other filter clauses.
+      defender: { covert: ctx.defendingCovert ?? false },
     };
     if (!filter || matchesCondition(filter, filterContext)) {
       logDetail(
