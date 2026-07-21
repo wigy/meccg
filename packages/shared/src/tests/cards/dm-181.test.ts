@@ -41,7 +41,7 @@
  *    when influencing Orcs of Udûn (le-282).
  * 7. Agent move restriction: Baugúr-as-agent cannot move to a free-hold
  *    (Edoras) or border-hold (Dunharrow), but can move to a ruins-and-lairs
- *    (The Pûkel-deeps).
+ *    (Isengard).
  *
  * Fixtures:
  *   BAUGUR (dm-181)            — minion Half-orc agent leader, body 8, discardBodyCheck [8]
@@ -57,7 +57,7 @@
  *   AMON_HEN (le-349)          — minion ruins-and-lairs, Rohan (agent start site)
  *   EDORAS (le-372)            — minion free-hold, Rohan (restricted destination)
  *   DUNHARROW (le-369)         — minion border-hold, Rohan (restricted destination)
- *   PUKEL_DEEPS (as-158)       — minion ruins-and-lairs, Rohan (allowed destination)
+ *   ISENGARD (le-384)          — minion ruins-and-lairs, Gap of Isen (allowed destination)
  *   MINAS_MORGUL (le-390)      — minion haven (site-deck filler / opponent site)
  *   DOL_GULDUR (le-367)        — minion haven (opponent site)
  */
@@ -91,7 +91,7 @@ const CARN_DUM = 'le-359' as CardDefinitionId;     // ruins-and-lairs
 const AMON_HEN = 'le-349' as CardDefinitionId;     // ruins-and-lairs, Rohan
 const EDORAS = 'le-372' as CardDefinitionId;       // free-hold, Rohan
 const DUNHARROW = 'le-369' as CardDefinitionId;    // border-hold, Rohan
-const PUKEL_DEEPS = 'as-158' as CardDefinitionId;  // ruins-and-lairs, Rohan
+const ISENGARD = 'le-384' as CardDefinitionId;     // ruins-and-lairs, Gap of Isen
 const MINAS_MORGUL = 'le-390' as CardDefinitionId; // minion haven
 const DOL_GULDUR = 'le-367' as CardDefinitionId;   // minion haven
 
@@ -464,11 +464,12 @@ describe('Baugúr (dm-181)', () => {
 
   // ── Rule 7: "Agent only: Cannot move to Free-holds and Border-holds" ───────
 
-  test('Agent move excludes free-hold (Edoras) and border-hold (Dunharrow) but allows ruins-and-lairs (Pûkel-deeps)', () => {
+  test('Agent move excludes free-hold (Edoras) and border-hold (Dunharrow) but allows ruins-and-lairs (Isengard)', () => {
     // Baugúr-as-agent starts at Amon Hen (ruins-and-lairs, Rohan). Edoras
-    // (free-hold), Dunharrow (border-hold) and The Pûkel-deeps (ruins-and-lairs)
-    // are all in Rohan → all reachable. The restriction must drop the free-hold
-    // and border-hold while keeping the ruins-and-lairs.
+    // (free-hold) and Dunharrow (border-hold) are in Rohan; Isengard
+    // (ruins-and-lairs, Gap of Isen) is within agent movement range → all
+    // reachable. The restriction must drop the free-hold and border-hold
+    // while keeping the ruins-and-lairs.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -504,7 +505,7 @@ describe('Baugúr (dm-181)', () => {
 
     const edorasId = 'dest-edoras' as CardInstanceId;
     const dunharrowId = 'dest-dunharrow' as CardInstanceId;
-    const pukelId = 'dest-pukel' as CardInstanceId;
+    const isengardId = 'dest-isengard' as CardInstanceId;
     const withAgent: GameState = {
       ...base,
       players: [
@@ -515,7 +516,7 @@ describe('Baugúr (dm-181)', () => {
           siteDeck: [
             { instanceId: edorasId, definitionId: EDORAS },
             { instanceId: dunharrowId, definitionId: DUNHARROW },
-            { instanceId: pukelId, definitionId: PUKEL_DEEPS },
+            { instanceId: isengardId, definitionId: ISENGARD },
           ],
         },
       ] as unknown as typeof base.players,
@@ -530,6 +531,6 @@ describe('Baugúr (dm-181)', () => {
     expect(destIds).not.toContain(dunharrowId);
     // The ruins-and-lairs destination remains legal — proves the filter is
     // site-type-specific, not a blanket "nothing reachable".
-    expect(destIds).toContain(pukelId);
+    expect(destIds).toContain(isengardId);
   });
 });
