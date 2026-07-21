@@ -973,6 +973,7 @@
     "alignment": "ringwraith",
     "id": "as-161",
     "name": "The Sulfur-deeps",
+    "certified": "2026-07-21",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheSulfurdeeps.jpg",
     "unique": true,
     "siteType": "dark-hold",
@@ -989,9 +990,23 @@
         "prowess": 10
       }
     ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Dol Guldur": 0,
+      "The Under-courts": 4,
+      "The Pûkel-deeps": 9,
+      "The Under-gates": 4,
+      "The Under-galleries": 7
+    },
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "effects": [],
+    "effects": [
+      {
+        "type": "combat-detainment"
+      }
+    ],
     "text": "Adjacent Sites: Dol Guldur (0), The Under-courts (4), The Pûkel-deeps (9), The Under-gates (4), The Under-galleries (7)Playable: Items (minor)Automatic-attacks:Trolls — 2 strikes with 10 prowess (detainment)"
   },
   {
