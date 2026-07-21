@@ -19,7 +19,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
-import { clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove } from './reducer-utils.js';
+import { clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, matchesDefinition } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -44,6 +44,7 @@ type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
  */
 const ORGANIZATION_HANDLERS: Readonly<Partial<Record<GameAction['type'], OrgHandler>>> = {
   'play-character': handlePlayCharacter,
+  'reanimate-from-discard': handleReanimateFromDiscard,
   'manifestation-swap': handleManifestationSwap,
   'discard-to-recruit': handleDiscardToRecruit,
   'pass': handleOrganizationPass,
@@ -615,6 +616,107 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
   }
 
   return { state: finalState };
+}
+
+/**
+ * Handle `reanimate-from-discard` — Urlurtsu Nurn's (le-409)
+ * `ringwraith-reanimate-from-discard` site ability. The player's Ringwraith,
+ * present at the site, taps to bring one matching character (Orc/Troll) from
+ * the discard pile into play at that site "as another company".
+ *
+ * The new company shares the in-play site instance (`siteCardOwned: false`,
+ * like any sibling company at an occupied site) and carries a
+ * `reanimatedRingwraithId` marker. The character comes into play under general
+ * influence and does **not** consume the one-character-per-turn slot (tapping
+ * the Ringwraith is the cost). The "must move to a different site or be
+ * discarded" clause is enforced at the M/H→Site boundary (see
+ * `discardStrandedReanimatedCompanies` in `mh-hazard-play.ts`).
+ */
+function handleReanimateFromDiscard(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'reanimate-from-discard') return wrongActionType(state, action, 'reanimate-from-discard');
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+
+  // The Ringwraith must be an untapped avatar of race `ringwraith` whose
+  // company is at the named site.
+  const ringwraith = player.characters[action.ringwraithInstanceId];
+  if (!ringwraith) return { state, error: 'reanimate-from-discard: Ringwraith not found' };
+  if (ringwraith.status !== CardStatus.Untapped) return { state, error: 'reanimate-from-discard: Ringwraith is not untapped' };
+  const rwDef = defById(state, ringwraith.definitionId);
+  if (!rwDef || !isCharacterCard(rwDef) || !isAvatarCharacter(rwDef) || (rwDef as { race?: string }).race !== 'ringwraith') {
+    return { state, error: 'reanimate-from-discard: character is not a Ringwraith' };
+  }
+  const rwCompany = findCharacterCompany(player.companies, action.ringwraithInstanceId);
+  if (!rwCompany || !rwCompany.currentSite || rwCompany.currentSite.instanceId !== action.siteInstanceId) {
+    return { state, error: 'reanimate-from-discard: Ringwraith is not at the named site' };
+  }
+
+  // The site must actually carry the rule (and expose the reanimation filter).
+  const siteDef = defById(state, rwCompany.currentSite.definitionId);
+  const rule = ((siteDef && isSiteCard(siteDef) ? siteDef.effects ?? [] : []).find(
+    e => e.type === 'site-rule' && (e as { rule?: string }).rule === 'ringwraith-reanimate-from-discard',
+  )) as { filter: import('../types/effects.js').Condition } | undefined;
+  if (!rule) return { state, error: 'reanimate-from-discard: site does not grant this ability' };
+
+  // The target must be a matching character in the discard pile.
+  const targetCard = findById(player.discardPile, action.characterInstanceId);
+  if (!targetCard) return { state, error: 'reanimate-from-discard: character not in discard pile' };
+  const targetDef = defById(state, targetCard.definitionId);
+  if (!targetDef || !isCharacterCard(targetDef) || !matchesDefinition(targetDef, rule.filter)) {
+    return { state, error: 'reanimate-from-discard: character does not match the site filter' };
+  }
+
+  logDetail(`Reanimate ${targetDef.name} from discard at ${'name' in (siteDef ?? {}) ? (siteDef as { name: string }).name : action.siteInstanceId as string} — ${rwDef.name} taps to bring it in as a new company`);
+
+  // Tap the Ringwraith (the cost) and mint the reanimated character.
+  const newChar: CharacterInPlay = {
+    instanceId: targetCard.instanceId,
+    definitionId: targetCard.definitionId,
+    status: CardStatus.Untapped,
+    items: [],
+    allies: [],
+    hazards: [],
+    followers: [],
+    controlledBy: 'general',
+    effectiveStats: ZERO_EFFECTIVE_STATS,
+  };
+  const newCharacters: Record<CardInstanceId, CharacterInPlay> = {
+    ...player.characters,
+    [action.ringwraithInstanceId]: { ...ringwraith, status: CardStatus.Tapped },
+    [targetCard.instanceId]: newChar,
+  };
+
+  // New company sharing the in-play site instance (the Ringwraith's company
+  // owns the physical card).
+  const newCompany: Company = {
+    id: nextCompanyId(player),
+    characters: [targetCard.instanceId],
+    currentSite: {
+      instanceId: action.siteInstanceId,
+      definitionId: rwCompany.currentSite.definitionId,
+      status: rwCompany.currentSite.status,
+    },
+    siteCardOwned: false,
+    destinationSite: null,
+    movementPath: [],
+    moved: false,
+    siteOfOrigin: null,
+    onGuardCards: [],
+    hazards: [],
+    reanimatedRingwraithId: action.ringwraithInstanceId,
+  };
+
+  const result = sweepCompanyMembershipChangedEvents(
+    updatePlayer(state, playerIndex, p => ({
+      ...p,
+      characters: newCharacters,
+      companies: [...p.companies, newCompany],
+      discardPile: removeById(p.discardPile, targetCard.instanceId),
+    })),
+    [newCompany.id],
+  );
+  return { state: result };
 }
 
 /**

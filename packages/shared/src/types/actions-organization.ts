@@ -70,6 +70,26 @@ export interface PlayCharacterAction {
 }
 
 /**
+ * Reanimate a character from the discard pile into play at a site as a new
+ * company, tapping the player's Ringwraith who is present at that site as the
+ * cost. Enabled by the `ringwraith-reanimate-from-discard` site-rule — Urlurtsu
+ * Nurn (le-409): "If your Ringwraith is at this site, he may tap during the
+ * organization phase to bring one Orc or Troll character from your discard pile
+ * into play at this site (as another company)."
+ */
+export interface ReanimateFromDiscardAction {
+  readonly type: 'reanimate-from-discard';
+  /** The player activating the ability. */
+  readonly player: PlayerId;
+  /** The player's Ringwraith (avatar) at the site — tapped to pay the cost. */
+  readonly ringwraithInstanceId: CardInstanceId;
+  /** The character in the player's discard pile to bring into play. */
+  readonly characterInstanceId: CardInstanceId;
+  /** The site instance where the new company forms (the Ringwraith's site). */
+  readonly siteInstanceId: CardInstanceId;
+}
+
+/**
  * Split a character (and their followers) from an existing company into a new company.
  *
  * Used during Organization to divide forces, allowing characters to

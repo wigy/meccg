@@ -430,6 +430,18 @@ export interface Company {
    * site — a fresh movement/hazard phase — via the `extra-mh-move-offer` step.
    */
   readonly extraMHPhasePending?: boolean | undefined;
+  /**
+   * Set on a company created by Urlurtsu Nurn's (le-409)
+   * `ringwraith-reanimate-from-discard` ability: an Orc/Troll character was
+   * brought from the discard pile into play "as another company" at the site
+   * where the given Ringwraith stands. Holds that Ringwraith's instance id.
+   * At the end of the movement/hazard phase, if this company still shares a
+   * site with that Ringwraith's company, its character(s) are discarded — "The
+   * character must move to a different site from that of your Ringwraith this
+   * turn or be discarded at the end of the movement/hazard phase." Cleared once
+   * the company has moved to a different site than the Ringwraith.
+   */
+  readonly reanimatedRingwraithId?: CardInstanceId | undefined;
 }
 
 

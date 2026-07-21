@@ -47,6 +47,7 @@ import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanent
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { collectRegionKeyingBoosts, regionPathsWithBoosts, collectRegionTypeRemaps, applyRegionTypeRemaps, collectRegionTypeConversions, applyRegionTypeConversions } from './region-keying.js';
@@ -2090,6 +2091,58 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
 }
 
 /**
+ * Enforce Urlurtsu Nurn's (le-409) reanimation constraint at the end of the
+ * movement/hazard phase. A company created by the `reanimate-from-discard`
+ * ability carries a `reanimatedRingwraithId` marker: its character "must move
+ * to a different site from that of your Ringwraith this turn or be discarded".
+ *
+ * For each such company, locate the Ringwraith's current company (the
+ * Ringwraith may itself have moved) and compare sites by definition id. If the
+ * reanimated company still shares a site with the Ringwraith, its character(s)
+ * are discarded to the owner's discard pile (the now-empty company is cleaned
+ * up). A reanimated company that reached a different site keeps its
+ * character(s); the turn-scoped marker is cleared so the constraint does not
+ * carry into later turns.
+ */
+function discardStrandedReanimatedCompanies(state: GameState, playerIndex: number): GameState {
+  const player = state.players[playerIndex];
+  if (!player.companies.some(c => c.reanimatedRingwraithId)) return state;
+
+  // Snapshot the reanimated companies and their verdicts before mutating.
+  const verdicts = player.companies
+    .filter(c => c.reanimatedRingwraithId)
+    .map(c => {
+      const rwId = c.reanimatedRingwraithId!;
+      const rwCompany = player.companies.find(o => o.characters.includes(rwId));
+      const rwSite = rwCompany?.currentSite?.definitionId;
+      const mySite = c.currentSite?.definitionId;
+      const stranded = rwSite !== undefined && mySite !== undefined && rwSite === mySite;
+      return { companyId: c.id, charIds: [...c.characters], stranded };
+    });
+
+  let result = state;
+  for (const v of verdicts) {
+    if (v.stranded) {
+      logDetail(`Urlurtsu Nurn (le-409): reanimated company ${v.companyId as string} still shares a site with the Ringwraith — discarding its character(s) at end of movement/hazard phase`);
+      for (const charId of v.charIds) {
+        const char = result.players[playerIndex].characters[charId];
+        if (!char) continue;
+        result = discardCharacterToDiscardPile(result, playerIndex, charId, char);
+      }
+    } else {
+      logDetail(`Urlurtsu Nurn (le-409): reanimated company ${v.companyId as string} reached a different site than the Ringwraith — its character(s) remain in play`);
+      result = updatePlayer(result, playerIndex, p => ({
+        ...p,
+        companies: p.companies.map(c =>
+          c.id === v.companyId ? { ...c, reanimatedRingwraithId: undefined } : c,
+        ),
+      }));
+    }
+  }
+  return result;
+}
+
+/**
  * Finalize the current company's movement/hazard phase: sweep company-scoped
  * constraints, then advance to the next company's M/H sub-phase or to the Site
  * phase once every company is handled.
@@ -2106,6 +2159,12 @@ export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhase
   const remainingCount = state.players[activeIndex].companies.length - updatedHandled.length;
 
   if (remainingCount <= 0) {
+    // Urlurtsu Nurn (le-409): a reanimated company "must move to a different
+    // site from that of your Ringwraith this turn or be discarded at the end of
+    // the movement/hazard phase." Enforce before auto-merge so a stranded
+    // reanimated character is discarded rather than silently merged into the
+    // Ringwraith's company.
+    state = discardStrandedReanimatedCompanies(state, activeIndex);
     // Rule 2.IV.6: auto-merge any of the resource player's companies that
     // ended up at the same non-haven site. Run before resetting moved flags
     // so the merge sees the post-movement company layout.

@@ -605,6 +605,8 @@ export function describeAction(
       return `${playerName(action.player)} taps ${instName(action.characterId)} to pay the site tax before playing an ally or item (Eddy in Fate's Tide)`;
     case 'pay-movement-tax':
       return `${playerName(action.player)} taps ${instName(action.characterId)} to pay company ${action.companyId}'s movement tax (Enchanted Stream)`;
+    case 'reanimate-from-discard':
+      return `${playerName(action.player)} taps Ringwraith ${instName(action.ringwraithInstanceId)} to bring ${instName(action.characterInstanceId)} from the discard pile into play as a new company (Urlurtsu Nurn)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

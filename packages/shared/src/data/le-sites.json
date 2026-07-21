@@ -2500,7 +2500,15 @@
     "automaticAttacks": [],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Minas MorgulSpecial: If your Ringwraith is at this site, he may tap during the organization phase to bring one Orc or Troll character from your discard pile into play at this site (as another company). The character must move to a different site from that of your Ringwraith this turn or be discarded at the end of the movement/hazard phase."
+    "text": "Nearest Darkhaven: Minas MorgulSpecial: If your Ringwraith is at this site, he may tap during the organization phase to bring one Orc or Troll character from your discard pile into play at this site (as another company). The character must move to a different site from that of your Ringwraith this turn or be discarded at the end of the movement/hazard phase.",
+    "certified": "2026-07-21",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "ringwraith-reanimate-from-discard",
+        "filter": { "race": { "$in": ["orc", "troll"] } }
+      }
+    ]
   },
   {
     "cardType": "minion-site",
