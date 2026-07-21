@@ -1095,10 +1095,20 @@
     "keywords": [
       "under-deeps"
     ],
+    "adjacentSites": {
+      "Barad-dûr": 0,
+      "The Sulfur-deeps": 4,
+      "The Under-galleries": 4
+    },
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "effects": [],
-    "text": "Adjacent Sites: Barad-dûr (0), The Sulfur-deeps (4), The Under-galleries (4)Playable: Items (minor)Automatic-attacks:Trolls — 3 strikes with 10 prowess (detainment)"
+    "effects": [
+      {
+        "type": "combat-detainment"
+      }
+    ],
+    "text": "Adjacent Sites: Barad-dûr (0), The Sulfur-deeps (4), The Under-galleries (4)Playable: Items (minor)Automatic-attacks:Trolls — 3 strikes with 10 prowess (detainment)",
+    "certified": "2026-07-21"
   },
   {
     "cardType": "minion-site",
