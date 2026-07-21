@@ -1948,12 +1948,16 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         }
       } else if (effect.apply.type === 'enqueue-corruption-check') {
         // For permanent events, determine which character receives the corruption check.
-        // When apply.target === "company-shadow-magic-user", find the non-Ringwraith shadow-magic
-        // user in the target character's company; Ringwraiths are exempt from the check.
-        // Without a target specifier, target the attached character (targetCharId).
+        // When apply.target === "company-member", the check is made by the first
+        // member of the target character's company whose definition matches
+        // `apply.filter` — no match, no check. (Well-preserved as-108 selects the
+        // company's shadow-magic user; Ringwraiths are exempt from the check, so
+        // its filter excludes them.) Without a target specifier, target the
+        // attached character (targetCharId).
         const applyTarget = effect.apply.target;
         let corrCheckCharId: import('../types/common.js').CardInstanceId | undefined;
-        if (applyTarget === 'company-shadow-magic-user' && targetCharId) {
+        if (applyTarget === 'company-member' && targetCharId) {
+          const memberFilter = effect.apply.filter;
           outer: for (let pi = 0; pi < 2; pi++) {
             if (!newState.players[pi].characters[targetCharId]) continue;
             const company = newState.players[pi].companies.find(co => co.characters.includes(targetCharId));
@@ -1963,16 +1967,11 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
               if (!memberChar) continue;
               const memberDef = defById(newState, memberChar.definitionId);
               if (!memberDef) continue;
-              const memberRace = (memberDef as { race?: string }).race;
-              if (memberRace === 'ringwraith') continue; // ringwraiths don't make the check
-              const memberSkills = (memberDef as { skills?: readonly string[] }).skills ?? [];
-              if (memberSkills.includes('shadow-magic')) {
-                corrCheckCharId = memberId;
-                break outer;
-              }
+              if (memberFilter && !matchesDefinition(memberDef, memberFilter)) continue;
+              corrCheckCharId = memberId;
+              break outer;
             }
-            // No non-ringwraith shadow-magic user found (all shadow-magic users are ringwraiths)
-            logDetail(`"${def?.name ?? '?'}" enqueue-corruption-check: shadow-magic user is a Ringwraith — no check`);
+            logDetail(`"${def?.name ?? '?'}" enqueue-corruption-check: no company member matches the target filter — no check`);
             break;
           }
         } else if (!applyTarget) {

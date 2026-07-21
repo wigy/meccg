@@ -1823,8 +1823,19 @@ export interface ForceCheckAllCompanyAction extends TriggeredActionBase {
 export interface EnqueueCorruptionCheckAction extends TriggeredActionBase {
   readonly type: 'enqueue-corruption-check';
   readonly modifier?: number;
-  /** e.g. `'company-shadow-magic-user'` to pick the non-Ringwraith shadow user. */
+  /**
+   * `'company-member'` — the check is made by the first member of the attached
+   * character's company whose definition matches `filter` (no match → no
+   * check). Omitted — the attached character makes the check. (Well-preserved
+   * as-108 targets the company's non-Ringwraith shadow-magic user this way.)
+   */
   readonly target?: string;
+  /**
+   * DSL condition selecting the company member for `target: 'company-member'`,
+   * evaluated against each member's card definition (fields like `race`,
+   * `skills`).
+   */
+  readonly filter?: Condition;
   /** Apply run if the check succeeds (Cracks of Doom: succeed → win-game). Recursive. */
   readonly onSuccess?: TriggeredAction;
 }
