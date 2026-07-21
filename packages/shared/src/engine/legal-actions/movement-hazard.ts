@@ -3095,6 +3095,29 @@ function playHazardsActions(
           continue;
         }
 
+        // A short event whose only movement/hazard-relevant effect is a
+        // from-hand `modify-attack` is a *combat* modifier (e.g. Unabated in
+        // Malice ba-26, Black Vapour ba-14). It buffs an attack the company is
+        // facing, so it has no open movement/hazard play: during M/H there is
+        // no active attack to modify, and resolving it here would silently drop
+        // the buff (game mruvf51s-a9ge5j — Unabated in Malice played openly in
+        // M/H never affected the site's automatic-attack). Such a card must be
+        // played on the attack itself (via the combat modify-attack action) or
+        // placed on-guard to be revealed when the company faces the site's
+        // automatic-attack (rule 2.V.i). Suppress the open play; the on-guard
+        // placement action remains available separately. Cards reaching this
+        // point have already been ruled out of every legitimate M/H mode above
+        // (create-site-auto-attack, auto-attack-boost, creature-race-choice,
+        // etc.), each of which `continue`s before here.
+        const fromHandModifyAttack = getCardEffects(def).some(
+          (e): boolean => e.type === 'modify-attack' && !!(e as { fromHand?: boolean }).fromHand,
+        );
+        if (fromHandModifyAttack) {
+          logDetail(`Hazard short-event "${def.name}": from-hand modify-attack is a combat modifier — not playable openly in M/H (play it on the attack or place it on-guard)`);
+          actions.push({ action, viable: false, reason: `${def.name} must be played on the attack it modifies or placed on-guard` });
+          continue;
+        }
+
         logDetail(`Hazard short-event "${def.name}" is playable`);
         actions.push({ action, viable: true });
         continue;
