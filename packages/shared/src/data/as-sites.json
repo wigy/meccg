@@ -564,15 +564,44 @@
     ],
     "automaticAttacks": [
       {
-        "creatureType": "",
+        "creatureType": "Undead",
         "strikes": 3,
         "prowess": 9
       }
     ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Glittering Caves": 0,
+      "The Pûkel-deeps": 9,
+      "The Under-gates": 6
+    },
     "resourceDraws": 2,
     "hazardDraws": 3,
-    "effects": [],
-    "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (9), The Under-gates (6)Playable: Items (minor, major, gold ring)Automatic-attacks (2):(1st) Undead — 3 strikes with 9 prowess; (2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}].Special: Any Undead creature or Pûkel-creature may be played at this site."
+    "certified": "2026-07-21",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": [
+            "shadow-hold"
+          ]
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "undead"
+      },
+      {
+        "type": "site-rule",
+        "rule": "allow-creature-by-race",
+        "race": "pûkel-creature"
+      }
+    ],
+    "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (9), The Under-gates (6)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2):\n(1st) Undead — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}].\nSpecial: Any Undead creature or Pûkel-creature may be played at this site."
   },
   {
     "cardType": "minion-site",
