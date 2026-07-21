@@ -2209,7 +2209,10 @@
     ],
     "nearestHaven": "Minas Morgul",
     "region": "Harondor",
-    "playableResources": [],
+    "playableResources": [
+      "minor",
+      "major"
+    ],
     "automaticAttacks": [
       {
         "creatureType": "Undead",
@@ -2219,7 +2222,20 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "text": "Nearest Darkhaven: Minas MorgulPlayable: Items (minor, major)Automatic-attacks: Undead — 1 strike with 10 prowess; each character wounded must make a corruption check modified by -2"
+    "text": "Nearest Darkhaven: Minas MorgulPlayable: Items (minor, major)Automatic-attacks: Undead — 1 strike with 10 prowess; each character wounded must make a corruption check modified by -2",
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption",
+          "modifier": -2
+        },
+        "target": "wounded-character"
+      }
+    ],
+    "certified": "2026-07-21"
   },
   {
     "cardType": "minion-site",
