@@ -835,8 +835,29 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 4,
-    "effects": [],
-    "text": "Nearest Darkhaven: Dol GuldurPlayable: Information, Items (minor, major, greater, gold ring)Automatic-attacks (3):(1st) Elves — 4 strikes with 8 prowess(2nd) Elves — 3 strikes with 9 prowess(3rd) Elves — 2 strikes with 10 prowessSpecial: Any company moving to this site has its hazard limit increased by 2. A minion company may not attack another company at this site. A Ringwraith may not move to this site."
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "hazard-limit-modifier",
+        "value": 2
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-company-attack",
+        "when": {
+          "attacker.isMinion": true
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "deny-company-move",
+        "when": {
+          "company.hasRingwraith": true
+        }
+      }
+    ],
+    "text": "Nearest Darkhaven: Dol GuldurPlayable: Information, Items (minor, major, greater, gold ring)Automatic-attacks (3):(1st) Elves — 4 strikes with 8 prowess(2nd) Elves — 3 strikes with 9 prowess(3rd) Elves — 2 strikes with 10 prowessSpecial: Any company moving to this site has its hazard limit increased by 2. A minion company may not attack another company at this site. A Ringwraith may not move to this site.",
+    "certified": "2026-07-21"
   },
   {
     "cardType": "minion-site",
