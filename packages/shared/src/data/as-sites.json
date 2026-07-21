@@ -564,7 +564,16 @@
     ],
     "resourceDraws": 1,
     "hazardDraws": 2,
-    "effects": [],
+    "keywords": [
+      "hoard"
+    ],
+    "certified": "2026-07-21",
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "first-minor-item-no-tap"
+      }
+    ],
     "text": "Nearest Darkhaven: Dol GuldurPlayable: Items (minor)Automatic-attacks:Men — 1 strike with 10 prowessSpecial: The first minor item played at this site each turn does not tap the site. Contains a hoard."
   },
   {

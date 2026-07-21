@@ -803,6 +803,15 @@ export interface SitePhaseState {
    */
   readonly firstItemNoTapAvailable?: boolean;
   /**
+   * Whether the current company's site carries the `first-minor-item-no-tap`
+   * site-rule (Framsburg, as-146) and the one free minor item it grants this
+   * site phase has not yet been played. Set true at `select-company` when the
+   * company's current site declares the rule; cleared once a minor item is
+   * played there. Distinct from {@link firstItemNoTapAvailable}, which is the
+   * event-driven, any-subtype version.
+   */
+  readonly firstMinorItemNoTapAvailable?: boolean;
+  /**
    * Whether the current company has already played its one allowed Technology
    * item at the site this site phase via a `technology-item-unlocked` constraint
    * (Saruman's Machinery, wh-120 — "One Technology item is playable at the site
