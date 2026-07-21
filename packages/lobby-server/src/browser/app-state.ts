@@ -11,7 +11,7 @@
  * same objects at runtime rather than each carrying their own copy.
  */
 
-import type { CardDefinitionId, CardInstanceId, CardDefinition, JoinMessage } from '@meccg/shared';
+import type { CardDefinitionId, CardInstanceId, CardDefinition, JoinMessage, DeckList, GameLength } from '@meccg/shared';
 import { loadCardPool, Alignment } from '@meccg/shared';
 
 // ---- Deck types ----
@@ -365,6 +365,31 @@ export function expandEntries(entries: DeckListEntry[]): CardDefinitionId[] {
   return ids;
 }
 
+/**
+ * Convert a browser {@link FullDeck} into the shared {@link DeckList} shape so
+ * the server can validate the exact same structured deck the editor did. The
+ * two shapes are structurally almost identical; the only adjustments are the
+ * alignment (a free-form string on `FullDeck`, a narrow union on `DeckList`)
+ * and defaulting the optional sideboard sections to empty arrays.
+ */
+function toDeckList(deck: FullDeck): DeckList {
+  // FullDeck and DeckList are structurally identical apart from the branded
+  // `CardDefinitionId` on entry `card` fields (a string here) and the narrow
+  // alignment union — the same `as unknown as DeckList` bridge the editor uses
+  // when it validates `editingDeck`.
+  return {
+    id: deck.id,
+    name: deck.name,
+    alignment: deck.alignment,
+    gameLength: (deck as { gameLength?: GameLength }).gameLength,
+    pool: deck.pool,
+    deck: deck.deck,
+    sites: deck.sites,
+    sideboard: deck.sideboard ?? [],
+    antiFwSideboard: deck.antiFwSideboard ?? [],
+  } as unknown as DeckList;
+}
+
 /** Build a JoinMessage from a player deck, filtering out unimplemented cards. */
 export function buildJoinFromDeck(deck: FullDeck, playerName: string): JoinMessage {
   return {
@@ -380,6 +405,8 @@ export function buildJoinFromDeck(deck: FullDeck, playerName: string): JoinMessa
     siteDeck: expandEntries(deck.sites),
     sideboard: expandEntries(deck.sideboard ?? []),
     antiFwSideboard: expandEntries(deck.antiFwSideboard ?? []),
+    // The structured deck the server validates verbatim — see JoinMessage.deckList.
+    deckList: toDeckList(deck),
   };
 }
 

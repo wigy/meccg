@@ -387,7 +387,15 @@ export class GameSession {
    * the verdict to everyone: green for a legal deck, red otherwise.
    */
   private announceDeckLegality(join: JoinMessage, name: string): void {
-    const errors = validateDeck(joinToDeckList(join, name, this.cardPool), this.cardPool);
+    // Prefer the structured deck list the editor validated (join.deckList) so
+    // the server reaches the same verdict on the same input. Only fall back to
+    // reconstructing the deck from the flat card lists (joinToDeckList) for
+    // clients that don't send it — the pseudo-AI and minimal reconnect joins.
+    // That reconstruction re-buckets the play deck by cardType and can mis-file
+    // character-typed hazards (agents, Nazgûl played as creatures), producing a
+    // verdict that disagrees with the deck editor.
+    const deckList = join.deckList ?? joinToDeckList(join, name, this.cardPool);
+    const errors = validateDeck(deckList, this.cardPool);
     this.serverLog.log('deck-validation', {
       player: name,
       errors: errors.length,
