@@ -50,7 +50,8 @@ export type SiteRuleEffect =
   | DynamicUnderDeepsAdjacencySiteRule
   | EndOfTurnWinSiteRule
   | DenyCompanyMoveSiteRule
-  | DenyCompanyAttackSiteRule;
+  | DenyCompanyAttackSiteRule
+  | RingwraithReanimateSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -792,4 +793,35 @@ export interface DenyCompanyAttackSiteRule extends EffectBase {
   readonly rule: 'deny-company-attack';
   /** Condition on `{ attacker, defender }` company contexts; absent = every attack. */
   readonly when?: Condition;
+}
+
+/**
+ * Grants the player whose Ringwraith is at this site an organization-phase
+ * ability: the Ringwraith may tap to bring one character matching `filter`
+ * from that player's discard pile into play **at this site, as another
+ * company**. The reanimated company must, during the following
+ * movement/hazard phase, end at a site different from the Ringwraith's — else
+ * the reanimated character(s) are discarded at the end of the movement/hazard
+ * phase (a `reanimatedRingwraithId` marker on the new company, swept at the
+ * M/H→Site boundary).
+ *
+ * `filter` is evaluated against the discard-pile character's card definition
+ * with the standard DSL matcher (dot-path keys, `$in`/`$or`/…).
+ *
+ * Example — Urlurtsu Nurn (le-409): "If your Ringwraith is at this site, he
+ * may tap during the organization phase to bring one Orc or Troll character
+ * from your discard pile into play at this site (as another company). The
+ * character must move to a different site from that of your Ringwraith this
+ * turn or be discarded at the end of the movement/hazard phase."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "ringwraith-reanimate-from-discard",
+ *   "filter": { "race": { "$in": ["orc", "troll"] } } }
+ * ```
+ */
+export interface RingwraithReanimateSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'ringwraith-reanimate-from-discard';
+  /** DSL condition on the discard-pile character definition (e.g. Orc/Troll). */
+  readonly filter: Condition;
 }

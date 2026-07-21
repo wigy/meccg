@@ -1617,6 +1617,23 @@ export function eliminateCharacter(
 }
 
 /**
+ * Discard a character to their owner's discard pile (recyclable), sending its
+ * possessions to the discard pile and freeing its followers to general
+ * influence. Thin wrapper over {@link discardCharacter} with the default
+ * discard destination. Used by Urlurtsu Nurn (le-409)'s end-of-M/H sweep for a
+ * reanimated character that failed to move to a different site than the
+ * Ringwraith.
+ */
+export function discardCharacterToDiscardPile(
+  state: GameState,
+  playerIndex: number,
+  characterId: import('../index.js').CardInstanceId,
+  charInPlay: import('../index.js').CharacterInPlay,
+): GameState {
+  return discardCharacter(state, playerIndex, characterId, charInPlay, 'discard');
+}
+
+/**
  * Resolve a queued `seized-by-terror-roll` resolution. The character's
  * player rolls 2d6 and adds the character's mind. If roll + mind < threshold
  * (12), the character splits off into a new company at the original company's

@@ -4673,6 +4673,37 @@ Rules:
     "when": { "attacker.isMinion": true } }
   ```
 
+- `ringwraith-reanimate-from-discard` — grants the player whose Ringwraith is
+  at this site an organization-phase ability: the Ringwraith may tap to bring
+  one character matching `filter` from that player's discard pile into play
+  **at this site, as another company**. An org-phase emitter
+  (`siteRingwraithReanimateActivations` in
+  `engine/legal-actions/organization.ts`) offers one `reanimate-from-discard`
+  action per (untapped Ringwraith avatar of race `ringwraith` present at the
+  site, eligible discard-pile character) pair — skipping uniques already in
+  play and manifestations of an in-play entity. The reducer
+  (`handleReanimateFromDiscard`, `engine/reducer-organization.ts`) taps the
+  Ringwraith, removes the character from the discard pile, and mints it under
+  general influence into a new company sharing the in-play site instance
+  (`siteCardOwned: false`), tagged with a `reanimatedRingwraithId` marker; the
+  play does not consume the one-character-per-turn slot (the tap is the cost).
+  At the M/H→Site boundary, `discardStrandedReanimatedCompanies`
+  (`engine/mh-hazard-play.ts`, run from `finalizeCompanyMH`) enforces "must move
+  to a different site from that of your Ringwraith this turn or be discarded":
+  a reanimated company still sharing a site (by definition id) with its
+  Ringwraith's company has its character(s) discarded to the owner's discard
+  pile; one that reached a different site keeps its character(s) and has the
+  turn-scoped marker cleared. `filter` is matched against the discard-pile
+  character's card definition. Used by *Urlurtsu Nurn* (le-409, minion) —
+  "If your Ringwraith is at this site, he may tap during the organization phase
+  to bring one Orc or Troll character from your discard pile into play at this
+  site (as another company)."
+
+  ```json
+  { "type": "site-rule", "rule": "ringwraith-reanimate-from-discard",
+    "filter": { "race": { "$in": ["orc", "troll"] } } }
+  ```
+
 - `allow-creature-by-race` — bypasses the normal keying check for hazard
   creatures whose race matches `race`. Any creature of that race may be
   played against a company whose effective site (destination if moving,

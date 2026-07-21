@@ -40,6 +40,8 @@ import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-deriv
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
+import { isUniqueCharacterInPlay } from '../reducer-utils.js';
+import { manifestationOfEntityInPlay } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -608,6 +610,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Sage-tap ring tests granted by the company's current site (e.g. Mount Doom)
   actions.push(...siteSageRingTestActivations(state, playerId));
 
+  // Ringwraith reanimation from the discard pile granted by the company's
+  // current site (Urlurtsu Nurn le-409)
+  actions.push(...siteRingwraithReanimateActivations(state, playerId));
+
   // Voluntary return-to-hand of an attached ally (Radagast's Black Bird wh-114)
   actions.push(...returnAttachedToHandActions(state, playerId));
 
@@ -712,6 +718,82 @@ export function siteSageRingTestActivations(state: GameState, playerId: PlayerId
           viable: true,
         });
       }
+    }
+  }
+  return actions;
+}
+
+/**
+ * Emit `reanimate-from-discard` activations for the
+ * `ringwraith-reanimate-from-discard` site-rule (Urlurtsu Nurn le-409): "If
+ * your Ringwraith is at this site, he may tap during the organization phase to
+ * bring one Orc or Troll character from your discard pile into play at this
+ * site (as another company)."
+ *
+ * For each company at a site carrying the rule, the player's own Ringwraith
+ * (an untapped avatar of race `ringwraith`) present in that company may tap to
+ * bring one matching character from the discard pile into play. One activation
+ * is emitted per (Ringwraith, eligible discard-pile character) pair. Unique
+ * characters already in play, and manifestations of an in-play entity, are
+ * skipped (they cannot legally be brought into play).
+ */
+export function siteRingwraithReanimateActivations(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const siteDefId = resolveInstanceId(state, company.currentSite.instanceId);
+    if (!siteDefId) continue;
+    const siteDef = defById(state, siteDefId);
+    if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) continue;
+    const rule = siteDef.effects.find(
+      e => e.type === 'site-rule' && (e as { rule?: string }).rule === 'ringwraith-reanimate-from-discard',
+    ) as { filter: Condition } | undefined;
+    if (!rule) continue;
+
+    // The Ringwraith (untapped avatar of race `ringwraith`) must be at this site.
+    let ringwraithId: CardInstanceId | null = null;
+    for (const charId of company.characters) {
+      const char = player.characters[charId];
+      if (!char || char.status !== CardStatus.Untapped) continue;
+      const charDef = defById(state, char.definitionId);
+      if (!isCharacterCard(charDef) || !isAvatarCharacter(charDef)) continue;
+      if ((charDef as { race?: string }).race !== 'ringwraith') continue;
+      ringwraithId = charId;
+      break;
+    }
+    if (!ringwraithId) {
+      logDetail(`${siteDef.name}: reanimate-from-discard requires an untapped Ringwraith at the site — none present`);
+      continue;
+    }
+
+    // Enumerate eligible characters in the discard pile.
+    for (const card of player.discardPile) {
+      const cardDef = defById(state, card.definitionId);
+      if (!cardDef || !isCharacterCard(cardDef)) continue;
+      if (!matchesDefinition(cardDef, rule.filter)) continue;
+      if (cardDef.unique && isUniqueCharacterInPlay(state, cardDef.name)) {
+        logDetail(`${siteDef.name}: ${cardDef.name} is unique and already in play — cannot reanimate`);
+        continue;
+      }
+      const blockingManifestation = manifestationOfEntityInPlay(state, cardDef);
+      if (blockingManifestation !== null) {
+        logDetail(`${siteDef.name}: ${blockingManifestation} (a manifestation of ${cardDef.name}) is in play — cannot reanimate`);
+        continue;
+      }
+      logDetail(`${siteDef.name}: Ringwraith may tap to reanimate ${cardDef.name} from the discard pile as a new company`);
+      actions.push({
+        action: {
+          type: 'reanimate-from-discard',
+          player: playerId,
+          ringwraithInstanceId: ringwraithId,
+          characterInstanceId: card.instanceId,
+          siteInstanceId: company.currentSite.instanceId,
+        },
+        viable: true,
+      });
     }
   }
   return actions;
