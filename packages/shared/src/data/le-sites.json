@@ -2251,9 +2251,27 @@
     "nearestHaven": "Minas Morgul",
     "region": "Ithilien",
     "playableResources": [],
-    "automaticAttacks": [],
+    "automaticAttacks": [
+      {
+        "creatureType": "Dúnedain",
+        "strikes": 1,
+        "prowess": 7,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 1,
+    "certified": "2026-07-21",
     "text": "Nearest Darkhaven: Minas MorgulAutomatic-attacks: Dúnedain — each character faces 1 strike with 7 prowess (detainment against covert company)"
   },
   {
