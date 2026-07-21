@@ -2357,10 +2357,31 @@
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Northern Rhovanion",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "information"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 6,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      }
+    ],
     "resourceDraws": 2,
     "hazardDraws": 2,
+    "unique": true,
+    "certified": "2026-07-21",
     "text": "Nearest Darkhaven: Dol GuldurPlayable: InformationAutomatic-attacks: Men — each character faces 1 strike with 6 prowess (detainment against covert company)"
   },
   {
