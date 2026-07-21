@@ -334,7 +334,13 @@
         "apply": {
           "type": "enqueue-corruption-check",
           "modifier": -3,
-          "target": "company-shadow-magic-user"
+          "target": "company-member",
+          "filter": {
+            "$and": [
+              { "race": { "$ne": "ringwraith" } },
+              { "skills": { "$includes": "shadow-magic" } }
+            ]
+          }
         }
       },
       {

@@ -2232,11 +2232,13 @@ Apply types:
   (`handleFetchFromPile`, `resolvePendingEffect`).
 
   **Permanent events** (character-attached): targets `action.targetCharacterId`
-  by default. When `apply.target === "company-shadow-magic-user"`, the reducer
-  finds the first non-Ringwraith character in the bearer's company with the
-  `"shadow-magic"` skill and targets them instead; Ringwraith characters are
-  silently skipped (no corruption check enqueued). Used by *Well-preserved*
-  (as-108). Implemented in `chain-reducer.ts` `resolvePermanentEvent()`.
+  by default. When `apply.target === "company-member"`, the reducer targets the
+  first character in the bearer's company whose card definition matches
+  `apply.filter` (a DSL condition over definition fields like `race` and
+  `skills`); when no member matches, no corruption check is enqueued. Used by
+  *Well-preserved* (as-108) to pick the company's non-Ringwraith shadow-magic
+  user — Ringwraiths are exempt from the check, so the filter excludes them.
+  Implemented in `chain-reducer.ts` `resolvePermanentEvent()`.
 
   ```json
   { "type": "on-event", "event": "self-enters-play",
@@ -2246,7 +2248,10 @@ Apply types:
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "enqueue-corruption-check", "modifier": -3,
-               "target": "company-shadow-magic-user" } }
+               "target": "company-member",
+               "filter": { "$and": [
+                 { "race": { "$ne": "ringwraith" } },
+                 { "skills": { "$includes": "shadow-magic" } } ] } } }
   ```
 
   An optional `onSuccess` field carries a follow-up {@link TriggeredAction}
