@@ -1147,7 +1147,7 @@
     ],
     "automaticAttacks": [
       {
-        "creatureType": "",
+        "creatureType": "Balrog",
         "strikes": 2,
         "prowess": 16
       }
@@ -1155,9 +1155,41 @@
     "keywords": [
       "under-deeps"
     ],
+    "adjacentSites": {
+      "Moria": 0,
+      "The Under-grottos": 7,
+      "The Gem-deeps": 6,
+      "The Sulfur-deeps": 4,
+      "The Under-leas": 5
+    },
     "resourceDraws": 2,
     "hazardDraws": 2,
-    "effects": [],
+    "effects": [
+      {
+        "type": "site-rule",
+        "rule": "cancel-first-attack-if-in-play",
+        "definitionId": "tw-12"
+      },
+      {
+        "type": "site-rule",
+        "rule": "dynamic-auto-attack",
+        "keying": {
+          "siteTypes": [
+            "ruins-and-lairs"
+          ]
+        }
+      },
+      {
+        "type": "site-rule",
+        "rule": "attacks-not-detainment",
+        "filter": {
+          "enemy.race": {
+            "$ne": "nazgul"
+          }
+        }
+      }
+    ],
+    "certified": "2026-07-21",
     "text": "Adjacent Sites: Moria (0), The Under-grottos (7), The Gem-deeps (6), The Sulfur-deeps (4), Under-leas (5)Playable: Items (minor, major)Automatic-attacks (2):(1st) Balrog — 2 strikes with 16 prowess(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Ruins & Lairs [{R}]Special: Non-Nazgûl creatures played at this site attack normally, not as detainment. If a manifestation of Balrog of Moria is in play or defeated, the first automatic-attack is canceled."
   },
   {
