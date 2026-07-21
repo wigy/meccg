@@ -2362,11 +2362,31 @@
     ],
     "nearestHaven": "Carn Dûm",
     "region": "Forochel",
-    "playableResources": [],
-    "automaticAttacks": [],
+    "playableResources": [
+      "gold-ring"
+    ],
+    "automaticAttacks": [
+      {
+        "creatureType": "Men",
+        "strikes": 1,
+        "prowess": 5,
+        "combatRules": [
+          "each-character"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.covert": true
+        }
+      }
+    ],
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "text": "Nearest Darkhaven: Carn DûmPlayable: Items (gold ring)Automatic-attacks: Men — each character faces 1 strike with 5 prowess (detainment against covert company)"
+    "unique": true,
+    "text": "Nearest Darkhaven: Carn Dûm Playable: Items (gold ring) Automatic-attacks: Men — each character faces 1 strike with 5 prowess (detainment against covert company)"
   },
   {
     "cardType": "minion-site",
