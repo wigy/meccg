@@ -48,7 +48,9 @@ export type SiteRuleEffect =
   | AllowAgentPlaySiteRule
   | ProtectedWizardhavenSiteRule
   | DynamicUnderDeepsAdjacencySiteRule
-  | EndOfTurnWinSiteRule;
+  | EndOfTurnWinSiteRule
+  | DenyCompanyMoveSiteRule
+  | DenyCompanyAttackSiteRule;
 
 /** Wounded characters at this site heal during untap as if the site were a haven. */
 export interface HealingAffectsAllSiteRule extends EffectBase {
@@ -736,4 +738,58 @@ export interface HazardSiteTypeOverrideSiteRule extends EffectBase {
   readonly siteType: SiteType;
   /** Optional site path (region-types) to use for hazard keying "if needed". */
   readonly sitePath?: readonly RegionType[];
+}
+
+/**
+ * Forbids a company matching `when` from declaring movement **to** this site.
+ * Enforced at organization-phase plan-movement (the destination is dropped
+ * from the company's candidate list, across regular/starter, Eagle/Gwaihir,
+ * Under-deeps and Deep Mines passes) with a reducer backstop rejecting a
+ * `plan-movement` action that names the site.
+ *
+ * The optional `when` condition is evaluated against
+ * `{ company: { hasRingwraith } }` — `hasRingwraith` is true when any
+ * character in the moving company has `race: ringwraith` (a Ringwraith avatar
+ * or a Ringwraith follower). When `when` is absent the rule bars every
+ * company.
+ *
+ * Example — Rivendell (as-160): "A Ringwraith may not move to this site."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "deny-company-move",
+ *   "when": { "company.hasRingwraith": true } }
+ * ```
+ */
+export interface DenyCompanyMoveSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'deny-company-move';
+  /** Condition on `{ company: { hasRingwraith } }`; absent = every company. */
+  readonly when?: Condition;
+}
+
+/**
+ * Forbids company-vs-company attacks at this site. Checked whenever a CvCC
+ * attack would be offered or declared (both companies are at this site by
+ * definition — CvCC requires a shared site); a matching rule on **either**
+ * company's current site card suppresses the attack.
+ *
+ * The optional `when` condition is evaluated against the same context as
+ * `cvcc-attack-permission`:
+ * `{ attacker: { alignment, isMinion, hasRingwraith },
+ *    defender: { alignment, isMinion, hasRingwraith } }`.
+ * When `when` is absent the rule bars every CvCC attack here.
+ *
+ * Example — Rivendell (as-160): "A minion company may not attack another
+ * company at this site."
+ *
+ * ```json
+ * { "type": "site-rule", "rule": "deny-company-attack",
+ *   "when": { "attacker.isMinion": true } }
+ * ```
+ */
+export interface DenyCompanyAttackSiteRule extends EffectBase {
+  readonly type: 'site-rule';
+  readonly rule: 'deny-company-attack';
+  /** Condition on `{ attacker, defender }` company contexts; absent = every attack. */
+  readonly when?: Condition;
 }
