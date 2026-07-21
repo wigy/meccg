@@ -699,6 +699,7 @@
     "alignment": "ringwraith",
     "id": "as-152",
     "name": "The Iron-deeps",
+    "certified": "2026-07-21",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TheIrondeeps.jpg",
     "unique": true,
     "siteType": "dark-hold",
@@ -715,9 +716,21 @@
         "prowess": 10
       }
     ],
+    "keywords": [
+      "under-deeps"
+    ],
+    "adjacentSites": {
+      "Carn Dûm": 0,
+      "The Under-leas": 5,
+      "The Under-vaults": 6
+    },
     "resourceDraws": 1,
     "hazardDraws": 1,
-    "effects": [],
+    "effects": [
+      {
+        "type": "combat-detainment"
+      }
+    ],
     "text": "Adjacent Sites: Carn Dûm (0), The Under-leas (5), The Under-vaults (6)Playable: Items (minor)Automatic-attacks:Trolls — 3 strikes with 10 prowess (detainment)"
   },
   {
