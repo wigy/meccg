@@ -29,11 +29,12 @@
  *    reduces the agent's mind by one (floor 1). Only offered at Darkhavens —
  *    never at other sites, and never for a Wizard/Balrog player.
  *  - Setup (rules 4–5): the card is a `starting-item` carrying
- *    `starting-company-placement`. Each copy in the play deck lifts the
- *    Ringwraith/Fallen-wizard agent draft-gate (rules 1.41/1.42) for ONE agent,
- *    so an agent may be drafted as a starting character; during the item draft
- *    the copy is placed with that agent "in lieu of a minor item", reducing its
- *    mind. The placement is offered only on an agent character.
+ *    `starting-company-placement`. Each copy the player holds for the starting
+ *    company — in the play deck or in the draft pool "in lieu of a minor item" —
+ *    lifts the Ringwraith/Fallen-wizard agent draft-gate (rules 1.41/1.42) for
+ *    ONE agent, so an agent may be drafted as a starting character; during the
+ *    item draft the copy is placed with that agent, reducing its mind. The
+ *    placement is offered only on an agent character.
  *  - "Does not allow you to start with a character that says he cannot be in the
  *    starting company" — enforced by the existing `not-starting-character`
  *    draft rule (an agent flagged so is never draftable).
@@ -227,6 +228,67 @@ describe('Open to the Summons (wh-46)', () => {
   test('with the enabler in the play deck, the Ringwraith may draft one agent as a starting character', () => {
     const state = createGame(rwDraftConfig([OPEN_TO_THE_SUMMONS]), pool);
     expect(agentDraftPicks(state).length).toBeGreaterThan(0);
+  });
+
+  test('with the enabler in the draft pool "in lieu of a minor item", a Ringwraith may draft one agent', () => {
+    // Reproduces game mruf9v4i-hhj3y4 (seq 1): Open to the Summons sat in the
+    // draft pool (a minor-item substitute), not the play deck. The agent-summons
+    // gate only counted play-deck copies, so the Ringwraith could never draft
+    // the agents sharing the pool with the enabler.
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Ringwraith,
+          draftPool: [BILL_FERNY, ORC_BRAWLER, OPEN_TO_THE_SUMMONS], playDeck: makePlayDeck(), siteDeck: [MINAS_MORGUL], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [OPPONENT_CHAR], playDeck: makePlayDeck(), siteDeck: [MORIA], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    const state = createGame(config, pool);
+    expect(agentDraftPicks(state).length).toBeGreaterThan(0);
+    // The reducer accepts the draft too.
+    const agentId = draftInstId(state, RESOURCE_PLAYER, BILL_FERNY);
+    expect(reduce(state, { type: 'draft-pick', player: PLAYER_1, characterInstanceId: agentId }).error).toBeUndefined();
+  });
+
+  test('a pool enabler drafts through to the item draft, where it is placed on the agent (mind 3 → 2)', () => {
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Ringwraith,
+          draftPool: [BILL_FERNY, ORC_BRAWLER, OPEN_TO_THE_SUMMONS], playDeck: makePlayDeck(), siteDeck: [MINAS_MORGUL], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [OPPONENT_CHAR], playDeck: makePlayDeck(), siteDeck: [MORIA], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    // Draft the agent + the filler; opponent takes their only pick. The pool's
+    // undrafted enabler is sunk to the sideboard so the item draft still offers
+    // it (the no-card-disappears invariant), keeping the step open.
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, RESOURCE_PLAYER, BILL_FERNY) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, OPPONENT_CHAR) },
+    ]);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, RESOURCE_PLAYER, ORC_BRAWLER) },
+    ]);
+    // The undrafted enabler still sits in the pool (a Ringwraith cannot draft a
+    // Stage resource), so the draft does not auto-finalise — stop explicitly.
+    state = runActions(state, [{ type: 'draft-stop', player: PLAYER_1 }]);
+    expect((state.phaseState as { setupStep?: { step?: string } }).setupStep?.step).toBe('item-draft');
+
+    const agentId = state.players[RESOURCE_PLAYER].companies.flatMap(c => c.characters)
+      .find(id => state.players[RESOURCE_PLAYER].characters[id]?.definitionId === BILL_FERNY)!;
+    const placeOnAgent = computeLegalActions(state, PLAYER_1).find(
+      a => a.viable && a.action.type === 'place-starting-company-event'
+        && (a.action as { cardDefId?: CardDefinitionId }).cardDefId === OPEN_TO_THE_SUMMONS
+        && (a.action as { targetCharacterInstanceId?: CardInstanceId }).targetCharacterInstanceId === agentId,
+    );
+    expect(placeOnAgent).toBeDefined();
+    const after = recomputeDerived(dispatch(state, placeOnAgent!.action));
+    const ferny = getCharacter(after, RESOURCE_PLAYER, BILL_FERNY);
+    expect(ferny.items.some(i => i.definitionId === OPEN_TO_THE_SUMMONS)).toBe(true);
+    expect(ferny.effectiveStats.mind).toBe(2);
   });
 
   test('the reducer accepts the agent draft only while an enabler is held', () => {

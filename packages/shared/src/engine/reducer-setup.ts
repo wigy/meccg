@@ -19,7 +19,7 @@ import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersInDeck, countDraftedAgents } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 import { sameManifestationEntity } from './manifestations.js';
 
@@ -235,11 +235,13 @@ function handleCharacterDraft(
           return { state, error: 'A hazard agent cannot be drafted as a character' };
         }
 
-        // Open to the Summons (wh-46): each copy held in the play deck lets a
+        // Open to the Summons (wh-46): each copy the player holds for the
+        // starting company — in the play deck, in the draft pool "in lieu of a
+        // minor item", or already drafted as a Stage resource — lets a
         // Ringwraith or Fallen-wizard draft ONE agent as a starting character
         // (rules 1.41/1.42). The gate is lifted while fewer agents have been
         // drafted than enablers held.
-        const agentSummonsEnablers = countAgentSummonsEnablersInDeck(state, state.players[playerIndex]);
+        const agentSummonsEnablers = countAgentSummonsEnablersForDraft(state, state.players[playerIndex], playerDraft);
         const agentsDrafted = countDraftedAgents(state, playerDraft.drafted);
         const summonsAgentAllowed = agentsDrafted < agentSummonsEnablers;
 
@@ -260,7 +262,8 @@ function handleCharacterDraft(
 
         // Ringwraith draft gate (rule 1.41, CoE 1.9.R2): a Ringwraith cannot draft
         // agent characters unless an enabling resource (Open to the Summons,
-        // wh-46) in the play deck lifts the gate for one agent.
+        // wh-46) — held in the play deck or brought in the pool "in lieu of a
+        // minor item" — lifts the gate for one agent.
         if (state.players[playerIndex].alignment === Alignment.Ringwraith && isAgentCharacter(charDef) && !summonsAgentAllowed) {
           logDetail(`${charDef.name} (agent) blocked: a Ringwraith cannot draft agent characters`);
           return { state, error: 'A Ringwraith cannot draft an agent character during the character draft' };

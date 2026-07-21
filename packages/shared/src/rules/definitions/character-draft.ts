@@ -25,10 +25,10 @@
  * - `ctx.fwAgentGateActive` — true under the same Fallen-wizard condition;
  *   while active, agent characters cannot be drafted (rule 1.42)
  * - `ctx.ringwraithAgentGateActive` — true when the drafting player is a
- *   Ringwraith; while active, agent characters cannot be drafted (rule 1.41).
- *   A Ringwraith never drafts resources during the character draft, so unlike
- *   the Fallen-wizard agent gate there is no enabling card that can lift it —
- *   the gate is active for the entire draft (CoE 1.9.R2).
+ *   Ringwraith who holds no unconsumed agent-summons enabler (Open to the
+ *   Summons); while active, agent characters cannot be drafted (rule 1.41).
+ *   The enabler may sit in the play deck or ride in the pool "in lieu of a minor
+ *   item"; each one lifts the gate for a single agent (CoE 1.9.R2).
  * - `card.isOrcOrTroll` — true when the drafting player is a Fallen-wizard and
  *   this candidate is an Orc or Troll character (Half-orcs count as Orcs)
  * - `ctx.fwOrcTrollPermitted` — true when `card.isOrcOrTroll` is false, or a
@@ -106,10 +106,10 @@ export const CHARACTER_DRAFT_RULES: RuleSet = {
     },
     {
       // Rule 1.41 (CoE 1.9.R2): a Ringwraith cannot reveal an agent character
-      // during the draft unless an enabling resource (e.g. Open to the Summons)
-      // has already been drafted. A Ringwraith does not draft resources during
-      // the character draft, so the gate cannot be lifted and agents are never
-      // draftable for a Ringwraith.
+      // during the draft unless an enabling resource (Open to the Summons) is
+      // held for the starting company — in the play deck or brought in the pool
+      // "in lieu of a minor item". Each enabler lifts the gate for one agent;
+      // without one the gate stays active.
       id: 'rw-draft-agent',
       condition: {
         $or: [

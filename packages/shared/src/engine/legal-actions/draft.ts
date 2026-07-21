@@ -20,7 +20,7 @@ import { Alignment, Race } from '../../types/common.js';
 import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
-import { defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, getCardEffects, matchesDefinition, countAgentSummonsEnablersInDeck, countDraftedAgents } from '../reducer-utils.js';
+import { defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, getCardEffects, matchesDefinition, countAgentSummonsEnablersForDraft, countDraftedAgents } from '../reducer-utils.js';
 import { siteMatchesStageResourceTarget, unpairedSiteStageResources, blockingSiteStageResources } from '../stage-resource-sites.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -103,16 +103,19 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
   }).length;
   const hasFreeVehicle = vehiclesDrafted > gatedCharsDrafted;
   const fwGateActive = isFallenWizard && !hasFreeVehicle;
-  // Rule 1.41 (CoE 1.9.R2): a Ringwraith cannot draft agent characters. Unlike
-  // the Fallen-wizard gate there is no draftable enabler, so the gate is active
-  // for the whole draft whenever the player is a Ringwraith.
+  // Rule 1.41 (CoE 1.9.R2): a Ringwraith cannot draft agent characters unless an
+  // enabling resource (Open to the Summons) is held for the starting company —
+  // see the agent-summons enabler count below. Without one the gate stays active
+  // for the whole draft.
   const isRingwraith = state.players[playerIndex].alignment === Alignment.Ringwraith;
 
-  // Open to the Summons (wh-46): each copy in the play deck lets a Ringwraith or
-  // Fallen-wizard draft ONE agent as a starting character (the copy is later
-  // placed with that agent "in lieu of a minor item" during the item draft).
-  // The gate is lifted while fewer agents have been drafted than enablers held.
-  const agentSummonsEnablers = countAgentSummonsEnablersInDeck(state, state.players[playerIndex]);
+  // Open to the Summons (wh-46): each copy the player holds for the starting
+  // company — in the play deck, in the draft pool "in lieu of a minor item", or
+  // already drafted as a Stage resource — lets a Ringwraith or Fallen-wizard
+  // draft ONE agent as a starting character (the copy is later placed with that
+  // agent during the item draft). The gate is lifted while fewer agents have
+  // been drafted than enablers held.
+  const agentSummonsEnablers = countAgentSummonsEnablersForDraft(state, state.players[playerIndex], draft);
   const agentsDrafted = countDraftedAgents(state, draft.drafted);
   const summonsAgentAllowed = agentsDrafted < agentSummonsEnablers;
 

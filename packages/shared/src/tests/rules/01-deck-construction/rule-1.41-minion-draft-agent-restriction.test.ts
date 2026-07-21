@@ -12,10 +12,10 @@
  *
  * [MINION] A Ringwraith player cannot reveal agent characters during the character draft unless they have already drafted a resource that specifically allows them to play agent characters (e.g. Open to the Summons).
  *
- * Unlike a Fallen-wizard (rule 1.42), a Ringwraith does not draft resources
- * during the character draft, so there is no enabling card that can be "already
- * drafted" to lift this restriction — in practice a Ringwraith can never draft
- * an agent character.
+ * The restriction is lifted only by an enabling resource (Open to the Summons,
+ * wh-46) the Ringwraith holds for the starting company — in the play deck or
+ * brought in the pool "in lieu of a minor item" (covered by the wh-46 card
+ * test). Drafting an ordinary (non-enabling) character never lifts it.
  */
 
 import { describe, test, expect } from 'vitest';
@@ -87,8 +87,8 @@ describe('Rule 1.41 — Minion Draft Agent Restriction', () => {
   test('[MINION] the agent restriction cannot be lifted — drafting another character does not unlock an agent', () => {
     let state = createGame(makeRingwraithConfig(), pool);
     // Complete a draft round: the Ringwraith takes the non-agent character and
-    // the opponent takes theirs. Drafting a character provides no enabler (a
-    // Ringwraith never drafts a resource), so the agent stays blocked.
+    // the opponent takes theirs. Drafting an ordinary character provides no
+    // agent-summons enabler, so the agent stays blocked.
     state = runActions(state, [
       { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, MIONID) },
       { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, BALIN) },
