@@ -14,6 +14,8 @@ import { SiteType, Alignment, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RingwraithSelfFollowerEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
+import { evaluateAction } from '../../rules/evaluator.js';
+import { CHARACTER_PLAY_RULES } from '../../rules/definitions/character-play.js';
 import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay } from '../manifestations.js';
@@ -199,6 +201,49 @@ function hasEliminatedAvatar(
     const def = defById(state, c.definitionId);
     return isCharacterCard(def) && def.mind === null;
   });
+}
+
+/**
+ * True when the one-character-play-per-turn limit blocks this candidate.
+ * A character was already played this turn AND neither exception applies:
+ *
+ * - Buddy-play (troll-triplet co-play): a character with `coPlayCompanions`
+ *   may be played on the same turn as one of its listed companions (e.g.
+ *   Bûrat, Tûma, and Wûluag may all be played in the same organization phase).
+ * - MEBA §characters: a Balrog player may bring a SECOND character into play
+ *   this organization phase, but it must be non-unique. The first play sets
+ *   the count to 1; the second (non-unique) is still allowed.
+ */
+function characterPlayLimitReached(
+  phaseState: {
+    readonly characterPlayedThisTurn: boolean;
+    readonly charactersBroughtIntoPlayThisTurn?: number;
+    readonly buddyGroupPlayedThisTurn?: readonly string[];
+  },
+  alignment: Alignment,
+  cardDef: CharacterCard,
+): boolean {
+  if (!phaseState.characterPlayedThisTurn) return false;
+
+  const buddyPlayEffect = (cardDef.effects ?? []).find(
+    (e): e is PlayFlagEffect => e.type === 'play-flag' && e.flag === 'buddy-play',
+  );
+  const buddyGroupPlayedThisTurn = phaseState.buddyGroupPlayedThisTurn ?? [];
+  const defId = cardDef.id as string;
+  const buddyAllowed = buddyGroupPlayedThisTurn.includes(defId) ||
+    (buddyPlayEffect?.companions?.some(c => buddyGroupPlayedThisTurn.includes(c)) ?? false);
+
+  const playedCount = phaseState.charactersBroughtIntoPlayThisTurn ?? 1;
+  const balrogSecondAllowed = alignment === Alignment.Balrog
+    && playedCount < 2
+    && !cardDef.unique;
+
+  if (balrogSecondAllowed) {
+    logDetail(`  → Balrog second-character exception: ${cardDef.name} (non-unique) may be played as the 2nd character this turn`);
+  } else if (buddyAllowed) {
+    logDetail(`  → buddy-play exception: ${cardDef.name} may be played (companion played this turn)`);
+  }
+  return !buddyAllowed && !balrogSecondAllowed;
 }
 
 /**
@@ -538,6 +583,12 @@ export function playCharacterActions(
     logDetail(`Avatar in play at site ${avatarSiteId as string} — character play restricted (rule 2.II.2.2)`);
   }
 
+  // Per-player facts shared by every candidate's eligibility context.
+  const playsAsSauron = playerPlaysAsSauron(state, player);
+  const agentsAreHazards = player.alignment === Alignment.Wizard || player.alignment === Alignment.Balrog;
+  const playerAvatarEliminated = hasEliminatedAvatar(state, player);
+  const opponentPlayer = state.players.find(p => p.id !== playerId);
+
   for (const handCard of candidateCards) {
     const cardInstanceId = handCard.instanceId;
     const cardDef = defById(state, handCard.definitionId);
@@ -548,153 +599,59 @@ export function playCharacterActions(
 
     logDetail(`Evaluating play-character: ${charName} (mind ${cardDef.mind ?? 'avatar'}, DI ${cardDef.directInfluence})`);
 
-    // The Lidless Eye (le-203) / Sauron (ba-43): "You are Sauron, not a
-    // Ringwraith. You may not reveal a Ringwraith..." — while the player counts
-    // as Sauron they cannot reveal a Ringwraith avatar. (Ringwraith followers
-    // are blocked separately in ringwraithFollowerPlayAction.)
-    if (isAvatar && cardDef.race === Race.Ringwraith && playerPlaysAsSauron(state, player)) {
-      const reason = `${charName}: you are Sauron — you may not reveal a Ringwraith while The Lidless Eye is in play`;
-      logDetail(`  → blocked: ${reason}`);
-      results.push({
-        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-        viable: false,
-        reason,
-      });
+    // CoE 2.II.2.2.F2: the Fallen-wizard Orc/Troll permission is precomputed
+    // (rather than folded into the context inline) because a matching
+    // permission may also unlock play at the player's own Wizardhavens —
+    // A Strident Spawn (wh-61) lets Half-orcs be played at the player's
+    // Wizardhavens even when the avatar is elsewhere; the per-site loop
+    // below consumes that flag. (Half-orcs are race Orc.)
+    const isFwOrcTroll = player.alignment === Alignment.FallenWizard
+      && (cardDef.race === Race.Orc || cardDef.race === Race.Troll);
+    const orcTrollPerm = isFwOrcTroll
+      ? orcTrollPlayPermission(state, player, cardDef)
+      : { permitted: true, atOwnWizardhavens: false };
+
+    // Sequential eligibility gates, evaluated declaratively against
+    // CHARACTER_PLAY_RULES (rules/definitions/character-play.ts). The probe
+    // action carries no site: it is surfaced only when blocked, so the client
+    // can dim the card with the failure reason as a tooltip.
+    const gate = evaluateAction(
+      { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
+      CHARACTER_PLAY_RULES,
+      {
+        card: {
+          name: charName,
+          isAvatar,
+          isRingwraithAvatar: isAvatar && cardDef.race === Race.Ringwraith,
+          isHazardAgentOnly: hasPlayFlag(cardDef, 'hazard-agent-only'),
+          isAgent: isAgentCharacter(cardDef),
+          unique: cardDef.unique,
+          isOrcOrTroll: isFwOrcTroll,
+        },
+        ctx: {
+          playsAsSauron,
+          agentsAreHazards,
+          characterPlayLimitReached: characterPlayLimitReached(phaseState, player.alignment, cardDef),
+          uniqueAlreadyInPlay: cardDef.unique && isUniqueCharacterInPlay(state, charName),
+          blockingManifestation: manifestationOfEntityInPlay(state, cardDef),
+          hasEliminatedAvatar: playerAvatarEliminated,
+          mustReplayReturnedRingwraith: isAvatar && cardDef.race === Race.Ringwraith
+            && player.ringwraithReturnedToHand !== undefined
+            && cardDef.id !== player.ringwraithReturnedToHand,
+          opponentReturnedThisRingwraith: isAvatar && cardDef.race === Race.Ringwraith
+            && opponentPlayer?.ringwraithReturnedToHand === cardDef.id,
+          fwOrcTrollPermitted: orcTrollPerm.permitted,
+        },
+      },
+    );
+    if (!gate.viable) {
+      logDetail(`  → blocked: ${gate.reason}`);
+      results.push(gate);
       continue;
     }
-
-    // Pure "Hazard Agent" cards (Lobelia dm-28, My Precious dm-29) are deploy-only:
-    // played only as agent hazards, never recruited/played as company characters
-    // by any player. (Distinct from dual-use agents like Baduila dm-2, which a
-    // Ringwraith/Fallen-wizard player may play as characters at the home site.)
-    if (hasPlayFlag(cardDef, 'hazard-agent-only')) {
-      logDetail(`  → blocked: ${charName} is a hazard-only agent — cannot be played as a character`);
-      results.push({
-        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-        viable: false,
-        reason: `${charName}: a hazard agent — can only be deployed as an agent, not played as a character`,
-      });
-      continue;
-    }
-
-    // Rule 1.3.W2 / 1.3.B2: For Wizard and Balrog players, agent cards are
-    // treated as hazard cards in all areas — they cannot be played as characters.
-    // Rule 2.II.2.2.5: Only Ringwraith and Fallen-wizard players may play agents
-    // as characters.
-    if (isAgentCharacter(cardDef)) {
-      const playerAlignment = player.alignment;
-      if (playerAlignment === Alignment.Wizard || playerAlignment === Alignment.Balrog) {
-        logDetail(`  → blocked: ${charName} is an agent; Wizard/Balrog players treat agents as hazards (rules 1.3.W2/1.3.B2)`);
-        results.push({
-          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-          viable: false,
-          reason: `${charName}: agents are treated as hazard cards for Wizard/Balrog players and cannot be played as characters`,
-        });
-        continue;
-      }
-    }
-
-    // Rule: only one character play per turn.
-    // Exception: troll-triplet co-play — a character with `coPlayCompanions` may
-    // be played on the same turn as one of its listed companions (e.g. Bûrat,
-    // Tûma, and Wûluag may all be played in the same organization phase).
-    if (phaseState.characterPlayedThisTurn) {
-      // Buddy-play exception: if this character belongs to a buddy group whose
-      // companion was already played this turn, it may still be played.
-      const buddyPlayEffect = (cardDef.effects ?? []).find(
-        (e): e is PlayFlagEffect => e.type === 'play-flag' && e.flag === 'buddy-play',
-      );
-      const buddyGroupPlayedThisTurn = phaseState.buddyGroupPlayedThisTurn ?? [];
-      const defId = cardDef.id as string;
-      const buddyAllowed = buddyGroupPlayedThisTurn.includes(defId) ||
-        (buddyPlayEffect?.companions?.some(c => buddyGroupPlayedThisTurn.includes(c)) ?? false);
-
-      // MEBA §characters: a Balrog player may bring a SECOND character into play
-      // this organization phase, but it must be non-unique. The first play sets
-      // the count to 1; the second (non-unique) is still allowed.
-      const playedCount = phaseState.charactersBroughtIntoPlayThisTurn ?? 1;
-      const balrogSecondAllowed = player.alignment === Alignment.Balrog
-        && playedCount < 2
-        && !cardDef.unique;
-      if (balrogSecondAllowed) {
-        logDetail(`  → Balrog second-character exception: ${charName} (non-unique) may be played as the 2nd character this turn`);
-      }
-
-      if (!buddyAllowed && !balrogSecondAllowed) {
-        logDetail(`  → blocked: already played a character this turn`);
-        results.push({
-          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-          viable: false,
-          reason: `${charName}: already played a character this turn`,
-        });
-        continue;
-      }
-      logDetail(`  → buddy-play exception: ${charName} may be played (companion played this turn)`);
-    }
-
-    // Rule: unique characters cannot be in play twice
-    if (cardDef.unique && isUniqueCharacterInPlay(state, charName)) {
-      logDetail(`  → blocked: ${charName} is unique and already in play`);
-      results.push({
-        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-        viable: false,
-        reason: `${charName}: unique character already in play`,
-      });
-      continue;
-    }
-
-    // Glossary g.man.1: only one manifestation of an entity may be in play,
-    // regardless of alignment — e.g. Aragorn II (tw-120) cannot be played
-    // normally while Strider (ba-1) is in play, and vice versa. The
-    // `manifestation-swap` action is the sanctioned path (there the current
-    // manifestation leaves play as part of the play).
-    const blockingManifestation = manifestationOfEntityInPlay(state, cardDef);
-    if (blockingManifestation !== null) {
-      logDetail(`  → blocked: ${blockingManifestation}, a manifestation of the same entity as ${charName}, is in play (g.man.1)`);
-      results.push({
-        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-        viable: false,
-        reason: `${charName}: ${blockingManifestation}, a manifestation of the same entity, is already in play`,
-      });
-      continue;
-    }
-
-    // Rule 2.I.5 (CoE rule 2.05): a player whose avatar has been eliminated
-    // cannot reveal another avatar.
-    if (isAvatar && hasEliminatedAvatar(state, player)) {
-      logDetail(`  → blocked: ${charName} is an avatar and this player already has an eliminated avatar`);
-      results.push({
-        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-        viable: false,
-        reason: `${charName}: cannot reveal another avatar after one was eliminated`,
-      });
-      continue;
-    }
-
-    // MELE §8.R1: Ringwraith return-to-hand reveal restrictions.
-    // (a) A player whose Ringwraith returned to hand may not reveal a *different* Ringwraith.
-    if (isAvatar && cardDef.race === Race.Ringwraith && player.ringwraithReturnedToHand) {
-      if (cardDef.id !== player.ringwraithReturnedToHand) {
-        logDetail(`  → blocked: ${charName} is a different Ringwraith; ${player.ringwraithReturnedToHand as string} must be re-played first (MELE §8.R1)`);
-        results.push({
-          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-          viable: false,
-          reason: `${charName}: a Ringwraith has been returned to hand — you must re-play that Ringwraith before revealing a different one`,
-        });
-        continue;
-      }
-    }
-
-    // (b) The opponent may not reveal the Ringwraith that was returned to that player's hand.
-    const opponentPlayer = state.players.find(p => p.id !== playerId);
-    if (isAvatar && cardDef.race === Race.Ringwraith && opponentPlayer?.ringwraithReturnedToHand === cardDef.id) {
-      logDetail(`  → blocked: ${charName} (def ${cardDef.id}) was returned to opponent's hand; opponent must re-play it first (MELE §8.R1)`);
-      results.push({
-        action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-        viable: false,
-        reason: `${charName}: the opponent's Ringwraith of this type was returned to their hand and may not be revealed by you`,
-      });
-      continue;
+    const orcTrollAtWizardhavens = orcTrollPerm.atOwnWizardhavens;
+    if (isFwOrcTroll) {
+      logDetail(`  → Orc/Troll play permitted${orcTrollAtWizardhavens ? ' (and at own Wizardhavens regardless of avatar location)' : ''}`);
     }
 
     // Rule 2.II.2.1.1: a player who has revealed their avatar cannot play a
@@ -703,29 +660,6 @@ export function playCharacterActions(
     if (isAvatar && avatarInPlay && avatar) {
       results.push(ringwraithFollowerPlayAction(state, playerId, player, cardInstanceId, cardDef, avatar, avatarSiteId));
       continue;
-    }
-
-    // CoE 2.II.2.2.F2: a Fallen-wizard player cannot play Orc or Troll
-    // characters (Half-orcs are race Orc) unless a Stage resource in play
-    // specifically allows it (Bad Company wh-63 for any Orc/Troll; A Strident
-    // Spawn wh-61 for Half-orcs). A Strident Spawn additionally lets Half-orcs
-    // be played at the player's Wizardhavens even when the avatar is elsewhere.
-    let orcTrollAtWizardhavens = false;
-    if (player.alignment === Alignment.FallenWizard
-        && (cardDef.race === Race.Orc || cardDef.race === Race.Troll)) {
-      const perm = orcTrollPlayPermission(state, player, cardDef);
-      if (!perm.permitted) {
-        const reason = `${charName}: a Fallen-wizard cannot play Orc or Troll characters without a Stage resource in play that allows it (e.g. Bad Company)`;
-        logDetail(`  → blocked: ${reason}`);
-        results.push({
-          action: { type: 'play-character', player: playerId, characterInstanceId: cardInstanceId, atSite: '' as CardInstanceId, controlledBy: 'general' },
-          viable: false,
-          reason,
-        });
-        continue;
-      }
-      orcTrollAtWizardhavens = perm.atOwnWizardhavens;
-      logDetail(`  → Orc/Troll play permitted${orcTrollAtWizardhavens ? ' (and at own Wizardhavens regardless of avatar location)' : ''}`);
     }
 
     // Recruitment vehicle in hand (Thrall of the Voice wh-82; Open to the

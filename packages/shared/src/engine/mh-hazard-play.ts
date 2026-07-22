@@ -1951,8 +1951,10 @@ export function gangwaysExtraDestinations(
  * step, so the next unhandled company begins its M/H sub-phase from a clean
  * slate. `handledCompanyIds` and `activeCompanyIndex` are taken from the supplied
  * `mhState` unchanged (callers pre-set `handledCompanyIds` when finalizing a
- * completed company). Shared by `finalizeCompanyMH` and the Left Behind
- * lone-character extra-phase path in `advanceAfterCompanyMH`.
+ * completed company). Shared by `finalizeCompanyMH`, the Left Behind
+ * lone-character extra-phase path in `advanceAfterCompanyMH`, and the
+ * extra-phase offer handlers (`handleGangwaysOffer`, `handleExtraMHMoveOffer`),
+ * which override `step`/`siteRevealed` to re-enter at `reveal-new-site`.
  */
 function resetCompanyMHFields(mhState: MovementHazardPhaseState): MovementHazardPhaseState {
   return {
@@ -2286,33 +2288,7 @@ export function handleGangwaysOffer(
   return {
     state: {
       ...updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })),
-      phaseState: {
-        ...mhState,
-        step: 'reveal-new-site' as const,
-        movementType: null,
-        declaredRegionPath: [],
-        maxRegionDistance: BASE_MAX_REGION_DISTANCE,
-        hazardsPlayedThisCompany: 0,
-        hazardLimitAtReveal: 0,
-        preRevealHazardLimitConstraintIds: [],
-        resolvedSitePath: [],
-        resolvedSitePathNames: [],
-        destinationSiteType: null,
-        destinationSiteName: null,
-        resourceDrawMax: 0,
-        hazardDrawMax: 0,
-        resourceDrawCount: 0,
-        hazardDrawCount: 0,
-        resourcePlayerPassed: false,
-        hazardPlayerPassed: false,
-        siteRevealed: true,
-        onGuardPlacedThisCompany: false,
-        returnedToOrigin: false,
-        hazardsEncountered: [],
-        spawnReplayUsedSources: [],
-        ahuntAttacksResolved: 0,
-        ahuntGroupOutcomes: [],
-      },
+      phaseState: { ...resetCompanyMHFields(mhState), step: 'reveal-new-site' as const, siteRevealed: true },
     },
   };
 }

@@ -103,6 +103,94 @@ function resolveChainEntryAndContinue(
  * item from its new bearer (since the transfer didn't "stick"). The item
  * is included in the discard via `action.possessions`.
  */
+/**
+ * Remove a character that failed its corruption check, routing the character
+ * card to the given destination pile and dispersing everything it held. The
+ * discard and eliminate outcomes share this entire shape (CoE 7.1) — they
+ * differ only in where the character card itself lands: the discard pile
+ * (roll within 1 of CP) or the out-of-play pile (hard fail / Wizard avatar).
+ *
+ * Mutates `playersAfterRoll` in place (the caller's cloned players array) and
+ * the caller-built `newCharacters` map (which may already have transfer-check
+ * item removal applied):
+ * - the character is deleted from `newCharacters` and every company,
+ * - its followers are promoted to general influence,
+ * - selected possessions are discarded — hazards among them to the hazard
+ *   player's discard pile, the rest to the checking player's,
+ * - hazards attached to the character are discarded to their owner's pile.
+ */
+function removeFailedCorruptionCharacter(
+  state: GameState,
+  playersAfterRoll: PlayerState[],
+  playerIndex: number,
+  characterId: CardInstanceId,
+  char: CharacterInPlay,
+  newCharacters: Record<string, CharacterInPlay>,
+  possessions: readonly CardInstanceId[],
+  destination: 'discard' | 'out-of-play',
+): void {
+  delete newCharacters[characterId as string];
+
+  const newCompanies = playersAfterRoll[playerIndex].companies.map(c => ({
+    ...c,
+    characters: c.characters.filter(id => id !== characterId),
+  }));
+
+  // Followers lose their controller — promote to general influence
+  for (const followerId of char.followers) {
+    const follower = newCharacters[followerId as string];
+    if (follower) {
+      newCharacters[followerId as string] = { ...follower, controlledBy: 'general' };
+    }
+  }
+
+  // Separate hazards (owned by opponent) from non-hazard possessions
+  const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
+  const hazardPossessions: CardInstance[] = [];
+  const nonHazardPossessions: CardInstance[] = [];
+  for (const id of possessions) {
+    const hazOwner = ownerOf(id) as string;
+    const defId = resolveInstanceId(state, id)!;
+    if (hazOwner === (playersAfterRoll[hazardPlayerIndex].id as string)) {
+      logDetail(`Discarding hazard ${id as string} to hazard player`);
+      hazardPossessions.push({ instanceId: id, definitionId: defId });
+    } else {
+      nonHazardPossessions.push({ instanceId: id, definitionId: defId });
+    }
+  }
+  if (hazardPossessions.length > 0) {
+    playersAfterRoll[hazardPlayerIndex] = {
+      ...playersAfterRoll[hazardPlayerIndex],
+      discardPile: [...playersAfterRoll[hazardPlayerIndex].discardPile, ...hazardPossessions],
+    };
+  }
+
+  const characterCard: CardInstance = { instanceId: characterId, definitionId: char.definitionId };
+  playersAfterRoll[playerIndex] = destination === 'discard'
+    ? {
+        ...playersAfterRoll[playerIndex],
+        characters: newCharacters,
+        companies: newCompanies,
+        discardPile: [...playersAfterRoll[playerIndex].discardPile, characterCard, ...nonHazardPossessions],
+      }
+    : {
+        ...playersAfterRoll[playerIndex],
+        characters: newCharacters,
+        companies: newCompanies,
+        outOfPlayPile: [...playersAfterRoll[playerIndex].outOfPlayPile, characterCard],
+        discardPile: [...playersAfterRoll[playerIndex].discardPile, ...nonHazardPossessions],
+      };
+
+  const pastTense = destination === 'discard' ? 'discarded' : 'eliminated';
+  for (const hazard of char.hazards) {
+    logDetail(`Discarding hazard ${hazard.instanceId as string} from ${pastTense} character`);
+    const hazOwner = ownerOf(hazard.instanceId);
+    let hazOwnerIdx = playersAfterRoll.findIndex(p => p.id === hazOwner);
+    if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
+    playersAfterRoll[hazOwnerIdx] = { ...playersAfterRoll[hazOwnerIdx], discardPile: [...playersAfterRoll[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
+  }
+}
+
 export function applyCorruptionCheckResolution(
   state: GameState,
   action: GameAction,
@@ -332,114 +420,12 @@ export function applyCorruptionCheckResolution(
 
     // Roll == CP or CP - 1 on a hero character: it + possessions discarded (not followers)
     logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
-
-    delete newCharacters[characterId];
-
-    const newCompanies = player.companies.map(c => ({
-      ...c,
-      characters: c.characters.filter(id => id !== characterId),
-    }));
-
-    // Followers lose their controller — promote to general influence
-    for (const followerId of char.followers) {
-      const follower = newCharacters[followerId];
-      if (follower) {
-        newCharacters[followerId] = { ...follower, controlledBy: 'general' };
-      }
-    }
-
-    // Separate hazards (owned by opponent) from non-hazard possessions
-    const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
-    const hazardPossessions: CardInstance[] = [];
-    const nonHazardPossessions: CardInstance[] = [];
-    for (const id of action.possessions) {
-      const hazOwner = ownerOf(id) as string;
-      const defId = resolveInstanceId(state, id)!;
-      if (hazOwner === (playersAfterRoll[hazardPlayerIndex].id as string)) {
-        logDetail(`Discarding hazard ${id as string} to hazard player`);
-        hazardPossessions.push({ instanceId: id, definitionId: defId });
-      } else {
-        nonHazardPossessions.push({ instanceId: id, definitionId: defId });
-      }
-    }
-    if (hazardPossessions.length > 0) {
-      playersAfterRoll[hazardPlayerIndex] = {
-        ...playersAfterRoll[hazardPlayerIndex],
-        discardPile: [...playersAfterRoll[hazardPlayerIndex].discardPile, ...hazardPossessions],
-      };
-    }
-
-    const toDiscard: CardInstance[] = [
-      { instanceId: characterId, definitionId: char.definitionId },
-      ...nonHazardPossessions,
-    ];
-    playersAfterRoll[playerIndex] = {
-      ...playersAfterRoll[playerIndex],
-      characters: newCharacters,
-      companies: newCompanies,
-      discardPile: [...playersAfterRoll[playerIndex].discardPile, ...toDiscard],
-    };
-    for (const hazard of char.hazards) {
-      logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
-      const hazOwner = ownerOf(hazard.instanceId);
-      let hazOwnerIdx = playersAfterRoll.findIndex(p => p.id === hazOwner);
-      if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
-      playersAfterRoll[hazOwnerIdx] = { ...playersAfterRoll[hazOwnerIdx], discardPile: [...playersAfterRoll[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
-    }
+    removeFailedCorruptionCharacter(state, playersAfterRoll, playerIndex, characterId, char, newCharacters, action.possessions, 'discard');
   } else {
     // outcome === 'eliminate': hard fail (≥2 below CP) or a Wizard avatar on any
     // failure — character eliminated, possessions discarded.
     logDetail(`Corruption check FAILED (outcome eliminate, ${total} vs CP ${cp}) — eliminating ${charName}, discarding ${action.possessions.length} possession(s)`);
-
-    delete newCharacters[characterId];
-
-    const newCompanies = player.companies.map(c => ({
-      ...c,
-      characters: c.characters.filter(id => id !== characterId),
-    }));
-
-    for (const followerId of char.followers) {
-      const follower = newCharacters[followerId];
-      if (follower) {
-        newCharacters[followerId] = { ...follower, controlledBy: 'general' };
-      }
-    }
-
-    // Separate hazards (owned by opponent) from non-hazard possessions
-    const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
-    const hazardPossessions: CardInstance[] = [];
-    const nonHazardPossessions: CardInstance[] = [];
-    for (const id of action.possessions) {
-      const hazOwner = ownerOf(id) as string;
-      const defId = resolveInstanceId(state, id)!;
-      if (hazOwner === (playersAfterRoll[hazardPlayerIndex].id as string)) {
-        logDetail(`Discarding hazard ${id as string} to hazard player`);
-        hazardPossessions.push({ instanceId: id, definitionId: defId });
-      } else {
-        nonHazardPossessions.push({ instanceId: id, definitionId: defId });
-      }
-    }
-    if (hazardPossessions.length > 0) {
-      playersAfterRoll[hazardPlayerIndex] = {
-        ...playersAfterRoll[hazardPlayerIndex],
-        discardPile: [...playersAfterRoll[hazardPlayerIndex].discardPile, ...hazardPossessions],
-      };
-    }
-
-    playersAfterRoll[playerIndex] = {
-      ...playersAfterRoll[playerIndex],
-      characters: newCharacters,
-      companies: newCompanies,
-      outOfPlayPile: [...player.outOfPlayPile, { instanceId: characterId, definitionId: char.definitionId }],
-      discardPile: [...playersAfterRoll[playerIndex].discardPile, ...nonHazardPossessions],
-    };
-    for (const hazard of char.hazards) {
-      logDetail(`Discarding hazard ${hazard.instanceId as string} from eliminated character`);
-      const hazOwner = ownerOf(hazard.instanceId);
-      let hazOwnerIdx = playersAfterRoll.findIndex(p => p.id === hazOwner);
-      if (hazOwnerIdx === -1) hazOwnerIdx = playerIndex === 0 ? 1 : 0;
-      playersAfterRoll[hazOwnerIdx] = { ...playersAfterRoll[hazOwnerIdx], discardPile: [...playersAfterRoll[hazOwnerIdx].discardPile, toCardInstance(hazard)] };
-    }
+    removeFailedCorruptionCharacter(state, playersAfterRoll, playerIndex, characterId, char, newCharacters, action.possessions, 'out-of-play');
 
     // A Malady Without Healing (le-159): a hero target eliminated by this
     // corruption check credits the caster the hero's kill marshalling points.

@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.57.0 — 2026-07-22
+
+All Sites Certified
+
+### Game Engine
+
+- Certified the remaining site cards across the sets — every site in the card pool is now certified
+- Against the Shadow minion sites: Edhellond, Framsburg (new `first-minor-item-no-tap` site-rule + hoard), Grey Havens (hazard-limit +2, minion CvCC ban, Ringwraith move ban), Himring and Isles of the Dead That Live (overt/covert reveal-tap mirrors with auto-attacks), Isle of the Ulond, Lórien, Old Forest, Ovir Hollow, Rhosgobel, Rivendell (new `deny-company-move` / `deny-company-attack` site-rules), Tolfalas, and the Under-deeps chain — The Gem-deeps, The Iron-deeps, The Pûkel-deeps, The Sulfur-deeps, The Under-courts, The Under-galleries, The Under-gates, The Under-grottos, The Under-leas and The Under-vaults
+- Lidless Eye minion sites: Blue Mountain Dwarf-hold, Drúadan Forest, Dunharrow, Dunnish Clan-hold, Haudh-in-Gwanûr, Henneth Annûn, Hermit's Hill, Lake-town, Lond Galen, Lossadan Cairn, Lossadan Camp, Stone-circle, The Stones, Tharbad, Urlurtsu Nurn (reanimate an Orc/Troll from discard), Vale of Erech and Wose Passage-hold
+- A tied strike no longer defeats the creature or awards kill marshalling points; Balrog (tw-12) defeat tests updated for the corrected rule
+- Open to the Summons now enables the agent draft when the enabler is in the pool and requires drafting the enabler before an agent
+- Generalized the corruption-check target keyword to a DSL filter and migrated play-character eligibility gates to the declarative rules engine
+- Combat and corruption-check internals deduplicated: extracted an `advanceStrikeOrFinalize` helper, collapsed the corruption-check discard/eliminate branches, and reused `resetCompanyMHFields` in the Gangways offer handler
+
+### Bug Fixes
+
+- Server deck validation now matches the deck editor's rules
+- Shared site cards no longer jump between companies in the all-companies view
+
+### AI
+
+- The AI no longer enters a site to play an item the engine won't actually let it play there
+
+### Infrastructure
+
+- run-ai: PRs with UNKNOWN mergeability are polled until GitHub resolves them instead of being skipped as healthy
+
 ## 0.56.0 — 2026-07-20
 
 Challenge Deck U

@@ -6,16 +6,16 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 884 | 881 | 3 | 99.7% |
+| 923 | 920 | 3 | 99.7% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 62 | 62 | 100.0% |
+| AS | 84 | 84 | 100.0% |
 | BA | 94 | 94 | 100.0% |
 | DM | 78 | 78 | 100.0% |
-| LE | 252 | 250 | 99.2% |
+| LE | 269 | 267 | 99.3% |
 | TD | 67 | 67 | 100.0% |
 | TW | 269 | 268 | 99.6% |
 | WH | 62 | 62 | 100.0% |
@@ -80,8 +80,30 @@
 | as-142 | The Worthy Hills | — | 13 | ☑ |
 | as-143 | Dancing Spire | — | 8 | ☑ |
 | as-144 | Eagles’ Eyrie | — | 8 | ☑ |
+| as-145 | Edhellond | — | 8 | ☑ |
+| as-146 | Framsburg | — | 7 | ☑ |
+| as-147 | The Gem-deeps | — | 16 | ☑ |
 | as-148 | Gold Hill | — | 9 | ☑ |
+| as-149 | Grey Havens | — | 8 | ☑ |
+| as-150 | Himring | — | 10 | ☑ |
 | as-151 | Irerock | — | 9 | ☑ |
+| as-152 | The Iron-deeps | — | 10 | ☑ |
+| as-153 | Isle of the Ulond | — | 7 | ☑ |
+| as-154 | Isles of the Dead That Live | — | 9 | ☑ |
+| as-155 | Lórien | — | 8 | ☑ |
+| as-156 | Old Forest | — | 7 | ☑ |
+| as-157 | Ovir Hollow | — | 9 | ☑ |
+| as-158 | The Pûkel-deeps | — | 19 | ☑ |
+| as-159 | Rhosgobel | — | 8 | ☑ |
+| as-160 | Rivendell | — | 8 | ☑ |
+| as-161 | The Sulfur-deeps | — | 10 | ☑ |
+| as-162 | Tolfalas | — | 11 | ☑ |
+| as-163 | The Under-courts | — | 10 | ☑ |
+| as-164 | The Under-galleries | — | 10 | ☑ |
+| as-165 | The Under-gates | — | 12 | ☑ |
+| as-166 | The Under-grottos | — | 12 | ☑ |
+| as-167 | The Under-leas | — | 17 | ☑ |
+| as-168 | The Under-vaults | — | 13 | ☑ |
 | as-169 | Weathertop | — | 6 | ☑ |
 | as-170 | Wellinghall | — | 10 | ☑ |
 | as-79-the-dark-power | — | — | 7 | ☑ |
@@ -461,6 +483,7 @@
 | le-352 | Barad-dûr | — | 11 | ☑ |
 | le-353 | Barrow-downs | — | 10 | ☑ |
 | le-354 | Beorn’s House | — | 7 | ☑ |
+| le-355 | Blue Mountain Dwarf-hold | — | 9 | ☑ |
 | le-356 | Bree | — | 12 | ☑ |
 | le-357 | Buhr Widu | — | 7 | ☑ |
 | le-358 | Cameth Brin | — | 12 | ☑ |
@@ -473,6 +496,9 @@
 | le-365 | Dimrill Dale | — | 6 | ☑ |
 | le-366 | Dol Amroth | — | 8 | ☑ |
 | le-367 | Dol Guldur | — | 15 | ☑ |
+| le-368 | Drúadan Forest | — | 4 | ☑ |
+| le-369 | Dunharrow | — | 7 | ☑ |
+| le-370 | Dunnish Clan-hold | — | 13 | ☑ |
 | le-371 | Easterling Camp | — | 7 | ☑ |
 | le-372 | Edoras | — | 10 | ☑ |
 | le-373 | Ettenmoors | — | 10 | ☑ |
@@ -482,9 +508,16 @@
 | le-377 | Gobel Mírlond | — | 13 | ☑ |
 | le-378 | Goblin-gate | — | 9 | ☑ |
 | le-379 | Gondmaeglom | — | 11 | ☑ |
+| le-380 | Haudh-in-Gwanûr | — | 10 | ☑ |
+| le-381 | Henneth Annûn | — | 7 | ☑ |
+| le-382 | Hermit’s Hill | — | 10 | ☑ |
 | le-383 | Iron Hill Dwarf-hold | — | 9 | ☑ |
 | le-384 | Isengard | — | 14 | ☑ |
+| le-385 | Lake-town | — | 9 | ☑ |
+| le-386 | Lond Galen | — | 11 | ☑ |
 | le-387 | The Lonely Mountain | — | 8 | ☑ |
+| le-388 | Lossadan Cairn | — | 7 | ☑ |
+| le-389 | Lossadan Camp | — | 11 | ☑ |
 | le-390 | Minas Morgul | — | 14 | ☑ |
 | le-391 | Minas Tirith | — | 10 | ☑ |
 | le-392 | Moria | — | 12 | ☑ |
@@ -500,12 +533,18 @@
 | le-402 | Shelob’s Lair | — | 15 | ☑ |
 | le-403 | Shrel-Kain | — | 13 | ☑ |
 | le-404 | Southron Oasis | — | 7 | ☑ |
+| le-405 | Stone-circle | — | 8 | ☑ |
+| le-406 | The Stones | — | 8 | ☑ |
+| le-407 | Tharbad | — | 8 | ☑ |
 | le-408 | Thranduil’s Halls | — | 9 | ☑ |
+| le-409 | Urlurtsu Nurn | — | 11 | ☑ |
+| le-410 | Vale of Erech | — | 8 | ☑ |
 | le-411 | Variag Camp | — | 5 | ☑ |
 | le-412 | The White Towers | — | 9 | ☑ |
 | le-413 | The Wind Throne | — | 12 | ☑ |
 | le-414 | Woodmen-town | — | 5 | ☑ |
 | le-415 | The Worthy Hills | — | 19 | ☑ |
+| le-416 | Wose Passage-hold | — | 5 | ☑ |
 | le-417 | Zarak Dûm | — | 5 | ☑ |
 | le-418 | The Arkenstone | — | 16 | ☑ |
 | le-203-the-lidless-eye | — | — | 11 | ☑ |
