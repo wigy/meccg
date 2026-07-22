@@ -1886,7 +1886,17 @@ function playHazardsActions(
   const actions: EvaluatedAction[] = [];
   const activeIdx = getPlayerIndex(state, state.activePlayer!);
   const targetCompanyRef = state.players[activeIdx].companies[mhState.activeCompanyIndex];
-  if (!targetCompanyRef) return actions;
+  if (!targetCompanyRef) {
+    // The active company dissolved mid-phase (all characters eliminated) —
+    // both players can only pass, which finalizes the company's M/H slot.
+    const alreadyPassed = isResourcePlayer ? mhState.resourcePlayerPassed : mhState.hazardPlayerPassed;
+    if (alreadyPassed) {
+      logDetail('Play-hazards: active company no longer exists and player already passed — waiting');
+      return actions;
+    }
+    logDetail('Play-hazards: active company no longer exists — only pass is available');
+    return [{ action: { type: 'pass', player: playerId }, viable: true }];
+  }
   const targetCompanyId = targetCompanyRef.id;
   const liveLimit = currentHazardLimit(state, mhState, targetCompanyId);
   const limitReached = mhState.hazardsPlayedThisCompany >= liveLimit;
@@ -3616,6 +3626,16 @@ function resetHandActions(
   const handSize = resolveHandSize(state, playerIndex);
 
   if (player.hand.length <= handSize) {
+    // The step can be entered with every player already at hand size (e.g.
+    // a hand-size modifier changed after the draw). Nothing auto-advances
+    // it, so the active player must be able to pass to move on.
+    const everyoneAtHandSize = state.players.every(
+      (p, i) => p.hand.length <= resolveHandSize(state, i),
+    );
+    if (everyoneAtHandSize && state.activePlayer === playerId) {
+      logDetail(`Reset-hand: all players at hand size — active player may pass to advance`);
+      return [{ action: { type: 'pass', player: playerId }, viable: true }];
+    }
     logDetail(`Reset-hand: player ${player.name} at hand size (${player.hand.length}/${handSize}) — no actions`);
     return [];
   }

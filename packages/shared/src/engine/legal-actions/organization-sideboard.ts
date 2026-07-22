@@ -78,10 +78,14 @@ export function fetchFromSideboardActions(state: GameState, playerId: PlayerId):
 
   if (orgState.sideboardFetchDestination === 'deck') {
     if (orgState.sideboardFetchedThisTurn >= 1) {
-      logDetail('Sideboard access: already fetched 1 card to deck this turn');
+      // The fetch counter is shared with the to-discard sub-flow, so the
+      // deck sub-flow can be entered with nothing left to fetch — pass must
+      // be available to exit it, or the phase deadlocks.
+      logDetail('Sideboard access: already fetched a card this turn — must pass to close the sub-flow');
+      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
       return actions;
     }
-    // Must pick exactly 1 card — no pass
+    // Must pick exactly 1 card — no pass while a pick is possible
     const eligible = getEligibleSideboardCards(state, player);
     for (const card of eligible) {
       logDetail(`Sideboard access: ${card.name} → play deck (viable)`);
@@ -90,12 +94,19 @@ export function fetchFromSideboardActions(state: GameState, playerId: PlayerId):
         viable: true,
       });
     }
+    if (actions.length === 0) {
+      logDetail('Sideboard access: no eligible cards to fetch to deck — must pass to close the sub-flow');
+      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+    }
     return actions;
   }
 
   if (orgState.sideboardFetchDestination === 'discard') {
     if (orgState.sideboardFetchedThisTurn >= MAX_SIDEBOARD_TO_DISCARD) {
-      logDetail('Sideboard access: already fetched 5 cards to discard this turn');
+      // The sub-flow only closes on pass (the reducer clears the destination
+      // there) — pass must stay available or the phase deadlocks at the cap.
+      logDetail('Sideboard access: already fetched 5 cards to discard this turn — must pass to close the sub-flow');
+      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
       return actions;
     }
     const eligible = getEligibleSideboardCards(state, player);

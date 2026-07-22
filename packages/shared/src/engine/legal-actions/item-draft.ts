@@ -36,7 +36,13 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
   logDetail(`${itemDraft.unassignedItems.length} unassigned item(s), ${assignedCount}/${MAX_STARTING_ITEMS} minor item(s) assigned, ${allCharIds.length} character(s) available`);
 
   const evaluated: EvaluatedAction[] = [];
-  if (allCharIds.length === 0) return evaluated;
+  if (allCharIds.length === 0) {
+    // No characters were drafted (both players may legally stop the draft
+    // immediately) — items cannot be assigned, but the player must still be
+    // able to pass so the setup can proceed.
+    logDetail('No characters in starting companies — only pass is available');
+    return [{ action: { type: 'pass', player: playerId }, viable: true }];
+  }
 
   // Emit non-viable entries for already-assigned items (on characters)
   for (const char of Object.values(player.characters)) {

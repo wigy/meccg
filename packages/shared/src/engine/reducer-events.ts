@@ -29,7 +29,7 @@ import { applyMove, findMoveEffectByShape, moveToFetchToDeckPayload } from './re
 import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { isCharacterCard, isItemCard, isAllyCard } from '../types/cards.js';
+import { isCharacterCard, isItemCard, isAllyCard, isResourceEventCard } from '../types/cards.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import type { CardDefinition } from '../types/cards.js';
 import { evaluateExpr } from './effects/expression-eval.js';
@@ -344,6 +344,25 @@ function resolveShortEventRollUntap(
  * Removes the card from hand, discards it, and if it has a `fetch-to-deck`
  * effect, sets up the pendingFetch sub-flow on the phase state.
  */
+/**
+ * Dispatch a `play-short-event` by the card's actual type: resource events
+ * resolve through the resource flow, everything else (hazard events, chain
+ * responses) through the chain/hazard flow. Used by phase reducers as the
+ * shared fallback so a short event advertised as legal in ANY step (chains
+ * and pending resolutions open response windows everywhere) is never
+ * rejected by a rigid step handler.
+ */
+export function dispatchShortEventByCardType(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'play-short-event') return wrongActionType(state, action, 'play-short-event');
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const card = action.cardInstanceId ? findById(player.hand, action.cardInstanceId) : undefined;
+  const def = card ? state.cardPool[card.definitionId] : undefined;
+  return isResourceEventCard(def)
+    ? handlePlayResourceShortEvent(state, action)
+    : handlePlayShortEvent(state, action);
+}
+
 export function handlePlayResourceShortEvent(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'play-short-event') return wrongActionType(state, action, 'play-short-event');
 

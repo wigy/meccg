@@ -1153,10 +1153,18 @@ export function applyDiceCheckResolution(
   const rollerIndex = getPlayerIndex(state, kind.roller ?? top.actor);
 
   // Pre-roll skip: kinds that don't roll when the target is gone (no RNG/cheat
-  // consumed, no chain continuation) — preserves cvcc/call-of-home/body-check.
+  // consumed) — preserves cvcc/call-of-home/body-check. A chain continuation
+  // must still fire: the skipped check may be what an unresolved chain entry
+  // (e.g. Call of Home) is waiting on, and nothing else can ever resolve it.
   if (kind.requireTargetPresent && !diceCheckTargetPresent(state, kind)) {
     logDetail(`${kind.label}: target absent — skipping roll`);
-    return { state: dequeueResolution(state, top.id) };
+    const skipped = dequeueResolution(state, top.id);
+    if (kind.continuation.kind === 'chain-entry'
+      && !(kind.continuation.drainSameSource
+        && skipped.pendingResolutions.some(r => r.kind.type === 'dice-check' && r.source === top.source))) {
+      return resolveChainEntryAndContinue(skipped, diceCheckChainMatcher(kind.continuation.match, top, kind), []);
+    }
+    return { state: skipped };
   }
 
   const rolled = rollForResolution(state, rollerIndex, kind.label);

@@ -12,7 +12,9 @@ import { Phase } from '../types/state-phases.js';
 import { resolveHandSize } from './effects/index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { findById, removeById, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { findById, removeById, updatePlayer, wrongActionType, playerById, defById } from './reducer-utils.js';
+import { isResourceEventCard } from '../types/cards.js';
+import { handlePlayShortEvent, handlePlayResourceShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { handlePlayHazards, advanceAfterCompanyMH, handleGangwaysOffer, handleExtraMHMoveOffer } from './mh-hazard-play.js';
 import { enterSetHazardLimitAndAutoAdvance, handleSelectCompany, handleRevealNewSite, handleUnderDeepsRoll, handleOrderEffects, handleDrawCards } from './mh-steps.js';
 
@@ -48,7 +50,15 @@ export function handleMovementHazard(state: GameState, action: GameAction): Redu
   const mhState = requirePhaseState(state, Phase.MovementHazard);
   const handler = MH_STEP_HANDLERS[mhState.step];
   if (!handler) return { state, error: `Unexpected step '${mhState.step as string}' in movement/hazard phase` };
-  return handler(state, action, mhState);
+  const result = handler(state, action, mhState);
+  // Chains and pending resolutions open short-event response windows in
+  // every step; if a rigid step handler rejected one, fall back to the
+  // shared by-card-type dispatch so an advertised action is never refused.
+  if (result.error && action.type === 'play-short-event') {
+    logDetail(`M/H step '${mhState.step as string}' rejected play-short-event (${result.error}) — dispatching via shared short-event flow`);
+    return dispatchShortEventByCardType(state, action);
+  }
+  return result;
 }
 
 /**
@@ -86,6 +96,29 @@ function handleResetHand(
   action: GameAction,
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
+  // A short event may legally arrive during reset-hand — e.g. a
+  // corruption-check-boost offered by a pending resolution whose resolver
+  // delegates the play to the phase reducer. Dispatch it like the
+  // organization phase does.
+  if (action.type === 'play-short-event') {
+    const player = playerById(state, action.player);
+    const card = action.cardInstanceId ? player?.hand.find(c => c.instanceId === action.cardInstanceId) : undefined;
+    const def = card ? defById(state, card.definitionId) : undefined;
+    return isResourceEventCard(def)
+      ? handlePlayResourceShortEvent(state, action)
+      : handlePlayShortEvent(state, action);
+  }
+
+  // Pass is legal only when every player is already at hand size (the step
+  // was entered with nothing to discard) — it simply advances.
+  if (action.type === 'pass') {
+    if (state.players.every((p, i) => p.hand.length <= resolveHandSize(state, i))) {
+      logDetail('Reset-hand: all players at hand size — advancing');
+      return advanceAfterCompanyMH(state, mhState);
+    }
+    return { state, error: 'Cannot pass the reset-hand step while a hand exceeds the hand size' };
+  }
+
   if (action.type !== 'discard-card') return wrongActionType(state, action, 'discard-card', 'reset-hand step');
 
   const playerIndex = getPlayerIndex(state, action.player);

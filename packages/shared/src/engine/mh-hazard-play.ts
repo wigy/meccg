@@ -95,6 +95,14 @@ export function handlePlayHazards(
 
     // Both passed → fire end-of-MH corruption triggers, then end this company's M/H phase
     if (newMhState.resourcePlayerPassed && newMhState.hazardPlayerPassed) {
+      // The active company may have dissolved during this M/H phase (all its
+      // characters eliminated). Skip the company-scoped end-of-phase hooks —
+      // they dereference the company — and finalize the slot directly.
+      const passActiveIdx = getPlayerIndex(state, state.activePlayer!);
+      if (!state.players[passActiveIdx].companies[newMhState.activeCompanyIndex]) {
+        logDetail('Play-hazards: active company dissolved during M/H — finalizing its slot');
+        return advanceAfterCompanyMH(state, newMhState);
+      }
       const withChecks = fireEndOfCompanyMHCorruptionChecks(state, newMhState);
       return endCompanyMH(withChecks, newMhState);
     }
@@ -2035,6 +2043,14 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
 
+  // The active company may no longer exist — e.g. every character was
+  // eliminated during this M/H phase and the empty company was cleaned up.
+  // Skip the company-specific follow-ups and finalize the slot directly.
+  if (!currentCompany) {
+    logDetail(`M/H advance: active company index ${mhState.activeCompanyIndex} no longer exists (company dissolved) — finalizing`);
+    return finalizeCompanyMH(state, mhState);
+  }
+
   // Left Behind (td-41), lone-character case: the flagged company runs one more
   // (separate) movement/hazard phase this turn with a hazard limit of one. Clear
   // the pending flag and return it to select-company without marking it handled,
@@ -2151,12 +2167,16 @@ function discardStrandedReanimatedCompanies(state: GameState, playerIndex: numbe
  */
 export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
-  const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
-  const updatedHandled = [...mhState.handledCompanyIds, currentCompany.id];
+  // The company may have dissolved during its own M/H phase (all characters
+  // eliminated); finish the slot without the company-scoped bookkeeping.
+  const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex] as (typeof state.players)[number]['companies'][number] | undefined;
+  const updatedHandled = currentCompany ? [...mhState.handledCompanyIds, currentCompany.id] : mhState.handledCompanyIds;
 
   // Sweep any active constraints / pending resolutions scoped to the
   // company that just finished its M/H sub-phase.
-  state = sweepExpired(state, { kind: 'company-mh-end', companyId: currentCompany.id });
+  if (currentCompany) {
+    state = sweepExpired(state, { kind: 'company-mh-end', companyId: currentCompany.id });
+  }
 
   const remainingCount = state.players[activeIndex].companies.length - updatedHandled.length;
 
@@ -2222,7 +2242,7 @@ export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhase
     return { state: withRejoin };
   }
 
-  logDetail(`Movement/Hazard: company ${currentCompany.id} done → returning to select-company (${remainingCount} remaining)`);
+  logDetail(`Movement/Hazard: company ${currentCompany?.id ?? '(dissolved)'} done → returning to select-company (${remainingCount} remaining)`);
   return {
     state: {
       ...state,

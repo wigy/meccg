@@ -383,7 +383,12 @@ function assignStrikeActions(
     const player = playerById(state, playerId);
     if (!player) return [];
     const company = companyById(player.companies, combat.companyId);
-    if (!company) return [];
+    if (!company) {
+      // The defending company dissolved mid-combat — pass to fizzle the attack.
+      logDetail('Defender assignment: defending company no longer exists — pass to fizzle the attack');
+      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+      return actions;
+    }
 
     const assignedCharIds = new Set(combat.strikeAssignments.map(a => a.characterId as string));
     const strikesRemaining = combat.strikesTotal - combat.strikeAssignments.length;
@@ -631,7 +636,13 @@ function assignStrikeActions(
     const defPlayer = playerById(state, combat.defendingPlayerId);
     if (!defPlayer) return [];
     const company = companyById(defPlayer.companies, combat.companyId);
-    if (!company) return [];
+    if (!company) {
+      // The defending company dissolved mid-combat — nothing to strike.
+      // Offer pass so the attack can fizzle (see handleCombatPass).
+      logDetail('Attacker assignment: defending company no longer exists — pass to fizzle the attack');
+      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+      return actions;
+    }
 
     const assignedCharIds = new Set(combat.strikeAssignments.map(a => a.characterId as string));
     const totalAllocated = combat.strikeAssignments.length
@@ -673,6 +684,14 @@ function assignStrikeActions(
         continue;
       }
       allCombatantIds.push({ id: ally.instanceId, tapped: ally.status !== CardStatus.Untapped });
+    }
+
+    if (allCombatantIds.length === 0 && combat.strikeAssignments.length === 0) {
+      // Company still exists but no combatant can be struck (all eliminated
+      // or excluded) — offer pass so the attack can fizzle.
+      logDetail('Attacker assignment: no assignable combatants remain — pass to fizzle the attack');
+      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+      return actions;
     }
 
     const unassigned = allCombatantIds.filter(c => !assignedCharIds.has(c.id as string));
@@ -1082,6 +1101,16 @@ function resolveStrikeActions(
   const allyMatch = !charData && company0
     ? findAllyInCompany(player0, company0.characters, currentStrike.characterId)
     : undefined;
+
+  // The assigned target may have left play mid-combat (e.g. eliminated by
+  // an earlier strike's body check) — the strike cannot be resolved. Offer
+  // pass so the reducer can skip it (see handleCombatPass).
+  if (!charData && !allyMatch) {
+    logDetail(`Resolve-strike: target ${currentStrike.characterId as string} no longer in play — pass to skip the strike`);
+    actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+    return actions;
+  }
+
   const targetStatus = charData?.status ?? allyMatch?.ally.status ?? CardStatus.Untapped;
   const targetDefId = charData?.definitionId ?? allyMatch?.ally.definitionId;
   const isUntapped = targetStatus === CardStatus.Untapped;
