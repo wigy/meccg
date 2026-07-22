@@ -238,10 +238,22 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
     else if (section === 'sideboard') parsed.sideboard.push(entry);
     else if (section === 'sites') parsed.sites.push(entry);
     else if (section === 'deck') {
+      // The file's category comment is authoritative — the section split is
+      // never re-derived from local card data. Agents such as My Precious
+      // (dm-29) are hazards that the engine merely models with a character
+      // cardType, so type-based bucketing would misfile them out of the
+      // hazard section the file placed them in. The resolved card type is
+      // only a fallback for category-less files.
       const cardType = card ? traits(cardPool[card]).cardType : '';
-      if (category.includes('character') || cardType.includes('-character')) {
+      const isCharacter = category
+        ? category.includes('character')
+        : cardType.includes('-character');
+      const isHazard = category
+        ? category.startsWith('hazard') || category.startsWith('agent')
+        : cardType.startsWith('hazard');
+      if (isCharacter) {
         parsed.deck.characters.push(entry);
-      } else if (category.startsWith('hazard') || cardType.startsWith('hazard')) {
+      } else if (isHazard) {
         parsed.deck.hazards.push(entry);
       } else {
         parsed.deck.resources.push(entry);
