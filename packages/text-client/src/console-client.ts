@@ -34,8 +34,8 @@ import {
   stripCardMarkers,
   STATE_DIVIDER,
 } from '@meccg/shared';
-import { loadAiStrategy, sampleWeighted } from './ai/index.js';
-import type { AiStrategy } from './ai/index.js';
+import { loadAiStrategy, sampleWeighted } from '@meccg/sim';
+import type { AiStrategy } from '@meccg/sim';
 import { ClientLog } from './client-log.js';
 import { loadDeckJoin, listCatalogDecks, parseServerMessage } from './client-common.js';
 

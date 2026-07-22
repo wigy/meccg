@@ -11,7 +11,7 @@
     "lint:fix": "eslint --fix packages/*/src/",
     "lint:md": "markdownlint-cli2 '**/*.md' '#node_modules' '#docs/api' '#.claude'",
     "lint:md:fix": "markdownlint-cli2 --fix '**/*.md' '#node_modules' '#docs/api' '#.claude'",
-    "build": "tsc --build packages/game-server/tsconfig.json packages/text-client/tsconfig.json packages/lobby-server/tsconfig.json packages/lobby-server/tsconfig.browser.json",
+    "build": "tsc --build packages/game-server/tsconfig.json packages/sim/tsconfig.json packages/text-client/tsconfig.json packages/lobby-server/tsconfig.json packages/lobby-server/tsconfig.browser.json",
     "docs": "typedoc"
   },
   "devDependencies": {

@@ -8,68 +8,24 @@
  * clients only by log prefix.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import type { WebSocket } from 'ws';
-import type { CardDefinitionId, ClientMessage, JoinMessage, ServerMessage } from '@meccg/shared';
+import type { ClientMessage, JoinMessage, ServerMessage } from '@meccg/shared';
 import { Alignment } from '@meccg/shared';
+import { loadDeck, listDecks } from '@meccg/sim';
 
-// ---- Deck catalog ----
-
-/** Deck file entry with optional card ID. */
-export interface DeckEntry { name: string; card: string | null; qty: number }
-
-/** On-disk deck structure (`data/decks/*.json`). */
-export interface DeckFile {
-  id: string; name: string; alignment: string;
-  pool: DeckEntry[];
-  deck: { characters: DeckEntry[]; hazards: DeckEntry[]; resources: DeckEntry[] };
-  sites: DeckEntry[];
-  sideboard?: DeckEntry[];
-}
-
-/**
- * Deck catalog directory at the repository root. Both the tsx source layout
- * (`packages/text-client/src`) and the compiled layout
- * (`packages/text-client/dist`) sit three levels below the repo root.
- */
-export const DECK_CATALOG_DIR = path.join(__dirname, '../../../data/decks');
-
-/** Map deck-file alignment strings to engine alignments. */
-const ALIGNMENT_MAP: Record<string, Alignment> = {
-  hero: Alignment.Wizard,
-  minion: Alignment.Ringwraith,
-  'fallen-wizard': Alignment.FallenWizard,
-  balrog: Alignment.Balrog,
-};
-
-/** Expand `{card, qty}` deck entries into a flat list of definition IDs. */
-export function expandEntries(entries: DeckEntry[]): CardDefinitionId[] {
-  const ids: CardDefinitionId[] = [];
-  for (const e of entries) {
-    if (e.card !== null) {
-      for (let i = 0; i < e.qty; i++) ids.push(e.card as CardDefinitionId);
-    }
-  }
-  return ids;
-}
+// ---- Deck catalog (shared with the sim harness in @meccg/sim) ----
 
 /** Load a catalog deck into a join message for the given player. */
 export function loadDeckJoin(deckId: string, playerName: string): JoinMessage {
-  const filePath = path.join(DECK_CATALOG_DIR, `${deckId}.json`);
-  const deck = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as DeckFile;
+  const deck = loadDeck(deckId);
   return {
     type: 'join',
     name: playerName,
-    alignment: ALIGNMENT_MAP[deck.alignment] ?? Alignment.Wizard,
-    draftPool: expandEntries(deck.pool),
-    playDeck: [
-      ...expandEntries(deck.deck.characters),
-      ...expandEntries(deck.deck.resources),
-      ...expandEntries(deck.deck.hazards),
-    ],
-    siteDeck: expandEntries(deck.sites),
-    sideboard: expandEntries(deck.sideboard ?? []),
+    alignment: deck.alignment,
+    draftPool: deck.draftPool,
+    playDeck: deck.playDeck,
+    siteDeck: deck.siteDeck,
+    sideboard: deck.sideboard,
   };
 }
 
@@ -83,11 +39,7 @@ export function rejoinMessage(playerName: string): JoinMessage {
 
 /** List `{id, name}` of every deck in the catalog. */
 export function listCatalogDecks(): { id: string; name: string }[] {
-  const files = fs.readdirSync(DECK_CATALOG_DIR).filter(f => f.endsWith('.json'));
-  return files.map(f => {
-    const d = JSON.parse(fs.readFileSync(path.join(DECK_CATALOG_DIR, f), 'utf-8')) as DeckFile;
-    return { id: d.id, name: d.name };
-  });
+  return listDecks();
 }
 
 // ---- Spawned-client scaffolding (headless AI and pseudo-AI) ----

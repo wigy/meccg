@@ -63,7 +63,8 @@ export const endOfTurnEvaluator: ActionEvaluator = {
         else if (lead >= 20) probability = 1.0;
         else probability = 0.05 + (lead - 4) * (0.95 / 16);
 
-        return Math.random() < probability ? 1_000_000 : 0;
+        const random = context.random ?? Math.random;
+        return random() < probability ? 1_000_000 : 0;
       }
 
       case 'store-item': {

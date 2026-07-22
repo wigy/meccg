@@ -1,0 +1,53 @@
+/**
+ * @module index
+ *
+ * Public surface of `@meccg/sim` — the headless simulation harness for
+ * AI training and evaluation: the agent seam, baseline agents, the
+ * in-process game runner, deck catalog loading, replay persistence and
+ * verification, statistics collection, and text transcripts. Also hosts
+ * the AI strategy module (heuristic evaluators) shared with the text
+ * clients.
+ */
+
+export type {
+  Agent,
+  AgentContext,
+  AgentDecision,
+  ConsideredAction,
+  GameObserver,
+  ReplayHeader,
+  ReplayPlayerInfo,
+  ReplayRecord,
+  DecisionRecord,
+  TransitionRecord,
+  CandidateRecord,
+  GameResultRecord,
+  GameOutcome,
+  GameStatsSummary,
+  DistributionSummary,
+} from './types.js';
+
+export { playGame } from './runner.js';
+export type { PlayGameOptions, GameRunResult } from './runner.js';
+
+export { createRandomAgent } from './agents/random-agent.js';
+export { createHeuristicAgent } from './agents/heuristic-agent.js';
+
+export { loadDeck, listDecks, expandEntries, deckToPlayerConfig, DECK_CATALOG_DIR, DECK_ALIGNMENT_MAP } from './decks.js';
+export type { DeckEntry, DeckFile, LoadedDeck } from './decks.js';
+
+export { ReplayWriter, readReplay, verifyReplay } from './replay.js';
+export type { Replay, ReplayVerification } from './replay.js';
+
+export { StatsCollector, aggregateStats, summarizeDistribution } from './stats.js';
+export type { AggregateStats } from './stats.js';
+
+export { renderHeader, renderTransition, renderDecision, renderResult, TranscriptPrinter } from './transcript.js';
+export type { TranscriptOptions } from './transcript.js';
+
+export { createRandomStream, agentStreamSeed } from './random-stream.js';
+
+// AI strategy module (lifted from the text client; shared by all clients).
+export { loadAiStrategy, sampleWeighted } from './ai/index.js';
+export type { AiStrategy, AiContext, WeightedAction } from './ai/index.js';
+export { heuristicStrategy } from './ai/heuristic.js';

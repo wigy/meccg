@@ -1,0 +1,20 @@
+{
+  "name": "@meccg/sim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Headless in-process simulation harness for MECCG: agents, self-play runner, statistics, replays",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "bench": "npx tsx src/cli/bench.ts",
+    "play": "npx tsx src/cli/play.ts",
+    "replay": "npx tsx src/cli/replay.ts"
+  },
+  "dependencies": {
+    "@meccg/shared": "*",
+    "@meccg/game-server": "*"
+  }
+}

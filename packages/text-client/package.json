@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@meccg/shared": "*",
+    "@meccg/sim": "*",
     "ws": "^8.19.0"
   }
 }
