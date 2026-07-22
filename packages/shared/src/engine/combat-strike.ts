@@ -78,6 +78,25 @@ export function nextStrikePhase(combat: CombatState): Partial<CombatState> | nul
 }
 
 /**
+ * Advance combat after a strike concludes: merge `combat` into `state` and
+ * either continue with the next strike phase (via {@link nextStrikePhase}) or,
+ * when no unresolved strikes remain, finalize the combat. This is the shared
+ * tail of every strike-resolution handler.
+ */
+export function advanceStrikeOrFinalize(
+  state: GameState,
+  combat: CombatState,
+  effects?: GameEffect[],
+): ReducerResult {
+  const next = nextStrikePhase(combat);
+  if (next) {
+    const newState = { ...state, combat: { ...combat, ...next } };
+    return effects ? { state: newState, effects } : { state: newState };
+  }
+  return finalizeCombat({ ...state, combat }, effects);
+}
+
+/**
  * Computes the per-strike prowess adjustment a creature gains against the
  * specific defending character based on its own `stat-modifier` self-effects
  * that are gated on the defender's race (e.g. Old Man Willow's "15 prowess
@@ -491,9 +510,8 @@ export function resolveStrikeCore(
       : combat;
 
   // Advance combat: body check, next strike, or finalize
-  let newCombat: CombatState;
   if (bodyCheckTarget) {
-    newCombat = { ...combatBase, strikeAssignments: newAssignments, phase: 'body-check', bodyCheckTarget };
+    const newCombat: CombatState = { ...combatBase, strikeAssignments: newAssignments, phase: 'body-check', bodyCheckTarget };
     return { state: { ...postPrisonerState, combat: newCombat }, effects };
   } else {
     const combatWithAssignments = { ...combatBase, strikeAssignments: newAssignments };
@@ -508,23 +526,14 @@ export function resolveStrikeCore(
       });
       if (allItems.length > 0) {
         logDetail(`Entering discard-item-from-company phase: ${allItems.length} item(s) available`);
-        newCombat = { ...combatWithAssignments, phase: 'discard-item-from-company', discardItemOptions: allItems };
+        const newCombat: CombatState = { ...combatWithAssignments, phase: 'discard-item-from-company', discardItemOptions: allItems };
         return { state: { ...postPrisonerState, combat: newCombat }, effects };
       }
       logDetail('An Article Missing: no items in company — discard-item effect skipped');
     }
 
-    const next = nextStrikePhase(combatWithAssignments);
-    if (!next) {
-      return finalizeCombat({ ...postPrisonerState, combat: combatWithAssignments }, effects);
-    }
-    newCombat = { ...combatWithAssignments, ...next };
+    return advanceStrikeOrFinalize(postPrisonerState, combatWithAssignments, effects);
   }
-
-  return {
-    state: { ...postPrisonerState, combat: newCombat },
-    effects,
-  };
 }
 
 /**
@@ -590,11 +599,7 @@ export function eliminateCombatantFromStrike(
     }];
     newPlayers2[defPlayerIndex] = newPlayerData;
 
-    const next2a = nextStrikePhase(combatWithElim);
-    if (next2a) {
-      return { state: { ...state, players: newPlayers2, combat: { ...combatWithElim, ...next2a } }, effects };
-    }
-    return finalizeCombat({ ...state, players: newPlayers2, combat: combatWithElim }, effects);
+    return advanceStrikeOrFinalize({ ...state, players: newPlayers2 }, combatWithElim, effects);
   }
 
   // Character eliminated — remove from company and add to eliminated pile
@@ -675,11 +680,7 @@ export function eliminateCombatantFromStrike(
   }
 
   // Advance to next strike or finalize
-  const next2 = nextStrikePhase(combatWithElim);
-  if (next2) {
-    return { state: { ...state, players: newPlayers2, combat: { ...combatWithElim, ...next2 } }, effects };
-  }
-  return finalizeCombat({ ...state, players: newPlayers2, combat: combatWithElim }, effects);
+  return advanceStrikeOrFinalize({ ...state, players: newPlayers2 }, combatWithElim, effects);
 }
 
 /** Resolve the current strike — roll dice and determine outcome. */
@@ -876,11 +877,7 @@ export function resolveStrikeCvCC(
   }
 
   // No body check — advance to next strike
-  const next = nextStrikePhase(combatWithAssignments);
-  if (!next) {
-    return finalizeCombat({ ...stateWithRoll, combat: combatWithAssignments }, effects);
-  }
-  return { state: { ...stateWithRoll, combat: { ...combatWithAssignments, ...next } }, effects };
+  return advanceStrikeOrFinalize(stateWithRoll, combatWithAssignments, effects);
 }
 
 /** Update a player's character to a new status (inline utility for CvCC). */

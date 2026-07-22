@@ -40,7 +40,7 @@ import { initiateOrPushChain } from './chain-reducer.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
 import { finalizeCombat, applyRule8_22AfterTrophyDecision, recordHazardEncountered } from './combat-finalize.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
-import { pruneLeaderFollowers, nextStrikePhase, eliminateCombatantFromStrike } from './combat-strike.js';
+import { pruneLeaderFollowers, nextStrikePhase, advanceStrikeOrFinalize, eliminateCombatantFromStrike } from './combat-strike.js';
 import { resolveChainStrikeModifier } from './combat-cancel.js';
 
 /**
@@ -269,13 +269,7 @@ export function handleCancelStrike(state: GameState, action: GameAction, combat:
   newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
 
   const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
-  const next = nextStrikePhase(combatWithAssignments);
-  if (!next) {
-    return finalizeCombat({ ...nextState, combat: combatWithAssignments });
-  }
-  return {
-    state: { ...nextState, combat: { ...combatWithAssignments, ...next } },
-  };
+  return advanceStrikeOrFinalize(nextState, combatWithAssignments);
 }
 
 /**
@@ -343,13 +337,7 @@ export function handleFleeFromStrike(state: GameState, action: GameAction, comba
   const newAssignments = [...combat.strikeAssignments];
   newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
   const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
-  const next = nextStrikePhase(combatWithAssignments);
-  if (!next) {
-    return finalizeCombat({ ...nextState, combat: combatWithAssignments });
-  }
-  return {
-    state: { ...nextState, combat: { ...combatWithAssignments, ...next } },
-  };
+  return advanceStrikeOrFinalize(nextState, combatWithAssignments);
 }
 
 /**
@@ -563,11 +551,7 @@ function discardCharacterAfterBodyCheck(
   const pressHost = findCapturingPressGang(stateWithRoll, defPlayerIndex);
   if (pressHost) {
     const captured = capturePressGang(stateWithRoll, defPlayerIndex, strike.characterId, pressHost);
-    const next = nextStrikePhase(combatWithDiscard);
-    if (next) {
-      return { state: { ...captured, combat: { ...combatWithDiscard, ...next } }, effects };
-    }
-    return finalizeCombat({ ...captured, combat: combatWithDiscard }, effects);
+    return advanceStrikeOrFinalize(captured, combatWithDiscard, effects);
   }
 
   const newPlayers = clonePlayers(stateWithRoll);
@@ -610,11 +594,7 @@ function discardCharacterAfterBodyCheck(
   }
   newPlayerData.characters = pruneLeaderFollowers(updatedChars, strike.characterId, charData.controlledBy);
   newPlayers[defPlayerIndex] = newPlayerData;
-  const next = nextStrikePhase(combatWithDiscard);
-  if (next) {
-    return { state: { ...stateWithRoll, players: newPlayers, combat: { ...combatWithDiscard, ...next } }, effects };
-  }
-  return finalizeCombat({ ...stateWithRoll, players: newPlayers, combat: combatWithDiscard }, effects);
+  return advanceStrikeOrFinalize({ ...stateWithRoll, players: newPlayers }, combatWithDiscard, effects);
 }
 
 /**
@@ -758,11 +738,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     }
 
     // Advance to next strike or finalize
-    const next1 = nextStrikePhase(combatAfterBodyCheck);
-    if (next1) {
-      return { state: { ...stateAfterOutcome, combat: { ...combatAfterBodyCheck, ...next1 } }, effects };
-    }
-    return finalizeCombat({ ...stateAfterOutcome, combat: combatAfterBodyCheck }, effects);
+    return advanceStrikeOrFinalize(stateAfterOutcome, combatAfterBodyCheck, effects);
   }
 
   if (combat.bodyCheckTarget === 'character') {
@@ -895,11 +871,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         newPlayerDataRW.ringwraithReturnedToHand = charData.definitionId;
         newPlayersRW[defPlayerIndex] = newPlayerDataRW;
 
-        const nextRW = nextStrikePhase(combatWithRW);
-        if (nextRW) {
-          return { state: { ...stateWithRoll, players: newPlayersRW, combat: { ...combatWithRW, ...nextRW } }, effects };
-        }
-        return finalizeCombat({ ...stateWithRoll, players: newPlayersRW, combat: combatWithRW }, effects);
+        return advanceStrikeOrFinalize({ ...stateWithRoll, players: newPlayersRW }, combatWithRW, effects);
       }
     }
 
@@ -969,12 +941,9 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
 
     logDetail(`${allyMatch ? 'Ally' : 'Character'} survives body check`);
     noteOutcome(`${targetName} survives the body check (rolled ${effectiveRoll}, body ${body})`);
-    // Advance to next strike or finalize
-    const next3 = nextStrikePhase(combat);
-    if (next3) {
-      return { state: { ...stateWithRoll, combat: { ...combat, ...next3 } }, effects };
-    }
-    return finalizeCombat(stateWithRoll, effects);
+    // Advance to next strike or finalize (`combat` is unchanged here, so
+    // re-merging it into `stateWithRoll` is a no-op on the finalize path).
+    return advanceStrikeOrFinalize(stateWithRoll, combat, effects);
   }
 
   if (combat.bodyCheckTarget === 'attacker-character') {
@@ -1038,19 +1007,11 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       const combatWithElim = { ...newCombat, strikeAssignments: newAssignments.map((a, i) =>
         i === combat.currentStrikeIndex ? { ...a, attackerResult: 'eliminated' as const } : a,
       ) };
-      const nextA = nextStrikePhase(combatWithElim);
-      if (nextA) {
-        return { state: { ...stateWithRoll, players: newPlayers, combat: { ...combatWithElim, ...nextA } }, effects };
-      }
-      return finalizeCombat({ ...stateWithRoll, players: newPlayers, combat: combatWithElim }, effects);
+      return advanceStrikeOrFinalize({ ...stateWithRoll, players: newPlayers }, combatWithElim, effects);
     } else {
       logDetail(`CvCC: ${charName} survives body check (roll ${effectiveRoll} <= body ${body})`);
       noteOutcome(`${charName} survives the body check (rolled ${effectiveRoll}, body ${body})`);
-      const nextA = nextStrikePhase(newCombat);
-      if (nextA) {
-        return { state: { ...stateWithRoll, combat: { ...newCombat, ...nextA } }, effects };
-      }
-      return finalizeCombat({ ...stateWithRoll, combat: newCombat }, effects);
+      return advanceStrikeOrFinalize(stateWithRoll, newCombat, effects);
     }
   }
 
@@ -1109,11 +1070,7 @@ export function handleShieldDiscardRoll(state: GameState, action: GameAction, co
 
   // Clear the shield-discard-roll field and advance combat
   const combatCleared: CombatState = { ...combat, phase: 'resolve-strike' as const, shieldAbsorbItemId: undefined };
-  const next = nextStrikePhase(combatCleared);
-  if (next) {
-    return { state: { ...stateAfterShield, combat: { ...combatCleared, ...next } }, effects };
-  }
-  return finalizeCombat({ ...stateAfterShield, combat: combatCleared }, effects);
+  return advanceStrikeOrFinalize(stateAfterShield, combatCleared, effects);
 }
 
 /**
@@ -1995,11 +1952,7 @@ export function handleSalvageItem(state: GameState, action: GameAction, combat: 
  */
 export function finishSalvage(state: GameState, combat: CombatState): ReducerResult {
   const cleanCombat: CombatState = { ...combat, phase: 'body-check', salvageItems: undefined, salvageRecipients: undefined };
-  const next = nextStrikePhase(cleanCombat);
-  if (next) {
-    return { state: { ...state, combat: { ...cleanCombat, ...next } } };
-  }
-  return finalizeCombat({ ...state, combat: cleanCombat });
+  return advanceStrikeOrFinalize(state, cleanCombat);
 }
 
 /**
@@ -2033,11 +1986,7 @@ export function handleDiscardItemFromCompany(state: GameState, action: GameActio
   };
 
   const cleanCombat: CombatState = { ...combat, phase: 'resolve-strike', discardItemOptions: undefined };
-  const next = nextStrikePhase(cleanCombat);
-  if (!next) {
-    return finalizeCombat({ ...state, players: newPlayers, combat: cleanCombat });
-  }
-  return { state: { ...state, players: newPlayers, combat: { ...cleanCombat, ...next } } };
+  return advanceStrikeOrFinalize({ ...state, players: newPlayers }, cleanCombat);
 }
 
 /**
