@@ -1,8 +1,8 @@
-# Behavioral-cloning training (P3)
+# Policy training (P3 behavioral cloning + P4 self-play RL)
 
-Offline training loop for the action-conditioned policy/value net. The
-TypeScript side exports featurized teacher trajectories and runs inference;
-Python (PyTorch, CPU is fine) fits the weights.
+Offline training loops for the action-conditioned policy/value net. The
+TypeScript side exports featurized trajectories and runs inference; Python
+(PyTorch, CPU is fine) fits the weights.
 
 ## Workflow
 
@@ -17,6 +17,29 @@ python3 train/train_bc.py --data train.jsonl --out bc-weights.json --epochs 4
 npm run play -w @meccg/sim -- --agents bc:bc-weights.json,heuristic
 npm run gate -w @meccg/sim -- --challenger bc:bc-weights.json --champion heuristic
 ```
+
+## Self-play RL (P4: PPO / REINFORCE)
+
+Starting from a BC champion, each iteration rolls out self-play games with
+the policy *sampling* at temperature 1 (`bc:weights.json@1`), updates the
+policy, and promotes the candidate only when the gate clears (paired-seed
+Elo-diff lower bound ≥ `GATE_MIN_ELO`):
+
+```sh
+train/selfplay_loop.sh bc-weights.json /tmp/selfplay-run 10
+```
+
+Two update modes (both require `--init`, the policy that produced the
+rollouts, and temperature-1 rollouts so the recorded policy probabilities
+are the behavior distribution):
+
+- `--mode ppo` (loop default): clipped-ratio surrogate against the
+  recorded behavior probabilities, advantages fixed from the warm-started
+  value head — the same rollouts safely train several epochs (default 4),
+  squeezing ~4× more learning out of each expensive rollout batch.
+- `--mode reinforce`: one on-policy policy-gradient epoch with the value
+  head as baseline; simplest possible update, kept as the sanity
+  reference.
 
 ## Notes
 

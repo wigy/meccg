@@ -194,22 +194,40 @@ export function runBcSelfTest(model: BcWeightsFile): number {
 /** Tolerance for the runtime-parity self-test (float32 vs float64 rounding). */
 const SELF_TEST_TOLERANCE = 2e-4;
 
+/** Options for {@link createBcAgent}. */
+export interface BcAgentOptions {
+  /**
+   * When set, sample the action from the policy distribution sharpened to
+   * `probs^(1/temperature)` instead of playing the argmax. Temperature 1
+   * samples the policy as-is (the exploration mode self-play RL rollouts
+   * use); lower values approach argmax. Sampling draws from the agent's
+   * seeded stream, so rollouts stay reproducible.
+   */
+  readonly temperature?: number;
+}
+
 /**
  * Creates the behavioral-cloning agent from a weights file. Plays the
- * argmax of the policy over viable candidates; the full distribution is
- * surfaced as the considered weights for transcripts and replays.
+ * argmax of the policy over viable candidates (or samples, see
+ * {@link BcAgentOptions.temperature}); the full distribution is surfaced
+ * as the considered weights for transcripts, replays, and RL training
+ * data.
  */
-export function createBcAgent(weightsPath: string): Agent {
+export function createBcAgent(weightsPath: string, options?: BcAgentOptions): Agent {
   const model = loadBcWeights(weightsPath);
   const selfTestError = runBcSelfTest(model);
   if (selfTestError > SELF_TEST_TOLERANCE) {
     throw new Error(`bc weights self-test failed: max deviation ${selfTestError} > ${SELF_TEST_TOLERANCE}`);
   }
+  const temperature = options?.temperature;
+  if (temperature !== undefined && !(temperature > 0)) {
+    throw new Error(`bc temperature must be > 0, got ${temperature}`);
+  }
   let vocab: CardVocab | null = null;
   let cachedPool: Readonly<Record<string, CardDefinition>> | null = null;
 
   return {
-    name: 'bc',
+    name: temperature === undefined ? 'bc' : `bc@${temperature}`,
     chooseAction(context: AgentContext): AgentDecision {
       if (vocab === null || cachedPool !== context.cardPool) {
         vocab = buildCardVocab(context.cardPool);
@@ -223,11 +241,32 @@ export function createBcAgent(weightsPath: string): Agent {
       const output = bcForward(model, state, actions);
 
       let bestIndex = -1;
-      output.probs.forEach((prob, i) => {
-        if (context.view.legalActions[i].viable && (bestIndex === -1 || prob > output.probs[bestIndex])) {
-          bestIndex = i;
+      if (temperature === undefined) {
+        output.probs.forEach((prob, i) => {
+          if (context.view.legalActions[i].viable && (bestIndex === -1 || prob > output.probs[bestIndex])) {
+            bestIndex = i;
+          }
+        });
+      } else {
+        // Temperature sampling over viable candidates from the seeded stream.
+        const sharpened = output.probs.map((prob, i) =>
+          context.view.legalActions[i].viable && prob > 0 ? Math.pow(prob, 1 / temperature) : 0,
+        );
+        const total = sharpened.reduce((sum, p) => sum + p, 0);
+        if (total > 0) {
+          let draw = context.random() * total;
+          for (let i = 0; i < sharpened.length; i++) {
+            draw -= sharpened[i];
+            if (sharpened[i] > 0 && draw <= 0) {
+              bestIndex = i;
+              break;
+            }
+          }
+          if (bestIndex === -1) {
+            bestIndex = sharpened.reduce((best, p, i) => (p > 0 ? i : best), -1);
+          }
         }
-      });
+      }
       if (bestIndex === -1) {
         return { action: context.legalActions[0], note: 'bc: no viable candidate scored — took first legal action' };
       }
