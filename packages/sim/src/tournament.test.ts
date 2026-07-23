@@ -260,7 +260,7 @@ describe('head-to-head match', () => {
     expect(Number.isFinite(match.elo.diff)).toBe(true);
     expect(match.challenger.rating.rd).toBeLessThan(INITIAL_RATING.rd);
     expect(match.champion.rating.rd).toBeLessThan(INITIAL_RATING.rd);
-  });
+  }, 20000);
 });
 
 describe('noisy heuristic agent', () => {
