@@ -18,8 +18,73 @@ import type { GameState } from '../types/state.js';
 import type { RegionType } from '../types/common.js';
 import type { CardEffect, RegionKeyingBoost, RegionTypeRemap } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
+import { getEffectiveRegionType } from './effective.js';
 
 export type { RegionKeyingBoost, RegionTypeRemap };
+
+/**
+ * Fold active `region.type` `override` constraints (Choking Shadows tw-21,
+ * Deeper Shadow le-179 — "treat one Wilderness as a Shadow-land") into a
+ * traversed region-type path. The override **replaces** the region's type
+ * (the region *is considered* the new type — its printed type no longer
+ * counts for keying). When the type and name arrays are index-parallel
+ * (region movement) the replacement happens at the region's own index.
+ * Otherwise (starter/special movement, where the type path comes from site
+ * cards and is not name-parallel) one occurrence of the region's printed
+ * type — resolved from the region card — is replaced, falling back to
+ * appending the override type when the printed type is absent from the
+ * path. The name-scoped override still requires its region to actually be
+ * on the traversed path (`pathNames`).
+ */
+export function applyRegionTypeOverrides(
+  state: GameState,
+  pathTypes: readonly RegionType[],
+  pathNames: readonly string[],
+): RegionType[] {
+  if (pathTypes.length === pathNames.length) {
+    return pathTypes.map((rt, i) => getEffectiveRegionType(state, pathNames[i], rt));
+  }
+  const result = [...pathTypes];
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'region.type' || c.kind.op !== 'override') continue;
+    const regionName = (c.kind.filter as { 'region.name'?: string } | undefined)?.['region.name'];
+    if (!regionName || !pathNames.includes(regionName)) continue;
+    const overrideType = c.kind.value as RegionType;
+    const regionDef = Object.values(state.cardPool).find(
+      d => (d as { cardType?: string }).cardType === 'region' && (d as { name?: string }).name === regionName,
+    ) as { regionType?: RegionType } | undefined;
+    const printed = regionDef?.regionType;
+    const index = printed !== undefined ? result.indexOf(printed) : -1;
+    if (index >= 0) result[index] = overrideType;
+    else result.push(overrideType);
+  }
+  return result;
+}
+
+/**
+ * Build the candidate region-type paths a creature may be keyed against:
+ * name-scoped overrides (replacement, above), class remaps (Fell Winter),
+ * name-keyed conversions (Girdle of Radagast — applied last so they win,
+ * and only when the arrays are name-parallel), and finally keying boosts
+ * (Withered Lands) as one variant each. This is the single source of truth
+ * shared by the offering side (`findCreatureKeyingMatches`) and the
+ * validating side (`checkCreatureKeying`): deriving the path in either
+ * place independently is exactly how a keying gets offered and then
+ * rejected (or vice versa).
+ */
+export function computeCandidateRegionPaths(
+  state: GameState,
+  pathTypes: readonly RegionType[],
+  pathNames: readonly string[],
+  inPlayNames: readonly string[],
+): RegionType[][] {
+  const overridden = applyRegionTypeOverrides(state, pathTypes, pathNames);
+  const remapped = applyRegionTypeRemaps(overridden, collectRegionTypeRemaps(state, inPlayNames));
+  const converted = pathTypes.length === pathNames.length
+    ? applyRegionTypeConversions(remapped, pathNames, collectRegionTypeConversions(state))
+    : remapped;
+  return regionPathsWithBoosts(converted, collectRegionKeyingBoosts(state));
+}
 
 /**
  * Collect every region treatment offered by active `region-keying-boost`

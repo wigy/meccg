@@ -41,7 +41,7 @@ import { emitGrantedActionConstraintActions } from './granted-action-constraints
 import { countExtraAgentActions } from '../mh-agents.js';
 import { extraMHMoveDestinations } from '../mh-hazard-play.js';
 import { currentHazardLimit } from '../hazard-limit.js';
-import { collectRegionKeyingBoosts, regionPathsWithBoosts, collectRegionTypeRemaps, applyRegionTypeRemaps, collectRegionTypeConversions, applyRegionTypeConversions } from '../region-keying.js';
+import { computeCandidateRegionPaths } from '../region-keying.js';
 import { asViable as viable } from './evaluated.js';
 import { notPlayable } from './action-builders.js';
 
@@ -3711,28 +3711,6 @@ function findCreatureKeyingMatches(
   const destSiteDefId = targetCompany.destinationSite?.instanceId
     ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
     : null;
-  const overriddenRegionTypes = new Map<string, import('../../types/common.js').RegionType>();
-  for (const c of state.activeConstraints) {
-    if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'region.type' || c.kind.op !== 'override') continue;
-    const regionName = (c.kind.filter as { 'region.name'?: string } | undefined)?.['region.name'];
-    if (!regionName || typeof regionName !== 'string') continue;
-    if (mhState.resolvedSitePathNames.includes(regionName)) {
-      overriddenRegionTypes.set(regionName, c.kind.value as import('../../types/common.js').RegionType);
-    }
-  }
-  // region-type-conversion environments (Girdle of Radagast wh-110): named
-  // regions bound to a Wizardhaven (and its adjacents) "become Wilderness".
-  // Applied to the name-parallel base path (a replacement keyed by region name)
-  // before the additive constraint overrides below, so the converted regions
-  // read as Wilderness on the offering side exactly as the reducer validates.
-  const regionConversions = collectRegionTypeConversions(state);
-  const convertedBase = mhState.resolvedSitePath.length === mhState.resolvedSitePathNames.length
-    ? applyRegionTypeConversions([...mhState.resolvedSitePath], mhState.resolvedSitePathNames, regionConversions)
-    : [...mhState.resolvedSitePath];
-  const effectiveRegionTypes: import('../../types/common.js').RegionType[] = [...convertedBase];
-  for (const rt of overriddenRegionTypes.values()) {
-    if (!effectiveRegionTypes.includes(rt)) effectiveRegionTypes.push(rt);
-  }
   const effectiveSiteTypes: import('../../types/common.js').SiteType[] = [];
   if (mhState.destinationSiteType) effectiveSiteTypes.push(mhState.destinationSiteType);
   for (const c of state.activeConstraints) {
@@ -3758,15 +3736,14 @@ function findCreatureKeyingMatches(
     inPlay: inPlayNames,
     destinationSite: { sitePath: destSitePathCounts },
   };
-  // region-type-remap environments (Fell Winter le-111): reinterpret whole
-  // classes of region ("all Border-lands as Wildernesses") on the traversed
-  // path before keying. Evaluated live so the DoN gate tracks play/leave.
-  const regionRemaps = collectRegionTypeRemaps(state, inPlayNames);
-  const remappedRegionTypes = applyRegionTypeRemaps(effectiveRegionTypes, regionRemaps);
-  // region-keying-boost environments (Withered Lands): build the candidate
-  // paths once. Each is the effective path with at most one boost applied.
-  const keyingBoosts = collectRegionKeyingBoosts(state);
-  const candidateRegionPaths = regionPathsWithBoosts(remappedRegionTypes, keyingBoosts);
+  // Derive the keyable region paths — name-scoped overrides (Choking
+  // Shadows, Deeper Shadow), class remaps (Fell Winter), name conversions
+  // (Girdle of Radagast), keying boosts (Withered Lands) — via the shared
+  // helper so the offer can never disagree with the reducer's validation
+  // (`checkCreatureKeying`).
+  const candidateRegionPaths = computeCandidateRegionPaths(
+    state, mhState.resolvedSitePath, mhState.resolvedSitePathNames, inPlayNames,
+  );
   for (const key of def.keyedTo) {
     if (key.when && !matchesCondition(key.when, whenContext)) continue;
     // Region type matches — try the effective path plus each boosted variant.

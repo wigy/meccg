@@ -39,7 +39,6 @@ import { logDetail } from './legal-actions/log.js';
 import { initiateChain, initiateOrPushChain } from './chain-reducer.js';
 import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
-import { getEffectiveRegionType } from './effective.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -50,7 +49,7 @@ import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution 
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { collectRegionKeyingBoosts, regionPathsWithBoosts, collectRegionTypeRemaps, applyRegionTypeRemaps, collectRegionTypeConversions, applyRegionTypeConversions } from './region-keying.js';
+import { computeCandidateRegionPaths } from './region-keying.js';
 import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter } from './mh-agents.js';
 
 /**
@@ -2493,38 +2492,14 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
     destinationSite: { sitePath: destPathCounts },
   };
 
-  // Rule 5.09: fold in any active region-type override (e.g. Deeper Shadow,
-  // le-179) before computing keying candidates. Region movement's resolved
-  // path/names arrays are index-parallel (each declared region contributes
-  // one type and one name together — see `handleRevealNewSite`), so an
-  // override matched by region name can be mapped back onto the type array
-  // at the same index. Starter/special movement's arrays aren't
-  // index-parallel (site-path types vs. just origin/destination names), so
-  // the override is skipped there — there is no reliable region to attribute
-  // it to.
-  const overriddenSitePath = mhState.resolvedSitePath.length === mhState.resolvedSitePathNames.length
-    ? mhState.resolvedSitePath.map((rt, i) => getEffectiveRegionType(state, mhState.resolvedSitePathNames[i], rt))
-    : mhState.resolvedSitePath;
-
-  // region-type-remap environments (Fell Winter le-111): reinterpret whole
-  // classes of region ("all Border-lands as Wildernesses") on the traversed
-  // path before keying. Evaluated live so the DoN gate tracks play/leave.
-  const regionRemaps = collectRegionTypeRemaps(state, inPlayNames);
-  const remappedSitePath = applyRegionTypeRemaps(overriddenSitePath, regionRemaps);
-
-  // region-type-conversion environments (Girdle of Radagast le-... wh-110):
-  // named regions bound to a Wizardhaven (and its adjacents) "become
-  // Wilderness". Applied last, keyed by region name, so those regions read as
-  // the converted type regardless of their printed type or any type-class remap.
-  const regionConversions = collectRegionTypeConversions(state);
-  const effectiveSitePath = mhState.resolvedSitePath.length === mhState.resolvedSitePathNames.length
-    ? applyRegionTypeConversions(remappedSitePath, mhState.resolvedSitePathNames, regionConversions)
-    : remappedSitePath;
-
-  // region-keying-boost environments (Withered Lands): build the candidate
-  // paths once. Each is the resolved path with at most one boost applied.
-  const keyingBoosts = collectRegionKeyingBoosts(state);
-  const candidateRegionPaths = regionPathsWithBoosts(effectiveSitePath, keyingBoosts);
+  // Rule 5.09: derive the keyable region paths — name-scoped overrides
+  // (Choking Shadows, Deeper Shadow), class remaps (Fell Winter), name
+  // conversions (Girdle of Radagast), keying boosts (Withered Lands) — via
+  // the shared helper so this validator can never disagree with the
+  // offering side (`findCreatureKeyingMatches`).
+  const candidateRegionPaths = computeCandidateRegionPaths(
+    state, mhState.resolvedSitePath, mhState.resolvedSitePathNames, inPlayNames,
+  );
 
   // Site-type override constraints (e.g. Hold Rebuilt and Repaired, as-88:
   // the Ruins & Lairs becomes a Shadow-hold) widen the destination's
