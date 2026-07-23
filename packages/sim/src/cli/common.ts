@@ -9,6 +9,7 @@ import type { Agent } from '../types.js';
 import { createRandomAgent } from '../agents/random-agent.js';
 import { createHeuristicAgent } from '../agents/heuristic-agent.js';
 import { createNoisyHeuristicAgent } from '../agents/noisy-heuristic-agent.js';
+import { createBcAgent } from '../agents/bc-agent.js';
 import { loadDeck } from '../decks.js';
 import type { LoadedDeck } from '../decks.js';
 
@@ -56,11 +57,12 @@ export function stringFlag(args: CliArgs, name: string): string | undefined {
 }
 
 /** Available agent names for the CLIs. */
-export const AGENT_NAMES = ['random', 'heuristic', 'noisy-heuristic'] as const;
+export const AGENT_NAMES = ['random', 'heuristic', 'noisy-heuristic', 'bc'] as const;
 
 /**
  * Instantiate an agent by registry spec. A spec is a name with an optional
- * `:parameter` suffix — `noisy-heuristic:0.75` blunders 75% of the time.
+ * `:parameter` suffix — `noisy-heuristic:0.75` blunders 75% of the time,
+ * `bc:path/to/weights.json` loads a trained behavioral-cloning policy.
  */
 export function resolveAgent(spec: string): Agent {
   const colon = spec.indexOf(':');
@@ -73,6 +75,10 @@ export function resolveAgent(spec: string): Agent {
       const epsilon = param === undefined ? 0.5 : Number(param);
       if (!Number.isFinite(epsilon)) throw new Error(`noisy-heuristic expects a numeric ε, got "${param}"`);
       return createNoisyHeuristicAgent(epsilon);
+    }
+    case 'bc': {
+      if (param === undefined) throw new Error('bc expects a weights path: bc:path/to/weights.json');
+      return createBcAgent(param);
     }
     default: throw new Error(`Unknown agent "${spec}" — available: ${AGENT_NAMES.join(', ')}`);
   }

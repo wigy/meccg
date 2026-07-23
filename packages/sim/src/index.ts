@@ -33,6 +33,8 @@ export type { PlayGameOptions, GameRunResult } from './runner.js';
 export { createRandomAgent } from './agents/random-agent.js';
 export { createHeuristicAgent } from './agents/heuristic-agent.js';
 export { createNoisyHeuristicAgent } from './agents/noisy-heuristic-agent.js';
+export { createBcAgent, loadBcWeights, bcForward, runBcSelfTest } from './agents/bc-agent.js';
+export type { BcWeightsFile, BcOutput, TensorJson } from './agents/bc-agent.js';
 
 export { INITIAL_RATING, updateRating, ratingInterval } from './glicko2.js';
 export type { Glicko2Rating, RatedGame } from './glicko2.js';

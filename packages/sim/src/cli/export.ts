@@ -122,6 +122,7 @@ for (let i = 0; i < games; i++) {
     outcome: run.result.outcome,
     winnerIndex: run.winnerIndex,
     winReason: run.result.winReason,
+    error: run.result.error,
     finalScores: run.result.finalScores,
     decisions: run.result.decisions,
     turns: run.result.turns,

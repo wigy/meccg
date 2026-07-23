@@ -1,0 +1,4 @@
+# Training artifacts (exported datasets and trained weights are generated,
+# not source; the committed exception is test-fixtures/bc-mini-weights.json).
+*.jsonl
+bc-weights*.json
