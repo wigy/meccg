@@ -77,7 +77,15 @@ export function resolveAgent(spec: string): Agent {
       return createNoisyHeuristicAgent(epsilon);
     }
     case 'bc': {
-      if (param === undefined) throw new Error('bc expects a weights path: bc:path/to/weights.json');
+      if (param === undefined) throw new Error('bc expects a weights path: bc:path/to/weights.json[@temperature]');
+      // Optional `@T` suffix samples the policy at temperature T instead of
+      // playing the argmax (rollout/exploration mode for self-play RL).
+      const at = param.lastIndexOf('@');
+      if (at > 0) {
+        const temperature = Number(param.slice(at + 1));
+        if (!Number.isFinite(temperature)) throw new Error(`bc expects a numeric temperature after "@", got "${param.slice(at + 1)}"`);
+        return createBcAgent(param.slice(0, at), { temperature });
+      }
       return createBcAgent(param);
     }
     default: throw new Error(`Unknown agent "${spec}" — available: ${AGENT_NAMES.join(', ')}`);

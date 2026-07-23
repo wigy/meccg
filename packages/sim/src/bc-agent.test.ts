@@ -50,6 +50,30 @@ describe('bc weights', () => {
 });
 
 describe('bc agent', () => {
+  test('temperature sampling stays legal and reproducible (rollout mode)', () => {
+    const record = (): string[] => {
+      const actions: string[] = [];
+      const observer: GameObserver = {
+        onDecision(r: DecisionRecord) {
+          actions.push(r.action.type);
+        },
+      };
+      const run = playGame({
+        agents: [createBcAgent(FIXTURE, { temperature: 1 }), createBcAgent(FIXTURE, { temperature: 1 })],
+        decks: DECKS,
+        seed: 606,
+        maxDecisions: 100,
+        observers: [observer],
+      });
+      expect(run.result.outcome === 'completed' || run.result.outcome === 'decision-limit').toBe(true);
+      return actions;
+    };
+    const first = record();
+    expect(first.length).toBe(100);
+    expect(record()).toEqual(first);
+    expect(() => createBcAgent(FIXTURE, { temperature: 0 })).toThrow('temperature');
+  });
+
   test('plays a legal, deterministic game against the heuristic', () => {
     const record = (): string[] => {
       const actions: string[] = [];
