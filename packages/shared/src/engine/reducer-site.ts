@@ -1838,6 +1838,14 @@ function handleSitePlayResources(
   const player = playerById(state, action.player)!;
   const company = player.companies[siteState.activeCompanyIndex];
 
+  // The active company may have dissolved mid-site-phase (e.g. every
+  // character died to an automatic-attack after entering) — mirror of the
+  // enter-or-skip guard: pass finishes the dissolved company's slot.
+  if (!company && action.type === 'pass') {
+    logDetail('Site play-resources: active company dissolved — finishing its site-phase slot');
+    return finishDissolvedCompanySlot(state, siteState);
+  }
+
   // Character-recruitment event (A Chance Meeting tw-188): bring a character
   // into play during the site phase. Routed to the shared play-character
   // reducer, which discards the enabling event and skips the
