@@ -1,6 +1,14 @@
 #!/bin/bash
 set -eo pipefail
 
+# Make the worker self-sufficient about PATH. `gh` (and other user tools) live
+# in ~/.local/bin, which only lands on PATH when a LOGIN shell sources
+# ~/.profile. Launched from systemd/cron or any non-login context that skips the
+# profile, `command -v gh` came up empty and the script aborted with "gh not
+# found" (exit 4) even though gh was installed. Prepend it ourselves so run-ai
+# works regardless of how it is started.
+export PATH="$HOME/.local/bin:$PATH"
+
 if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
   cat <<'EOF'
 Usage: bin/run-ai [<n>]
