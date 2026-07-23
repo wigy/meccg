@@ -2251,9 +2251,41 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Pallando"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "stave-of-pallando-fetch",
+        "cost": {
+          "tap": "self"
+        },
+        "endOfTurnOnly": true,
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": {
+            "cardType": {
+              "$in": ["hero-resource-faction", "minion-resource-faction"]
+            }
+          }
+        }
       }
     ],
-    "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Stave of Pallando during your end-of-turn phase to take a faction from your discard pile to your hand."
+    "text": "Unique. Pallando specific. Place this card on Pallando if he is in play. If on Pallando, you may tap Stave of Pallando during your end-of-turn phase to take a faction from your discard pile to your hand.",
+    "certified": "2026-07-23"
   },
   {
     "cardType": "minion-resource-event",
