@@ -352,7 +352,29 @@ preflight_token() {
   if [ -z "$verdict" ]; then
     # Trust the success marker first: a clean trivial reply means the token
     # authenticated, regardless of any incidental hex in the stream.
-    if grep -q '"type":"result","subtype":"success","is_error":false' "$tmp" 2>/dev/null; then
+    #
+    # Classify from the terminal result object with jq, NOT a substring grep.
+    # The CLI emits the result fields in an unstable order (in 2.1.218 `is_error`
+    # is the 1st key, `subtype` the 12th, `type` the 18th of 21), so the old
+    # literal '"type":"result","subtype":"success","is_error":false' match
+    # assumed an adjacency that no longer holds. After a CLI upgrade it silently
+    # stopped matching and EVERY valid token came back verdict=unknown — the
+    # check could no longer confirm a good token, nor distinguish one from an
+    # expired token whose error wording $auth_re does not cover.
+    #
+    # Grep the single result line out first rather than running `jq -s` over the
+    # whole file: claude's stderr is merged into $tmp by the 2>&1 above, so the
+    # file is not guaranteed to be pure JSON and a malformed line would abort jq.
+    #
+    # Read .is_error bare — do NOT write `.is_error // true` as a missing-key
+    # guard. jq's `//` treats BOTH null and false as empty, so on the success
+    # case (is_error=false) it yields `true` and rejects a perfectly good token.
+    # Bare .is_error already fails safe: a missing key prints "null" and an
+    # unparseable line prints nothing, neither of which equals "false".
+    local result_line
+    result_line=$(grep '"type":"result"' "$tmp" 2>/dev/null | tail -1)
+    if [ -n "$result_line" ] \
+       && [ "$(jq -r '.is_error' <<<"$result_line" 2>/dev/null)" = "false" ]; then
       verdict="valid"
     elif grep -qiE "$auth_re" "$tmp" 2>/dev/null; then
       verdict="invalid"
