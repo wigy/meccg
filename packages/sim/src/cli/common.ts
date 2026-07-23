@@ -8,6 +8,7 @@
 import type { Agent } from '../types.js';
 import { createRandomAgent } from '../agents/random-agent.js';
 import { createHeuristicAgent } from '../agents/heuristic-agent.js';
+import { createNoisyHeuristicAgent } from '../agents/noisy-heuristic-agent.js';
 import { loadDeck } from '../decks.js';
 import type { LoadedDeck } from '../decks.js';
 
@@ -48,16 +49,41 @@ export function numberFlag(args: CliArgs, name: string, defaultValue: number): n
   return value;
 }
 
-/** Available agent names for the CLIs. */
-export const AGENT_NAMES = ['random', 'heuristic'] as const;
+/** Read a string flag; returns undefined when absent or valueless. */
+export function stringFlag(args: CliArgs, name: string): string | undefined {
+  const raw = args.flags[name];
+  return raw === undefined || raw === true ? undefined : raw;
+}
 
-/** Instantiate an agent by registry name. */
-export function resolveAgent(name: string): Agent {
+/** Available agent names for the CLIs. */
+export const AGENT_NAMES = ['random', 'heuristic', 'noisy-heuristic'] as const;
+
+/**
+ * Instantiate an agent by registry spec. A spec is a name with an optional
+ * `:parameter` suffix — `noisy-heuristic:0.75` blunders 75% of the time.
+ */
+export function resolveAgent(spec: string): Agent {
+  const colon = spec.indexOf(':');
+  const name = colon === -1 ? spec : spec.slice(0, colon);
+  const param = colon === -1 ? undefined : spec.slice(colon + 1);
   switch (name) {
     case 'random': return createRandomAgent();
     case 'heuristic': return createHeuristicAgent();
-    default: throw new Error(`Unknown agent "${name}" — available: ${AGENT_NAMES.join(', ')}`);
+    case 'noisy-heuristic': {
+      const epsilon = param === undefined ? 0.5 : Number(param);
+      if (!Number.isFinite(epsilon)) throw new Error(`noisy-heuristic expects a numeric ε, got "${param}"`);
+      return createNoisyHeuristicAgent(epsilon);
+    }
+    default: throw new Error(`Unknown agent "${spec}" — available: ${AGENT_NAMES.join(', ')}`);
   }
+}
+
+/** Resolve a comma-separated list flag (any length), with a default. */
+export function resolveList(args: CliArgs, name: string, defaults: readonly string[]): string[] {
+  const raw = args.flags[name];
+  if (raw === undefined || raw === true) return [...defaults];
+  const parts = String(raw).split(',').map(p => p.trim()).filter(p => p.length > 0);
+  return parts.length === 0 ? [...defaults] : parts;
 }
 
 /** Resolve a comma-separated pair flag (e.g. "--agents random,heuristic"). */

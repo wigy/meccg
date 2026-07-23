@@ -32,6 +32,24 @@ export type { PlayGameOptions, GameRunResult } from './runner.js';
 
 export { createRandomAgent } from './agents/random-agent.js';
 export { createHeuristicAgent } from './agents/heuristic-agent.js';
+export { createNoisyHeuristicAgent } from './agents/noisy-heuristic-agent.js';
+
+export { INITIAL_RATING, updateRating, ratingInterval } from './glicko2.js';
+export type { Glicko2Rating, RatedGame } from './glicko2.js';
+
+export { runTournament, runMatch, estimateEloDiff, scoreToEloDiff } from './tournament.js';
+export type {
+  TournamentOptions,
+  TournamentResult,
+  TournamentStanding,
+  TournamentParticipant,
+  TournamentGameRecord,
+  TournamentPlayFn,
+  PairingSummary,
+  MatchOptions,
+  MatchResult,
+  EloEstimate,
+} from './tournament.js';
 
 export { loadDeck, listDecks, expandEntries, deckToPlayerConfig, DECK_CATALOG_DIR, DECK_ALIGNMENT_MAP } from './decks.js';
 export type { DeckEntry, DeckFile, LoadedDeck } from './decks.js';

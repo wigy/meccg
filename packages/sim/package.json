@@ -11,7 +11,9 @@
     "test": "vitest run",
     "bench": "npx tsx src/cli/bench.ts",
     "play": "npx tsx src/cli/play.ts",
-    "replay": "npx tsx src/cli/replay.ts"
+    "replay": "npx tsx src/cli/replay.ts",
+    "tournament": "npx tsx src/cli/tournament.ts",
+    "gate": "npx tsx src/cli/gate.ts"
   },
   "dependencies": {
     "@meccg/shared": "*",
