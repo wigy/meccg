@@ -35,6 +35,8 @@ import { Phase, SiteType, RegionType, CardStatus } from '../../index.js';
 import type { GameState, HazardEventCard, MovementHazardPhaseState, CardInstanceId, CardDefinitionId } from '../../index.js';
 
 const CHOKING_SHADOWS = 'tw-21' as CardDefinitionId;
+const ORC_GUARD = 'tw-072' as CardDefinitionId;
+const HUORN = 'tw-45' as CardDefinitionId;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -329,6 +331,102 @@ describe('Choking Shadows (tw-21)', () => {
       c.kind.type === 'attribute-modifier' && c.kind.attribute === 'auto-attack.prowess',
     );
     expect(prowessMods).toHaveLength(0);
+  });
+
+  // ─── Keying through the override: offer/validate symmetry ────────────────
+
+  test('Mode B2 override keys creatures on a starter-movement (non-parallel) path — offer and reducer agree', () => {
+    // Regression from heuristic self-play (sim seed 208): with Choking
+    // Shadows' region-type-override active on "Wold & Foothills", the
+    // offering side proposed Orc-guard keyed by shadow, but
+    // checkCreatureKeying skipped name-scoped overrides whenever
+    // resolvedSitePath (from site cards — starter movement) was not
+    // index-parallel with resolvedSitePathNames, rejecting the very play it
+    // had offered. Both sides now share computeCandidateRegionPaths.
+    const donInPlay = {
+      instanceId: 'don-1' as CardInstanceId,
+      definitionId: DOORS_OF_NIGHT,
+      status: CardStatus.Untapped,
+    };
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: LORIEN }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS, ORC_GUARD], siteDeck: [MINAS_TIRITH], cardsInPlay: [donInPlay] },
+      ],
+    });
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.Haven,
+      destinationSiteName: 'Lórien',
+      // Starter movement: the type path comes from the site cards' sitePath
+      // and is NOT index-parallel with the traversed region names.
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Border, RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Rhudaur', 'Wold & Foothills'],
+    });
+    const mhGameState: GameState = { ...state, phaseState: mh };
+    const csId = handCardId(mhGameState, HAZARD_PLAYER, 0);
+    const orcGuardId = handCardId(mhGameState, HAZARD_PLAYER, 1);
+
+    // Play Choking Shadows — Mode B2 (destination region "Wold & Foothills"
+    // is a printed Wilderness) leaves the region-type-override constraint.
+    const afterCs = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
+    expect(afterCs.activeConstraints.some(c =>
+      c.kind.type === 'attribute-modifier' && c.kind.attribute === 'region.type',
+    )).toBe(true);
+
+    // Orc-guard (shadow/dark) is offered keyed by shadow…
+    const offers = viableActions(afterCs, PLAYER_2, 'play-hazard');
+    const orcOffer = offers.find(a => {
+      const action = a.action as { cardInstanceId?: string; keyedBy?: { value?: string } };
+      return action.cardInstanceId === orcGuardId && action.keyedBy?.value === RegionType.Shadow;
+    });
+    expect(orcOffer).toBeDefined();
+    // …and the reducer accepts exactly the action it offered.
+    const afterOrc = dispatch(afterCs, orcOffer!.action);
+    expect(afterOrc.chain).not.toBeNull();
+  });
+
+  test('Mode B2 override replaces the printed type — a Wilderness-keyed creature can no longer key to the converted region', () => {
+    // Latent inverse of the bug above: the offering side used to keep the
+    // printed type AND append the override, so a Wilderness-keyed creature
+    // was still offered after the region became a Shadow-land — a play the
+    // reducer (replacement semantics) would reject.
+    const donInPlay = {
+      instanceId: 'don-1' as CardInstanceId,
+      definitionId: DOORS_OF_NIGHT,
+      status: CardStatus.Untapped,
+    };
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MORIA }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS, HUORN, ORC_GUARD], siteDeck: [MINAS_TIRITH], cardsInPlay: [donInPlay] },
+      ],
+    });
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Thranduil\'s Halls',
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Western Mirkwood'],
+    });
+    const mhGameState: GameState = { ...state, phaseState: mh };
+    const csId = handCardId(mhGameState, HAZARD_PLAYER, 0);
+    const huornId = handCardId(mhGameState, HAZARD_PLAYER, 1);
+    const orcGuardId = handCardId(mhGameState, HAZARD_PLAYER, 2);
+
+    const afterCs = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
+
+    const offers = viableActions(afterCs, PLAYER_2, 'play-hazard');
+    const byCard = (id: string) => offers.filter(a => (a.action as { cardInstanceId?: string }).cardInstanceId === id);
+    // Huorn keys only to Wilderness — the sole Wilderness is now a Shadow-land.
+    expect(byCard(huornId)).toHaveLength(0);
+    // Orc-guard keys to the converted Shadow-land.
+    const orcOffers = byCard(orcGuardId);
+    expect(orcOffers.length).toBeGreaterThan(0);
+    const afterOrc = dispatch(afterCs, orcOffers[0].action);
+    expect(afterOrc.chain).not.toBeNull();
   });
 
   test('Mode B2 — DoN in play + Wilderness destination region: region-type-override to shadow', () => {
