@@ -13,7 +13,8 @@
     "play": "npx tsx src/cli/play.ts",
     "replay": "npx tsx src/cli/replay.ts",
     "tournament": "npx tsx src/cli/tournament.ts",
-    "gate": "npx tsx src/cli/gate.ts"
+    "gate": "npx tsx src/cli/gate.ts",
+    "export-training": "npx tsx src/cli/export.ts"
   },
   "dependencies": {
     "@meccg/shared": "*",
