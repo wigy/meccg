@@ -23,7 +23,7 @@ export type { ReducerResult } from './engine/reducer.js';
 export { computeLegalActions } from './engine/legal-actions/index.js';
 export { currentHazardLimit, effectiveHazardLimit } from './engine/hazard-limit.js';
 export { canonicalActionKey, stampActionIds } from './engine/action-id.js';
-export { startCapture, flushCapture } from './engine/legal-actions/log.js';
+export { startCapture, flushCapture, setEngineConsoleLog } from './engine/legal-actions/log.js';
 export { createGame, createGameQuickStart, applyDraftResults } from './engine/init.js';
 export type { GameConfig, PlayerConfig, QuickStartGameConfig, QuickStartPlayerConfig } from './engine/init.js';
 export { validateDeck } from './deck-validation.js';

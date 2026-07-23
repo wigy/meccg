@@ -11,9 +11,9 @@
 
 import { WebSocket } from 'ws';
 import type { ClientMessage, GameAction, EvaluatedAction, PlayerView } from '@meccg/shared';
-import type { AiContext, WeightedAction } from './ai/index.js';
+import type { AiContext, WeightedAction } from '@meccg/sim';
 import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers } from '@meccg/shared';
-import { loadAiStrategy, sampleWeighted } from './ai/index.js';
+import { loadAiStrategy, sampleWeighted } from '@meccg/sim';
 import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage } from './client-common.js';
 
 const clientArgs = parseSpawnedClientArgs('ai-client');

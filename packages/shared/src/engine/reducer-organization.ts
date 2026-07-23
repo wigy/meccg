@@ -81,16 +81,19 @@ export function handleOrganization(state: GameState, action: GameAction): Reduce
 }
 
 /**
- * Pass during organization. If a sideboard-to-discard sub-flow is active,
- * exits the sub-flow and returns to normal play. Otherwise advances to the
+ * Pass during organization. If a sideboard sub-flow is active, exits the
+ * sub-flow and returns to normal play. Otherwise advances to the
  * Long-event phase (discarding the active player's resource long-events per
  * CoE rule 2.III.1).
  */
 function handleOrganizationPass(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'pass') return wrongActionType(state, action, 'pass');
   const orgState = requirePhaseState(state, Phase.Organization);
-  if (orgState.sideboardFetchDestination === 'discard') {
-    logDetail(`Sideboard access: player ${action.player as string} done fetching to discard (${orgState.sideboardFetchedThisTurn} cards)`);
+  if (orgState.sideboardFetchDestination !== null) {
+    // Exits the to-discard sub-flow (done fetching), or a to-deck sub-flow
+    // that has nothing left to fetch (the fetch counter is shared between
+    // the two sub-flows, so to-deck can be entered with no fetch available).
+    logDetail(`Sideboard access: player ${action.player as string} done fetching to ${orgState.sideboardFetchDestination} (${orgState.sideboardFetchedThisTurn} cards)`);
     return {
       state: {
         ...state,

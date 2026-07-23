@@ -165,10 +165,40 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     return combatResult;
   }
 
+  // While a chain is declaring, responses (e.g. play-permanent-event,
+  // play-short-event) flow to the phase handlers, which push them onto the
+  // chain; pending effects/resolutions only regain priority once the chain
+  // resolves — mirroring the dispatch order of computeLegalActions.
+  const chainDeclaring = state.chain != null && state.chain.mode !== 'resolving';
+
+  // Pending effects: resolve card effects awaiting player interaction.
+  // Checked BEFORE pending resolutions to mirror computeLegalActions, which
+  // offers the effect's fetch-from-pile/pass to the effect's actor even
+  // while a pending resolution (e.g. a corruption check) is also queued —
+  // the reducer must accept exactly what was offered.
+  const pendingEffectActor = !chainDeclaring && state.pendingEffects.length > 0
+    ? (state.pendingEffects[0].actor ?? state.activePlayer)
+    : null;
+  if (pendingEffectActor === action.player && (action.type === 'fetch-from-pile' || action.type === 'pass')) {
+    logDetail(`Pending effect active — dispatching '${action.type}' to effect handler`);
+    let effectResult: ReducerResult;
+    if (action.type === 'fetch-from-pile') {
+      effectResult = handleFetchFromPile(state, action);
+    } else {
+      effectResult = resolvePendingEffect(state);
+    }
+    if (!effectResult.error) {
+      const recomputed = postReduce(effectResult.state, state);
+      return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 }, effects: effectResult.effects };
+    }
+    return effectResult;
+  }
+
   // Pending resolutions: dispatch through the unified resolver before
   // delegating to the per-phase reducer. The handler is responsible for
-  // dequeuing the resolution it consumes.
-  const topResolution = topResolutionFor(state, action.player);
+  // dequeuing the resolution it consumes. Skipped while a chain is
+  // declaring (see chainDeclaring above).
+  const topResolution = chainDeclaring ? null : topResolutionFor(state, action.player);
   if (topResolution !== null) {
     logDetail(`Pending resolution active (${topResolution.kind.type}) — dispatching to applyResolution`);
     const resolutionResult = applyResolution(state, action, topResolution);
@@ -207,7 +237,10 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
   }
 
-  // Pending effects: resolve card effects awaiting player interaction
+  // Pending effects whose actor is the opponent of the acting player were
+  // handled above; any remaining fetch-from-pile/pass for a queued effect
+  // still routes to the effect handler (legacy path for effects without an
+  // explicit actor when the active player differs).
   if (state.pendingEffects.length > 0 && (action.type === 'fetch-from-pile' || action.type === 'pass')) {
     logDetail(`Pending effect active — dispatching '${action.type}' to effect handler`);
     let effectResult: ReducerResult;

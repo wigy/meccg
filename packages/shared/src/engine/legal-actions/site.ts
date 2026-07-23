@@ -191,6 +191,13 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
 
   if (siteState.step === 'select-company') {
     const base = viable(selectCompanyActions(state, playerId, siteState.handledCompanyIds));
+    // Every remaining company may have dissolved mid-phase (e.g. its last
+    // character died to a corruption check) — offer pass so the active
+    // player can close the site phase instead of deadlocking.
+    if (isActive && base.length === 0) {
+      logDetail('Site select-company: no companies left to select — offering pass to end the phase');
+      base.push({ action: { type: 'pass', player: playerId }, viable: true });
+    }
     // Rule 2.1.1: resource player may play resource short-events during
     // any phase of their turn, including before selecting a company.
     if (isActive) {
@@ -310,7 +317,12 @@ function enterOrSkipActions(
 
   const player = playerById(state, playerId)!;
   const company = player.companies[siteState.activeCompanyIndex];
-  if (!company) return [];
+  if (!company) {
+    // The selected company dissolved before the enter-or-skip choice —
+    // only pass remains, which finishes its site-phase slot.
+    logDetail('Enter-or-skip: active company no longer exists — only pass is available');
+    return [{ type: 'pass', player: playerId }];
+  }
 
   logDetail(`Company ${company.id}: offering enter-site and pass (do nothing)`);
   return [

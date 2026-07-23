@@ -13,9 +13,11 @@ import { companyById, playerById, toCardInstance, updatePlayer, wrongActionType,
 import { formatSignedNumber } from '../format-helpers.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleCombatPlayHazard } from './combat-hazard-play.js';
-import { nextStrikePhase, handleResolveStrike } from './combat-strike.js';
+import { nextStrikePhase, handleResolveStrike, advanceStrikeOrFinalize } from './combat-strike.js';
+import { findAllyInCompany } from './legal-actions/combat.js';
 import { handleCancelAttack, handleCancelByTap, handleCancelWeaponEffects } from './combat-cancel.js';
 import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleFleeFromStrike, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
+import { finalizeCombat } from './combat-finalize.js';
 
 /**
  * Signature shared by every combat-active action handler. Each handler takes
@@ -300,6 +302,41 @@ function handleApplyAttackerAttackOption(state: GameState, action: GameAction, c
 
 function handleCombatPass(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'pass') return wrongActionType(state, action, 'pass');
+
+  // The defending company may have dissolved mid-combat (e.g. its last
+  // character was eliminated by a pending resolution before any strike was
+  // assigned). With nothing left to strike, the attack fizzles.
+  if (combat.phase === 'assign-strikes' && combat.strikeAssignments.length === 0) {
+    const fizzleDefPlayer = playerById(state, combat.defendingPlayerId);
+    const fizzleCompany = fizzleDefPlayer ? companyById(fizzleDefPlayer.companies, combat.companyId) : null;
+    if (!fizzleCompany || fizzleCompany.characters.length === 0) {
+      logDetail('Combat pass: defending company no longer exists — attack fizzles, finalizing combat');
+      return finalizeCombat(state);
+    }
+  }
+
+  // A strike whose assigned target has left play mid-combat (e.g.
+  // eliminated by an earlier strike's body check) cannot be resolved —
+  // mark it resolved with no result and advance.
+  if (combat.phase === 'resolve-strike') {
+    const skipStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+    if (skipStrike && !skipStrike.resolved) {
+      const skipDefPlayer = playerById(state, combat.defendingPlayerId);
+      const skipCompany = skipDefPlayer ? companyById(skipDefPlayer.companies, combat.companyId) : null;
+      const targetGone = skipDefPlayer
+        && !skipDefPlayer.characters[skipStrike.characterId]
+        && !(skipCompany && findAllyInCompany(skipDefPlayer, skipCompany.characters, skipStrike.characterId));
+      if (targetGone) {
+        logDetail(`Combat pass: strike target ${skipStrike.characterId as string} left play — skipping the strike`);
+        const updatedCombat: CombatState = {
+          ...combat,
+          strikeAssignments: combat.strikeAssignments.map((a, i) =>
+            i === combat.currentStrikeIndex ? { ...a, resolved: true } : a),
+        };
+        return advanceStrikeOrFinalize(state, updatedCombat);
+      }
+    }
+  }
 
   // CoE rule 3.iv.1 — attacker ends their Step 1 priority window, allowing
   // the defender to proceed with strike resolution (Steps 2-7).

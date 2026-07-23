@@ -10,7 +10,7 @@ import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
-import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard } from '../types/cards.js';
+import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isResourceEventCard } from '../types/cards.js';
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -25,7 +25,7 @@ import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
 import { hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
-import { handlePlayPermanentEvent, handlePlayResourceShortEvent } from './reducer-events.js';
+import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -75,7 +75,17 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
 export function handleSite(state: GameState, action: GameAction): ReducerResult {
   const siteState = requirePhaseState(state, Phase.Site);
   const handler = SITE_STEP_HANDLERS[siteState.step];
-  if (handler) return handler(state, action, siteState);
+  if (handler) {
+    const result = handler(state, action, siteState);
+    // Chains and pending resolutions open short-event response windows in
+    // every step; if a rigid step handler rejected one, fall back to the
+    // shared by-card-type dispatch so an advertised action is never refused.
+    if (result.error && action.type === 'play-short-event') {
+      logDetail(`Site step '${siteState.step}' rejected play-short-event (${result.error}) — dispatching via shared short-event flow`);
+      return dispatchShortEventByCardType(state, action);
+    }
+    return result;
+  }
 
   if (action.type !== 'pass') {
     return { state, error: `Unexpected action '${action.type}' in site phase step '${siteState.step}'` };
@@ -243,6 +253,21 @@ function handleSiteSelectCompany(
     return handlePlayResourceShortEvent(state, action);
   }
 
+  // Pass is only offered (and only accepted) when no unhandled company is
+  // left to select — every remaining company dissolved mid-phase (e.g. its
+  // last character died to a corruption check), so nothing can advance the
+  // phase through the normal per-company flow.
+  if (action.type === 'pass') {
+    const player = playerById(state, state.activePlayer)!;
+    const handledSet = new Set(siteState.handledCompanyIds);
+    const unhandled = player.companies.filter(c => !handledSet.has(c.id));
+    if (unhandled.length > 0) {
+      return { state, error: 'Cannot pass the site phase while companies remain unhandled' };
+    }
+    logDetail('Site: no companies left to select → ending site phase');
+    return endSitePhase(state);
+  }
+
   if (action.type !== 'select-company') {
     return wrongActionType(state, action, 'select-company', 'select-company step');
   }
@@ -315,6 +340,17 @@ function handleSiteEnterOrSkip(
   // without changing the step, leaving the enter-or-skip choice pending.
   if (action.type === 'play-short-event') {
     return handlePlayResourceShortEvent(state, action);
+  }
+
+  // The selected company may have dissolved before the enter-or-skip choice
+  // (e.g. its last character died to an on-guard corruption check) — pass
+  // finishes its slot.
+  {
+    const activeOwner = playerById(state, state.activePlayer)!;
+    if (!activeOwner.companies[siteState.activeCompanyIndex] && action.type === 'pass') {
+      logDetail('Site enter-or-skip: active company dissolved — finishing its site-phase slot');
+      return finishDissolvedCompanySlot(state, siteState);
+    }
   }
 
   if (action.type !== 'enter-site' && action.type !== 'pass') {
@@ -564,12 +600,35 @@ function handleSiteAutomaticAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
+  // A chain response may arrive during the automatic-attacks step (e.g. a
+  // hazard short event answering a declared effect while an auto-attack
+  // chain is open). Dispatch it like the organization phase does: resource
+  // events through the resource flow, everything else through the
+  // chain/hazard short-event flow.
+  if (action.type === 'play-short-event') {
+    const player = playerById(state, action.player);
+    const card = action.cardInstanceId ? player?.hand.find(c => c.instanceId === action.cardInstanceId) : undefined;
+    const def = card ? defById(state, card.definitionId) : undefined;
+    return isResourceEventCard(def)
+      ? handlePlayResourceShortEvent(state, action)
+      : handlePlayShortEvent(state, action);
+  }
+
   if (action.type !== 'pass' && action.type !== 'cancel-auto-attack') {
     return { state, error: `Expected 'pass' during automatic-attacks step` };
   }
 
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+
+  // The company may have dissolved mid-sequence (e.g. every character died
+  // to an earlier automatic attack). Remaining attacks are moot — finish
+  // this company's site-phase slot and move on.
+  if (!company) {
+    logDetail('Site automatic-attacks: active company dissolved — finishing its site-phase slot');
+    return finishDissolvedCompanySlot(state, siteState);
+  }
+
   const siteDef = state.cardPool[company.currentSite!.definitionId] as import('../types/cards.js').SiteCard;
 
   const attackIndex = siteState.automaticAttacksResolved;
@@ -1861,7 +1920,10 @@ function handleSitePlayResources(
   // player to reveal. Mirrors the play-hero-resource intercept below.
   // Used by Searching Eye (reveals from on-guard to cancel a scout-skill
   // card during the opponent's site phase).
-  if (action.type === 'play-short-event' && company.onGuardCards.length > 0) {
+  // `company` may be undefined here: a chain-response short event from the
+  // hazard player reaches this handler too, and their companies array does
+  // not correspond to the active company index.
+  if (action.type === 'play-short-event' && (company?.onGuardCards.length ?? 0) > 0) {
     const handCard = findById(player.hand, action.cardInstanceId);
     const shortDef = handCard ? defById(state, handCard.definitionId) : undefined;
     const shortEffects = shortDef && 'effects' in shortDef
@@ -1887,7 +1949,13 @@ function handleSitePlayResources(
     }
   }
   if (action.type === 'play-short-event') {
-    return handlePlayResourceShortEvent(state, action);
+    // Hazard short events (chain responses played during the opponent's
+    // site phase) must go through the hazard flow, not the resource flow.
+    const shortHandCard = action.cardInstanceId ? player.hand.find(c => c.instanceId === action.cardInstanceId) : undefined;
+    const shortEventDef = shortHandCard ? defById(state, shortHandCard.definitionId) : undefined;
+    return isResourceEventCard(shortEventDef)
+      ? handlePlayResourceShortEvent(state, action)
+      : handlePlayShortEvent(state, action);
   }
 
   // On-guard intercept: when a site-tapping resource is about to be played
@@ -3895,6 +3963,62 @@ function fireCvccPreStrikeEffects(
   return newState;
 }
 
+/**
+ * Finish the site-phase slot of a company that dissolved mid-phase (all
+ * of its characters left play, so the company no longer exists at
+ * `activeCompanyIndex`): return to select-company for any remaining
+ * unhandled companies, or end the site phase when none remain. Shared by
+ * every per-company site step that can encounter a dangling index.
+ */
+function finishDissolvedCompanySlot(state: GameState, siteState: SitePhaseState): ReducerResult {
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const handledSet = new Set(siteState.handledCompanyIds);
+  const unhandled = state.players[activePlayerIndex].companies.filter(c => !handledSet.has(c.id));
+  if (unhandled.length === 0) {
+    return endSitePhase(state);
+  }
+  return {
+    state: {
+      ...state,
+      phaseState: {
+        ...siteState,
+        step: 'select-company' as const,
+        automaticAttacksResolved: 0,
+        siteEntered: false,
+        resourcePlayed: false,
+        minorItemAvailable: false,
+        hoardBountyAvailable: false,
+        thoroughSearchAvailable: false,
+        declaredAgentAttack: null,
+        awaitingOnGuardReveal: false,
+        pendingResourceAction: null,
+        opponentInteractionThisTurn: null,
+        pendingOpponentInfluence: null,
+      },
+    },
+  };
+}
+
+/**
+ * Close the site phase: return unused on-guard cards, fire end-of-turn
+ * fetch/corruption/ring-test effects, clean up empty companies, and advance
+ * to the End-of-Turn discard step. Shared by the normal all-companies-handled
+ * path and the pass fallback for when every company dissolved mid-phase.
+ */
+function endSitePhase(state: GameState): ReducerResult {
+  // Return remaining on-guard cards to hazard player's hand
+  const cleanedState = returnOnGuardCardsToHand(state);
+  const withFetch = fireEndOfTurnFetchEffects(cleanedState);
+  const withChecks = fireEndOfTurnCorruptionChecks(withFetch);
+  const withRingTests = fireEndOfTurnGoldRingTests(withChecks);
+  return {
+    state: cleanupEmptyCompanies({
+      ...withRingTests,
+      phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
+    }),
+  };
+}
+
 function advanceSiteToNextCompany(
   state: GameState,
   siteState: SitePhaseState,
@@ -3911,17 +4035,7 @@ function advanceSiteToNextCompany(
 
   if (remainingCount <= 0) {
     logDetail(`Site: all companies handled → advancing to End-of-Turn phase`);
-    // Return remaining on-guard cards to hazard player's hand
-    const cleanedState = returnOnGuardCardsToHand(sweptState);
-    const withFetch = fireEndOfTurnFetchEffects(cleanedState);
-    const withChecks = fireEndOfTurnCorruptionChecks(withFetch);
-    const withRingTests = fireEndOfTurnGoldRingTests(withChecks);
-    return {
-      state: cleanupEmptyCompanies({
-        ...withRingTests,
-        phaseState: { phase: Phase.EndOfTurn, step: 'discard' as const, discardDone: [false, false] as const, resetHandDone: [false, false] as const },
-      }),
-    };
+    return endSitePhase(sweptState);
   }
 
   logDetail(`Site: company ${handledCompanyId} done → returning to select-company (${remainingCount} remaining)`);

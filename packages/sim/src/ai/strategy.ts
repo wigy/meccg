@@ -16,6 +16,12 @@ export interface AiContext {
   readonly cardPool: Readonly<Record<string, CardDefinition>>;
   /** All legal actions available this turn. */
   readonly legalActions: readonly GameAction[];
+  /**
+   * Source of randomness for probabilistic evaluators, returning values in
+   * [0, 1). Defaults to `Math.random` when absent; the simulation harness
+   * injects a seeded stream here so self-play games are bit-reproducible.
+   */
+  readonly random?: () => number;
 }
 
 /** An action with its assigned probability weight. */
@@ -41,15 +47,18 @@ export interface AiStrategy {
 /**
  * Sample one action from the weighted distribution.
  * Normalizes weights and picks using a uniform random value.
+ *
+ * @param random - Source of uniform values in [0, 1). Pass a seeded stream
+ *   for reproducible sampling; defaults to `Math.random`.
  */
-export function sampleWeighted(weighted: WeightedAction[]): GameAction {
+export function sampleWeighted(weighted: WeightedAction[], random: () => number = Math.random): GameAction {
   const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0);
   if (totalWeight <= 0) {
     // Fallback: uniform random if all weights are zero
-    return weighted[Math.floor(Math.random() * weighted.length)].action;
+    return weighted[Math.floor(random() * weighted.length)].action;
   }
 
-  let r = Math.random() * totalWeight;
+  let r = random() * totalWeight;
   for (const w of weighted) {
     r -= w.weight;
     if (r <= 0) return w.action;

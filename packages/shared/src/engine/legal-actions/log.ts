@@ -21,6 +21,20 @@ const PREFIX = '[legal-actions]';
 let captureBuffer: string[] | null = null;
 
 /**
+ * Whether log lines are written to the console. Defaults to true (the game
+ * server relies on the console trace). The headless simulation harness
+ * disables it: per-action logging costs orders of magnitude more than the
+ * engine work itself when stepping thousands of games in-process.
+ * Capture mode ({@link startCapture}) is unaffected by this switch.
+ */
+let consoleEnabled = true;
+
+/** Enable or disable engine log output to the console. */
+export function setEngineConsoleLog(enabled: boolean): void {
+  consoleEnabled = enabled;
+}
+
+/**
  * Begin capturing log lines into an internal buffer.
  * Any previous buffer contents are discarded.
  */
@@ -40,7 +54,7 @@ export function flushCapture(): string[] {
 
 /** Write a line to the console and, if capturing, to the buffer. */
 function emit(line: string): void {
-  console.log(line);
+  if (consoleEnabled) console.log(line);
   if (captureBuffer) captureBuffer.push(line);
 }
 
