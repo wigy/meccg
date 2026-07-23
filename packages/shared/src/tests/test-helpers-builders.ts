@@ -656,14 +656,19 @@ export function buildFallenWizardOrgPhaseState(opts: {
   site: CardDefinitionId;
   hand?: CardDefinitionId[];
   playDeck?: CardDefinitionId[];
+  discardPile?: CardDefinitionId[];
   siteStatus?: CardStatus;
+  /** Cards seeded into the opponent's (P2) `cardsInPlay` — e.g. a permanent
+   *  event another player controls that the tested card can discard
+   *  (Keys to the White Towers wh-89). */
+  opponentCardsInPlay?: CardInPlay[];
 }): GameState {
   const state = buildTestState({
     activePlayer: PLAYER_1,
     recompute: true,
     players: [
-      { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: opts.site, characters: opts.characters }], hand: opts.hand ?? [], playDeck: opts.playDeck, siteDeck: [ISENGARD] },
-      { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+      { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: opts.site, characters: opts.characters }], hand: opts.hand ?? [], playDeck: opts.playDeck, discardPile: opts.discardPile, siteDeck: [ISENGARD] },
+      { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [] }], hand: [], siteDeck: [RIVENDELL], cardsInPlay: opts.opponentCardsInPlay ?? [] },
     ],
     phase: Phase.Organization,
   });

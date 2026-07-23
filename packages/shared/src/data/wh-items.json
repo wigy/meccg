@@ -252,8 +252,44 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "item-play-site",
+        "sites": ["Barrow-downs"]
+      },
+      {
+        "type": "grant-action",
+        "action": "fetch-or-discard-named",
+        "cost": {},
+        "oncePerTurn": true,
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["deck", "discard-pile"],
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "fetchTo": "hand",
+          "filter": {
+            "name": "Fortress of the Towers"
+          }
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "fetch-or-discard-named",
+        "cost": {},
+        "oncePerTurn": true,
+        "targets": {
+          "scope": "opponent-cards-in-play",
+          "filter": {
+            "name": "Fortress of the Towers"
+          }
+        },
+        "apply": {
+          "type": "discard-target-in-play"
+        }
       }
     ],
-    "text": "Unique.Playable at Barrow-downs. During your organization phase, you may: take the Fortress of the Towers card from your play deck or discard pile to your hand or discard the Fortress of the Towers card if in play by another player. Reshuffle your play deck if searched."
+    "text": "Unique.Playable at Barrow-downs. During your organization phase, you may: take the Fortress of the Towers card from your play deck or discard pile to your hand or discard the Fortress of the Towers card if in play by another player. Reshuffle your play deck if searched.",
+    "certified": "2026-07-23"
   }
 ]

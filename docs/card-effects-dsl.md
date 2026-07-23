@@ -1630,6 +1630,45 @@ realizes ba-76's "untap all tapped characters in The Balrog's company; if then
 untapped, tap The Balrog" (the empty `cost` lets it fire even when the Balrog is
 already tapped).
 
+**Two exclusive modes sharing one action name.** A card granting a choice —
+"During your organization phase, you may: A **or** B" — declares **two**
+`grant-action` effects with the **same** `action` string, each `oncePerTurn:
+true`. Because the `granted-action-used` lock is keyed by (source instance,
+action id), activating either mode suppresses both for the rest of the turn —
+a single choice per turn, as printed. The dispatcher discriminates the modes
+by target presence: an activation carrying a `targetCardId` selects the mode
+that declares a `targets` descriptor; one without selects the target-less
+mode. Used by *Keys to the White Towers* (wh-89): mode A is an
+`enqueue-pending-fetch` (take the named card from play deck **or** discard
+pile to hand — the deck reshuffles only when it was the searched source), mode
+B targets `scope: "opponent-cards-in-play"` with a name filter and applies
+`discard-target-in-play` (below).
+
+**`targets.scope: "opponent-cards-in-play"`.** Enumerates the opponent's
+`cardsInPlay` (permanent events, factions, …) matching `targets.filter`, one
+activation per candidate carried on `targetCardId`. Not offered when nothing
+matches.
+
+**`discard-target-in-play` apply.** Discards the activation's `targetCardId`
+from whichever player's `cardsInPlay` holds it and clears every active
+constraint that instance sourced (an opponent's *Fortress of the Towers*
+wh-69 takes its `site-protected` constraint with it). Implemented in
+`grant-action-apply.ts` via the shared `discardCardsInPlayWhere` sweep.
+
+```json
+{ "type": "grant-action", "action": "fetch-or-discard-named",
+  "cost": {}, "oncePerTurn": true,
+  "apply": { "type": "enqueue-pending-fetch",
+    "fetchFrom": ["deck", "discard-pile"], "fetchCount": 1,
+    "fetchShuffle": true, "fetchTo": "hand",
+    "filter": { "name": "Fortress of the Towers" } } }
+{ "type": "grant-action", "action": "fetch-or-discard-named",
+  "cost": {}, "oncePerTurn": true,
+  "targets": { "scope": "opponent-cards-in-play",
+    "filter": { "name": "Fortress of the Towers" } },
+  "apply": { "type": "discard-target-in-play" } }
+```
+
 ### `roll-then-apply` as a short-event self-enters-play apply (roll to untap your tapped Ringwraith)
 
 A resource short event may "make a roll" on play and conditionally change a
