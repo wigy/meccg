@@ -779,7 +779,13 @@ function playResourcesActions(
   const player = playerById(state, playerId)!;
   const company = player.companies[siteState.activeCompanyIndex];
   const actions: EvaluatedAction[] = [];
-  if (!company) return actions;
+  if (!company) {
+    // The active company dissolved mid-site-phase (e.g. every character died
+    // to an automatic-attack or body check after entering) — pass is the one
+    // action left, and it finishes the dissolved company's site-phase slot.
+    logDetail('Site play-resources: active company no longer exists — only pass is available');
+    return viable([{ type: 'pass', player: playerId }]);
+  }
 
   // Look up the site's playable resource types
   const siteInstanceId = company.currentSite?.instanceId ?? null;
