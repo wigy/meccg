@@ -1450,6 +1450,41 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           continue;
         }
 
+        // Per-opponent-card enumeration: one activation per card in the
+        // opponent's `cardsInPlay` matching the declared filter, carried on
+        // `targetCardId` (Keys to the White Towers wh-89 — "discard the
+        // Fortress of the Towers card if in play by another player"). If the
+        // opponent has no matching card in play, the mode is not offered.
+        if (effect.targets?.scope === 'opponent-cards-in-play') {
+          const opponent = state.players.find(p => p.id !== playerId);
+          const inPlayTargets = (opponent?.cardsInPlay ?? []).filter(c => {
+            const cDef = defById(state, c.definitionId);
+            return !!cDef && (!effect.targets?.filter || matchesDefinition(cDef, effect.targets.filter));
+          });
+          if (inPlayTargets.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no matching card in opponent's play area`);
+            continue;
+          }
+          for (const target of inPlayTargets) {
+            const targetDef = defById(state, target.definitionId);
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to discard opponent's ${targetDef?.name ?? '?'}`);
+            actions.push({
+              action: {
+                type: 'activate-granted-action',
+                player: playerId,
+                characterId: charId,
+                sourceCardId: item.instanceId,
+                sourceCardDefinitionId: item.definitionId,
+                actionId: effect.action,
+                rollThreshold: rollThresholdFor(effect),
+                targetCardId: target.instanceId,
+              },
+              viable: true,
+            });
+          }
+          continue;
+        }
+
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to activate`);
 
         actions.push({

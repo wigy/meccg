@@ -1613,12 +1613,15 @@ export interface GrantActionEffect extends EffectBase {
  *   Optionally restricted to specific definition IDs via `definitionIds`.
  * - `"player-companies"` — all companies owned by the bearer's player.
  *   Each company produces one activation carrying `targetCompanyId`.
+ * - `"opponent-cards-in-play"` — cards in the opponent's `cardsInPlay`
+ *   (permanent events, factions, …). Backs "discard <card> if in play by
+ *   another player" abilities (Keys to the White Towers wh-89).
  *
  * `filter` is a DSL condition matched against each candidate card's
  * definition; candidates that fail the filter are skipped.
  */
 export interface GrantActionTargets {
-  readonly scope: 'company-items' | 'characters-at-site' | 'player-companies';
+  readonly scope: 'company-items' | 'characters-at-site' | 'player-companies' | 'opponent-cards-in-play';
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
@@ -1753,6 +1756,7 @@ export type TriggeredActionType =
   | 'move'
   | 'place-item-on-character'
   | 'discard-named-in-play'
+  | 'discard-target-in-play'
   | 'sauron-sideboard-fetch'
   | 'peek-opponent-hand'
   | 'roll-check'
@@ -2207,6 +2211,19 @@ export interface DiscardNamedInPlayAction extends TriggeredActionBase {
 }
 
 /**
+ * `discard-target-in-play` — discard the grant-action's chosen target card
+ * (carried on `activate-granted-action.targetCardId`) from whichever player's
+ * `cardsInPlay` holds it, clearing every active constraint that instance
+ * sourced. Which cards may be targeted is governed by the grant-action's
+ * `targets` descriptor (typically scope `"opponent-cards-in-play"` with a
+ * name filter). Backs "discard the <card> if in play by another player"
+ * (Keys to the White Towers wh-89 / Keys of Orthanc wh-88).
+ */
+export interface DiscardTargetInPlayAction extends TriggeredActionBase {
+  readonly type: 'discard-target-in-play';
+}
+
+/**
  * `sauron-sideboard-fetch` — the first mode of The Lidless Eye's (le-203)
  * once-per-organization-phase granted ability: "bring a resource or character
  * from your sideboard into your play deck and shuffle." The chosen sideboard
@@ -2428,6 +2445,7 @@ export type TriggeredAction =
   | TapOneCharacterAction
   | PlaceItemOnCharacterAction
   | DiscardNamedInPlayAction
+  | DiscardTargetInPlayAction
   | SauronSideboardFetchAction
   | PeekOpponentHandAction
   | RollDiscardOpponentNonUniqueAllyAction

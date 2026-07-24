@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { roll2d6, diceRollEffect, clonePlayers, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere } from './reducer-utils.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -522,6 +522,44 @@ function runGrantApply(
             return s;
           }
           return r.state;
+        },
+      ],
+    };
+  }
+
+  if (apply.type === 'discard-target-in-play') {
+    // Discard the chosen in-play card (enumerated by the grant-action's
+    // `targets` descriptor — e.g. scope "opponent-cards-in-play") from
+    // whichever player's `cardsInPlay` holds it, clearing every active
+    // constraint that instance sourced (Keys to the White Towers wh-89
+    // discarding an opponent's Fortress of the Towers, whose
+    // `site-protected` constraint must not outlive the card).
+    const targetId = ctx.action.targetCardId;
+    if (targetId === undefined) {
+      return { error: `discard-target-in-play: no targetCardId on ${ctx.action.actionId}` };
+    }
+    return {
+      updatedChar: char,
+      effects: [],
+      stateOps: [
+        s => {
+          const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+            s,
+            c => c.instanceId === targetId,
+            c => {
+              const targetDef = s.cardPool[c.definitionId] as { name?: string } | undefined;
+              logDetail(`Grant-action ${ctx.action.actionId}: discarding in-play "${targetDef?.name ?? (c.definitionId as string)}" (${c.instanceId as string})`);
+            },
+          );
+          if (removedInstanceIds.length === 0) {
+            logDetail(`Grant-action ${ctx.action.actionId}: target ${targetId as string} not found in any player's cards-in-play`);
+            return s;
+          }
+          const removedSources = new Set(removedInstanceIds.map(id => id as string));
+          return {
+            ...next,
+            activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+          };
         },
       ],
     };
@@ -1163,10 +1201,18 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
   //    card (dynamic, added via on-event / sequence apply).
   // Check the static path first; if that doesn't yield a matching
   // action, fall through to an active constraint lookup.
-  const staticEffect = getCardEffects(sourceDef).find(
+  // A card may declare two modes of the same action name (sharing the name
+  // makes one `oncePerTurn` lock cover both — "you may: A or B" is a single
+  // choice per turn, e.g. Keys to the White Towers wh-89). The modes are
+  // discriminated by target presence: the action carrying a `targetCardId`
+  // selects the mode that declares a `targets` descriptor.
+  const staticCandidates = getCardEffects(sourceDef).filter(
     (e): e is import('../types/effects.js').GrantActionEffect =>
       e.type === 'grant-action' && e.action === action.actionId,
   );
+  const staticEffect = staticCandidates.length <= 1
+    ? staticCandidates[0]
+    : staticCandidates.find(e => (action.targetCardId !== undefined) === (e.targets !== undefined)) ?? staticCandidates[0];
   const constraintGrant = staticEffect ? null : state.activeConstraints.find(c =>
     c.source === action.sourceCardId
     && c.kind.type === 'granted-action'
