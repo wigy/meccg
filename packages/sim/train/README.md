@@ -18,16 +18,25 @@ npm run play -w @meccg/sim -- --agents bc:bc-weights.json,heuristic
 npm run gate -w @meccg/sim -- --challenger bc:bc-weights.json --champion heuristic
 ```
 
-## Self-play RL (P4: PPO / REINFORCE)
+## Self-play RL (P4: PPO / REINFORCE, league rollouts)
 
-Starting from a BC champion, each iteration rolls out self-play games with
-the policy *sampling* at temperature 1 (`bc:weights.json@1`), updates the
-policy, and promotes the candidate only when the gate clears (paired-seed
-Elo-diff lower bound ≥ `GATE_MIN_ELO`):
+Starting from a BC champion, each iteration rolls out games with the
+policy *sampling* at temperature 1 (`bc:weights.json@1`) — partly
+self-play, partly against frozen **league** opponents (default: the
+heuristic) with the learner alternating seats — updates the policy, and
+promotes the candidate only when it beats the champion (Elo-diff lower
+bound ≥ `GATE_MIN_ELO`) *and* does not regress against any league member
+(≥ `GATE_LEAGUE_MIN_ELO`):
 
 ```sh
-train/selfplay_loop.sh bc-weights.json /tmp/selfplay-run 10
+LEAGUE="heuristic,bc:frozen-bc.json" train/selfplay_loop.sh bc-weights.json /tmp/selfplay-run 10
 ```
+
+The league exists because pure self-play measurably overfits: a
+self-play-only candidate gained ~+26 Elo on its BC parent while losing
+~−77 Elo to the heuristic. Only the learner's decisions enter the
+gradient (`--data file@seat` filters), since the opponents' recorded
+behavior probabilities belong to different policies.
 
 Two update modes (both require `--init`, the policy that produced the
 rollouts, and temperature-1 rollouts so the recorded policy probabilities
