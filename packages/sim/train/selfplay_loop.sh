@@ -13,7 +13,7 @@
 # member.
 #
 # Each iteration:
-#   1) rollouts: GAMES self-play games (champion@1 both seats) plus, per
+#   1) rollouts: GAMES self-play games (learner@1 both seats) plus, per
 #      LEAGUE member, GAMES_OPP games in each seat against it;
 #   2) update: PPO (EPOCHS clipped-ratio passes) or REINFORCE on the
 #      learner's decisions only;
@@ -21,16 +21,30 @@
 #      LEAGUE member at GATE_LEAGUE_MIN_ELO (a no-regression tolerance).
 #      All gates must pass for promotion; rejected candidates stay on disk.
 #
+# Learning accumulates across iterations (ACCUMULATE=1, the default): the
+# next iteration rolls out and trains from the latest candidate, promoted
+# or not, so stable per-iteration gains compound; the gates only decide
+# what gets *recorded* as champion. Motivation (measured 2026-07-24, after
+# the PPO stabilizers): per-iteration candidates were stable at ~-25..+33
+# Elo with zero collapses, but a strict 200-game lower-bound gate can
+# almost never confirm a true +30 edge, and resetting to the champion on
+# every rejection threw the gains away — the champion never moved.
+# ACCUMULATE=0 restores the old reset-on-rejection behavior. A safety
+# valve remains: if the candidate ever fails the league no-regression gate
+# by a wide margin (2x GATE_LEAGUE_MIN_ELO below zero on the point
+# estimate), learning resets to the champion to escape a drifting line.
+#
 # Usage:
 #   train/selfplay_loop.sh <champion-weights.json> <workdir> [iterations]
 #
 # Env overrides: LEAGUE (comma-separated agent specs, default "heuristic";
-# e.g. "heuristic,bc:/path/frozen.json"), GAMES (self-play games/iter,
-# default 60), GAMES_OPP (games per league member per seat, default 30),
-# MODE (ppo|reinforce, default ppo), EPOCHS (default 4 for ppo, 1 for
-# reinforce), CLIP (default 0.2), LR (default 1e-4), ENTROPY (default
-# 0.01), GATE_PAIRS (default 15), GATE_ROUNDS (default 2), GATE_MIN_ELO
-# (default 0), GATE_LEAGUE_MIN_ELO (default -25), SEED0 (default 50000).
+# e.g. "heuristic,bc:/path/frozen.json"), ACCUMULATE (default 1), GAMES
+# (self-play games/iter, default 60), GAMES_OPP (games per league member
+# per seat, default 30), MODE (ppo|reinforce, default ppo), EPOCHS
+# (default 4 for ppo, 1 for reinforce), CLIP (default 0.2), LR (default
+# 3e-5), ENTROPY (default 0.01), GATE_PAIRS (default 15), GATE_ROUNDS
+# (default 2), GATE_MIN_ELO (default 0), GATE_LEAGUE_MIN_ELO (default
+# -25), SEED0 (default 50000).
 set -euo pipefail
 
 CHAMPION=$(realpath "$1")
@@ -52,20 +66,25 @@ GATE_ROUNDS=${GATE_ROUNDS:-2}
 GATE_MIN_ELO=${GATE_MIN_ELO:-0}
 GATE_LEAGUE_MIN_ELO=${GATE_LEAGUE_MIN_ELO:--25}
 SEED0=${SEED0:-50000}
+ACCUMULATE=${ACCUMULATE:-1}
 
 cd "$(dirname "$0")/.."
 mkdir -p "$WORKDIR"
 IFS=',' read -r -a LEAGUE_MEMBERS <<< "$LEAGUE"
+
+# The learning line: rollouts and updates continue from here. The champion
+# is only the promotion record (and the gate reference).
+CURRENT="$CHAMPION"
 
 for ((i = 1; i <= ITERS; i++)); do
   seed=$((SEED0 + (i - 1) * 10000))
   candidate="$WORKDIR/candidate-$i.json"
   data_specs=()
 
-  echo "=== iteration $i/$ITERS: self-play rollout $GAMES games (seeds $seed..) ==="
+  echo "=== iteration $i/$ITERS: self-play rollout $GAMES games (seeds $seed..) from $(basename "$CURRENT") ==="
   rollout="$WORKDIR/rollout-$i-self.jsonl"
   npm run --silent export-training -- \
-    --agents "bc:$CHAMPION@1,bc:$CHAMPION@1" --games "$GAMES" --seed "$seed" --out "$rollout"
+    --agents "bc:$CURRENT@1,bc:$CURRENT@1" --games "$GAMES" --seed "$seed" --out "$rollout"
   data_specs+=("$rollout")
   seed=$((seed + GAMES))
 
@@ -75,18 +94,18 @@ for ((i = 1; i <= ITERS; i++)); do
     echo "=== iteration $i: league rollout vs $member ($GAMES_OPP games per seat) ==="
     rollout="$WORKDIR/rollout-$i-league$m-s0.jsonl"
     npm run --silent export-training -- \
-      --agents "bc:$CHAMPION@1,$member" --games "$GAMES_OPP" --seed "$seed" --out "$rollout"
+      --agents "bc:$CURRENT@1,$member" --games "$GAMES_OPP" --seed "$seed" --out "$rollout"
     data_specs+=("$rollout@0")
     seed=$((seed + GAMES_OPP))
     rollout="$WORKDIR/rollout-$i-league$m-s1.jsonl"
     npm run --silent export-training -- \
-      --agents "$member,bc:$CHAMPION@1" --games "$GAMES_OPP" --seed "$seed" --out "$rollout"
+      --agents "$member,bc:$CURRENT@1" --games "$GAMES_OPP" --seed "$seed" --out "$rollout"
     data_specs+=("$rollout@1")
     seed=$((seed + GAMES_OPP))
   done
 
   echo "=== iteration $i: $MODE update ($EPOCHS epoch(s)) over ${#data_specs[@]} rollout file(s) ==="
-  python3 train/train_bc.py --mode "$MODE" --init "$CHAMPION" \
+  python3 train/train_bc.py --mode "$MODE" --init "$CURRENT" \
     --data "${data_specs[@]}" --out "$candidate" --epochs "$EPOCHS" --lr "$LR" \
     --entropy "$ENTROPY" --clip "$CLIP" --kl-target "$KL_TARGET" --holdout 0
 
@@ -96,22 +115,42 @@ for ((i = 1; i <= ITERS; i++)); do
     --pairs "$GATE_PAIRS" --rounds "$GATE_ROUNDS" --seed $((seed + 700000)) --min-elo "$GATE_MIN_ELO"; then
     promote=0
   fi
+  # The league gates always run: they are both the promotion no-regression
+  # criterion and (in accumulate mode) the drift detector for the learning
+  # line, so they cannot be short-circuited on a champion-gate failure.
+  league_blowout=0
+  m=0
   for member in "${LEAGUE_MEMBERS[@]}"; do
-    [ "$promote" = 1 ] || break
+    m=$((m + 1))
+    gate_log="$WORKDIR/gate-$i-league$m.log"
     echo "=== iteration $i: gate candidate vs league member $member (min-elo $GATE_LEAGUE_MIN_ELO) ==="
     if ! npm run --silent gate -- --challenger "bc:$candidate" --champion "$member" \
-      --pairs "$GATE_PAIRS" --rounds "$GATE_ROUNDS" --seed $((seed + 800000)) --min-elo "$GATE_LEAGUE_MIN_ELO"; then
+      --pairs "$GATE_PAIRS" --rounds "$GATE_ROUNDS" --seed $((seed + 800000)) --min-elo "$GATE_LEAGUE_MIN_ELO" \
+      | tee "$gate_log"; then
       promote=0
+    fi
+    point=$(grep -m1 '^elo diff:' "$gate_log" | sed -E 's/^elo diff:[[:space:]]+([+-]?[0-9]+).*/\1/' || true)
+    if [ -n "$point" ] && (( point < 2 * GATE_LEAGUE_MIN_ELO )); then
+      league_blowout=1
     fi
   done
 
   if [ "$promote" = 1 ]; then
     echo "=== iteration $i: PROMOTED $candidate ==="
     CHAMPION=$(realpath "$candidate")
+    CURRENT=$(realpath "$candidate")
+  elif [ "$ACCUMULATE" = 1 ] && [ "$league_blowout" = 0 ]; then
+    echo "=== iteration $i: not promoted — learning continues from candidate ==="
+    CURRENT=$(realpath "$candidate")
+  elif [ "$league_blowout" = 1 ]; then
+    echo "=== iteration $i: league blowout (point < $((2 * GATE_LEAGUE_MIN_ELO))) — learning resets to champion ==="
+    CURRENT="$CHAMPION"
   else
-    echo "=== iteration $i: candidate rejected, champion stays ==="
+    echo "=== iteration $i: candidate rejected, learning resets to champion ==="
+    CURRENT="$CHAMPION"
   fi
   rm -f "$WORKDIR/rollout-$i-"*.jsonl
 done
 
 echo "final champion: $CHAMPION"
+echo "final learning line: $CURRENT"
