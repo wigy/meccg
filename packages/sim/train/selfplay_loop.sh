@@ -40,9 +40,12 @@ LEAGUE=${LEAGUE:-heuristic}
 MODE=${MODE:-ppo}
 if [ "$MODE" = "ppo" ]; then EPOCHS=${EPOCHS:-4}; else EPOCHS=${EPOCHS:-1}; fi
 CLIP=${CLIP:-0.2}
+KL_TARGET=${KL_TARGET:-0.02}
 GAMES=${GAMES:-60}
 GAMES_OPP=${GAMES_OPP:-30}
-LR=${LR:-1e-4}
+# 3e-5 after the 2026-07-24 runs: 1e-4 x 4 epochs produced candidate swings
+# from -141 to +47 Elo, including repeated draw-spike collapses.
+LR=${LR:-3e-5}
 ENTROPY=${ENTROPY:-0.01}
 GATE_PAIRS=${GATE_PAIRS:-15}
 GATE_ROUNDS=${GATE_ROUNDS:-2}
@@ -85,7 +88,7 @@ for ((i = 1; i <= ITERS; i++)); do
   echo "=== iteration $i: $MODE update ($EPOCHS epoch(s)) over ${#data_specs[@]} rollout file(s) ==="
   python3 train/train_bc.py --mode "$MODE" --init "$CHAMPION" \
     --data "${data_specs[@]}" --out "$candidate" --epochs "$EPOCHS" --lr "$LR" \
-    --entropy "$ENTROPY" --clip "$CLIP" --holdout 0
+    --entropy "$ENTROPY" --clip "$CLIP" --kl-target "$KL_TARGET" --holdout 0
 
   promote=1
   echo "=== iteration $i: gate candidate vs champion (min-elo $GATE_MIN_ELO) ==="

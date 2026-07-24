@@ -276,6 +276,10 @@ def main():
     parser.add_argument("--init", help="weights JSON to warm-start from (dims taken from the file)")
     parser.add_argument("--entropy", type=float, default=0.01, help="entropy bonus (RL modes)")
     parser.add_argument("--clip", type=float, default=0.2, help="PPO ratio clip epsilon")
+    parser.add_argument(
+        "--kl-target", type=float, default=0.02,
+        help="PPO early-stop: end the update when the mean approximate KL from the "
+             "behavior policy exceeds this (0 disables)")
     args = parser.parse_args()
 
     if args.mode in ("reinforce", "ppo") and not args.init:
@@ -327,7 +331,10 @@ def main():
     if args.mode == "ppo":
         # Fix the advantages once with the warm-started value head (standard
         # PPO: advantages come from the behavior policy's value estimate and
-        # stay constant across the update epochs).
+        # stay constant across the update epochs), then normalize them to
+        # zero mean / unit variance — without this, batches dominated by
+        # large same-sign advantages produce the oversized updates behind
+        # the observed candidate collapses (draw-spike mode).
         net.eval()
         with_adv = []
         with torch.no_grad():
@@ -337,12 +344,16 @@ def main():
                 _, value = net(glob, ents, emask, cands)
                 adv = z - value
                 with_adv.extend((d, zi, float(a)) for (d, zi), a in zip(batch, adv))
-        train = with_adv
+        raw = torch.tensor([a for _, _, a in with_adv])
+        mean, std = float(raw.mean()), float(raw.std())
+        print(f"advantages: mean {mean:.4f}, std {std:.4f} (normalized)")
+        train = [(d, zi, (a - mean) / (std + 1e-8)) for d, zi, a in with_adv]
 
+    stop_early = False
     for epoch in range(args.epochs):
         net.train()
         random.shuffle(train)
-        policy_loss_sum = value_loss_sum = steps = 0
+        policy_loss_sum = value_loss_sum = kl_sum = steps = 0
         for start in range(0, len(train), args.batch):
             batch = train[start : start + args.batch]
             glob, ents, emask, cands, cmask, target, chosen, z, old_logp, fixed_adv = collate(batch, global_width)
@@ -371,6 +382,9 @@ def main():
                 probs = torch.exp(log_probs) * cmask
                 entropy = -(probs * log_probs.masked_fill(cmask < 0.5, 0.0)).sum(dim=1).mean()
                 loss = policy_loss + args.value_weight * value_loss - args.entropy * entropy
+                # k3 estimator of KL(behavior ‖ current) on the chosen actions.
+                with torch.no_grad():
+                    kl_sum += float(((ratio - 1) - torch.log(ratio.clamp(min=1e-8))).mean())
             else:
                 policy_loss = -(target * log_probs).sum(dim=1).mean()
                 loss = policy_loss + args.value_weight * value_loss
@@ -381,11 +395,17 @@ def main():
             value_loss_sum += float(value_loss.detach())
             steps += 1
         contested_acc, overall_acc, value_mse = evaluate(net, held_all, global_width, args.batch)
+        mean_kl = kl_sum / max(steps, 1)
+        kl_note = f", kl {mean_kl:.4f}" if args.mode == "ppo" else ""
         print(
             f"epoch {epoch + 1}/{args.epochs}: policy {policy_loss_sum / max(steps, 1):.4f}, "
-            f"value {value_loss_sum / max(steps, 1):.4f} | holdout top-1 contested {contested_acc:.3f}, "
+            f"value {value_loss_sum / max(steps, 1):.4f}{kl_note} | holdout top-1 contested {contested_acc:.3f}, "
             f"overall {overall_acc:.3f}, value mse {value_mse:.3f}"
         )
+        if args.mode == "ppo" and args.kl_target > 0 and mean_kl > args.kl_target:
+            print(f"early stop: mean KL {mean_kl:.4f} > target {args.kl_target} after epoch {epoch + 1}")
+            stop_early = True
+            break
 
     # Self-test block: a real example's inputs and the net's outputs, so the
     # TypeScript forward pass can prove bit-compatibility (within float eps).
@@ -419,6 +439,7 @@ def main():
         "training": {
             "mode": args.mode,
             "init": args.init,
+            "earlyStop": stop_early,
             "data": args.data,
             "examples": len(examples),
             "games": len(games),
