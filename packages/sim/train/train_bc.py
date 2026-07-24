@@ -107,33 +107,63 @@ class BcNet(nn.Module):
         return logits, value.squeeze(1)
 
 
-def load_dataset(path, limit):
-    """Parses export JSONL -> (header, examples). Joins game outcomes."""
+def parse_data_spec(spec):
+    """Splits a `path[@seat]` data spec into (path, allowed seats)."""
+    at = spec.rfind("@")
+    if at > 0 and spec[at + 1 :] in ("0", "1"):
+        return spec[:at], {int(spec[at + 1 :])}
+    return spec, {0, 1}
+
+
+def load_dataset(specs, limit):
+    """Parses one or more export JSONL files -> (header, examples).
+
+    Each spec is `path[@seat]`: with a seat suffix only that player's
+    decisions are kept — used for league rollouts where the learner sits in
+    a known seat and the opponent's decisions must not enter the gradient
+    (their recorded behavior probabilities belong to a different policy).
+    Game outcomes are joined per file; game identity is namespaced per file
+    so ids never collide across files. All headers must agree on the
+    feature spec and card vocabulary.
+    """
     header = None
-    decisions = []
-    outcomes = {}
-    with open(path, "r", encoding="utf-8") as handle:
-        for line in handle:
-            record = json.loads(line)
-            kind = record.get("k")
-            if kind == "h":
-                header = record
-            elif kind == "d":
-                decisions.append(record)
-                if limit and len(decisions) >= limit:
-                    break
-            elif kind == "r":
-                outcomes[record["game"]] = record
-    if header is None:
-        raise SystemExit("no header line in data file")
     examples = []
-    for d in decisions:
-        result = outcomes.get(d["game"])
-        if result is None or result.get("outcome") != "completed":
-            continue
-        winner = result.get("winnerIndex")
-        z = 0.0 if winner is None else (1.0 if winner == d["player"] else -1.0)
-        examples.append((d, z))
+    for file_index, spec in enumerate(specs):
+        path, seats = parse_data_spec(spec)
+        file_header = None
+        decisions = []
+        outcomes = {}
+        with open(path, "r", encoding="utf-8") as handle:
+            for line in handle:
+                record = json.loads(line)
+                kind = record.get("k")
+                if kind == "h":
+                    file_header = record
+                elif kind == "d":
+                    decisions.append(record)
+                    if limit and len(decisions) >= limit:
+                        break
+                elif kind == "r":
+                    outcomes[record["game"]] = record
+        if file_header is None:
+            raise SystemExit(f"no header line in {path}")
+        if header is None:
+            header = file_header
+        elif (file_header.get("vocabHash") != header.get("vocabHash")
+              or file_header.get("featureSpecVersion") != header.get("featureSpecVersion")):
+            raise SystemExit(f"{path}: vocab/feature-spec mismatch with {specs[0]}")
+        for d in decisions:
+            if d["player"] not in seats:
+                continue
+            result = outcomes.get(d["game"])
+            if result is None or result.get("outcome") != "completed":
+                continue
+            winner = result.get("winnerIndex")
+            z = 0.0 if winner is None else (1.0 if winner == d["player"] else -1.0)
+            # Namespace the game id so holdout splitting and reporting never
+            # conflate games from different rollout files.
+            d["game"] = file_index * 1_000_000 + d["game"]
+            examples.append((d, z))
     return header, examples
 
 
@@ -225,7 +255,10 @@ def tensor_json(tensor):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", required=True)
+    parser.add_argument(
+        "--data", required=True, nargs="+",
+        help="export JSONL file(s); a path@0 / path@1 suffix keeps only that seat's "
+             "decisions (league rollouts: train only on the learner's moves)")
     parser.add_argument("--out", required=True)
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch", type=int, default=64)
