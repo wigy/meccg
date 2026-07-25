@@ -5263,6 +5263,70 @@ export interface SiteLockEffect extends EffectBase {
 }
 
 /**
+ * A minion permanent-event played on one of the controller's own in-play
+ * **factions** (via `play-target` `target: 'faction'`) that lays siege to a
+ * site chosen from the controller's location deck at play time. Used by Long
+ * Grievous Siege (ba-40): "Playable on a unique non-Dragon faction. Place a
+ * Border-hold [{B}] from your location deck 'off to the side' with this card.
+ * The Border-hold must be in the same region or adjacent thereto as a site
+ * where the target faction is playable. Return any faction playable at the
+ * Border-hold to its owner's hand. -5 to any attempt to play a faction at any
+ * version of the Border-hold. All versions of the Border-hold gain an
+ * additional automatic-attack: same type as your target faction — 5 strikes
+ * with 9 prowess (detainment against your companies)."
+ *
+ * Play-time wiring (chain resolution, `chain-reducer.ts`): the host enters
+ * `cardsInPlay` with `attachedTo` = the target faction instance and
+ * `attachedToSite` = the chosen site's definition id; the chosen site card is
+ * moved from the controller's `siteDeck` off to the side with the host
+ * (standard set-aside machinery), and every in-play faction playable at the
+ * chosen site (either player's, per `isCardPlayableAtSiteDef`) is returned to
+ * its owner's hand.
+ *
+ * Ongoing behaviour while in play (all matched against any version of the
+ * bound site — by printed site *name*, since hero/minion twins use distinct
+ * definition ids):
+ *
+ * 1. **Faction-influence penalty** — `factionInfluenceModifier` applies to
+ *    every faction-play influence attempt at the site, for either player
+ *    (summed in {@link import('../engine/reducer-utils.js').siteFactionInfluenceModifier},
+ *    alongside `site-lock`).
+ * 2. **Additional automatic-attack** — every version of the site gains an
+ *    attack of `attack.strikes`×`attack.prowess` whose `creatureType` derives
+ *    from the target faction's race at collection time
+ *    (`collectPermanentEventAttacks`, `manifestations.ts`). The attack is
+ *    **detainment against the controller's own companies only** (the injected
+ *    {@link AutomaticAttack} carries `detainmentAgainstPlayer`).
+ *
+ * Lifecycle: the host is exempt from the site-attached orphan sweep
+ * (`cardKeepsBoundSitePermanent` — the besieged site is off to the side and
+ * never occupied). When the target faction leaves play the host is discarded
+ * (`discardOrphanedFactionAttachedEvents`), and the set-aside site card is
+ * returned to its owner's location deck (site-card branch of `sweepSetAside`).
+ * "Cannot be duplicated on your faction" is `duplication-limit` scope
+ * `'faction'` (per target faction instance).
+ */
+export interface FactionSiegeEffect extends EffectBase {
+  readonly type: 'faction-siege';
+  /** Printed type of the site chosen from the location deck (border-hold for ba-40). */
+  readonly siteType: SiteType;
+  /**
+   * Modifier applied to every faction-play influence attempt at any version of
+   * the besieged site (e.g. `-5`). A negative value raises the required roll.
+   */
+  readonly factionInfluenceModifier: number;
+  /**
+   * The additional automatic-attack every version of the besieged site gains.
+   * Its creature type is not declared here — it is derived from the target
+   * faction's race when the attack list is collected.
+   */
+  readonly attack: {
+    readonly strikes: number;
+    readonly prowess: number;
+  };
+}
+
+/**
  * Balrog-specific movement grant: while this permanent-event is in play (and the
  * card named in `suppressedByInPlay` is *not* in play), a company containing The
  * Balrog avatar may use **region** movement — overriding his printed "may not use
@@ -6080,6 +6144,7 @@ export type CardEffect =
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
   | PermanentEventAutoAttackEffect
+  | FactionSiegeEffect
   | AttackerAttackOptionEffect
   | SiteInstanceTransformEffect
   | ConditionalMpEffect

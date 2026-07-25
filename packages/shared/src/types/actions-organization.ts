@@ -317,6 +317,14 @@ export interface PlayPermanentEventAction {
   readonly targetCompanyId?: import('./common.js').CompanyId;
   /** For item-targeting permanent events (e.g. Barrow-blade dm-119), the target item instance. */
   readonly targetItemInstanceId?: CardInstanceId;
+  /** For faction-targeting permanent events (Long Grievous Siege ba-40), the target in-play faction instance. */
+  readonly targetFactionInstanceId?: CardInstanceId;
+  /**
+   * For a `faction-siege` permanent event (Long Grievous Siege ba-40), the site
+   * card instance in the player's location deck chosen to be besieged — moved
+   * "off to the side" with the event on resolution.
+   */
+  readonly besiegedSiteInstanceId?: CardInstanceId;
   /** Card instance to discard as a play cost (e.g. Sapling of the White Tree for The White Tree). */
   readonly discardCardInstanceId?: CardInstanceId;
 }

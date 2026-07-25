@@ -4335,6 +4335,19 @@ Supported targets:
   "siteType": "ruins-and-lairs" }, { "lairOf": { "$exists": false } }, {
   "adjacentSites": { "$exists": false } }, { "regionType": { "$in":
   ["wilderness", "border", "shadow"] } } ] }`.
+- `faction` — for **resource permanent events**, one of the controller's own
+  in-play factions (Long Grievous Siege ba-40, "Playable on a unique non-Dragon
+  faction"). One `play-permanent-event` action is emitted per faction in the
+  player's `cardsInPlay` matching the `filter`, evaluated against
+  `{ target: { name, race, unique } }` (e.g. `{ "$and": [ { "target.unique":
+  true }, { "target.race": { "$ne": "dragon" } } ] }`); the chosen faction rides
+  on `targetFactionInstanceId` and the resolved card is bound via
+  `CardInPlay.attachedTo`. When the card also carries a `faction-siege` effect,
+  the action cross-product includes one eligible location-deck site per action
+  (`besiegedSiteInstanceId`). `duplication-limit` `scope: "faction"` limits
+  copies per faction instance ("Cannot be duplicated on your faction",
+  counted by `countFactionAttachedCopies`). Hazard-side short events (Muster
+  Disperses) use the same target kind against in-play factions of both players.
 - `item` — a resource permanent event played "with" / "on" an **item** borne by
   one of the active player's own characters (site-phase only). One
   `play-permanent-event` action is emitted per company-character item whose
@@ -7043,6 +7056,61 @@ Used by *Witch-king of Angmar* (tw-113), *Khamûl the Easterling* (tw-47), and
   "discardAfterUse": true
 }
 ```
+
+### `faction-siege`
+
+A minion resource permanent-event played on one of the controller's own
+in-play **factions** (via `play-target` `target: "faction"`) that besieges a
+site chosen from the controller's location deck at play time. Used by *Long
+Grievous Siege* (ba-40).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `siteType` | yes | Printed type of the location-deck site to besiege (`"border-hold"`). |
+| `factionInfluenceModifier` | yes | Modifier to every faction-play influence attempt at any version of the besieged site (`-5`). |
+| `attack.strikes` / `attack.prowess` | yes | The additional automatic-attack every version of the besieged site gains. Its `creatureType` is **derived from the target faction's race** at collection time (`factionRaceToAttackType`, e.g. a Man faction → `"Men"`). |
+
+```json
+{ "type": "faction-siege",
+  "siteType": "border-hold",
+  "factionInfluenceModifier": -5,
+  "attack": { "strikes": 5, "prowess": 9 } }
+```
+
+Play-time mechanics:
+
+- **Eligibility** — one `play-permanent-event` action per (faction ×
+  location-deck site) pair; the site must be of `siteType` and lie in the same
+  region as a site where the target faction is playable, or a region adjacent
+  thereto (`factionSiegeEligibleSites`, `reducer-utils.ts`; playability via
+  `isCardPlayableAtSiteDef`, adjacency from the region cards). CRF: "There
+  must be an eligible borderhold for this card to be played" — no eligible
+  site, no action.
+- **Resolution** (`chain-reducer.ts`) — the host enters `cardsInPlay` with
+  `attachedTo` = the faction instance and `attachedToSite` = the chosen site's
+  definition id; the site card moves from the `siteDeck` off to the side with
+  the host (standard set-aside machinery); every in-play faction (either
+  player's) playable at the site is returned to its owner's hand.
+
+Ongoing behaviour — "any version" of the besieged site is matched by printed
+site **name** (hero/minion twins use distinct definition ids):
+
+- `factionInfluenceModifier` is summed by `siteFactionInfluenceModifier`
+  (shared with `site-lock`, People Diminished ba-72) in both the
+  influence-attempt legal-action `need` and the roll resolver.
+- The extra automatic-attack is injected by `collectPermanentEventAttacks`
+  (`manifestations.ts`) carrying `detainmentAgainstPlayer` — the attack is
+  **detainment only when the defending player is the siege controller**
+  ("detainment against your companies") and normal against the opponent
+  (consumed at the site auto-attack detainment seams in `reducer-site.ts`).
+
+Lifecycle: the host is exempt from the site-attached orphan sweep
+(`cardKeepsBoundSitePermanent`). When the target faction leaves play the host
+is discarded (`discardOrphanedFactionAttachedEvents`, wired in `postReduce`),
+and the set-aside site card returns to its owner's **location deck** — the
+site-card branch of `sweepSetAside` (a site card is never discarded).
+"Cannot be duplicated on your faction" is `duplication-limit`
+`scope: "faction"` max 1, counted per target faction instance.
 
 ### `attacker-attack-option`
 

@@ -26,7 +26,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes } from '../reducer-utils.js';
+import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -506,6 +506,74 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       if (!anyTarget) {
         logDetail(`Permanent event ${def.name}: no valid company target`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} requires a qualifying company`));
+      }
+      continue;
+    }
+
+    // play-target DSL: faction-targeting permanent events (Long Grievous Siege
+    // ba-40) get one action per qualifying own in-play faction — crossed with
+    // one eligible location-deck site per `faction-siege` effect (CRF: "There
+    // must be an eligible borderhold for this card to be played").
+    if (playTarget?.target === 'faction') {
+      const factionDupLimit = findDuplicationLimitEffect(def, 'faction');
+      const siege = def.effects?.find(
+        (e): e is import('../../types/effects.js').FactionSiegeEffect => e.type === 'faction-siege',
+      );
+      let anyTarget = false;
+      for (const cip of player.cardsInPlay) {
+        if (isSetAsideCard(cip)) continue;
+        const factionDef = defById(state, cip.definitionId);
+        if (!factionDef || !isFactionCard(factionDef)) continue;
+        if (playTarget.filter) {
+          const ctx = {
+            target: {
+              name: factionDef.name,
+              race: factionDef.race,
+              unique: factionDef.unique,
+            },
+          };
+          if (!matchesCondition(playTarget.filter, ctx)) {
+            logDetail(`Permanent event ${def.name}: faction ${factionDef.name} does not match play-target filter`);
+            continue;
+          }
+        }
+        if (factionDupLimit) {
+          const copiesOnFaction = countFactionAttachedCopies(state, def.name, cip.instanceId);
+          if (copiesOnFaction >= factionDupLimit.max) {
+            logDetail(`Permanent event ${def.name}: duplication limit on faction ${factionDef.name} (${copiesOnFaction}/${factionDupLimit.max})`);
+            continue;
+          }
+        }
+        if (siege) {
+          const eligibleSites = factionSiegeEligibleSites(state, player, factionDef, siege);
+          if (eligibleSites.length === 0) {
+            logDetail(`Permanent event ${def.name}: no eligible ${siege.siteType} in location deck for faction ${factionDef.name}`);
+            continue;
+          }
+          for (const siteInst of eligibleSites) {
+            anyTarget = true;
+            logDetail(`Permanent event ${def.name}: playable on faction ${factionDef.name}, besieging ${defById(state, siteInst.definitionId)?.name ?? '?'}`);
+            actions.push({
+              action: {
+                type: 'play-permanent-event', player: playerId, cardInstanceId,
+                targetFactionInstanceId: cip.instanceId,
+                besiegedSiteInstanceId: siteInst.instanceId,
+              },
+              viable: true,
+            });
+          }
+        } else {
+          anyTarget = true;
+          logDetail(`Permanent event ${def.name}: playable on faction ${factionDef.name}`);
+          actions.push({
+            action: { type: 'play-permanent-event', player: playerId, cardInstanceId, targetFactionInstanceId: cip.instanceId },
+            viable: true,
+          });
+        }
+      }
+      if (!anyTarget) {
+        logDetail(`Permanent event ${def.name}: no valid faction target`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid faction target`));
       }
       continue;
     }

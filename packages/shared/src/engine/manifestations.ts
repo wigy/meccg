@@ -35,6 +35,8 @@ import { ownerOf } from '../types/state.js';
 import { isBalrogAvatarDef } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import { cardName, defById, getCardEffects, matchesDefinition, toCardInstance } from './reducer-utils.js';
+import { isFactionCard } from '../types/cards.js';
+import { factionRaceToAttackType } from './effects/index.js';
 import { resolveSiteInstanceTransform } from './effective.js';
 
 /**
@@ -506,6 +508,31 @@ function collectPermanentEventAttacks(state: GameState, siteDef: SiteCard): Auto
       const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
       if (!effects) continue;
       for (const e of effects) {
+        if (e.type === 'faction-siege') {
+          // Long Grievous Siege (ba-40): every version of the besieged site
+          // (matched by printed name — hero/minion twins use distinct
+          // definition ids) gains an additional automatic-attack whose type
+          // derives from the target faction's race. The attack is detainment
+          // against the siege controller's own companies only.
+          if (card.attachedToSite === undefined || card.pendingTriggerAttack) continue;
+          const boundDef = defById(state, card.attachedToSite);
+          if (!boundDef || boundDef.name !== siteDef.name) continue;
+          const factionEntry = state.players
+            .flatMap(p => p.cardsInPlay)
+            .find(c => c.instanceId === card.attachedTo);
+          const factionDef = factionEntry ? defById(state, factionEntry.definitionId) : undefined;
+          if (!factionDef || !isFactionCard(factionDef)) continue;
+          const creatureType = factionRaceToAttackType(factionDef.race as string);
+          logDetail(`faction-siege: ${cardName(state, card.definitionId, '?')} adds ${creatureType} auto-attack (${e.attack.strikes} strikes, ${e.attack.prowess} prowess, detainment vs ${player.id as string}) at ${siteDef.name}`);
+          out.push({
+            creatureType,
+            strikes: e.attack.strikes,
+            prowess: e.attack.prowess,
+            sourceInstanceId: card.instanceId,
+            detainmentAgainstPlayer: player.id,
+          });
+          continue;
+        }
         if (e.type !== 'permanent-event-auto-attack') continue;
         const eff = e;
         // Match either an explicitly listed site definition (Spawn-type events)

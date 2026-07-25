@@ -52,12 +52,12 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // just left its controller's play area. Prev/next diff, so it runs on the raw
   // post-action state before the single-state sweeps and recompute below.
   const afterLeaves = prevState ? applyDiscardOnCardLeaves(prevState, tapped) : tapped;
-  return accrueRevealedInstances(recomputeDerived(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves)))))))))))))));
+  return accrueRevealedInstances(recomputeDerived(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedFactionAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves))))))))))))))));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedAgentAttachedEvents, discardOrphanedConvertedAllyEvents, discardOrphanedItemAttachedEvents, sweepProhibitedCompanyEvents } from './reducer-utils.js';
+import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedAgentAttachedEvents, discardOrphanedConvertedAllyEvents, discardOrphanedItemAttachedEvents, discardOrphanedFactionAttachedEvents, sweepProhibitedCompanyEvents } from './reducer-utils.js';
 import { topResolutionFor } from './pending.js';
 import { applyEvilHourTaps } from './evil-hour.js';
 import { applyDiscardOnCardLeaves } from './discard-on-card-leaves.js';

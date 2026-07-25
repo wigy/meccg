@@ -24,6 +24,7 @@ export {
   resolveEnemyBody,
   resolveHandSize,
   normalizeCreatureRace,
+  factionRaceToAttackType,
   resolveDef,
   getItemGrantedSkills,
   getEffectiveSkills,

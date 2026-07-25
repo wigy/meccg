@@ -24,7 +24,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -747,7 +747,7 @@ function handleSiteAutomaticAttacks(
         const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR, effectiveSiteType);
         const dupBodyR = resolveAttackBody(state, aa.body ?? null, inPlayNamesR, dupRace, dupBoostCtxR);
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
-        const dupDetainmentR = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
+        const dupDetainmentR = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
           attackEffects: siteDef.effects,
           attackRace: dupRace as Race | null,
           defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -797,7 +797,7 @@ function handleSiteAutomaticAttacks(
       const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
       logDetail(`Site: initiating duplicate automatic attack (Incite Defenders): ${aa.creatureType} (${dupStrikes} strikes, ${dupProwess} prowess)`);
       const dupState = removeConstraint(state, dupConstraint.id);
-      const dupDetainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
+      const dupDetainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
         attackEffects: siteDef.effects,
         attackRace: creatureRace2 as Race | null,
         defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -848,7 +848,7 @@ function handleSiteAutomaticAttacks(
       const dupStrikesM = resolveAttackStrikes(state, aa.strikes, inPlayNamesM, creatureRaceM, true, dupBoostCtxM, effectiveSiteType);
       const dupBodyM = resolveAttackBody(state, aa.body ?? null, inPlayNamesM, creatureRaceM, dupBoostCtxM);
       logDetail(`Site: initiating minion-only additional automatic-attack (No Strangers at this Time): ${aa.creatureType} (${dupStrikesM} strikes, ${dupProwessM} prowess)`);
-      const dupDetainmentM = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
+      const dupDetainmentM = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
         attackEffects: siteDef.effects,
         attackRace: creatureRaceM as Race | null,
         attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
@@ -973,7 +973,7 @@ function handleSiteAutomaticAttacks(
     // `aa.forceDetainment` is set on runtime-injected attacks with no race/keying
     // (FEAR! FIRE! FOES! as-29 Mode A), for which the §3.II derivation cannot
     // apply — still overridden to normal when the defender forces normal attacks.
-    detainment: (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
+    detainment: (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
       attackEffects: siteDef.effects,
       attackRace: creatureRace as Race | null,
       // Site auto-attacks are implicitly "keyed to" the site's type (§3.II.2.R1/B1).
@@ -1065,7 +1065,7 @@ function buildSiteRepeatedAttackCombat(
     ? facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false }))
     : [];
   const strikesTotalValue = isEachCharacter ? facingChars.length : effectiveStrikes;
-  const detainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true)) || isDetainmentAttack({
+  const detainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
     attackEffects: siteDef.effects,
     attackRace: creatureRace as Race | null,
     attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
@@ -2779,6 +2779,17 @@ export function resolveInfluenceAttemptRoll(
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     logDetail(`Game-wide influence check-modifier: ${formatSignedNumber(globalInfluenceMod)}`);
+  }
+
+  // People Diminished (ba-72) / Long Grievous Siege (ba-40): a bound
+  // `site-lock` / `faction-siege` card modifies every faction-play influence
+  // attempt at any version of the company's current site, for either player —
+  // mirroring the legal-action `need` computation.
+  const influenceSiteDefId = player.companies[siteState.activeCompanyIndex]?.currentSite?.definitionId;
+  const siteBoundInfluenceMod = siteFactionInfluenceModifier(state, influenceSiteDefId);
+  if (siteBoundInfluenceMod !== 0) {
+    modifier += siteBoundInfluenceMod;
+    logDetail(`Site-bound faction-influence modifier at ${influenceSiteDefId as string}: ${formatSignedNumber(siteBoundInfluenceMod)}`);
   }
 
   // Paid `influence-modification` bonus (Dragons "Roused" factions, e.g. Smaug
