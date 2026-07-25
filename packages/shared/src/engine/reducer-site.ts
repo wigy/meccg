@@ -1751,11 +1751,13 @@ export function applyOnGuardRevealAtResource(
 
   let newState: GameState = updatePlayer(state, activeIndex, p => ({ ...p, companies: newCompanies }));
 
-  // Initiate a nested chain for the on-guard event (rule 2.V.6.1)
+  // Initiate a nested chain for the on-guard event (rule 2.V.6.1).
+  // `fromOnGuard` marks the reveal origin so cancels that "cannot be used
+  // against an on-guard card" (The Great Eye as-85) exclude this entry.
   const isPermanent = def && 'eventType' in def && def.eventType === 'permanent';
   const payload = isPermanent
-    ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
-    : { type: 'short-event' as const };
+    ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId, fromOnGuard: true }
+    : { type: 'short-event' as const, fromOnGuard: true };
   const cardInstance: CardInstance = toCardInstance(revealedCard);
 
   // Revealed short events mirror hand-played ones: the card moves to its

@@ -89,6 +89,18 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
       }
       if (blocked) continue;
 
+      // play-condition requires: "player-state" — a generic DSL condition
+      // evaluated against the player's avatar/alignment context, mirroring
+      // the short-event path below (The Great Eye as-85: "Playable if you
+      // are Sauron" via player.playsAsSauron).
+      const longPlayerStateCondition = findPlayConditionEffect(def, 'player-state');
+      if (longPlayerStateCondition?.condition
+          && !matchesCondition(longPlayerStateCondition.condition, buildPlayerStateContext(state, player, playerId))) {
+        logDetail(`${def.name}: play-condition player-state not satisfied`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play conditions not met`));
+        continue;
+      }
+
       logDetail(`Resource long-event playable: ${def.name} (${cardInstanceId as string})`);
       actions.push({
         action: { type: 'play-long-event', player: playerId, cardInstanceId },
