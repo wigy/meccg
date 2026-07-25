@@ -393,6 +393,17 @@ function assignStrikeActions(
     const assignedCharIds = new Set(combat.strikeAssignments.map(a => a.characterId as string));
     const strikesRemaining = combat.strikesTotal - combat.strikeAssignments.length;
 
+    // A zero-strike attack (strike count reduced to nothing by an effect
+    // before assignment began) leaves nothing to assign and nothing to
+    // resolve — offer pass so the attack can fizzle via handleCombatPass.
+    // Without this, neither player has a viable action and the game
+    // deadlocks (heuristic self-play decks g/h, seed 2030024).
+    if (combat.strikesTotal <= 0 && combat.strikeAssignments.length === 0) {
+      logDetail('Defender assignment: attack has zero strikes — pass to fizzle the attack');
+      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+      return actions;
+    }
+
     if (strikesRemaining <= 0) return [];
 
     // CvCC defender phase: defender selects one of their untapped chars AND one
