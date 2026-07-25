@@ -1449,6 +1449,19 @@
     ],
     "effects": [
       {
+        "type": "permanent-event-auto-attack",
+        "siteIds": [
+          "dm-36"
+        ],
+        "attack": {
+          "creatureType": "Nazgûl",
+          "strikes": 1,
+          "prowess": 15,
+          "body": 10
+        },
+        "discardAfterUse": true
+      },
+      {
         "type": "play-flag",
         "flag": "playable-as-event"
       },

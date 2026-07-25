@@ -1018,7 +1018,7 @@ function corruptionCheckEntryActions(
           action: {
             type: 'support-corruption-check',
             player: playerId,
-            supportingCharacterId: cid as CardInstanceId,
+            supportingCharacterId: cid,
             targetCharacterId: characterId,
           },
           viable: true,

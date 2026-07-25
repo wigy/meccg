@@ -41,6 +41,15 @@
  * | 8 | Each player orders their own checks            | IMPLEMENTED | selectableOrder on the pending entries         |
  * | 9 | Tapper cannot play resources to aid checks     | IMPLEMENTED | noResourceAid suppresses reactive plays        |
  * |10 | Tapper's characters may tap in support (+1)    | IMPLEMENTED | allowSupport → support-corruption-check        |
+ * |11 | dm-36 "any Nazgûl permanent-event" auto-attack | IMPLEMENTED | permanent-event-auto-attack (tw-2 precedent)   |
+ *
+ * Cross-card interaction (from the site side): The Under-courts (dm-36)
+ * reads "If any Nazgûl permanent-event is in play, one must be used as an
+ * additional automatic-attack (attacker's choice, discard after use —
+ * ignore result of defeat)" — modeled per-Nazgûl via
+ * `permanent-event-auto-attack` (siteIds [dm-36], Nazgûl 1 strike 15/10,
+ * discardAfterUse), the tw-2/tw-47 precedent. The Sulfur-deeps (dm-35)
+ * names only Khamûl and Adûnaphel, so Ren carries no dm-35 entry.
  *
  * Playable: YES. Both play modes ride the generic dual-mode primitive
  * (tw-107/tw-2 precedent); the on-tap conversion resolves the new
@@ -58,21 +67,25 @@ import {
   ARAGORN, LEGOLAS, FRODO, BILBO, HALFLING_STRENGTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
+  buildSimpleTwoPlayerState, addCardInPlay,
   makeMHState,
   playCreatureHazardAndResolve,
-  handCardId, findHandCardId, findCharInstanceId,
+  findHandCardId, findCharInstanceId,
   viableActions, dispatch, resolveChain,
   companyIdAt,
   HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType, CardStatus } from '../../index.js';
-import type { CardDefinitionId, CorruptionCheckAction, SupportCorruptionCheckAction, MovementHazardPhaseState } from '../../index.js';
+import type { CardDefinitionId, CorruptionCheckAction, SiteCard, SupportCorruptionCheckAction, MovementHazardPhaseState } from '../../index.js';
+import { getActiveAutoAttacks } from '../../engine/manifestations.js';
 
 const REN = 'tw-83' as CardDefinitionId;
+const THE_SULFUR_DEEPS = 'dm-35' as CardDefinitionId;
+const THE_UNDER_COURTS = 'dm-36' as CardDefinitionId;
 
 /** Two-company M/H setup with Ren the Unclean in the hazard player's hand. */
-function setup() {
-  return buildTestState({
+const setup = () =>
+  buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.MovementHazard,
     recompute: true,
@@ -81,10 +94,9 @@ function setup() {
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FRODO, BILBO] }], hand: [REN, HALFLING_STRENGTH], siteDeck: [RIVENDELL] },
     ],
   });
-}
 
 /** Play Ren as a permanent-event and tap it → returns the post-chain state. */
-function playAndTapRen(state: ReturnType<typeof setup>) {
+const playAndTapRen = (state: ReturnType<typeof setup>) => {
   const ready = { ...state, phaseState: makeMHState({ destinationSiteName: 'Barad-dûr' }) };
   const renId = findHandCardId(ready, HAZARD_PLAYER, REN);
   const companyId = companyIdAt(ready, 0, 0);
@@ -92,10 +104,11 @@ function playAndTapRen(state: ReturnType<typeof setup>) {
     type: 'play-hazard', player: PLAYER_2, cardInstanceId: renId,
     targetCompanyId: companyId, altEventMode: 'permanent-event',
   }));
+  const playedCount = (afterPlay.phaseState as MovementHazardPhaseState).hazardsPlayedThisCompany;
   const tapActions = viableActions(afterPlay, PLAYER_2, 'tap-alt-permanent-event');
   expect(tapActions.length).toBeGreaterThan(0);
-  return { afterTap: resolveChain(dispatch(afterPlay, tapActions[0].action)), renId };
-}
+  return { afterTap: resolveChain(dispatch(afterPlay, tapActions[0].action)), renId, playedCount };
+};
 
 describe('Ren the Unclean (tw-83)', () => {
   beforeEach(() => resetMint());
@@ -195,12 +208,13 @@ describe('Ren the Unclean (tw-83)', () => {
 
   test('tapping counts against the hazard limit, discards Ren, and queues a corruption check for every character in play', () => {
     const state = setup();
-    const { afterTap, renId } = playAndTapRen(state);
+    const { afterTap, renId, playedCount } = playAndTapRen(state);
 
-    // Ren is spent (discarded) and the tap consumed one hazard-limit slot.
+    // Ren is spent (discarded) and the tap consumed one MORE hazard-limit
+    // slot on top of the permanent-event play itself.
     expect(afterTap.players[1].cardsInPlay.some(c => c.instanceId === renId)).toBe(false);
     expect(afterTap.players[1].discardPile.some(c => c.instanceId === renId)).toBe(true);
-    expect((afterTap.phaseState as MovementHazardPhaseState).hazardsPlayedThisCompany).toBe(1);
+    expect((afterTap.phaseState as MovementHazardPhaseState).hazardsPlayedThisCompany).toBe(playedCount + 1);
 
     // One corruption check per character in play — both players'.
     const checks = afterTap.pendingResolutions.filter(r => r.kind.type === 'corruption-check');
@@ -284,26 +298,49 @@ describe('Ren the Unclean (tw-83)', () => {
       .map(a => a.action as SupportCorruptionCheckAction);
     expect(supports).toHaveLength(2);
 
+    // Baseline: Frodo's printed +4 corruption check-modifier, no support yet.
+    const frodoBase = (viableActions(current, PLAYER_2, 'corruption-check')
+      .find(a => (a.action as CorruptionCheckAction).characterId === frodo)!
+      .action as CorruptionCheckAction).corruptionModifier;
+
     // Bilbo taps in support of Frodo's check.
     const bilboSupports = supports.find(a => a.supportingCharacterId === bilbo && a.targetCharacterId === frodo)!;
     expect(bilboSupports).toBeDefined();
     const afterSupport = dispatch(current, bilboSupports);
     expect(afterSupport.players[1].characters[bilbo].status).toBe(CardStatus.Tapped);
 
-    // Frodo's roll action now carries the +1 support modifier; Bilbo (tapped)
-    // can no longer support.
+    // Frodo's roll action now carries the +1 support on top of his printed
+    // modifier; Bilbo (tapped) can no longer support.
     const frodoRoll = viableActions(afterSupport, PLAYER_2, 'corruption-check')
       .find(a => (a.action as CorruptionCheckAction).characterId === frodo)!;
-    expect((frodoRoll.action as CorruptionCheckAction).corruptionModifier).toBe(1);
+    expect((frodoRoll.action as CorruptionCheckAction).corruptionModifier).toBe(frodoBase + 1);
     expect(viableActions(afterSupport, PLAYER_2, 'support-corruption-check')
       .filter(a => (a.action as SupportCorruptionCheckAction).supportingCharacterId === bilbo)).toHaveLength(0);
 
     // The +1 one-shot constraint is consumed by Frodo's roll and never leaks
-    // into Bilbo's own check.
+    // into Bilbo's own check (back to his printed modifier alone).
     const afterFrodo = dispatch(afterSupport, frodoRoll.action);
     const bilboRoll = viableActions(afterFrodo, PLAYER_2, 'corruption-check')
       .find(a => (a.action as CorruptionCheckAction).characterId === bilbo)!;
-    expect((bilboRoll.action as CorruptionCheckAction).corruptionModifier).toBe(0);
+    expect((bilboRoll.action as CorruptionCheckAction).corruptionModifier).toBe(frodoBase);
+  });
+
+  // ─── Cross-card: dm-36's "any Nazgûl permanent-event" auto-attack ──────────
+
+  test('in play as a permanent-event, Ren adds a Nazgûl auto-attack at The Under-courts (dm-36)', () => {
+    const state = addCardInPlay(buildSimpleTwoPlayerState(), HAZARD_PLAYER, REN);
+    const site = state.cardPool[THE_UNDER_COURTS] as SiteCard;
+    const attacks = getActiveAutoAttacks(state, site);
+    // Printed Trolls (3/10) + the Ren permanent-event Nazgûl attack (1 strike, 15/10).
+    expect(attacks).toHaveLength(2);
+    expect(attacks[1]).toMatchObject({ creatureType: 'Nazgûl', strikes: 1, prowess: 15, body: 10 });
+  });
+
+  test('Ren does NOT augment The Sulfur-deeps (dm-35), whose rule names only Khamûl and Adûnaphel', () => {
+    const state = addCardInPlay(buildSimpleTwoPlayerState(), HAZARD_PLAYER, REN);
+    const site = state.cardPool[THE_SULFUR_DEEPS] as SiteCard;
+    const attacks = getActiveAutoAttacks(state, site);
+    expect(attacks.every(a => a.creatureType !== 'Nazgûl')).toBe(true);
   });
 
   test('tapper cannot play resources to aid their checks; the moving player still can', () => {
