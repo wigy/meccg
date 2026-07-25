@@ -89,6 +89,10 @@ export function buildConstraintKind(
       return { type: 'only-creatures-keyed-to-site' };
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
       return { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
+    case 'no-creatures-keyed-to-site': {
+      const unless = (onEvent.apply as { unlessSiteRegionType?: import('../types/common.js').RegionType }).unlessSiteRegionType;
+      return { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };
+    }
     case 'deny-scout-resources':
       return { type: 'deny-scout-resources' };
     case 'auto-attack-prowess-boost': {

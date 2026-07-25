@@ -102,6 +102,9 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
     ...(action.targetItemInstanceId ? { targetItemInstanceId: action.targetItemInstanceId } : {}),
     ...(action.targetFactionInstanceId ? { targetFactionInstanceId: action.targetFactionInstanceId } : {}),
     ...(action.besiegedSiteInstanceId ? { besiegedSiteInstanceId: action.besiegedSiteInstanceId } : {}),
+    ...(action.companionCardInstanceId ? { companionCardInstanceId: action.companionCardInstanceId } : {}),
+    ...(action.storeItemInstanceId ? { storeItemInstanceId: action.storeItemInstanceId } : {}),
+    ...(action.storeCharacterId ? { storeCharacterId: action.storeCharacterId } : {}),
   };
   newState = initiateOrPushChain(newState, action.player, handCard, payload);
 
@@ -2154,6 +2157,11 @@ function applyShortEventOnEntersPlay(
         case 'only-creatures-keyed-to-site-at-ruins-lairs':
           kind = { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
           break;
+        case 'no-creatures-keyed-to-site': {
+          const unless = onEvent.apply.unlessSiteRegionType as import('../types/common.js').RegionType | undefined;
+          kind = { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };
+          break;
+        }
         case 'company-cannot-move':
           kind = { type: 'company-cannot-move' };
           break;

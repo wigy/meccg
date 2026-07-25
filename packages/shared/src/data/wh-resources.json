@@ -1486,9 +1486,28 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-with-stored-card",
+        "cardName": "The White Tree",
+        "requiresStored": "Sapling of the White Tree",
+        "siteFilter": {
+          "effectiveSiteType": "haven"
+        },
+        "fullMarshallingPoints": true,
+        "siteBecomesProtected": true,
+        "ignoreCardText": true
+      },
+      {
+        "type": "storage-site-transfer",
+        "siteFilter": {
+          "effectiveSiteType": "haven"
+        },
+        "fullMarshallingPoints": true
       }
     ],
-    "text": "You may play The White Tree at one of your Wizardhavens [{H}] if Sapling of the White Tree is stored there. Place Wizard’s Trove with The White Tree—which is worth full marshalling points. Your Wizardhaven [{H}] becomes protected. Ignore the text of The White Tree (including the Unique keyword). Alternatively, you may store one miscellaneous marshalling point card at one of your Wizardhavens [{H}]. Any reference to the site where the card can normally be stored are transferred instead to the Wizardhaven [{H}]. Place Wizard’s Trove with the stored card—which is worth full marshalling points."
+    "text": "You may play The White Tree at one of your Wizardhavens [{H}] if Sapling of the White Tree is stored there. Place Wizard’s Trove with The White Tree—which is worth full marshalling points. Your Wizardhaven [{H}] becomes protected. Ignore the text of The White Tree (including the Unique keyword). Alternatively, you may store one miscellaneous marshalling point card at one of your Wizardhavens [{H}]. Any reference to the site where the card can normally be stored are transferred instead to the Wizardhaven [{H}]. Place Wizard’s Trove with the stored card—which is worth full marshalling points.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "minion-resource-faction",

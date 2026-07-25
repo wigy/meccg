@@ -2013,6 +2013,13 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly purpose?: string;
   /** Region name for region-type-override (token `"destination"` = active company's destination region). */
   readonly regionName?: string;
+  /**
+   * For a `no-creatures-keyed-to-site` constraint: region type that exempts
+   * the destination from the restriction — when the target company's new site
+   * sits in a region of this type, the constraint imposes nothing. Crack in
+   * the Wall (le-177): "Unless the site is in a Free-domain [{f}]" → `"free"`.
+   */
+  readonly unlessSiteRegionType?: string;
   /** Payload describing the action granted by a `granted-action` constraint. */
   readonly grantedAction?: GrantedActionConstraintPayload;
   /**
@@ -4479,6 +4486,91 @@ export interface StorableAtEffect extends EffectBase {
 }
 
 /**
+ * Storage-site transfer (Wizard's Trove wh-85, "Alternatively" mode): playing
+ * this permanent event *is* the act of storing one marshalling-point card at a
+ * site the storing card could not normally be stored at — "any reference to
+ * the site where the card can normally be stored are transferred instead" to
+ * the chosen site.
+ *
+ * Offered during the controller's organization phase (Stage resource timing)
+ * for every (item, bearer) pair where:
+ * - the bearer's company is at a site matching `siteFilter` (matched against
+ *   the site definition extended with `regionType` and `effectiveSiteType`,
+ *   exactly like a site `play-target` filter — Wizard's Trove uses
+ *   `{ "effectiveSiteType": "haven" }` for "one of your Wizardhavens"), and
+ * - the item carries a `storable-at` effect with an explicit
+ *   `marshallingPoints` override (the "marshalling point card" reading: a card
+ *   that scores its own MP value from storage, e.g. Sapling of the White Tree,
+ *   Book of Mazarbul — as opposed to regular items stored at any Haven).
+ *
+ * On chain resolution the item is stored exactly like a `store-item` action
+ * (moved to the marshalling-point pile, initial bearer makes a corruption
+ * check, `bearer-cannot-untap` constraints from the stored card are cleared),
+ * the stored pile entry is stamped with `storedAtSite` = the chosen site, and
+ * the resolving event enters play with {@link CardInPlay.attachedToStored}
+ * pointing at the stored card. While the event remains in play and
+ * `fullMarshallingPoints` is set, the stored card scores its full declared
+ * storage MP — exempt from the MEWH §4 Fallen-wizard flat-1 clamp and the
+ * MELE cross-alignment halving ("which is worth full marshalling points").
+ */
+export interface StorageSiteTransferEffect extends EffectBase {
+  readonly type: 'storage-site-transfer';
+  /** Condition the storage site must match (site definition + `regionType` + `effectiveSiteType` context). */
+  readonly siteFilter?: Condition;
+  /** When true, the stored card scores its full storage MP while this card is in play (no §4 clamp, no cross-alignment halving). */
+  readonly fullMarshallingPoints?: boolean;
+}
+
+/**
+ * Play a named card from hand together with this card at a site where another
+ * named card is stored (Wizard's Trove wh-85, primary mode: "You may play The
+ * White Tree at one of your Wizardhavens [{H}] if Sapling of the White Tree is
+ * stored there").
+ *
+ * Offered during the controller's organization phase (Stage resource timing)
+ * when:
+ * - a card named `cardName` is in the controller's hand, and
+ * - the controller's marshalling-point pile holds a card named
+ *   `requiresStored` whose {@link CardInstance.storedAtSite} names a site
+ *   matching `siteFilter` (same matching context as a site `play-target`
+ *   filter). Since `storedAtSite` is only stamped by the storage flows, this
+ *   naturally requires the companion combo piece to have been stored first
+ *   (for Wizard's Trove: a Sapling stored at a Wizardhaven via a previous
+ *   Wizard's Trove `storage-site-transfer`).
+ *
+ * On chain resolution both cards enter play: the companion `cardName` card is
+ * taken from hand into `cardsInPlay` and this card is linked to it via
+ * `linkedInstanceId` (mutual discard — "Place Wizard's Trove with The White
+ * Tree"). The companion:
+ * - is stamped `mpPinned` = its printed MP when `fullMarshallingPoints` is set
+ *   ("worth full marshalling points" — overrides the MEWH §4 clamp), and
+ * - is stamped {@link CardInPlay.textIgnored} when `ignoreCardText` is set
+ *   ("Ignore the text of The White Tree (including the Unique keyword)"): its
+ *   own play requirements/effects are never evaluated and its name is excluded
+ *   from the in-play names list, so uniqueness does not bind.
+ *
+ * When `siteBecomesProtected` is set, an `until-cleared` `site-protected`
+ * constraint bound to the chosen site is added for the controller ("Your
+ * Wizardhaven [{H}] becomes protected"), sourced from this card so it is
+ * cleared if this card leaves play.
+ */
+export interface PlayWithStoredCardEffect extends EffectBase {
+  readonly type: 'play-with-stored-card';
+  /** Name of the card played from hand together with this card (e.g. "The White Tree"). */
+  readonly cardName: string;
+  /** Name of the card that must be stored (`storedAtSite`) at the target site (e.g. "Sapling of the White Tree"). */
+  readonly requiresStored: string;
+  /** Condition the target site must match (site definition + `regionType` + `effectiveSiteType` context). */
+  readonly siteFilter?: Condition;
+  /** When true, the companion card enters play `mpPinned` to its printed MP ("worth full marshalling points"). */
+  readonly fullMarshallingPoints?: boolean;
+  /** When true, an `until-cleared` `site-protected` constraint for the target site is added for the controller. */
+  readonly siteBecomesProtected?: boolean;
+  /** When true, the companion enters play with its text ignored (no effects, uniqueness does not bind). */
+  readonly ignoreCardText?: boolean;
+}
+
+/**
  * Declarative restriction on when this card may be played at all, checked by
  * the legal-action computer before offering the play action.
  *
@@ -6109,6 +6201,8 @@ export type CardEffect =
   | SiteRuleEffect
   | ItemPlaySiteEffect
   | StorableAtEffect
+  | StorageSiteTransferEffect
+  | PlayWithStoredCardEffect
   | CallOfHomeCheckEffect
   | ProtectFromRemovalEffect
   | ForceCheckAllCompanyTopEffect

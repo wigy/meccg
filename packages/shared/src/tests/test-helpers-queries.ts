@@ -93,6 +93,24 @@ export function viableOfType(
 }
 
 /**
+ * All viable `play-permanent-event` actions a player can take for hand copies
+ * of the given card definition. Used by card tests that assert on the offered
+ * targets/modes of a specific permanent event (e.g. Wizard's Trove wh-85).
+ */
+export function viablePermanentEventPlays(
+  state: GameState,
+  playerId: PlayerId,
+  playerIdx: number,
+  defId: CardDefinitionId,
+): import('../index.js').PlayPermanentEventAction[] {
+  return computeLegalActions(state, playerId)
+    .filter(ea => ea.viable && ea.action.type === 'play-permanent-event')
+    .map(ea => ea.action as import('../index.js').PlayPermanentEventAction)
+    .filter(a => state.players[playerIdx].hand.find(
+      c => c.instanceId === a.cardInstanceId)?.definitionId === defId);
+}
+
+/**
  * Filter a pre-computed `EvaluatedAction[]` array to non-viable entries
  * of the given action type.
  */
