@@ -31,10 +31,10 @@ import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWarded
 import { buildInPlayNames } from './recompute-derived.js';
 import { siteAttacksCanceled } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
-import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
+import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -1538,6 +1538,142 @@ function discardNamedCardsInPlay(state: GameState, cardName: string): GameState 
 }
 
 /**
+ * Resolves a Wizard's Trove (wh-85) style permanent-event chain entry — a
+ * `play-with-stored-card` or `storage-site-transfer` combo play. The
+ * placement is handled here in full; in particular the site binding is NOT
+ * stamped as `attachedToSite`: the orphaned-site sweep would otherwise
+ * discard the card whenever no company occupies the site, but the trove
+ * parks its cards at the Wizardhaven permanently.
+ *
+ * Returns `undefined` when the entry is not a combo play (the generic
+ * {@link resolvePermanentEvent} path continues).
+ */
+function resolveStoredComboEvent(state: GameState, entry: ChainEntry): GameState | undefined {
+  if (entry.payload.type !== 'permanent-event') return undefined;
+  const payload = entry.payload;
+  const card = entry.card!;
+  const def = defById(state, card.definitionId);
+  const playerIndex = getPlayerIndex(state, entry.declaredBy);
+  const siteDefId = payload.targetSiteDefinitionId;
+
+  const playWithStored = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').PlayWithStoredCardEffect => e.type === 'play-with-stored-card',
+  );
+  const storageTransfer = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').StorageSiteTransferEffect => e.type === 'storage-site-transfer',
+  );
+
+  // Mode 1 — play-with-stored-card: bring the companion (e.g. The White Tree)
+  // from hand into play linked to the resolving card, pin its MP, ignore its
+  // text, and protect the site.
+  if (playWithStored && payload.companionCardInstanceId && siteDefId) {
+    const player = state.players[playerIndex];
+    const companion = findById(player.hand, payload.companionCardInstanceId);
+    if (!companion) {
+      // The companion left hand between declaration and resolution (e.g. a
+      // forced discard). The combo cannot complete — the resolving card goes
+      // to the discard pile; no instance is lost.
+      logDetail(`"${def?.name ?? '?'}": companion ${payload.companionCardInstanceId as string} no longer in hand — card fizzles to discard`);
+      return updatePlayer(state, playerIndex, p => ({ ...p, discardPile: [...p.discardPile, toCardInstance(card)] }));
+    }
+    const companionDef = defById(state, companion.definitionId);
+    const companionMp = companionDef && 'marshallingPoints' in companionDef
+      ? (companionDef as { marshallingPoints: number }).marshallingPoints
+      : undefined;
+    logDetail(
+      `"${def?.name ?? '?'}": entering play with "${companionDef?.name ?? '?'}" at site ${siteDefId as string}`
+      + (playWithStored.fullMarshallingPoints && companionMp !== undefined ? ` (mpPinned ${companionMp})` : '')
+      + (playWithStored.ignoreCardText ? ' (text ignored)' : ''),
+    );
+    let next = revealInstances(state, [companion]);
+    next = updatePlayer(next, playerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, companion.instanceId),
+      cardsInPlay: [
+        ...p.cardsInPlay,
+        {
+          instanceId: companion.instanceId,
+          definitionId: companion.definitionId,
+          status: CardStatus.Untapped,
+          linkedInstanceId: card.instanceId,
+          ...(playWithStored.fullMarshallingPoints && companionMp !== undefined ? { mpPinned: companionMp } : {}),
+          ...(playWithStored.ignoreCardText ? { textIgnored: true } : {}),
+        },
+        {
+          instanceId: card.instanceId,
+          definitionId: card.definitionId,
+          status: CardStatus.Untapped,
+          linkedInstanceId: companion.instanceId,
+        },
+      ],
+    }));
+    if (playWithStored.siteBecomesProtected) {
+      logDetail(`"${def?.name ?? '?'}": site ${siteDefId as string} becomes protected for ${entry.declaredBy as string}`);
+      next = addConstraint(next, {
+        source: card.instanceId,
+        sourceDefinitionId: card.definitionId,
+        scope: { kind: 'until-cleared' },
+        target: { kind: 'player', playerId: entry.declaredBy },
+        kind: { type: 'site-flag', flag: 'site-protected', siteDefinitionId: siteDefId },
+      });
+    }
+    return next;
+  }
+
+  // Mode 2 — storage-site-transfer: store the chosen item at the target site
+  // (mirroring the `store-item` flow: marshalling-point pile + initial-bearer
+  // corruption check + bearer-cannot-untap cleanup), stamping the stored pile
+  // entry with `storedAtSite` and linking the resolving card to it.
+  if (storageTransfer && payload.storeItemInstanceId && payload.storeCharacterId && siteDefId) {
+    const player = state.players[playerIndex];
+    const removed = removeAttachment(player, 'items', payload.storeItemInstanceId);
+    if (!removed || removed.charId !== payload.storeCharacterId) {
+      logDetail(`"${def?.name ?? '?'}": item ${payload.storeItemInstanceId as string} no longer borne by ${payload.storeCharacterId as string} — card fizzles to discard`);
+      return updatePlayer(state, playerIndex, p => ({ ...p, discardPile: [...p.discardPile, toCardInstance(card)] }));
+    }
+    const item = removed.attachment;
+    const itemDef = defById(state, item.definitionId);
+    logDetail(`"${def?.name ?? '?'}": storing ${itemDef?.name ?? '?'} at site ${siteDefId as string} (storage-site transfer)`);
+    let next = updatePlayer(state, playerIndex, () => ({
+      ...removed.player,
+      killPile: [
+        ...removed.player.killPile,
+        { instanceId: item.instanceId, definitionId: item.definitionId, storedAtSite: siteDefId },
+      ],
+      cardsInPlay: [
+        ...removed.player.cardsInPlay,
+        {
+          instanceId: card.instanceId,
+          definitionId: card.definitionId,
+          status: CardStatus.Untapped,
+          attachedToStored: item.instanceId,
+        },
+      ],
+    }));
+    logDetail(`Enqueuing corruption check for ${payload.storeCharacterId as string} after storage-site transfer`);
+    next = enqueueCorruptionCheck(next, {
+      source: item.instanceId,
+      actor: entry.declaredBy,
+      scope: { kind: 'phase', phase: state.phaseState.phase },
+      characterId: payload.storeCharacterId,
+      reason: 'Store',
+    });
+    // Clear any bearer-cannot-untap constraints referencing the stored card
+    // (Rescue Prisoners family), exactly as the store-item handler does.
+    const bearerConstraints = next.activeConstraints.filter(
+      c => c.kind.type === 'bearer-cannot-untap' && c.kind.cardInstanceId === item.instanceId,
+    );
+    for (const c of bearerConstraints) {
+      logDetail(`"${def?.name ?? '?'}": clearing bearer-cannot-untap constraint from stored "${itemDef?.name ?? '?'}" (${c.id as string})`);
+      next = removeConstraint(next, c.id);
+    }
+    return next;
+  }
+
+  return undefined;
+}
+
+/**
  * Resolves a permanent-event chain entry: moves the card from the chain
  * into the declaring player's `cardsInPlay` and executes `self-enters-play`
  * effects (e.g. Gates of Morning discarding hazard environments).
@@ -1560,6 +1696,12 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   if (displaceEffect && storedItemId) {
     return resolveDisplaceStoredItem(state, entry, storedItemId);
   }
+
+  // Wizard's Trove (wh-85) family: `play-with-stored-card` /
+  // `storage-site-transfer` combo plays are placed by their dedicated
+  // resolver (which must not stamp `attachedToSite` — see its doc comment).
+  const comboResolved = resolveStoredComboEvent(state, entry);
+  if (comboResolved) return comboResolved;
 
   logDetail(`Permanent event resolves: "${def?.name ?? card.definitionId}" enters play for player ${entry.declaredBy as string}`);
 

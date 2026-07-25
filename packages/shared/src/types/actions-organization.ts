@@ -319,6 +319,19 @@ export interface PlayPermanentEventAction {
   readonly targetItemInstanceId?: CardInstanceId;
   /** Card instance to discard as a play cost (e.g. Sapling of the White Tree for The White Tree). */
   readonly discardCardInstanceId?: CardInstanceId;
+  /**
+   * For a `play-with-stored-card` event (Wizard's Trove wh-85), the named
+   * companion card in hand (e.g. The White Tree) that enters play together
+   * with this card at `targetSiteDefinitionId`.
+   */
+  readonly companionCardInstanceId?: CardInstanceId;
+  /**
+   * For a `storage-site-transfer` event (Wizard's Trove wh-85), the item to
+   * store at `targetSiteDefinitionId` when this card resolves.
+   */
+  readonly storeItemInstanceId?: CardInstanceId;
+  /** For a `storage-site-transfer` event: the character currently bearing `storeItemInstanceId`. */
+  readonly storeCharacterId?: CardInstanceId;
 }
 
 /**

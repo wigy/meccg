@@ -806,6 +806,24 @@ export type ChainEntryPayload =
        * controller's `cardsInPlay` with `attachedToItem` set to this value.
        */
       readonly targetItemInstanceId?: CardInstanceId;
+      /**
+       * For a `play-with-stored-card` resource permanent-event (Wizard's
+       * Trove wh-85 primary mode), the named companion card still in the
+       * declaring player's hand (e.g. The White Tree). On resolution the
+       * chain reducer moves the companion from hand into `cardsInPlay`
+       * (mpPinned/textIgnored per the effect) linked to the resolving card,
+       * and adds the effect's `site-protected` constraint for
+       * `targetSiteDefinitionId`.
+       */
+      readonly companionCardInstanceId?: CardInstanceId;
+      /**
+       * For a `storage-site-transfer` resource permanent-event (Wizard's
+       * Trove wh-85 "Alternatively" mode), the item to store at
+       * `targetSiteDefinitionId` on resolution.
+       */
+      readonly storeItemInstanceId?: CardInstanceId;
+      /** For a `storage-site-transfer` event: the character bearing `storeItemInstanceId`. */
+      readonly storeCharacterId?: CardInstanceId;
     }
   | { readonly type: 'long-event' }
   | { readonly type: 'corruption-card' }

@@ -200,6 +200,111 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       }
     }
 
+    // Wizard's Trove (wh-85) family: `play-with-stored-card` /
+    // `storage-site-transfer`. Such a card is only playable in one of its
+    // combo modes — never as a bare permanent event — so the branch always
+    // `continue`s. Stage timing (organization phase only) was enforced above.
+    const playWithStored = getCardEffects(def).find(
+      (e): e is import('../../types/effects.js').PlayWithStoredCardEffect => e.type === 'play-with-stored-card',
+    );
+    const storageTransfer = getCardEffects(def).find(
+      (e): e is import('../../types/effects.js').StorageSiteTransferEffect => e.type === 'storage-site-transfer',
+    );
+    if (playWithStored || storageTransfer) {
+      let anyMode = false;
+
+      // Site matcher mirroring the site play-target context: the site
+      // definition extended with `regionType` and `effectiveSiteType`, so
+      // "one of your Wizardhavens [{H}]" filters match dynamically converted
+      // sites (Hidden Haven wh-75 family) as well as printed havens.
+      const siteMatchesFilter = (
+        siteDefId: CardDefinitionId,
+        filter: import('../../types/effects.js').Condition | undefined,
+        siteInstanceId?: CardInstanceId,
+      ): boolean => {
+        const siteDef = defById(state, siteDefId);
+        if (!siteDef || !isSiteCard(siteDef)) return false;
+        if (!filter) return true;
+        const regionType = siteRegionTypeOf(state, siteDef);
+        const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, siteInstanceId);
+        return matchesCondition(filter, { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType });
+      };
+
+      // Mode 1 — play-with-stored-card: the companion (e.g. The White Tree)
+      // must be in hand, and the required card (e.g. Sapling of the White
+      // Tree) must be stored (`storedAtSite`) at a filter-matching site.
+      if (playWithStored) {
+        const companion = player.hand.find(c => defById(state, c.definitionId)?.name === playWithStored.cardName);
+        if (!companion) {
+          logDetail(`Permanent event ${def.name}: companion "${playWithStored.cardName}" not in hand`);
+        } else {
+          for (const stored of player.killPile) {
+            if (!stored.storedAtSite) continue;
+            const storedDef = defById(state, stored.definitionId);
+            if (storedDef?.name !== playWithStored.requiresStored) continue;
+            if (!siteMatchesFilter(stored.storedAtSite, playWithStored.siteFilter)) {
+              logDetail(`Permanent event ${def.name}: "${playWithStored.requiresStored}" is stored at ${stored.storedAtSite as string}, which does not match the site filter`);
+              continue;
+            }
+            logDetail(`Permanent event ${def.name}: playable with "${playWithStored.cardName}" at ${stored.storedAtSite as string} — "${playWithStored.requiresStored}" is stored there`);
+            anyMode = true;
+            actions.push({
+              action: {
+                type: 'play-permanent-event',
+                player: playerId,
+                cardInstanceId,
+                targetSiteDefinitionId: stored.storedAtSite,
+                companionCardInstanceId: companion.instanceId,
+              },
+              viable: true,
+            });
+          }
+        }
+      }
+
+      // Mode 2 — storage-site-transfer: one action per (item, bearer) pair in
+      // a company at a filter-matching site, for items that score their own
+      // declared MP from storage (`storable-at` with `marshallingPoints` —
+      // the "marshalling point card" reading).
+      if (storageTransfer) {
+        for (const company of player.companies) {
+          if (!company.currentSite) continue;
+          const siteDefId = company.currentSite.definitionId;
+          if (!siteMatchesFilter(siteDefId, storageTransfer.siteFilter, company.currentSite.instanceId)) continue;
+          for (const charInstId of company.characters) {
+            const char = player.characters[charInstId];
+            if (!char) continue;
+            for (const item of char.items) {
+              const itemDef = defById(state, item.definitionId);
+              if (!itemDef) continue;
+              const storable = getCardEffects(itemDef).find(
+                (e): e is import('../../types/effects.js').StorableAtEffect => e.type === 'storable-at',
+              );
+              if (!storable || storable.marshallingPoints === undefined) continue;
+              logDetail(`Permanent event ${def.name}: storage transfer of ${itemDef.name} to ${siteDefId as string}`);
+              anyMode = true;
+              actions.push({
+                action: {
+                  type: 'play-permanent-event',
+                  player: playerId,
+                  cardInstanceId,
+                  targetSiteDefinitionId: siteDefId,
+                  storeItemInstanceId: item.instanceId,
+                  storeCharacterId: charInstId,
+                },
+                viable: true,
+              });
+            }
+          }
+        }
+      }
+
+      if (!anyMode) {
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: no valid play mode (stored-card combo or storage transfer)`));
+      }
+      continue;
+    }
+
     // play-target DSL: cards targeting a site.
     const sitePlayTarget = def.effects?.find(
       (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',

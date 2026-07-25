@@ -4998,6 +4998,93 @@ instead of the card's base MP. Implemented in
 { "type": "storable-at", "siteTypes": ["haven"], "marshallingPoints": 1 }
 ```
 
+The store handler stamps the stored pile entry with `storedAtSite` (the site
+definition it was stored at), which "stored there" references such as
+`play-with-stored-card` match against.
+
+### 21a. `storage-site-transfer`
+
+Carried by a permanent event whose play *is* the act of storing one
+marshalling-point card at a site it could not normally be stored at — "any
+reference to the site where the card can normally be stored are transferred
+instead" (Wizard's Trove wh-85, "Alternatively" mode). Offered during the
+controller's organization phase (Stage resource timing) for every
+(item, bearer) pair where the bearer's company is at a site matching
+`siteFilter` (the site definition extended with `regionType` and
+`effectiveSiteType`, exactly like a site `play-target` filter) and the item
+carries a `storable-at` effect with an explicit `marshallingPoints` override
+(a card that scores its own MP from storage — the "marshalling point card"
+reading; regular minor/major/greater items stored at any Haven do not
+qualify).
+
+On chain resolution the item is stored exactly like a `store-item` action
+(marshalling-point pile, initial-bearer corruption check,
+`bearer-cannot-untap` cleanup), the stored entry is stamped with
+`storedAtSite` = the chosen site, and the event enters play with
+`attachedToStored` pointing at the stored card ("Place Wizard's Trove with
+the stored card"). While the event is in play and `fullMarshallingPoints` is
+set, the stored card scores its full declared storage MP — exempt from the
+MEWH §4 Fallen-wizard flat-1 clamp and the MELE cross-alignment halving
+("which is worth full marshalling points"). The event is discarded by a
+post-reduce sweep if the stored card ever leaves the marshalling-point pile.
+
+```json
+{ "type": "storage-site-transfer",
+  "siteFilter": { "effectiveSiteType": "haven" },
+  "fullMarshallingPoints": true }
+```
+
+Implemented in `legal-actions/organization-events.ts` (mode actions),
+`chain-reducer.ts` (`resolveStoredComboEvent`), `recompute-derived.ts`
+(full-MP exemption), and `reducer-utils.ts`
+(`discardOrphanedStoredAttachedEvents`).
+
+### 21b. `play-with-stored-card`
+
+Plays a named card from hand together with the carrying permanent event at a
+site where another named card is stored (Wizard's Trove wh-85, primary mode:
+"You may play The White Tree at one of your Wizardhavens [{H}] if Sapling of
+the White Tree is stored there"). Offered during the controller's
+organization phase when a card named `cardName` is in hand and the
+marshalling-point pile holds a card named `requiresStored` whose
+`storedAtSite` matches `siteFilter` (same matching context as a site
+`play-target` filter). Since `storedAtSite` is only stamped by the storage
+flows, the combo naturally requires the stored piece to have been stored at a
+qualifying site first (for wh-85: a Sapling stored at a Wizardhaven via a
+previous Wizard's Trove `storage-site-transfer`).
+
+On chain resolution both cards enter play, mutually linked via
+`linkedInstanceId` ("Place Wizard's Trove with The White Tree" — when either
+is discarded the other follows). The companion:
+
+- is stamped `mpPinned` = its printed MP when `fullMarshallingPoints` is set
+  ("worth full marshalling points" — overrides the MEWH §4 clamp), and
+- is stamped `textIgnored` when `ignoreCardText` is set ("Ignore the text of
+  The White Tree (including the Unique keyword)"): its effects are never
+  collected and its name is excluded from the in-play names list, so
+  uniqueness neither blocks nor is blocked by it.
+
+When `siteBecomesProtected` is set, an `until-cleared` `site-protected`
+constraint bound to the chosen site is added for the controller ("Your
+Wizardhaven [{H}] becomes protected" — the Guarded Haven wh-74 machinery),
+sourced from the carrying card so it is cleared if that card leaves play.
+Neither card is stamped `attachedToSite`, so the orphaned-site sweep never
+discards them: the combo parks its cards at the Wizardhaven permanently.
+
+```json
+{ "type": "play-with-stored-card",
+  "cardName": "The White Tree",
+  "requiresStored": "Sapling of the White Tree",
+  "siteFilter": { "effectiveSiteType": "haven" },
+  "fullMarshallingPoints": true,
+  "siteBecomesProtected": true,
+  "ignoreCardText": true }
+```
+
+Implemented in `legal-actions/organization-events.ts` (mode actions) and
+`chain-reducer.ts` (`resolveStoredComboEvent`); `textIgnored` is honoured in
+`recompute-derived.ts` (`playerCardsInPlayDefs`).
+
 ### 22. `company-rule`
 
 Declares a company-level rule carried by a character. While this character
