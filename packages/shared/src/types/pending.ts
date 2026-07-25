@@ -893,6 +893,21 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Crack in the Wall (le-177): the inverse of
+         * `only-creatures-keyed-to-site` — no hazard creatures may be played
+         * *at the target company's new site*. Any hazard-creature play whose
+         * keying match is site-based (`site-type`, `site-name`,
+         * `site-keyword`, `adjacent-to-site-keyword`) is dropped; the same
+         * creature keyed to region terrain in the path survives as its own
+         * play action. `unlessSiteRegionType` turns the restriction off
+         * entirely when the destination site's containing region has that
+         * type (le-177: "Unless the site is in a Free-domain [{f}]").
+         */
+        readonly type: 'no-creatures-keyed-to-site';
+        readonly unlessSiteRegionType?: import('./common.js').RegionType;
+      }
+    | {
+        /**
          * Hide in Dark Places (le-192): the company may not declare movement
          * (plan a new destination) for the rest of this turn. The card is
          * "playable on a scout whose company is not moving", and locks that

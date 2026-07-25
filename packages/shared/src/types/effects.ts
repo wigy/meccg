@@ -2013,6 +2013,13 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly purpose?: string;
   /** Region name for region-type-override (token `"destination"` = active company's destination region). */
   readonly regionName?: string;
+  /**
+   * For a `no-creatures-keyed-to-site` constraint: region type that exempts
+   * the destination from the restriction — when the target company's new site
+   * sits in a region of this type, the constraint imposes nothing. Crack in
+   * the Wall (le-177): "Unless the site is in a Free-domain [{f}]" → `"free"`.
+   */
+  readonly unlessSiteRegionType?: string;
   /** Payload describing the action granted by a `granted-action` constraint. */
   readonly grantedAction?: GrantedActionConstraintPayload;
   /**
