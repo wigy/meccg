@@ -2622,6 +2622,9 @@ function handleTapAltPermanentEvent(
   if (!altEvent || altEvent.mode !== 'permanent-event') {
     return { state, error: 'tap-alt-permanent-event: not a creature-permanent-event' };
   }
+  if (altEvent.persistent) {
+    return { state, error: 'tap-alt-permanent-event: this permanent-event has no tap conversion — it stays in play' };
+  }
 
   // CoE 2.1.2: a tap-character on-tap effect is a hazard directed at the opponent,
   // so it may never target the hazard player's own characters.
