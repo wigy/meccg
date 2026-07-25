@@ -48,7 +48,7 @@ import {
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
 import type {
-  CardDefinitionId, CardInPlay, CardInstanceId, GameState,
+  CardDefinitionId, CardInPlay, CardInstanceId,
   InfluenceAttemptAction, PlayCharacterAction,
 } from '../../index.js';
 
