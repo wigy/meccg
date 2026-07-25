@@ -107,6 +107,34 @@ describe('Withdrawn to Mordor (dm-165)', () => {
     expect(actions.some(ea => (ea.action as PlayShortEventAction).cardInstanceId === cardInst)).toBe(false);
   });
 
+  test('the any-phase emitter never offers a target-less play (long-event phase)', () => {
+    // Regression from heuristic self-play (decks q/r, seeds 5000/5001): the
+    // generic any-phase short-event path (heroResourceShortEventActions,
+    // used by the long-event/M-H windows) offered a bare play-short-event
+    // for Withdrawn to Mordor with no target fields — which the reducer
+    // rejects ("has no valid target"), killing the game. The emitter now
+    // routes withdraw-agent cards through the shared target enumeration.
+    const state = buildTestState({ activePlayer: PLAYER_1, phase: Phase.LongEvent, players: BASE_PLAYERS });
+    const cardInst = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+
+    // No face-up agent, no on-guard card → not offered at all.
+    const actions = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(actions.some(ea => (ea.action as PlayShortEventAction).cardInstanceId === cardInst)).toBe(false);
+
+    // With a face-up agent in play, the long-event-phase offer carries the
+    // target — and the reducer accepts exactly that offered action.
+    const agent = makeAgent(FIRIEL, { revealed: true });
+    const withAgent = withAgentInPlay(
+      buildTestState({ activePlayer: PLAYER_1, phase: Phase.LongEvent, players: BASE_PLAYERS }),
+      HAZARD_PLAYER, agent,
+    );
+    const offers = viableActions(withAgent, PLAYER_1, 'play-short-event')
+      .filter(ea => (ea.action as PlayShortEventAction).targetAgentId === agent.id);
+    expect(offers).toHaveLength(1);
+    const after = dispatch(withAgent, offers[0].action);
+    expect(after.players[RESOURCE_PLAYER].hand).toHaveLength(0);
+  });
+
   // ─── Reducer: no-target play is rejected (regression, game mr9jvlnw-2ldyce) ──
 
   test('playing with neither an agent nor an on-guard target is rejected and does not spend the card', () => {

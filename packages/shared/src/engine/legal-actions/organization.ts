@@ -2649,7 +2649,7 @@ function playOptionActionsForCard(
  * Returns an empty array when neither target exists, so the caller can mark
  * the card not-playable with a reason.
  */
-function withdrawAgentTargetActions(
+export function withdrawAgentTargetActions(
   state: GameState,
   playerId: PlayerId,
   player: PlayerState,
