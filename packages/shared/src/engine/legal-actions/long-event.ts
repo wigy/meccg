@@ -24,7 +24,8 @@ import { CardStatus, cardStatusToName } from '../../types/common.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, buildPlayerStateContext, grantedActionActivations, collectDiscardInPlayTargets } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, buildPlayerStateContext, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
+import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
 import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
@@ -205,6 +206,30 @@ export function heroResourceShortEventActions(
           continue;
         }
       }
+    }
+
+    // Withdrawn to Mordor (dm-165): a `withdraw-agent` short event needs a
+    // concrete target on the action (a face-up agent or an unrevealed
+    // on-guard card) — the reducer rejects a bare play. Mirror the
+    // organization/site emitter: enumerate one action per eligible target
+    // via the shared helper, or mark not-playable when none exists.
+    // Without this, the generic any-phase path offered a target-less play
+    // that the reducer refused (offer/validate asymmetry — heuristic
+    // self-play decks q/r, seeds 5000/5001).
+    const withdrawAgentEffect = def.effects?.find(
+      (e): e is WithdrawAgentEffect => e.type === 'withdraw-agent',
+    );
+    if (withdrawAgentEffect) {
+      const targeted = withdrawAgentTargetActions(
+        state, playerId, player, cardInstanceId, withdrawAgentEffect,
+      );
+      if (targeted.length === 0) {
+        logDetail(`${def.name}: no face-up agent${withdrawAgentEffect.alternativeDiscardOnGuard ? ' or on-guard card' : ''} to target — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target`));
+      } else {
+        actions.push(...targeted);
+      }
+      continue;
     }
 
     // play-condition requires: "player-state" — a generic DSL condition
