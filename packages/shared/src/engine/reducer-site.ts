@@ -36,7 +36,7 @@ import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
-import type { MoveEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
+import type { AgentAttackModifierEffect, MoveEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
 import type { PendingEffect, StrikeAssignment } from '../types/state-combat.js';
 
 
@@ -1406,8 +1406,18 @@ function handleDeclareAgentAttack(
   if (isFaceDown && isAtHome) { prowess += 5; body += 1; }
   if (!isFaceDown && isAtHome) { prowess += 2; body += 1; }
 
-  // Rule 3.ii.4: face-down at home → attacker assigns strikes
-  const attackerAssigns = isFaceDown && isAtHome;
+  // Rule 3.ii.4: face-down at home → attacker assigns strikes. An
+  // `agent-attack-modifier` effect on the agent's card (Taladhan dm-25:
+  // "chooses defending characters") grants attacker assignment regardless
+  // of the agent's face-down/at-home state, and may substitute the strike
+  // result (a successful strike forces an item discard instead of a wound).
+  const attackModifier = getCardEffects(agentDef).find(
+    (e): e is AgentAttackModifierEffect => e.type === 'agent-attack-modifier',
+  );
+  if (attackModifier) {
+    logDetail(`Site: declare-agent-attack — "${agentDef.name}" has agent-attack-modifier (attackerAssigns: ${String(attackModifier.attackerAssigns ?? false)}, strikeEffect: ${attackModifier.strikeEffect ?? 'none'})`);
+  }
+  const attackerAssigns = (isFaceDown && isAtHome) || attackModifier?.attackerAssigns === true;
 
   // Rule 3.II.2.R3/B3: Ringwraith/Balrog players → detainment
   const defendingAlignment = state.players[activePlayerIndex].alignment;
@@ -1494,6 +1504,7 @@ function handleDeclareAgentAttack(
     assignmentPhase: attackerAssigns ? 'attacker' : 'defender',
     detainment,
     ...(attackerAssigns ? { forceSingleTarget: true } : {}),
+    ...(attackModifier?.strikeEffect ? { strikeEffect: attackModifier.strikeEffect } : {}),
   });
 
   return {

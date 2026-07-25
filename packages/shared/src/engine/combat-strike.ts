@@ -287,11 +287,12 @@ export function resolveStrikeCore(
     logDetail(`Tie — ineffectual${mode === 'dodge' ? ' (dodge: no tap)' : ', character taps'}`);
   }
 
-  // An Article Missing (dm-43): on a successful agent strike the defender is not
-  // wounded; the company must instead discard one item of their choice.
+  // discard-item strike effect (An Article Missing dm-43, Taladhan dm-25): on a
+  // successful agent strike the defender is not wounded; the company must
+  // instead discard one item of their choice.
   const discardItemEffect = result === 'wounded' && !combat.detainment && combat.strikeEffect === 'discard-item';
   if (discardItemEffect) {
-    logDetail('An Article Missing: successful strike — character not wounded; company must discard one item');
+    logDetail('discard-item strike effect: successful strike — character not wounded; company must discard one item');
     result = 'success';
     bodyCheckTarget = null;
   }
@@ -516,8 +517,8 @@ export function resolveStrikeCore(
   } else {
     const combatWithAssignments = { ...combatBase, strikeAssignments: newAssignments };
 
-    // An Article Missing: enter discard-item-from-company phase so the defender
-    // must choose one item to discard before combat continues.
+    // discard-item strike effect: enter discard-item-from-company phase so the
+    // defender must choose one item to discard before combat continues.
     if (discardItemEffect) {
       const companyCharIds = company?.characters ?? [];
       const allItems: ItemInPlay[] = companyCharIds.flatMap(charId => {
@@ -529,7 +530,7 @@ export function resolveStrikeCore(
         const newCombat: CombatState = { ...combatWithAssignments, phase: 'discard-item-from-company', discardItemOptions: allItems };
         return { state: { ...postPrisonerState, combat: newCombat }, effects };
       }
-      logDetail('An Article Missing: no items in company — discard-item effect skipped');
+      logDetail('discard-item strike effect: no items in company — effect skipped');
     }
 
     return advanceStrikeOrFinalize(postPrisonerState, combatWithAssignments, effects);
