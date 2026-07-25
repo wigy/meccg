@@ -385,6 +385,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/DoethDurthak.jpg",
     "unique": true,
     "race": "orc",
+    "keywords": [
+      "half-orc"
+    ],
     "skills": [
       "warrior",
       "sage"
@@ -397,8 +400,12 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
+    "discardBodyCheck": [
+      9
+    ],
     "effects": [],
-    "text": "Unique. Half-orc. Discard on a body check result of 9."
+    "text": "Unique. Half-orc. Discard on a body check result of 9.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "minion-character",
