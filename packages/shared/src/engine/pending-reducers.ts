@@ -1673,6 +1673,74 @@ export function applySeizedByTerrorRollResolution(
 }
 
 /**
+ * Resolve one roll of a queued `company-tap-roll` resolution (Heedless
+ * Revelry le-114). The company's controller rolls 2d6 for the head of the
+ * `remaining` list; if roll + modifier is strictly greater than the
+ * character's effective mind, the character becomes tapped. With characters
+ * still left to roll, the resolution is requeued minus the rolled character;
+ * after the last roll the source chain entry resolves and the chain
+ * continues.
+ */
+export function applyCompanyTapRollResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardRollResolution(state, action, top, 'company-tap-roll', 'company-tap-roll');
+  if (!g.ok) return g.result;
+  const { actorIndex, player, kind } = g;
+  const next = kind.remaining[0];
+  if (!next || action.type !== 'company-tap-roll' || action.targetCharacterId !== next.characterId) {
+    return { state, error: 'company-tap-roll: action does not match the next character to roll' };
+  }
+
+  const charInPlay = player.characters[next.characterId];
+  if (!charInPlay) {
+    return { state: dequeueResolution(state, top.id), error: 'Target character not found' };
+  }
+  const charDef = defById(state, charInPlay.definitionId);
+  const charName = charDef?.name ?? (next.characterId as string);
+  const mind = charDef && isCharacterCard(charDef)
+    ? (charInPlay.effectiveStats.mind ?? charDef.mind ?? 0)
+    : 0;
+  const hazardName = defById(state, kind.hazardDefinitionId)?.name ?? '?';
+
+  const rolled = rollForResolution(state, actorIndex, `${hazardName}: ${charName}`);
+  const total = rolled.total + next.modifier;
+  const taps = total > mind && charInPlay.status === CardStatus.Untapped;
+  logDetail(`${hazardName} on ${charName}: rolled ${rolled.total}${next.modifier !== 0 ? ` ${next.modifier > 0 ? '+' : ''}${next.modifier}` : ''} = ${total} vs mind ${mind} → ${taps ? 'TAPPED' : 'stays untapped'}`);
+
+  let postRoll = rolled.state;
+  if (taps) {
+    postRoll = updatePlayer(postRoll, actorIndex, p =>
+      updateCharacter(p, next.characterId, c => ({ ...c, status: CardStatus.Tapped })),
+    );
+  }
+
+  const rest = kind.remaining.slice(1);
+  postRoll = dequeueResolution(postRoll, top.id);
+  if (rest.length > 0) {
+    // More characters to roll — requeue with the rolled character removed.
+    return {
+      state: enqueueResolution(postRoll, {
+        source: top.source,
+        actor: top.actor,
+        scope: top.scope,
+        kind: { ...kind, remaining: rest },
+      }),
+      effects: [rolled.rollEffect],
+    };
+  }
+
+  // Last roll — resolve the source chain entry and continue the chain.
+  return resolveChainEntryAndContinue(
+    postRoll,
+    e => e.payload.type === 'short-event' && e.card?.instanceId === top.source,
+    [rolled.rollEffect],
+  );
+}
+
+/**
  * Split a character off from their current company into a new solo company
  * at the site of origin. If the character is the only one in their company,
  * the company stays at origin instead (destinationSite is cleared).
@@ -2536,7 +2604,8 @@ export function applyForceDiscardCardResolution(
     return { state, error: 'Wrong player for force-discard-card' };
   }
   const { cardInstanceId } = action;
-  const anyFromHand = !!top.kind.anyFromHand;
+  const fdKind = top.kind;
+  const anyFromHand = !!fdKind.anyFromHand;
 
   const actorIdx = state.players.findIndex(p => p.id === action.player);
   if (actorIdx < 0) return { state, error: 'Player not found for force-discard-card' };
@@ -2591,11 +2660,11 @@ export function applyForceDiscardCardResolution(
   // Any-from-hand: keep the resolution alive until the required count is met or
   // the hand runs out.
   if (anyFromHand) {
-    const remainingAfter = (top.kind.remaining ?? 1) - 1;
+    const remainingAfter = (fdKind.remaining ?? 1) - 1;
     if (remainingAfter > 0 && newHand.length > 0) {
       logDetail(`force-discard-card: ${actorPlayer.name} must still discard ${remainingAfter} card(s)`);
       const updated = stateAfter.pendingResolutions.map(r =>
-        r.id === top.id ? { ...r, kind: { ...top.kind, remaining: remainingAfter } } : r,
+        r.id === top.id ? { ...r, kind: { ...fdKind, remaining: remainingAfter } } : r,
       );
       return { state: { ...stateAfter, pendingResolutions: updated } };
     }

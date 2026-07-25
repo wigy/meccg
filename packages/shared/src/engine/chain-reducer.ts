@@ -335,6 +335,18 @@ function handleChainRevealOnGuard(state: GameState, chain: ChainState, action: G
     ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
     : { type: 'short-event' as const };
   const cardInstance: CardInstance = toCardInstance(revealedCard);
+
+  // Revealed short events mirror hand-played ones: the card moves to its
+  // owner's discard pile at reveal time and resolves off the chain (a
+  // permanent event instead lands in play at resolution). Without this the
+  // instance would vanish from state once the chain completes.
+  if (!isPermanent) {
+    const revealerIndex = getPlayerIndex(newState, action.player);
+    newState = updatePlayer(newState, revealerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, cardInstance],
+    }));
+  }
   newState = pushChainEntry(newState, action.player, cardInstance, payload);
 
   return { state: newState };
@@ -4055,7 +4067,11 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
       if (company) {
         const spawnCardsInPlay = countSpawnCardsInPlay(current);
-        const threshold = evaluateExpr(tapEffect.mindBelow, { spawnCardsInPlay });
+        // mindBelow is optional: absent means no mind gate — tap every
+        // untapped character matching the filter.
+        const threshold = tapEffect.mindBelow !== undefined
+          ? evaluateExpr(tapEffect.mindBelow, { spawnCardsInPlay })
+          : Infinity;
         logDetail(
           `company-tap-characters "${(reekCardDef as { name?: string }).name ?? '?'}": ` +
           `${spawnCardsInPlay} Spawn card(s) in play → tapping untapped characters with mind < ${threshold}`,
@@ -4072,6 +4088,113 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             if (!matchesCondition(tapEffect.filter, ctx)) continue;
           }
           logDetail(`  tapping "${charDef.name}" (mind ${effMind})`);
+          current = updatePlayer(current, activeIndex, p =>
+            updateCharacter(p, charId, c => ({ ...c, status: CardStatus.Tapped })),
+          );
+        }
+      }
+    }
+  }
+
+  // Heedless Revelry (le-114) played normally: company-tap-roll — hazard short
+  // event that rolls 2d6 per untapped character matching the filter (with
+  // per-character modifiers, e.g. -2 for hero characters); roll > mind taps
+  // the character. Enqueue one pending resolution carrying every qualifying
+  // character; the company's controller rolls them one at a time. With no
+  // qualifying characters the entry resolves as a no-op.
+  if (entry.payload.type === 'short-event'
+    && !entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.MovementHazard) {
+    const revelryCardDef = defById(current, entry.card.definitionId);
+    const tapRollEffect = getCardEffects(revelryCardDef).find(
+      (e): e is import('../index.js').CompanyTapRollEffect => e.type === 'company-tap-roll',
+    );
+    if (tapRollEffect) {
+      const activePlayerId = current.activePlayer!;
+      const activeIndex = getPlayerIndex(current, activePlayerId);
+      const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
+      const rollTargets: { characterId: import('../index.js').CardInstanceId; modifier: number }[] = [];
+      if (company) {
+        for (const charId of company.characters) {
+          const ch = current.players[activeIndex].characters[charId];
+          if (!ch || ch.status !== CardStatus.Untapped) continue;
+          const charDef = defById(current, ch.definitionId);
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          const effMind = ch.effectiveStats.mind ?? charDef.mind ?? 0;
+          const ctx = { target: { race: charDef.race, mind: effMind, name: charDef.name, skills: charDef.skills, cardType: charDef.cardType } };
+          if (tapRollEffect.filter && !matchesCondition(tapRollEffect.filter, ctx)) {
+            logDetail(`company-tap-roll: "${charDef.name}" excluded by filter`);
+            continue;
+          }
+          let modifier = 0;
+          for (const m of tapRollEffect.rollModifiers ?? []) {
+            if (matchesCondition(m.when, ctx)) modifier += m.value;
+          }
+          rollTargets.push({ characterId: charId, modifier });
+        }
+      }
+      if (rollTargets.length > 0) {
+        logDetail(
+          `company-tap-roll "${(revelryCardDef as { name?: string }).name ?? '?'}": ` +
+          `${rollTargets.length} character(s) roll (taps if roll + modifier > mind)`,
+        );
+        current = enqueueResolution(current, {
+          source: entry.card.instanceId,
+          actor: activePlayerId,
+          scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+          kind: {
+            type: 'company-tap-roll',
+            hazardDefinitionId: entry.card.definitionId,
+            remaining: rollTargets,
+          },
+        });
+        return { state: current, needsInput: true };
+      }
+      logDetail(`company-tap-roll "${(revelryCardDef as { name?: string }).name ?? '?'}": no qualifying untapped characters — no-op`);
+    }
+  }
+
+  // Heedless Revelry (le-114) revealed from on-guard during the site phase:
+  // the on-guard-reveal effect's `company-tap-characters` apply taps every
+  // untapped character in the active company matching the filter (no rolls,
+  // no mind threshold). The deferred resource play it responded to is not
+  // interfered with — it runs when the on-guard window closes.
+  if (entry.payload.type === 'short-event'
+    && !entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.Site) {
+    const ogCardDef = defById(current, entry.card.definitionId);
+    const ogRevealEffect = getCardEffects(ogCardDef).find(
+      (e): e is import('../index.js').OnGuardRevealEffect =>
+        e.type === 'on-guard-reveal'
+        && (e as { apply?: { type?: string } }).apply?.type === 'company-tap-characters',
+    );
+    const tapApply = ogRevealEffect?.apply as import('../index.js').CompanyTapCharactersTriggeredAction | undefined;
+    if (tapApply) {
+      const activePlayerId = current.activePlayer!;
+      const activeIndex = getPlayerIndex(current, activePlayerId);
+      const siteState = current.phaseState;
+      const company = current.players[activeIndex].companies[siteState.activeCompanyIndex];
+      if (company) {
+        logDetail(
+          `on-guard company-tap-characters "${(ogCardDef as { name?: string }).name ?? '?'}": ` +
+          `tapping all untapped characters matching the filter`,
+        );
+        for (const charId of company.characters) {
+          const ch = current.players[activeIndex].characters[charId];
+          if (!ch || ch.status !== CardStatus.Untapped) continue;
+          const charDef = defById(current, ch.definitionId);
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          const effMind = ch.effectiveStats.mind ?? charDef.mind ?? 0;
+          const ctx = { target: { race: charDef.race, mind: effMind, name: charDef.name, skills: charDef.skills, cardType: charDef.cardType } };
+          if (tapApply.filter && !matchesCondition(tapApply.filter, ctx)) {
+            logDetail(`  "${charDef.name}" excluded by filter`);
+            continue;
+          }
+          logDetail(`  tapping "${charDef.name}"`);
           current = updatePlayer(current, activeIndex, p =>
             updateCharacter(p, charId, c => ({ ...c, status: CardStatus.Tapped })),
           );

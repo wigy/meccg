@@ -2553,6 +2553,13 @@ function playHazardsActions(
           // (allies excluded) vs. every Spawn card in play.
           const characterCount = targetCompany.characters.length;
           const spawnInPlayCount = countSpawnCardsInPlay(state);
+          // Movement + Ringwraith-membership context (Heedless Revelry le-114:
+          // "Playable on a non-Ringwraith company that is not moving").
+          const hasRingwraith = targetCompany.characters.some(cId => {
+            const ch = resourcePlayer.characters[cId];
+            const cDef = ch ? defById(state, ch.definitionId) : undefined;
+            return !!cDef && isCharacterCard(cDef) && cDef.race === 'ringwraith';
+          });
           const companyCtx = {
             target: {
               siteType: compSiteType,
@@ -2562,6 +2569,8 @@ function playHazardsActions(
               characterCount,
               spawnInPlayCount,
               moreSpawnThanCompany: spawnInPlayCount > characterCount,
+              moving: !!targetCompany.destinationSite,
+              hasRingwraith,
             },
           };
           if (shortPlayTarget.filter && !matchesContext(shortPlayTarget.filter, companyCtx)) {

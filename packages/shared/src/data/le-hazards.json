@@ -1288,8 +1288,92 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HeedlessRevelry.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a non-Ringwraith company that is not moving. Make a roll for each untapped non-Wizard character in the company; modify this roll by -2 for hero characters. If the result is greater than the character’s mind, the character becomes tapped. Alternatively, may be revealed as an on-guard card on a company in response to the play of an item, ally, or faction (does not interfere with the playing of the card it is revealed in response to). Tap all untapped non-Ringwraith, non-Wizard characters in the company."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$and": [
+            {
+              "target.moving": false
+            },
+            {
+              "target.hasRingwraith": false
+            }
+          ]
+        }
+      },
+      {
+        "type": "company-tap-roll",
+        "filter": {
+          "target.race": {
+            "$ne": "wizard"
+          }
+        },
+        "rollModifiers": [
+          {
+            "when": {
+              "target.cardType": "hero-character"
+            },
+            "value": -2
+          }
+        ]
+      },
+      {
+        "type": "on-guard-reveal",
+        "trigger": "resource-play",
+        "playedFilter": {
+          "cardType": {
+            "$in": [
+              "hero-resource-item",
+              "minion-resource-item",
+              "hero-resource-ally",
+              "minion-resource-ally"
+            ]
+          }
+        },
+        "apply": {
+          "type": "company-tap-characters",
+          "filter": {
+            "$and": [
+              {
+                "target.race": {
+                  "$ne": "wizard"
+                }
+              },
+              {
+                "target.race": {
+                  "$ne": "ringwraith"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-guard-reveal",
+        "trigger": "influence-attempt",
+        "apply": {
+          "type": "company-tap-characters",
+          "filter": {
+            "$and": [
+              {
+                "target.race": {
+                  "$ne": "wizard"
+                }
+              },
+              {
+                "target.race": {
+                  "$ne": "ringwraith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "text": "Playable on a non-Ringwraith company that is not moving. Make a roll for each untapped non-Wizard character in the company; modify this roll by -2 for hero characters. If the result is greater than the character’s mind, the character becomes tapped. Alternatively, may be revealed as an on-guard card on a company in response to the play of an item, ally, or faction (does not interfere with the playing of the card it is revealed in response to). Tap all untapped non-Ringwraith, non-Wizard characters in the company.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "hazard-event",

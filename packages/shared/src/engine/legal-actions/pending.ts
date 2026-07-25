@@ -180,7 +180,23 @@ export function onGuardWindowActions(
       const matchesDeferred = ogEffects.some(e => {
         if (e.type !== 'on-guard-reveal') return false;
         const trigger = (e as { trigger?: string }).trigger;
-        if (trigger === 'resource-play' || trigger === 'influence-attempt') return true;
+        if (trigger === 'resource-play') {
+          // Optional playedFilter (Heedless Revelry le-114): the reveal is
+          // legal only if the deferred played card's definition matches
+          // (e.g. items and allies only, not short events or characters).
+          const playedFilter = (e as { playedFilter?: import('../../types/effects.js').Condition }).playedFilter;
+          if (!playedFilter) return true;
+          if (!deferredSource) return false;
+          const matches = matchesCondition(playedFilter, deferredSource as unknown as Record<string, unknown>);
+          if (!matches) {
+            logDetail(`On-guard window: "${def.name}" playedFilter does not match deferred "${deferredSource.name}" (${deferredSource.cardType})`);
+          }
+          return matches;
+        }
+        // `influence-attempt` reveals happen on the influence chain
+        // (`onGuardRevealChainActions` in legal-actions/chain.ts), never in
+        // this resource-play window — an influence attempt does not enqueue
+        // an on-guard-window resolution.
         if (trigger === 'resource-short-event') {
           if (!deferredAction || deferredAction.type !== 'play-short-event') return false;
           const apply = (e as { apply?: { requiredSkill?: string } }).apply;
@@ -603,6 +619,50 @@ export function seizedByTerrorRollActions(
       targetCharacterId,
       need,
       explanation: `${charName} resists ${hazardName}: need roll >= ${need} (threshold ${threshold}, mind ${mind})`,
+    },
+    viable: true,
+  }];
+}
+
+/**
+ * Compute the single company-tap-roll action that resolves the head of a
+ * queued `company-tap-roll` resolution (Heedless Revelry le-114). The
+ * company's controller rolls 2d6 for `remaining[0]`; if roll + modifier is
+ * strictly greater than the character's effective mind, the character
+ * becomes tapped. One action per dispatch — the resolution stays queued
+ * until every listed character has rolled.
+ */
+export function companyTapRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'company-tap-roll') return [];
+  const next = top.kind.remaining[0];
+  if (!next) return [];
+
+  const player = playerById(state, playerId);
+  const charInPlay = player?.characters[next.characterId];
+  if (!player || !charInPlay) return [];
+
+  const charDef = defById(state, charInPlay.definitionId);
+  const charName = charDef?.name ?? '?';
+  const hazardDef = defById(state, top.kind.hazardDefinitionId);
+  const hazardName = hazardDef?.name ?? '?';
+  const mind = charDef && isCharacterCard(charDef)
+    ? (charInPlay.effectiveStats.mind ?? charDef.mind ?? 0)
+    : 0;
+
+  const modifierText = next.modifier !== 0 ? ` ${formatSignedNumber(next.modifier)}` : '';
+  logDetail(`Pending company-tap-roll for ${charName} (${hazardName}): taps if 2d6${modifierText} > mind ${mind}`);
+
+  return [{
+    action: {
+      type: 'company-tap-roll' as const,
+      player: playerId,
+      targetCharacterId: next.characterId,
+      modifier: next.modifier,
+      explanation: `${charName} vs ${hazardName}: taps if roll${modifierText} > mind ${mind}`,
     },
     viable: true,
   }];

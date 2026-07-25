@@ -607,6 +607,8 @@ export function describeAction(
       return `${playerName(action.player)} taps ${instName(action.characterId)} to pay company ${action.companyId}'s movement tax (Enchanted Stream)`;
     case 'reanimate-from-discard':
       return `${playerName(action.player)} taps Ringwraith ${instName(action.ringwraithInstanceId)} to bring ${instName(action.characterInstanceId)} from the discard pile into play as a new company (Urlurtsu Nurn)`;
+    case 'company-tap-roll':
+      return `${playerName(action.player)} rolls for ${instName(action.targetCharacterId)}: ${action.explanation}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;
