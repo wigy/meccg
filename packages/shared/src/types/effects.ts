@@ -1737,6 +1737,7 @@ export type TriggeredActionType =
   | 'add-constraint'
   | 'remove-constraint'
   | 'cancel-chain-entry'
+  | 'company-tap-characters'
   | 'counter-cancel-attack'
   | 'discard-character'
   | 'eliminate-character'
@@ -2354,6 +2355,19 @@ export interface CancelChainEntryAction extends TriggeredActionBase {
 }
 
 /**
+ * `company-tap-characters` — on-guard-reveal apply verb (Heedless Revelry
+ * le-114). When the revealed card's chain entry resolves during the site
+ * phase, taps every untapped character in the active company matching
+ * `filter` (context `{ target: { race, mind, name, skills, cardType } }`).
+ * No mind threshold applies.
+ */
+export interface CompanyTapCharactersTriggeredAction extends TriggeredActionBase {
+  readonly type: 'company-tap-characters';
+  /** Optional per-character filter; only matching characters are tapped. */
+  readonly filter?: Condition;
+}
+
+/**
  * `counter-cancel-attack` — dice-check onPass verb for Black Vapour (ba-14).
  * Negates the chain entry named by the resolution's `targetInstanceId` (the
  * opponent's cancel-attack) so the attack survives, and adds {@link prowessBonus}
@@ -2464,6 +2478,7 @@ export type TriggeredAction =
   | EnqueueGoldRingTestAction
   | SequenceAction
   | CancelChainEntryAction
+  | CompanyTapCharactersTriggeredAction
   | CounterCancelAttackTriggeredAction
   | SetCompanySpecialMovementAction
   | ShuffleDeckTopAction
@@ -3729,10 +3744,22 @@ export interface OnGuardRevealEffect extends EffectBase {
   /** The game event that allows the on-guard card to be revealed. */
   readonly trigger: string;
   /**
+   * Optional condition on the card whose play opened the reveal window,
+   * matched directly against that card's definition (like a
+   * `play-discard-cost` filter). Only meaningful for the `resource-play`
+   * trigger: when present, the reveal is legal only if the deferred played
+   * card matches — e.g. Heedless Revelry (le-114) restricts its reveal to
+   * item and ally plays via a `cardType $in` condition (faction plays go
+   * through its separate `influence-attempt` trigger).
+   */
+  readonly playedFilter?: Condition;
+  /**
    * Optional triggered action fired when the on-guard card is revealed.
    * `cancel-chain-entry` with `select: 'target'` + `requiredSkill` cancels
    * the deferred resource play (and discards its card) when the source
-   * card matches the skill filter.
+   * card matches the skill filter. `company-tap-characters` taps every
+   * untapped character in the company matching its filter when the revealed
+   * card's chain entry resolves (Heedless Revelry le-114).
    */
   readonly apply?: TriggeredAction;
 }
@@ -4925,15 +4952,51 @@ export interface CompanyTapCharactersEffect extends EffectBase {
   readonly type: 'company-tap-characters';
   /**
    * Mind threshold expression. A character is tapped only if its effective mind
-   * is strictly below this value. Context exposes `spawnCardsInPlay`.
+   * is strictly below this value. Context exposes `spawnCardsInPlay`. When
+   * absent, no mind gate applies — every untapped character matching `filter`
+   * is tapped (Heedless Revelry le-114 on-guard mode: "Tap all untapped
+   * non-Ringwraith, non-Wizard characters in the company").
    */
-  readonly mindBelow: ValueExpr;
+  readonly mindBelow?: ValueExpr;
   /**
    * Optional per-character filter (context `{ target: { race, mind, name,
    * skills } }`). Only matching characters are tapped — e.g. excluding Wizards
    * and Ringwraiths.
    */
   readonly filter?: Condition;
+}
+
+/**
+ * When this hazard short-event resolves on the active movement/hazard company,
+ * roll 2d6 for each **untapped** character in that company matching the
+ * optional {@link filter}. Each roll is adjusted by the first matching entry in
+ * {@link rollModifiers}; if the modified result is strictly greater than the
+ * character's effective mind, the character becomes tapped. The rolls are made
+ * one at a time by the company's controller via a `company-tap-roll`
+ * {@link PendingResolution}.
+ *
+ * Used by Heedless Revelry (le-114): "Make a roll for each untapped non-Wizard
+ * character in the company; modify this roll by -2 for hero characters. If the
+ * result is greater than the character's mind, the character becomes tapped."
+ */
+export interface CompanyTapRollEffect extends EffectBase {
+  readonly type: 'company-tap-roll';
+  /**
+   * Optional per-character filter (context `{ target: { race, mind, name,
+   * skills, cardType } }`). Only untapped characters matching it roll — e.g.
+   * excluding the wizard race.
+   */
+  readonly filter?: Condition;
+  /**
+   * Per-character roll adjustments. Each entry's `when` condition is evaluated
+   * against the same `{ target }` context as `filter`; the values of all
+   * matching entries are added to that character's roll (e.g. `-2` when
+   * `target.cardType` is `hero-character`).
+   */
+  readonly rollModifiers?: readonly {
+    readonly when: Condition;
+    readonly value: number;
+  }[];
 }
 
 /**
@@ -6208,6 +6271,7 @@ export type CardEffect =
   | ForceCheckAllCompanyTopEffect
   | CompanyStrikeEffect
   | CompanyTapCharactersEffect
+  | CompanyTapRollEffect
   | SeizedByTerrorCheckEffect
   | LeftBehindSplitEffect
   | PlayDiscardCostEffect

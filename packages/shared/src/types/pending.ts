@@ -354,6 +354,26 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Company tap rolls (Heedless Revelry le-114): a hazard short event
+         * with a `company-tap-roll` effect has resolved on the active
+         * company. The company's controller rolls 2d6 for each qualifying
+         * character in turn (`remaining[0]` first); if roll + modifier is
+         * strictly greater than the character's effective mind, the
+         * character becomes tapped. The resolution stays queued (with the
+         * rolled character removed from `remaining`) until every character
+         * has rolled, then the source chain entry resolves.
+         */
+        readonly type: 'company-tap-roll';
+        /** The hazard card that caused these rolls. */
+        readonly hazardDefinitionId: CardDefinitionId;
+        /** Characters still to roll, each with its precomputed roll modifier. */
+        readonly remaining: readonly {
+          readonly characterId: CardInstanceId;
+          readonly modifier: number;
+        }[];
+      }
+    | {
+        /**
          * Gold-ring test (Rule 9.21): a gold-ring item must be tested. The
          * ring's owner rolls 2d6 (plus any modifiers). The ring is discarded
          * regardless. After the roll, a `ring-play-offer` resolution is

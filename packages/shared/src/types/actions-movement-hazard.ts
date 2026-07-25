@@ -921,6 +921,28 @@ export interface SeizedByTerrorRollAction {
 }
 
 /**
+ * Execute one dice roll of a pending `company-tap-roll` resolution
+ * (Heedless Revelry le-114).
+ *
+ * Created by the pending-resolution system after a hazard short event with a
+ * `company-tap-roll` effect resolves on the company. The company's controller
+ * rolls 2d6 for the named character; if roll + modifier is strictly greater
+ * than the character's effective mind, the character becomes tapped.
+ */
+export interface CompanyTapRollAction {
+  /** Action discriminant. */
+  readonly type: 'company-tap-roll';
+  /** The company's controller (who rolls). */
+  readonly player: PlayerId;
+  /** The character this roll is for (head of the pending `remaining` list). */
+  readonly targetCharacterId: CardInstanceId;
+  /** Roll modifier applied to this character's roll (e.g. -2 for heroes). */
+  readonly modifier: number;
+  /** Human-readable breakdown of the check. */
+  readonly explanation: string;
+}
+
+/**
  * Play an agent character card from hand as a face-down hazard.
  *
  * The hazard player plays an agent character (identified by the `agent` keyword)

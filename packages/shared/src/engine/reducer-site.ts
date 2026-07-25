@@ -1746,6 +1746,18 @@ export function applyOnGuardRevealAtResource(
     ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
     : { type: 'short-event' as const };
   const cardInstance: CardInstance = toCardInstance(revealedCard);
+
+  // Revealed short events mirror hand-played ones: the card moves to its
+  // owner's discard pile at reveal time and resolves off the chain (a
+  // permanent event instead lands in play at resolution). Without this the
+  // instance would vanish from state once the chain completes.
+  if (!isPermanent) {
+    const hazardIndex = getPlayerIndex(newState, action.player);
+    newState = updatePlayer(newState, hazardIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, cardInstance],
+    }));
+  }
   newState = initiateChain(newState, action.player, cardInstance, payload);
 
   return { state: newState };

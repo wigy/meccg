@@ -4407,9 +4407,28 @@ The `trigger` field specifies the game event that allows the reveal.
 Supported triggers:
 
 - `influence-attempt` — when a character in the company declares an
-  influence attempt (faction play)
+  influence attempt (faction play). Revealed on the influence **chain**
+  (`onGuardRevealChainActions` in `legal-actions/chain.ts`), never in the
+  resource-play window.
 - `resource-play` — when the resource player plays any resource that
-  taps the site (generic catch-all)
+  taps the site (generic catch-all). An optional `playedFilter` condition is
+  matched directly against the played card's definition, restricting which
+  plays allow the reveal — e.g. Heedless Revelry (le-114) uses
+  `{ "cardType": { "$in": ["hero-resource-item", "minion-resource-item",
+  "hero-resource-ally", "minion-resource-ally"] } }` for "in response to the
+  play of an item, ally, or faction" (the faction leg is its separate
+  `influence-attempt` trigger).
+- `resource-short-event` — when a resource short event whose `requiredSkill`
+  matches the enclosed `apply.requiredSkill` is about to resolve
+  (Searching Eye).
+
+An optional `apply` runs when the revealed card's effect fires:
+`cancel-chain-entry` (Searching Eye) cancels the deferred play outright;
+`company-tap-characters` (Heedless Revelry) taps every untapped company
+character matching its `filter` when the revealed short-event's chain entry
+resolves — the deferred play is **not** interfered with (it still runs when
+the on-guard window closes). A revealed **short** event is moved to the
+revealing player's discard pile at reveal time, mirroring hand-played shorts.
 
 ### 19. `site-rule`
 
@@ -8866,6 +8885,57 @@ Animal/Spider hazard-creature from hand) and the company `play-target` site
 filter (`ruins-and-lairs` site type **or** the `under-deeps` site keyword).
 
 Used by: *The Reek* (ba-23).
+
+`mindBelow` is **optional**: when absent no mind gate applies — every untapped
+character matching `filter` is tapped. Used by the `company-tap-characters`
+**on-guard-reveal apply** of Heedless Revelry (le-114, "Tap all untapped
+non-Ringwraith, non-Wizard characters in the company"), resolved during the
+**site phase** when the revealed card's chain entry resolves (`chain-reducer.ts`).
+The per-character filter context there also exposes `target.cardType`.
+
+### 44b. `company-tap-roll`
+
+A hazard short-event effect that, on chain resolution during the M/H phase,
+**rolls 2d6 for each untapped character** in the active company matching the
+optional `filter`; if roll + the character's `rollModifiers` sum is strictly
+greater than the character's effective mind, the character becomes tapped.
+Played on the company as a whole via a `play-target` `target: "company"`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `filter` | no | DSL condition evaluated per character against `{ target: { race, mind, name, skills, cardType } }`. Only matching untapped characters roll. |
+| `rollModifiers` | no | List of `{ when, value }` entries. Each entry's `when` is evaluated against the same `{ target }` context; the values of all matching entries are added to that character's roll. |
+
+```json
+{
+  "type": "company-tap-roll",
+  "filter": { "target.race": { "$ne": "wizard" } },
+  "rollModifiers": [
+    { "when": { "target.cardType": "hero-character" }, "value": -2 }
+  ]
+}
+```
+
+**Resolution**: `chain-reducer.ts` finds the effect on a bare (no
+`targetCharacterId`) short-event entry during the M/H phase, collects every
+qualifying untapped character with its precomputed modifier, and enqueues one
+`company-tap-roll` {@link PendingResolution} (`pending-reducers.ts`). The
+company's controller rolls the characters one at a time (`company-tap-roll`
+actions); after the last roll the source chain entry resolves and the chain
+continues. With no qualifying characters the entry resolves as a no-op.
+
+The **company** `play-target` filter context (movement-hazard legal actions)
+additionally exposes `target.moving` (the company has a declared destination)
+and `target.hasRingwraith` (any company character has race `ringwraith`) for
+the "Playable on a non-Ringwraith company that is not moving" gate.
+
+The card's alternative **on-guard mode** is modeled with two `on-guard-reveal`
+effects (see §16): trigger `resource-play` with a `playedFilter` restricting
+the reveal to item/ally plays, and trigger `influence-attempt` for faction
+plays — each with an `apply` of type `company-tap-characters` (tap all matching,
+no roll, no mind gate).
+
+Used by: *Heedless Revelry* (le-114).
 
 ### 45. `force-return-to-origin`
 
