@@ -76,7 +76,7 @@ describe('GCCG deck import section split', () => {
     expect(parsed.deck.hazards[0]).toMatchObject({ card: 'dm-29', qty: 2 });
   });
 
-  test('matchup sideboards ("Sideboard vs. fw") merge into the sideboard', () => {
+  test('"Sideboard vs. fw" imports as the anti-FW sideboard, never mixed into the sideboard', () => {
     const text = [
       '#########',
       'Sideboard',
@@ -95,7 +95,8 @@ describe('GCCG deck import section split', () => {
     ].join('\n');
 
     const parsed = parseGccgDeck(text, 'fallback');
-    expect(names(parsed.sideboard)).toEqual(['Cave-drake', 'And Forth He Hastened']);
+    expect(names(parsed.sideboard)).toEqual(['Cave-drake']);
+    expect(names(parsed.antiFwSideboard)).toEqual(['And Forth He Hastened']);
     expect(names(parsed.sites)).toEqual(['Edhellond']);
   });
 
