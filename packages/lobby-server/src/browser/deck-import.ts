@@ -37,7 +37,7 @@ export interface ParsedGccgDeck {
 
 /** Extract loosely-typed traits from a card definition for matching. */
 const traits = (def: CardDefinition) => def as unknown as {
-  name: string; cardType: string; alignment?: string; race?: string;
+  name: string; cardType: string; alignment?: string; race?: string; keywords?: string[];
 };
 
 /** GCCG set codes mapped to the card-id prefix used in the local pool. */
@@ -307,11 +307,19 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
   parsed.alignment = inferAlignment(parsed);
 
   // Agents: GCCG exports agent cards under a "Minion Character" category,
-  // but a hero deck can never field a minion character — there it is an
-  // agent played as a hazard. Re-file once the deck alignment is known.
-  if (parsed.alignment === 'hero') {
-    const isAgent = (e: DeckListEntry) =>
-      e.card !== null && traits(cardPool[e.card]).cardType === 'minion-character';
+  // but hero (CoE 1.3.W2) and Balrog (CoE 1.3.B2) players treat agents as
+  // hazard cards in all areas, deck-building included. Re-file once the deck
+  // alignment is known: in a hero deck every minion character is an agent
+  // hazard (heroes can never field minion characters), while a Balrog deck
+  // legitimately runs non-agent minion characters, so there only characters
+  // carrying the `agent` keyword move to the hazard section.
+  if (parsed.alignment === 'hero' || parsed.alignment === 'balrog') {
+    const isAgent = (e: DeckListEntry) => {
+      if (e.card === null) return false;
+      const t = traits(cardPool[e.card]);
+      if (t.cardType !== 'minion-character') return false;
+      return parsed.alignment === 'hero' || (t.keywords ?? []).includes('agent');
+    };
     const agents = parsed.deck.characters.filter(isAgent);
     if (agents.length > 0) {
       parsed.deck.characters = parsed.deck.characters.filter(e => !isAgent(e));

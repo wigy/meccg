@@ -138,6 +138,30 @@ describe('GCCG deck import section split', () => {
     expect(names(parsed.deck.hazards)).toEqual(['Cave-drake', 'Baduila']);
   });
 
+  test('in a Balrog deck agents import as hazards but other minion characters stay', () => {
+    const text = [
+      '####',
+      'Pool',
+      '####',
+      '# Minion Character (1)',
+      '1 The Balrog (BA)',
+      '####',
+      'Deck',
+      '####',
+      '# Minion Character (2)',
+      '1 Gorbag',
+      '1 Baduila',
+      '# Hazard (1)',
+      '1 Cave-drake',
+    ].join('\n');
+
+    const parsed = parseGccgDeck(text, 'fallback');
+    expect(parsed.unmatched).toEqual([]);
+    expect(parsed.alignment).toBe('balrog');
+    expect(names(parsed.deck.characters)).toEqual(['Gorbag']);
+    expect(names(parsed.deck.hazards)).toEqual(['Cave-drake', 'Baduila']);
+  });
+
   test('without a category the resolved card type decides the section', () => {
     const text = [
       '####',
