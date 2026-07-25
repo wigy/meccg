@@ -88,3 +88,6 @@ export type { CardVocab, StateFeatures, ActionFeatures } from './features/index.
 export { loadAiStrategy, sampleWeighted } from './ai/index.js';
 export type { AiStrategy, AiContext, WeightedAction } from './ai/index.js';
 export { heuristicStrategy } from './ai/heuristic.js';
+
+export { determinize, isDeterminizableView } from './search/determinize.js';
+export type { DeterminizeOptions } from './search/determinize.js';
