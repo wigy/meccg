@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -1323,6 +1323,73 @@ function applyTapCharacter(state: GameState, entry: ChainEntry): GameState {
     }
   }
   return state;
+}
+
+/**
+ * Resolves a `force-check-all-in-play` effect (Ren the Unclean tw-83's on-tap
+ * short-event conversion): every character in play — both players' — must
+ * make a corruption check.
+ *
+ * One `corruption-check` pending resolution is enqueued per character, actor
+ * = the character's controller, scope = the current M/H phase. The moving
+ * player (the active player, in whose M/H phase the tap happened) checks
+ * first: the other player's entries carry `blockedBy` naming every moving-
+ * player check ID, so `topResolutionFor` hides them until the moving player's
+ * queue drains. All entries carry `selectableOrder` ("each player decides the
+ * order of the corruption checks for their characters"); the declaring
+ * player's entries additionally carry `allowSupport` / `noResourceAid` per
+ * the effect's `declarerMayTapSupport` / `declarerNoResourceAid` fields.
+ */
+function applyForceCheckAllInPlay(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event') return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').ForceCheckAllInPlayEffect => e.type === 'force-check-all-in-play',
+  );
+  if (!effect || effect.check !== 'corruption') return state;
+
+  const cardName = (def as { name?: string })?.name ?? (card.definitionId as string);
+  const declarer = entry.declaredBy;
+  // "The moving player makes corruption checks first" — the moving player is
+  // the active player: the tap happens during the opponent's M/H phase.
+  const movingPlayerId = state.activePlayer ?? declarer;
+  const ordered = [...state.players].sort((a, b) =>
+    (a.id === movingPlayerId ? 0 : 1) - (b.id === movingPlayerId ? 0 : 1));
+
+  let current = state;
+  let movingCheckIds: readonly import('../index.js').ResolutionId[] = [];
+  for (const player of ordered) {
+    const isMoving = player.id === movingPlayerId;
+    const isDeclarer = player.id === declarer;
+    for (const charId of characterIds(player)) {
+      const char = player.characters[charId];
+      const possessions = [
+        ...char.items.map(i => i.instanceId),
+        ...char.allies.map(a => a.instanceId),
+        ...char.hazards.map(h => h.instanceId),
+      ];
+      current = enqueueCorruptionCheck(current, {
+        source: card.instanceId,
+        actor: player.id,
+        scope: { kind: 'phase', phase: Phase.MovementHazard },
+        characterId: charId,
+        reason: cardName,
+        modifier: effect.modifier ?? 0,
+        possessions,
+        selectableOrder: true,
+        allowSupport: isDeclarer && effect.declarerMayTapSupport ? true : undefined,
+        noResourceAid: isDeclarer && effect.declarerNoResourceAid ? true : undefined,
+        blockedBy: !isMoving && movingCheckIds.length > 0 ? movingCheckIds : undefined,
+      });
+      const minted = current.pendingResolutions[current.pendingResolutions.length - 1];
+      if (isMoving) movingCheckIds = [...movingCheckIds, minted.id];
+      logDetail(`${cardName}: corruption check enqueued for ${charId as string} (${player.name}${isMoving ? ' — moving player, checks first' : ' — waits for moving player'})`);
+    }
+  }
+  const total = current.pendingResolutions.length - state.pendingResolutions.length;
+  logDetail(`${cardName}: force-check-all-in-play — ${total} corruption check(s) enqueued, moving player ${movingPlayerId as string} first`);
+  return current;
 }
 
 /**
@@ -3160,6 +3227,12 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // and rides on the chain entry's payload.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyTapCharacter(current, entry);
+  }
+
+  // Short events that force every character in play — both players' — to make
+  // a corruption check (Ren the Unclean tw-83's on-tap short-event conversion).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyForceCheckAllInPlay(current, entry);
   }
 
   // draw-cards (Dark Tryst as-80): a resource short event that draws cards

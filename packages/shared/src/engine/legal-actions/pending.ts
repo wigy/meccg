@@ -782,19 +782,57 @@ export function wizardSearchOnStoreActions(
 }
 
 /**
- * Compute the single corruption-check action that resolves a queued
- * `corruption-check` resolution. The action carries the precomputed
- * CP, modifier, possessions list, and a human-readable explanation —
- * the same shape the legacy per-phase short-circuits used to produce.
- *
- * For transfer corruption checks, the transferred item is included in
- * both the CP total and the possessions list, even though it has already
- * physically moved to its new bearer.
+ * Compute the corruption-check actions that resolve a queued
+ * `corruption-check` resolution. Normally that is the single roll action
+ * for the head entry; when the head carries `selectableOrder` (Ren the
+ * Unclean tw-83: "Each player decides the order of the corruption checks
+ * for their characters"), one roll action is offered per same-source
+ * selectable sibling so the actor picks which character checks next.
  */
 export function corruptionCheckActions(
   state: GameState,
   playerId: PlayerId,
   top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'corruption-check') return [];
+  const entries = top.kind.selectableOrder
+    ? state.pendingResolutions.filter(r =>
+      r.actor === playerId
+      && r.kind.type === 'corruption-check'
+      && r.source === top.source
+      && r.kind.selectableOrder)
+    : [top];
+  if (entries.length > 1) {
+    logDetail(`Selectable corruption-check order: ${entries.length} same-source checks offered simultaneously`);
+  }
+  const actions: EvaluatedAction[] = [];
+  for (const entry of entries) {
+    actions.push(...corruptionCheckEntryActions(state, playerId, entry, entry.id === top.id));
+  }
+  return actions;
+}
+
+/**
+ * The actions for ONE queued corruption-check entry: the roll action
+ * carrying precomputed CP, modifier, possessions, and explanation — the
+ * same shape the legacy per-phase short-circuits used to produce — plus
+ * any reactive aids (short-event plays, modifier grants) and, when the
+ * entry carries `allowSupport`, one `support-corruption-check` per
+ * untapped company mate (tap for +1, the Free Council mechanic granted
+ * mid-game by Ren the Unclean tw-83). An entry with `noResourceAid`
+ * suppresses the reactive short-event plays ("you cannot play resources
+ * to aid your character's corruption checks") — activating an in-play
+ * grant is using, not playing, a resource and stays legal.
+ *
+ * For transfer corruption checks, the transferred item is included in
+ * both the CP total and the possessions list, even though it has already
+ * physically moved to its new bearer.
+ */
+function corruptionCheckEntryActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+  isHead: boolean,
 ): EvaluatedAction[] {
   if (top.kind.type !== 'corruption-check') return [];
   const { characterId, modifier, reason, transferredItemId } = top.kind;
@@ -805,7 +843,10 @@ export function corruptionCheckActions(
   if (!player) return [];
   const char = player.characters[characterId];
   if (!char) {
-    // Character was eliminated — auto-resolve via pass.
+    // Character was eliminated — auto-resolve the head entry via pass. A
+    // non-head selectable sibling emits nothing; it surfaces as head (and
+    // gets its pass) once the entries ahead of it drain.
+    if (!isHead) return [];
     logDetail(`Corruption check (${reason}): character ${characterId as string} no longer in play — pass to skip`);
     return viable([{ type: 'pass', player: playerId }]);
   }
@@ -946,16 +987,47 @@ export function corruptionCheckActions(
   // one of these emits a constraint that the roll action re-reads on the
   // next legal-action cycle, so the reactive play → roll sequence is a
   // normal two-action flow.
-  const reactivePlays = reactiveCorruptionCheckPlays(state, playerId, char);
+  //
+  // An entry flagged `noResourceAid` (Ren the Unclean tw-83: the tapping
+  // player "cannot play resources to aid your character's corruption
+  // checks") suppresses these hand plays; in-play grant activations are a
+  // *use* of a resource, not a play, and stay available.
+  const reactivePlays = top.kind.noResourceAid ? [] : reactiveCorruptionCheckPlays(state, playerId, char);
+  if (top.kind.noResourceAid) {
+    logDetail(`Corruption check (${reason}): no-resource-aid — reactive resource plays suppressed`);
+  }
   // In-play permanent events that modify a corruption check by a character
   // in the bearer's company (When I Know Anything td-166) are activatable
   // here, before the roll, just like reactive short-event plays.
   const modifierGrants = modifyCorruptionCheckGrantActions(state, playerId, characterId);
-  const extras = [...reactivePlays, ...modifierGrants];
-  if (extras.length > 0) {
-    return [rollAction, ...extras];
+
+  // Tap-in-support (`allowSupport`, Ren the Unclean tw-83: "Your characters
+  // may tap in support"): each untapped company mate of the checking
+  // character may tap for +1 to the roll before it is made, exactly like
+  // the Free Council window (CoE 7.1.1).
+  const supportActions: EvaluatedAction[] = [];
+  if (top.kind.allowSupport) {
+    const supportCompany = findCharacterCompany(player.companies, characterId);
+    if (supportCompany) {
+      for (const cid of supportCompany.characters) {
+        if (cid === characterId) continue;
+        const supporter = player.characters[cid];
+        if (!supporter || supporter.status !== CardStatus.Untapped) continue;
+        logDetail(`Support available: ${defNamesOf(state, [supporter])[0] ?? (cid as string)} can tap for +1 to ${charName}'s corruption check`);
+        supportActions.push({
+          action: {
+            type: 'support-corruption-check',
+            player: playerId,
+            supportingCharacterId: cid as CardInstanceId,
+            targetCharacterId: characterId,
+          },
+          viable: true,
+        });
+      }
+    }
   }
-  return [rollAction];
+
+  return [rollAction, ...reactivePlays, ...modifierGrants, ...supportActions];
 }
 
 /**

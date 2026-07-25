@@ -1437,14 +1437,33 @@
         "siteTypes": [
           "dark-hold"
         ]
+      },
+      {
+        "regionNames": [
+          "Dagorlad",
+          "Ithilien",
+          "Gorgoroth",
+          "Horse Plains"
+        ]
       }
     ],
     "effects": [
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event"
+      },
+      {
+        "type": "force-check-all-in-play",
+        "check": "corruption",
+        "declarerMayTapSupport": true,
+        "declarerNoResourceAid": true
       }
     ],
+    "certified": "2026-07-26",
     "text": "Unique.Nazgûl (8th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Dagorlad, Ithilien, Gorgoroth, and Horse Plains; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Ren the Unclean becomes a short-event: each character in play must make a corruption check.If you tap Ren the Unclean, then you cannot play resources to aid your character’s corruption checks. Your characters may tap in support. The moving player makes corruption checks first. Each player decides the order of the corruption checks for their characters."
   },
   {
