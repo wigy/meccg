@@ -6,7 +6,7 @@
  * GCCG Middle-earth deck files (`*.deck`).
  *
  * GCCG is the old generic CCG client whose MECCG module exports decks as plain text with
- * `#`-fenced section headers (Deck / Pool / Sideboard / Sites), category
+ * `#`-fenced section headers (Deck / Pool / Sideboard / Sideboard vs. fw / Sites), category
  * comments like `# Hero Character (5)`, and card lines of the form
  * `<qty> <Name> [H|M|F|B] (SET)` where the alignment tag and the set code
  * are optional disambiguators. Files are typically ISO-8859-1 encoded.
@@ -29,6 +29,8 @@ export interface ParsedGccgDeck {
   deck: { characters: DeckListEntry[]; hazards: DeckListEntry[]; resources: DeckListEntry[] };
   sites: DeckListEntry[];
   sideboard: DeckListEntry[];
+  /** Anti-Fallen-wizard sideboard ("Sideboard vs. fw"), kept separate; it joins the sideboard only in game vs a FW opponent. */
+  antiFwSideboard: DeckListEntry[];
   /** Card names (with qty) that could not be matched to the card pool. */
   unmatched: string[];
 }
@@ -194,7 +196,7 @@ function parseDeckName(lines: string[], fallback: string): string {
 function inferAlignment(parsed: ParsedGccgDeck): string {
   const all = [
     ...parsed.deck.characters, ...parsed.pool, ...parsed.deck.resources,
-    ...parsed.sideboard, ...parsed.sites,
+    ...parsed.sideboard, ...parsed.antiFwSideboard, ...parsed.sites,
   ];
   for (const entry of [...parsed.deck.characters, ...parsed.pool]) {
     const race = entry.card ? traits(cardPool[entry.card]).race : undefined;
@@ -223,12 +225,17 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
     deck: { characters: [], hazards: [], resources: [] },
     sites: [],
     sideboard: [],
+    antiFwSideboard: [],
     unmatched: [],
   };
 
-  // Matchup-specific sideboards ("Sideboard vs. fw", "Sideboard vs. hero")
-  // are merged into the one sideboard section our decks carry.
-  const normalizeSection = (name: string) => (name.startsWith('sideboard') ? 'sideboard' : name);
+  // The anti-FW sideboard ("Sideboard vs. fw") is its own deck section —
+  // it must never be mixed into the main sideboard on import; the two are
+  // merged only in game, against a Fallen-wizard opponent.
+  const normalizeSection = (name: string) => {
+    if (!name.startsWith('sideboard')) return name;
+    return /\bf(w|allen)/.test(name) ? 'sideboard vs fw' : 'sideboard';
+  };
 
   let section = '';
   let category = '';
@@ -246,7 +253,7 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
     }
     // Older GCCG versions (0.8.x) write bare section names without fences.
     const bare = normalizeSection(line.toLowerCase());
-    if (bare === 'deck' || bare === 'pool' || bare === 'sideboard' || bare === 'sites') {
+    if (bare === 'deck' || bare === 'pool' || bare === 'sideboard' || bare === 'sideboard vs fw' || bare === 'sites') {
       section = bare;
       category = '';
       continue;
@@ -271,6 +278,7 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
 
     if (section === 'pool') parsed.pool.push(entry);
     else if (section === 'sideboard') parsed.sideboard.push(entry);
+    else if (section === 'sideboard vs fw') parsed.antiFwSideboard.push(entry);
     else if (section === 'sites') parsed.sites.push(entry);
     else if (section === 'deck') {
       // The file's category comment is authoritative — the section split is
@@ -305,6 +313,7 @@ export function parsedCardCount(parsed: ParsedGccgDeck): number {
   return [
     ...parsed.pool, ...parsed.deck.characters, ...parsed.deck.hazards,
     ...parsed.deck.resources, ...parsed.sites, ...parsed.sideboard,
+    ...parsed.antiFwSideboard,
   ].reduce((sum, e) => sum + e.qty, 0);
 }
 
@@ -318,5 +327,6 @@ export function toFullDeck(parsed: ParsedGccgDeck, id: string): FullDeck {
     deck: parsed.deck,
     sites: parsed.sites,
     sideboard: parsed.sideboard,
+    antiFwSideboard: parsed.antiFwSideboard,
   };
 }
