@@ -226,6 +226,10 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
     unmatched: [],
   };
 
+  // Matchup-specific sideboards ("Sideboard vs. fw", "Sideboard vs. hero")
+  // are merged into the one sideboard section our decks carry.
+  const normalizeSection = (name: string) => (name.startsWith('sideboard') ? 'sideboard' : name);
+
   let section = '';
   let category = '';
   for (let i = 0; i < lines.length; i++) {
@@ -234,14 +238,14 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
       // A section header is a fence/name/fence triple; consume all three
       // lines. A lone fence (should not occur) is skipped.
       if (i + 2 < lines.length && !isFence(lines[i + 1]) && isFence(lines[i + 2])) {
-        section = lines[i + 1].trim().toLowerCase();
+        section = normalizeSection(lines[i + 1].trim().toLowerCase());
         category = '';
         i += 2;
       }
       continue;
     }
     // Older GCCG versions (0.8.x) write bare section names without fences.
-    const bare = line.toLowerCase();
+    const bare = normalizeSection(line.toLowerCase());
     if (bare === 'deck' || bare === 'pool' || bare === 'sideboard' || bare === 'sites') {
       section = bare;
       category = '';
@@ -256,7 +260,12 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
     if (!cardMatch || !section) continue;
     const [, qtyStr, name, tag, set] = cardMatch;
     const qty = parseInt(qtyStr, 10);
-    const card = resolveCard(index, name, tag, set);
+    // A trailing parenthesis is usually a set code, but dual-named cards
+    // like "Doeth (Durthak)" carry one in the card name itself — when the
+    // set-code reading matches nothing, retry with the parenthetical
+    // restored into the name.
+    const card = resolveCard(index, name, tag, set)
+      ?? (set ? resolveCard(index, `${name} (${set})`, tag, undefined) : null);
     if (!card) parsed.unmatched.push(`${qty}x ${name}`);
     const entry: DeckListEntry = { name: card ? cardPool[card].name : name, card, qty };
 
