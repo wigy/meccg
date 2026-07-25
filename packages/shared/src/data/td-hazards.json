@@ -607,10 +607,16 @@
           "strikes": 3,
           "prowess": 19
         }
+      },
+      {
+        "type": "in-play-item-modifier",
+        "itemFilter": { "item.subtype": "greater" },
+        "corruptionPoints": 1
       }
     ],
     "text": "Unique. Unless Itangast Ahunt is in play, Gold Hill has an additional automatic-attack: Dragon — 3 strikes at 19/8. In addition, each greater item gives an additional corruption point.",
-    "manifestId": "td-36"
+    "manifestId": "td-36",
+    "certified": "2026-07-26"
   },
   {
     "cardType": "hazard-event",

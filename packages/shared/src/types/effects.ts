@@ -318,7 +318,7 @@ export interface MpModifierEffect extends EffectBase {
  * character of any player.
  *
  * `itemFilter` is evaluated against a per-item context `{ item: { keywords,
- * name, cardType } }` (an absent filter matches every item). The `corruptionPoints`
+ * name, cardType, subtype } }` (an absent filter matches every item). The `corruptionPoints`
  * delta is folded into each matching item's bearer corruption total (in
  * `computeEffectiveStats`, respecting the same Balrog-avatar exclusion as the
  * item's printed corruption); the `marshallingPoints` delta is added flat to the
@@ -327,7 +327,9 @@ export interface MpModifierEffect extends EffectBase {
  * Used by Rumor of the One (le-224): "+1 to the corruption points and the
  * marshalling points for all ring items." — `itemFilter`
  * `{ "item.keywords": { "$includes": "ring" } }`, `corruptionPoints: 1`,
- * `marshallingPoints: 1`.
+ * `marshallingPoints: 1`. Also by Itangast at Home (td-38): "each greater
+ * item gives an additional corruption point" — `itemFilter`
+ * `{ "item.subtype": "greater" }`, `corruptionPoints: 1`.
  */
 export interface InPlayItemModifierEffect extends EffectBase {
   readonly type: 'in-play-item-modifier';
