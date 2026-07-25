@@ -305,12 +305,18 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
 
   // The defending company may have dissolved mid-combat (e.g. its last
   // character was eliminated by a pending resolution before any strike was
-  // assigned). With nothing left to strike, the attack fizzles.
+  // assigned), or the attack may have had its strike count reduced to zero
+  // before assignment began. Either way there is nothing to strike or
+  // assign — the attack fizzles.
   if (combat.phase === 'assign-strikes' && combat.strikeAssignments.length === 0) {
     const fizzleDefPlayer = playerById(state, combat.defendingPlayerId);
     const fizzleCompany = fizzleDefPlayer ? companyById(fizzleDefPlayer.companies, combat.companyId) : null;
     if (!fizzleCompany || fizzleCompany.characters.length === 0) {
       logDetail('Combat pass: defending company no longer exists — attack fizzles, finalizing combat');
+      return finalizeCombat(state);
+    }
+    if (combat.strikesTotal <= 0) {
+      logDetail('Combat pass: attack has zero strikes — attack fizzles, finalizing combat');
       return finalizeCombat(state);
     }
   }
