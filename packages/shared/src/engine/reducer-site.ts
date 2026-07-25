@@ -1419,6 +1419,20 @@ function handleDeclareAgentAttack(
   }
   const attackerAssigns = (isFaceDown && isAtHome) || attackModifier?.attackerAssigns === true;
 
+  // "Agent only: may tap for an extra strike" (Elerína dm-7): the declare
+  // action may carry tapForExtraStrike — the agent taps as part of the
+  // declaration and the attack has 2 strikes instead of 1.
+  const tapForExtraStrike = action.tapForExtraStrike === true;
+  if (tapForExtraStrike) {
+    if (attackModifier?.tapForExtraStrike !== true) {
+      return { state, error: `Agent "${agentDef.name}" has no tap-for-extra-strike ability` };
+    }
+    if (agent.character.status !== CardStatus.Untapped) {
+      return { state, error: `Agent "${agentDef.name}" must be untapped to tap for an extra strike` };
+    }
+  }
+  const strikesTotal = tapForExtraStrike ? 2 : 1;
+
   // Rule 3.II.2.R3/B3: Ringwraith/Balrog players → detainment
   const defendingAlignment = state.players[activePlayerIndex].alignment;
   const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
@@ -1492,18 +1506,34 @@ function handleDeclareAgentAttack(
     }));
   }
 
-  // Build CombatState with pre-computed modifiers
+  // Tap the agent when the extra strike was bought (tapForExtraStrike).
+  if (tapForExtraStrike) {
+    logDetail(`Site: declare-agent-attack — "${agentDef.name}" taps for an extra strike (2 strikes)`);
+    stateAfterReveal = updatePlayer(stateAfterReveal, hazardPlayerIndex, p => ({
+      ...p,
+      agents: p.agents.map(a =>
+        a.character.instanceId === action.agentInstanceId
+          ? { ...a, character: { ...a.character, status: CardStatus.Tapped } }
+          : a,
+      ),
+    }));
+  }
+
+  // Build CombatState with pre-computed modifiers. forceSingleTarget only
+  // applies to the normal 1-strike agent attack — a 2-strike attack follows
+  // the standard assignment rules (each strike to a different character
+  // where possible), even when the attacker assigns.
   const combat: CombatState = makeCombatState({
     attackSource: { type: 'agent', instanceId: action.agentInstanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayer.id,
-    strikesTotal: 1,
+    strikesTotal,
     strikeProwess: prowess,
     creatureBody: body,
     assignmentPhase: attackerAssigns ? 'attacker' : 'defender',
     detainment,
-    ...(attackerAssigns ? { forceSingleTarget: true } : {}),
+    ...(attackerAssigns && strikesTotal === 1 ? { forceSingleTarget: true } : {}),
     ...(attackModifier?.strikeEffect ? { strikeEffect: attackModifier.strikeEffect } : {}),
   });
 
