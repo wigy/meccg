@@ -280,6 +280,12 @@ def main():
         "--kl-target", type=float, default=0.02,
         help="PPO early-stop: end the update when the mean approximate KL from the "
              "behavior policy exceeds this (0 disables)")
+    parser.add_argument(
+        "--value-prefit", type=int, default=1,
+        help="PPO: epochs of value-head-only fitting on the new rollouts before "
+             "computing advantages (0 disables). The warm-started value head is "
+             "mis-calibrated on states shaped by unfamiliar opponents; advantages "
+             "from it carry a systematic bias that poisons the policy update.")
     args = parser.parse_args()
 
     if args.mode in ("reinforce", "ppo") and not args.init:
@@ -329,12 +335,42 @@ def main():
     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
 
     if args.mode == "ppo":
-        # Fix the advantages once with the warm-started value head (standard
-        # PPO: advantages come from the behavior policy's value estimate and
-        # stay constant across the update epochs), then normalize them to
-        # zero mean / unit variance — without this, batches dominated by
-        # large same-sign advantages produce the oversized updates behind
-        # the observed candidate collapses (draw-spike mode).
+        # Calibrate the value head to the NEW rollout distribution before it
+        # is used as the advantage baseline. The warm-started head was fit
+        # on earlier data; on states shaped by unfamiliar opponents its
+        # estimates carry a systematic bias, and biased advantages suppress
+        # (or inflate) every action from those games regardless of merit —
+        # measured 2026-07-25: heuristic-dominant rollouts produced updates
+        # that lost ~-113 Elo on ALL axes purely from this. Only the value
+        # head's own parameters are updated; the shared torso and the
+        # policy stay frozen.
+        if args.value_prefit > 0:
+            value_params = list(net.value1.parameters()) + list(net.value2.parameters())
+            prefit_opt = torch.optim.Adam(value_params, lr=1e-3)
+            net.train()
+            for prefit_epoch in range(args.value_prefit):
+                total = steps = 0
+                random.shuffle(train)
+                for start in range(0, len(train), args.batch):
+                    batch = train[start : start + args.batch]
+                    glob, ents, emask, cands, _, _, _, z, _, _ = collate(batch, global_width)
+                    _, value = net(glob, ents, emask, cands)
+                    loss = F.mse_loss(value, z)
+                    prefit_opt.zero_grad()
+                    loss.backward()
+                    prefit_opt.step()
+                    total += float(loss.detach())
+                    steps += 1
+                print(f"value prefit {prefit_epoch + 1}/{args.value_prefit}: mse {total / max(steps, 1):.4f}")
+
+        # Fix the advantages once with the calibrated value head (standard
+        # PPO: advantages stay constant across the update epochs), then
+        # normalize them to zero mean / unit variance PER ROLLOUT FILE.
+        # Per-file (i.e. per opponent family) normalization removes any
+        # remaining family-level baseline bias: within each family only
+        # relative credit assignment survives, so games against one
+        # opponent can never blanket-suppress the actions learned against
+        # another. Global normalization is the degenerate single-file case.
         net.eval()
         with_adv = []
         with torch.no_grad():
@@ -344,10 +380,19 @@ def main():
                 _, value = net(glob, ents, emask, cands)
                 adv = z - value
                 with_adv.extend((d, zi, float(a)) for (d, zi), a in zip(batch, adv))
-        raw = torch.tensor([a for _, _, a in with_adv])
-        mean, std = float(raw.mean()), float(raw.std())
-        print(f"advantages: mean {mean:.4f}, std {std:.4f} (normalized)")
-        train = [(d, zi, (a - mean) / (std + 1e-8)) for d, zi, a in with_adv]
+        by_file = {}
+        for d, _, a in with_adv:
+            by_file.setdefault(d["game"] // 1_000_000, []).append(a)
+        file_stats = {}
+        for file_index, values in sorted(by_file.items()):
+            tensor = torch.tensor(values)
+            file_stats[file_index] = (float(tensor.mean()), float(tensor.std()))
+            print(f"advantages[file {file_index}]: n {len(values)}, mean {file_stats[file_index][0]:.4f}, "
+                  f"std {file_stats[file_index][1]:.4f} (normalized per file)")
+        train = [
+            (d, zi, (a - file_stats[d["game"] // 1_000_000][0]) / (file_stats[d["game"] // 1_000_000][1] + 1e-8))
+            for d, zi, a in with_adv
+        ]
 
     stop_early = False
     for epoch in range(args.epochs):
