@@ -1460,7 +1460,22 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureofPower.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": ["corruption"],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "successful-influence-attempt",
+        "when": { "target.race": { "$ne": "hobbit" } },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            { "type": "enqueue-corruption-check", "modifier": -4 },
+            { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-07-26",
     "text": "The next non-Hobbit character to make a successful influence attempt (e. g., against a faction, an opponent’s character, etc.) must immediately make a corruption check modified by -4. Discard this card after this corruption check."
   },
   {
