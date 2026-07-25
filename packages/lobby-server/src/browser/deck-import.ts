@@ -1,8 +1,11 @@
 /**
  * @module deck-import
  *
- * Importer for GCCG Middle-earth deck files (`*.deck`). GCCG is the old
- * generic CCG client whose MECCG module exports decks as plain text with
+ * Deck file importers: the native `*.meccg-json` format (a pure JSON copy
+ * of the deck data, as produced by the deck editor's download button) and
+ * GCCG Middle-earth deck files (`*.deck`).
+ *
+ * GCCG is the old generic CCG client whose MECCG module exports decks as plain text with
  * `#`-fenced section headers (Deck / Pool / Sideboard / Sites), category
  * comments like `# Hero Character (5)`, and card lines of the form
  * `<qty> <Name> [H|M|F|B] (SET)` where the alignment tag and the set code
@@ -61,17 +64,40 @@ const AVATAR_RACE_TO_ALIGNMENT: Record<string, string> = {
 };
 
 /**
- * Decode a GCCG deck file. Old GCCG exports are ISO-8859-1; try strict
- * UTF-8 first so newer files with multi-byte characters also decode
- * correctly, and fall back to Latin-1 when that fails.
+ * Decode a deck file. Native `.meccg-json` exports are UTF-8, but old GCCG
+ * exports are ISO-8859-1; try strict UTF-8 first so newer files with
+ * multi-byte characters also decode correctly, and fall back to Latin-1
+ * when that fails.
  */
-export async function readGccgDeckFile(file: File): Promise<string> {
+export async function readDeckFile(file: File): Promise<string> {
   const buf = await file.arrayBuffer();
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(buf);
   } catch {
     return new TextDecoder('iso-8859-1').decode(buf);
   }
+}
+
+/**
+ * Parse text as a native `*.meccg-json` deck export: valid JSON carrying
+ * the FullDeck fields. Returns the deck as-is when it matches, or null
+ * when the text is not JSON or lacks the deck shape — the caller should
+ * then fall back to the GCCG parser.
+ */
+export function parseMeccgJsonDeck(text: string): FullDeck | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (typeof data !== 'object' || data === null) return null;
+  const d = data as { name?: unknown; alignment?: unknown; pool?: unknown; sites?: unknown; sideboard?: unknown; deck?: Record<string, unknown> };
+  if (typeof d.name !== 'string' || typeof d.alignment !== 'string') return null;
+  if (!Array.isArray(d.pool) || !Array.isArray(d.sites) || !Array.isArray(d.sideboard)) return null;
+  if (typeof d.deck !== 'object' || d.deck === null) return null;
+  if (!Array.isArray(d.deck.characters) || !Array.isArray(d.deck.hazards) || !Array.isArray(d.deck.resources)) return null;
+  return data as FullDeck;
 }
 
 /**

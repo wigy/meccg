@@ -333,8 +333,22 @@ function isRing(def: CardDefinition): boolean {
 }
 
 /**
- * Render the deck title: the deck name with an edit icon, or — in edit
- * mode — a name input with Save/Cancel (Enter saves, Escape cancels).
+ * Download the deck as `<deck-name>.meccg-json`: a pure JSON copy of the
+ * deck data, re-importable from the decks screen's import button.
+ */
+function downloadDeck(deck: FullDeck): void {
+  const blob = new Blob([JSON.stringify(deck, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${deck.name.replace(/[\\/:*?"<>|]/g, '-')}.meccg-json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Render the deck title: the deck name with edit and download icons, or —
+ * in edit mode — a name input with Save/Cancel (Enter saves, Escape cancels).
  * Saving persists the whole deck; a failed save restores the old name.
  */
 function renderTitle(editing = false): void {
@@ -353,6 +367,12 @@ function renderTitle(editing = false): void {
     editBtn.title = 'Rename this deck';
     editBtn.addEventListener('click', () => renderTitle(true));
     titleEl.appendChild(editBtn);
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'deck-editor-title-edit-btn';
+    downloadBtn.textContent = '\u{2B07}\u{FE0F}';
+    downloadBtn.title = 'Download this deck as a .meccg-json file';
+    downloadBtn.addEventListener('click', () => downloadDeck(deck));
+    titleEl.appendChild(downloadBtn);
     return;
   }
 

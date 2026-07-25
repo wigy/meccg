@@ -14,7 +14,9 @@ import {
 import { showAlert, showConfirm } from './dialog.js';
 import { apiGet, apiSend } from './api.js';
 import { renderMarkdown } from './markdown.js';
-import { parseGccgDeck, parsedCardCount, readGccgDeckFile, toFullDeck } from './deck-import.js';
+import {
+  parseGccgDeck, parseMeccgJsonDeck, parsedCardCount, readDeckFile, toFullDeck,
+} from './deck-import.js';
 
 // Forward-declared function references, set by the lobby module at startup.
 let openDeckEditorFn: ((deckId: string) => Promise<void>) | null = null;
@@ -240,7 +242,7 @@ export async function loadDecks(): Promise<void> {
     importBtn.addEventListener('click', () => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.deck';
+      input.accept = '.deck,.meccg-json';
       input.addEventListener('change', () => {
         const file = input.files?.[0];
         if (file) void importDeckFile(file);
@@ -368,16 +370,30 @@ export async function deleteDeck(deckId: string): Promise<void> {
 }
 
 /**
- * Import a GCCG `*.deck` file into the player's collection: parse it,
- * resolve card names against the pool, save the deck, select it, and open
- * it in the editor so unresolved cards are immediately visible. Names that
- * could not be matched are reported and kept as missing-card entries.
+ * Import a deck file into the player's collection. A native `*.meccg-json`
+ * file (valid JSON carrying our deck fields) is taken as it is, under a
+ * fresh id. Anything else is parsed as a GCCG `*.deck` file: card names
+ * are resolved against the pool and names that could not be matched are
+ * reported and kept as missing-card entries. Either way the deck is saved,
+ * selected, and opened in the editor.
  */
 async function importDeckFile(file: File): Promise<void> {
-  const text = await readGccgDeckFile(file);
-  const parsed = parseGccgDeck(text, file.name.replace(/\.deck$/i, ''));
+  const text = await readDeckFile(file);
+  const native = parseMeccgJsonDeck(text);
+  if (native) {
+    const deck = { ...native, id: newDeckId(native.name) };
+    const resp = await apiSend('/api/my-decks', 'POST', deck);
+    if (!resp.ok) {
+      await showAlert(resp.error ?? 'Failed to save the imported deck');
+      return;
+    }
+    await selectDeck(deck.id);
+    await openDeckEditorFn?.(deck.id);
+    return;
+  }
+  const parsed = parseGccgDeck(text, file.name.replace(/\.(deck|meccg-json)$/i, ''));
   if (parsedCardCount(parsed) === 0) {
-    await showAlert(`No cards found in "${file.name}" — is it a GCCG .deck file?`);
+    await showAlert(`No cards found in "${file.name}" — is it a .meccg-json or GCCG .deck file?`);
     return;
   }
   const deck = toFullDeck(parsed, newDeckId(parsed.name));
