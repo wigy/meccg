@@ -18,7 +18,7 @@
  * button — so an import never silently drops a card.
  */
 
-import type { CardDefinition } from '@meccg/shared';
+import { hasPlayFlag, type CardDefinition } from '@meccg/shared';
 import { cardPool, type DeckListEntry, type FullDeck } from './app-state.js';
 
 /** A parsed GCCG deck: all FullDeck sections plus unresolved card names. */
@@ -318,7 +318,60 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
       parsed.deck.hazards.push(...agents);
     }
   }
+
+  rebalanceDualPurpose(parsed);
   return parsed;
+}
+
+/**
+ * Whether a deck entry resolves to a dual-purpose card: a hazard flagged
+ * `playable-as-resource` (e.g. Twilight), which rule 1.3.3 lets a deck count
+ * as either a hazard or a resource for deck construction.
+ */
+function isDualPurpose(entry: DeckListEntry): boolean {
+  if (entry.card === null) return false;
+  const def = cardPool[entry.card];
+  return def !== undefined && 'effects' in def && hasPlayFlag(def, 'playable-as-resource');
+}
+
+/**
+ * Even out the play deck's hazard and resource counts by re-filing
+ * dual-purpose cards. Rule 1.30 requires equally many hazards and resources,
+ * and GCCG files often list every copy of a dual card (e.g. Twilight) under a
+ * single category — however the deck's author counted them, importing that
+ * split verbatim can leave the sections unequal. Each moved copy shrinks the
+ * difference by two, so ⌊difference/2⌋ copies are moved from the larger
+ * section to the smaller (an odd difference gets as close as dual cards can).
+ * A Fallen-wizard may count at most two copies of each dual card as
+ * resources (rule 1.3.F2), so moves into the resources section stop at that
+ * cap.
+ */
+function rebalanceDualPurpose(parsed: ParsedGccgDeck): void {
+  const total = (entries: DeckListEntry[]) => entries.reduce((sum, e) => sum + e.qty, 0);
+  const diff = total(parsed.deck.hazards) - total(parsed.deck.resources);
+  let moves = Math.floor(Math.abs(diff) / 2);
+  if (moves === 0) return;
+  const intoResources = diff > 0;
+  const [from, to] = intoResources
+    ? [parsed.deck.hazards, parsed.deck.resources]
+    : [parsed.deck.resources, parsed.deck.hazards];
+  const resourceCopies = (card: string | null) =>
+    total(parsed.deck.resources.filter(e => e.card === card));
+  for (const entry of [...from]) {
+    if (moves === 0) break;
+    if (!isDualPurpose(entry)) continue;
+    let qty = Math.min(entry.qty, moves);
+    if (intoResources && parsed.alignment === 'fallen-wizard') {
+      qty = Math.min(qty, Math.max(0, 2 - resourceCopies(entry.card)));
+      if (qty === 0) continue;
+    }
+    entry.qty -= qty;
+    if (entry.qty === 0) from.splice(from.indexOf(entry), 1);
+    const existing = to.find(e => e.card === entry.card);
+    if (existing) existing.qty += qty;
+    else to.push({ name: entry.name, card: entry.card, qty });
+    moves -= qty;
+  }
 }
 
 /** Total number of card entries parsed into all sections of a deck. */

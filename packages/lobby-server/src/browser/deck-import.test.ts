@@ -138,6 +138,95 @@ describe('GCCG deck import section split', () => {
     expect(names(parsed.deck.hazards)).toEqual(['Cave-drake', 'Baduila']);
   });
 
+  test('excess dual-purpose hazards are re-filed as resources to balance the play deck', () => {
+    const text = [
+      '####',
+      'Deck',
+      '####',
+      '# Hazard (4)',
+      '2 Cave-drake',
+      '2 Twilight',
+      '# Hero Resource (2)',
+      '2 And Forth He Hastened',
+    ].join('\n');
+
+    const parsed = parseGccgDeck(text, 'fallback');
+    expect(parsed.deck.hazards).toEqual([
+      { name: 'Cave-drake', card: 'le-66', qty: 2 },
+      { name: 'Twilight', card: 'le-145', qty: 1 },
+    ]);
+    expect(parsed.deck.resources).toEqual([
+      { name: 'And Forth He Hastened', card: 'td-98', qty: 2 },
+      { name: 'Twilight', card: 'le-145', qty: 1 },
+    ]);
+  });
+
+  test('excess dual-purpose resources are re-filed as hazards, an odd difference getting as close as possible', () => {
+    const text = [
+      '####',
+      'Deck',
+      '####',
+      '# Hazard (1)',
+      '1 Cave-drake',
+      '# Hero Resource (4)',
+      '1 And Forth He Hastened',
+      '3 Twilight',
+    ].join('\n');
+
+    const parsed = parseGccgDeck(text, 'fallback');
+    expect(parsed.deck.hazards).toEqual([
+      { name: 'Cave-drake', card: 'le-66', qty: 1 },
+      { name: 'Twilight', card: 'le-145', qty: 1 },
+    ]);
+    expect(parsed.deck.resources).toEqual([
+      { name: 'And Forth He Hastened', card: 'td-98', qty: 1 },
+      { name: 'Twilight', card: 'le-145', qty: 2 },
+    ]);
+  });
+
+  test('an imbalanced deck without dual-purpose cards imports unchanged', () => {
+    const text = [
+      '####',
+      'Deck',
+      '####',
+      '# Hazard (2)',
+      '2 Cave-drake',
+      '# Hero Resource (1)',
+      '1 And Forth He Hastened',
+    ].join('\n');
+
+    const parsed = parseGccgDeck(text, 'fallback');
+    expect(parsed.deck.hazards).toEqual([{ name: 'Cave-drake', card: 'le-66', qty: 2 }]);
+    expect(parsed.deck.resources).toEqual([{ name: 'And Forth He Hastened', card: 'td-98', qty: 1 }]);
+  });
+
+  test('a fallen-wizard deck counts at most two copies of a dual card as resources (rule 1.3.F2)', () => {
+    const text = [
+      '####',
+      'Deck',
+      '####',
+      '# Hazard (8)',
+      '3 Cave-drake',
+      '2 Slayer',
+      '3 Twilight',
+      '# Stage Resource (1)',
+      '1 A Merrier World',
+    ].join('\n');
+
+    const parsed = parseGccgDeck(text, 'fallback');
+    expect(parsed.alignment).toBe('fallen-wizard');
+    // Difference 7 would allow 3 moves, but rule 1.3.F2 stops at 2 copies.
+    expect(parsed.deck.hazards).toEqual([
+      { name: 'Cave-drake', card: 'le-66', qty: 3 },
+      { name: 'Slayer', card: 'le-90', qty: 2 },
+      { name: 'Twilight', card: 'le-145', qty: 1 },
+    ]);
+    expect(parsed.deck.resources).toEqual([
+      { name: 'A Merrier World', card: 'wh-59', qty: 1 },
+      { name: 'Twilight', card: 'le-145', qty: 2 },
+    ]);
+  });
+
   test('without a category the resolved card type decides the section', () => {
     const text = [
       '####',
