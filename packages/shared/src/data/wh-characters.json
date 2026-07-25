@@ -408,6 +408,10 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/EuogUlzog.jpg",
     "unique": true,
     "race": "orc",
+    "keywords": [
+      "half-orc",
+      "leader"
+    ],
     "skills": [
       "warrior",
       "diplomat"
@@ -416,12 +420,35 @@
     "body": 9,
     "mind": 5,
     "directInfluence": 1,
+    "discardBodyCheck": [
+      9
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
-    "effects": [],
-    "text": "Unique. Half-orc. Leader. Discard on a body check result of 9. +2 direct influence against Orcs and Orc factions."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      }
+    ],
+    "text": "Unique. Half-orc. Leader. Discard on a body check result of 9. +2 direct influence against Orcs and Orc factions.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "minion-character",
