@@ -715,7 +715,7 @@ function collectInPlayItemModifiers(state: GameState): InPlayItemModifier[] {
  * Sums the corruption-point and marshalling-point deltas that the in-play
  * global item modifiers grant to a single item, matching each modifier's
  * optional `itemFilter` against a per-item context `{ item: { keywords, name,
- * cardType } }`. Returns `{ cp: 0, mp: 0 }` when nothing matches.
+ * cardType, subtype } }`. Returns `{ cp: 0, mp: 0 }` when nothing matches.
  */
 function itemModifierDeltas(
   itemDef: CardDefinition,
@@ -727,6 +727,7 @@ function itemModifierDeltas(
       keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
       name: itemDef.name,
       cardType: itemDef.cardType,
+      subtype: (itemDef as { subtype?: string }).subtype,
     },
   };
   let cp = 0;

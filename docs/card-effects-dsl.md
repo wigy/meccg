@@ -684,7 +684,7 @@ scored and is gated on the *bearer*), this effect lives on a *separate* card and
 reaches out to every matching item borne by any character of any player.
 
 `itemFilter` is evaluated against a per-item context `{ item: { keywords, name,
-cardType } }` (absent → matches every item). The `corruptionPoints` delta is
+cardType, subtype } }` (absent → matches every item). The `corruptionPoints` delta is
 folded into each matching item's bearer corruption total (in `computeEffectiveStats`,
 under the same Balrog-avatar exclusion as the item's printed corruption); the
 `marshallingPoints` delta is added flat to the item's marshalling category in the
@@ -702,6 +702,8 @@ item's own printed MP). Both collected once per recompute via
 Used by Rumor of the One (le-224): "+1 to the corruption points and the
 marshalling points for all ring items." — paired with an `on-event:
 play-deck-exhausted` self-discard `move` and `duplication-limit` scope `game`.
+And by Scorba at Home (td-65): "each major item gives an additional corruption
+point." — `itemFilter` `{ "item.subtype": "major" }`, `corruptionPoints: 1`.
 
 ### 3a-iii. `corruption-source-multiplier`
 
