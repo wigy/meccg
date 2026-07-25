@@ -76,6 +76,47 @@ describe('GCCG deck import section split', () => {
     expect(parsed.deck.hazards[0]).toMatchObject({ card: 'dm-29', qty: 2 });
   });
 
+  test('matchup sideboards ("Sideboard vs. fw") merge into the sideboard', () => {
+    const text = [
+      '#########',
+      'Sideboard',
+      '#########',
+      '# Hazard (1)',
+      '1 Cave-drake',
+      '################',
+      'Sideboard vs. fw',
+      '################',
+      '# Hero Resource (1)',
+      '1 And Forth He Hastened',
+      '#####',
+      'Sites',
+      '#####',
+      '1 Edhellond',
+    ].join('\n');
+
+    const parsed = parseGccgDeck(text, 'fallback');
+    expect(names(parsed.sideboard)).toEqual(['Cave-drake', 'And Forth He Hastened']);
+    expect(names(parsed.sites)).toEqual(['Edhellond']);
+  });
+
+  test('dual-named cards keep their parenthetical despite looking like a set code', () => {
+    const text = [
+      '####',
+      'Pool',
+      '####',
+      '# Minion Character (2)',
+      '1 Doeth (Durthak)',
+      '1 Euog (Ulzog)',
+    ].join('\n');
+
+    const parsed = parseGccgDeck(text, 'fallback');
+    expect(parsed.unmatched).toEqual([]);
+    expect(parsed.pool).toEqual([
+      { name: 'Doeth (Durthak)', card: 'wh-2', qty: 1 },
+      { name: 'Euog (Ulzog)', card: 'wh-3', qty: 1 },
+    ]);
+  });
+
   test('without a category the resolved card type decides the section', () => {
     const text = [
       '####',
