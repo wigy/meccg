@@ -3190,8 +3190,48 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Playable during the organization phase on an untapped sage in a moving company. Tap the sage. Unless the site is in a Free-domain [{f}], no hazard creatures may be played at the company’s new site."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.skills": {
+                "$includes": "sage"
+              }
+            },
+            {
+              "target.status": "untapped"
+            },
+            {
+              "company.moving": true
+            }
+          ]
+        },
+        "cost": {
+          "tap": "character"
+        },
+        "requiredSkill": "sage"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "no-creatures-keyed-to-site",
+          "unlessSiteRegionType": "free",
+          "scope": "turn"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Sage only. Playable during the organization phase on an untapped sage in a moving company. Tap the sage. Unless the site is in a Free-domain [{f}], no hazard creatures may be played at the company’s new site.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "minion-resource-event",

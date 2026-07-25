@@ -2152,6 +2152,11 @@ function applyShortEventOnEntersPlay(
         case 'only-creatures-keyed-to-site-at-ruins-lairs':
           kind = { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
           break;
+        case 'no-creatures-keyed-to-site': {
+          const unless = onEvent.apply.unlessSiteRegionType as import('../types/common.js').RegionType | undefined;
+          kind = { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };
+          break;
+        }
         case 'company-cannot-move':
           kind = { type: 'company-cannot-move' };
           break;

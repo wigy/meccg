@@ -42,7 +42,7 @@ import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions 
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, collectGlobalCheckModifier } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, collectGlobalCheckModifier, siteRegionTypeOf } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { asViable as viable } from './evaluated.js';
 
@@ -1018,6 +1018,8 @@ function applyOneConstraint(
       return applyOnlyCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
       return applyOnlyCreaturesKeyedToSiteAtRuinsLairs(state, playerId, base, constraint);
+    case 'no-creatures-keyed-to-site':
+      return applyNoCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'company-cannot-move':
       // Enforced directly by the org-phase `plan-movement` emitter
       // (`planMovementActions`) and reducer (`handlePlanMovement`) — no broad
@@ -1443,6 +1445,83 @@ function applyOnlyCreaturesKeyedToSiteAtRuinsLairs(
     logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-at-ruins-lairs): dropping region-keyed creature "${def.name}" against company ${protectedCompany as string}`);
     return false;
   });
+}
+
+/**
+ * Keying methods that mean a creature attack happens *at the destination
+ * site itself* rather than in a region along the path. Used by
+ * `no-creatures-keyed-to-site` (Crack in the Wall le-177) to drop exactly the
+ * site-based plays while letting region-keyed plays of the same creature
+ * through as their own actions.
+ */
+const SITE_KEYING_METHODS = new Set<string>([
+  'site-type', 'site-name', 'site-keyword', 'adjacent-to-site-keyword',
+]);
+
+/**
+ * Crack in the Wall (le-177): drop every play-hazard action against the
+ * protected company whose card is a hazard creature keyed *to the company's
+ * new site* — the action's `keyedBy.method` is site-based (see
+ * {@link SITE_KEYING_METHODS}). Region-keyed plays (each keying match is its
+ * own action) and other hazard categories are unaffected.
+ *
+ * When the constraint carries `unlessSiteRegionType`, the restriction is
+ * gated on the destination's containing region: if the target company's
+ * destination site sits in a region of that type (le-177: Free-domain), the
+ * card imposes nothing.
+ */
+function applyNoCreaturesKeyedToSite(
+  state: GameState,
+  _playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.target.kind !== 'company') return base;
+  if (constraint.kind.type !== 'no-creatures-keyed-to-site') return base;
+  const protectedCompany = constraint.target.companyId;
+
+  const unless = constraint.kind.unlessSiteRegionType;
+  if (unless) {
+    const destRegionType = destinationSiteRegionType(state, protectedCompany);
+    if (destRegionType === unless) {
+      logDetail(`Constraint ${constraint.id as string} (no-creatures-keyed-to-site): destination region is ${unless} — no restriction`);
+      return base;
+    }
+  }
+
+  return base.filter(ea => {
+    if (ea.action.type !== 'play-hazard') return true;
+    const action = ea.action as { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string } };
+    if (action.targetCompanyId !== protectedCompany) return true;
+    const cardInstId = action.cardInstanceId;
+    if (!cardInstId) return true;
+    const def = resolveDef(state, cardInstId);
+    if (!def || def.cardType !== 'hazard-creature') return true;
+    const method = action.keyedBy?.method;
+    if (!method || !SITE_KEYING_METHODS.has(method)) return true;
+    logDetail(`Constraint ${constraint.id as string} (no-creatures-keyed-to-site): dropping site-keyed (${method}) creature play "${def.name}" against protected company ${protectedCompany as string}`);
+    return false;
+  });
+}
+
+/**
+ * Resolve the {@link import('../../types/common.js').RegionType} of the region
+ * containing the given company's declared destination site, or `undefined`
+ * when the company has no destination or the region cannot be resolved. Used
+ * by the `no-creatures-keyed-to-site` Free-domain gate.
+ */
+function destinationSiteRegionType(
+  state: GameState,
+  companyId: CompanyId,
+): import('../../types/common.js').RegionType | undefined {
+  for (const player of state.players) {
+    const company = companyById(player.companies, companyId);
+    if (!company) continue;
+    const destSite = company.destinationSite;
+    if (!destSite) return undefined;
+    return siteRegionTypeOf(state, defById(state, destSite.definitionId));
+  }
+  return undefined;
 }
 
 /**
