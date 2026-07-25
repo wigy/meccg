@@ -1503,16 +1503,35 @@
     "race": "orc",
     "playableAt": [
       {
-        "site": "one"
+        "siteType": "haven"
       }
     ],
     "effects": [
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "A Strident Spawn"
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Half-orcs"
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-protected"
       }
     ],
-    "text": "Playable at one of your protected Wizardhavens [{H}] (if tapped or untapped) if you have A Strident Spawn and Half-orcs in play and if the influence check is greater than 11."
+    "text": "Playable at one of your protected Wizardhavens [{H}] (if tapped or untapped) if you have A Strident Spawn and Half-orcs in play and if the influence check is greater than 11.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "minion-resource-faction",

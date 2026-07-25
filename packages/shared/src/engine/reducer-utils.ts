@@ -1624,6 +1624,24 @@ export function findPlayConditionEffect(
 }
 
 /**
+ * Returns ALL of the card's `play-condition` effects for the given {@link
+ * PlayConditionEffect.requires}. A card may carry the same prerequisite kind
+ * more than once — Greater Half-orcs (wh-86) requires both "A Strident Spawn"
+ * and "Half-orcs" in play via two `card-in-play` conditions — and every one of
+ * them must hold, so callers gating on a repeatable prerequisite must iterate
+ * this list rather than use {@link findPlayConditionEffect} (which silently
+ * checks only the first).
+ */
+export function findPlayConditionEffects(
+  def: CardDefinition | null | undefined,
+  requires: PlayConditionEffect['requires'],
+): PlayConditionEffect[] {
+  return getCardEffects(def).filter(
+    (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === requires,
+  );
+}
+
+/**
  * Returns the player's avatar character (wizard/ringwraith/fallen-wizard/balrog),
  * or `undefined` if the player has no avatar in play. Matches the first character
  * whose definition has `mind === null` and who is controlled under general
