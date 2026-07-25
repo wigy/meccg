@@ -807,6 +807,21 @@ export type ChainEntryPayload =
        */
       readonly targetItemInstanceId?: CardInstanceId;
       /**
+       * For a resource permanent-event played on one of the controller's own
+       * in-play factions (Long Grievous Siege ba-40), the target faction
+       * instance. On resolution the chain reducer places the card into the
+       * controller's `cardsInPlay` with `attachedTo` set to this value.
+       */
+      readonly targetFactionInstanceId?: CardInstanceId;
+      /**
+       * For a `faction-siege` permanent-event (Long Grievous Siege ba-40), the
+       * site card instance in the controller's location deck chosen at play
+       * time. On resolution the chain reducer moves it from the `siteDeck`
+       * off to the side with the host and stamps the host's `attachedToSite`
+       * with the site's definition id.
+       */
+      readonly besiegedSiteInstanceId?: CardInstanceId;
+      /**
        * For a `play-with-stored-card` resource permanent-event (Wizard's
        * Trove wh-85 primary mode), the named companion card still in the
        * declaring player's hand (e.g. The White Tree). On resolution the

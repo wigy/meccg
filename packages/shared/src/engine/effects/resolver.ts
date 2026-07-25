@@ -998,8 +998,45 @@ const CREATURE_TYPE_TO_RACE: Record<string, string> = {
   hobbits: 'hobbit',
   'dúnedain': 'dunadan',
   elves: 'elf',
+  woses: 'wose',
+  ents: 'ent',
+  eagles: 'eagle',
   'pûkel-creature': 'pukel-creature',
 };
+
+/**
+ * Maps a faction's lowercase singular `race` to the capitalized plural
+ * `creatureType` label used on automatic-attacks (e.g. `"orc"` → `"Orcs"`,
+ * `"man"` → `"Men"`). The inverse of {@link normalizeCreatureRace} for the
+ * races factions actually carry. Used by `faction-siege` (Long Grievous Siege
+ * ba-40): "an additional automatic-attack: same type as your target faction".
+ * Unmapped races fall back to the capitalized race name.
+ */
+const FACTION_RACE_TO_ATTACK_TYPE: Record<string, string> = {
+  orc: 'Orcs',
+  man: 'Men',
+  troll: 'Trolls',
+  wolf: 'Wolves',
+  dwarf: 'Dwarves',
+  elf: 'Elves',
+  dunadan: 'Dúnedain',
+  'dúnadan': 'Dúnedain',
+  hobbit: 'Hobbits',
+  spider: 'Spiders',
+  dragon: 'Dragon',
+  animal: 'Animals',
+  giant: 'Giants',
+  undead: 'Undead',
+  wose: 'Woses',
+  ent: 'Ents',
+  eagle: 'Eagles',
+};
+
+/** See {@link FACTION_RACE_TO_ATTACK_TYPE}. */
+export function factionRaceToAttackType(race: string): string {
+  return FACTION_RACE_TO_ATTACK_TYPE[race.toLowerCase()]
+    ?? race.charAt(0).toUpperCase() + race.slice(1);
+}
 
 /**
  * Normalizes a site automatic attack's `creatureType` (e.g. "Wolves") to the

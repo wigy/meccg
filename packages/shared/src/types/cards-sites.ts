@@ -15,6 +15,7 @@ import type {
   CardInstanceId,
   Keyword,
   ManifestId,
+  PlayerId,
   RegionType,
   SiteType,
 } from './common.js';
@@ -86,6 +87,15 @@ export interface AutomaticAttack {
    * effect (Alatar wh-1), matching every other detainment source.
    */
   readonly forceDetainment?: boolean;
+  /**
+   * When set, this attack is detainment only when the **defending player** is
+   * the named player, and a normal attack against anyone else. Set on
+   * runtime-injected `faction-siege` attacks (Long Grievous Siege ba-40:
+   * "detainment against your companies") — resolved to the siege controller's
+   * player id at collection time. Like {@link forceDetainment}, it is still
+   * overridden by a defender's `detainment-attacks-normal` effect.
+   */
+  readonly detainmentAgainstPlayer?: PlayerId;
 }
 
 /**

@@ -351,10 +351,29 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/ba/LongGrievousSiege.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a unique non-Dragon faction. Place a Border-hold [{B}] from your location deck “off to the side” with this card. The Border-hold must be in the same region or adjacent thereto as a site where the target faction is playable. Return any faction playable at the Border-hold to its owner’s hand. -5 to any attempt to play a faction at any version of the Border-hold. All versions of the Border-hold gain an additional automatic-attack: same type as your target faction — 5 strikes with 9 prowess (detainment against your companies). Cannot be duplicated on your faction."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "faction",
+        "filter": {
+          "$and": [
+            { "target.unique": true },
+            { "target.race": { "$ne": "dragon" } }
+          ]
+        }
+      },
+      {
+        "type": "faction-siege",
+        "siteType": "border-hold",
+        "factionInfluenceModifier": -5,
+        "attack": { "strikes": 5, "prowess": 9 }
+      },
+      { "type": "duplication-limit", "scope": "faction", "max": 1 }
+    ],
+    "text": "Playable on a unique non-Dragon faction. Place a Border-hold [{B}] from your location deck “off to the side” with this card. The Border-hold must be in the same region or adjacent thereto as a site where the target faction is playable. Return any faction playable at the Border-hold to its owner’s hand. -5 to any attempt to play a faction at any version of the Border-hold. All versions of the Border-hold gain an additional automatic-attack: same type as your target faction — 5 strikes with 9 prowess (detainment against your companies). Cannot be duplicated on your faction.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "minion-resource-event",

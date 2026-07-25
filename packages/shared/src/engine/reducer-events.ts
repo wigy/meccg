@@ -100,6 +100,8 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
     ...(action.targetSiteDefinitionId ? { targetSiteDefinitionId: action.targetSiteDefinitionId } : {}),
     ...(action.targetCompanyId ? { targetCompanyId: action.targetCompanyId } : {}),
     ...(action.targetItemInstanceId ? { targetItemInstanceId: action.targetItemInstanceId } : {}),
+    ...(action.targetFactionInstanceId ? { targetFactionInstanceId: action.targetFactionInstanceId } : {}),
+    ...(action.besiegedSiteInstanceId ? { besiegedSiteInstanceId: action.besiegedSiteInstanceId } : {}),
     ...(action.companionCardInstanceId ? { companionCardInstanceId: action.companionCardInstanceId } : {}),
     ...(action.storeItemInstanceId ? { storeItemInstanceId: action.storeItemInstanceId } : {}),
     ...(action.storeCharacterId ? { storeCharacterId: action.storeCharacterId } : {}),

@@ -26,6 +26,7 @@
 
 import type { GameState, CardInstance, CardInstanceId, CardInPlay, PlayerState, CardDefinition, CardEffect } from '../index.js';
 import { CardStatus } from '../types/common.js';
+import { isSiteCard } from '../types/cards.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 import { toCardInstance } from './reducer-utils.js';
@@ -191,6 +192,7 @@ export function sweepSetAside(state: GameState): GameState {
 
   let changed = false;
   const discardsByPlayer = new Map<string, CardInstance[]>();
+  const siteReturnsByPlayer = new Map<string, CardInstance[]>();
   const newPlayers = state.players.map(p => {
     const keep: CardInPlay[] = [];
     let playerChanged = false;
@@ -209,6 +211,15 @@ export function sweepSetAside(state: GameState): GameState {
         void _h; void _k;
         keep.push(rest);
         logDetail(`sweepSetAside: host ${host as string} gone — ${card.instanceId as string} kept in play (host override)`);
+      } else if (isSiteCard(state.cardPool[card.definitionId])) {
+        // A set-aside SITE card (Long Grievous Siege ba-40's besieged
+        // Border-hold) is never discarded — site cards return to their
+        // owner's location deck.
+        const owner = ownerOf(card.instanceId) as string;
+        const list = siteReturnsByPlayer.get(owner) ?? [];
+        list.push(toCardInstance(card));
+        siteReturnsByPlayer.set(owner, list);
+        logDetail(`sweepSetAside: host ${host as string} gone — returning site ${card.instanceId as string} to owner ${owner}'s location deck`);
       } else {
         const owner = ownerOf(card.instanceId) as string;
         const list = discardsByPlayer.get(owner) ?? [];
@@ -240,10 +251,12 @@ export function sweepSetAside(state: GameState): GameState {
       return rest;
     });
     const discards = discardsByPlayer.get(p.id as string);
+    const siteReturns = siteReturnsByPlayer.get(p.id as string);
     return {
       ...p,
       cardsInPlay,
       ...(discards ? { discardPile: [...p.discardPile, ...discards] } : {}),
+      ...(siteReturns ? { siteDeck: [...p.siteDeck, ...siteReturns] } : {}),
     };
   }) as [PlayerState, PlayerState];
 

@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
-import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -3395,7 +3395,11 @@ export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefin
       || e.type === 'site-instance-transform'
       || e.type === 'eddy-lock'
       || e.type === 'site-lock'
-      || e.type === 'region-type-conversion',
+      || e.type === 'region-type-conversion'
+      // Long Grievous Siege (ba-40): the besieged Border-hold is off to the
+      // side and never any company's current site, so the host must not be
+      // swept as a site-attached orphan.
+      || e.type === 'faction-siege',
   );
 }
 
@@ -3425,23 +3429,32 @@ export function siteNeverUntapsForOwner(
 }
 
 /**
- * Sum of the `factionInfluenceModifier` of every in-play `site-lock` card (of
- * either player) bound to the given site *definition* and not still
- * `pendingTriggerAttack`. People Diminished (ba-72): "-5 to each attempt against
- * any faction at any version of this site." Applied to the faction-influence
- * need computed in the site-phase legal-action path.
+ * Sum of the `factionInfluenceModifier` of every in-play `site-lock` (People
+ * Diminished ba-72) or `faction-siege` (Long Grievous Siege ba-40) card of
+ * either player bound to the given site and not still `pendingTriggerAttack`.
+ * Both cards read "-5 … at any version of this site", and hero/minion twins of
+ * a site use distinct definition ids, so the binding is matched by the bound
+ * site's printed *name* (definition-id equality is a fast path of that).
+ * Applied to the faction-influence need in the site-phase legal-action path
+ * and to the roll in `resolveInfluenceAttemptRoll`.
  */
 export function siteFactionInfluenceModifier(
   state: GameState,
   siteDefId: CardDefinitionId | undefined,
 ): number {
   if (!siteDefId) return 0;
+  const siteName = defById(state, siteDefId)?.name;
   let total = 0;
   for (const p of state.players) {
     for (const c of p.cardsInPlay) {
-      if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
+      if (c.attachedToSite === undefined || c.pendingTriggerAttack) continue;
+      const boundMatches = c.attachedToSite === siteDefId
+        || (siteName !== undefined && defById(state, c.attachedToSite)?.name === siteName);
+      if (!boundMatches) continue;
       for (const e of getCardEffects(defById(state, c.definitionId))) {
         if (e.type === 'site-lock' && typeof e.factionInfluenceModifier === 'number') {
+          total += e.factionInfluenceModifier;
+        } else if (e.type === 'faction-siege') {
           total += e.factionInfluenceModifier;
         }
       }
@@ -3660,6 +3673,45 @@ export function discardOrphanedItemAttachedEvents(state: GameState): GameState {
 }
 
 /**
+ * Discard faction-attached permanent events whose target faction has left
+ * play. A `faction-siege` card (Long Grievous Siege ba-40) is kept in
+ * cards-in-play with `attachedTo` pointing at the target faction's in-play
+ * instance. When that faction is no longer in any player's `cardsInPlay`
+ * (returned to hand, discarded, re-influenced away, …) the event is orphaned
+ * and discarded; its set-aside site card is then routed back to its owner's
+ * location deck by the site-card branch of `sweepSetAside`. Mirrors
+ * {@link discardOrphanedSiteAttachedEvents}.
+ */
+export function discardOrphanedFactionAttachedEvents(state: GameState): GameState {
+  // Every faction instance currently in play (either player's cardsInPlay).
+  const factionIds = new Set<string>();
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      const def = defById(state, c.definitionId);
+      if (def && isFactionCard(def)) factionIds.add(c.instanceId as string);
+    }
+  }
+
+  const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+    state,
+    card => card.attachedTo !== undefined
+      && !factionIds.has(card.attachedTo as string)
+      && getCardEffects(defById(state, card.definitionId)).some(e => e.type === 'faction-siege'),
+    card => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`faction-attached event: discarding "${def?.name ?? card.definitionId}" — target faction ${card.attachedTo as string} left play`);
+    },
+  );
+
+  if (removedInstanceIds.length === 0) return state;
+  const removedSources = new Set(removedInstanceIds.map(id => id as string));
+  return {
+    ...next,
+    activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+  };
+}
+
+/**
  * Discard permanent events placed "with" a stored card
  * ({@link CardInPlay.attachedToStored} — Wizard's Trove wh-85
  * `storage-site-transfer` mode) once the stored card is no longer in the
@@ -3684,6 +3736,68 @@ export function discardOrphanedStoredAttachedEvents(state: GameState): GameState
     ...next,
     activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
   };
+}
+
+/**
+ * Number of in-play copies of the named card attached (via `attachedTo`) to
+ * the given faction instance, across both players. Backs `duplication-limit`
+ * scope `'faction'` ("Cannot be duplicated on your faction", Long Grievous
+ * Siege ba-40) — the analogue of `countItemAttachedCopies` for faction hosts.
+ */
+export function countFactionAttachedCopies(
+  state: GameState,
+  cardName: string,
+  factionInstanceId: CardInstanceId,
+): number {
+  let count = 0;
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.attachedTo !== factionInstanceId) continue;
+      if (defById(state, c.definitionId)?.name === cardName) count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * The site card instances in `player`'s location deck that a `faction-siege`
+ * event may besiege for the given target faction: sites of the effect's
+ * printed `siteType` whose region is the region of some site where the faction
+ * is playable, or a region adjacent thereto ("The Border-hold must be in the
+ * same region or adjacent thereto as a site where the target faction is
+ * playable", Long Grievous Siege ba-40). Faction playability is evaluated with
+ * {@link isCardPlayableAtSiteDef} against every site definition in the pool,
+ * so named-site, site-type, and region `playableAt` entries all contribute.
+ * CRF: "There must be an eligible borderhold for this card to be played" — an
+ * empty result makes the play illegal.
+ */
+export function factionSiegeEligibleSites(
+  state: GameState,
+  player: PlayerState,
+  factionDef: CardDefinition,
+  siege: FactionSiegeEffect,
+): CardInstance[] {
+  // Regions containing a site where the target faction is playable.
+  const regionSet = new Set<string>();
+  for (const def of Object.values(state.cardPool)) {
+    if (!isSiteCard(def) || !def.region) continue;
+    if (isCardPlayableAtSiteDef(factionDef, def)) regionSet.add(def.region);
+  }
+  // Expand with adjacent regions (region cards carry the adjacency graph).
+  const adjacent = new Set<string>();
+  for (const def of Object.values(state.cardPool)) {
+    const rc = def as { cardType?: string; name?: string; adjacentRegions?: readonly string[] };
+    if (rc.cardType !== 'region' || !rc.name || !regionSet.has(rc.name)) continue;
+    for (const adj of rc.adjacentRegions ?? []) adjacent.add(adj);
+  }
+  for (const r of adjacent) regionSet.add(r);
+
+  return player.siteDeck.filter(inst => {
+    const def = defById(state, inst.definitionId);
+    return !!def && isSiteCard(def)
+      && def.siteType === siege.siteType
+      && !!def.region && regionSet.has(def.region);
+  });
 }
 
 /**

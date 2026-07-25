@@ -19,7 +19,9 @@ import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceC
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '../state-utils.js';
-import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard } from '../types/cards.js';
+import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard, isFactionCard } from '../types/cards.js';
+import { placeCardSetAside } from './set-aside.js';
+import { ownerOf } from '../types/state.js';
 import { CardStatus, SiteType, Race, RegionType } from '../types/common.js';
 import { resolveInstanceId } from '../types/state.js';
 import { formatSignedNumber } from '../format-helpers.js';
@@ -34,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -1783,6 +1785,68 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }
       if (targetItemId) {
         logDetail(`"${def?.name ?? card.definitionId}" attached to item ${targetItemId as string}`);
+      }
+    }
+
+    // Faction-targeting permanent event (Long Grievous Siege ba-40): bind the
+    // host to the target faction instance, move the chosen location-deck site
+    // off to the side with the host, and return every in-play faction playable
+    // at that site to its owner's hand.
+    const targetFactionId = entry.payload.type === 'permanent-event' ? entry.payload.targetFactionInstanceId : undefined;
+    const besiegedSiteId = entry.payload.type === 'permanent-event' ? entry.payload.besiegedSiteInstanceId : undefined;
+    if (targetFactionId) {
+      working = updatePlayer(working, playerIndex, p => ({
+        ...p,
+        cardsInPlay: p.cardsInPlay.map(c => c.instanceId === card.instanceId
+          ? { ...c, attachedTo: targetFactionId }
+          : c),
+      }));
+      logDetail(`"${def?.name ?? card.definitionId}" attached to faction ${targetFactionId as string}`);
+    }
+    if (besiegedSiteId) {
+      const siteInst = working.players[playerIndex].siteDeck.find(s => s.instanceId === besiegedSiteId);
+      const siteDef = siteInst ? defById(working, siteInst.definitionId) : undefined;
+      if (siteInst && siteDef && isSiteCard(siteDef)) {
+        // Remove the site card from the controller's location deck and keep it
+        // off to the side with the host; bind the host to the site definition
+        // so its ongoing effects match every version of the site.
+        working = updatePlayer(working, playerIndex, p => ({
+          ...p,
+          siteDeck: p.siteDeck.filter(s => s.instanceId !== besiegedSiteId),
+          cardsInPlay: p.cardsInPlay.map(c => c.instanceId === card.instanceId
+            ? { ...c, attachedToSite: siteInst.definitionId }
+            : c),
+        }));
+        working = placeCardSetAside(working, card.instanceId, toCardInstance(siteInst));
+        logDetail(`"${def?.name ?? card.definitionId}" besieges ${siteDef.name} — site card set aside from the location deck`);
+
+        // "Return any faction playable at the Border-hold to its owner's hand."
+        // Both players' in-play factions are checked against the besieged site
+        // definition (isCardPlayableAtSiteDef covers named-site, site-type, and
+        // region playableAt entries).
+        for (let pi = 0; pi < 2; pi++) {
+          const bounced = working.players[pi].cardsInPlay.filter(c => {
+            if (c.setAsideHost !== undefined) return false;
+            const fDef = defById(working, c.definitionId);
+            return !!fDef && isFactionCard(fDef) && isCardPlayableAtSiteDef(fDef, siteDef);
+          });
+          if (bounced.length === 0) continue;
+          const bouncedIds = new Set(bounced.map(c => c.instanceId as string));
+          working = updatePlayer(working, pi, p => ({
+            ...p,
+            cardsInPlay: p.cardsInPlay.filter(c => !bouncedIds.has(c.instanceId as string)),
+          }));
+          for (const fc of bounced) {
+            const fOwnerIdx = getPlayerIndex(working, ownerOf(fc.instanceId));
+            working = updatePlayer(working, fOwnerIdx, p => ({
+              ...p,
+              hand: [...p.hand, toCardInstance(fc)],
+            }));
+            logDetail(`"${def?.name ?? card.definitionId}": faction ${defById(working, fc.definitionId)?.name ?? fc.definitionId as string} playable at ${siteDef.name} returned to owner's hand`);
+          }
+        }
+      } else {
+        logDetail(`"${def?.name ?? card.definitionId}": besieged site ${besiegedSiteId as string} not found in location deck — no site bound`);
       }
     }
 
