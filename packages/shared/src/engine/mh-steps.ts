@@ -40,6 +40,7 @@ import { companyMovementRestrictions } from './effects/company-restrictions.js';
 import { isDetainmentAttack } from './detainment.js';
 import { manifestIdOf } from './manifestations.js';
 import { advanceAfterCompanyMH } from './mh-hazard-play.js';
+import { handleGrantActionApply } from './grant-action-apply.js';
 
 /**
  * Snapshot the hazard limit and immediately process order-effects,
@@ -132,6 +133,14 @@ export function handleSelectCompany(
   action: GameAction,
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
+  // Granted-action activation (e.g. River: ranger taps to cancel the
+  // constraint on an arriving company). The constraint pass-through offers
+  // these in every step, so every step handler must route them (engine gap
+  // class: an offered action must never be rejected by the reducer).
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   if (action.type !== 'select-company') {
     return { state, error: `Expected 'select-company' action during select-company step, got '${action.type}'` };
   }
@@ -1196,6 +1205,14 @@ export function handleDrawCards(
 
   if (action.type === 'exchange-sideboard') {
     return handleExchangeSideboard(state, action);
+  }
+
+  // Granted-action activation (e.g. River on a company that arrived this
+  // M/H phase — the cancel window stays open through the draw-cards step).
+  // Offered by the constraint pass-through in every step; must be routed,
+  // never rejected.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
   }
 
   if (action.type !== 'draw-cards' || action.count !== 1) {

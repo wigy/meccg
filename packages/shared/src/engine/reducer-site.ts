@@ -268,6 +268,15 @@ function handleSiteSelectCompany(
     return endSitePhase(state);
   }
 
+  // Granted-action activation (e.g. River: ranger taps to cancel
+  // site-phase-do-nothing). The constraint pass-through offers these in
+  // every step, so every step handler must route them — mirror of the
+  // enter-or-skip handler above (engine gap class: an offered action must
+  // never be rejected by the reducer).
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
   if (action.type !== 'select-company') {
     return wrongActionType(state, action, 'select-company', 'select-company step');
   }
