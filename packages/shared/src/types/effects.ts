@@ -790,6 +790,23 @@ export interface PlayAsSauronEffect extends EffectBase {
 }
 
 /**
+ * Marker carried by a bare permanent-event in `cardsInPlay` lifting the
+ * one-character-play-per-turn limit for its controller ("there is no limit to
+ * the number of characters you may bring into play", Sauron ba-43). While such
+ * a card is in play, the `one-character-per-turn` gate in
+ * `organization-characters.ts` is skipped entirely — every character play that
+ * passes the remaining gates (influence, sites, uniqueness, …) stays viable no
+ * matter how many characters were already brought into play this turn.
+ *
+ * The marker carries no data — detection is by effect type via the
+ * {@link playerHasNoCharacterPlayLimit} helper (`reducer-utils.ts`), so any
+ * future card carrying it works unchanged.
+ */
+export interface NoCharacterPlayLimitEffect extends EffectBase {
+  readonly type: 'no-character-play-limit';
+}
+
+/**
  * Marker carried by a permanent-event attached to a character (stored in the
  * host character's `items`). While it is attached, the host character's own
  * printed marshalling points do not count toward the controller's MP tally
@@ -6384,6 +6401,7 @@ export type CardEffect =
   | GeneralInfluenceExemptEffect
   | AutoInfluenceFactionEffect
   | PlayAsSauronEffect
+  | NoCharacterPlayLimitEffect
   | OwnMpNotCountedEffect
   | FactionMpOverrideEffect
   | PermanentEventMpEffect

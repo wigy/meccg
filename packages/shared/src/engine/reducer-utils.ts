@@ -1684,6 +1684,29 @@ export function playerPlaysAsSauron(
 }
 
 /**
+ * True when the player's one-character-play-per-turn limit is lifted — i.e.
+ * they have a bare permanent-event in `cardsInPlay` carrying a
+ * `no-character-play-limit` marker (Sauron ba-43: "there is no limit to the
+ * number of characters you may bring into play").
+ *
+ * Consumed by the `one-character-per-turn` gate in
+ * `organization-characters.ts`, which is skipped entirely while this holds.
+ * Detected by effect type (not card id) so any future card carrying the marker
+ * works unchanged. Set-aside hosts are skipped (their effects are dormant).
+ */
+export function playerHasNoCharacterPlayLimit(
+  state: GameState,
+  player: { readonly cardsInPlay: readonly CardInPlay[] },
+): boolean {
+  for (const card of player.cardsInPlay) {
+    if (card.setAsideHost !== undefined) continue;
+    const def = defById(state, card.definitionId);
+    if (getCardEffects(def).some(e => e.type === 'no-character-play-limit')) return true;
+  }
+  return false;
+}
+
+/**
  * Keywords that mark a card as a *magic card* (a spell). Any of these on a
  * card's `keywords` list qualifies: the generic `spell` tag plus the three
  * casting classes. Backs Akhôrahil the Ringwraith's (le-51) magic-recycling
