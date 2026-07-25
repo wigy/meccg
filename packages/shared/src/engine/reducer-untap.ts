@@ -450,12 +450,24 @@ function advanceToOrganization(state: GameState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const player = state.players[activeIndex];
   const charSiteType = new Map<string, SiteType | null>();
+  const charAtHaven = new Map<string, boolean>();
   const charCompanySize = new Map<string, number>();
   for (const company of player.companies) {
     const siteDef = company.currentSite ? state.cardPool[company.currentSite.definitionId] : undefined;
     const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : null;
+    // `bearer.atHaven` follows the bearer's controller ({H} semantics):
+    // any haven-class site for hero/minion players (Haven/Darkhaven), but for
+    // a Fallen-wizard player his Wizardhavens — an FW-alignment haven site or
+    // a `wizardhaven-conversion` site (Longing for the West wh-25: "…if not
+    // at a Haven [{H}] (or Wizardhaven)").
+    const atHaven = isHavenForPlayer(siteDef, player.alignment, {
+      state,
+      siteDefinitionId: company.currentSite?.definitionId,
+      playerId: player.id,
+    });
     for (const charId of company.characters) {
       charSiteType.set(charId as string, siteType);
+      charAtHaven.set(charId as string, atHaven);
       charCompanySize.set(charId as string, company.characters.length);
     }
   }
@@ -468,7 +480,7 @@ function advanceToOrganization(state: GameState): ReducerResult {
 
   for (const [charId, char] of Object.entries(player.characters)) {
     const siteType = charSiteType.get(charId) ?? null;
-    const atHaven = siteType === SiteType.Haven;
+    const atHaven = charAtHaven.get(charId) ?? false;
     const companyCharCount = charCompanySize.get(charId) ?? 0;
     const bearerCtx = { bearer: { siteType, atHaven } };
     // Host character (the bearer of the attached cards) identity, for

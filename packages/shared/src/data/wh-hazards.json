@@ -116,7 +116,57 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/LongingfortheWest.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-07-26",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": {
+            "$in": ["wizard", "fallen-wizard"]
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "untap-phase-end",
+        "when": {
+          "bearer.atHaven": false
+        },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "bearer"
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": {
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
+          }
+        }
+      }
+    ],
     "text": "Corruption. Playable on a Wizard or a Fallen-wizard. He receives 2 corruption points and makes a corruption check at the end of his untap phase if not at a Haven [{H}] (or Wizardhaven). Cannot be duplicated on a given character. During his organization phase, target may tap to attempt to remove this card. Make a roll—if this result is greater than 6, discard this card."
   },
   {
