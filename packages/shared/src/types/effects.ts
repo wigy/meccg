@@ -83,14 +83,21 @@ export interface ConditionMatch {
 export interface ConditionOperator {
   /** Checks that the context value (which must be an array) includes this element. */
   readonly $includes?: string | number;
+  /**
+   * The four comparison operators accept either a number literal or a
+   * context-path string that is resolved against the same context at match
+   * time — both sides must then be numbers. This backs card text that
+   * compares two stats, e.g. Whip (le-348) "prowess less than the bearer's":
+   * `{ "target.prowess": { "$lt": "bearer.prowess" } }`.
+   */
   /** Greater than. */
-  readonly $gt?: number;
+  readonly $gt?: number | string;
   /** Greater than or equal. */
-  readonly $gte?: number;
+  readonly $gte?: number | string;
   /** Less than. */
-  readonly $lt?: number;
+  readonly $lt?: number | string;
   /** Less than or equal. */
-  readonly $lte?: number;
+  readonly $lte?: number | string;
   /** Not equal. */
   readonly $ne?: string | number | boolean | null;
   /** Checks that the context value is a member of the given array. */

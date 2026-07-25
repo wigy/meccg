@@ -1420,7 +1420,37 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "bearer.race": { "$in": ["orc", "troll"] },
+          "target.mind": { "$gt": 0 },
+          "target.prowess": { "$lt": "bearer.prowess" }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "opponent-influence-check",
+          "target.kind": "character",
+          "bearer.race": { "$in": ["orc", "troll"] },
+          "target.mind": { "$gt": 0 },
+          "target.prowess": { "$lt": "bearer.prowess" }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "certified": "2026-07-25",
     "text": "Orc or Troll only: provides +2 direct influence against one character with a mind and prowess less than the bearer’s. Cannot be duplicated on a given character.[πp]"
   },
   {
