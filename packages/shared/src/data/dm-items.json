@@ -27,15 +27,78 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Dragonhelm.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "helmet"
+    ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
     "prowessModifier": 1,
     "bodyModifier": 2,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Playable at any Under-deeps Dark-hold [{D}] or Shadow-hold [{S}]. Helmet. Warrior only: +1 prowess; +2 body (to a maximum of 10); +3 direct influence. Tap Dragon-helm to cancel one Dragon or Drake attack against the bearer's company."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "$and": [
+            {
+              "site.keywords": {
+                "$includes": "under-deeps"
+              }
+            },
+            {
+              "site.siteType": {
+                "$in": ["dark-hold", "shadow-hold"]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 2,
+        "max": 10,
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "enemy.race": {
+            "$in": ["dragon", "dragons", "drake", "drakes"]
+          }
+        }
+      }
+    ],
+    "text": "Unique. Playable at any Under-deeps Dark-hold [{D}] or Shadow-hold [{S}]. Helmet. Warrior only: +1 prowess; +2 body (to a maximum of 10); +3 direct influence. Tap Dragon-helm to cancel one Dragon or Drake attack against the bearer's company.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "hero-resource-item",
