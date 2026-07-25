@@ -323,4 +323,43 @@ describe('River (tw-84)', () => {
     expect(nextState.activeConstraints).toHaveLength(0);
     expect(nextState.phaseState.phase).toBe(Phase.MovementHazard);
   });
+
+  // ── Offer/validate symmetry in "rigid" steps ────────────────────────────
+  // Regression from heuristic self-play on challenge decks o/p (sim seeds
+  // 2060056 / 2060075): the constraint pass-through offers cancel-river in
+  // every step, but the site select-company and M/H draw-cards handlers
+  // rejected the very action that was offered, killing the game with an
+  // engine error. Every step handler must route activate-granted-action.
+
+  test('cancel-river is offered and accepted during the site select-company step', () => {
+    const base = buildTestState(SITE_SCENARIO);
+    const selectStep = { ...base, phaseState: makeSitePhase({ step: 'select-company' }) };
+    const { state } = installRiverOnActiveCompany(selectStep, RIVER);
+
+    const offers = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'cancel-river');
+    expect(offers).toHaveLength(1);
+
+    // The reducer accepts exactly the offered action: ranger taps, the
+    // River constraints clear, and the step is still select-company.
+    const nextState = dispatch(state, offers[0].action);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
+    expect(nextState.activeConstraints).toHaveLength(0);
+    expect(phaseStateAs<SitePhaseState>(nextState).step).toBe('select-company');
+  });
+
+  test('cancel-river is offered and accepted during the M/H draw-cards step', () => {
+    const base = buildTestState({ ...SITE_SCENARIO, phase: Phase.MovementHazard, recompute: true });
+    const drawStep = { ...base, phaseState: makeMHState({ step: 'draw-cards' }) };
+    const { state } = installRiverOnActiveCompany(drawStep, RIVER);
+
+    const offers = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'cancel-river');
+    expect(offers).toHaveLength(1);
+
+    const nextState = dispatch(state, offers[0].action);
+    expectCharStatus(nextState, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
+    expect(nextState.activeConstraints).toHaveLength(0);
+    expect(nextState.phaseState.phase).toBe(Phase.MovementHazard);
+  });
 });
