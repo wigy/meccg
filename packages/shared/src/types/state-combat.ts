@@ -136,6 +136,23 @@ export type AttackSource =
       readonly greatHuntInstanceId: CardInstanceId;
       readonly creatureInstanceId: CardInstanceId;
       readonly continuation: 'reveal' | 'none';
+    }
+  /**
+   * Triggered by Traitor (tw-105) via `on-event: corruption-check-failed` +
+   * `traitor-attack`: a character who failed a corruption check "becomes a
+   * traitor" and an attack (prowess = traitor's printed prowess + 10, same
+   * race as the traitor, 1 strike, body checks +1) is made against a
+   * character in the traitor's company, chosen by the opponent of that
+   * company's controller (attacker-chooses-defenders). The Traitor card was
+   * already discarded when the trigger fired, so `eventInstanceId` points
+   * into a discard pile; no card is disposed or awarded at finalization.
+   */
+  | {
+      readonly type: 'traitor-attack';
+      /** The (already discarded) Traitor card instance that fired. */
+      readonly eventInstanceId: CardInstanceId;
+      /** Definition of the character who became the traitor (name/race for display). */
+      readonly traitorDefinitionId: CardDefinitionId;
     };
 
 /**

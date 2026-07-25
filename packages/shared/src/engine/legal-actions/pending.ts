@@ -1226,6 +1226,11 @@ function applyOneConstraint(
       // chain successive Tidings of Bold Spies attacks — no broad legal-action
       // filtering needed here.
       return base;
+    case 'traitor-attack-queued':
+      // Traitor (tw-105): consumed by `initiateQueuedTraitorAttack`
+      // (combat-finalize.ts) when the combat that was active during the failed
+      // corruption check ends — no broad legal-action filtering needed here.
+      return base;
     case 'great-hunt-reveal':
     case 'great-hunt-active':
       // The Great Hunt (wh-91) state holders: the reveal queue is consumed by
