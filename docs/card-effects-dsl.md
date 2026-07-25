@@ -7045,6 +7045,35 @@ Used by *The Grimburgoth* (dm-15).
 { "type": "agent-tap-attack", "prowessBonus": 2 }
 ```
 
+### 40.1. `agent-attack-modifier`
+
+Modifies how the agent's own **standard site-phase attack** (rule 2.V.iii, the
+`declare-agent-attack` step) is declared and resolved. Unlike
+`agent-tap-attack` (a special M/H-phase attack granted by card text), this
+effect alters the normal agent-hazard attack every agent already has.
+
+| Field             | Required | Description                                                    |
+|-------------------|----------|----------------------------------------------------------------|
+| `attackerAssigns` | no       | If true, the attacking player assigns strikes regardless of the agent's face-down/at-home state (overrides rule 3.ii.4, which otherwise grants attacker assignment only to a face-down agent at its home site). |
+| `strikeEffect`    | no       | `"discard-item"`: a successful strike does not wound the defending character; instead the company must discard one item (defender's choice) via the `discard-item-from-company` combat phase. Detainment attacks (vs Ringwraith/Balrog defenders) tap as usual and never trigger the discard, matching the `tap-agent-at-site` precedent (dm-43). |
+
+Implementation:
+
+- Reducer: `handleDeclareAgentAttack()` in `reducer-site.ts` reads the effect
+  from the agent's card definition when the attack is declared, ORs
+  `attackerAssigns` into the rule-3.ii.4 computation (also setting
+  `forceSingleTarget`), and threads `strikeEffect` onto the `CombatState`.
+- Strike resolution: the generic `CombatState.strikeEffect === 'discard-item'`
+  path in `combat-strike.ts` (shared with `tap-agent-at-site`, dm-43).
+
+Used by *Taladhan* (dm-25): "Agent only: chooses defending characters; for
+each successful strike, the company must discard one item (of defender's
+choice), but the defending character is not harmed."
+
+```json
+{ "type": "agent-attack-modifier", "attackerAssigns": true, "strikeEffect": "discard-item" }
+```
+
 ### 40a. `agent-move-restriction`
 
 Restricts the site types this agent may move to while acting as a hazard

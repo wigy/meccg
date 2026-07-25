@@ -3162,6 +3162,34 @@ export interface AgentTapAttackEffect extends EffectBase {
 }
 
 /**
+ * Modifies how the agent's own standard site-phase attack (rule 2.V.iii,
+ * the `declare-agent-attack` step) is declared and resolved. Unlike
+ * `agent-tap-attack` (a special M/H-phase attack granted by card text), this
+ * effect alters the normal agent-hazard attack every agent already has.
+ *
+ * Used by Taladhan (dm-25): "Agent only: chooses defending characters; for
+ * each successful strike, the company must discard one item (of defender's
+ * choice), but the defending character is not harmed."
+ */
+export interface AgentAttackModifierEffect extends EffectBase {
+  readonly type: 'agent-attack-modifier';
+  /**
+   * The attacking player assigns strikes regardless of the agent's
+   * face-down/at-home state (overrides rule 3.ii.4, which otherwise grants
+   * attacker assignment only to a face-down agent at its home site).
+   */
+  readonly attackerAssigns?: boolean;
+  /**
+   * Special strike resolution effect.
+   * `"discard-item"`: a successful strike does not wound; instead the
+   * defending company must discard one item (defender's choice). Detainment
+   * attacks (vs Ringwraith/Balrog defenders) tap as usual and never trigger
+   * the discard, matching the `tap-agent-at-site` precedent (dm-43).
+   */
+  readonly strikeEffect?: 'discard-item';
+}
+
+/**
  * An agent at the target company's new site may be discarded (by its
  * controller's choice, not as an agent action, not against the hazard limit)
  * to force the moving company to return to its site of origin. The return
@@ -6278,6 +6306,7 @@ export type CardEffect =
   | RollRemoveHazardEventsEffect
   | AgentTapInfluenceEffect
   | AgentTapAttackEffect
+  | AgentAttackModifierEffect
   | AgentDiscardReturnToOriginEffect
   | AgentMoveRestrictionEffect
   | AhuntAttackEffect

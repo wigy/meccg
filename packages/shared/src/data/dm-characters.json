@@ -803,8 +803,15 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
-    "text": "Unique. Agent. Can use shadow-magic. Agent only: chooses defending characters; for each successful strike, the company must discard one item (of defender’s choice), but the defending character is not harmed."
+    "effects": [
+      {
+        "type": "agent-attack-modifier",
+        "attackerAssigns": true,
+        "strikeEffect": "discard-item"
+      }
+    ],
+    "text": "Unique. Agent. Can use shadow-magic. Agent only: chooses defending characters; for each successful strike, the company must discard one item (of defender’s choice), but the defending character is not harmed.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "minion-character",
