@@ -34,7 +34,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -1122,6 +1122,7 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
   const ctx: Record<string, unknown> = { inPlay: inPlayNames };
 
   const fetchEffects: PendingEffect[] = [];
+  let anyFetchCanceled = false;
   for (const effect of getCardEffects(def)) {
     if (effect.type !== 'move') continue;
     const payload = moveToFetchToDeckPayload(effect);
@@ -1130,15 +1131,40 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
       logDetail(`${def.name}: fetch-to-deck skipped — condition not met`);
       continue;
     }
+    // cancel-deck-search (Lady of the Golden Wood as-13): a minion player's
+    // own play-deck / discard-pile searches are automatically canceled.
+    const gated = gateDeckSearchFetch(state, entry.declaredBy, payload);
+    if (!gated) {
+      anyFetchCanceled = true;
+      continue;
+    }
     fetchEffects.push({
       type: 'card-effect',
       cardInstanceId: card.instanceId,
-      effect: payload,
+      effect: gated,
       actor: entry.declaredBy,
     });
   }
 
-  if (fetchEffects.length === 0) return state;
+  if (fetchEffects.length === 0) {
+    // When every fetch was canceled, a resource short-event riding the chain
+    // entry has left the hand but is not yet in any pile — dispose it to the
+    // declaring player's discard now (hazard short events are pre-discarded).
+    if (anyFetchCanceled) {
+      const declaringIdx = getPlayerIndex(state, entry.declaredBy);
+      const declaring = state.players[declaringIdx];
+      const placed = declaring.discardPile.some(c => c.instanceId === card.instanceId)
+        || declaring.cardsInPlay.some(c => c.instanceId === card.instanceId);
+      if (!placed) {
+        logDetail(`${def.name}: all fetches canceled — discarding the event`);
+        return updatePlayer(state, declaringIdx, p => ({
+          ...p,
+          discardPile: [...p.discardPile, toCardInstance(card)],
+        }));
+      }
+    }
+    return state;
+  }
 
   // Hazard short events are discarded at play time and never enter cardsInPlay,
   // so the card is already in the declaring player's discard pile here. Resource
@@ -3222,32 +3248,37 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       (e): e is import('../types/effects.js').FetchAgentToHandEffect => e.type === 'fetch-agent-to-hand',
     );
     if (fetchEff) {
-      logDetail(`fetch-agent-to-hand: enqueuing agent tutor for ${entry.declaredBy as string} (home-site types ${fetchEff.homeSiteTypes.join(', ')})`);
-      current = {
-        ...current,
-        pendingEffects: [
-          ...current.pendingEffects,
-          {
-            type: 'card-effect' as const,
-            cardInstanceId: entry.card.instanceId,
-            // The tutoring player is the hazard player (non-active), so the
-            // pending-effect actor must be set explicitly (it defaults to the
-            // active/resource player otherwise).
-            actor: entry.declaredBy,
-            effect: {
-              type: 'fetch-to-deck' as const,
-              source: ['deck'],
-              filter: { keywords: { $includes: 'agent' } },
-              count: 1,
-              shuffle: true,
-              to: 'hand' as const,
-              homeSiteTypes: fetchEff.homeSiteTypes,
-              revealToOpponent: true,
+      // cancel-deck-search (as-13): a minion hazard player's play-deck tutor
+      // is automatically canceled (the card stays discarded, nothing fetched).
+      const agentFetch = gateDeckSearchFetch(current, entry.declaredBy, {
+        type: 'fetch-to-deck' as const,
+        source: ['deck'],
+        filter: { keywords: { $includes: 'agent' } },
+        count: 1,
+        shuffle: true,
+        to: 'hand' as const,
+        homeSiteTypes: fetchEff.homeSiteTypes,
+        revealToOpponent: true,
+      });
+      if (agentFetch) {
+        logDetail(`fetch-agent-to-hand: enqueuing agent tutor for ${entry.declaredBy as string} (home-site types ${fetchEff.homeSiteTypes.join(', ')})`);
+        current = {
+          ...current,
+          pendingEffects: [
+            ...current.pendingEffects,
+            {
+              type: 'card-effect' as const,
+              cardInstanceId: entry.card.instanceId,
+              // The tutoring player is the hazard player (non-active), so the
+              // pending-effect actor must be set explicitly (it defaults to the
+              // active/resource player otherwise).
+              actor: entry.declaredBy,
+              effect: agentFetch,
+              skipDiscard: true,
             },
-            skipDiscard: true,
-          },
-        ],
-      };
+          ],
+        };
+      }
     }
   }
 

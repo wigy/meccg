@@ -19,7 +19,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
-import { clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, matchesDefinition } from './reducer-utils.js';
+import { gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, matchesDefinition } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -330,7 +330,21 @@ function handleActivateOrgFetch(state: GameState, action: GameAction): ReducerRe
     return { state, error: 'This fetch has already been used this turn' };
   }
 
-  logDetail(`Organization: ${player.name} activates ${def?.name ?? '?'} org-phase fetch (take one matching card from [${fetchEffect.from.join(', ')}] to hand)`);
+  // cancel-deck-search (as-13): a minion player's own play-deck / discard-pile
+  // retrieval is automatically canceled.
+  const orgFetch = gateDeckSearchFetch(state, action.player, {
+    type: 'fetch-to-deck' as const,
+    source: [...fetchEffect.from],
+    filter: fetchEffect.filter,
+    count: 1,
+    shuffle: false,
+    to: 'hand' as const,
+  });
+  if (!orgFetch) {
+    return { state, error: `${def?.name ?? 'This'} fetch is canceled while the play-deck/discard search cancel is in play` };
+  }
+
+  logDetail(`Organization: ${player.name} activates ${def?.name ?? '?'} org-phase fetch (take one matching card from [${orgFetch.source.join(', ')}] to hand)`);
   const next: GameState = {
     ...state,
     phaseState: { ...orgState, discardFetchUsedThisTurn: [...used, action.cardInstanceId] },
@@ -339,14 +353,7 @@ function handleActivateOrgFetch(state: GameState, action: GameAction): ReducerRe
       {
         type: 'card-effect' as const,
         cardInstanceId: action.cardInstanceId,
-        effect: {
-          type: 'fetch-to-deck' as const,
-          source: [...fetchEffect.from],
-          filter: fetchEffect.filter,
-          count: 1,
-          shuffle: false,
-          to: 'hand' as const,
-        },
+        effect: orgFetch,
         skipDiscard: true,
       },
     ],

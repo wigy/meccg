@@ -34,7 +34,7 @@ import { hasPlayFlag } from '../effects/play-flags.js';
 import { ownerOf } from '../types/state.js';
 import { isBalrogAvatarDef } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
-import { cardName, defById, toCardInstance } from './reducer-utils.js';
+import { cardName, defById, getCardEffects, matchesDefinition, toCardInstance } from './reducer-utils.js';
 import { resolveSiteInstanceTransform } from './effective.js';
 
 /**
@@ -130,6 +130,47 @@ export function manifestationInCardsInPlay(
     for (const card of player.cardsInPlay) {
       const cardDef = defById(state, card.definitionId);
       if (cardDef && sameManifestationEntity(cardDef, def)) return nameOf(cardDef);
+    }
+  }
+  return null;
+}
+
+/**
+ * Full g.man.1 gate for playing a character: a manifestation of the same
+ * entity in play blocks the play — whether it is a character-side form
+ * ({@link manifestationOfEntityInPlay}) or a hazard/event-side form sitting in
+ * either player's `cardsInPlay` (e.g. Lady of the Golden Wood as-13 as a
+ * permanent-event blocks playing the character Galadriel tw-153).
+ *
+ * The rule's "unless the current manifestation would leave play … when the new
+ * manifestation is played" clause is honoured for `cardsInPlay` sisters: a
+ * sister is NOT blocking when the character being played carries an
+ * `on-event: self-enters-play` discard `move` whose filter matches that sister
+ * (The Balrog ba-3 discards Balrog of Moria tw-12 on entering play, so tw-12
+ * in play does not bar playing ba-3). Returns the blocking card's name, or
+ * `null` when nothing blocks.
+ */
+export function blockingManifestationForCharacterPlay(
+  state: GameState,
+  def: CardDefinition,
+): string | null {
+  const inCharacters = manifestationOfEntityInPlay(state, def);
+  if (inCharacters) return inCharacters;
+  const nameOf = (d: CardDefinition): string => (d as { name?: string }).name ?? (d.id as string);
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const sisterDef = defById(state, card.definitionId);
+      if (!sisterDef || !sameManifestationEntity(sisterDef, def)) continue;
+      // "Would leave play when the new manifestation is played": the new
+      // character discards the sister via a self-enters-play move apply.
+      const sisterLeavesOnPlay = getCardEffects(def).some(e =>
+        e.type === 'on-event'
+        && e.event === 'self-enters-play'
+        && e.apply.type === 'move'
+        && e.apply.to === 'discard'
+        && e.apply.filter !== undefined
+        && matchesDefinition(sisterDef, e.apply.filter));
+      if (!sisterLeavesOnPlay) return nameOf(sisterDef);
     }
   }
   return null;
