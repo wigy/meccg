@@ -118,6 +118,26 @@ describe('GCCG deck import section split', () => {
     ]);
   });
 
+  test('a minion character in a hero deck is an agent and imports as a hazard', () => {
+    const text = [
+      '####',
+      'Deck',
+      '####',
+      '# Hero Character (2)',
+      '1 Gandalf',
+      '2 Pallando',
+      '# Hazard (1)',
+      '1 Cave-drake',
+      '# Minion Character (1)',
+      '1 Baduila',
+    ].join('\n');
+
+    const parsed = parseGccgDeck(text, 'fallback');
+    expect(parsed.alignment).toBe('hero');
+    expect(names(parsed.deck.characters)).toEqual(['Gandalf', 'Pallando']);
+    expect(names(parsed.deck.hazards)).toEqual(['Cave-drake', 'Baduila']);
+  });
+
   test('without a category the resolved card type decides the section', () => {
     const text = [
       '####',

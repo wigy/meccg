@@ -305,6 +305,19 @@ export function parseGccgDeck(text: string, fallbackName: string): ParsedGccgDec
   }
 
   parsed.alignment = inferAlignment(parsed);
+
+  // Agents: GCCG exports agent cards under a "Minion Character" category,
+  // but a hero deck can never field a minion character — there it is an
+  // agent played as a hazard. Re-file once the deck alignment is known.
+  if (parsed.alignment === 'hero') {
+    const isAgent = (e: DeckListEntry) =>
+      e.card !== null && traits(cardPool[e.card]).cardType === 'minion-character';
+    const agents = parsed.deck.characters.filter(isAgent);
+    if (agents.length > 0) {
+      parsed.deck.characters = parsed.deck.characters.filter(e => !isAgent(e));
+      parsed.deck.hazards.push(...agents);
+    }
+  }
   return parsed;
 }
 
