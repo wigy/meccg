@@ -1204,9 +1204,12 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const charDef = resolveDef(state, charId);
   logDetail(`Store item: ${itemDef?.name ?? '?'} from ${charDef?.name ?? '?'}`);
 
+  // Record where the card is stored: "stored there" references (Wizard's
+  // Trove wh-85 `play-with-stored-card`) match against this site binding.
   const storedCard: CardInstance = {
     instanceId: item.instanceId,
     definitionId: item.definitionId,
+    ...(storeCompany?.currentSite ? { storedAtSite: storeCompany.currentSite.definitionId } : {}),
   };
 
   logDetail(`Enqueuing corruption check for ${charDef?.name ?? '?'} after item storage`);

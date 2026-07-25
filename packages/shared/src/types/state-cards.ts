@@ -27,6 +27,16 @@ export interface CardInstance {
   readonly instanceId: CardInstanceId;
   /** Reference to the static card definition in `GameState.cardPool`. */
   readonly definitionId: CardDefinitionId;
+  /**
+   * For a card stored in the marshalling-point pile (`killPile`): the site
+   * definition it was stored at. Stamped by the store flows (`store-item`,
+   * `storage-site-transfer`) at storage time; meaningless (absent) in every
+   * other zone, and naturally dropped when the card changes zones via
+   * `toCardInstance`. Consumed by "stored there" references such as Wizard's
+   * Trove (wh-85): "You may play The White Tree at one of your Wizardhavens
+   * [{H}] if Sapling of the White Tree is stored there."
+   */
+  readonly storedAtSite?: CardDefinitionId;
 }
 
 // ---- Characters in play ----
@@ -229,6 +239,23 @@ export interface CardInPlay {
    * pins each such faction to 1 MP.
    */
   readonly mpPinned?: number;
+  /**
+   * For a permanent event placed "with" a card stored in its controller's
+   * marshalling-point pile (Wizard's Trove wh-85 `storage-site-transfer`
+   * mode): the stored card's instance ID. While this link is live and the
+   * event's effect declares `fullMarshallingPoints`, the stored card scores
+   * its full storage MP — exempt from the MEWH §4 Fallen-wizard clamp and
+   * cross-alignment halving.
+   */
+  readonly attachedToStored?: CardInstanceId;
+  /**
+   * Set on a card brought into play with its printed text ignored (Wizard's
+   * Trove wh-85: "Ignore the text of The White Tree (including the Unique
+   * keyword)."). The card's effects were never applied on entry, and its name
+   * is excluded from the in-play names list so uniqueness does not bind —
+   * neither blocking other copies nor being blocked by them.
+   */
+  readonly textIgnored?: boolean;
   /**
    * Set on a `trigger-attack-on-play` permanent event (e.g. Descent through
    * Fire ba-56) while its self-inflicted attacks are still resolving. Such a

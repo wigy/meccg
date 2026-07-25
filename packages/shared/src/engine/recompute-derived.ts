@@ -389,6 +389,11 @@ function resolveFactionMpOverride(
 function playerCardsInPlayDefs(state: GameState, player: PlayerState): CardDefinition[] {
   const defs: CardDefinition[] = [];
   for (const card of player.cardsInPlay) {
+    // A card in play with its text ignored (Wizard's Trove wh-85: "Ignore the
+    // text of The White Tree (including the Unique keyword).") contributes
+    // neither its effects nor its name — so uniqueness does not bind and no
+    // printed ability applies.
+    if (card.textIgnored) continue;
     const def = resolveDef(state, card.instanceId);
     if (def) defs.push(def);
   }
@@ -1719,6 +1724,18 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       | { type: 'storable-at'; marshallingPoints?: number }
       | undefined;
     if (storableEffect) {
+      // Wizard's Trove (wh-85) "Alternatively" mode: a `storage-site-transfer`
+      // event in play placed "with the stored card" (`attachedToStored`) and
+      // declaring `fullMarshallingPoints` makes the stored card "worth full
+      // marshalling points" — exempt from the MEWH §4 flat-1 clamp and the
+      // MELE cross-alignment halving below.
+      const storedFullMp = player.cardsInPlay.some(c => {
+        if (c.attachedToStored !== card.instanceId) return false;
+        const troveDef = resolveDef(state, c.instanceId);
+        return getCardEffects(troveDef).some(
+          e => e.type === 'storage-site-transfer' && e.fullMarshallingPoints === true,
+        );
+      });
       if (storableEffect.marshallingPoints !== undefined) {
         // Stored items with an explicit storable-at MP override still apply the
         // cross-alignment half-MP rule (MELE Part IV): the override MP counts
@@ -1726,7 +1743,9 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         // the player's alignment does not match the item's alignment. For a
         // Fallen-wizard the item is instead worth a flat 1 MP (MEWH §4).
         let finalMp: number;
-        if (player.alignment === 'fallen-wizard') {
+        if (storedFullMp) {
+          finalMp = storableEffect.marshallingPoints;
+        } else if (player.alignment === 'fallen-wizard') {
           finalMp = storableEffect.marshallingPoints > 0 ? 1 : storableEffect.marshallingPoints;
         } else {
           const factor = crossAlignmentItemMpFactor(player.alignment, def.cardType);

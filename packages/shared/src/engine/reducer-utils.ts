@@ -3594,6 +3594,33 @@ export function discardOrphanedItemAttachedEvents(state: GameState): GameState {
 }
 
 /**
+ * Discard permanent events placed "with" a stored card
+ * ({@link CardInPlay.attachedToStored} — Wizard's Trove wh-85
+ * `storage-site-transfer` mode) once the stored card is no longer in the
+ * controller's marshalling-point pile (e.g. displaced back to hand by Neither
+ * so Ancient Nor so Potent dm-73). Runs as part of the post-reduce sweep,
+ * mirroring {@link discardOrphanedItemAttachedEvents}.
+ */
+export function discardOrphanedStoredAttachedEvents(state: GameState): GameState {
+  const { state: next, removedInstanceIds } = discardCardsInPlayWhere(
+    state,
+    (card, player) => card.attachedToStored !== undefined
+      && !player.killPile.some(c => c.instanceId === card.attachedToStored),
+    card => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`stored-attached event: discarding "${def?.name ?? card.definitionId}" — stored card ${card.attachedToStored as string} left the marshalling-point pile`);
+    },
+  );
+
+  if (removedInstanceIds.length === 0) return state;
+  const removedSources = new Set(removedInstanceIds.map(id => id as string));
+  return {
+    ...next,
+    activeConstraints: next.activeConstraints.filter(c => !removedSources.has(c.source as string)),
+  };
+}
+
+/**
  * Saruman's Machinery (wh-120): returns true when an active
  * `technology-item-unlocked` constraint binds `siteDefId` and is owned by
  * `playerId`. While such a constraint is active, the owning player may play one
