@@ -16,8 +16,109 @@
     "prowessModifier": 2,
     "bodyModifier": 1,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Playable at any Under-deeps Dark-hold [{D}] or Shadow-hold [{S}]. Weapon. Warrior only: +2 prowess (+5 if Doors of Night is in play) (to a maximum of 11); +1 body (to a maximum of 10); -2 to target's body; +3 direct influence against Elves and Elf factions."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "filter": {
+          "$and": [
+            {
+              "site.keywords": {
+                "$includes": "under-deeps"
+              }
+            },
+            {
+              "site.siteType": {
+                "$in": [
+                  "dark-hold",
+                  "shadow-hold"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "max": 11,
+        "id": "aiglos-prowess",
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 5,
+        "max": 11,
+        "overrides": "aiglos-prowess",
+        "when": {
+          "$and": [
+            {
+              "bearer.skills": {
+                "$includes": "warrior"
+              }
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1,
+        "max": 10,
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
+      },
+      {
+        "type": "enemy-modifier",
+        "stat": "body",
+        "op": "subtract",
+        "value": 2,
+        "when": {
+          "bearer.skills": {
+            "$includes": "warrior"
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "$and": [
+            {
+              "bearer.skills": {
+                "$includes": "warrior"
+              }
+            },
+            {
+              "$or": [
+                {
+                  "reason": "influence-check",
+                  "target.race": "elf"
+                },
+                {
+                  "reason": "faction-influence-check",
+                  "faction.race": "elf"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. Playable at any Under-deeps Dark-hold [{D}] or Shadow-hold [{S}]. Weapon. Warrior only: +2 prowess (+5 if Doors of Night is in play) (to a maximum of 11); +1 body (to a maximum of 10); -2 to target's body; +3 direct influence against Elves and Elf factions.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "hero-resource-item",
