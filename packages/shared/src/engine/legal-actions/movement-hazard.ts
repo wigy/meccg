@@ -2017,6 +2017,27 @@ function playHazardsActions(
         continue;
       }
 
+      // --- Unique / manifestation gating for creatures ---
+      // A unique creature (typically a dual-mode one currently sitting in
+      // cardsInPlay as a permanent-event) may not be played again while a copy
+      // is in play; and per rule g.man.1 no card may be played while another
+      // manifestation of the same entity is in play (e.g. Lady of the Golden
+      // Wood as-13 is barred — in both modes — while the character Galadriel
+      // tw-153 is in play, and vice versa).
+      if (isCreature) {
+        if (def.unique && state.players.some(p => p.cardsInPlay.some(c => c.definitionId === def.id))) {
+          logDetail(`Creature "${def.name}" is unique and already in play`);
+          actions.push({ action, viable: false, reason: `${def.name} is unique and already in play` });
+          continue;
+        }
+        const blockingManifestation = manifestationOfEntityInPlay(state, def);
+        if (blockingManifestation) {
+          logDetail(`Creature "${def.name}": blocked — manifestation "${blockingManifestation}" already in play`);
+          actions.push({ action, viable: false, reason: `A manifestation of this entity (${blockingManifestation}) is already in play` });
+          continue;
+        }
+      }
+
       // --- Dual-mode creature also playable as an event (creature-alt-event) ---
       // e.g. Mouth of Sauron (tw-65): "may be played as a hazard creature or as
       // a short-event". Offer the alternative event mode as its own action,
@@ -3476,6 +3497,9 @@ function tapAltPermanentEventActions(
     if (!def) continue;
     const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
     if (altEvent?.mode !== 'permanent-event') continue;
+    // Persistent permanent-events (Lady of the Golden Wood as-13) have no
+    // tap-to-short-event conversion — they simply stay in play.
+    if (altEvent.persistent) continue;
 
     const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
     if (limitReached && !bypassesLimit) {

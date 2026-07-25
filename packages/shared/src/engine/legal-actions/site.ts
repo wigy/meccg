@@ -19,7 +19,7 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1820,19 +1820,22 @@ function playResourcesActions(
         continue;
       }
 
-      // play-condition: card-in-play — the faction is only playable while a
-      // named card is in YOUR play area. Half-orcs (wh-87) / Greater Half-orcs
-      // (wh-86) require "A Strident Spawn" (and Half-orcs) in play. Checked
-      // against the controller's own in-play names so an opponent's copy of the
-      // named card does not satisfy the gate.
-      const factionCardInPlay = findPlayConditionEffect(factionDef, 'card-in-play');
-      if (factionCardInPlay?.cardName) {
+      // play-condition: card-in-play — the faction is only playable while
+      // named cards are in YOUR play area. Half-orcs (wh-87) requires
+      // "A Strident Spawn"; Greater Half-orcs (wh-86) requires both
+      // "A Strident Spawn" AND "Half-orcs" (two conditions — every one must
+      // hold). Checked against the controller's own in-play names so an
+      // opponent's copy of a named card does not satisfy the gate.
+      const factionCardInPlayConds = findPlayConditionEffects(factionDef, 'card-in-play');
+      const missingRequiredCard = factionCardInPlayConds.find(cond => {
+        if (!cond.cardName) return false;
         const controllerInPlay = buildControllerInPlayNames(state, playerId);
-        if (!controllerInPlay.includes(factionCardInPlay.cardName)) {
-          logDetail(`Faction ${factionDef.name}: requires "${factionCardInPlay.cardName}" in your play area — not playable`);
-          actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: requires ${factionCardInPlay.cardName} in play`));
-          continue;
-        }
+        return !controllerInPlay.includes(cond.cardName);
+      });
+      if (missingRequiredCard?.cardName) {
+        logDetail(`Faction ${factionDef.name}: requires "${missingRequiredCard.cardName}" in your play area — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: requires ${missingRequiredCard.cardName} in play`));
+        continue;
       }
 
       // play-condition: site-protected — the faction is only playable at a

@@ -10088,6 +10088,53 @@ whenever the resolving short-event carries both a `tap-character` effect and a
 Doors of Night is in play, treat one Free-domain as a Border-land or one Free-hold
 as a Border-hold until the end of the turn."
 
+### 56d. Persistent permanent-event mode + `cancel-deck-search`
+
+The permanent-event mode (§56c) additionally supports `persistent: true` for
+dual cards whose permanent-event form has **no tap-to-short-event conversion**
+— it simply stays in play carrying passive effects (Lady of the Golden Wood
+as-13):
+
+```json
+{ "type": "creature-alt-event", "mode": "permanent-event", "persistent": true }
+```
+
+`tapAltPermanentEventActions` never offers tapping a persistent one, and
+`handleTapAltPermanentEvent` rejects a forged tap. The card leaves play only
+via its own rules — as-13 pairs it with an `on-event: play-deck-exhausted`
+self-discard `move` ("Discard when any play deck is exhausted", the same
+mechanism as Safe from the Shadow / Tokens to Show, fired by
+`completeDeckExhaust`).
+
+**`cancel-deck-search`** is the passive as-13 carries in this mode:
+
+```json
+{ "type": "cancel-deck-search" }
+```
+
+While the card is in either player's `cardsInPlay`, all effects that would let
+a **minion player** (Ringwraith or Balrog alignment — MEBA: the Balrog player
+is a minion player) search through or look at any portion of **his own** play
+deck or discard pile outside of the normal sequence of play are automatically
+canceled. Enforcement is centralised in `gateDeckSearchFetch`
+(`reducer-utils.ts`), called at every point that enqueues a `fetch-to-deck`
+pending effect: the `deck` / `discard-pile` sources are stripped from the
+fetch for such a player (a sideboard source survives — e.g. Weigh All Things
+to a Nicety le-253 keeps its sideboard arm); when no source remains the fetch
+fizzles entirely (e.g. Akhôrahil Unleashed le-162, Inner Cunning dm-68's agent
+tutor, grant-action and org-phase fetches). Hero and fallen-wizard players are
+unaffected, as are the normal sequence of play (end-of-turn draws, the
+deck-exhaustion reshuffle and its sideboard exchange).
+
+The card's "Manifestation of Galadriel" line is the `manifestId` chain tag
+(§ manifestations): `manifestId: "tw-153"` on as-13 blocks playing the Lady —
+in both modes, via `manifestationOfEntityInPlay` in the creature play path —
+while Galadriel is in play, and blocks playing the character Galadriel while
+the Lady sits in `cardsInPlay` (`blockingManifestationForCharacterPlay`,
+which honours g.man.1's "would leave play" clause for chains like The Balrog
+ba-3 / Balrog of Moria tw-12). A unique creature already in `cardsInPlay` as a
+permanent-event likewise blocks a second copy's play in either mode.
+
 ### 57. `agent-tap-return-character`
 
 Hazard short-event played on one of the hazard player's **untapped agents**. The

@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { roll2d6, diceRollEffect, clonePlayers, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere } from './reducer-utils.js';
+import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere } from './reducer-utils.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -586,8 +586,22 @@ function runGrantApply(
         return { error: `enqueue-pending-fetch: ${ctx.charName} has no current site for the playable-at-site restriction` };
       }
     }
-    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing fetch-to-${fetchTo} from [${fromSources.join(', ')}] (count=${count}, shuffle=${shuffle}, postCorruptionCheck=${!!apply.postCorruptionCheck}, ccModifier=${ccModifier}${playableAtSite !== undefined ? `, playable at ${playableAtSite as string}` : ''})`);
     const sitePart = playableAtSite !== undefined ? { playableAtSite } : {};
+    // cancel-deck-search (as-13): a minion player's own play-deck /
+    // discard-pile retrieval is automatically canceled.
+    const grantFetch = gateDeckSearchFetch(state, state.players[ctx.playerIndex].id, {
+      type: 'fetch-to-deck' as const,
+      source: fromSources,
+      filter,
+      count,
+      shuffle,
+      to: fetchTo,
+      ...sitePart,
+    });
+    if (!grantFetch) {
+      return { error: 'This fetch is canceled while the play-deck/discard search cancel is in play' };
+    }
+    logDetail(`Grant-action ${ctx.action.actionId}: enqueueing fetch-to-${fetchTo} from [${grantFetch.source.join(', ')}] (count=${count}, shuffle=${shuffle}, postCorruptionCheck=${!!apply.postCorruptionCheck}, ccModifier=${ccModifier}${playableAtSite !== undefined ? `, playable at ${playableAtSite as string}` : ''})`);
     return {
       updatedChar: char,
       effects: [],
@@ -599,15 +613,7 @@ function runGrantApply(
             {
               type: 'card-effect' as const,
               cardInstanceId: sourceId,
-              effect: {
-                type: 'fetch-to-deck' as const,
-                source: fromSources,
-                filter,
-                count,
-                shuffle,
-                to: fetchTo,
-                ...sitePart,
-              },
+              effect: grantFetch,
               skipDiscard: true,
               ...(apply.postCorruptionCheck
                 ? { postCorruptionCheck: { characterId, modifier: ccModifier } }

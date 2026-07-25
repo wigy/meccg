@@ -15,14 +15,19 @@ import * as fs from 'fs';
 import { playGame } from '../runner.js';
 import { aggregateStats } from '../stats.js';
 import type { GameRunResult } from '../runner.js';
-import { parseCliArgs, numberFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
+import { parseCliArgs, numberFlag, resolveAgent, resolvePair, resolveDecks, stringFlag } from './common.js';
 
 const args = parseCliArgs(process.argv.slice(2));
 const games = numberFlag(args, 'games', 100);
 const baseSeed = numberFlag(args, 'seed', 1);
 const maxDecisions = numberFlag(args, 'max-decisions', 25000);
 const agentNames = resolvePair(args, 'agents', ['random', 'random']);
+// Per-game results JSONL (seed, winnerIndex, outcome, …) — consumed by the
+// gate CLI's --jobs mode, which pre-plays the match schedule via bench
+// children and feeds the cached outcomes into the rating harness.
+const resultsFile = stringFlag(args, 'results');
 const decks = resolveDecks(args);
+const resultsOut = resultsFile ? fs.createWriteStream(resultsFile, { encoding: 'utf-8' }) : null;
 
 console.log(`Benchmark: ${games} games, agents ${agentNames.join(' vs ')}, decks ${decks[0].id} vs ${decks[1].id}, seeds ${baseSeed}..${baseSeed + games - 1}`);
 
@@ -38,6 +43,14 @@ for (let i = 0; i < games; i++) {
     maxDecisions,
   });
   results.push(run);
+  resultsOut?.write(JSON.stringify({
+    seed: baseSeed + i,
+    winnerIndex: run.winnerIndex,
+    outcome: run.result.outcome,
+    decisions: run.result.decisions,
+    turns: run.result.turns,
+    error: run.result.error,
+  }) + '\n');
   if (run.result.outcome !== 'completed') {
     console.log(`  game ${i} (seed ${baseSeed + i}): ${run.result.outcome}${run.result.error ? ` — ${run.result.error}` : ''}`);
   }
@@ -75,3 +88,5 @@ if (typeof outFile === 'string') {
   fs.writeFileSync(outFile, JSON.stringify(payload, null, 2) + '\n', 'utf-8');
   console.log(`\nStats written to ${outFile}`);
 }
+
+resultsOut?.end();

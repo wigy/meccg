@@ -7,13 +7,13 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, Alignment, RegionType } from '../index.js';
-import type { CardEffect, OnEventEffect, Condition, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, HazardMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle, nextInt } from '../rng.js';
-import { getPlayerIndex } from '../state-utils.js';
+import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
 import { CardStatus, Race, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -1624,6 +1624,24 @@ export function findPlayConditionEffect(
 }
 
 /**
+ * Returns ALL of the card's `play-condition` effects for the given {@link
+ * PlayConditionEffect.requires}. A card may carry the same prerequisite kind
+ * more than once — Greater Half-orcs (wh-86) requires both "A Strident Spawn"
+ * and "Half-orcs" in play via two `card-in-play` conditions — and every one of
+ * them must hold, so callers gating on a repeatable prerequisite must iterate
+ * this list rather than use {@link findPlayConditionEffect} (which silently
+ * checks only the first).
+ */
+export function findPlayConditionEffects(
+  def: CardDefinition | null | undefined,
+  requires: PlayConditionEffect['requires'],
+): PlayConditionEffect[] {
+  return getCardEffects(def).filter(
+    (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === requires,
+  );
+}
+
+/**
  * Returns the player's avatar character (wizard/ringwraith/fallen-wizard/balrog),
  * or `undefined` if the player has no avatar in play. Matches the first character
  * whose definition has `mind === null` and who is controlled under general
@@ -2756,6 +2774,54 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
   }
 
   return result;
+}
+
+/**
+ * Returns the name of an in-play card (either player's `cardsInPlay`) whose
+ * `cancel-deck-search` effect cancels own-deck/discard searches for the given
+ * acting player, or `null` when none applies. Only minion players (Ringwraith
+ * or Balrog alignment — MEBA: the Balrog player is a minion player) are
+ * affected: "all effects are automatically canceled which allow a minion
+ * player to search through or look at any portion of his play deck or discard
+ * pile outside of the normal sequence of play" (Lady of the Golden Wood as-13).
+ */
+export function deckSearchCancellerFor(state: GameState, actorId: PlayerId): string | null {
+  const actor = state.players.find(p => p.id === actorId);
+  if (!actor || !isMinionOrBalrog(actor)) return null;
+  for (const p of state.players) {
+    for (const card of p.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (def && getCardEffects(def).some(e => e.type === 'cancel-deck-search')) {
+        return def.name;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Applies any in-play `cancel-deck-search` effect to a `fetch-to-deck` payload
+ * about to be enqueued for `actorId`: the canceled `deck` / `discard-pile`
+ * sources are stripped from the fetch. Returns the (possibly reduced) effect,
+ * or `null` when every source was canceled — the caller must then skip
+ * enqueueing the fetch entirely (the search fizzles). Sideboard sources are
+ * never affected (the card only cancels play-deck / discard-pile access).
+ */
+export function gateDeckSearchFetch(
+  state: GameState,
+  actorId: PlayerId,
+  effect: FetchToDeckEffect,
+): FetchToDeckEffect | null {
+  if (!effect.source.some(s => s === 'deck' || s === 'discard-pile')) return effect;
+  const canceller = deckSearchCancellerFor(state, actorId);
+  if (!canceller) return effect;
+  const remaining = effect.source.filter(s => s !== 'deck' && s !== 'discard-pile');
+  if (remaining.length === 0) {
+    logDetail(`cancel-deck-search: "${canceller}" cancels the play-deck/discard search for minion player ${actorId as string} — fetch fizzles`);
+    return null;
+  }
+  logDetail(`cancel-deck-search: "${canceller}" strips play-deck/discard sources from ${actorId as string}'s fetch (remaining: ${remaining.join(', ')})`);
+  return { ...effect, source: remaining };
 }
 
 /**

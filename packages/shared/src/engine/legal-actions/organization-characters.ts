@@ -18,7 +18,7 @@ import { evaluateAction } from '../../rules/evaluator.js';
 import { CHARACTER_PLAY_RULES } from '../../rules/definitions/character-play.js';
 import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron } from '../reducer-utils.js';
-import { manifestationOfEntityInPlay } from '../manifestations.js';
+import { blockingManifestationForCharacterPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 
@@ -633,7 +633,7 @@ export function playCharacterActions(
           agentsAreHazards,
           characterPlayLimitReached: characterPlayLimitReached(phaseState, player.alignment, cardDef),
           uniqueAlreadyInPlay: cardDef.unique && isUniqueCharacterInPlay(state, charName),
-          blockingManifestation: manifestationOfEntityInPlay(state, cardDef),
+          blockingManifestation: blockingManifestationForCharacterPlay(state, cardDef),
           hasEliminatedAvatar: playerAvatarEliminated,
           mustReplayReturnedRingwraith: isAvatar && cardDef.race === Race.Ringwraith
             && player.ringwraithReturnedToHand !== undefined

@@ -20,7 +20,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
@@ -669,6 +669,10 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
           return [];
         }
       }
+      // cancel-deck-search (Lady of the Golden Wood as-13): a minion player's
+      // own play-deck / discard-pile searches are automatically canceled.
+      const gatedPayload = gateDeckSearchFetch(workingState, action.player, payload);
+      if (!gatedPayload) return [];
       // Embed corruption check (if any) as postCorruptionCheck so it fires
       // after the last pick, not as a blocking pendingResolution upfront.
       const postCC = enqueueCorruptionCheckEffect ? {
@@ -678,7 +682,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       return [{
         type: 'card-effect' as const,
         cardInstanceId: handCard.instanceId,
-        effect: payload,
+        effect: gatedPayload,
         ...(action.type === 'play-short-event' && action.targetScoutInstanceId ? { targetCharacterId: action.targetScoutInstanceId } : {}),
         ...(postCC ? { postCorruptionCheck: postCC } : {}),
       }];

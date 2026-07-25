@@ -6232,6 +6232,7 @@ export type CardEffect =
   | StayHerAppetiteEffect
   | AllyBodyCheckBoostEffect
   | CreatureAltEventEffect
+  | CancelDeckSearchEffect
   | CompanyReturnToOriginEffect
   | RunHomeToHavenEffect
   | CompanySitePhaseDoNothingEffect
@@ -6364,6 +6365,36 @@ export interface CreatureAltEventEffect extends EffectBase {
    * short-event "against a moving hero company".
    */
   readonly requiresMovingCompany?: boolean;
+  /**
+   * When true (permanent-event mode only), the in-play permanent-event is
+   * NOT convertible to a short-event by tapping (the Nazgûl mechanism):
+   * `tap-alt-permanent-event` is neither offered nor accepted for it. The
+   * card simply stays in play carrying its passive effects and leaves play
+   * only via its own rules — e.g. Lady of the Golden Wood (as-13), whose
+   * permanent-event persists until "any play deck is exhausted" (an
+   * `on-event: play-deck-exhausted` self-discard).
+   */
+  readonly persistent?: boolean;
+}
+
+/**
+ * While the card carrying this effect is in play (in its owner's
+ * `cardsInPlay`), all effects that would let a **minion player** (Ringwraith
+ * or Balrog alignment — MEBA: the Balrog player is a minion player) search
+ * through or look at any portion of **his own** play deck or discard pile
+ * outside of the normal sequence of play are automatically canceled.
+ *
+ * Enforced at every point where a `fetch-to-deck` pending effect with a
+ * `deck` or `discard-pile` source would be enqueued for such a player (the
+ * shared `gateDeckSearchFetch` helper in `reducer-utils.ts`): the canceled
+ * sources are stripped; when no source remains the whole fetch fizzles.
+ * Sideboard access and the normal sequence of play (end-of-turn draws, the
+ * deck-exhaustion reshuffle and its sideboard exchange) are unaffected.
+ *
+ * Used by Lady of the Golden Wood (as-13) in its permanent-event mode.
+ */
+export interface CancelDeckSearchEffect extends EffectBase {
+  readonly type: 'cancel-deck-search';
 }
 
 /**
