@@ -4076,8 +4076,42 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Warrior only. Playable on a warrior attempting to influence a faction.Warrior does not use his unused direct influence for the attempt. Instead he uses his prowess, to a maximum modifier of +6."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.skills": {
+                "$includes": "warrior"
+              }
+            },
+            {
+              "target.isInfluencing": true
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "influence-boost",
+        "when": {
+          "player.hasFactionInHand": true
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "prowessSubstitution": {
+            "max": 6
+          }
+        }
+      }
+    ],
+    "text": "Warrior only. Playable on a warrior attempting to influence a faction.Warrior does not use his unused direct influence for the attempt. Instead he uses his prowess, to a maximum modifier of +6.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "minion-resource-event",

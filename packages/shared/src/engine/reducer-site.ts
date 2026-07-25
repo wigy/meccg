@@ -2668,7 +2668,8 @@ export function resolveInfluenceAttemptRoll(
   let autoInfluence = false;
   if (charInPlay && charDef && isCharacterCard(charDef)) {
     // Use free DI (total DI minus mind cost of followers), not the raw card stat
-    modifier += availableDI(state, charId, player);
+    const freeDI = availableDI(state, charId, player);
+    modifier += freeDI;
 
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
@@ -2749,6 +2750,18 @@ export function resolveInfluenceAttemptRoll(
         // "cannot be done with <named card>": the boost is suppressed (still consumed).
         consumedConstraintIds.push(constraint.id as string);
         logDetail(`Influence boost from "${boostSourceName}" suppressed by faction-influence-restriction (consumed, no effect)`);
+        continue;
+      }
+      if (constraint.kind.prowessSubstitution) {
+        // Threats (le-244): the warrior does not use his unused direct
+        // influence — back out the whole DI contribution (free DI plus
+        // conditional DI bonuses) and add min(effective prowess, max)
+        // instead. Prowess is read here, at resolution (CRF 22).
+        const effectiveProwess = charInPlay.effectiveStats.prowess;
+        const substituted = Math.min(constraint.kind.prowessSubstitution.max, effectiveProwess);
+        modifier += substituted - freeDI - dslDI;
+        consumedConstraintIds.push(constraint.id as string);
+        logDetail(`Prowess substitution from ${constraint.sourceDefinitionId as string}: unused DI ${formatSignedNumber(freeDI + dslDI)} replaced by min(prowess ${effectiveProwess}, ${constraint.kind.prowessSubstitution.max}) = ${formatSignedNumber(substituted)} (consumed)`);
         continue;
       }
       modifier += constraint.kind.value;
