@@ -38,6 +38,16 @@ self-play-only candidate gained ~+26 Elo on its BC parent while losing
 gradient (`--data file@seat` filters), since the opponents' recorded
 behavior probabilities belong to different policies.
 
+Learning **accumulates** across iterations (`ACCUMULATE=1`, the default):
+the next iteration trains from the latest candidate whether or not it was
+promoted — the gates only decide what gets recorded as champion. With the
+PPO stabilizers, per-iteration candidates are stable (~−25..+33 Elo, no
+collapses) but a strict 200-game gate can almost never confirm a true +30
+edge, and resetting on every rejection threw those gains away. A drift
+safety valve resets the learning line to the champion if a candidate
+fails a league gate by more than `2×GATE_LEAGUE_MIN_ELO` on the point
+estimate.
+
 Two update modes (both require `--init`, the policy that produced the
 rollouts, and temperature-1 rollouts so the recorded policy probabilities
 are the behavior distribution):
