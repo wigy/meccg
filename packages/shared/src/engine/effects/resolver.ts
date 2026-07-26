@@ -64,6 +64,15 @@ export interface ResolverContext {
      * `"floor(bearer.baseMind / 2) - bearer.baseMind"`.
      */
     readonly baseMind?: number;
+    /**
+     * The character's *effective* prowess (after items and modifiers).
+     * Populated in the `influence-check` and `opponent-influence-check`
+     * contexts so conditions can compare a target's stats against the live
+     * bearer, e.g. Whip (le-348) "+2 direct influence against one character
+     * with … prowess less than the bearer's":
+     * `{ "target.prowess": { "$lt": "bearer.prowess" } }`.
+     */
+    readonly prowess?: number;
     readonly name: string;
     /**
      * The character's keyword tags (e.g. `"half-orc"`, `"leader"`). Exposed so
@@ -155,6 +164,21 @@ export interface ResolverContext {
     readonly homesite?: readonly string[];
     /** The target character's keyword tags, for conditions like `{ "target.keywords": { "$includes": "balrog-specific" } }`. */
     readonly keywords?: readonly string[];
+    /**
+     * The target character's mind. Absent for avatars (mind === null), so a
+     * "with a mind" gate like Whip's (le-348) is simply
+     * `{ "target.mind": { "$gt": 0 } }` — it fails against a Ringwraith.
+     * Effective mind for an in-play target (opponent-influence-check),
+     * printed mind for a definition-only target (influence-check).
+     */
+    readonly mind?: number;
+    /**
+     * The target character's prowess — effective for an in-play target
+     * (opponent-influence-check), printed for a definition-only target
+     * (influence-check). Compared against the bearer via a path operand,
+     * e.g. Whip (le-348): `{ "target.prowess": { "$lt": "bearer.prowess" } }`.
+     */
+    readonly prowess?: number;
   };
   /** Additional context properties for extensibility. */
   readonly [key: string]: unknown;

@@ -3027,6 +3027,12 @@ function handleOpponentInfluenceAttempt(
   // Target identity for the opponent-influence resolver context (booster gating).
   let targetRace = '';
   let targetName = '';
+  // Character-target stats for the resolver context — effective mind/prowess,
+  // set only for a character target so stat-gated DI bonuses (Whip le-348:
+  // "against one character with a mind and prowess less than the bearer's")
+  // can compare them; they stay undefined for ally/faction/item targets.
+  let targetCtxMind: number | undefined;
+  let targetCtxProwess: number | undefined;
 
   if (action.targetKind === 'character') {
     const targetChar = opponent.characters[action.targetInstanceId];
@@ -3039,6 +3045,8 @@ function handleOpponentInfluenceAttempt(
     targetMind = controlCostOf(state, targetChar, targetDef.mind) ?? targetDef.mind;
     targetRace = targetDef.race;
     targetName = targetDef.name;
+    targetCtxMind = targetChar.effectiveStats.mind ?? targetDef.mind;
+    targetCtxProwess = targetChar.effectiveStats.prowess;
 
     // Controller DI (rule 10.12 step 5) — only if under DI, not GI
     if (targetChar.controlledBy !== 'general') {
@@ -3196,8 +3204,16 @@ function handleOpponentInfluenceAttempt(
   const consumedBoostIds: string[] = [];
   const oppInfluenceCtx: ResolverContext = {
     reason: 'opponent-influence-check',
-    ...(charDef && isCharacterCard(charDef) ? { bearer: buildBearerContext(charDef) } : {}),
-    target: { kind: action.targetKind, race: targetRace, name: targetName },
+    // Effective influencer prowess and character-target stats let conditions
+    // compare live values (Whip le-348: target has a mind and lower prowess).
+    ...(charDef && isCharacterCard(charDef)
+      ? { bearer: { ...buildBearerContext(charDef), prowess: charInPlay.effectiveStats.prowess } }
+      : {}),
+    target: {
+      kind: action.targetKind, race: targetRace, name: targetName,
+      ...(targetCtxMind !== undefined ? { mind: targetCtxMind } : {}),
+      ...(targetCtxProwess !== undefined ? { prowess: targetCtxProwess } : {}),
+    },
   };
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'check-modifier') continue;

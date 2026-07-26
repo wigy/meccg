@@ -51,30 +51,53 @@ function isOperator(v: unknown): v is ConditionOperator {
 }
 
 /**
+ * Resolves a comparison-operator operand. A number literal is used as-is; a
+ * string is a context path resolved against the same context (e.g.
+ * `{ "target.prowess": { "$lt": "bearer.prowess" } }` for Whip le-348
+ * "prowess less than the bearer's"). Returns `undefined` when a path operand
+ * does not resolve to a number — the comparison then fails.
+ */
+function resolveComparisonOperand(
+  operand: number | string,
+  context: Record<string, unknown>,
+): number | undefined {
+  if (typeof operand === 'number') return operand;
+  const resolved = resolvePath(context, operand);
+  return typeof resolved === 'number' ? resolved : undefined;
+}
+
+/**
  * Evaluates a single key-value pair from a {@link ConditionMatch} against the context.
  *
  * If the expected value is a plain literal (string/number/boolean), checks equality.
  * If it's an operator object (e.g. `{ $includes: "warrior" }`), applies the operator.
+ * Comparison operands may themselves be context paths (see
+ * {@link resolveComparisonOperand}), which is why the context is threaded in.
  */
 function matchesEntry(
   contextValue: unknown,
   expected: string | number | boolean | null | ConditionOperator,
+  context: Record<string, unknown>,
 ): boolean {
   if (isOperator(expected)) {
     if (expected.$includes !== undefined) {
       return Array.isArray(contextValue) && contextValue.includes(expected.$includes);
     }
     if (expected.$gt !== undefined) {
-      return typeof contextValue === 'number' && contextValue > expected.$gt;
+      const bound = resolveComparisonOperand(expected.$gt, context);
+      return typeof contextValue === 'number' && bound !== undefined && contextValue > bound;
     }
     if (expected.$gte !== undefined) {
-      return typeof contextValue === 'number' && contextValue >= expected.$gte;
+      const bound = resolveComparisonOperand(expected.$gte, context);
+      return typeof contextValue === 'number' && bound !== undefined && contextValue >= bound;
     }
     if (expected.$lt !== undefined) {
-      return typeof contextValue === 'number' && contextValue < expected.$lt;
+      const bound = resolveComparisonOperand(expected.$lt, context);
+      return typeof contextValue === 'number' && bound !== undefined && contextValue < bound;
     }
     if (expected.$lte !== undefined) {
-      return typeof contextValue === 'number' && contextValue <= expected.$lte;
+      const bound = resolveComparisonOperand(expected.$lte, context);
+      return typeof contextValue === 'number' && bound !== undefined && contextValue <= bound;
     }
     if (expected.$ne !== undefined) {
       return contextValue !== expected.$ne;
@@ -121,7 +144,7 @@ function matchesPlainCondition(
 ): boolean {
   for (const [key, expected] of Object.entries(condition)) {
     const contextValue = resolvePath(context, key);
-    if (!matchesEntry(contextValue, expected)) {
+    if (!matchesEntry(contextValue, expected, context)) {
       return false;
     }
   }

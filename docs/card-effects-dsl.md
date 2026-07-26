@@ -24,6 +24,12 @@ when it is absent — used to gate on optional card-definition fields (e.g. a
 site filter excluding Dragon's lairs via `{ "lairOf": { "$exists": false } }`
 and Under-deeps via `{ "adjacentSites": { "$exists": false } }`).
 
+The four comparison operators (`$gt`, `$gte`, `$lt`, `$lte`) accept either a
+number literal or a **context-path string** resolved against the same context
+at match time; the comparison fails unless both sides resolve to numbers.
+This backs card text comparing two stats — Whip (le-348) "prowess less than
+the bearer's": `{ "target.prowess": { "$lt": "bearer.prowess" } }`.
+
 A missing `when` means the effect always applies.
 
 ## Keywords
@@ -493,6 +499,27 @@ with a target `CharacterCard`) only ever describes a character, so an unqualifie
 *influencing* an opponent's character. Neither fires for a faction: the
 faction-influence roll uses `reason: "faction-influence-check"`, which matches
 neither condition, so the bonus is correctly excluded against factions.
+
+Both influence contexts also expose target and bearer stats for stat-gated
+bonuses: `target.mind` (omitted for avatars, so `{ "target.mind": { "$gt": 0 } }`
+is a "has a mind" gate), `target.prowess`, and `bearer.prowess` (the bearer's
+**effective** prowess, items included). For a character target of an
+opponent-influence attempt these are the target's effective stats; in
+`availableDI` (follower control) they are the printed stats of the target
+definition. Used by Whip (le-348): "Orc or Troll only: provides +2 direct
+influence against one character with a mind and prowess less than the bearer's":
+
+```json
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+  "when": { "reason": "influence-check", "bearer.race": { "$in": ["orc", "troll"] },
+            "target.mind": { "$gt": 0 },
+            "target.prowess": { "$lt": "bearer.prowess" } } },
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+  "when": { "reason": "opponent-influence-check", "target.kind": "character",
+            "bearer.race": { "$in": ["orc", "troll"] },
+            "target.mind": { "$gt": 0 },
+            "target.prowess": { "$lt": "bearer.prowess" } } }
+```
 
 ### `play-as-sauron` + Sauron's granted abilities (The Lidless Eye le-203)
 
