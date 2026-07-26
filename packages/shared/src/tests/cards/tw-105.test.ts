@@ -117,6 +117,29 @@ describe('Traitor (tw-105)', () => {
     expect(s.players[1].cardsInPlay.map(c => c.definitionId)).toContain(TRAITOR);
   });
 
+  test('enters the general play area — not bound to the hazarded company', () => {
+    // Traitor declares no `play-target`, so it targets nothing: it waits for
+    // "the next character" to fail a corruption check, whichever company he is
+    // in. The company named by the play-hazard action is only the company being
+    // hazarded (hazard-limit bookkeeping) and must NOT bind the card.
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [TRAITOR], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const mhState: GameState = { ...state, phaseState: makeMHState() };
+    const traitorId = handCardId(mhState, HAZARD_PLAYER);
+    const companyId = companyIdAt(mhState, RESOURCE_PLAYER);
+    const s = playHazardAndResolve(mhState, PLAYER_2, traitorId, companyId);
+
+    const inPlay = s.players[1].cardsInPlay.find(c => c.definitionId === TRAITOR);
+    expect(inPlay).toBeDefined();
+    expect(inPlay!.companyId).toBeUndefined();
+  });
+
   // ── #2/#3/#6: failed check → traitor removed, card discarded, attack begins ─
 
   test('failed corruption check: traitor eliminated, Traitor discarded, 16-prowess attack initiated', () => {
