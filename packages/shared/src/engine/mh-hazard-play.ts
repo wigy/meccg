@@ -1019,13 +1019,30 @@ export function handlePlayHazardCard(
     },
   };
 
+  // `action.targetCompanyId` is present on *every* play-hazard action — it names
+  // the company currently being hazarded and drives hazard-limit accounting. It
+  // is NOT a targeting declaration. Only a permanent event that declares
+  // `play-target: company` (Enchanted Stream as-27, Nothing to Eat or Drink
+  // le-128) is actually played *on* that company and gets bound to it; every
+  // other permanent hazard (Traitor tw-105, Doors of Night, …) enters the
+  // general play area untargeted. Forwarding the company ID unconditionally
+  // would stamp `companyId` on the resulting CardInPlay entry, wrongly scoping
+  // the card to a company it never targeted (and exposing it to the
+  // company-bound sweeps: empty-company cleanup, membership-change discards).
+  const bindsToCompany = getCardEffects(def).some(
+    e => e.type === 'play-target' && e.target === 'company',
+  );
+  if (def.eventType === 'permanent') {
+    logDetail(`Permanent hazard "${def.name}": ${bindsToCompany ? `bound to company ${action.targetCompanyId as string}` : 'enters the general play area (no company target)'}`);
+  }
+
   // Initiate or push onto chain — card enters play upon resolution
   const payload: import('../index.js').ChainEntryPayload = def.eventType === 'permanent'
     ? {
         type: 'permanent-event',
         targetCharacterId: action.type === 'play-hazard' ? action.targetCharacterId : undefined,
         targetSiteDefinitionId: action.type === 'play-hazard' ? action.targetSiteDefinitionId : undefined,
-        targetCompanyId: action.type === 'play-hazard' ? action.targetCompanyId : undefined,
+        targetCompanyId: bindsToCompany && action.type === 'play-hazard' ? action.targetCompanyId : undefined,
         targetStoredItemInstanceId: action.type === 'play-hazard' ? action.targetStoredItemInstanceId : undefined,
         // Inner Cunning (dm-68) mode 1: bind to a face-down agent.
         targetAgentId: action.type === 'play-hazard' ? action.targetAgentId : undefined,

@@ -37,7 +37,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, addCardInPlay, companyIdAt, findCharInstanceId,
-  makeMHState, reduce, dispatch, runActions, viableActions, mint,
+  makeMHState, reduce, dispatch, runActions, viableActions, mint, playHazardAndResolve,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   Alignment, Phase, CardStatus,
   ARAGORN, RIVENDELL, MORIA,
@@ -107,6 +107,13 @@ describe('Enchanted Stream (as-27)', () => {
     const plays = streamPlays(state).filter(p => p.viable);
     expect(plays).toHaveLength(1);
     expect(plays[0].action.targetCompanyId).toBe(companyId);
+
+    // `play-target: company` — the resolved card in play carries the binding
+    // (unlike an untargeted permanent hazard, which enters play unbound).
+    const resolved = playHazardAndResolve(state, PLAYER_2, plays[0].action.cardInstanceId, companyId);
+    const inPlay = resolved.players[HAZARD_PLAYER].cardsInPlay.find(c => c.definitionId === ENCHANTED_STREAM);
+    expect(inPlay).toBeDefined();
+    expect(inPlay!.companyId).toBe(companyId);
   });
 
   test('is NOT playable when the site path has no Wilderness', () => {
