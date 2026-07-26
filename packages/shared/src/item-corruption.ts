@@ -36,14 +36,15 @@ export interface InPlayItemModifier {
   readonly itemFilter?: Condition;
   /**
    * Which bearers the modifier reaches, matched against the bearer's
-   * controlling player; absent means every player's items.
+   * controlling player; absent means every bearer (Bane of the Ithil-stone
+   * tw-13 "has no effect on a minion player").
    */
   readonly bearerFilter?: Condition;
   /** Corruption points added to each matching item. */
   readonly corruptionPoints: number;
   /** Marshalling points added to each matching item. */
   readonly marshallingPoints: number;
-  /** Factor applied to each matching item's corruption *after* the delta (1 = none). */
+  /** Factor applied to a matching item's corruption *after* the flat delta (1 = none). */
   readonly corruptionMultiplier: number;
 }
 
@@ -87,12 +88,12 @@ export function collectItemModifiersFromDefs(
  * `{ cp: 0, mp: 0, cpMultiplier: 1 }` when nothing matches.
  *
  * `cpMultiplier` is the product of every matching modifier's
- * `corruptionMultiplier` and is applied by the caller *after* the `cp` delta,
- * so "Palantíri corruption doubled" (Bane of the Ithil-stone tw-13) stacks
- * sensibly on top of a flat "+1 corruption per greater item" (td-38).
+ * `corruptionMultiplier` and must be applied by the caller *after* the `cp`
+ * delta, so "Palantíri corruption doubled" (Bane of the Ithil-stone tw-13)
+ * stacks sensibly on top of a flat "+1 corruption per greater item" (td-38).
  *
- * `bearerAlignment` is omitted only where no bearer is in scope; a modifier
- * carrying a `bearerFilter` then does not apply.
+ * `bearerAlignment` is omitted only where no bearer is in scope (e.g. an item's
+ * own MP delta); a modifier carrying a `bearerFilter` then does not apply.
  */
 export function itemModifierDeltas(
   itemDef: CardDefinition,
@@ -134,14 +135,15 @@ export function itemModifierDeltas(
  * corruption check the engine computes (e.g. *Glamdring* reads 1 CP but costs 2
  * while *Scorba at Home* is in play).
  *
- * `bearerAlignment` is the alignment of the player controlling the item's
- * bearer; pass it whenever a bearer is in scope, or modifiers restricted by a
- * `bearerFilter` (tw-13, which spares minion players) are conservatively
- * skipped.
- *
  * Bearer-specific exclusions (the Balrog avatar's borne items contribute no
  * corruption) are not applied here; they belong to the bearer's total, not to
  * the item's own value.
+ *
+ * `bearerAlignment` is the alignment of the player controlling the item's
+ * bearer; pass it wherever it is known so that modifiers restricted by a
+ * `bearerFilter` (Bane of the Ithil-stone tw-13 doubles Palantír corruption,
+ * but "has no effect on a minion player") are honoured. Omitting it skips
+ * every bearer-filtered modifier.
  */
 export function effectiveItemCorruptionPoints(
   itemDef: CardDefinition,
