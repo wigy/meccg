@@ -955,14 +955,28 @@ export function collectGlobalCheckModifier(
  * Total stage points a single card definition contributes (MEWH §1): the sum of
  * its `stage-points` effect values (usually one, may be zero). Used both by the
  * derived per-player total and by the discard-stage-resource legality check.
+ *
+ * A `stage-points` effect may carry a `when` condition, in which case the
+ * points are only granted while it matches. The condition is evaluated against
+ * `context` — for a card attached to a character that is a bearer context, so
+ * a card can make its points conditional on who bears it (Inner Rot wh-23:
+ * "If he is a Fallen-wizard, he receives 2 stage points", encoded as
+ * `{ "bearer.race": "fallen-wizard" }`). Callers with no context (bare in-play
+ * cards, the deck-legality check) pass none, and any conditional effect is
+ * skipped — its condition cannot be satisfied without a bearer.
  */
-export function stagePointsOfCard(def: CardDefinition | null | undefined): number {
+export function stagePointsOfCard(
+  def: CardDefinition | null | undefined,
+  context: object = {},
+): number {
   let total = 0;
   for (const effect of getCardEffects(def)) {
     // `whileCompanyAtSite` stage points (Deep Mines wh-55, Rhosgobel wh-57) are
     // granted by *occupying the site*, not by the card being in play, so they
     // are tallied separately from the player's companies — never here.
-    if (effect.type === 'stage-points' && !effect.whileCompanyAtSite) total += effect.value;
+    if (effect.type !== 'stage-points' || effect.whileCompanyAtSite) continue;
+    if (effect.when && !matchesContext(effect.when, context)) continue;
+    total += effect.value;
   }
   return total;
 }

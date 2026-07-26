@@ -96,7 +96,111 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/InnerRot.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-07-26",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": {
+            "$in": ["wizard", "fallen-wizard"]
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stage-points",
+        "value": 2,
+        "when": {
+          "bearer.race": "fallen-wizard"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1,
+        "when": {
+          "bearer.race": "wizard"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 4,
+        "when": {
+          "$and": [
+            { "bearer.race": "fallen-wizard" },
+            { "bearer.stagePoints": { "$gt": 18 } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 3,
+        "when": {
+          "$and": [
+            { "bearer.race": "fallen-wizard" },
+            { "bearer.stagePoints": { "$gt": 11 } },
+            { "bearer.stagePoints": { "$lte": 18 } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2,
+        "when": {
+          "$and": [
+            { "bearer.race": "fallen-wizard" },
+            { "bearer.stagePoints": { "$gt": 5 } },
+            { "bearer.stagePoints": { "$lte": 11 } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1,
+        "when": {
+          "$and": [
+            { "bearer.race": "fallen-wizard" },
+            { "bearer.stagePoints": { "$gt": 0 } },
+            { "bearer.stagePoints": { "$lte": 5 } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "stage-card-played",
+        "target": "bearer",
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": {
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
+          }
+        }
+      }
+    ],
     "text": "Corruption. Playable on a Wizard or a Fallen-wizard. He receives 1 corruption point (CP). If he is a Fallen-wizard, he receives 2 stage points and the CPs received are instead: 4 CPs if his stage points (SPs) exceed 18, 3 CPs if his SPs exceed 11, 2 CPs if his SPs exceed 5, 1 CP if his SPs exceed 0 (use the first that applies). The target makes a corruption check whenever his controlling player plays a stage card. Cannot be duplicated on a given character. During his organization phase, target may tap to attempt to remove this card. Make a roll—if this result is greater than 6, discard this card."
   },
   {

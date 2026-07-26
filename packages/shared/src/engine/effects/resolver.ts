@@ -119,6 +119,15 @@ export interface ResolverContext {
      * `{ "bearer.atOrMovingUnderDeeps": { "$ne": true } }`.
      */
     readonly atOrMovingUnderDeeps?: boolean;
+    /**
+     * The running stage-point total (MEWH §1) of the player controlling this
+     * character. Populated only in the effective-stats context, and computed
+     * *before* the per-character pass so an effect can read the same total the
+     * card it rides on has already contributed to. Used by corruption tiers
+     * that scale with a Fallen-wizard's progress, e.g. Inner Rot (wh-23):
+     * `{ "bearer.stagePoints": { "$gt": 11 } }`.
+     */
+    readonly stagePoints?: number;
   };
   /** The enemy creature/hazard (in combat contexts). */
   readonly enemy?: {
