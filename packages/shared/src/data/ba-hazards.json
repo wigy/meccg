@@ -31,8 +31,8 @@
         "filter": {
           "race": {
             "$in": [
-              "wolves",
-              "animals"
+              "wolf",
+              "animal"
             ]
           }
         }
@@ -152,7 +152,7 @@
         "type": "grant-creature-keying",
         "creatureFilter": {
           "$and": [
-            { "race": { "$in": ["spider", "spiders"] } },
+            { "race": { "$in": ["spider"] } },
             { "unique": { "$ne": true } }
           ]
         },
@@ -176,7 +176,7 @@
     "effects": [
       {
         "type": "counter-cancel-attack-roll",
-        "race": ["spider", "spiders"],
+        "race": ["spider"],
         "threshold": 14,
         "prowessBonus": 1
       },
@@ -185,7 +185,7 @@
         "fromHand": true,
         "player": "attacker",
         "prowessModifier": 1,
-        "when": { "enemy.race": { "$in": ["spider", "spiders"] } }
+        "when": { "enemy.race": { "$in": ["spider"] } }
       }
     ],
     "text": "Target any effect (declared earlier in the same chain of effects) that would cancel a Spider attack. Make a roll and add the attack’s prowess. If the result is greater than 14, the effect is canceled and the attack receives +1 prowess. Alternatively, +1 prowess to a Spider attack. This card may be revealed as an on-guard card for either effect."
@@ -380,7 +380,7 @@
         "source": "hand",
         "filter": {
           "cardType": "hazard-creature",
-          "race": { "$in": ["animal", "animals", "spider", "spiders"] }
+          "race": { "$in": ["animal", "spider"] }
         }
       },
       {

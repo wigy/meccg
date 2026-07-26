@@ -438,7 +438,7 @@
       {
         "type": "site-rule",
         "rule": "allow-creature-by-race",
-        "race": "men"
+        "race": "man"
       }
     ],
     "text": "Nearest Haven: EdhellondPlayable: Information, Items (minor, major)Automatic-attacks: Men — 4 strikes with 8 prowessSpecial: Any Man hazard creature can be played at this site.",
@@ -628,7 +628,7 @@
       {
         "type": "site-rule",
         "rule": "allow-creature-by-race",
-        "race": "pûkel-creature"
+        "race": "pukel-creature"
       }
     ],
     "text": "Adjacent Sites: Glittering Caves (0), The Pûkel-deeps (9), The Under-gates (6)\nPlayable: Items (minor, major, gold ring)\nAutomatic-attacks (2):\n(1st) Undead — 3 strikes with 9 prowess\n(2nd) Opponent may play as an automatic-attack one non-unique hazard creature from his hand normally keyed to a Shadow-hold [{S}].\nSpecial: Any Undead creature or Pûkel-creature may be played at this site."
@@ -989,7 +989,7 @@
       {
         "type": "site-rule",
         "rule": "allow-creature-by-race",
-        "race": "pûkel-creature"
+        "race": "pukel-creature"
       }
     ],
     "certified": "2026-07-21",
@@ -1334,7 +1334,7 @@
         "rule": "attacks-not-detainment",
         "filter": {
           "enemy.race": {
-            "$ne": "nazgul"
+            "$ne": "ringwraith"
           }
         }
       }
@@ -1450,7 +1450,7 @@
         "filter": {
           "attack.automatic": false,
           "enemy.race": {
-            "$ne": "nazgul"
+            "$ne": "ringwraith"
           }
         }
       }

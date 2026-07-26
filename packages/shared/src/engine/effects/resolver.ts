@@ -31,6 +31,7 @@ import type {
   CompanyId,
   PlayerId,
 } from '../../index.js';
+import { Race } from '../../types/common.js';
 import { HAND_SIZE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { isCharacterCard } from '../../types/cards.js';
@@ -1002,30 +1003,62 @@ export function resolveDrawModifier(
 }
 
 /**
- * Maps site automatic attack `creatureType` values (e.g. "Wolves", "Orcs")
- * to the lowercase singular race identifiers used in creature card data
- * and DSL conditions (e.g. "wolf", "orc").
+ * Maps a site automatic attack's printed `creatureType` label (e.g. "Wolves",
+ * "Orcs", "Nazgûl") to the single canonical {@link Race} identifier used
+ * everywhere else in the game.
+ *
+ * The labels are card text and are therefore plural, capitalized and
+ * accented; races are not. This table is the *only* place the two vocabularies
+ * meet — card data itself never stores a plural race (see {@link Race}).
  */
-const CREATURE_TYPE_TO_RACE: Record<string, string> = {
-  wolves: 'wolf',
-  orcs: 'orc',
-  trolls: 'troll',
-  dwarves: 'dwarf',
-  dwarf: 'dwarf',
-  undead: 'undead',
-  men: 'man',
-  animals: 'animal',
-  spiders: 'spider',
-  dragon: 'dragon',
-  dragons: 'dragon',
-  giants: 'giant',
-  hobbits: 'hobbit',
-  'dúnedain': 'dunadan',
-  elves: 'elf',
-  woses: 'wose',
-  ents: 'ent',
-  eagles: 'eagle',
-  'pûkel-creature': 'pukel-creature',
+const CREATURE_TYPE_TO_RACE: Record<string, Race> = {
+  animal: Race.Animal,
+  animals: Race.Animal,
+  'awakened plant': Race.AwakenedPlant,
+  'awakened-plant': Race.AwakenedPlant,
+  balrog: Race.Balrog,
+  bear: Race.Bear,
+  bears: Race.Bear,
+  dragon: Race.Dragon,
+  dragons: Race.Dragon,
+  drake: Race.Drake,
+  drakes: Race.Drake,
+  dwarf: Race.Dwarf,
+  dwarves: Race.Dwarf,
+  dunadan: Race.Dunadan,
+  'dúnadan': Race.Dunadan,
+  'dúnedain': Race.Dunadan,
+  eagle: Race.Eagle,
+  eagles: Race.Eagle,
+  elf: Race.Elf,
+  elves: Race.Elf,
+  ent: Race.Ent,
+  ents: Race.Ent,
+  giant: Race.Giant,
+  giants: Race.Giant,
+  hobbit: Race.Hobbit,
+  hobbits: Race.Hobbit,
+  maia: Race.Maia,
+  maiar: Race.Maia,
+  man: Race.Man,
+  men: Race.Man,
+  'nazgûl': Race.Ringwraith,
+  nazgul: Race.Ringwraith,
+  ringwraith: Race.Ringwraith,
+  orc: Race.Orc,
+  orcs: Race.Orc,
+  'pûkel-creature': Race.PukelCreature,
+  'pukel-creature': Race.PukelCreature,
+  spawn: Race.Spawn,
+  spider: Race.Spider,
+  spiders: Race.Spider,
+  troll: Race.Troll,
+  trolls: Race.Troll,
+  undead: Race.Undead,
+  wolf: Race.Wolf,
+  wolves: Race.Wolf,
+  wose: Race.Wose,
+  woses: Race.Wose,
 };
 
 /**
@@ -1044,7 +1077,6 @@ const FACTION_RACE_TO_ATTACK_TYPE: Record<string, string> = {
   dwarf: 'Dwarves',
   elf: 'Elves',
   dunadan: 'Dúnedain',
-  'dúnadan': 'Dúnedain',
   hobbit: 'Hobbits',
   spider: 'Spiders',
   dragon: 'Dragon',
@@ -1063,12 +1095,14 @@ export function factionRaceToAttackType(race: string): string {
 }
 
 /**
- * Normalizes a site automatic attack's `creatureType` (e.g. "Wolves") to the
- * lowercase singular race identifier used in creature card data and DSL
- * conditions (e.g. "wolf").
+ * Normalizes a site automatic attack's printed `creatureType` label (e.g.
+ * "Wolves") to the canonical {@link Race} identifier used in card data and DSL
+ * conditions (e.g. `"wolf"`).
  *
- * Creature cards already use the normalized form in their `race` field, so
- * this is only needed for automatic attacks.
+ * Card data already stores canonical races, so this is only needed for the
+ * attack labels printed on sites. A handful of automatic-attacks name no race
+ * at all — Vile Fumes' "Gas", and injected attacks with an empty label — and
+ * those fall through lowercased, matching no race condition.
  */
 export function normalizeCreatureRace(creatureType: string): string {
   return CREATURE_TYPE_TO_RACE[creatureType.toLowerCase()] ?? creatureType.toLowerCase();

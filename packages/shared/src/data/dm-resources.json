@@ -460,7 +460,7 @@
         "value": 2,
         "when": {
           "reason": "combat",
-          "enemy.race": { "$in": ["undead", "nazgul"] }
+          "enemy.race": { "$in": ["undead", "ringwraith"] }
         }
       },
       {

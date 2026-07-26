@@ -407,7 +407,6 @@
             "$in": [
               "orc",
               "troll",
-              "men",
               "man"
             ]
           }
@@ -1757,7 +1756,7 @@
           "$and": [
             {
               "$not": {
-                "enemy.race": "nazgul"
+                "enemy.race": "ringwraith"
               }
             },
             {

@@ -496,7 +496,7 @@
       {
         "type": "site-rule",
         "rule": "allow-creature-by-race",
-        "race": "pûkel-creature"
+        "race": "pukel-creature"
       }
     ]
   },
@@ -592,7 +592,7 @@
       {
         "type": "site-rule",
         "rule": "allow-creature-by-race",
-        "race": "pûkel-creature"
+        "race": "pukel-creature"
       }
     ]
   }

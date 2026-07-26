@@ -198,7 +198,7 @@
     "prowess": 15,
     "body": 6,
     "killMarshallingPoints": 2,
-    "race": "trolls",
+    "race": "troll",
     "keyedTo": [
       {
         "siteTypes": [
@@ -246,7 +246,7 @@
     "prowess": 16,
     "body": 9,
     "killMarshallingPoints": 4,
-    "race": "spiders",
+    "race": "spider",
     "keyedTo": [],
     "effects": [
       {
@@ -266,7 +266,7 @@
     "prowess": 14,
     "body": 8,
     "killMarshallingPoints": 2,
-    "race": "trolls",
+    "race": "troll",
     "keyedTo": [
       {
         "siteTypes": [

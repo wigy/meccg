@@ -103,7 +103,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionTypes": [
@@ -223,7 +223,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "wolves",
+    "race": "wolf",
     "keyedTo": [
       {
         "regionTypes": [
@@ -247,7 +247,7 @@
     "body": 8,
     "killMarshallingPoints": 1,
     "starredKillMarshallingPoints": true,
-    "race": "awakened plant",
+    "race": "awakened-plant",
     "keyedTo": [
       {
         "regionTypes": [
@@ -367,7 +367,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "spiders",
+    "race": "spider",
     "keyedTo": [
       {
         "regionTypes": [
@@ -417,7 +417,7 @@
     "body": 6,
     "killMarshallingPoints": 2,
     "starredKillMarshallingPoints": true,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionNames": [
@@ -475,7 +475,7 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionTypes": [
@@ -500,7 +500,7 @@
     "prowess": 11,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "siteTypes": [
@@ -523,7 +523,7 @@
     "body": null,
     "killMarshallingPoints": 2,
     "starredKillMarshallingPoints": true,
-    "race": "dúnedain",
+    "race": "dunadan",
     "keyedTo": [
       {
         "regionTypes": [
@@ -601,7 +601,7 @@
     "body": 9,
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
-    "race": "elves",
+    "race": "elf",
     "keyedTo": [
       {
         "regionTypes": [
@@ -664,7 +664,7 @@
     "body": null,
     "killMarshallingPoints": 1,
     "starredKillMarshallingPoints": true,
-    "race": "elves",
+    "race": "elf",
     "keyedTo": [
       {
         "regionTypes": [
@@ -721,7 +721,7 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "wolves",
+    "race": "wolf",
     "keyedTo": [
       {
         "regionTypes": [
@@ -744,7 +744,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "animals",
+    "race": "animal",
     "keyedTo": [
       {
         "regionTypes": [
@@ -781,7 +781,7 @@
     "body": 6,
     "killMarshallingPoints": 2,
     "starredKillMarshallingPoints": true,
-    "race": "dúnedain",
+    "race": "dunadan",
     "keyedTo": [
       {
         "regionNames": [
@@ -878,7 +878,7 @@
     "prowess": 11,
     "body": 6,
     "killMarshallingPoints": 2,
-    "race": "men",
+    "race": "man",
     "keyedTo": [],
     "effects": [],
     "text": "Men. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Anduin Vales, Wold & Foothills, High Pass, and Redhorn Gate; and may also be played at non-Haven sites in these regions. May not be played against a company containing a character with Beorn’s House as a home site."
@@ -893,7 +893,7 @@
     "prowess": 7,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionTypes": [
@@ -919,7 +919,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionTypes": [
@@ -971,7 +971,7 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "elves",
+    "race": "elf",
     "keyedTo": [
       {
         "regionTypes": [
@@ -994,7 +994,7 @@
     "prowess": 13,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "giants",
+    "race": "giant",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1015,7 +1015,7 @@
     "prowess": 9,
     "body": 6,
     "killMarshallingPoints": 2,
-    "race": "dúnedain",
+    "race": "dunadan",
     "keyedTo": [],
     "effects": [],
     "text": "Dúnedain. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Ithilien, Dagorlad, Harondor, Mouths of the Anduin, and Brown Lands; and may also be played at sites in these regions. May not be played against a company containing a character with Henneth Annûn as a home site."
@@ -1030,7 +1030,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "awakened plant",
+    "race": "awakened-plant",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1075,7 +1075,7 @@
     "prowess": 12,
     "body": 6,
     "killMarshallingPoints": 2,
-    "race": "animals",
+    "race": "animal",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1098,7 +1098,7 @@
     "prowess": 7,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "spiders",
+    "race": "spider",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1124,7 +1124,7 @@
     "prowess": 6,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "orcs",
+    "race": "orc",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1149,7 +1149,7 @@
     "prowess": 4,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "orcs",
+    "race": "orc",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1177,7 +1177,7 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "orcs",
+    "race": "orc",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1203,7 +1203,7 @@
     "prowess": 7,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1228,7 +1228,7 @@
     "prowess": 10,
     "body": 6,
     "killMarshallingPoints": 2,
-    "race": "elves",
+    "race": "elf",
     "keyedTo": [],
     "effects": [],
     "text": "Elves. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Woodland Realm, Western Mirkwood, Heart of Mirkwood, Northern Rhovanion, and Grey Mountain Narrows; and may also be played at sites in these regions. May not be played against a company containing a character with Thranduil’s Halls as a home site."
@@ -1243,7 +1243,7 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "giants",
+    "race": "giant",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1264,7 +1264,7 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "orcs",
+    "race": "orc",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1291,7 +1291,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "trolls",
+    "race": "troll",
     "keyedTo": [
       {
         "regionTypes": [

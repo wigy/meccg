@@ -347,7 +347,7 @@
         "type": "play-target",
         "target": "character",
         "filter": {
-          "attack.race": "Spider"
+          "attack.race": "spider"
         }
       },
       {
@@ -357,7 +357,7 @@
         ],
         "rescueAttacks": [
           {
-            "race": "Spider",
+            "race": "spider",
             "strikes": 3,
             "prowess": 9
           }

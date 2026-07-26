@@ -1514,7 +1514,7 @@
     "name": "Belegorn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Belegorn.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "sage",
       "diplomat",
@@ -1952,7 +1952,7 @@
     "name": "Tarcil",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Tarcil.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "ranger",

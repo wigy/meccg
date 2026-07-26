@@ -440,7 +440,7 @@
     "name": "Golodhros",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Golodhros.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "sage",

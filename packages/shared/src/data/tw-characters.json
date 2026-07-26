@@ -560,7 +560,7 @@
         "value": 6,
         "when": {
           "reason": "combat",
-          "enemy.race": "nazgul"
+          "enemy.race": "ringwraith"
         }
       },
       {
@@ -569,7 +569,7 @@
         "op": "halve-round-up",
         "when": {
           "reason": "combat",
-          "enemy.race": "nazgul"
+          "enemy.race": "ringwraith"
         }
       }
     ],
@@ -1058,7 +1058,7 @@
         "value": 5,
         "when": {
           "reason": "combat",
-          "enemy.race": "nazgul"
+          "enemy.race": "ringwraith"
         }
       },
       {
@@ -1067,7 +1067,7 @@
         "op": "halve-round-up",
         "when": {
           "reason": "combat",
-          "enemy.race": "nazgul"
+          "enemy.race": "ringwraith"
         }
       }
     ],
@@ -2005,7 +2005,7 @@
     "name": "Boromir II",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/BoromirII2.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior"
     ],
@@ -2131,7 +2131,7 @@
     "name": "Denethor II",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/DenethorII.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "sage"
@@ -2279,7 +2279,7 @@
     "name": "Haldalam",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Haldalam.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "diplomat"
@@ -2302,7 +2302,7 @@
     "name": "Mablung",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Mablung.jpg",
     "unique": true,
-    "race": "dúnadan",
+    "race": "dunadan",
     "skills": [
       "warrior",
       "scout"
@@ -2511,7 +2511,7 @@
         "value": 5,
         "when": {
           "reason": "combat",
-          "enemy.race": "nazgul"
+          "enemy.race": "ringwraith"
         }
       },
       {
@@ -2520,7 +2520,7 @@
         "op": "halve-round-up",
         "when": {
           "reason": "combat",
-          "enemy.race": "nazgul"
+          "enemy.race": "ringwraith"
         }
       }
     ],

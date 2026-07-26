@@ -1706,7 +1706,7 @@
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
     "influenceNumber": 0,
-    "race": "dúnadan",
+    "race": "dunadan",
     "playableAt": [],
     "effects": [],
     "text": "Unique. Playable at Gobel Mírlond  if the influence check is greater than 8. Standard Modifications: Umbarean Corsairs (+2)."

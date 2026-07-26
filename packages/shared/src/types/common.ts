@@ -67,7 +67,22 @@ export interface TwoDiceSix {
   readonly die2: DieRoll;
 }
 
-/** Races for characters and creatures, covering all alignments and creature types. */
+/**
+ * Races for characters and creatures, covering all alignments and creature types.
+ *
+ * This enum is the *only* race vocabulary in the game: every `race` on a card,
+ * every race compared in a DSL condition (`enemy.race`, `target.race`,
+ * `races`, …), and every race the engine derives from a site's automatic-attack
+ * label must be one of these values. There is deliberately exactly one
+ * identifier per race — no plural/singular or spelling variants such as
+ * `orcs`/`orc` or `dúnadan`/`dúnedain`, which used to exist side by side and
+ * silently made conditions fail to match. The printed plural labels the cards
+ * show (an "Orcs" automatic-attack) are `creatureType` display text and are
+ * converted here through `normalizeCreatureRace`.
+ *
+ * A card test asserts that no other race value appears anywhere in the card
+ * data, so adding a race means adding it here first.
+ */
 export enum Race {
   Hobbit = 'hobbit',
   Elf = 'elf',
@@ -77,20 +92,38 @@ export enum Race {
   Wizard = 'wizard',
   Orc = 'orc',
   Troll = 'troll',
+  /**
+   * The Nazgûl — both the minion Ringwraith avatar characters and the Nazgûl
+   * hazard creatures, which are the same nine beings and are addressed
+   * together by card text ("Against Nazgûl and Ringwraiths …").
+   */
   Ringwraith = 'ringwraith',
   /** The five Istari as fallen-wizard avatars (White Hand expansion). */
   FallenWizard = 'fallen-wizard',
   /** The Balrog of Moria as the balrog avatar (The Balrog expansion). */
   Balrog = 'balrog',
   Dragon = 'dragon',
+  Drake = 'drake',
   Undead = 'undead',
   Spider = 'spider',
   Wolf = 'wolf',
+  Bear = 'bear',
   Giant = 'giant',
   Animal = 'animal',
+  Eagle = 'eagle',
+  Ent = 'ent',
+  Wose = 'wose',
+  /** Ainur in incarnate form (e.g. the Maia guardians of Against the Shadow sites). */
+  Maia = 'maia',
+  /** Spawn of the Balrog and kindred deep-dwelling horrors (The Balrog expansion). */
+  Spawn = 'spawn',
   AwakenedPlant = 'awakened-plant',
   PukelCreature = 'pukel-creature',
   Slayer = 'slayer',
+  /** Gollum ("My Precious", dm-29) — a creature rather than a member of any race. */
+  Creature = 'creature',
+  /** The Dead of Dunharrow ("Army of the Dead", tw-193) — a faction with no race. */
+  Special = 'special',
 }
 
 /** Character skills that determine special abilities and card interactions. */

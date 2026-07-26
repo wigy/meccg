@@ -835,7 +835,7 @@
           "shuffleAfter": true,
           "filter": {
             "cardType": "hazard-creature",
-            "race": "men"
+            "race": "man"
           },
           "count": 1
         }
@@ -845,7 +845,7 @@
         "trigger": "opponent-long-event-end",
         "handCardFilter": {
           "cardType": "hazard-creature",
-          "race": "men"
+          "race": "man"
         }
       }
     ],

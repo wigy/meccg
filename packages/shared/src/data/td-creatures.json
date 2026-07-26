@@ -261,7 +261,7 @@
     "prowess": 7,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "spiders",
+    "race": "spider",
     "keyedTo": [
       {
         "regionTypes": [
@@ -316,7 +316,7 @@
     "prowess": 6,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "animals",
+    "race": "animal",
     "keyedTo": [],
     "effects": [],
     "text": "Animals. May be played keyed to wilderness [{w}] after any Orc, Troll, or Man attack keyed to wilderness and against the same company. Each character in the company faces one strike. Any character wounded by Carrion Birds makes two body checks instead of one, both checks modified by -1."
@@ -331,7 +331,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "wolves",
+    "race": "wolf",
     "keyedTo": [
       {
         "regionTypes": [
@@ -353,7 +353,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       { "regionNames": ["Enedhwaith", "Cardolan", "Hollin", "Rhudaur", "Dunland"] }
     ],
@@ -371,7 +371,7 @@
     "prowess": 14,
     "body": 9,
     "killMarshallingPoints": 3,
-    "race": "trolls",
+    "race": "troll",
     "keyedTo": [
       {
         "regionTypes": [
@@ -395,7 +395,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "orcs",
+    "race": "orc",
     "keyedTo": [
       {
         "regionTypes": [
@@ -514,7 +514,7 @@
     "prowess": 2,
     "body": 5,
     "killMarshallingPoints": 1,
-    "race": "animals",
+    "race": "animal",
     "keyedTo": [],
     "effects": [],
     "text": "Animals. 15 strikes. Only playable at a Shadow-hold [{S}] or at a Dark-hold [{D}], and only if a character in target company is wounded or Doors of Night is in play."
@@ -550,7 +550,7 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "giants",
+    "race": "giant",
     "keyedTo": [
       {
         "regionTypes": [
@@ -677,7 +677,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "orcs",
+    "race": "orc",
     "keyedTo": [],
     "effects": [
       {
@@ -697,7 +697,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "orcs",
+    "race": "orc",
     "keyedTo": [],
     "effects": [
       {

@@ -10,7 +10,7 @@ Conditions use MongoDB-style query operators. An object with multiple keys is an
 { "bearer.race": "hobbit" }
 { "reason": "combat", "enemy.race": "orc" }
 { "$and": [{ "reason": "combat" }, { "enemy.race": "orc" }] }
-{ "$or": [{ "enemy.race": "undead" }, { "enemy.race": "nazgul" }] }
+{ "$or": [{ "enemy.race": "undead" }, { "enemy.race": "ringwraith" }] }
 { "$not": { "enemy.race": "undead" } }
 { "bearer.skills": { "$includes": "warrior" } }
 { "lairOf": { "$exists": false } }
@@ -1236,7 +1236,7 @@ Operations:
 
 ```json
 { "type": "enemy-modifier", "stat": "body", "op": "halve-round-up",
-  "when": { "reason": "combat", "enemy.race": "nazgul" } }
+  "when": { "reason": "combat", "enemy.race": "ringwraith" } }
 { "type": "enemy-modifier", "stat": "body", "op": "subtract", "value": 2,
   "when": { "$or": [{ "enemy.race": "dragon" }, { "enemy.race": "drake" }] } }
 ```
@@ -2896,10 +2896,10 @@ Example (Beasts of the Wood — tap, keyed by region name):
   "requiredRace": "wizard",
   "cost": { "check": "corruption", "modifier": -2 } }
 { "type": "cancel-attack",
-  "when": { "enemy.race": { "$in": ["orc", "troll", "men", "man"] } } }
+  "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } } }
 { "type": "cancel-attack",
   "cost": { "tap": "self" },
-  "when": { "enemy.race": { "$in": ["wolf", "wolves", "animal", "animals"] } } }
+  "when": { "enemy.race": { "$in": ["wolf", "animal"] } } }
 { "type": "cancel-attack",
   "cost": { "tap": "self" },
   "when": { "$and": [
@@ -3056,7 +3056,7 @@ discarded by the `discardOrphanedConvertedAllyEvents` postReduce sweep
 ```json
 {
   "type": "convert-creature-to-ally",
-  "races": ["orc", "orcs", "troll", "trolls", "giant", "slayer", "men"],
+  "races": ["orc", "troll", "giant", "slayer", "man"],
   "maxStrikes": 1,
   "controllerTaps": true,
   "ally": { "mind": 1, "body": 8, "prowessModifier": -7 }
@@ -3166,7 +3166,7 @@ by `"bearer"`-cost items like Star-glass).
 { "type": "modify-attack",
   "cost": { "tap": "bearer" },
   "prowessModifier": -2,
-  "when": { "enemy.race": { "$in": ["spiders", "animals", "wolves"] } },
+  "when": { "enemy.race": { "$in": ["spider", "animal", "wolf"] } },
   "enqueueCorruptionCheck": true }
 ```
 
@@ -3192,7 +3192,7 @@ for how an attack acquires that flag):
   "cost": { "tap": "self" },
   "prowessModifier": -2,
   "when": { "$or": [
-    { "enemy.race": { "$in": ["orc", "orcs", "troll", "trolls"] } },
+    { "enemy.race": { "$in": ["orc", "troll"] } },
     { "attack.weaponsIneffective": true }
   ] } }
 ```
@@ -3389,7 +3389,7 @@ resolved and resumes the chain.
 
 ```json
 { "type": "counter-cancel-attack-roll",
-  "race": ["spider", "spiders"],
+  "race": ["spider"],
   "threshold": 14,
   "prowessBonus": 1 }
 ```
@@ -3399,7 +3399,7 @@ chain of effects) that would cancel a Spider attack. Make a roll and add the
 attack's prowess. If the result is greater than 14, the effect is canceled and
 the attack receives +1 prowess." Its second mode ("+1 prowess to a Spider
 attack") is a plain `modify-attack` (`fromHand`, `player: "attacker"`,
-`when: { "enemy.race": { "$in": ["spider", "spiders"] } }`), which also carries
+`when: { "enemy.race": { "$in": ["spider"] } }`), which also carries
 the on-guard-reveal behaviour for that mode.
 
 ### 10f. `face-strike-on-tap`
@@ -3622,7 +3622,7 @@ Nazgûl above).
 { "type": "cancel-strike",
   "cost": { "check": "corruption", "modifier": -2 },
   "when": { "$not": { "$or": [
-    { "enemy.race": "undead" }, { "enemy.race": "nazgul" }
+    { "enemy.race": "undead" }, { "enemy.race": "ringwraith" }
   ] } } }
 { "type": "cancel-strike",
   "cost": { "tap": "self" },
@@ -4608,7 +4608,7 @@ Rules:
 
   ```json
   { "type": "site-rule", "rule": "attacks-not-detainment",
-    "filter": { "enemy.race": { "$ne": "nazgul" } } }
+    "filter": { "enemy.race": { "$ne": "ringwraith" } } }
   ```
 
   `attack.automatic` lets a site's own automatic-attack keep a
@@ -4919,7 +4919,7 @@ Rules:
   keyed to this site."
 
   ```json
-  { "type": "site-rule", "rule": "allow-creature-by-race", "race": "men" }
+  { "type": "site-rule", "rule": "allow-creature-by-race", "race": "man" }
   ```
 
   ```json
@@ -5723,7 +5723,7 @@ Supported `apply.constraint` values:
 
 ```json
 { "type": "creature-race-choice",
-  "exclude": ["nazgul", "undead", "dragon"],
+  "exclude": ["ringwraith", "undead", "dragon"],
   "apply": {
     "type": "add-constraint",
     "constraint": "creature-type-no-hazard-limit",
@@ -6178,7 +6178,7 @@ Reduces opponent draws from Alatar's company's movement by one (floored at zero)
   { "type": "cancel-strike",
     "cost": { "check": "corruption", "modifier": -2 },
     "when": { "$not": { "$or": [
-      { "enemy.race": "undead" }, { "enemy.race": "nazgul" }
+      { "enemy.race": "undead" }, { "enemy.race": "ringwraith" }
     ] } } }
 ]
 ```
@@ -6188,9 +6188,9 @@ Reduces opponent draws from Alatar's company's movement by one (floored at zero)
 ```json
 "effects": [
   { "type": "stat-modifier", "stat": "prowess", "value": 6,
-    "when": { "reason": "combat", "enemy.race": "nazgul" } },
+    "when": { "reason": "combat", "enemy.race": "ringwraith" } },
   { "type": "enemy-modifier", "stat": "body", "op": "halve-round-up",
-    "when": { "reason": "combat", "enemy.race": "nazgul" } }
+    "when": { "reason": "combat", "enemy.race": "ringwraith" } }
 ]
 ```
 
@@ -6551,7 +6551,7 @@ to the next automatic-attack at a Ruins & Lairs site.
       ]
     } },
   { "type": "creature-race-choice",
-    "exclude": ["nazgul", "undead", "dragon"],
+    "exclude": ["ringwraith", "undead", "dragon"],
     "apply": {
       "type": "add-constraint",
       "constraint": "creature-type-no-hazard-limit",
@@ -7469,10 +7469,10 @@ factions, and the other versions additionally gain an Orcs 4/7 attack:
 ```json
 {
   "type": "site-instance-transform",
-  "associated": { "siteType": "shadow-hold", "removeAutoAttacksByRace": "Dwarves" },
+  "associated": { "siteType": "shadow-hold", "removeAutoAttacksByRace": "dwarf" },
   "others": {
     "siteType": "shadow-hold",
-    "removeAutoAttacksByRace": "Dwarves",
+    "removeAutoAttacksByRace": "dwarf",
     "addAutoAttack": { "creatureType": "Orcs", "strikes": 4, "prowess": 7 }
   },
   "noFactions": true
@@ -7636,7 +7636,7 @@ keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}]."
   "type": "grant-creature-keying",
   "creatureFilter": {
     "$and": [
-      { "race": { "$in": ["spider", "spiders"] } },
+      { "race": { "$in": ["spider"] } },
       { "unique": { "$ne": true } }
     ]
   },
@@ -7656,7 +7656,7 @@ Lairs [{R}]. The creature must be playable in a non-Coastal Sea [{c}] region."
   "type": "grant-creature-keying",
   "creatureFilter": {
     "$and": [
-      { "race": { "$in": ["animal", "animals", "spider", "spiders", "wolf", "wolves"] } },
+      { "race": { "$in": ["animal", "spider", "wolf"] } },
       { "unique": { "$ne": true } }
     ]
   },
@@ -7931,7 +7931,7 @@ If no matching hand card is available, only the `discard-self` option is offered
 {
   "type": "hazard-maintenance",
   "trigger": "opponent-long-event-end",
-  "handCardFilter": { "cardType": "hazard-creature", "race": "men" }
+  "handCardFilter": { "cardType": "hazard-creature", "race": "man" }
 }
 ```
 
@@ -7962,7 +7962,7 @@ When absent, the effect fires for the source card's owner only.
     "from": "discard",
     "to": "deck",
     "shuffleAfter": true,
-    "filter": { "cardType": "hazard-creature", "race": "men" },
+    "filter": { "cardType": "hazard-creature", "race": "man" },
     "count": 1
   }
 }
@@ -8891,11 +8891,11 @@ permanent-event's own auto-attack.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `filter` | yes | A {@link Condition} matched against each candidate creature's card definition (e.g. `{ "race": { "$in": ["wolves", "animals"] } }`). Reuses the shared condition-matcher rather than a card-specific keyword. |
+| `filter` | yes | A {@link Condition} matched against each candidate creature's card definition (e.g. `{ "race": { "$in": ["wolf", "animal"] } }`). Reuses the shared condition-matcher rather than a card-specific keyword. |
 
 ```json
 { "type": "grant-replay-attacked-creature",
-  "filter": { "race": { "$in": ["wolves", "animals"] } } }
+  "filter": { "race": { "$in": ["wolf", "animal"] } } }
 ```
 
 Legal actions: during the hazard player's M/H play-hazards window,

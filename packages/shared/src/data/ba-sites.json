@@ -112,7 +112,7 @@
       {
         "type": "site-rule",
         "rule": "allow-creature-by-race",
-        "race": "pûkel-creature"
+        "race": "pukel-creature"
       }
     ]
   },
@@ -258,7 +258,7 @@
       {
         "type": "site-rule",
         "rule": "allow-creature-by-race",
-        "race": "pûkel-creature"
+        "race": "pukel-creature"
       }
     ],
     "certified": "2026-07-14"
@@ -830,7 +830,7 @@
       {
         "type": "site-rule",
         "rule": "allow-creature-by-race",
-        "race": "spiders"
+        "race": "spider"
       },
       {
         "type": "on-event",
