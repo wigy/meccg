@@ -29,15 +29,16 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
-  LORIEN, RIVENDELL, MINAS_TIRITH,
-  buildTestState, resetMint,
+  LORIEN, RIVENDELL, MINAS_TIRITH, MORIA,
+  buildTestState, resetMint, makeMHState,
   addCardInPlay, attachItemToChar, charIdAt,
+  handCardId, companyIdAt, playHazardAndResolve,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { getActiveAutoAttacks } from '../../engine/manifestations.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { Phase, Alignment } from '../../index.js';
-import type { CardDefinitionId, SiteCard } from '../../index.js';
+import type { CardDefinitionId, GameState, SiteCard } from '../../index.js';
 
 const SCORBA_AT_HOME = 'td-65' as CardDefinitionId;
 const SCORBA_AHUNT = 'td-64' as CardDefinitionId;
@@ -50,6 +51,32 @@ const STING = 'tw-333' as CardDefinitionId;            // hero minor item, cp 1
 
 describe('Scorba at Home (td-65)', () => {
   beforeEach(() => resetMint());
+
+  // ─── placement in play ────────────────────────────────────────────────────
+
+  test('enters the general play area — not bound to the hazarded company', () => {
+    // Scorba at Home declares no `play-target`: it augments Zarak Dûm's
+    // automatic-attacks and every major item in play, regardless of company.
+    // The company named by the play-hazard action is only the company being
+    // hazarded (hazard-limit bookkeeping) and must NOT bind the card, or the
+    // client renders it as a company-specific card.
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [SCORBA_AT_HOME], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const mhState: GameState = { ...state, phaseState: makeMHState() };
+    const cardId = handCardId(mhState, HAZARD_PLAYER);
+    const companyId = companyIdAt(mhState, RESOURCE_PLAYER);
+    const s = playHazardAndResolve(mhState, PLAYER_2, cardId, companyId);
+
+    const inPlay = s.players[HAZARD_PLAYER].cardsInPlay.find(c => c.definitionId === SCORBA_AT_HOME);
+    expect(inPlay).toBeDefined();
+    expect(inPlay!.companyId).toBeUndefined();
+  });
 
   // ─── dragon-at-home augmentation ──────────────────────────────────────────
 
