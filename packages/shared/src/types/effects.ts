@@ -2352,6 +2352,19 @@ export interface CancelChainEntryAction extends TriggeredActionBase {
   readonly select?: 'most-recent-unresolved-hazard' | 'target';
   /** For `select: 'target'`: restrict to entries whose source has a matching skill effect. */
   readonly requiredSkill?: string;
+  /**
+   * For `select: 'target'`: generic filter over the target chain entry,
+   * evaluated against `{ target: { cardType, eventType, name }, declaredBy:
+   * { alignment } }`. Used by Ire of the East (wh-24) to target "one minion
+   * short-event played by a Fallen-wizard earlier in the same chain".
+   */
+  readonly filter?: Condition;
+  /**
+   * When true, the spent event card is removed from the game (moved from its
+   * player's discard pile to their out-of-play pile) as its own chain entry
+   * resolves un-negated — "Remove this card from the game" (wh-24).
+   */
+  readonly removeFromGame?: boolean;
 }
 
 /**
