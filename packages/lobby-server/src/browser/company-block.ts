@@ -53,7 +53,7 @@ import {
 } from './company-view-state.js';
 import { renderSiteArea } from './company-site.js';
 import { renderCharacterColumn } from './company-character.js';
-import { showCharacterActionTooltip, showGrantedActionTooltip } from './company-modals.js';
+import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGrantedActionMenu } from './company-modals.js';
 import { showTooltipMenu } from './tooltip-menu.js';
 import { switchToAllCompanies } from './company-view.js';
 
@@ -1069,6 +1069,31 @@ export function findTapAltPermanentEventActions(
 }
 
 /**
+ * Find the viable `activate-granted-action` activations granted by a bare
+ * in-play card (a `cardsInPlay` entry with no bearer), e.g. The Lidless Eye
+ * (le-203) / Sauron (ba-43) offering `sauron-sideboard-fetch` and
+ * `sauron-peek-hand` during the controller's organization phase.
+ *
+ * Such a permanent has no activating character, so the engine self-references
+ * the source instance in both `characterId` and `sourceCardId` and puts the
+ * chosen card (a sideboard card to fetch, a hand card to discard) in
+ * `targetCardId` — one action per candidate. Returns every activation whose
+ * source is this card so the renderer can highlight it and offer the choice.
+ *
+ * Exported so the cards-in-play renderer can wire a board click handler and the
+ * behaviour can be regression-tested without a full DOM render.
+ */
+export function findInPlayGrantedActions(
+  actions: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+): ActivateGrantedAction[] {
+  return actions.filter(
+    (a): a is ActivateGrantedAction =>
+      a.type === 'activate-granted-action' && a.sourceCardId === cardInstanceId,
+  );
+}
+
+/**
  * Resolve the `tap-alt-permanent-event` action that taps `targetCharacterId`
  * using the already-selected in-play permanent-event `cardInstanceId`, or
  * `null` if no such target is offered. Backs the second click of the two-step
@@ -1140,6 +1165,12 @@ function renderInPlayCardImage(
     // Without this the only way to trigger the discard was the debug action
     // panel — the card had no board affordance.
     const discardForLimitAction = findDiscardForHazardLimitAction(viableActions(view.legalActions), card.instanceId);
+    // Bearer-less granted actions (The Lidless Eye le-203 / Sauron ba-43:
+    // sideboard-fetch and peek-opponent's-hand): the permanent itself is the
+    // source, so clicking it opens the ability menu. Without this the card was
+    // never highlighted and the ability was only reachable from the debug
+    // action panel.
+    const grantedActions = findInPlayGrantedActions(viableActions(view.legalActions), card.instanceId);
     if (tapAltActions.length > 0) {
       const isSelected = getSelectedTapAltPermanentEvent() === card.instanceId;
       img.classList.add('company-card--movable');
@@ -1169,6 +1200,12 @@ function renderInPlayCardImage(
       img.addEventListener('click', (e) => {
         e.stopPropagation();
         onAction(discardForLimitAction);
+      });
+    } else if (grantedActions.length > 0) {
+      img.classList.add('company-card--movable');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showInPlayGrantedActionMenu(img, grantedActions, cardPool, onAction);
       });
     }
   }

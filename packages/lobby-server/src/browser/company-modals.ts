@@ -42,45 +42,58 @@ import { switchToAllCompanies } from './company-view.js';
 import { showTooltipMenu, tooltipButton, type TooltipMenuItem } from './tooltip-menu.js';
 
 /**
- * Open a sideboard browser modal for the active fetch-from-sideboard sub-flow.
- * Shows eligible sideboard cards; clicking one sends the fetch action.
- * For discard mode with at least 1 fetched, also shows a "Done" button (pass).
+ * One entry of a card-grid modal: the action to send and the card instance whose
+ * image represents it (the card being fetched, discarded, or otherwise chosen).
  */
-export function openSideboardForFetch(
-  fetchActions: GameAction[],
+interface CardGridChoice {
+  readonly action: GameAction;
+  readonly instanceId: CardInstanceId;
+}
+
+/**
+ * Build and show a card-grid modal: a titled fan of card images, one per
+ * choice, where clicking a card dismisses the modal and sends its action.
+ *
+ * Shared by the sideboard fetch sub-flow and the granted-action target picker
+ * so both look and behave identically; `variant` supplies the class-name prefix
+ * (and therefore the dismissal scope) of the concrete modal.
+ */
+function openCardGridModal(
+  variant: 'sideboard-fetch' | 'granted-target',
+  title: string,
+  choices: readonly CardGridChoice[],
   passAction: GameAction | null,
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction: (action: GameAction) => void,
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
-  // Dismiss any existing modal first
-  dismissSideboardModal();
+  const dismiss = () => dismissCardGridModal(variant);
+  // Dismiss any existing modal of this variant first
+  dismiss();
 
   const backdrop = document.createElement('div');
-  backdrop.className = 'char-action-backdrop sideboard-fetch-backdrop';
+  backdrop.className = `char-action-backdrop ${variant}-backdrop`;
 
   const modal = document.createElement('div');
-  modal.className = 'sideboard-fetch-modal';
+  modal.className = `${variant}-modal`;
 
-  const title = document.createElement('div');
-  title.className = 'sideboard-fetch-title';
-  title.textContent = 'Fetch from Sideboard';
-  modal.appendChild(title);
+  const titleEl = document.createElement('div');
+  titleEl.className = `${variant}-title`;
+  titleEl.textContent = title;
+  modal.appendChild(titleEl);
 
   const grid = document.createElement('div');
-  grid.className = 'sideboard-fetch-grid';
+  grid.className = `${variant}-grid`;
 
-  for (const action of fetchActions) {
-    if (action.type !== 'fetch-from-sideboard' && action.type !== 'fetch-hazard-from-sideboard') continue;
-    const cardInstId = action.sideboardCardInstanceId as string;
-    const defId = cachedInstanceLookup(cardInstId as CardInstanceId);
+  for (const choice of choices) {
+    const defId = cachedInstanceLookup(choice.instanceId);
     const def = defId ? cardPool[defId as string] : undefined;
     const imgPath = def ? cardImageProxyPath(def) : undefined;
 
     const img = document.createElement('img');
     img.src = imgPath ?? '/images/card-back.jpg';
     img.alt = def?.name ?? 'Unknown card';
-    img.className = 'sideboard-fetch-card';
+    img.className = `${variant}-card`;
     // Note: deliberately NOT setting data-card-id / data-instance-id here so the
     // FLIP animation system (flip-animate.ts) ignores modal card images and does
     // not try to animate real pile cards from these transient modal positions.
@@ -88,8 +101,8 @@ export function openSideboardForFetch(
 
     img.addEventListener('click', (e) => {
       e.stopPropagation();
-      dismissSideboardModal();
-      onAction(action);
+      dismiss();
+      onAction(choice.action);
     });
 
     grid.appendChild(img);
@@ -100,22 +113,46 @@ export function openSideboardForFetch(
   // "Done" button when pass is available (discard mode with at least 1 fetched)
   if (passAction) {
     const doneBtn = tooltipButton('Done', () => {
-      dismissSideboardModal();
+      dismiss();
       onAction(passAction);
     });
     doneBtn.style.marginTop = '0.6rem';
     modal.appendChild(doneBtn);
   }
 
-  backdrop.onclick = () => dismissSideboardModal();
+  backdrop.onclick = () => dismiss();
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
 }
 
+/** Remove a card-grid modal of the given variant and its backdrop. */
+function dismissCardGridModal(variant: 'sideboard-fetch' | 'granted-target'): void {
+  document.querySelector(`.${variant}-modal`)?.remove();
+  document.querySelector(`.${variant}-backdrop`)?.remove();
+}
+
+/**
+ * Open a sideboard browser modal for the active fetch-from-sideboard sub-flow.
+ * Shows eligible sideboard cards; clicking one sends the fetch action.
+ * For discard mode with at least 1 fetched, also shows a "Done" button (pass).
+ */
+export function openSideboardForFetch(
+  fetchActions: GameAction[],
+  passAction: GameAction | null,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  const choices: CardGridChoice[] = [];
+  for (const action of fetchActions) {
+    if (action.type !== 'fetch-from-sideboard' && action.type !== 'fetch-hazard-from-sideboard') continue;
+    choices.push({ action, instanceId: action.sideboardCardInstanceId });
+  }
+  openCardGridModal('sideboard-fetch', 'Fetch from Sideboard', choices, passAction, cardPool, onAction);
+}
+
 /** Remove sideboard fetch modal and its backdrop. */
 export function dismissSideboardModal(): void {
-  document.querySelector('.sideboard-fetch-modal')?.remove();
-  document.querySelector('.sideboard-fetch-backdrop')?.remove();
+  dismissCardGridModal('sideboard-fetch');
 }
 
 /**
@@ -566,7 +603,68 @@ const GRANTED_ACTION_LABELS: Readonly<Record<string, string>> = {
   'cancel-constraint': 'Cancel Constraint',
   'cancel-return-and-site-tap': 'Cancel Return',
   'cancel-river': 'Cancel River (ranger tap)',
+  'sauron-sideboard-fetch': 'Fetch from Sideboard',
+  'sauron-peek-hand': 'Discard to Peek at Opponent\'s Hand',
 };
+
+/**
+ * Group granted actions by their `actionId`, preserving first-seen order.
+ *
+ * A single card may grant several distinct abilities (The Lidless Eye le-203 /
+ * Sauron ba-43: sideboard-fetch **or** peek-at-hand) and each ability may be
+ * offered once per candidate target (one action per eligible sideboard card, one
+ * per hand card). The board menu shows one entry per ability; the candidates
+ * within a group are then chosen from a card picker rather than from a list of
+ * identically-labelled menu entries.
+ *
+ * Exported for regression testing without a DOM render.
+ */
+export function groupGrantedActionsByAbility(
+  actions: readonly ActivateGrantedAction[],
+): ActivateGrantedAction[][] {
+  const groups = new Map<string, ActivateGrantedAction[]>();
+  for (const action of actions) {
+    const existing = groups.get(action.actionId);
+    if (existing) existing.push(action);
+    else groups.set(action.actionId, [action]);
+  }
+  return [...groups.values()];
+}
+
+/**
+ * Show the ability menu for a bearer-less in-play card that grants actions
+ * (The Lidless Eye le-203 / Sauron ba-43 during the controller's organization
+ * phase).
+ *
+ * One menu entry per granted ability. Choosing an ability whose candidates are
+ * cards (`targetCardId` — a sideboard card to bring into the play deck, a hand
+ * card to discard as the peek cost) opens a card picker so the player sees what
+ * they are choosing; a targetless ability fires directly.
+ */
+export function showInPlayGrantedActionMenu(
+  anchor: HTMLElement,
+  actions: readonly ActivateGrantedAction[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  const items = groupGrantedActionsByAbility(actions).map((group): TooltipMenuItem => {
+    const label = GRANTED_ACTION_LABELS[group[0].actionId] ?? group[0].actionId;
+    return {
+      label,
+      onClick: () => {
+        const choices = group
+          .filter(a => a.targetCardId !== undefined)
+          .map(a => ({ action: a as GameAction, instanceId: a.targetCardId as CardInstanceId }));
+        if (choices.length === 0) {
+          onAction(group[0]);
+          return;
+        }
+        openCardGridModal('granted-target', label, choices, null, cardPool, onAction);
+      },
+    };
+  });
+  showTooltipMenu(anchor, items);
+}
 
 /**
  * Show a tooltip menu for choosing between multiple granted actions on a single card
