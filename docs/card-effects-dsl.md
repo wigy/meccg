@@ -731,6 +731,9 @@ marshalling points for all ring items." — paired with an `on-event:
 play-deck-exhausted` self-discard `move` and `duplication-limit` scope `game`.
 And by Scorba at Home (td-65): "each major item gives an additional corruption
 point." — `itemFilter` `{ "item.subtype": "major" }`, `corruptionPoints: 1`.
+Also by Itangast at Home (td-38): "each greater item gives an additional
+corruption point." — `itemFilter` `{ "item.subtype": "greater" }`,
+`corruptionPoints: 1` (matching on the item's `subtype` field).
 
 ### 3a-iii. `corruption-source-multiplier`
 

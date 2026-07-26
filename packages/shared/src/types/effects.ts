@@ -336,7 +336,9 @@ export interface MpModifierEffect extends EffectBase {
  * `{ "item.keywords": { "$includes": "ring" } }`, `corruptionPoints: 1`,
  * `marshallingPoints: 1`. And by Scorba at Home (td-65): "each major item
  * gives an additional corruption point." — `itemFilter`
- * `{ "item.subtype": "major" }`, `corruptionPoints: 1`.
+ * `{ "item.subtype": "major" }`, `corruptionPoints: 1`. Also by Itangast at
+ * Home (td-38): "each greater item gives an additional corruption point" —
+ * `itemFilter` `{ "item.subtype": "greater" }`, `corruptionPoints: 1`.
  */
 export interface InPlayItemModifierEffect extends EffectBase {
   readonly type: 'in-play-item-modifier';
