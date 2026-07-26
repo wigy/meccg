@@ -5178,8 +5178,11 @@ body.all-companies-mode:has(#debug-view.hidden) {
   border-color: rgba(196, 163, 90, 0.7);
 }
 
-/* Sideboard fetch modal — shows sideboard cards for avatar fetch action */
-.sideboard-fetch-modal {
+/* Sideboard fetch modal — shows sideboard cards for avatar fetch action.
+   The granted-target picker (Sauron's sideboard-fetch / peek-hand candidates)
+   reuses the same card-fan presentation. */
+.sideboard-fetch-modal,
+.granted-target-modal {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -5196,7 +5199,8 @@ body.all-companies-mode:has(#debug-view.hidden) {
   backdrop-filter: blur(8px);
 }
 
-.sideboard-fetch-title {
+.sideboard-fetch-title,
+.granted-target-title {
   color: #c4a35a;
   font-family: 'MedievalSharp', serif;
   font-size: 1.1rem;
@@ -5204,20 +5208,23 @@ body.all-companies-mode:has(#debug-view.hidden) {
   margin-bottom: 0.8rem;
 }
 
-.sideboard-fetch-grid {
+.sideboard-fetch-grid,
+.granted-target-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
 }
 
-.sideboard-fetch-card {
+.sideboard-fetch-card,
+.granted-target-card {
   height: 25vh;
   border-radius: 4px;
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
-.sideboard-fetch-card:hover {
+.sideboard-fetch-card:hover,
+.granted-target-card:hover {
   transform: scale(1.05);
   box-shadow: 0 0 12px rgba(196, 163, 90, 0.7);
 }
