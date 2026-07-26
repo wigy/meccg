@@ -2817,7 +2817,10 @@ export function startDeckExhaust(state: GameState, playerIndex: 0 | 1): GameStat
  *
  * Fires `play-deck-exhausted` — discards any permanent event in either
  * player's `cardsInPlay` that declares `on-event: play-deck-exhausted` with a
- * self-discard `move` apply (e.g. Safe from the Shadow, Tokens to Show).
+ * self-discard `move` apply (e.g. Safe from the Shadow, Tokens to Show), plus
+ * any such event *attached to a character* (Cruel Claw Perceived wh-16 rides a
+ * Wizard / Fallen-wizard / Ringwraith in his `hazards` slot: "Discard when any
+ * play deck is exhausted").
  */
 export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameState {
   const player = state.players[playerIndex];
@@ -2861,7 +2864,64 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
     result = { ...result, players: updatedPlayers as unknown as typeof result.players };
   }
 
+  // The same trigger on a *character-attached* permanent event. Items stay with
+  // the character's controller; hazards belong to the opposing (hazard) player,
+  // so each discarded attachment routes to its own owner's discard pile.
+  result = discardAttachmentsOnDeckExhaust(result);
+
   return result;
+}
+
+/**
+ * Discards every card attached to a character (in its `items` or `hazards`
+ * slot) that declares `on-event: play-deck-exhausted` with a self-discard
+ * `move` apply. Split out of {@link completeDeckExhaust} purely for
+ * readability; it runs as the last step of a completed deck exhaustion.
+ *
+ * Ownership follows the same convention as {@link module:reducer-move}'s
+ * instance locator: an item is owned by the character's controller, a hazard by
+ * that controller's opponent.
+ */
+function discardAttachmentsOnDeckExhaust(state: GameState): GameState {
+  let changed = false;
+  const newPlayers = clonePlayers(state);
+
+  for (let pi = 0; pi < 2; pi++) {
+    for (const charId of Object.keys(newPlayers[pi].characters) as CardInstanceId[]) {
+      const char = newPlayers[pi].characters[charId];
+      const triggers = (attachment: { definitionId: CardDefinitionId }): boolean =>
+        getOnEventEffects(defById(state, attachment.definitionId), 'play-deck-exhausted')
+          .some(e => isSelfDiscardMove(e.apply));
+
+      const keptItems = char.items.filter(i => !triggers(i));
+      const keptHazards = char.hazards.filter(h => !triggers(h));
+      if (keptItems.length === char.items.length && keptHazards.length === char.hazards.length) continue;
+
+      changed = true;
+      const droppedItems = char.items.filter(triggers);
+      const droppedHazards = char.hazards.filter(triggers);
+      for (const dropped of [...droppedItems, ...droppedHazards]) {
+        logDetail(`play-deck-exhausted: discarding ${cardName(state, dropped.definitionId)} from ${cardName(state, char.definitionId)}`);
+      }
+      newPlayers[pi] = updateCharacter(newPlayers[pi], charId, c => ({
+        ...c,
+        items: keptItems,
+        hazards: keptHazards,
+      }));
+      // Items belong to the character's controller, hazards to the opponent.
+      newPlayers[pi] = {
+        ...newPlayers[pi],
+        discardPile: [...newPlayers[pi].discardPile, ...droppedItems.map(toCardInstance)],
+      };
+      const hazardOwner = 1 - pi;
+      newPlayers[hazardOwner] = {
+        ...newPlayers[hazardOwner],
+        discardPile: [...newPlayers[hazardOwner].discardPile, ...droppedHazards.map(toCardInstance)],
+      };
+    }
+  }
+
+  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] } : state;
 }
 
 /**
