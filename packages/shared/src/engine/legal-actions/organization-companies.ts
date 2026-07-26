@@ -986,6 +986,14 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
  * pending-resolution system; that resolution gates all other organization
  * actions until it is resolved.
  *
+ * Only true **item cards** are transferable. `CharacterInPlay.items` also
+ * carries non-item attachments that were merely *placed with* a character so
+ * their effects apply — recruitment-vehicle Stage resources such as Open to
+ * the Summons (wh-46), Thrall of the Voice (wh-82) or Orders from Lugbúrz
+ * (as-94). Those are permanent resource-events, not items: rule 2.II.5 grants
+ * no way to move them, and their card text binds them to the character they
+ * were placed with. They must never be offered for transfer.
+ *
  * Emits one viable action per valid (item, fromCharacter, toCharacter) triple.
  */
 export function transferItemActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -1014,6 +1022,13 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
       for (const item of char.items) {
         const itemDef = defById(state, item.definitionId);
         const itemName = itemDef?.name ?? '?';
+
+        // Non-item attachments (Stage resources placed with a character) are
+        // not transferable — CoE 2.II.5 covers items only.
+        if (!isItemCard(itemDef)) {
+          logDetail(`  → not transferable: ${itemName} on ${charName} is not an item card (${itemDef?.cardType ?? 'unknown type'})`);
+          continue;
+        }
 
         for (const targetInstId of charsAtSite) {
           if (targetInstId === charInstId) continue;
