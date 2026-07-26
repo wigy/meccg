@@ -52,7 +52,13 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // just left its controller's play area. Prev/next diff, so it runs on the raw
   // post-action state before the single-state sweeps and recompute below.
   const afterLeaves = prevState ? applyDiscardOnCardLeaves(prevState, tapped) : tapped;
-  return accrueRevealedInstances(recomputeDerived(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedFactionAttachedEvents(discardOrphanedStoredAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves)))))))))))))))));
+  const swept = sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedFactionAttachedEvents(discardOrphanedStoredAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves)))))))))))))));
+  // The Will of Sauron (tw-100): when the card retaining hazard long-events left
+  // play this step, every hazard long-event goes with it. Runs *after* the
+  // single-state sweeps so a retainer discarded by its own `discard-self-when`
+  // (Doors of Night gone) is already absent from the state being compared.
+  const afterRetention = prevState ? sweepRetainedHazardLongEvents(prevState, swept) : swept;
+  return accrueRevealedInstances(recomputeDerived(afterRetention));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
@@ -61,6 +67,7 @@ import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFac
 import { topResolutionFor } from './pending.js';
 import { applyEvilHourTaps } from './evil-hour.js';
 import { applyDiscardOnCardLeaves } from './discard-on-card-leaves.js';
+import { sweepRetainedHazardLongEvents } from './retain-hazard-long-events.js';
 import { applyResolution } from './pending-handlers.js';
 import { applyPairResourceWithCof } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';

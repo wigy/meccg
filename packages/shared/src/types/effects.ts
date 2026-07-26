@@ -6030,6 +6030,31 @@ export interface DiscardOnCardLeavesPlayEffect extends EffectBase {
 }
 
 /**
+ * Suspends the normal end-of-long-event-phase discard of hazard long-events for
+ * as long as the carrying card stays in play, and discards every hazard
+ * long-event in play the moment the carrier leaves.
+ *
+ * Hazard long-events are normally swept from the hazard player's `cardsInPlay`
+ * when the resource player passes out of the long-event phase ([2.III.3]). While
+ * any card carrying this effect is in play — in *either* player's `cardsInPlay`,
+ * since the effect is game-wide — that sweep is skipped, so the long-events
+ * accumulate. When the last carrier leaves play (for any reason: its own
+ * `discard-self-when`, deck exhaustion, cancellation), the retained long-events
+ * are all discarded at once.
+ *
+ * Used by The Will of Sauron (tw-100): "All hazard long-events remain in play
+ * until this card is discarded. … When this card is discarded, all hazard long
+ * events are discarded."
+ *
+ * ```json
+ * { "type": "retain-hazard-long-events" }
+ * ```
+ */
+export interface RetainHazardLongEventsEffect extends EffectBase {
+  readonly type: 'retain-hazard-long-events';
+}
+
+/**
  * Declares that, while the carrying card is in play, any hazard creature whose
  * card definition matches `creatureFilter` may be keyed to any site matching
  * `siteFilter` (its effective site type is one of `siteTypes` and it carries
@@ -6639,6 +6664,7 @@ export type CardEffect =
   | GrantAllyPlayEffect
   | FactionMpBonusEffect
   | DiscardOnCardLeavesPlayEffect
+  | RetainHazardLongEventsEffect
   | FactionInfluenceRestrictionEffect;
 
 /**

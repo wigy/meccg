@@ -1764,8 +1764,41 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheWillofSauron.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable if Doors of Night is in play. All hazard long-events remain in play until this card is discarded.Discard this card if Doors of Night isnot in play, or when any play deck is exhausted. When this card is discarded, all hazard long events are discarded. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Doors of Night"
+      },
+      {
+        "type": "retain-hazard-long-events"
+      },
+      {
+        "type": "discard-self-when",
+        "condition": {
+          "$not": {
+            "inPlayAnywhere": "Doors of Night"
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Playable if Doors of Night is in play. All hazard long-events remain in play until this card is discarded.Discard this card if Doors of Night isnot in play, or when any play deck is exhausted. When this card is discarded, all hazard long events are discarded. Cannot be duplicated.",
+    "certified": "2026-07-26"
   },
   {
     "cardType": "hazard-event",
