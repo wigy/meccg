@@ -731,6 +731,9 @@ marshalling points for all ring items." — paired with an `on-event:
 play-deck-exhausted` self-discard `move` and `duplication-limit` scope `game`.
 And by Scorba at Home (td-65): "each major item gives an additional corruption
 point." — `itemFilter` `{ "item.subtype": "major" }`, `corruptionPoints: 1`.
+Also by Itangast at Home (td-38): "each greater item gives an additional
+corruption point." — `itemFilter` `{ "item.subtype": "greater" }`,
+`corruptionPoints: 1` (matching on the item's `subtype` field).
 
 ### 3a-iii. `corruption-source-multiplier`
 
@@ -2240,6 +2243,17 @@ Events:
 
 - `company-member-wounded` -- fires after combat finalization when any character in the defending company was wounded (result `'wounded'`, not tapped under detainment rules). Scans every character in the defending company for attached hazard events carrying this on-event; for each match, enqueues one `corruption-check` pending resolution on the **bearer** (the character bearing the hazard, not the wounded character). Supports `apply: { type: "force-check", check: "corruption" }`. Used by *Despair of the Heart* (tw-27). Implemented in `reducer-combat.ts` combat finalization.
 - `character-gains-item` -- fires immediately after any character in the bearer's company gains an item during the site phase (via `play-hero-resource`). For each character bearing a hazard with this event, enqueues one `corruption-check` pending resolution for that character (the bearer, not the character who gained the item). Supports `apply: { type: "force-check", check: "corruption" }`. Used by *Lure of Expedience* (le-122). Implemented in `reducer-site.ts` `fireCharacterGainsItemChecks()`.
+- `successful-influence-attempt` -- fires when a **character** completes a successful influence attempt, from both influence-success seams: a faction influence roll (`resolveInfluenceAttemptRoll`) and an opponent-influence resolution (`resolveOpponentInfluenceDefend`) — matching "e.g., against a faction, an opponent's character, etc.". Carried by a **bare in-play event** in either player's `cardsInPlay` (the hazard resolves bare, it is not attached to anyone) and scanned by `fireSuccessfulInfluenceTriggers` in `reducer-site.ts`. The optional `when` is evaluated against `{ target: { race, name } }` built from the influencing character; an ally influencing factions "as if he were a character" (Radagast's Black Bird wh-114) never fires it. Supports an `apply` of `enqueue-corruption-check` (a Site-phase pending corruption check on the influencer — "immediately", since pending resolutions gate all further actions) or a `sequence` combining it with a self-discard `move` ("discard this card after this corruption check"). Duplicate in-play copies of the same definition fire only ONE corruption check but are ALL discarded (official clarification for Lure of Power). Used by *Lure of Power* (tw-59): "The next non-Hobbit character to make a successful influence attempt … must immediately make a corruption check modified by -4."
+
+  ```json
+  { "type": "on-event", "event": "successful-influence-attempt",
+    "when": { "target.race": { "$ne": "hobbit" } },
+    "apply": { "type": "sequence", "apps": [
+      { "type": "enqueue-corruption-check", "modifier": -4 },
+      { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+    ] } }
+  ```
+
 - `end-of-turn` -- fires when the active player's site phase ends and the game transitions into the End-of-Turn phase (both when all companies have been handled and when the player passes with no active step). The reducer (`reducer-site.ts`) scans every character of the active player for attached hazards carrying this on-event. Supports `apply: { type: "force-check-per-others-item", check: "corruption" }`, which enqueues one `corruption-check` pending resolution per item in the bearer's company that the bearer does not bear; the modifier for each check is the negative corruption-point value of that item (`-item.corruptionPoints`). Used by *Covetous Thoughts* (le-107). Implemented in `reducer-site.ts` `fireEndOfTurnCorruptionChecks()`.
 - `site-phase-company-begins` -- fires when a company is selected at the start of the site phase (`select-company` → `enter-or-skip` transition). The reducer (`reducer-site.ts` `fireSitePhaseCompanyBeginsEvents`) scans **all** players' `cardsInPlay` for **global** permanent events (no `companyId`) carrying this on-event. The condition is evaluated against a context including `company.siteRegionType` (the `RegionType` string of the region the company's current site is in, e.g. `"dark"` or `"shadow"`) and the standard `inPlay` card-name list. Currently supports `apply: { type: "tap-one-character" }`, which enqueues a `tap-one-character` pending resolution for the resource player: the player must tap one untapped character in the company, or pass if none are untapped. Used by *Stench of Mordor* (le-141).
 
@@ -10043,17 +10057,20 @@ at the time of rescue."
 
 ### 54. `hazard-limit-environment`
 
-Carried by an in-play **environment** hazard permanent-event; raises a moving
-company's hazard limit by `value` when the company matches the `when` condition.
+Carried by an in-play permanent or long event (hazard **or** resource);
+modifies companies' hazard limits by `value` while the card is in play.
 It applies game-wide (to every player's companies) and is evaluated
 independently for each company at the moment its hazard limit is snapshotted
-(site revelation in the Movement/Hazard phase). Only **moving** companies count
-(the snapshot requires a `destinationSite`).
+(site revelation in the Movement/Hazard phase). By default only **moving**
+companies count (the snapshot requires a `destinationSite`); with
+`appliesTo: "all"` stationary companies are reached too.
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | `value` | yes | Amount added to a matching company's hazard limit (once per matching in-play card). |
-| `when` | yes | Condition over the per-company context gating whether `value` applies. |
+| `when` | no | Condition over the per-company context gating whether `value` applies. Absent = every company. |
+| `floor` | no | For a negative `value`: the limit is never reduced below this floor. A limit already at or below the floor is left unchanged (the effect never raises it). |
+| `appliesTo` | no | `"moving"` (default) — moving companies only; `"all"` — stationary companies too. |
 
 The `when` condition is evaluated against a per-company context exposing:
 
@@ -10078,14 +10095,39 @@ The `when` condition is evaluated against a per-company context exposing:
 }
 ```
 
-Behaviour (`reducer-movement-hazard.ts` `snapshotHazardLimit` /
-`buildCompanyHazardContext`): when a moving company's hazard limit is snapshotted,
+Behaviour (`mh-steps.ts` `snapshotHazardLimit` /
+`buildCompanyHazardContext`): when a company's hazard limit is snapshotted,
 both players' `cardsInPlay` are scanned for this effect; each card whose `when`
 matches the company context adds `value` to the snapshot (folded in alongside the
 base size limit, sideboard halving, `hazard-limit-modifier` constraints and
 site-rule modifiers). Used by Eyes of the Shadow (dm-56): "The hazard limit is
 increased by two for each moving company with a size of less than four that also
-contains a Wizard or a non-ranger character with a mind of 6 or more."
+contains a Wizard or a non-ranger character with a mind of 6 or more." Also used
+by The Great Eye (as-85): "The hazard limit against all companies is decreased
+by one (to a minimum of two)" — `value: -1, floor: 2, appliesTo: "all"`, no
+`when`.
+
+### 54b. `cancel-hazard-event-play`
+
+Marker effect on an in-play permanent or long event: while the carrying card is
+in play, its controller may **discard it** during chain declaring to negate an
+unresolved hazard **event** entry (short, long, or permanent event — never a
+creature) declared by the opponent, before it resolves. An event revealed from
+on-guard is never a legal target (its chain entry carries
+`payload.fromOnGuard`), matching "cannot be used against an on-guard card".
+
+```json
+{ "type": "cancel-hazard-event-play" }
+```
+
+Behaviour: `cancelHazardEventChainActions` (`legal-actions/chain.ts`) emits one
+`cancel-hazard-event` action per (in-play source, eligible target entry) pair to
+the priority player during any `normal`-restriction chain.
+`handleCancelHazardEvent` (`chain-reducer.ts`) discards the source card from
+`cardsInPlay` to its owner's discard, marks the target entry negated, and flips
+priority. The negated event's card is routed to its owner's discard by the
+chain-completion flush (which skips instances already discarded at play time,
+so short events are not duplicated). Used by The Great Eye (as-85).
 
 ### 55. `withdraw-agent`
 

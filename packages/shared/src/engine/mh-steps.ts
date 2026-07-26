@@ -716,12 +716,16 @@ export function snapshotHazardLimit(
     }
   }
 
-  // Environment hazard-limit-environment effects (Eyes of the Shadow dm-56):
-  // each in-play card whose `when` matches this company adds its value to the
-  // company's hazard limit. The condition is evaluated against a per-company
-  // context (size, hasWizard, maxNonRangerMind). Only moving companies count
-  // ("for each moving company"), so a stationary company is never boosted.
-  if (company.destinationSite) {
+  // hazard-limit-environment effects: each in-play card whose `when` matches
+  // this company adds its value to the company's hazard limit. The condition
+  // is evaluated against a per-company context (size, hasWizard,
+  // maxNonRangerMind). By default only moving companies count (Eyes of the
+  // Shadow dm-56: "for each moving company"); an effect with
+  // `appliesTo: "all"` also reaches stationary companies (The Great Eye
+  // as-85: "against all companies"). A negative value with a `floor` never
+  // reduces the limit below the floor — and never raises a limit already at
+  // or below it ("decreased by one (to a minimum of two)").
+  {
     const envContext = buildCompanyHazardContext(state, company, activeIndex);
     for (const player of state.players) {
       for (const card of player.cardsInPlay) {
@@ -729,11 +733,18 @@ export function snapshotHazardLimit(
         if (!def) continue;
         for (const eff of getCardEffects(def)) {
           if (eff.type !== 'hazard-limit-environment') continue;
-          if (matchesContext(eff.when, envContext)) {
-            const prev = limit;
-            limit += eff.value;
-            logDetail(`Hazard limit modified by ${eff.value} (environment ${def.name}): ${prev} → ${limit}`);
+          if ((eff.appliesTo ?? 'moving') === 'moving' && !company.destinationSite) {
+            logDetail(`Hazard limit: ${def.name} applies to moving companies only — company is stationary, skipping`);
+            continue;
           }
+          if (eff.when && !matchesContext(eff.when, envContext)) continue;
+          const prev = limit;
+          let next = limit + eff.value;
+          if (eff.value < 0 && eff.floor !== undefined && next < eff.floor) {
+            next = Math.min(prev, eff.floor);
+          }
+          limit = next;
+          logDetail(`Hazard limit modified by ${eff.value} (${def.name}${eff.floor !== undefined ? `, floor ${eff.floor}` : ''}): ${prev} → ${limit}`);
         }
       }
     }

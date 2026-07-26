@@ -752,6 +752,13 @@ export type ChainEntryPayload =
        * already accounted for). Read by the chain resolver; absent = 1.
        */
       readonly forcedDiscardCount?: number;
+      /**
+       * True when this event entered the chain by being revealed from an
+       * on-guard slot rather than played from hand. Effects that cancel the
+       * *play* of a hazard event but "cannot be used against an on-guard
+       * card" (The Great Eye as-85) skip entries carrying this flag.
+       */
+      readonly fromOnGuard?: boolean;
     }
   | {
       readonly type: 'creature';
@@ -839,6 +846,12 @@ export type ChainEntryPayload =
       readonly storeItemInstanceId?: CardInstanceId;
       /** For a `storage-site-transfer` event: the character bearing `storeItemInstanceId`. */
       readonly storeCharacterId?: CardInstanceId;
+      /**
+       * True when this event entered the chain by being revealed from an
+       * on-guard slot rather than played from hand. See the `short-event`
+       * variant's field of the same name.
+       */
+      readonly fromOnGuard?: boolean;
     }
   | { readonly type: 'long-event' }
   | { readonly type: 'corruption-card' }

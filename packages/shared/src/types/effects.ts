@@ -336,7 +336,9 @@ export interface MpModifierEffect extends EffectBase {
  * `{ "item.keywords": { "$includes": "ring" } }`, `corruptionPoints: 1`,
  * `marshallingPoints: 1`. And by Scorba at Home (td-65): "each major item
  * gives an additional corruption point." — `itemFilter`
- * `{ "item.subtype": "major" }`, `corruptionPoints: 1`.
+ * `{ "item.subtype": "major" }`, `corruptionPoints: 1`. Also by Itangast at
+ * Home (td-38): "each greater item gives an additional corruption point" —
+ * `itemFilter` `{ "item.subtype": "greater" }`, `corruptionPoints: 1`.
  */
 export interface InPlayItemModifierEffect extends EffectBase {
   readonly type: 'in-play-item-modifier';
@@ -6411,6 +6413,7 @@ export type CardEffect =
   | RegionMovementLimitEffect
   | ProhibitCompanyEventsEffect
   | HazardLimitEnvironmentEffect
+  | CancelHazardEventPlayEffect
   | TakePrisonerEffect
   | StrikeShieldEffect
   | CancelPrisonerTakingEffect
@@ -6917,30 +6920,70 @@ export interface ProhibitCompanyEventsEffect extends EffectBase {
 }
 
 /**
- * Environment effect that raises a moving company's hazard limit when the
- * company matches a `when` condition. Carried by an in-play hazard
- * environment permanent-event; it applies game-wide (to every player's
+ * Environment-style effect that modifies companies' hazard limits while the
+ * carrying card is in play. Carried by an in-play permanent or long event in
+ * either player's `cardsInPlay`; it applies game-wide (to every player's
  * companies), evaluated independently for each company at the moment its
  * hazard limit is snapshotted (site revelation in the Movement/Hazard phase).
  *
  * The {@link value} is added to the company's hazard limit once per matching
- * in-play card. The {@link when} condition is evaluated against a per-company
- * context exposing `company.size` (effective size, CoE rule 3.24),
+ * in-play card. The optional {@link when} condition is evaluated against a
+ * per-company context exposing `company.size` (effective size, CoE rule 3.24),
  * `company.hasWizard` (a Wizard avatar is in the company) and
  * `company.maxNonRangerMind` (the highest mind among the company's
  * non-ranger characters, or 0 if none) — see `snapshotHazardLimit` in
- * `reducer-movement-hazard.ts`.
+ * `mh-steps.ts`. An absent `when` matches every company.
  *
  * Used by Eyes of the Shadow (dm-56): "The hazard limit is increased by two
  * for each moving company with a size of less than four that also contains a
- * Wizard or a non-ranger character with a mind of 6 or more."
+ * Wizard or a non-ranger character with a mind of 6 or more." — `value: 2`
+ * with a `when` gate (moving companies only, the default).
+ *
+ * Used by The Great Eye (as-85): "The hazard limit against all companies is
+ * decreased by one (to a minimum of two)." — `value: -1, floor: 2,
+ * appliesTo: "all"`.
  */
 export interface HazardLimitEnvironmentEffect extends EffectBase {
   readonly type: 'hazard-limit-environment';
   /** Amount added to a matching company's hazard limit. */
   readonly value: number;
-  /** Condition (over the per-company context) gating whether {@link value} applies. */
-  readonly when: Condition;
+  /** Condition (over the per-company context) gating whether {@link value} applies. Absent = always. */
+  readonly when?: Condition;
+  /**
+   * Floor a negative {@link value} never reduces the limit below ("to a
+   * minimum of two"). A limit already at or below the floor is left
+   * unchanged — the effect only ever decreases, never raises to the floor.
+   */
+  readonly floor?: number;
+  /**
+   * Which companies the effect reaches. `'moving'` (the default) applies only
+   * to a company with a declared destination site — dm-56's "each moving
+   * company". `'all'` also reaches stationary companies — as-85's "against
+   * all companies".
+   */
+  readonly appliesTo?: 'moving' | 'all';
+}
+
+/**
+ * In-play card ability: while the carrying card is in play, its controller may
+ * discard it during chain declaring to negate an unresolved hazard *event*
+ * (short, long, or permanent) declared by the opponent, before it resolves.
+ * An event revealed from on-guard is never a legal target (its chain entry
+ * carries `fromOnGuard`), matching the printed "cannot be used against an
+ * on-guard card" restriction.
+ *
+ * Offered as a `cancel-hazard-event` action by `legal-actions/chain.ts` and
+ * applied by `handleCancelHazardEvent` in `chain-reducer.ts`: the source card
+ * moves from `cardsInPlay` to its owner's discard pile and the target entry is
+ * marked negated (the canceled card is routed to its owner's discard when the
+ * chain completes).
+ *
+ * Used by The Great Eye (as-85): "If this card is in play, you can discard it
+ * to target and cancel the play of a hazard event played by your opponent
+ * before it resolves. This cannot be used against an on-guard card."
+ */
+export interface CancelHazardEventPlayEffect extends EffectBase {
+  readonly type: 'cancel-hazard-event-play';
 }
 
 // ---- Rescue attack shape (used by TakePrisonerEffect) ----

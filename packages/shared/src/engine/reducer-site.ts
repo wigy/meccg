@@ -1781,11 +1781,13 @@ export function applyOnGuardRevealAtResource(
 
   let newState: GameState = updatePlayer(state, activeIndex, p => ({ ...p, companies: newCompanies }));
 
-  // Initiate a nested chain for the on-guard event (rule 2.V.6.1)
+  // Initiate a nested chain for the on-guard event (rule 2.V.6.1).
+  // `fromOnGuard` marks the reveal origin so cancels that "cannot be used
+  // against an on-guard card" (The Great Eye as-85) exclude this entry.
   const isPermanent = def && 'eventType' in def && def.eventType === 'permanent';
   const payload = isPermanent
-    ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
-    : { type: 'short-event' as const };
+    ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId, fromOnGuard: true }
+    : { type: 'short-event' as const, fromOnGuard: true };
   const cardInstance: CardInstance = toCardInstance(revealedCard);
 
   // Revealed short events mirror hand-played ones: the card moves to its
@@ -2665,6 +2667,105 @@ function handleInfluenceAttemptDeclare(
  * effects from on-guard cards revealed during the chain), rolls 2d6,
  * and places the faction in cardsInPlay (success) or discard (failure).
  */
+/**
+ * Fire `successful-influence-attempt` on-event triggers carried by bare
+ * in-play events (either player's `cardsInPlay`) after an influence attempt
+ * succeeds — a faction influence attempt ({@link resolveInfluenceAttemptRoll})
+ * or an opponent-influence attempt ({@link resolveOpponentInfluenceDefend}).
+ *
+ * Lure of Power (tw-59): "The next non-Hobbit character to make a successful
+ * influence attempt (e.g., against a faction, an opponent's character, etc.)
+ * must immediately make a corruption check modified by -4. Discard this card
+ * after this corruption check." The effect's `when` is matched against
+ * `{ target: { race, name } }` built from the influencing character; an ally
+ * influencing factions "as if he were a character" (Radagast's Black Bird
+ * wh-114) never triggers — the printed text says "character". The apply is a
+ * `sequence` of `enqueue-corruption-check` (a Site-phase pending check on the
+ * influencer, so it resolves immediately before any further site action) and
+ * a self-discard `move`. Duplicate copies of the same definition fire only
+ * ONE corruption check but are ALL discarded, per the card's official
+ * clarification ("If 2 Lure of Power are in play, only one corruption check
+ * is made and all Lure of Power are discarded").
+ */
+export function fireSuccessfulInfluenceTriggers(
+  state: GameState,
+  influencerCharId: CardInstanceId,
+  controllerId: PlayerId,
+): GameState {
+  const controllerIndex = getPlayerIndex(state, controllerId);
+  const controller = state.players[controllerIndex];
+  const char = controller.characters[influencerCharId];
+  if (!char) return state;
+  const charDef = defById(state, char.definitionId);
+  if (!charDef || !isCharacterCard(charDef)) return state;
+
+  const ctx = { target: { race: charDef.race, name: charDef.name } };
+  // Definitions that already produced a corruption check this firing: extra
+  // copies of the same card cause no additional check (but still discard).
+  const firedDefIds = new Set<string>();
+  let next = state;
+
+  for (let pi = 0; pi < state.players.length; pi++) {
+    const owner = next.players[pi];
+    const discardIds = new Set<string>();
+    for (const card of owner.cardsInPlay) {
+      const def = defById(next, card.definitionId);
+      for (const effect of getOnEventEffects(def, 'successful-influence-attempt')) {
+        if (effect.when && !matchesContext(effect.when, ctx)) {
+          logDetail(`"${def?.name}" successful-influence-attempt: when condition not met for ${charDef.name} — not triggered`);
+          continue;
+        }
+        const steps = effect.apply.type === 'sequence' ? (effect.apply.apps ?? []) : [effect.apply];
+        for (const step of steps) {
+          if (step.type === 'enqueue-corruption-check') {
+            if (firedDefIds.has(card.definitionId as string)) {
+              logDetail(`"${def?.name}": duplicate copy in play — only one corruption check is made (all copies are discarded)`);
+              continue;
+            }
+            firedDefIds.add(card.definitionId as string);
+            const possessions = [
+              ...char.items.map(i => i.instanceId),
+              ...char.allies.map(a => a.instanceId),
+              ...char.hazards.map(h => h.instanceId),
+            ];
+            logDetail(`"${def?.name}": ${charDef.name} made a successful influence attempt — corruption check (modifier ${formatSignedNumber(step.modifier ?? 0)})`);
+            next = enqueueCorruptionCheck(next, {
+              source: card.instanceId,
+              actor: controllerId,
+              scope: { kind: 'phase', phase: Phase.Site },
+              characterId: influencerCharId,
+              modifier: step.modifier ?? 0,
+              reason: `${def?.name ?? 'Influence trigger'} (successful influence attempt)`,
+              possessions,
+            });
+          } else if (isSelfDiscardMove(step)) {
+            discardIds.add(card.instanceId as string);
+          }
+        }
+      }
+    }
+    if (discardIds.size > 0) {
+      const newPlayers = clonePlayers(next);
+      const ownerNow = newPlayers[pi];
+      const discarded = ownerNow.cardsInPlay.filter(c => discardIds.has(c.instanceId as string));
+      for (const c of discarded) {
+        logDetail(`Successful-influence-attempt: discarding "${cardName(next, c.definitionId, '?')}" from cardsInPlay`);
+      }
+      newPlayers[pi] = {
+        ...ownerNow,
+        cardsInPlay: ownerNow.cardsInPlay.filter(c => !discardIds.has(c.instanceId as string)),
+        discardPile: [...ownerNow.discardPile, ...discarded.map(toCardInstance)],
+      };
+      next = {
+        ...next,
+        players: newPlayers,
+        activeConstraints: next.activeConstraints.filter(c => !discardIds.has(c.source as string)),
+      };
+    }
+  }
+  return next;
+}
+
 export function resolveInfluenceAttemptRoll(
   state: GameState,
   entry: { readonly card: CardInstance | null; readonly declaredBy: import('../index.js').PlayerId; readonly payload: { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId; readonly placeUnderLeaderControl?: boolean; readonly bonusModifier?: number } },
@@ -2971,7 +3072,14 @@ export function resolveInfluenceAttemptRoll(
         ...(factionAtFreeHold ? { uniqueHeroFactionPlayedAtFreeHold: true } : {}),
       },
     }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);
-    return { state: successState, effects: rollEffect ? [rollEffect] : [] };
+    // Lure of Power (tw-59): a successful influence attempt by a matching
+    // character fires `successful-influence-attempt` triggers on bare in-play
+    // events (corruption check on the influencer, then self-discard). Only a
+    // character influencer qualifies — an ally (wh-114) is not a "character".
+    const triggeredState = charInPlay
+      ? fireSuccessfulInfluenceTriggers(successState, charId, entry.declaredBy)
+      : successState;
+    return { state: triggeredState, effects: rollEffect ? [rollEffect] : [] };
   }
 
   logDetail(`Influence attempt failed (${total} < ${influenceNumber})`);
@@ -3382,6 +3490,10 @@ export function resolveOpponentInfluenceDefend(
       logDetail(`Opponent influence: influenced character is a Leader — sweeping leader-leaves-company events on ${influencedCompanyId as string}`);
       afterSweep = sweepLeaderLeavesCompanyEvents(afterSweep, [influencedCompanyId]);
     }
+    // Lure of Power (tw-59): a successful opponent-influence attempt is a
+    // "successful influence attempt" — fire the in-play triggers on the
+    // influencing character (corruption check, then self-discard).
+    afterSweep = fireSuccessfulInfluenceTriggers(afterSweep, attempt.influencerId, state.activePlayer!);
     return {
       state: afterSweep,
       effects: [rollEffect],
