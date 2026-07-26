@@ -66,6 +66,19 @@ export function loadBcWeights(path: string): BcWeightsFile {
   if (parsed.featureSpecVersion !== FEATURE_SPEC_VERSION) {
     throw new Error(`${path} was trained on feature spec v${parsed.featureSpecVersion}, this build speaks v${FEATURE_SPEC_VERSION}`);
   }
+  // The value head either reads the torso output alone (weights predating
+  // the skip connection) or the torso output concatenated with the global
+  // vector. Any other width means the file came from an architecture this
+  // build does not implement: reject it here rather than let the forward
+  // pass read past the end of its input and silently produce NaN.
+  const dState = parsed.dims?.values?.[5];
+  const valueInputWidth = parsed.weights?.['value1.weight']?.shape?.[1];
+  if (typeof dState === 'number' && typeof valueInputWidth === 'number'
+    && valueInputWidth !== dState && valueInputWidth !== dState + parsed.globalWidth) {
+    throw new Error(
+      `${path}: value head input width ${valueInputWidth} matches neither the torso width `
+      + `(${dState}) nor torso+global (${dState + parsed.globalWidth}) — unsupported architecture`);
+  }
   for (const [name, tensor] of Object.entries(parsed.weights)) {
     const expected = tensor.shape.reduce((product, dim) => product * dim, 1);
     if (tensor.data.length !== expected) {
@@ -190,6 +203,12 @@ export function runBcSelfTest(model: BcWeightsFile): number {
     { global: model.selfTest.global, entities: model.selfTest.entities },
     { candidates: model.selfTest.candidates, mask: model.selfTest.mask },
   );
+  // NaN propagates silently through comparisons (`NaN > tol` is false), so
+  // a non-finite output would otherwise pass the tolerance check and only
+  // surface as inexplicably bad play. Report it as an infinite deviation.
+  if (!Number.isFinite(output.value) || output.probs.some(p => !Number.isFinite(p))) {
+    return Infinity;
+  }
   let worst = Math.abs(output.value - model.selfTest.expectedValue);
   model.selfTest.expectedProbs.forEach((expected, i) => {
     worst = Math.max(worst, Math.abs(output.probs[i] - expected));
@@ -222,7 +241,8 @@ export interface BcAgentOptions {
 export function createBcAgent(weightsPath: string, options?: BcAgentOptions): Agent {
   const model = loadBcWeights(weightsPath);
   const selfTestError = runBcSelfTest(model);
-  if (selfTestError > SELF_TEST_TOLERANCE) {
+  // Negated comparison so a NaN deviation fails instead of slipping through.
+  if (!(selfTestError <= SELF_TEST_TOLERANCE)) {
     throw new Error(`bc weights self-test failed: max deviation ${selfTestError} > ${SELF_TEST_TOLERANCE}`);
   }
   const temperature = options?.temperature;
