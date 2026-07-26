@@ -28,36 +28,36 @@ const REMASTER_BASE =
   'https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/';
 
 describe('card image URLs', () => {
-  const withImages = Object.values(pool).filter((card) => card.image !== undefined);
+  const cards = Object.values(pool);
 
-  test('every card definition carries an image', () => {
-    const missing = Object.values(pool)
-      .filter((card) => card.image === undefined)
+  test('every card definition carries a non-empty image URL', () => {
+    const missing = cards
+      .filter((card) => card.image.length === 0)
       .map((card) => `${card.id} (${card.name})`);
     expect(missing).toEqual([]);
   });
 
   test('images are served from the remaster repository as .jpg', () => {
-    const offenders = withImages
-      .filter((card) => !card.image!.startsWith(REMASTER_BASE) || !card.image!.endsWith('.jpg'))
+    const offenders = cards
+      .filter((card) => !card.image.startsWith(REMASTER_BASE) || !card.image.endsWith('.jpg'))
       .map((card) => `${card.id} (${card.name}): ${card.image}`);
     expect(offenders).toEqual([]);
   });
 
   test('image lives in the directory matching the card set prefix', () => {
-    const offenders = withImages
+    const offenders = cards
       .filter((card) => {
         const [set] = card.id.split('-');
-        return !card.image!.startsWith(`${REMASTER_BASE}${set}/`);
+        return !card.image.startsWith(`${REMASTER_BASE}${set}/`);
       })
       .map((card) => `${card.id} (${card.name}): ${card.image}`);
     expect(offenders).toEqual([]);
   });
 
   test('image filenames are strictly alphanumeric — no hyphens, spaces or accents', () => {
-    const offenders = withImages
+    const offenders = cards
       .filter((card) => {
-        const stem = card.image!.slice(REMASTER_BASE.length).split('/')[1]?.replace(/\.jpg$/, '');
+        const stem = card.image.slice(REMASTER_BASE.length).split('/')[1]?.replace(/\.jpg$/, '');
         return !/^[A-Za-z0-9]+$/.test(stem ?? '');
       })
       .map((card) => `${card.id} (${card.name}): ${card.image}`);
@@ -65,6 +65,6 @@ describe('card image URLs', () => {
   });
 
   test('minion Woodmen-town (le-414) resolves to Woodmentown.jpg', () => {
-    expect(pool['le-414']!.image).toBe(`${REMASTER_BASE}le/Woodmentown.jpg`);
+    expect(pool['le-414']?.image).toBe(`${REMASTER_BASE}le/Woodmentown.jpg`);
   });
 });
