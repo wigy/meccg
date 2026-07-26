@@ -9699,6 +9699,49 @@ floor. Consumed both at movement-plan time (`organization-companies.ts`
 using region movement is reduced by one (by two if Doors of Night is in play) to
 a minimum of two."
 
+### 52-1. `fw-site-alignment-restriction`
+
+Locks which **alignment of a site card** a Fallen-wizard player may use for a
+location. A Fallen-wizard's location deck may hold both the hero and the minion
+card for the same place (CoE rule 1.28), and the two play very differently —
+hero Lórien (tw-408) is a Haven, minion Lórien (as-155) a plain Free-hold with
+no haven benefits.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `require` | yes | The alignment the Fallen-wizard is forced to use — `"minion"` or `"hero"`. The *opposite* version is the one barred. |
+| `siteTypes` | yes | Printed site types the lock covers, read off the barred card (e.g. `["haven"]` with `require: "minion"` bars hero Haven cards). |
+| `when` | no | Matched per Fallen-wizard player against `{ player: { alignment, stagePoints } }`, so one card can escalate with stage points. |
+
+```json
+{ "type": "fw-site-alignment-restriction", "require": "minion", "siteTypes": ["free-hold"],
+  "when": { "player.stagePoints": { "$gt": 4 } } }
+```
+
+Behaviour (`fwSiteVersionForbidden` in `reducer-utils.ts`): while a card carrying
+this effect is in play, **every** Fallen-wizard player (both players' `cardsInPlay`
+are scanned, and the `when` is evaluated against the *restricted* player, not the
+controller) is barred from using the opposite version of any location whose
+printed site type is listed. Only `hero-site` / `minion-site` cards can be barred:
+a `fallen-wizard-site` — any Wizardhaven — counts as both hero and minion
+(MEWH §10) and is never locked.
+
+The lock is consumed where a player picks a site card, i.e. when movement is
+declared (`organization-companies.ts` `planMovementActions`). A barred card is
+dropped while the candidate list is built, *before* it can claim the location's
+name → instance slot, so the surviving version of the same location becomes the
+destination actually used; when the deck holds only the barred version the
+location becomes unreachable. The same check drops a sibling company's in-play
+site (rule 2.II.7.2), so a Fallen-wizard cannot join a company standing on a
+barred card either. Agent movement is untouched — CoE 4.F1 already pins a
+Fallen-wizard's agents to hero site cards regardless of the player's own lock.
+
+Used by Heart Grown Cold (wh-21): "Fallen-wizard players must use minion site
+cards for hero Havens [{H}]. If a Fallen-wizard has more than 4 stage points, his
+player must also use minion site cards for Free-holds [{F}]. If a Fallen-wizard
+has more than 7 stage points, his player must also use minion site cards for
+Border-holds [{B}]."
+
 ### 52a. `prohibit-company-events`
 
 Carried by an in-play hazard permanent-event; suppresses **resource

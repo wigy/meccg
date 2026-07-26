@@ -28,7 +28,7 @@ import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../.
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, fwSiteVersionForbidden } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
@@ -587,9 +587,14 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     // Build candidate sites from the player's site deck
     const candidateSites: SiteCard[] = [];
     const siteInstMap = new Map<string, CardInstanceId>();
+    // Heart Grown Cold (wh-21) and its kin lock which alignment of a site card a
+    // Fallen-wizard may use for a location. A barred version is dropped before it
+    // can claim the name → instance slot, so the surviving version of the same
+    // location (if the deck holds one) becomes the destination the player uses.
     for (const siteCard of player.siteDeck) {
       const siteDef = defById(state, siteCard.definitionId);
       if (!siteDef || !isSiteCard(siteDef)) continue;
+      if (fwSiteVersionForbidden(state, player, siteDef)) continue;
       candidateSites.push(siteDef);
       siteInstMap.set(siteDef.name, siteCard.instanceId);
     }
@@ -616,6 +621,10 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         // the same site name via different instances, though in practice they
         // share the instance once movement resolves).
         if (siteInstMap.has(siblingDef.name)) continue;
+        // The same alignment lock applies to a site already in play: a
+        // Fallen-wizard barred from the hero card cannot join a sibling standing
+        // on it either.
+        if (fwSiteVersionForbidden(state, player, siblingDef)) continue;
         candidateSites.push(siblingDef);
         siteInstMap.set(siblingDef.name, siblingSite.instanceId);
         logDetail(`  sibling-in-play destination ${siblingDef.name} via company ${sibling.id as string}`);

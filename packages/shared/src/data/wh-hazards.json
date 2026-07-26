@@ -115,7 +115,30 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/HeartGrownCold.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-07-27",
+    "effects": [
+      {
+        "type": "fw-site-alignment-restriction",
+        "require": "minion",
+        "siteTypes": ["haven"]
+      },
+      {
+        "type": "fw-site-alignment-restriction",
+        "require": "minion",
+        "siteTypes": ["free-hold"],
+        "when": {
+          "player.stagePoints": { "$gt": 4 }
+        }
+      },
+      {
+        "type": "fw-site-alignment-restriction",
+        "require": "minion",
+        "siteTypes": ["border-hold"],
+        "when": {
+          "player.stagePoints": { "$gt": 7 }
+        }
+      }
+    ],
     "text": "Fallen-wizard players must use minion site cards for hero Havens [{H}]. If a Fallen-wizard has more than 4 stage points, his player must also use minion site cards for Free-holds [{F}]. If a Fallen-wizard has more than 7 stage points, his player must also use minion site cards for Border-holds [{B}]."
   },
   {
