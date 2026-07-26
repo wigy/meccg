@@ -11,7 +11,7 @@ import type { PlayFlagEffect } from '../types/effects.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
-import { isSiteCard, isResourceEventCard, isCharacterCard, isAvatarCharacter } from '../types/cards.js';
+import { isSiteCard, isResourceEventCard, isCharacterCard, isAvatarCharacter, isItemCard } from '../types/cards.js';
 import { CardStatus, SiteType } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
@@ -1115,8 +1115,11 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
  * Handle transfer-item during organization.
  *
  * Moves an item from one character to another at the same site.
- * Validates that the item exists on the source character and that
- * both characters are at the same site (not necessarily same company).
+ * Validates that the item exists on the source character, that it really is an
+ * item card (CoE 2.II.5 transfers items only — non-item attachments such as the
+ * recruitment-vehicle Stage resources riding in `CharacterInPlay.items` stay
+ * with the character they were placed with), and that both characters are at
+ * the same site (not necessarily same company).
  */
 function handleTransferItem(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'transfer-item') return wrongActionType(state, action, 'transfer-item');
@@ -1131,10 +1134,15 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   if (!player.characters[fromCharId]) return { state, error: 'Source character not found' };
   if (!player.characters[toCharId]) return { state, error: 'Target character not found' };
 
+  const itemDef = resolveDef(state, itemInstId);
+  if (!isItemCard(itemDef)) {
+    logDetail(`Transfer rejected: ${itemDef?.name ?? '?'} is not an item card and stays with its bearer`);
+    return { state, error: 'Card is not an item and cannot be transferred' };
+  }
+
   const removed = removeAttachment(player, 'items', itemInstId);
   if (!removed || removed.charId !== fromCharId) return { state, error: 'Item not found on source character' };
   const item = removed.attachment;
-  const itemDef = resolveDef(state, itemInstId);
   const fromDef = resolveDef(state, fromCharId);
   const toDef = resolveDef(state, toCharId);
   logDetail(`Transfer item: ${itemDef?.name ?? '?'} from ${fromDef?.name ?? '?'} to ${toDef?.name ?? '?'}`);

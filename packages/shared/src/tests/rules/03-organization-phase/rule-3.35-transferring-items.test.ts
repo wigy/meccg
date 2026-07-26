@@ -15,14 +15,27 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, viableFor, findCharInstanceId, Phase,
+  buildTestState, resetMint, viableFor, findCharInstanceId, Phase, Alignment,
   PLAYER_1, PLAYER_2,
   ARAGORN, BILBO, LEGOLAS,
   DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   RESOURCE_PLAYER,
 } from '../../test-helpers.js';
+import { reduce } from '../../../index.js';
+import type { CardDefinitionId } from '../../../index.js';
 import type { TransferItemAction } from '../../../types/actions-organization.js';
+
+/** Open to the Summons — a permanent resource-event placed *with* an agent, not an item. */
+const OPEN_TO_THE_SUMMONS = 'wh-46' as CardDefinitionId;
+/** Bill Ferny — minion agent character, the bearer of the placed event. */
+const BILL_FERNY = 'dm-3' as CardDefinitionId;
+/** Orc-tracker — plain minion character, the transfer recipient. */
+const ORC_TRACKER = 'le-34' as CardDefinitionId;
+/** Black-hide Shield — a genuine minion minor item, transferable as a control. */
+const BLACK_HIDE_SHIELD = 'le-300' as CardDefinitionId;
+/** Minas Morgul — Ringwraith Darkhaven the minion company occupies. */
+const MINAS_MORGUL = 'le-390' as CardDefinitionId;
 
 describe('Rule 3.35 — Transferring Items', () => {
   beforeEach(() => resetMint());
@@ -96,5 +109,68 @@ describe('Rule 3.35 — Transferring Items', () => {
       .filter(a => a.action.type === 'transfer-item');
 
     expect(transfers).toHaveLength(0);
+  });
+
+  test('A non-item card placed with a character is never offered for transfer', () => {
+    // Reproduces game ms1ut2yf-ndju07 (seq 41): Open to the Summons (wh-46) had
+    // been drafted "in lieu of a minor item" and placed with the agent it
+    // summoned. It rides in CharacterInPlay.items so its -1 mind applies, but it
+    // is a permanent resource-event, not an item — rule 3.35 transfers items
+    // only, so the engine must not offer it. The Black-hide Shield on the same
+    // bearer is a real item and must still be transferable.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{
+            site: MINAS_MORGUL,
+            characters: [
+              { defId: BILL_FERNY, items: [OPEN_TO_THE_SUMMONS, BLACK_HIDE_SHIELD] },
+              ORC_TRACKER,
+            ],
+          }],
+          hand: [],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    const fernyId = findCharInstanceId(state, RESOURCE_PLAYER, BILL_FERNY);
+    const trackerId = findCharInstanceId(state, RESOURCE_PLAYER, ORC_TRACKER);
+    const ferny = state.players[RESOURCE_PLAYER].characters[fernyId];
+    const summonsInstId = ferny.items.find(i => i.definitionId === OPEN_TO_THE_SUMMONS)!.instanceId;
+    const shieldInstId = ferny.items.find(i => i.definitionId === BLACK_HIDE_SHIELD)!.instanceId;
+
+    const transfers = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'transfer-item') as { action: TransferItemAction }[];
+
+    // The permanent event is never offered…
+    expect(transfers.some(a => a.action.itemInstanceId === summonsInstId)).toBe(false);
+    // …while the real item on the same bearer still is.
+    expect(transfers.some(a =>
+      a.action.itemInstanceId === shieldInstId &&
+      a.action.fromCharacterId === fernyId &&
+      a.action.toCharacterId === trackerId,
+    )).toBe(true);
+
+    // A hand-crafted transfer of the non-item is rejected by the reducer too.
+    expect(reduce(state, {
+      type: 'transfer-item',
+      player: PLAYER_1,
+      itemInstanceId: summonsInstId,
+      fromCharacterId: fernyId,
+      toCharacterId: trackerId,
+    }).error).toBeDefined();
   });
 });
