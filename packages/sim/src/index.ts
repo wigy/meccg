@@ -53,7 +53,7 @@ export type {
   EloEstimate,
 } from './tournament.js';
 
-export { loadDeck, listDecks, expandEntries, deckToPlayerConfig, DECK_CATALOG_DIR, DECK_ALIGNMENT_MAP } from './decks.js';
+export { loadDeck, listDecks, listApprovedDecks, expandEntries, deckToPlayerConfig, DECK_CATALOG_DIR, DECK_ALIGNMENT_MAP } from './decks.js';
 export type { DeckEntry, DeckFile, LoadedDeck } from './decks.js';
 
 export { ReplayWriter, readReplay, verifyReplay } from './replay.js';

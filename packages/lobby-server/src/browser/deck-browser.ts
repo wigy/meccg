@@ -343,12 +343,14 @@ export async function loadDecks(): Promise<void> {
     }
   }
 
-  // Populate AI deck dropdown, preserving the user's current selection
+  // Populate AI deck dropdown, preserving the user's current selection.
+  // Only approved decks are offered: an unapproved deck may reach a state
+  // the engine cannot continue from, which strands the game mid-play.
   const aiSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
   if (aiSelect) {
     const savedAiDeck = aiSelect.value;
     aiSelect.innerHTML = '';
-    for (const deck of catalog) {
+    for (const deck of catalog.filter(d => d.approved === true)) {
       const opt = document.createElement('option');
       opt.value = deck.id;
       const missing = missingCards(deck);

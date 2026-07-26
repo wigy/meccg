@@ -26,6 +26,13 @@ export interface DeckListEntry { name: string; card: string | null; qty: number;
 export interface FullDeck extends DeckSummary {
   /** Free-form notes about the deck in Markdown (strategy, play tips). */
   notes?: string;
+  /**
+   * Human-reviewed as actually playable (see `DeckList.approved`). Absent
+   * or false means the deck has not been qualified; the AI opponent picker
+   * offers approved decks only, since an unapproved one can reach a state
+   * the engine cannot continue from.
+   */
+  approved?: boolean;
   pool: DeckListEntry[];
   deck: { characters: DeckListEntry[]; hazards: DeckListEntry[]; resources: DeckListEntry[] };
   sites: DeckListEntry[];
