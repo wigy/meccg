@@ -161,31 +161,80 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // ---- Smart-AI ----
-    const playSmartAiBtn = document.getElementById('play-smart-ai-btn') as HTMLButtonElement;
+    // ---- Heuristic-AI ----
+    const playHeuristicAiBtn = document.getElementById('play-heuristic-ai-btn') as HTMLButtonElement;
 
-    /** Send the play-smart-ai message and disable the UI. */
-    function launchSmartAiGame(): void {
+    /** Send the play-heuristic-ai message and disable the UI. */
+    function launchHeuristicAiGame(): void {
       if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
         const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
-        appState.lobbyWs.send(JSON.stringify({ type: 'play-smart-ai', deckId: aiDeckSelect.value }));
-        playSmartAiBtn.textContent = 'Starting...';
+        appState.lobbyWs.send(JSON.stringify({ type: 'play-heuristic-ai', deckId: aiDeckSelect.value }));
+        playHeuristicAiBtn.textContent = 'Starting...';
         setLobbyPlayButtonsDisabled(true);
       }
     }
 
-    playSmartAiBtn.addEventListener('click', () => { void (async () => {
-      const r = await apiGet<{ hasSave: boolean }>('/api/saves/check?opponent=AI-Smart');
+    playHeuristicAiBtn.addEventListener('click', () => { void (async () => {
+      const r = await apiGet<{ hasSave: boolean }>('/api/saves/check?opponent=AI-Heuristic');
       if (r.ok && r.data?.hasSave) {
         const cont = await showConfirm(
-          'A saved game exists against Smart-AI. Continue the saved game or start a new one?',
+          'A saved game exists against Heuristic-AI. Continue the saved game or start a new one?',
           { okLabel: 'Continue', cancelLabel: 'Start New' },
         );
         if (!cont) {
-          await apiSend('/api/saves/delete', 'POST', { opponent: 'AI-Smart' });
+          await apiSend('/api/saves/delete', 'POST', { opponent: 'AI-Heuristic' });
         }
       }
-      launchSmartAiGame();
+      launchHeuristicAiGame();
+    })(); });
+
+    // ---- Real-AI (trained model) ----
+    const playRealAiBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement;
+    const aiModelSelect = document.getElementById('ai-model-select') as HTMLSelectElement;
+
+    /** Populate the Real-AI model picker; hides the option when none exist. */
+    async function loadModelList(): Promise<void> {
+      const r = await apiGet<{ file: string; label: string }[]>('/api/models');
+      aiModelSelect.innerHTML = '';
+      const models = r.ok ? (r.data ?? []) : [];
+      for (const model of models) {
+        const option = document.createElement('option');
+        option.value = model.file;
+        option.textContent = model.label;
+        aiModelSelect.appendChild(option);
+      }
+      const usable = models.length > 0;
+      playRealAiBtn.disabled = !usable;
+      if (!usable) {
+        const option = document.createElement('option');
+        option.textContent = 'no models installed';
+        aiModelSelect.appendChild(option);
+      }
+    }
+    void loadModelList();
+
+    /** Send the play-real-ai message and disable the UI. */
+    function launchRealAiGame(): void {
+      if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
+        const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
+        appState.lobbyWs.send(JSON.stringify({ type: 'play-real-ai', deckId: aiDeckSelect.value, model: aiModelSelect.value }));
+        playRealAiBtn.textContent = 'Starting...';
+        setLobbyPlayButtonsDisabled(true);
+      }
+    }
+
+    playRealAiBtn.addEventListener('click', () => { void (async () => {
+      const r = await apiGet<{ hasSave: boolean }>('/api/saves/check?opponent=AI-Real');
+      if (r.ok && r.data?.hasSave) {
+        const cont = await showConfirm(
+          'A saved game exists against Real-AI. Continue the saved game or start a new one?',
+          { okLabel: 'Continue', cancelLabel: 'Start New' },
+        );
+        if (!cont) {
+          await apiSend('/api/saves/delete', 'POST', { opponent: 'AI-Real' });
+        }
+      }
+      launchRealAiGame();
     })(); });
 
     // ---- Pseudo-AI ----
