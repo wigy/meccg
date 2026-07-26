@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsInPlay } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -4589,6 +4589,70 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           ...p,
           discardPile: [...p.discardPile, toCardInstance(entry.card!)],
         }));
+      }
+    }
+  }
+
+  // Hazard short events declaring an **untargeted** play-option mode (Echoes of
+  // the Song wh-17 mode A): the option was chosen at play time and rides the
+  // chain entry as `optionId` with no `targetCharacterId`. Dispatch its `apply`
+  // now that the entry resolved un-negated.
+  if (entry.payload.type === 'short-event'
+    && !entry.payload.targetCharacterId
+    && entry.payload.optionId
+    && !entry.negated
+    && entry.card) {
+    const cardDef = defById(current, entry.card.definitionId);
+    const cardNm = cardDef?.name ?? '';
+    const untargetedOptionId = entry.payload.optionId;
+    const opt = getCardEffects(cardDef).find(
+      (e): e is import('../types/effects.js').PlayOptionEffect =>
+        e.type === 'play-option' && e.id === untargetedOptionId && !!e.untargeted,
+    );
+    if (opt?.apply.type === 'force-discard-stage-card') {
+      // "he must discard one stage card of his choice" — the opponent (the
+      // resource player this hazard was played against) picks, so raise a
+      // `force-discard-card` pending resolution actored by them with every
+      // Stage card they have in play as a candidate.
+      const opponentId = opponent(current, entry.declaredBy);
+      const opponentIdx = getPlayerIndex(current, opponentId);
+      const candidates = stageCardsInPlay(current, current.players[opponentIdx]);
+      if (candidates.length === 0) {
+        logDetail(`${cardNm} option "${opt.id}": ${current.players[opponentIdx].name} has no stage card in play — fizzle`);
+      } else {
+        logDetail(`${cardNm} option "${opt.id}": ${current.players[opponentIdx].name} must discard one of ${candidates.length} stage card(s) in play`);
+        current = enqueueResolution(current, {
+          source: entry.card.instanceId,
+          actor: opponentId,
+          scope: { kind: 'phase', phase: current.phaseState.phase },
+          kind: {
+            type: 'force-discard-card',
+            candidateInstanceIds: candidates,
+            sourceDefinitionId: entry.card.definitionId,
+          },
+        });
+      }
+    }
+  }
+
+  // `play-flag: remove-from-game` — "Remove this card from the game." A hazard
+  // short event is discarded at play time, so once its own chain entry resolves
+  // un-negated the spent card moves on from the declaring player's discard pile
+  // to their out-of-play pile, where nothing can recur it. A negated entry
+  // leaves the card in the discard pile.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const cardDef = defById(current, entry.card.definitionId);
+    if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'remove-from-game')) {
+      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
+      const eventInstId = entry.card.instanceId;
+      const spent = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
+      if (spent) {
+        current = updatePlayer(current, declarerIdx, p => ({
+          ...p,
+          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
+          outOfPlayPile: [...p.outOfPlayPile, spent],
+        }));
+        logDetail(`${cardDef?.name ?? (entry.card.definitionId as string)}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
       }
     }
   }

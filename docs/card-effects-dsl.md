@@ -4254,6 +4254,24 @@ purely declarative — presence is the whole payload.
 { "type": "play-flag", "flag": "playable-as-event" }
 ```
 
+### 15e-bis. `play-flag: "remove-from-game"`
+
+"Remove this card from the game." — carried by a **short-event**. A hazard short
+event is discarded at play time, so once its own chain entry resolves un-negated
+`chain-reducer.ts` moves the spent card on from the declaring player's discard
+pile to their `outOfPlayPile`, where nothing can recur it. A **negated** entry
+leaves the card in the discard pile (the card never took effect).
+
+This is the generic form of the same clause already expressed per-effect by
+`draw-cards.removeFromGame` (Dark Tryst as-80) and
+`cancel-chain-entry.removeFromGame` (Ire of the East wh-24); reach for the flag
+when the removal is a standalone sentence rather than a rider on one verb. Used
+by *Echoes of the Song* (wh-17).
+
+```json
+{ "type": "play-flag", "flag": "remove-from-game" }
+```
+
 ### 15f. Radagast's Black Bird primitives (`no-tap-on-play`, `influences-factions`, `return-to-hand`)
 
 A cluster of ally primitives introduced for Radagast's Black Bird (wh-114), a
@@ -6378,6 +6396,48 @@ A Corruption-keyword short-event also marks the target in
 `corruptionCardsPlayedPerChar`, so CoE rule 7.2.1 (one corruption card per
 character per turn) blocks a second copy — this is how le-149's "this use
 cannot be duplicated on a given character" is enforced.
+
+**Untargeted modes.** An option may set `untargeted: true` to declare that *it*
+needs no target, even though the card carries a `play-target` for its other
+modes. The hazard short-event emitter then offers it exactly **once** (a
+`play-hazard` action with `optionId` and no `targetCharacterId`) instead of once
+per candidate, and evaluates its `when` against a card-level context —
+`{ opponent: { stagePoints, stageCardCount }, inPlay }`, describing the
+resource player this hazard is being played against — rather than a per-target
+one. `chain-reducer.ts` dispatches untargeted options from their own branch, so
+the two mode families never collide: an action with a `targetCharacterId` takes
+the targeted path, one without takes the untargeted path. If *every* option on a
+card is untargeted, the per-character loop is skipped entirely (no bare
+option-less action is emitted).
+
+The untargeted apply kind supported today is:
+
+- `force-discard-stage-card` — "your opponent must discard one stage card of
+  his choice." Collects every **Stage card** the opponent has in play
+  (`stageCardsInPlay`, `reducer-utils.ts`: any definition with
+  `alignment: "stage"`, whether it sits in `cardsInPlay`, in a bearer's `items`
+  as a stage permanent-event played on a character, or in a bearer's `allies`)
+  and raises a `force-discard-card` pending resolution **actored by the
+  opponent**, so the choice is theirs. The discard re-derives their stage-point
+  total. Fizzles with a log line when the opponent has no stage card in play.
+
+Used by *Echoes of the Song* (wh-17): "If your opponent has more than one stage
+card and 4 or more stage points, he must discard one stage card of his choice.
+Alternatively, force a target character to make a corruption check. Remove this
+card from the game."
+
+```json
+"effects": [
+  { "type": "play-flag", "flag": "remove-from-game" },
+  { "type": "play-target", "target": "character" },
+  { "type": "play-option", "id": "discard-stage-card", "untargeted": true,
+    "when": { "opponent.stageCardCount": { "$gt": 1 },
+              "opponent.stagePoints": { "$gte": 4 } },
+    "apply": { "type": "force-discard-stage-card" } },
+  { "type": "play-option", "id": "corruption-check",
+    "apply": { "type": "force-check", "check": "corruption" } }
+]
+```
 
 A character-targeting hazard short-event that carries **no** `play-option` (a
 fixed, non-choice modifier) applies its `character-stat-modifier` constraints

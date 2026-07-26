@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
@@ -2615,9 +2615,30 @@ function playHazardsActions(
           // player picks one of several mutually-exclusive options. Emit one
           // action per (character, option). Cards without play-options emit a
           // single action per character.
-          const shortPlayOptions = getCardEffects(def).filter(
+          const allShortPlayOptions = getCardEffects(def).filter(
             (e): e is import('../../index.js').PlayOptionEffect => e.type === 'play-option',
           );
+          // `untargeted` options (Echoes of the Song wh-17 mode A) need no
+          // target even though the card declares `play-target: character` for
+          // its other modes. They are offered exactly once, gated on a
+          // card-level context describing the opponent (the resource player)
+          // rather than on a per-character one.
+          const shortPlayOptions = allShortPlayOptions.filter(o => !o.untargeted);
+          for (const opt of allShortPlayOptions.filter(o => o.untargeted)) {
+            const untargetedCtx = {
+              opponent: {
+                stagePoints: resourcePlayer.stagePoints,
+                stageCardCount: stageCardsInPlay(state, resourcePlayer).length,
+              },
+              inPlay: buildInPlayNames(state),
+            };
+            if (opt.when && !matchesCondition(opt.when, untargetedCtx)) {
+              logDetail(`Hazard short-event "${def.name}": untargeted option "${opt.id}" when-condition rejected (opponent stagePoints=${untargetedCtx.opponent.stagePoints}, stageCards=${untargetedCtx.opponent.stageCardCount})`);
+              continue;
+            }
+            logDetail(`Hazard short-event "${def.name}": untargeted option "${opt.id}" available`);
+            actions.push({ action: { ...action, optionId: opt.id }, viable: true });
+          }
           // CoE rule 7.2.1: a Corruption-keyword short-event counts as a
           // corruption card — only one per character per turn.
           const isShortCorruption = 'keywords' in def
@@ -2642,7 +2663,13 @@ function playHazardsActions(
             actions.push({ action, viable: false, reason: `${def.name}: no matching card in hand to discard as cost` });
             continue;
           }
-          for (const charId of targetCompany.characters) {
+          // A card whose play-options are *all* untargeted has no per-character
+          // mode at all, so the target loop is skipped rather than emitting a
+          // bare (option-less) action per character.
+          const targetedCandidates = allShortPlayOptions.length > 0 && shortPlayOptions.length === 0
+            ? []
+            : targetCompany.characters;
+          for (const charId of targetedCandidates) {
             const charData = resourcePlayer.characters[charId];
             const charDef = charData ? defById(state, charData.definitionId) : undefined;
             if (shortPlayTarget.filter && charData && charDef && isCharacterCard(charDef)) {

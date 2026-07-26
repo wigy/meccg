@@ -968,6 +968,41 @@ export function stagePointsOfCard(def: CardDefinition | null | undefined): numbe
 }
 
 /**
+ * Every **Stage card** the player currently has in play, as card instance IDs.
+ *
+ * A Stage card is any card whose definition carries `alignment: "stage"` (MEWH
+ * §1) — that covers stage permanent-events (`cardsInPlay`), stage
+ * permanent-events played *on a character* (which the engine attaches to the
+ * bearer's `items`, see `recompute-derived.ts`), stage items and stage allies.
+ * Fallen-wizard sites that grant stage points only while occupied (Deep Mines
+ * wh-55) are deliberately excluded: they are sites, not Stage cards their
+ * controller holds, and they cannot be discarded.
+ *
+ * Used by the forced stage-card discard (`force-discard-stage-card`, Echoes of
+ * the Song wh-17) both to gate the option ("more than one stage card") and to
+ * build the candidate list the opponent chooses from.
+ */
+export function stageCardsInPlay(state: GameState, player: PlayerState): CardInstanceId[] {
+  const found: CardInstanceId[] = [];
+  const isStage = (definitionId: CardDefinitionId): boolean => {
+    const def = defById(state, definitionId);
+    return !!def && (def as { alignment?: string }).alignment === 'stage';
+  };
+  for (const card of player.cardsInPlay) {
+    if (isStage(card.definitionId)) found.push(card.instanceId);
+  }
+  for (const char of Object.values(player.characters)) {
+    for (const item of char.items) {
+      if (isStage(item.definitionId)) found.push(item.instanceId);
+    }
+    for (const ally of char.allies) {
+      if (isStage(ally.definitionId)) found.push(ally.instanceId);
+    }
+  }
+  return found;
+}
+
+/**
  * Stage points a **site** definition grants while a company occupies it (the
  * `whileCompanyAtSite` variant of the `stage-points` effect). Returns 0 for
  * ordinary cards and for stage cards whose points come from being in play.

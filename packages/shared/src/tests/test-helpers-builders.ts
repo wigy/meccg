@@ -1287,6 +1287,56 @@ export function buildMovingAllyMHState(opts: {
 
 /**
  * Build a movement/hazard phase state (play-hazards step) where the active
+ * (resource) player is a Fallen-wizard who already has Stage cards **in play**,
+ * and the hazard player holds `hazardHand`.
+ *
+ * `stageCardsInPlay` become `cardsInPlay` entries on the Fallen-wizard; every
+ * entry in `stageCardsOnLeader` is attached to the first company character's
+ * `items` instead — the shape the engine gives a Stage permanent-event played
+ * "on a character" (Wizard's Myrmidon wh-84, The Forge-master wh-117). The
+ * resulting stage-point total is derived by `recomputeDerived`, never set by
+ * hand, so tests assert against the real derivation.
+ *
+ * Used by hazards that read the opponent's Stage state (Echoes of the Song
+ * wh-17).
+ */
+export function buildFwStageCardsMHState(opts: {
+  stageCardsInPlay: CardDefinitionId[];
+  stageCardsOnLeader?: CardDefinitionId[];
+  hazardHand: CardDefinitionId[];
+  characters?: CharacterEntry[];
+}): GameState {
+  const characters = opts.characters ?? [ARAGORN, LEGOLAS];
+  const leader = characters[0];
+  const leaderDefId = typeof leader === 'string' ? leader : leader.defId;
+  const leaderItems = typeof leader === 'string' ? [] : (leader.items ?? []);
+  const built = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    players: [
+      {
+        id: PLAYER_1,
+        alignment: Alignment.FallenWizard,
+        companies: [{
+          site: MORIA,
+          characters: [
+            { defId: leaderDefId, items: [...leaderItems, ...(opts.stageCardsOnLeader ?? [])] },
+            ...characters.slice(1),
+          ],
+        }],
+        hand: [],
+        siteDeck: [MINAS_TIRITH],
+      },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: opts.hazardHand, siteDeck: [RIVENDELL] },
+    ],
+  });
+  let state: GameState = { ...built, phaseState: makeMHState() };
+  for (const defId of opts.stageCardsInPlay) state = addCardInPlay(state, RESOURCE_PLAYER, defId);
+  return recomputeDerived(state);
+}
+
+/**
+ * Build a movement/hazard phase state (play-hazards step) where the active
  * player is a Fallen-wizard resource player who holds a stage resource
  * permanent-event in hand and has a non-Fallen-wizard character available as a
  * target. The active company has declared movement so the resource player is

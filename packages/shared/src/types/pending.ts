@@ -530,6 +530,9 @@ export interface PendingResolution {
          * - **Fixed-candidate** (Rolled down to the Sea wh-29): the actor picks
          *   from {@link candidateInstanceIds} — rings gathered from their hand
          *   and/or held by their in-play characters. `remaining` defaults to 1.
+         *   The candidates may equally be cards in play: Echoes of the Song
+         *   (wh-17) lists every Stage card the actor controls, wherever it sits
+         *   (`cardsInPlay`, a bearer's items, or a bearer's allies).
          * - **Any-from-hand** (Khamûl the Easterling tw-47): `anyFromHand` is
          *   set, so every card in the actor's current hand is a candidate, and
          *   `remaining` (≥1) cards must be discarded one at a time. The
