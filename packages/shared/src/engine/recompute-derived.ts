@@ -24,7 +24,6 @@ import type {
   CharacterCard,
   CardEffect,
   FactionCard,
-  Alignment,
   Company,
   CompanyId,
   CardDefinitionId,
@@ -33,7 +32,7 @@ import type {
   FallenWizardCharacterAllyMpEffect,
 } from '../index.js';
 import { isCharacterCard, isItemCard, isFactionCard, isSiteCard } from '../types/cards.js';
-import { MarshallingCategory, Race } from '../types/common.js';
+import { Alignment, MarshallingCategory, Race } from '../types/common.js';
 import { ZERO_MARSHALLING_POINTS } from '../types/state-cards.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
 import { getPlayerIndex, isBalrogAvatarDef } from '../state-utils.js';
@@ -682,8 +681,10 @@ function resolveCompanyRingwraithMode(
 /** One in-play global item-stat modifier (from an `in-play-item-modifier` effect). */
 type InPlayItemModifier = {
   readonly itemFilter?: Condition;
+  readonly bearerFilter?: Condition;
   readonly corruptionPoints: number;
   readonly marshallingPoints: number;
+  readonly corruptionMultiplier: number;
 };
 
 /**
@@ -702,8 +703,10 @@ function collectInPlayItemModifiers(state: GameState): InPlayItemModifier[] {
         if (effect.type !== 'in-play-item-modifier') continue;
         out.push({
           itemFilter: effect.itemFilter,
+          bearerFilter: effect.bearerFilter,
           corruptionPoints: effect.corruptionPoints ?? 0,
           marshallingPoints: effect.marshallingPoints ?? 0,
+          corruptionMultiplier: effect.corruptionMultiplier ?? 1,
         });
       }
     }
@@ -715,13 +718,24 @@ function collectInPlayItemModifiers(state: GameState): InPlayItemModifier[] {
  * Sums the corruption-point and marshalling-point deltas that the in-play
  * global item modifiers grant to a single item, matching each modifier's
  * optional `itemFilter` against a per-item context `{ item: { keywords, name,
- * cardType, subtype } }`. Returns `{ cp: 0, mp: 0 }` when nothing matches.
+ * cardType, subtype } }` and its optional `bearerFilter` against the bearer's
+ * controlling player `{ bearer: { alignment, minion } }`. Returns
+ * `{ cp: 0, mp: 0, cpMultiplier: 1 }` when nothing matches.
+ *
+ * `cpMultiplier` is the product of every matching modifier's
+ * `corruptionMultiplier` and is applied by the caller *after* the `cp` delta,
+ * so "Palantíri corruption doubled" (Bane of the Ithil-stone tw-13) stacks
+ * sensibly on top of a flat "+1 corruption per greater item" (td-38).
+ *
+ * `bearerAlignment` is omitted only where no bearer is in scope; a modifier
+ * carrying a `bearerFilter` then does not apply.
  */
 function itemModifierDeltas(
   itemDef: CardDefinition,
   mods: readonly InPlayItemModifier[],
-): { cp: number; mp: number } {
-  if (mods.length === 0) return { cp: 0, mp: 0 };
+  bearerAlignment?: Alignment,
+): { cp: number; mp: number; cpMultiplier: number } {
+  if (mods.length === 0) return { cp: 0, mp: 0, cpMultiplier: 1 };
   const ctx = {
     item: {
       keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
@@ -729,15 +743,22 @@ function itemModifierDeltas(
       cardType: itemDef.cardType,
       subtype: (itemDef as { subtype?: string }).subtype,
     },
+    bearer: bearerAlignment === undefined ? undefined : {
+      alignment: bearerAlignment,
+      minion: bearerAlignment === Alignment.Ringwraith || bearerAlignment === Alignment.Balrog,
+    },
   };
   let cp = 0;
   let mp = 0;
+  let cpMultiplier = 1;
   for (const m of mods) {
     if (m.itemFilter && !matchesContext(m.itemFilter, ctx)) continue;
+    if (m.bearerFilter && (bearerAlignment === undefined || !matchesContext(m.bearerFilter, ctx))) continue;
     cp += m.corruptionPoints;
     mp += m.marshallingPoints;
+    cpMultiplier *= m.corruptionMultiplier;
   }
-  return { cp, mp };
+  return { cp, mp, cpMultiplier };
 }
 
 /**
@@ -987,7 +1008,11 @@ function computeEffectiveStats(
       // MEBA: an item borne by the Balrog avatar has no effect on his
       // attributes — its corruption points do not apply either.
       if (!bearerIsBalrogAvatar) {
-        const itemCp = itemDef.corruptionPoints + itemModifierDeltas(itemDef, inPlayItemMods).cp;
+        // Flat deltas first (Rumor of the One, Itangast at Home), then any
+        // multiplier (Bane of the Ithil-stone: "Corruption points for Palantíri
+        // are doubled").
+        const deltas = itemModifierDeltas(itemDef, inPlayItemMods, bearerPlayerAlignment);
+        const itemCp = (itemDef.corruptionPoints + deltas.cp) * deltas.cpMultiplier;
         corruptionPoints += itemCp;
         if (trackCorruptionSources && itemCp > 0) corruptionSources.push(itemCp);
       }
@@ -1476,7 +1501,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       // Global item-MP bonus (Rumor of the One le-224): a flat delta to the
       // item's marshalling category, independent of the cross-alignment / §4
       // clamps applied to the item's own printed MP above.
-      const globalMpDelta = itemModifierDeltas(itemDef, inPlayItemMods).mp;
+      const globalMpDelta = itemModifierDeltas(itemDef, inPlayItemMods, player.alignment).mp;
       if (globalMpDelta !== 0 && hasMarshallingPoints(itemDef)) {
         const cat = itemDef.marshallingCategory;
         mp = { ...mp, [cat]: mp[cat] + globalMpDelta };

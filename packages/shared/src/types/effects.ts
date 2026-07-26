@@ -339,6 +339,14 @@ export interface MpModifierEffect extends EffectBase {
  * `{ "item.subtype": "major" }`, `corruptionPoints: 1`. Also by Itangast at
  * Home (td-38): "each greater item gives an additional corruption point" —
  * `itemFilter` `{ "item.subtype": "greater" }`, `corruptionPoints: 1`.
+ *
+ * {@link corruptionMultiplier} scales the matching item's corruption instead of
+ * (well: after) shifting it, and {@link bearerFilter} restricts the whole
+ * modifier to items borne by characters of a player matching a player-context
+ * condition. Together they back Bane of the Ithil-stone (tw-13): "Corruption
+ * points for Palantíri are doubled. … This card has no effect on a minion
+ * player." — `itemFilter` `{ "item.keywords": { "$includes": "palantir" } }`,
+ * `corruptionMultiplier: 2`, `bearerFilter` `{ "bearer.minion": false }`.
  */
 export interface InPlayItemModifierEffect extends EffectBase {
   readonly type: 'in-play-item-modifier';
@@ -348,6 +356,18 @@ export interface InPlayItemModifierEffect extends EffectBase {
   readonly corruptionPoints?: number;
   /** Marshalling-point delta added to each matching item's category (default 0). */
   readonly marshallingPoints?: number;
+  /**
+   * Factor applied to each matching item's corruption points *after* the
+   * {@link corruptionPoints} delta (default 1 — no scaling). Multipliers from
+   * several in-play copies/cards compound.
+   */
+  readonly corruptionMultiplier?: number;
+  /**
+   * Condition on the item's **bearer's controlling player**, evaluated against
+   * `{ bearer: { alignment, minion } }` (`minion` is true for the Ringwraith
+   * and Balrog alignments). Absent → every player's items are affected.
+   */
+  readonly bearerFilter?: Condition;
 }
 
 /**
@@ -6706,10 +6726,14 @@ export interface CreatureAltEventEffect extends EffectBase {
 
 /**
  * While the card carrying this effect is in play (in its owner's
- * `cardsInPlay`), all effects that would let a **minion player** (Ringwraith
- * or Balrog alignment — MEBA: the Balrog player is a minion player) search
- * through or look at any portion of **his own** play deck or discard pile
- * outside of the normal sequence of play are automatically canceled.
+ * `cardsInPlay`), all effects that would let an affected player search through
+ * or look at any portion of **his own** play deck or discard pile outside of
+ * the normal sequence of play are automatically canceled.
+ *
+ * {@link affects} selects which players are hit: `"minion"` (the default) hits
+ * only Ringwraith/Balrog players — MEBA: the Balrog player is a minion player —
+ * and `"non-minion"` hits everyone *but* those, i.e. Wizard and Fallen-wizard
+ * players.
  *
  * Enforced at every point where a `fetch-to-deck` pending effect with a
  * `deck` or `discard-pile` source would be enqueued for such a player (the
@@ -6718,10 +6742,17 @@ export interface CreatureAltEventEffect extends EffectBase {
  * Sideboard access and the normal sequence of play (end-of-turn draws, the
  * deck-exhaustion reshuffle and its sideboard exchange) are unaffected.
  *
- * Used by Lady of the Golden Wood (as-13) in its permanent-event mode.
+ * Used by Lady of the Golden Wood (as-13) in its permanent-event mode
+ * (`affects: "minion"`), and by Bane of the Ithil-stone (tw-13), whose
+ * "Automatically cancels any effect that causes a player to search through or
+ * look at any portion of a play deck or a discard pile outside of the normal
+ * sequence of play" is narrowed by "This card has no effect on a minion
+ * player" to `affects: "non-minion"`.
  */
 export interface CancelDeckSearchEffect extends EffectBase {
   readonly type: 'cancel-deck-search';
+  /** Which players the cancel applies to (default `"minion"`). */
+  readonly affects?: 'minion' | 'non-minion';
 }
 
 /**
