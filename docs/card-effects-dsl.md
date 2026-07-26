@@ -24,6 +24,12 @@ when it is absent — used to gate on optional card-definition fields (e.g. a
 site filter excluding Dragon's lairs via `{ "lairOf": { "$exists": false } }`
 and Under-deeps via `{ "adjacentSites": { "$exists": false } }`).
 
+The four comparison operators (`$gt`, `$gte`, `$lt`, `$lte`) accept either a
+number literal or a **context-path string** resolved against the same context
+at match time; the comparison fails unless both sides resolve to numbers.
+This backs card text comparing two stats — Whip (le-348) "prowess less than
+the bearer's": `{ "target.prowess": { "$lt": "bearer.prowess" } }`.
+
 A missing `when` means the effect always applies.
 
 ## Keywords
@@ -494,6 +500,27 @@ with a target `CharacterCard`) only ever describes a character, so an unqualifie
 faction-influence roll uses `reason: "faction-influence-check"`, which matches
 neither condition, so the bonus is correctly excluded against factions.
 
+Both influence contexts also expose target and bearer stats for stat-gated
+bonuses: `target.mind` (omitted for avatars, so `{ "target.mind": { "$gt": 0 } }`
+is a "has a mind" gate), `target.prowess`, and `bearer.prowess` (the bearer's
+**effective** prowess, items included). For a character target of an
+opponent-influence attempt these are the target's effective stats; in
+`availableDI` (follower control) they are the printed stats of the target
+definition. Used by Whip (le-348): "Orc or Troll only: provides +2 direct
+influence against one character with a mind and prowess less than the bearer's":
+
+```json
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+  "when": { "reason": "influence-check", "bearer.race": { "$in": ["orc", "troll"] },
+            "target.mind": { "$gt": 0 },
+            "target.prowess": { "$lt": "bearer.prowess" } } },
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+  "when": { "reason": "opponent-influence-check", "target.kind": "character",
+            "bearer.race": { "$in": ["orc", "troll"] },
+            "target.mind": { "$gt": 0 },
+            "target.prowess": { "$lt": "bearer.prowess" } } }
+```
+
 ### `play-as-sauron` + Sauron's granted abilities (The Lidless Eye le-203)
 
 `{ "type": "play-as-sauron" }` is a marker on a bare permanent-event in
@@ -702,6 +729,8 @@ item's own printed MP). Both collected once per recompute via
 Used by Rumor of the One (le-224): "+1 to the corruption points and the
 marshalling points for all ring items." — paired with an `on-event:
 play-deck-exhausted` self-discard `move` and `duplication-limit` scope `game`.
+And by Scorba at Home (td-65): "each major item gives an additional corruption
+point." — `itemFilter` `{ "item.subtype": "major" }`, `corruptionPoints: 1`.
 Also by Itangast at Home (td-38): "each greater item gives an additional
 corruption point." — `itemFilter` `{ "item.subtype": "greater" }`,
 `corruptionPoints: 1` (matching on the item's `subtype` field).
@@ -2454,11 +2483,37 @@ Apply types:
     e.g. Stealth) are offered. Used by *Searching Eye* with
     `requiredSkill: "scout"`.
 
+    Instead of (or in addition to) `requiredSkill`, the apply may carry a
+    generic `filter` condition evaluated against the target chain entry's
+    context: `{ target: { cardType, eventType, name }, declaredBy:
+    { alignment } }`. Only entries matching the filter are offered — the
+    chain-declaring emitter (`legal-actions/chain.ts`
+    `playSkillCancelChainActions`) covers hazard short-events in hand
+    responding to a live chain in any phase. A `removeFromGame: true`
+    flag on the apply moves the spent event card from its player's
+    discard pile to their out-of-play pile when its own chain entry
+    resolves un-negated ("Remove this card from the game"); a negated
+    entry leaves the card in the discard pile. Used by *Ire of the East*
+    (wh-24): "Targets and cancels one minion short-event played by a
+    Fallen-wizard earlier in the same chain of effects. … Remove this
+    card from the game." — paired with `play-flag: no-hazard-limit` for
+    "does not count against the hazard limit".
+
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "cancel-chain-entry",
                "select": "target",
                "requiredSkill": "scout" } }
+  ```
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "cancel-chain-entry",
+               "select": "target",
+               "filter": { "target.cardType": "minion-resource-event",
+                           "target.eventType": "short",
+                           "declaredBy.alignment": "fallen-wizard" },
+               "removeFromGame": true } }
   ```
 
 - `offer-char-join-attack` -- under `on-event: creature-attack-begins`,
@@ -4302,6 +4357,16 @@ destination (`destinationSite` set by `plan-movement`, clearable by
 phase) and *Deeper Shadow* (le-179, `true`, M/H phase), and inverted by *Hide
 in Dark Places* (le-192, `false`, organization phase — "a scout whose company
 is not moving").
+
+For **hazard** character-targeting plays during the movement/hazard phase
+(`movement-hazard.ts`), the filter context additionally exposes
+`company.siteType` and `company.atHaven` — resolved from the target company's
+**destination** site when it is moving (a moving company is "at" its new site
+for hazard purposes), falling back to its current site otherwise. `atHaven` is
+`true` when that site's type is `haven` (covers both Havens and Darkhavens).
+Used by *The Burden of Time* (tw-94): "Playable on an Elf not in a
+Haven/Darkhaven" — `filter: { "$and": [ { "target.race": "elf" },
+{ "company.atHaven": false } ] }`.
 
 ```json
 { "type": "play-target", "target": "character" }
@@ -7059,13 +7124,21 @@ effect alters the normal agent-hazard attack every agent already has.
 |-------------------|----------|----------------------------------------------------------------|
 | `attackerAssigns` | no       | If true, the attacking player assigns strikes regardless of the agent's face-down/at-home state (overrides rule 3.ii.4, which otherwise grants attacker assignment only to a face-down agent at its home site). |
 | `strikeEffect`    | no       | `"discard-item"`: a successful strike does not wound the defending character; instead the company must discard one item (defender's choice) via the `discard-item-from-company` combat phase. Detainment attacks (vs Ringwraith/Balrog defenders) tap as usual and never trigger the discard, matching the `tap-agent-at-site` precedent (dm-43). |
+| `tapForExtraStrike` | no     | If true, an **untapped** agent may tap as part of declaring the attack to gain an extra strike (2 strikes instead of 1). The legal-action generator offers each declare action in two variants — with and without the tap — and the hazard player chooses; declining keeps the normal 1-strike attack and leaves the agent untapped. Tapped or wounded agents only get the plain attack. |
 
 Implementation:
 
+- Legal actions: `declareAgentAttackActions()` in `legal-actions/site.ts`
+  duplicates each `declare-agent-attack` action with `tapForExtraStrike: true`
+  when the effect carries the field and the agent is untapped.
 - Reducer: `handleDeclareAgentAttack()` in `reducer-site.ts` reads the effect
   from the agent's card definition when the attack is declared, ORs
-  `attackerAssigns` into the rule-3.ii.4 computation (also setting
-  `forceSingleTarget`), and threads `strikeEffect` onto the `CombatState`.
+  `attackerAssigns` into the rule-3.ii.4 computation, threads `strikeEffect`
+  onto the `CombatState`, and on a `tapForExtraStrike` declaration taps the
+  agent and sets `strikesTotal: 2`. `forceSingleTarget` is only set for
+  1-strike attacks with attacker assignment — a 2-strike attack follows the
+  standard assignment rules (each strike to a different character where
+  possible).
 - Strike resolution: the generic `CombatState.strikeEffect === 'discard-item'`
   path in `combat-strike.ts` (shared with `tap-agent-at-site`, dm-43).
 
@@ -7075,6 +7148,12 @@ choice), but the defending character is not harmed."
 
 ```json
 { "type": "agent-attack-modifier", "attackerAssigns": true, "strikeEffect": "discard-item" }
+```
+
+Used by *Elerína* (dm-7): "Agent only: may tap for an extra strike."
+
+```json
+{ "type": "agent-attack-modifier", "tapForExtraStrike": true }
 ```
 
 ### 40a. `agent-move-restriction`
