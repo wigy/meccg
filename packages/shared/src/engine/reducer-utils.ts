@@ -2861,6 +2861,82 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
     result = { ...result, players: updatedPlayers as unknown as typeof result.players };
   }
 
+  return discardAttachedOnDeckExhaust(result);
+}
+
+/**
+ * Discards every *character-attached* permanent event that declares
+ * `on-event: play-deck-exhausted` with a self-discard `move`.
+ *
+ * A permanent event played "on" a character does not live in `cardsInPlay` — it
+ * is attached to the holder's `characters[].hazards` (an opponent's hazard, e.g.
+ * Power Relinquished to Artifice wh-28) or `.items` (the holder's own
+ * enchantment). The `cardsInPlay` sweep in {@link completeDeckExhaust} cannot
+ * see either, so they are collected here.
+ *
+ * Ownership follows the same convention as the `move` zones in `reducer-move`:
+ * an attached hazard belongs to the *opposing* player and returns to their
+ * discard pile, while an attached item/event stays with the character's
+ * controller.
+ */
+function discardAttachedOnDeckExhaust(state: GameState): GameState {
+  interface Removal {
+    readonly holderIndex: number;
+    readonly ownerIndex: number;
+    readonly charId: CardInstanceId;
+    readonly slot: 'hazards' | 'items';
+    readonly instance: CardInstance;
+  }
+  const removals: Removal[] = [];
+  for (let pi = 0; pi < state.players.length; pi++) {
+    const holder = state.players[pi];
+    for (const charId of characterIds(holder)) {
+      const char = holder.characters[charId];
+      for (const slot of ['hazards', 'items'] as const) {
+        for (const attachment of char[slot]) {
+          const def = defById(state, attachment.definitionId);
+          if (!getOnEventEffects(def, 'play-deck-exhausted').some(e => isSelfDiscardMove(e.apply))) continue;
+          removals.push({
+            holderIndex: pi,
+            ownerIndex: slot === 'hazards' ? 1 - pi : pi,
+            charId,
+            slot,
+            instance: { instanceId: attachment.instanceId, definitionId: attachment.definitionId },
+          });
+        }
+      }
+    }
+  }
+  if (removals.length === 0) return state;
+
+  let result = state;
+  for (const removal of removals) {
+    const players = clonePlayers(result);
+    const holder = players[removal.holderIndex];
+    const char = holder.characters[removal.charId];
+    players[removal.holderIndex] = {
+      ...holder,
+      characters: {
+        ...holder.characters,
+        [removal.charId]: {
+          ...char,
+          [removal.slot]: char[removal.slot].filter(
+            (a: { instanceId: CardInstanceId }) => a.instanceId !== removal.instance.instanceId,
+          ),
+        },
+      },
+    };
+    const owner = players[removal.ownerIndex];
+    players[removal.ownerIndex] = {
+      ...owner,
+      discardPile: [...owner.discardPile, removal.instance],
+    };
+    logDetail(
+      `play-deck-exhausted: discarding ${cardName(result, removal.instance.definitionId)} `
+      + `attached to ${cardName(result, char.definitionId, removal.charId)} → ${owner.name}'s discard pile`,
+    );
+    result = { ...result, players };
+  }
   return result;
 }
 

@@ -35,7 +35,7 @@ import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getEffectiveSkills, normalizeCreatureRace } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, checkConditionalEffects, resolveStatModifiers, getEffectiveSkills, normalizeCreatureRace } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
@@ -181,7 +181,10 @@ export function availableDI(
           prowess: targetDef.prowess,
         },
       };
-      const charEffects = collectCharacterEffects(state, controller, resolverCtx);
+      // Only target-conditional modifiers: anything gated on the bearer alone
+      // (or ungated) is already inside `effectiveStats.directInfluence` above,
+      // so folding it in again would double it (see `checkConditionalEffects`).
+      const charEffects = checkConditionalEffects(collectCharacterEffects(state, controller, resolverCtx));
       const conditionalDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
       if (conditionalDI !== 0) {
         logDetail(`  DI bonus from influence-check effects: ${formatSignedNumber(conditionalDI)} against ${targetDef.name} (${targetDef.race})`);

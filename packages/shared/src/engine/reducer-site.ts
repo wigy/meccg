@@ -14,7 +14,7 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isR
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
+import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -2824,7 +2824,8 @@ export function resolveInfluenceAttemptRoll(
       },
     };
 
-    const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const ownEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const charEffects = [...ownEffects];
     charEffects.push(...collectCompanyAllyEffects(state, charInPlay, resolverCtx));
     // Player-scoped ongoing influence bonuses from bare in-play permanent-events
     // (Great Army of the North ba-38: +1 vs Orc/Troll factions while in play).
@@ -2843,7 +2844,14 @@ export function resolveInfluenceAttemptRoll(
     }
     modifier += dslModifier;
 
-    const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+    // `freeDI` already carries every DI modifier baked into the influencer's
+    // effective stats, so only the faction-conditional ones borne by the
+    // character are folded in here (see `checkConditionalEffects`).
+    const diEffects = [
+      ...checkConditionalEffects(ownEffects),
+      ...charEffects.slice(ownEffects.length),
+    ];
+    const dslDI = resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       logDetail(`DSL direct-influence modifiers: ${formatSignedNumber(dslDI)}`);
     }
@@ -3360,13 +3368,15 @@ function handleOpponentInfluenceAttempt(
   // Fold in conditional direct-influence stat-modifiers borne by the influencer
   // that gate on the opponent-influence target context — e.g. Trifling Ring
   // (le-346): "+3 to direct influence against characters" applies only when the
-  // target is a character, not a faction/ally/item. Only `when`-gated modifiers
-  // are considered here: unconditional DI is already baked into effective stats
-  // and folded into `influencerContribution` via availableDI above, so including
-  // it again would double-count. Conditional modifiers are excluded from
-  // effective DI (no target context at effective-stats time) and applied here.
-  const conditionalInfluencerEffects = collectCharacterEffects(state, charInPlay, oppInfluenceCtx)
-    .filter(e => e.effect.when !== undefined);
+  // target is a character, not a faction/ally/item. Only target-conditional
+  // modifiers are considered here: DI that is unconditional, or gated on the
+  // bearer alone (Power Relinquished to Artifice wh-28), is already baked into
+  // effective stats and folded into `influencerContribution` via availableDI
+  // above, so including it again would double-count. See
+  // `checkConditionalEffects`.
+  const conditionalInfluencerEffects = checkConditionalEffects(
+    collectCharacterEffects(state, charInPlay, oppInfluenceCtx),
+  );
   const conditionalInfluencerDI = resolveStatModifiers(conditionalInfluencerEffects, 'direct-influence', 0, oppInfluenceCtx);
   if (conditionalInfluencerDI !== 0) {
     influencerContribution += conditionalInfluencerDI;

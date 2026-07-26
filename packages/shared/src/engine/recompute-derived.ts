@@ -1975,9 +1975,21 @@ export function computeCombatProwess(
 ): number {
   const inPlayNames = buildInPlayNames(state);
   const charInfo = buildBearerContext(charDef);
+  // The player whose `characters` dict holds this character. Needed twice: to
+  // scope `own-characters` effects (e.g. Descent through Fire ba-56: "+1
+  // prowess to all your characters") to that player's company members, and for
+  // their running stage-point total.
+  const ownerPlayer = state.players.find(
+    p => Object.prototype.hasOwnProperty.call(p.characters, char.instanceId as string),
+  );
   const context: ResolverContext = {
     reason: 'combat',
-    bearer: charInfo,
+    // `stagePoints` is exposed exactly as in the effective-stats context: a
+    // prowess penalty that scales with a Fallen-wizard's progress (Power
+    // Relinquished to Artifice wh-28) must still apply when the character faces
+    // a strike, and this function re-resolves prowess from the printed value
+    // rather than adjusting the effective stat.
+    bearer: { ...charInfo, stagePoints: ownerPlayer?.stagePoints ?? 0 },
     target: charInfo,
     inPlay: inPlayNames,
     enemy: { race: creatureRace, name: '', prowess: 0, body: null },
@@ -1986,13 +1998,6 @@ export function computeCombatProwess(
 
   const charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
-  // `own-characters`-scoped effects (e.g. Descent through Fire ba-56: "+1
-  // prowess to all your characters") apply only to characters controlled by
-  // the source card's owner. Find the player whose `characters` dict holds this
-  // character so the bonus is scoped to that player's own company members.
-  const ownerPlayer = state.players.find(
-    p => Object.prototype.hasOwnProperty.call(p.characters, char.instanceId as string),
-  );
   const ownEffects = ownerPlayer
     ? collectGlobalEffects(state, 'own-characters', context, undefined, ownerPlayer.id)
     : [];

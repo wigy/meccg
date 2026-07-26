@@ -13,6 +13,7 @@ export {
   collectCompanyAllyEffects,
   collectGlobalEffects,
   collectPlayerInPlayEffects,
+  checkConditionalEffects,
   resolveStatModifiers,
   resolveCheckModifier,
   resolveAutoInfluenceFaction,

@@ -39,7 +39,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -498,7 +498,8 @@ export function factionInfluenceRollActions(
       },
     };
 
-    const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const ownEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const charEffects = [...ownEffects];
     charEffects.push(...collectCompanyAllyEffects(state, charInPlay, resolverCtx));
 
     if (def.effects) {
@@ -514,7 +515,14 @@ export function factionInfluenceRollActions(
       parts.push(`check mod ${formatSignedNumber(dslModifier)}`);
     }
 
-    const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+    // `freeDI` already carries the influencer's effective DI, so only the
+    // faction-conditional modifiers borne by the character are added here
+    // (see `checkConditionalEffects`).
+    const diEffects = [
+      ...checkConditionalEffects(ownEffects),
+      ...charEffects.slice(ownEffects.length),
+    ];
+    const dslDI = resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       modifier += dslDI;
       parts.push(`DI mod ${formatSignedNumber(dslDI)}`);

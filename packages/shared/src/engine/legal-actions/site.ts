@@ -20,7 +20,7 @@ import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite } from '../reducer-utils.js';
-import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
+import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -1949,7 +1949,8 @@ function playResourcesActions(
               wizard: playerWizardName(state, player),
             },
           };
-          const charEffects = collectCharacterEffects(state, fullCharacter, resolverCtx);
+          const ownEffects = collectCharacterEffects(state, fullCharacter, resolverCtx);
+          const charEffects = [...ownEffects];
           charEffects.push(...collectCompanyAllyEffects(state, fullCharacter, resolverCtx));
           // Player-scoped ongoing influence bonuses from bare in-play
           // permanent-events (Great Army of the North ba-38).
@@ -1966,8 +1967,17 @@ function playResourcesActions(
             infParts.push(`check bonus ${formatSignedNumber(dslMod)}`);
           }
 
-          // Resolve stat-modifier effects on direct-influence (e.g. Glorfindel +1 DI vs elf factions)
-          const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+          // Resolve stat-modifier effects on direct-influence (e.g. Glorfindel
+          // +1 DI vs elf factions). `freeDI` above already carries every
+          // modifier baked into the influencer's effective DI, so only the
+          // faction-conditional ones borne by the character are folded in here
+          // (see `checkConditionalEffects`); ally / player-scoped / faction-card
+          // effects are never in effective DI and pass through unfiltered.
+          const diEffects = [
+            ...checkConditionalEffects(ownEffects),
+            ...charEffects.slice(ownEffects.length),
+          ];
+          const dslDI = resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
           if (dslDI !== 0) {
             infModifier += dslDI;
             infParts.push(`DI bonus ${formatSignedNumber(dslDI)}`);
