@@ -2,7 +2,7 @@
  * @module tw-105.test
  *
  * Card test: Traitor (tw-105)
- * Type: hazard-event (permanent), keyword: corruption
+ * Type: hazard-event (permanent)
  *
  * "When the next character fails a corruption check, he becomes a 'traitor'
  *  and an attack is immediately made against a character in the traitor's
