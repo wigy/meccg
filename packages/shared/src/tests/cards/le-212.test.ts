@@ -43,6 +43,7 @@ import {
   RESOURCE_PLAYER,
   viableActions, dispatch,
   makeCancelWindowCombat,
+  buildSitePhaseState, setupAutoAttackStep,
   expectInDiscardPile,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
@@ -65,6 +66,7 @@ const ASTERNAK = 'le-1' as CardDefinitionId;  // man, mind 5 — covert race (no
 const DOL_GULDUR = 'le-367' as CardDefinitionId;  // minion haven
 const MINAS_MORGUL = 'le-390' as CardDefinitionId; // minion haven
 const MORIA = 'le-392' as CardDefinitionId;        // shadow-hold (non-haven, company destination)
+const RIVENDELL_MINION = 'as-160' as CardDefinitionId; // automatic-attacks: Elves (4/8), Dúnedain (3/10)
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -207,6 +209,41 @@ describe('Not Slay Needlessly (le-212)', () => {
     expect(actions).toHaveLength(1);
 
     const after = dispatch(state, actions[0].action);
+    expect(after.combat?.strikeProwess).toBe(6);
+  });
+
+  test('modify-attack is available against a Dúnedain site automatic-attack (3 strikes, 10 prowess)', () => {
+    // The reported save: Rivendell's 2nd automatic-attack, "Dúnedain — 3 strikes
+    // with 10 prowess", normalized to the race "dunadan" on the combat state.
+    const state = makeCancelWindowCombat(buildBase(), {
+      attackSourceType: 'automatic-attack',
+      creatureRace: 'dunadan',
+      strikesTotal: 3,
+      strikeProwess: 10,
+    });
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
+    expect(actions).toHaveLength(1);
+
+    const after = dispatch(state, actions[0].action);
+    expect(after.combat?.strikeProwess).toBe(8);
+  });
+
+  test('modify-attack is offered on a real site automatic-attack driven through the site phase', () => {
+    // End-to-end through the engine (no hand-built combat): a minion company at
+    // Rivendell (as-160, the site from the reported game) triggers the site's
+    // first automatic-attack, "Elves — 4 strikes with 8 prowess". The site's
+    // `creatureType` is normalized to the singular race "elf", which is what the
+    // card's race filter has to match.
+    const state = setupAutoAttackStep(
+      buildSitePhaseState({ site: RIVENDELL_MINION, characters: [GORBAG], hand: [NSN] }),
+    );
+    const inCombat = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(inCombat.combat?.creatureRace).toBe('elf');
+
+    const actions = viableActions(inCombat, PLAYER_1, 'modify-attack');
+    expect(actions).toHaveLength(1);
+
+    const after = dispatch(inCombat, actions[0].action);
     expect(after.combat?.strikeProwess).toBe(6);
   });
 
