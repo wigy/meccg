@@ -326,6 +326,68 @@ export function applyCorruptionCheckResolution(
   if (action.type === 'activate-granted-action') return null;
   if (top.kind.type !== 'corruption-check') return null;
 
+  // Tap-in-support (`allowSupport`, Ren the Unclean tw-83): tap an untapped
+  // company mate of the checking character for +1 to the upcoming roll. The
+  // +1 rides a one-shot corruption `check-modifier` constraint on the
+  // checking character, which the roll action re-reads on the next
+  // legal-action cycle and the roll resolution consumes — the same plumbing
+  // as reactive short-event boosts. The pending entry stays queued.
+  if (action.type === 'support-corruption-check') {
+    const topKind = top.kind;
+    const topId = top.id;
+    const topActor = top.actor;
+    const topSource = top.source;
+    const supportTargetId = action.targetCharacterId ?? topKind.characterId;
+    const supportEntry = state.pendingResolutions.find(r =>
+      r.actor === topActor
+      && r.kind.type === 'corruption-check'
+      && r.kind.characterId === supportTargetId
+      && (r.id === topId || (topKind.selectableOrder && r.source === topSource && r.kind.selectableOrder)));
+    if (!supportEntry || supportEntry.kind.type !== 'corruption-check' || !supportEntry.kind.allowSupport) {
+      return { state, error: 'support-corruption-check: this pending corruption check does not allow tap-in-support' };
+    }
+    const supPlayerIndex = getPlayerIndex(state, action.player);
+    const supPlayer = state.players[supPlayerIndex];
+    const supporter = supPlayer.characters[action.supportingCharacterId];
+    if (!supporter) return { state, error: 'support-corruption-check: supporting character not found' };
+    if (supporter.status !== CardStatus.Untapped) return { state, error: 'support-corruption-check: supporting character is not untapped' };
+    if (action.supportingCharacterId === supportTargetId) return { state, error: 'support-corruption-check: a character cannot support its own check' };
+    const supportCompany = findCharacterCompany(supPlayer.companies, supportTargetId);
+    if (!supportCompany || !supportCompany.characters.includes(action.supportingCharacterId)) {
+      return { state, error: 'support-corruption-check: supporter must be in the checking character\'s company' };
+    }
+    logDetail(`Support: ${cardName(state, supporter.definitionId)} taps for +1 to ${cardName(state, resolveInstanceId(state, supportTargetId) ?? supporter.definitionId)}'s corruption check (${supportEntry.kind.reason})`);
+    let supState = updatePlayer(state, supPlayerIndex, p =>
+      updateCharacter(p, action.supportingCharacterId, ch => ({ ...ch, status: CardStatus.Tapped })));
+    supState = addConstraint(supState, {
+      source: supporter.instanceId,
+      sourceDefinitionId: supporter.definitionId,
+      target: { kind: 'character', characterId: supportTargetId },
+      kind: { type: 'check-modifier', check: 'corruption', value: 1 },
+      scope: { kind: 'phase', phase: Phase.MovementHazard },
+    });
+    return { state: supState };
+  }
+
+  // Selectable order (Ren the Unclean tw-83): the actor may resolve any of
+  // their same-source queued checks, not just the head — swap `top` for the
+  // sibling entry matching the rolled character.
+  if (action.type === 'corruption-check'
+    && top.kind.selectableOrder
+    && action.characterId !== top.kind.characterId) {
+    const sibling = state.pendingResolutions.find(r =>
+      r.actor === top.actor
+      && r.kind.type === 'corruption-check'
+      && r.source === top.source
+      && r.kind.selectableOrder
+      && r.kind.characterId === action.characterId);
+    if (sibling) {
+      logDetail(`Selectable corruption-check order: resolving sibling entry ${sibling.id} instead of head ${top.id}`);
+      top = sibling;
+    }
+  }
+  if (top.kind.type !== 'corruption-check') return null;
+
   const { characterId, transferredItemId, reason } = top.kind;
 
   // Check if the character still exists BEFORE validating the action type.

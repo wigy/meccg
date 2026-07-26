@@ -24,6 +24,12 @@ when it is absent — used to gate on optional card-definition fields (e.g. a
 site filter excluding Dragon's lairs via `{ "lairOf": { "$exists": false } }`
 and Under-deeps via `{ "adjacentSites": { "$exists": false } }`).
 
+The four comparison operators (`$gt`, `$gte`, `$lt`, `$lte`) accept either a
+number literal or a **context-path string** resolved against the same context
+at match time; the comparison fails unless both sides resolve to numbers.
+This backs card text comparing two stats — Whip (le-348) "prowess less than
+the bearer's": `{ "target.prowess": { "$lt": "bearer.prowess" } }`.
+
 A missing `when` means the effect always applies.
 
 ## Keywords
@@ -494,6 +500,27 @@ with a target `CharacterCard`) only ever describes a character, so an unqualifie
 faction-influence roll uses `reason: "faction-influence-check"`, which matches
 neither condition, so the bonus is correctly excluded against factions.
 
+Both influence contexts also expose target and bearer stats for stat-gated
+bonuses: `target.mind` (omitted for avatars, so `{ "target.mind": { "$gt": 0 } }`
+is a "has a mind" gate), `target.prowess`, and `bearer.prowess` (the bearer's
+**effective** prowess, items included). For a character target of an
+opponent-influence attempt these are the target's effective stats; in
+`availableDI` (follower control) they are the printed stats of the target
+definition. Used by Whip (le-348): "Orc or Troll only: provides +2 direct
+influence against one character with a mind and prowess less than the bearer's":
+
+```json
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+  "when": { "reason": "influence-check", "bearer.race": { "$in": ["orc", "troll"] },
+            "target.mind": { "$gt": 0 },
+            "target.prowess": { "$lt": "bearer.prowess" } } },
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+  "when": { "reason": "opponent-influence-check", "target.kind": "character",
+            "bearer.race": { "$in": ["orc", "troll"] },
+            "target.mind": { "$gt": 0 },
+            "target.prowess": { "$lt": "bearer.prowess" } } }
+```
+
 ### `play-as-sauron` + Sauron's granted abilities (The Lidless Eye le-203)
 
 `{ "type": "play-as-sauron" }` is a marker on a bare permanent-event in
@@ -684,7 +711,7 @@ scored and is gated on the *bearer*), this effect lives on a *separate* card and
 reaches out to every matching item borne by any character of any player.
 
 `itemFilter` is evaluated against a per-item context `{ item: { keywords, name,
-cardType } }` (absent → matches every item). The `corruptionPoints` delta is
+cardType, subtype } }` (absent → matches every item). The `corruptionPoints` delta is
 folded into each matching item's bearer corruption total (in `computeEffectiveStats`,
 under the same Balrog-avatar exclusion as the item's printed corruption); the
 `marshallingPoints` delta is added flat to the item's marshalling category in the
@@ -702,6 +729,11 @@ item's own printed MP). Both collected once per recompute via
 Used by Rumor of the One (le-224): "+1 to the corruption points and the
 marshalling points for all ring items." — paired with an `on-event:
 play-deck-exhausted` self-discard `move` and `duplication-limit` scope `game`.
+And by Scorba at Home (td-65): "each major item gives an additional corruption
+point." — `itemFilter` `{ "item.subtype": "major" }`, `corruptionPoints: 1`.
+Also by Itangast at Home (td-38): "each greater item gives an additional
+corruption point." — `itemFilter` `{ "item.subtype": "greater" }`,
+`corruptionPoints: 1` (matching on the item's `subtype` field).
 
 ### 3a-iii. `corruption-source-multiplier`
 
@@ -2166,8 +2198,8 @@ Events:
 
 - `character-wounded-by-self` -- fires when a strike wounds a character, forcing a corruption check. Wounds enqueue a `corruption-check` pending resolution (see [Pending resolutions](#pending-resolutions) below) for the actor whose character was wounded; the resolution is scoped to the active company's MH or Site sub-phase, so it auto-clears at the company's sub-phase end. Implemented in `reducer-combat.ts`.
 - `self-enters-play` -- fires when this card enters play. Used by environment permanent events to discard opposing cards (implemented in reducer play handlers).
-- `untap-phase-end` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character of the active player for attached cards (items / hazards / allies) carrying this on-event. An optional `when` condition is evaluated against the bearer context `{ bearer: { siteType, atHaven } }`. Supported apply types:
-  - `force-check` (with `check: "corruption"`) — enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses* (at-haven only) and *The Least of Gold Rings* (any site).
+- `untap-phase-end` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character of the active player for attached cards (items / hazards / allies) carrying this on-event. An optional `when` condition is evaluated against the bearer context `{ bearer: { siteType, atHaven } }`. `atHaven` follows the bearer's controller's {H} semantics (`isHavenForPlayer`): any haven-class site for hero/minion players (Haven/Darkhaven), but for a Fallen-wizard player his Wizardhavens — an FW-alignment haven site or a `wizardhaven-conversion` site. Supported apply types:
+  - `force-check` (with `check: "corruption"`) — enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses* (at-haven only, `"bearer.atHaven": true`), *Longing for the West* wh-25 (away from Haven/Wizardhaven only, `"bearer.atHaven": false`) and *The Least of Gold Rings* (any site).
   - a self-discard `move` (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) — removes the card from the bearer's items/hazards/allies and places it in the owner's discard pile. The optional `when` condition gates the discard (e.g. `"when": { "bearer.atHaven": true }` to discard at Darkhavens). Used by *Well-preserved* (as-108).
 - `organization-phase-start` -- fires during the Untap → Organization transition immediately after `untap-phase-end` processing. The reducer (`reducer-untap.ts` `advanceToOrganization`) scans **every** player's `cardsInPlay` for company-bound permanent events (cards with a `companyId`) carrying this on-event. The condition is evaluated against a combined context: `{ company: { siteType, atHaven: boolean }, player: { avatarId: string | null } }` where `atHaven` is `true` when the bound company's current site is a haven/darkhaven, and `avatarId` is the definition ID of the player's ringwraith/wizard avatar character (or `null` if none is in play). Supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) to move the card to its owner's discard pile. Used by *Nothing to Eat or Drink* (le-128), which discards itself when the company is at a haven; and by *Orders from Lugbúrz* (as-94), which discards itself when `player.avatarId` is `"le-56"` (Ren the Ringwraith). The same reducer also scans every active-player character's **attached** hazards/items/allies for `organization-phase-start` self-discards, evaluated against `{ bearer: { siteType, atHaven }, company: { characterCount } }` and routed to each card's **owner** (via `ownerOf`, so an opponent-owned hazard returns to the opponent's pile). Used by *So You've Come Back* (le-138): "Discard this card during the organization phase if target character is in a company by himself and at a Haven [{H}]" — `when: { "$and": [ { "company.characterCount": 1 }, { "bearer.atHaven": true } ] }`. The attached-card scan's context also exposes the **host character's** identity — `bearer.name` and `bearer.mind` — and beyond a self-discard `move` it also supports the `enqueue-opponent-elimination-roll` apply: the active player's **opponent** rolls 2d6, adds the apply's (negative) `modifier`, and the host character is eliminated when the total strictly exceeds `bearer.mind`. It enqueues a generic `dice-check` resolution (roller/actor = the opponent, `threshold = bearer.mind`, `comparison: "gt"`, `onPass: { "type": "eliminate-character" }`) scoped to the Organization phase, so it is offered to the opponent immediately at org-phase start. Used by *Evil Things Lingering* (ba-45): "If this ally's controlling character is not The Balrog, your opponent makes a roll during your organization phase and subtracts four. The controlling character is eliminated if the result is greater than his mind." — `when: { "bearer.name": { "$ne": "The Balrog" } }`, `apply: { "type": "enqueue-opponent-elimination-roll", "modifier": -4 }`. The `eliminate-character` dice-check branch removes the target from its company and sends the character card to its owner's **out-of-play pile** (eliminated, not discarded), discarding its possessions and freeing its followers (`eliminateCharacter` in `pending-reducers.ts`).
 - `leader-leaves-company` -- fires in the Organization phase whenever a character with the `leader` keyword departs the bound company, for any reason: `split-company`, `move-to-company` (source company), `merge-companies` (source company), or combat elimination. The reducer calls `sweepLeaderLeavesCompanyEvents(state, [affectedCompanyId])` in `reducer-utils.ts`, which scans every player's `cardsInPlay` for permanent events bound to the affected company carrying this on-event with a self-discard `move` apply and moves matching cards to their owner's discard pile. The "is leader" check uses the card's definition `keywords` array (contains `"leader"`); it is evaluated *before* the state transition so the departing character is still findable. Only supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`). No `when` condition is evaluated. Used by *Orders from Lugbúrz* (as-94).
@@ -2211,6 +2243,17 @@ Events:
 
 - `company-member-wounded` -- fires after combat finalization when any character in the defending company was wounded (result `'wounded'`, not tapped under detainment rules). Scans every character in the defending company for attached hazard events carrying this on-event; for each match, enqueues one `corruption-check` pending resolution on the **bearer** (the character bearing the hazard, not the wounded character). Supports `apply: { type: "force-check", check: "corruption" }`. Used by *Despair of the Heart* (tw-27). Implemented in `reducer-combat.ts` combat finalization.
 - `character-gains-item` -- fires immediately after any character in the bearer's company gains an item during the site phase (via `play-hero-resource`). For each character bearing a hazard with this event, enqueues one `corruption-check` pending resolution for that character (the bearer, not the character who gained the item). Supports `apply: { type: "force-check", check: "corruption" }`. Used by *Lure of Expedience* (le-122). Implemented in `reducer-site.ts` `fireCharacterGainsItemChecks()`.
+- `successful-influence-attempt` -- fires when a **character** completes a successful influence attempt, from both influence-success seams: a faction influence roll (`resolveInfluenceAttemptRoll`) and an opponent-influence resolution (`resolveOpponentInfluenceDefend`) — matching "e.g., against a faction, an opponent's character, etc.". Carried by a **bare in-play event** in either player's `cardsInPlay` (the hazard resolves bare, it is not attached to anyone) and scanned by `fireSuccessfulInfluenceTriggers` in `reducer-site.ts`. The optional `when` is evaluated against `{ target: { race, name } }` built from the influencing character; an ally influencing factions "as if he were a character" (Radagast's Black Bird wh-114) never fires it. Supports an `apply` of `enqueue-corruption-check` (a Site-phase pending corruption check on the influencer — "immediately", since pending resolutions gate all further actions) or a `sequence` combining it with a self-discard `move` ("discard this card after this corruption check"). Duplicate in-play copies of the same definition fire only ONE corruption check but are ALL discarded (official clarification for Lure of Power). Used by *Lure of Power* (tw-59): "The next non-Hobbit character to make a successful influence attempt … must immediately make a corruption check modified by -4."
+
+  ```json
+  { "type": "on-event", "event": "successful-influence-attempt",
+    "when": { "target.race": { "$ne": "hobbit" } },
+    "apply": { "type": "sequence", "apps": [
+      { "type": "enqueue-corruption-check", "modifier": -4 },
+      { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+    ] } }
+  ```
+
 - `end-of-turn` -- fires when the active player's site phase ends and the game transitions into the End-of-Turn phase (both when all companies have been handled and when the player passes with no active step). The reducer (`reducer-site.ts`) scans every character of the active player for attached hazards carrying this on-event. Supports `apply: { type: "force-check-per-others-item", check: "corruption" }`, which enqueues one `corruption-check` pending resolution per item in the bearer's company that the bearer does not bear; the modifier for each check is the negative corruption-point value of that item (`-item.corruptionPoints`). Used by *Covetous Thoughts* (le-107). Implemented in `reducer-site.ts` `fireEndOfTurnCorruptionChecks()`.
 - `site-phase-company-begins` -- fires when a company is selected at the start of the site phase (`select-company` → `enter-or-skip` transition). The reducer (`reducer-site.ts` `fireSitePhaseCompanyBeginsEvents`) scans **all** players' `cardsInPlay` for **global** permanent events (no `companyId`) carrying this on-event. The condition is evaluated against a context including `company.siteRegionType` (the `RegionType` string of the region the company's current site is in, e.g. `"dark"` or `"shadow"`) and the standard `inPlay` card-name list. Currently supports `apply: { type: "tap-one-character" }`, which enqueues a `tap-one-character` pending resolution for the resource player: the player must tap one untapped character in the company, or pass if none are untapped. Used by *Stench of Mordor* (le-141).
 
@@ -2451,11 +2494,37 @@ Apply types:
     e.g. Stealth) are offered. Used by *Searching Eye* with
     `requiredSkill: "scout"`.
 
+    Instead of (or in addition to) `requiredSkill`, the apply may carry a
+    generic `filter` condition evaluated against the target chain entry's
+    context: `{ target: { cardType, eventType, name }, declaredBy:
+    { alignment } }`. Only entries matching the filter are offered — the
+    chain-declaring emitter (`legal-actions/chain.ts`
+    `playSkillCancelChainActions`) covers hazard short-events in hand
+    responding to a live chain in any phase. A `removeFromGame: true`
+    flag on the apply moves the spent event card from its player's
+    discard pile to their out-of-play pile when its own chain entry
+    resolves un-negated ("Remove this card from the game"); a negated
+    entry leaves the card in the discard pile. Used by *Ire of the East*
+    (wh-24): "Targets and cancels one minion short-event played by a
+    Fallen-wizard earlier in the same chain of effects. … Remove this
+    card from the game." — paired with `play-flag: no-hazard-limit` for
+    "does not count against the hazard limit".
+
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "cancel-chain-entry",
                "select": "target",
                "requiredSkill": "scout" } }
+  ```
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "cancel-chain-entry",
+               "select": "target",
+               "filter": { "target.cardType": "minion-resource-event",
+                           "target.eventType": "short",
+                           "declaredBy.alignment": "fallen-wizard" },
+               "removeFromGame": true } }
   ```
 
 - `offer-char-join-attack` -- under `on-event: creature-attack-begins`,
@@ -4299,6 +4368,16 @@ destination (`destinationSite` set by `plan-movement`, clearable by
 phase) and *Deeper Shadow* (le-179, `true`, M/H phase), and inverted by *Hide
 in Dark Places* (le-192, `false`, organization phase — "a scout whose company
 is not moving").
+
+For **hazard** character-targeting plays during the movement/hazard phase
+(`movement-hazard.ts`), the filter context additionally exposes
+`company.siteType` and `company.atHaven` — resolved from the target company's
+**destination** site when it is moving (a moving company is "at" its new site
+for hazard purposes), falling back to its current site otherwise. `atHaven` is
+`true` when that site's type is `haven` (covers both Havens and Darkhavens).
+Used by *The Burden of Time* (tw-94): "Playable on an Elf not in a
+Haven/Darkhaven" — `filter: { "$and": [ { "target.race": "elf" },
+{ "company.atHaven": false } ] }`.
 
 ```json
 { "type": "play-target", "target": "character" }
@@ -7056,13 +7135,21 @@ effect alters the normal agent-hazard attack every agent already has.
 |-------------------|----------|----------------------------------------------------------------|
 | `attackerAssigns` | no       | If true, the attacking player assigns strikes regardless of the agent's face-down/at-home state (overrides rule 3.ii.4, which otherwise grants attacker assignment only to a face-down agent at its home site). |
 | `strikeEffect`    | no       | `"discard-item"`: a successful strike does not wound the defending character; instead the company must discard one item (defender's choice) via the `discard-item-from-company` combat phase. Detainment attacks (vs Ringwraith/Balrog defenders) tap as usual and never trigger the discard, matching the `tap-agent-at-site` precedent (dm-43). |
+| `tapForExtraStrike` | no     | If true, an **untapped** agent may tap as part of declaring the attack to gain an extra strike (2 strikes instead of 1). The legal-action generator offers each declare action in two variants — with and without the tap — and the hazard player chooses; declining keeps the normal 1-strike attack and leaves the agent untapped. Tapped or wounded agents only get the plain attack. |
 
 Implementation:
 
+- Legal actions: `declareAgentAttackActions()` in `legal-actions/site.ts`
+  duplicates each `declare-agent-attack` action with `tapForExtraStrike: true`
+  when the effect carries the field and the agent is untapped.
 - Reducer: `handleDeclareAgentAttack()` in `reducer-site.ts` reads the effect
   from the agent's card definition when the attack is declared, ORs
-  `attackerAssigns` into the rule-3.ii.4 computation (also setting
-  `forceSingleTarget`), and threads `strikeEffect` onto the `CombatState`.
+  `attackerAssigns` into the rule-3.ii.4 computation, threads `strikeEffect`
+  onto the `CombatState`, and on a `tapForExtraStrike` declaration taps the
+  agent and sets `strikesTotal: 2`. `forceSingleTarget` is only set for
+  1-strike attacks with attacker assignment — a 2-strike attack follows the
+  standard assignment rules (each strike to a different character where
+  possible).
 - Strike resolution: the generic `CombatState.strikeEffect === 'discard-item'`
   path in `combat-strike.ts` (shared with `tap-agent-at-site`, dm-43).
 
@@ -7072,6 +7159,12 @@ choice), but the defending character is not harmed."
 
 ```json
 { "type": "agent-attack-modifier", "attackerAssigns": true, "strikeEffect": "discard-item" }
+```
+
+Used by *Elerína* (dm-7): "Agent only: may tap for an extra strike."
+
+```json
+{ "type": "agent-attack-modifier", "tapForExtraStrike": true }
 ```
 
 ### 40a. `agent-move-restriction`
@@ -10014,17 +10107,20 @@ at the time of rescue."
 
 ### 54. `hazard-limit-environment`
 
-Carried by an in-play **environment** hazard permanent-event; raises a moving
-company's hazard limit by `value` when the company matches the `when` condition.
+Carried by an in-play permanent or long event (hazard **or** resource);
+modifies companies' hazard limits by `value` while the card is in play.
 It applies game-wide (to every player's companies) and is evaluated
 independently for each company at the moment its hazard limit is snapshotted
-(site revelation in the Movement/Hazard phase). Only **moving** companies count
-(the snapshot requires a `destinationSite`).
+(site revelation in the Movement/Hazard phase). By default only **moving**
+companies count (the snapshot requires a `destinationSite`); with
+`appliesTo: "all"` stationary companies are reached too.
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | `value` | yes | Amount added to a matching company's hazard limit (once per matching in-play card). |
-| `when` | yes | Condition over the per-company context gating whether `value` applies. |
+| `when` | no | Condition over the per-company context gating whether `value` applies. Absent = every company. |
+| `floor` | no | For a negative `value`: the limit is never reduced below this floor. A limit already at or below the floor is left unchanged (the effect never raises it). |
+| `appliesTo` | no | `"moving"` (default) — moving companies only; `"all"` — stationary companies too. |
 
 The `when` condition is evaluated against a per-company context exposing:
 
@@ -10049,14 +10145,39 @@ The `when` condition is evaluated against a per-company context exposing:
 }
 ```
 
-Behaviour (`reducer-movement-hazard.ts` `snapshotHazardLimit` /
-`buildCompanyHazardContext`): when a moving company's hazard limit is snapshotted,
+Behaviour (`mh-steps.ts` `snapshotHazardLimit` /
+`buildCompanyHazardContext`): when a company's hazard limit is snapshotted,
 both players' `cardsInPlay` are scanned for this effect; each card whose `when`
 matches the company context adds `value` to the snapshot (folded in alongside the
 base size limit, sideboard halving, `hazard-limit-modifier` constraints and
 site-rule modifiers). Used by Eyes of the Shadow (dm-56): "The hazard limit is
 increased by two for each moving company with a size of less than four that also
-contains a Wizard or a non-ranger character with a mind of 6 or more."
+contains a Wizard or a non-ranger character with a mind of 6 or more." Also used
+by The Great Eye (as-85): "The hazard limit against all companies is decreased
+by one (to a minimum of two)" — `value: -1, floor: 2, appliesTo: "all"`, no
+`when`.
+
+### 54b. `cancel-hazard-event-play`
+
+Marker effect on an in-play permanent or long event: while the carrying card is
+in play, its controller may **discard it** during chain declaring to negate an
+unresolved hazard **event** entry (short, long, or permanent event — never a
+creature) declared by the opponent, before it resolves. An event revealed from
+on-guard is never a legal target (its chain entry carries
+`payload.fromOnGuard`), matching "cannot be used against an on-guard card".
+
+```json
+{ "type": "cancel-hazard-event-play" }
+```
+
+Behaviour: `cancelHazardEventChainActions` (`legal-actions/chain.ts`) emits one
+`cancel-hazard-event` action per (in-play source, eligible target entry) pair to
+the priority player during any `normal`-restriction chain.
+`handleCancelHazardEvent` (`chain-reducer.ts`) discards the source card from
+`cardsInPlay` to its owner's discard, marks the target entry negated, and flips
+priority. The negated event's card is routed to its owner's discard by the
+chain-completion flush (which skips instances already discarded at play time,
+so short events are not duplicated). Used by The Great Eye (as-85).
 
 ### 55. `withdraw-agent`
 
@@ -10351,6 +10472,61 @@ the Lady sits in `cardsInPlay` (`blockingManifestationForCharacterPlay`,
 which honours g.man.1's "would leave play" clause for chains like The Balrog
 ba-3 / Balrog of Moria tw-12). A unique creature already in `cardsInPlay` as a
 permanent-event likewise blocks a second copy's play in either mode.
+
+### 56e. `force-check-all-in-play`
+
+When this hazard short-event resolves — including a dual-mode creature's
+tap-to-short-event conversion (§56c) — **every character in play, both
+players'**, must make a check. Used by Ren the Unclean (tw-83)'s on-tap
+conversion: "each character in play must make a corruption check. If you tap
+Ren the Unclean, then you cannot play resources to aid your character's
+corruption checks. Your characters may tap in support. The moving player makes
+corruption checks first. Each player decides the order of the corruption
+checks for their characters."
+
+```json
+{
+  "type": "force-check-all-in-play",
+  "check": "corruption",
+  "declarerMayTapSupport": true,
+  "declarerNoResourceAid": true
+}
+```
+
+- `check` — which check each character makes (`"corruption"`).
+- `modifier` (optional) — roll modifier applied to every check (default 0).
+- `declarerMayTapSupport` — the declaring player's characters' checks allow
+  tap-in-support: each untapped company mate may tap for +1 (the Free
+  Council / CoE 7.1.1 mechanic, granted mid-game).
+- `declarerNoResourceAid` — the declaring player may not play resource cards
+  from hand to aid their characters' checks (activating an in-play grant is a
+  *use*, not a play, and stays legal).
+
+Resolution (`applyForceCheckAllInPlay`, `chain-reducer.ts`) enqueues one
+`corruption-check` pending resolution per character in play, actor = the
+character's controller, honouring the printed sequencing via three new
+fields on the `corruption-check` pending kind plus one on
+{@link PendingResolution} itself:
+
+- **`blockedBy`** (on `PendingResolution`) — a scheduling gate: while any
+  listed resolution ID is still queued, `topResolutionFor` skips the entry.
+  The non-moving player's checks are blocked by every moving-player check ID
+  ("the moving player makes corruption checks first"); entries dropped by
+  scope sweeps also unblock their dependents.
+- **`selectableOrder`** — the actor may resolve any of their same-source
+  queued checks, not just the head: `corruptionCheckActions` offers one roll
+  action per selectable sibling ("each player decides the order of the
+  corruption checks for their characters"), and the apply half swaps the
+  head for the sibling matching the rolled character.
+- **`allowSupport`** — untapped company mates may tap for +1 each before the
+  roll, via `support-corruption-check` (whose optional `targetCharacterId`
+  names which queued check is being supported). Each support tap adds a
+  one-shot corruption `check-modifier` constraint on the checking character,
+  which the roll action re-reads and the roll resolution consumes.
+- **`noResourceAid`** — suppresses reactive resource short-event plays from
+  hand for this check (Halfling Strength-style boosts); in-play
+  corruption-check grant activations (When I Know Anything td-166) remain
+  legal.
 
 ### 57. `agent-tap-return-character`
 

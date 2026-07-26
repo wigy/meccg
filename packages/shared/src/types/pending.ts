@@ -173,6 +173,16 @@ export interface PendingResolution {
   readonly actor: PlayerId;
   /** Auto-clear boundary. */
   readonly scope: ResolutionScope;
+  /**
+   * Scheduling gate: while ANY of these resolution IDs is still queued,
+   * this entry is skipped by `topResolutionFor` — the actor cannot see or
+   * resolve it yet. Used for cross-player sequencing, e.g. Ren the Unclean
+   * (tw-83): "The moving player makes corruption checks first" — the
+   * tapping player's checks are blocked by the moving player's check IDs.
+   * Entries dropped by scope sweeps also unblock their dependents (the
+   * gate tests queue membership, not resolution success).
+   */
+  readonly blockedBy?: readonly ResolutionId[];
   /** Discriminated payload. */
   readonly kind:
     | {
@@ -222,6 +232,32 @@ export interface PendingResolution {
          * these checks, you receive his kill marshalling points."
          */
         readonly awardKillMpTo?: PlayerId;
+        /**
+         * When true, the actor may resolve this check in any order relative
+         * to their OTHER queued corruption checks from the same source card:
+         * the legal-action computer offers one roll action per same-source
+         * selectable sibling instead of only the head entry. Used by Ren the
+         * Unclean (tw-83): "Each player decides the order of the corruption
+         * checks for their characters."
+         */
+        readonly selectableOrder?: boolean;
+        /**
+         * When true, untapped characters in the checking character's company
+         * may tap for +1 each before the roll (`support-corruption-check`),
+         * exactly like the Free Council window (CoE 7.1.1) but mid-game.
+         * Granted by Ren the Unclean (tw-83): "Your characters may tap in
+         * support."
+         */
+        readonly allowSupport?: boolean;
+        /**
+         * When true, the actor may NOT play resource cards from hand
+         * (reactive short-event plays) to aid this check. Activating a
+         * resource already in play is *using*, not *playing*, a resource and
+         * stays legal. Ren the Unclean (tw-83): "If you tap Ren the Unclean,
+         * then you cannot play resources to aid your character's corruption
+         * checks."
+         */
+        readonly noResourceAid?: boolean;
       }
     | {
         readonly type: 'order-effects';

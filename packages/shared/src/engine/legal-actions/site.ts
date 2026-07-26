@@ -667,6 +667,7 @@ function declareAgentAttackActions(
     const homesiteNames = agentDef && isCharacterCard(agentDef)
       ? parseHomesiteNames(agentDef.homesite)
       : [];
+    const actionsBeforeAgent = actions.length;
 
     if (agent.revealed) {
       // Face-up agent: must be at company's site (top of siteStack)
@@ -713,6 +714,20 @@ function declareAgentAttackActions(
         // No home site in deck — reveal without site, agent discarded at EOT (rule 9.04)
         logDetail(`Agent ${agent.id as string}: face-down at company's site, no home site in deck — offering attack without site (discard at EOT)`);
         actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
+      }
+    }
+
+    // "Agent only: may tap for an extra strike" (Elerína dm-7): an untapped
+    // agent whose card carries agent-attack-modifier.tapForExtraStrike may
+    // declare each of the attacks above with a tap for a 2-strike attack.
+    const hasTapForExtraStrike = agentDef && isCharacterCard(agentDef)
+      && getCardEffects(agentDef).some(e => e.type === 'agent-attack-modifier' && e.tapForExtraStrike === true);
+    if (hasTapForExtraStrike && agent.character.status === CardStatus.Untapped) {
+      const declared = actions.slice(actionsBeforeAgent)
+        .filter(a => a.type === 'declare-agent-attack');
+      for (const declare of declared) {
+        logDetail(`Agent ${agent.id as string}: untapped with tapForExtraStrike — offering tap variant (2 strikes)`);
+        actions.push({ ...declare, tapForExtraStrike: true });
       }
     }
   }

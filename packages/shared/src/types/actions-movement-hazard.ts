@@ -845,6 +845,24 @@ export interface CancelReturnToOriginAction {
 }
 
 /**
+ * Discard an in-play card carrying `cancel-hazard-event-play` (The Great Eye
+ * as-85) during chain declaring to negate an unresolved hazard *event* entry
+ * (short, long, or permanent) declared by the opponent, before it resolves.
+ * Entries revealed from on-guard (`payload.fromOnGuard`) are never legal
+ * targets.
+ */
+export interface CancelHazardEventAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-hazard-event';
+  /** The player discarding the in-play canceler card. */
+  readonly player: PlayerId;
+  /** The in-play card being discarded to pay for the cancel (e.g. The Great Eye). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The chain entry's card instance to negate (the opponent's hazard event). */
+  readonly targetInstanceId: CardInstanceId;
+}
+
+/**
  * Play a hazard short-event (Black Vapour ba-14) from hand — or reveal it from
  * on-guard — during a combat chain to counter an opponent's chain entry that
  * would cancel a creature attack of a matching race. The card is pushed onto

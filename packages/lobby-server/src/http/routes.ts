@@ -40,6 +40,7 @@ import { cardImageRawUrl, loadCardPool } from '@meccg/shared';
 import { DEV, MASTER_KEY, REVIEWER_PLAYERS } from '../config.js';
 import { broadcastNotification, broadcastForceReload } from '../lobby/lobby.js';
 import { shutdownAllGames } from '../games/launcher.js';
+import { listModels } from '../games/models.js';
 import { sendMail, writeSentCopy, listInbox, listSent, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
@@ -355,6 +356,15 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       }
       setDisplayName(playerName, body.displayName);
       sendJson(res, 200, { ok: true, displayName: body.displayName });
+    });
+    return;
+  }
+
+  // ---- Real-AI model catalog ----
+
+  if (urlPath === '/api/models' && method === 'GET') {
+    await tryRoute(res, 'model-catalog', 'Failed to list AI models', () => {
+      sendJson(res, 200, listModels());
     });
     return;
   }
