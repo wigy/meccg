@@ -4326,6 +4326,16 @@ phase) and *Deeper Shadow* (le-179, `true`, M/H phase), and inverted by *Hide
 in Dark Places* (le-192, `false`, organization phase — "a scout whose company
 is not moving").
 
+For **hazard** character-targeting plays during the movement/hazard phase
+(`movement-hazard.ts`), the filter context additionally exposes
+`company.siteType` and `company.atHaven` — resolved from the target company's
+**destination** site when it is moving (a moving company is "at" its new site
+for hazard purposes), falling back to its current site otherwise. `atHaven` is
+`true` when that site's type is `haven` (covers both Havens and Darkhavens).
+Used by *The Burden of Time* (tw-94): "Playable on an Elf not in a
+Haven/Darkhaven" — `filter: { "$and": [ { "target.race": "elf" },
+{ "company.atHaven": false } ] }`.
+
 ```json
 { "type": "play-target", "target": "character" }
 { "type": "play-target", "target": "character",
