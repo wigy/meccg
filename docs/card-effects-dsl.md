@@ -7082,13 +7082,21 @@ effect alters the normal agent-hazard attack every agent already has.
 |-------------------|----------|----------------------------------------------------------------|
 | `attackerAssigns` | no       | If true, the attacking player assigns strikes regardless of the agent's face-down/at-home state (overrides rule 3.ii.4, which otherwise grants attacker assignment only to a face-down agent at its home site). |
 | `strikeEffect`    | no       | `"discard-item"`: a successful strike does not wound the defending character; instead the company must discard one item (defender's choice) via the `discard-item-from-company` combat phase. Detainment attacks (vs Ringwraith/Balrog defenders) tap as usual and never trigger the discard, matching the `tap-agent-at-site` precedent (dm-43). |
+| `tapForExtraStrike` | no     | If true, an **untapped** agent may tap as part of declaring the attack to gain an extra strike (2 strikes instead of 1). The legal-action generator offers each declare action in two variants — with and without the tap — and the hazard player chooses; declining keeps the normal 1-strike attack and leaves the agent untapped. Tapped or wounded agents only get the plain attack. |
 
 Implementation:
 
+- Legal actions: `declareAgentAttackActions()` in `legal-actions/site.ts`
+  duplicates each `declare-agent-attack` action with `tapForExtraStrike: true`
+  when the effect carries the field and the agent is untapped.
 - Reducer: `handleDeclareAgentAttack()` in `reducer-site.ts` reads the effect
   from the agent's card definition when the attack is declared, ORs
-  `attackerAssigns` into the rule-3.ii.4 computation (also setting
-  `forceSingleTarget`), and threads `strikeEffect` onto the `CombatState`.
+  `attackerAssigns` into the rule-3.ii.4 computation, threads `strikeEffect`
+  onto the `CombatState`, and on a `tapForExtraStrike` declaration taps the
+  agent and sets `strikesTotal: 2`. `forceSingleTarget` is only set for
+  1-strike attacks with attacker assignment — a 2-strike attack follows the
+  standard assignment rules (each strike to a different character where
+  possible).
 - Strike resolution: the generic `CombatState.strikeEffect === 'discard-item'`
   path in `combat-strike.ts` (shared with `tap-agent-at-site`, dm-43).
 
@@ -7098,6 +7106,12 @@ choice), but the defending character is not harmed."
 
 ```json
 { "type": "agent-attack-modifier", "attackerAssigns": true, "strikeEffect": "discard-item" }
+```
+
+Used by *Elerína* (dm-7): "Agent only: may tap for an extra strike."
+
+```json
+{ "type": "agent-attack-modifier", "tapForExtraStrike": true }
 ```
 
 ### 40a. `agent-move-restriction`

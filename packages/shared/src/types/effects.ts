@@ -3200,6 +3200,15 @@ export interface AgentAttackModifierEffect extends EffectBase {
    * the discard, matching the `tap-agent-at-site` precedent (dm-43).
    */
   readonly strikeEffect?: 'discard-item';
+  /**
+   * "Agent only: may tap for an extra strike" (Elerína dm-7). When the agent
+   * is untapped, the hazard player may declare the standard site-phase attack
+   * with an additional strike (2 instead of 1) at the cost of tapping the
+   * agent. Offered as an alternative `declare-agent-attack` legal action
+   * carrying `tapForExtraStrike: true`; declining leaves the normal 1-strike
+   * attack (and the agent untapped).
+   */
+  readonly tapForExtraStrike?: boolean;
 }
 
 /**
