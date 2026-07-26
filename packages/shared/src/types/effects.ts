@@ -1776,6 +1776,7 @@ export type TriggeredActionType =
   | 'transform-site'
   | 'untap-site'
   | 'cancel-current-attack'
+  | 'traitor-attack'
   | 'win-condition-roll'
   | 'win-game';
 
@@ -2459,6 +2460,38 @@ export interface CancelCurrentAttackAction extends TriggeredActionBase {
 }
 
 /**
+ * `traitor-attack` — the apply of an `on-event: corruption-check-failed`
+ * trigger (Traitor tw-105). When any character fails a corruption check, the
+ * failed character "becomes a traitor": an attack is immediately made against
+ * a character in the traitor's company, chosen by the player who does NOT
+ * control that company (`attacker-chooses-defenders` machinery). The attack's
+ * prowess is the traitor's printed prowess plus `prowessBonus`, its race is
+ * the traitor's race (CRF), it has no body (no creature body check), and any
+ * resulting character body check is modified by `bodyCheckModifier`.
+ *
+ * Firing consumes the source card: every copy carrying this trigger (both
+ * players' `cardsInPlay`) is discarded on the one failed check, and duplicates
+ * have no extra effect (CRF: "Two instances in play of Traitor have no extra
+ * effect and are both discarded with the next failed corruption check").
+ *
+ * If a combat is already active when the check fails (e.g. a Corpse-candle
+ * pre-defense check), the attack is queued as a `traitor-attack-queued`
+ * constraint and initiated by `finalizeCombat` right after the current attack
+ * — matching the CRF timing ("the first declared action in a chain of effects
+ * immediately following the chain of effects that contains the corruption
+ * check").
+ */
+export interface TraitorAttackAction extends TriggeredActionBase {
+  readonly type: 'traitor-attack';
+  /** Added to the traitor's printed prowess to form the attack prowess (default 10). */
+  readonly prowessBonus?: number;
+  /** Number of strikes the attack delivers (default 1). */
+  readonly strikes?: number;
+  /** Modifier applied to any character body check the attack produces (default 0). */
+  readonly bodyCheckModifier?: number;
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -2510,7 +2543,8 @@ export type TriggeredAction =
   | ModifyCurrentStrikeProwessAction
   | TransformSiteAction
   | UntapSiteAction
-  | CancelCurrentAttackAction;
+  | CancelCurrentAttackAction
+  | TraitorAttackAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`

@@ -1797,8 +1797,20 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Traitor.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "When the next character fails a corruption check, he becomes a \"traitor\" and an attack is immediately made against a character in the traitor's company.The character to be attacked is chosen by the player who does not control the traitor's company. The prowess of the attack is equal to the prowess of the traitor plus 10. Any resulting body check is modified by +1.This card is discarded when a character fails his corruption check."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "corruption-check-failed",
+        "apply": {
+          "type": "traitor-attack",
+          "prowessBonus": 10,
+          "strikes": 1,
+          "bodyCheckModifier": 1
+        }
+      }
+    ],
+    "text": "When the next character fails a corruption check, he becomes a \"traitor\" and an attack is immediately made against a character in the traitor's company.The character to be attacked is chosen by the player who does not control the traitor's company. The prowess of the attack is equal to the prowess of the traitor plus 10. Any resulting body check is modified by +1.This card is discarded when a character fails his corruption check.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "hazard-event",

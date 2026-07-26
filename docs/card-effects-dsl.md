@@ -7933,6 +7933,56 @@ When absent, the effect fires for the source card's owner only.
 Used by Thrice Outnumbered (le-142) to let both players fetch a Man
 hazard creature from their own discard pile at the end of each turn.
 
+### `on-event: corruption-check-failed` + `traitor-attack`
+
+A hazard permanent-event trigger that fires when **any** character (either
+player's) fails a corruption check, regardless of the failure outcome
+(discard, eliminate, Press-gang capture, or a softened `discard-ring-only`
+failure). Fired from every failed-check path of the unified corruption-check
+resolver (`applyTraitorTrigger` in `engine/pending-reducers.ts`).
+
+The `traitor-attack` apply makes the failed character a "traitor": an attack
+is immediately made against a character in the traitor's company.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `prowessBonus` | no | Added to the traitor's printed prowess to form the attack prowess (default 10). |
+| `strikes` | no | Number of strikes (default 1). |
+| `bodyCheckModifier` | no | Added to any character body-check roll the attack produces (default 0). |
+
+Semantics:
+
+- Firing **consumes the source card**: every in-play copy carrying the trigger
+  (both players' `cardsInPlay`) is discarded on the one failed check, and
+  duplicates have no extra effect (CRF erratum).
+- The attack has the **traitor's race** (CRF) and no creature body.
+- The character to be attacked is chosen by the player who does **not**
+  control the traitor's company — the attack uses the
+  attacker-chooses-defenders machinery (`assignmentPhase: 'cancel-window'` →
+  `'attacker'`), with the opponent as the attacking player.
+- If the traitor's company has no surviving character, the card is still
+  discarded but no attack is made.
+- If a combat is already active when the check fails (e.g. a Corpse-candle
+  pre-defense check), the attack is queued as a `traitor-attack-queued`
+  active constraint and initiated by `initiateQueuedTraitorAttack`
+  (`combat-finalize.ts`) as soon as that combat ends — the CRF "chain
+  immediately following" timing.
+
+```json
+{
+  "type": "on-event",
+  "event": "corruption-check-failed",
+  "apply": {
+    "type": "traitor-attack",
+    "prowessBonus": 10,
+    "strikes": 1,
+    "bodyCheckModifier": 1
+  }
+}
+```
+
+Used by Traitor (tw-105).
+
 ### 49. `duplicate-site-auto-attacks`
 
 A hazard short-event effect that creates immediate M/H-phase combat attacks

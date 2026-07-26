@@ -38,7 +38,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
-import { finalizeCombat, applyRule8_22AfterTrophyDecision, recordHazardEncountered } from './combat-finalize.js';
+import { finalizeCombat, applyRule8_22AfterTrophyDecision, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { pruneLeaderFollowers, nextStrikePhase, advanceStrikeOrFinalize, eliminateCombatantFromStrike } from './combat-strike.js';
 import { resolveChainStrikeModifier } from './combat-cancel.js';
@@ -2041,8 +2041,8 @@ export function handleTakeTrophy(state: GameState, action: GameAction, combat: C
     },
   };
 
-  // Clear combat and return
-  return { state: { ...state, players: newPlayers, combat: null } };
+  // Clear combat and return (a Traitor attack queued mid-combat starts now)
+  return { state: initiateQueuedTraitorAttack({ ...state, players: newPlayers, combat: null }) };
 }
 
 /**
@@ -2054,5 +2054,5 @@ export function handleTakeTrophy(state: GameState, action: GameAction, combat: C
 export function finalizeCombatFromTrophyOffer(state: GameState, combat: CombatState): ReducerResult {
   logDetail('Trophy offer declined — combat finalized without trophy');
   const finalState = applyRule8_22AfterTrophyDecision(state, combat);
-  return { state: { ...finalState, combat: null } };
+  return { state: initiateQueuedTraitorAttack({ ...finalState, combat: null }) };
 }
