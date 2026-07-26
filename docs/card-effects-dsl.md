@@ -10043,17 +10043,20 @@ at the time of rescue."
 
 ### 54. `hazard-limit-environment`
 
-Carried by an in-play **environment** hazard permanent-event; raises a moving
-company's hazard limit by `value` when the company matches the `when` condition.
+Carried by an in-play permanent or long event (hazard **or** resource);
+modifies companies' hazard limits by `value` while the card is in play.
 It applies game-wide (to every player's companies) and is evaluated
 independently for each company at the moment its hazard limit is snapshotted
-(site revelation in the Movement/Hazard phase). Only **moving** companies count
-(the snapshot requires a `destinationSite`).
+(site revelation in the Movement/Hazard phase). By default only **moving**
+companies count (the snapshot requires a `destinationSite`); with
+`appliesTo: "all"` stationary companies are reached too.
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | `value` | yes | Amount added to a matching company's hazard limit (once per matching in-play card). |
-| `when` | yes | Condition over the per-company context gating whether `value` applies. |
+| `when` | no | Condition over the per-company context gating whether `value` applies. Absent = every company. |
+| `floor` | no | For a negative `value`: the limit is never reduced below this floor. A limit already at or below the floor is left unchanged (the effect never raises it). |
+| `appliesTo` | no | `"moving"` (default) — moving companies only; `"all"` — stationary companies too. |
 
 The `when` condition is evaluated against a per-company context exposing:
 
@@ -10078,14 +10081,39 @@ The `when` condition is evaluated against a per-company context exposing:
 }
 ```
 
-Behaviour (`reducer-movement-hazard.ts` `snapshotHazardLimit` /
-`buildCompanyHazardContext`): when a moving company's hazard limit is snapshotted,
+Behaviour (`mh-steps.ts` `snapshotHazardLimit` /
+`buildCompanyHazardContext`): when a company's hazard limit is snapshotted,
 both players' `cardsInPlay` are scanned for this effect; each card whose `when`
 matches the company context adds `value` to the snapshot (folded in alongside the
 base size limit, sideboard halving, `hazard-limit-modifier` constraints and
 site-rule modifiers). Used by Eyes of the Shadow (dm-56): "The hazard limit is
 increased by two for each moving company with a size of less than four that also
-contains a Wizard or a non-ranger character with a mind of 6 or more."
+contains a Wizard or a non-ranger character with a mind of 6 or more." Also used
+by The Great Eye (as-85): "The hazard limit against all companies is decreased
+by one (to a minimum of two)" — `value: -1, floor: 2, appliesTo: "all"`, no
+`when`.
+
+### 54b. `cancel-hazard-event-play`
+
+Marker effect on an in-play permanent or long event: while the carrying card is
+in play, its controller may **discard it** during chain declaring to negate an
+unresolved hazard **event** entry (short, long, or permanent event — never a
+creature) declared by the opponent, before it resolves. An event revealed from
+on-guard is never a legal target (its chain entry carries
+`payload.fromOnGuard`), matching "cannot be used against an on-guard card".
+
+```json
+{ "type": "cancel-hazard-event-play" }
+```
+
+Behaviour: `cancelHazardEventChainActions` (`legal-actions/chain.ts`) emits one
+`cancel-hazard-event` action per (in-play source, eligible target entry) pair to
+the priority player during any `normal`-restriction chain.
+`handleCancelHazardEvent` (`chain-reducer.ts`) discards the source card from
+`cardsInPlay` to its owner's discard, marks the target entry negated, and flips
+priority. The negated event's card is routed to its owner's discard by the
+chain-completion flush (which skips instances already discarded at play time,
+so short events are not duplicated). Used by The Great Eye (as-85).
 
 ### 55. `withdraw-agent`
 

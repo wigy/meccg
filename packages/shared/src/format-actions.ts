@@ -458,6 +458,8 @@ export function describeAction(
       return `${instName(action.characterId)} joins attacked company from haven`;
     case 'cancel-return-to-origin':
       return `${instName(action.allyInstanceId)} taps to cancel return-to-origin effect`;
+    case 'cancel-hazard-event':
+      return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} to cancel hazard event ${instName(action.targetInstanceId)} before it resolves`;
     case 'counter-cancel-roll':
       return `Play ${instName(action.cardInstanceId)} to counter-cancel ${instName(action.targetInstanceId)} (roll + attack prowess)`;
     case 'counter-cancel-attack':
