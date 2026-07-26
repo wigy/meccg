@@ -49,10 +49,10 @@ describe('lastAction card defs — opponent toast naming', () => {
   beforeEach(() => resetMint());
 
   test('extractActionCardDefs resolves the played card for a short-event play', () => {
-    // Marvels Told is played from hand and sent straight to the owner's
-    // discard pile in the same state transition. The action carries only
-    // the instance id, so without this helper the opponent's describeAction
-    // cannot name the card.
+    // Marvels Told leaves the hand for the chain of effects and ends up in
+    // the owner's discard pile once the chain resolves. The action carries
+    // only the instance id, so without this helper the opponent's
+    // describeAction cannot name the card in either state.
     const base = buildTestState({
       phase: Phase.LongEvent,
       activePlayer: PLAYER_1,
@@ -74,9 +74,16 @@ describe('lastAction card defs — opponent toast naming', () => {
       targetScoutInstanceId: elrondId,
       discardTargetInstanceId: foolishWordsId,
     };
-    const after = dispatch(before, action);
+    const onChain = dispatch(before, action);
 
-    // Precondition that reproduces the bug: after the transition the
+    // Right after the play the card rides an unresolved chain entry — it has
+    // left the (redacted) hand and is not in any pile yet.
+    expect(onChain.players[0].hand.map(c => c.instanceId)).not.toContain(marvelsId);
+    expect(extractActionCardDefs(onChain, action)[marvelsId as string]).toBe(MARVELS_TOLD);
+
+    const after = resolveChain(onChain);
+
+    // Precondition that reproduces the bug: once the chain resolves the
     // played card is in the owner's discard pile, which the opponent's
     // projection redacts. A lookup built from the post-action projection
     // alone cannot map marvelsId → MARVELS_TOLD.

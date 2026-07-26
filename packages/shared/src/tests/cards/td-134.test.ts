@@ -11,7 +11,10 @@
  *
  * The discard is compulsory and its target is already visible in play,
  * so the target is chosen at play time as part of the play-short-event
- * action — there is no separate discard sub-flow.
+ * action — there is no separate discard sub-flow. Playing the card is an
+ * action, so it rides the chain of effects (CoE 9.4/9.5): the tap is paid
+ * at declaration and the hazard is discarded only once both players pass
+ * priority.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -25,7 +28,7 @@ import {
   buildTestState, resetMint, mint,
   viableActions, makeSitePhase,
   handCardId, dispatch, setCharStatus, expectCharStatus,
-  makeMHState,
+  makeMHState, resolveChain,
   actionAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardInstanceId, CardInPlay, PlayShortEventAction, EndOfTurnPhaseState } from '../../index.js';
@@ -183,13 +186,13 @@ describe('Marvels Told (td-134)', () => {
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const next = dispatch(state, {
+    const next = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
       discardTargetInstanceId: foolishWordsId,
-    });
+    }));
 
     // Sage is tapped
     expectCharStatus(next, RESOURCE_PLAYER, ELROND, CardStatus.Tapped);
@@ -223,13 +226,13 @@ describe('Marvels Told (td-134)', () => {
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const next = dispatch(state, {
+    const next = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
       discardTargetInstanceId: foolishWordsId,
-    });
+    }));
 
     expect(next.pendingResolutions).toHaveLength(1);
     const resolution = next.pendingResolutions[0];
@@ -258,13 +261,13 @@ describe('Marvels Told (td-134)', () => {
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const next = dispatch(state, {
+    const next = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
       discardTargetInstanceId: foolishWordsId,
-    });
+    }));
 
     const opponentActions = computeLegalActions(next, PLAYER_2);
     expect(opponentActions).toHaveLength(0);
@@ -286,13 +289,13 @@ describe('Marvels Told (td-134)', () => {
     const eyeId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const afterPlay = dispatch(state, {
+    const afterPlay = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
       discardTargetInstanceId: eyeId,
-    });
+    }));
 
     expect(afterPlay.pendingResolutions).toHaveLength(1);
     const ccAction = viableActions(afterPlay, PLAYER_1, 'corruption-check');
@@ -422,13 +425,13 @@ describe('Marvels Told (td-134)', () => {
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const next = dispatch(state, {
+    const next = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondId,
       discardTargetInstanceId: foolishWordsId,
-    });
+    }));
 
     expectCharStatus(next, RESOURCE_PLAYER, ELROND, CardStatus.Tapped);
     expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
@@ -612,13 +615,13 @@ describe('Marvels Told (td-134)', () => {
     // hazard to the owner's discard pile and leaves the other attached.
     const marvelsId = handCardId(state, RESOURCE_PLAYER);
     const firstTargetId = attachedHazardIds[0];
-    const next = dispatch(state, {
+    const next = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: marvelsId,
       targetScoutInstanceId: elrondKey as unknown as CardInstanceId,
       discardTargetInstanceId: firstTargetId,
-    });
+    }));
     const aragornAfter = next.players[0].characters[aragornKey];
     expect(aragornAfter.hazards.map(h => h.instanceId)).not.toContain(firstTargetId);
     expect(aragornAfter.hazards).toHaveLength(1);
@@ -652,7 +655,7 @@ describe('Marvels Told (td-134)', () => {
     expect(action.discardTargetInstanceId).toBe(foolishWordsInPlay.instanceId);
 
     // Playing it taps the ally, discards the hazard, and discards Marvels Told.
-    const next = dispatch(state, action);
+    const next = resolveChain(dispatch(state, action));
     const legolasAfter = next.players[0].characters[
       (Object.keys(next.players[0].characters) as CardInstanceId[]).find(
         k => next.players[0].characters[k].definitionId === LEGOLAS,

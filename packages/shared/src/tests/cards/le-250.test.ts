@@ -19,7 +19,10 @@
  *
  * The compulsory discard target is already visible in play, so the
  * target is chosen at play time as part of the play-short-event action —
- * there is no separate discard sub-flow.
+ * there is no separate discard sub-flow. The play itself is an action and
+ * therefore rides the chain of effects (CoE 9.4/9.5): the tap is paid at
+ * declaration, and the hazard is only discarded once both players pass
+ * priority.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -30,7 +33,7 @@ import {
   buildTestState, resetMint, mint,
   viableActions, makeSitePhase,
   handCardId, dispatch, setCharStatus, expectCharStatus,
-  makeMHState,
+  makeMHState, resolveChain,
   actionAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardInstanceId, CardInPlay, PlayShortEventAction, CardDefinitionId } from '../../index.js';
@@ -158,7 +161,12 @@ describe('Voices of Malice (le-250)', () => {
     expect(playActions).toHaveLength(0);
   });
 
-  test('playing resolves in one step: tap sage, move hazard to owner discard, discard Voices of Malice', () => {
+  test('playing goes on the chain of effects before the hazard is discarded (bug 9963e5126b1fd512)', () => {
+    // CoE 9.4/9.5: playing a short event is an action, so it must be declared
+    // on the chain of effects and the opponent must get a response window
+    // before it resolves. Regression: the discard used to be applied inline at
+    // play time, so the chain was never opened and the opponent never got to
+    // respond (game ms1ut2yf-ndju07, state 54).
     const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
 
     const state = buildTestState({
@@ -174,7 +182,7 @@ describe('Voices of Malice (le-250)', () => {
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const layosId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const next = dispatch(state, {
+    const onChain = dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: voicesId,
@@ -182,15 +190,30 @@ describe('Voices of Malice (le-250)', () => {
       discardTargetInstanceId: foolishWordsId,
     });
 
-    // Sage is tapped
-    expectCharStatus(next, RESOURCE_PLAYER, LAYOS, CardStatus.Tapped);
+    // The card rides an unresolved chain entry: it left the hand but is not
+    // yet in the discard pile, and the target is still in play.
+    expect(onChain.chain).not.toBeNull();
+    expect(onChain.chain!.entries).toHaveLength(1);
+    expect(onChain.chain!.entries[0].card?.instanceId).toBe(voicesId);
+    expect(onChain.players[0].hand).toHaveLength(0);
+    expect(onChain.players[0].discardPile.map(c => c.instanceId)).not.toContain(voicesId);
+    expect(onChain.players[1].cardsInPlay.map(c => c.instanceId)).toContain(foolishWordsId);
+
+    // The tap was an active condition of the declaration (rule 9.5.2), so the
+    // sage is already tapped while the entry sits on the chain.
+    expectCharStatus(onChain, RESOURCE_PLAYER, LAYOS, CardStatus.Tapped);
+
+    // The opponent gets a response window before anything resolves.
+    expect(viableActions(onChain, PLAYER_2, 'pass-chain-priority')).toHaveLength(1);
+
+    const next = resolveChain(onChain);
+    expect(next.chain).toBeNull();
 
     // Foolish Words moved from P2 cardsInPlay to P2 discard
     expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
     expect(next.players[1].discardPile.map(c => c.instanceId)).toContain(foolishWordsId);
 
-    // Voices of Malice moved from P1 hand straight to P1 discard
-    expect(next.players[0].hand).toHaveLength(0);
+    // Voices of Malice moved from P1 hand to P1 discard
     expect(next.players[0].cardsInPlay.map(c => c.instanceId)).not.toContain(voicesId);
     expect(next.players[0].discardPile.map(c => c.instanceId)).toContain(voicesId);
 
@@ -214,13 +237,13 @@ describe('Voices of Malice (le-250)', () => {
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const layosId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const next = dispatch(state, {
+    const next = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: voicesId,
       targetScoutInstanceId: layosId,
       discardTargetInstanceId: foolishWordsId,
-    });
+    }));
 
     expect(next.pendingResolutions).toHaveLength(1);
     const resolution = next.pendingResolutions[0];
@@ -249,13 +272,13 @@ describe('Voices of Malice (le-250)', () => {
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const layosId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const next = dispatch(state, {
+    const next = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: voicesId,
       targetScoutInstanceId: layosId,
       discardTargetInstanceId: foolishWordsId,
-    });
+    }));
 
     const opponentActions = computeLegalActions(next, PLAYER_2);
     expect(opponentActions).toHaveLength(0);
@@ -277,13 +300,13 @@ describe('Voices of Malice (le-250)', () => {
     const eyeId = state.players[1].cardsInPlay[0].instanceId;
     const layosId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const afterPlay = dispatch(state, {
+    const afterPlay = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: voicesId,
       targetScoutInstanceId: layosId,
       discardTargetInstanceId: eyeId,
-    });
+    }));
 
     expect(afterPlay.pendingResolutions).toHaveLength(1);
     const ccAction = viableActions(afterPlay, PLAYER_1, 'corruption-check');
@@ -355,7 +378,7 @@ describe('Voices of Malice (le-250)', () => {
     // to the hazard env-cancel handler, which called
     // `resolveInstanceId(state, undefined)` and crashed (surfacing as
     // "Invalid message format" to the client). Ensure the resource
-    // short-event path is taken and the card resolves inline.
+    // short-event path is taken and the card resolves off the chain.
     const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
     const base = buildTestState({
       phase: Phase.MovementHazard,
@@ -372,13 +395,13 @@ describe('Voices of Malice (le-250)', () => {
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const layosId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const next = dispatch(state, {
+    const next = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: voicesId,
       targetScoutInstanceId: layosId,
       discardTargetInstanceId: foolishWordsId,
-    });
+    }));
 
     expectCharStatus(next, RESOURCE_PLAYER, LAYOS, CardStatus.Tapped);
     expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
@@ -439,13 +462,13 @@ describe('Voices of Malice (le-250)', () => {
     const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
     const layosId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
 
-    const next = dispatch(state, {
+    const next = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: voicesId,
       targetScoutInstanceId: layosId,
       discardTargetInstanceId: foolishWordsId,
-    });
+    }));
 
     expectCharStatus(next, RESOURCE_PLAYER, LAYOS, CardStatus.Tapped);
     expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
@@ -523,13 +546,13 @@ describe('Voices of Malice (le-250)', () => {
     const voicesId = handCardId(state, RESOURCE_PLAYER);
     const layosKey = (Object.keys(chars) as CardInstanceId[]).find(k => chars[k].definitionId === LAYOS)!;
     const firstTargetId = attachedHazardIds[0];
-    const next = dispatch(state, {
+    const next = resolveChain(dispatch(state, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: voicesId,
       targetScoutInstanceId: layosKey as unknown as CardInstanceId,
       discardTargetInstanceId: firstTargetId,
-    });
+    }));
     const ciryaherAfter = next.players[0].characters[ciryaherKey];
     expect(ciryaherAfter.hazards.map(h => h.instanceId)).not.toContain(firstTargetId);
     expect(ciryaherAfter.hazards).toHaveLength(1);
