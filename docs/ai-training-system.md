@@ -308,3 +308,177 @@ packages/sim/train/selfplay_loop.sh bc.json /tmp/run 8    # league RL with gated
 ```
 
 The original design document is `specs/2026-06-29-ai-training-system-plan.md`.
+
+## 13. Background reading
+
+Organised by the part of this system each topic explains. Where a paper
+directly motivated a design choice above, the connection is stated.
+
+### 13.1 Reinforcement learning foundations
+
+- Sutton & Barto, *Reinforcement Learning: An Introduction* (2nd ed.) —
+  <http://incompleteideas.net/book/the-book.html>. Chapters 3–6 (MDPs,
+  Monte-Carlo methods, temporal-difference learning) and 13 (policy
+  gradients) cover everything assumed in §7.
+- OpenAI *Spinning Up in Deep RL* — <https://spinningup.openai.com/>.
+  The fastest practical on-ramp; its policy-gradient derivation and PPO
+  implementation notes map directly onto `train/train_bc.py`.
+- Williams (1992), *Simple statistical gradient-following algorithms*
+  (REINFORCE) — <https://link.springer.com/article/10.1007/BF00992696>.
+  The `--mode reinforce` update is exactly this with a value baseline.
+
+### 13.2 Policy-gradient algorithms (our update rule)
+
+- Schulman et al. (2017), *Proximal Policy Optimization* —
+  <https://arxiv.org/abs/1707.06347>. The clipped surrogate we use;
+  §3 of the paper explains why the ratio must be computed against the
+  behaviour policy, which is why rollouts record their own probabilities.
+- Schulman et al. (2015), *Trust Region Policy Optimization* —
+  <https://arxiv.org/abs/1502.05477>. The KL-constraint idea behind our
+  KL early-stop.
+- Schulman et al. (2015), *Generalized Advantage Estimation* —
+  <https://arxiv.org/abs/1506.02438>. We currently use the crudest
+  possible advantage (terminal outcome minus value); GAE is the obvious
+  upgrade and explains the bias/variance trade-off we are sitting at.
+- Andrychowicz et al. (2020), *What Matters in On-Policy RL* —
+  <https://arxiv.org/abs/2006.05990>. A large ablation study; advantage
+  normalisation and value-loss weighting — both of which we had to add
+  after observing collapses — are among its headline findings.
+
+### 13.3 Self-play, leagues, and non-transitivity
+
+- Silver et al. (2017), *Mastering the game of Go without human
+  knowledge* (AlphaGo Zero) — <https://www.nature.com/articles/nature24270>.
+- Silver et al. (2017), *AlphaZero* — <https://arxiv.org/abs/1712.01815>.
+  The gated-promotion pattern (train, then only accept a new champion if
+  it beats the old one in a match) is taken from here.
+- Vinyals et al. (2019), *Grandmaster level in StarCraft II* (AlphaStar)
+  — <https://www.nature.com/articles/s41586-019-1724-z>. The league
+  concept, and the clearest statement of why pure self-play produces
+  exploitable, cyclic strategies.
+- Balduzzi et al. (2019), *Open-ended Learning in Symmetric Zero-sum
+  Games* — <https://arxiv.org/abs/1901.08106>. Formalises the
+  non-transitivity we measured directly (§10): strength is a partial
+  order, not a scalar, so a rating is only meaningful against a stated
+  pool.
+- Lanctot et al. (2017), *A Unified Game-Theoretic Approach to
+  Multiagent RL* (PSRO) — <https://arxiv.org/abs/1711.00832>. The
+  principled generalisation of our frozen-baseline league.
+
+### 13.4 Search under imperfect information (our P5 layer)
+
+- Kocsis & Szepesvári (2006), *Bandit based Monte-Carlo Planning* (UCT) —
+  <https://link.springer.com/chapter/10.1007/11871842_29>.
+- Browne et al. (2012), *A Survey of Monte Carlo Tree Search Methods* —
+  <https://ieeexplore.ieee.org/document/6145622>. The standard reference
+  for MCTS variants and terminology.
+- Rosin (2011), *Multi-armed bandits with episode context* — the PUCT
+  formula AlphaZero and our `searchBestAction` use:
+  <https://link.springer.com/article/10.1007/s10472-011-9258-6>.
+- Cowling, Powley & Whitehouse (2012), *Information Set Monte Carlo Tree
+  Search* — <https://ieeexplore.ieee.org/document/6203567>. The correct
+  treatment of hidden information in MCTS; our determinizer is the
+  simpler PIMC cousin.
+- Long et al. (2010), *Understanding the Success of Perfect Information
+  Monte Carlo Sampling in Game Tree Search* —
+  <https://ojs.aaai.org/index.php/AAAI/article/view/7562>. Explains
+  *strategy fusion* and *non-locality*, the two failure modes we accept
+  in §11, and characterises when PIMC nevertheless works well.
+- Frank & Basin (1998), *Search in games with incomplete information* —
+  <https://www.sciencedirect.com/science/article/pii/S0004370298000378>.
+  The original analysis of why averaging over determinizations is not
+  the same as playing the imperfect-information game.
+
+### 13.5 Game-theoretic methods (the reserve option)
+
+- Zinkevich et al. (2007), *Regret Minimization in Games with Incomplete
+  Information* (CFR) —
+  <https://papers.nips.cc/paper/2007/hash/08d98638c6fcd194a4b1e6992063e944-Abstract.html>.
+- Brown et al. (2019), *Deep CFR* — <https://arxiv.org/abs/1811.00164>.
+- Moravčík et al. (2017), *DeepStack* — <https://arxiv.org/abs/1701.01724>.
+- Brown & Sandholm (2020), *ReBeL* — <https://arxiv.org/abs/2007.13544>.
+  Combines search with RL in imperfect-information games; the closest
+  published relative of what P5 is reaching for, and the reason the
+  design doc demoted whole-game CFR (its range assumptions do not hold
+  when the opponent privately constructs a deck).
+
+### 13.6 Imitation learning (our P3 warm start)
+
+- Pomerleau (1991), *Efficient training of artificial neural networks for
+  autonomous navigation* — the original behavioural cloning result:
+  <https://ieeexplore.ieee.org/document/6796450>.
+- Ross, Gordon & Bagnell (2011), *DAgger* —
+  <https://arxiv.org/abs/1011.0686>. Explains compounding error under
+  distribution shift: exactly why our BC top-1 agreement saturated while
+  play strength kept improving with more data.
+- Hussein et al. (2017), *Imitation Learning: A Survey* —
+  <https://dl.acm.org/doi/10.1145/3054912>.
+
+### 13.7 Representation for large/variable action spaces
+
+- Zaheer et al. (2017), *Deep Sets* — <https://arxiv.org/abs/1703.06114>.
+  The permutation-invariant pooling our entity encoder uses.
+- Dulac-Arnold et al. (2015), *Deep RL in Large Discrete Action Spaces* —
+  <https://arxiv.org/abs/1512.07679>. Action embeddings scored against a
+  state vector — the pattern behind our action-conditioned policy head.
+- Vaswani et al. (2017), *Attention Is All You Need* —
+  <https://arxiv.org/abs/1706.03762>. The natural upgrade from mean
+  pooling when entity interactions start to matter.
+
+### 13.8 Card games and other imperfect-information domains
+
+- Li et al. (2020), *Suphx: Mastering Mahjong with Deep RL* —
+  <https://arxiv.org/abs/2003.13590>. Closest in spirit: huge hidden
+  state, long episodes, and heavy use of an oracle/distillation trick.
+- Zha et al. (2021), *DouZero* — <https://arxiv.org/abs/2106.06135>.
+  Shows how far well-engineered action encoding plus plain Monte-Carlo
+  methods can go in a card game.
+- Cowling, Ward & Powley (2012), *Ensemble Determinization in MCTS for
+  Magic: The Gathering* — <https://ieeexplore.ieee.org/document/6218176>.
+  The most directly comparable prior work: determinized MCTS in a
+  deck-building CCG.
+- Bard et al. (2020), *The Hanabi Challenge* —
+  <https://arxiv.org/abs/1902.00506>. Why reasoning about hidden
+  information is qualitatively harder than reasoning under noise.
+
+### 13.9 Evaluation, ratings, and statistics
+
+- Glickman, *The Glicko-2 system* —
+  <http://www.glicko.net/glicko/glicko2.pdf>. Implemented verbatim in
+  `src/glicko2.ts` and tested against the paper's worked example.
+- Elo rating theory, Chess Programming Wiki —
+  <https://www.chessprogramming.org/Match_Statistics>.
+- Sequential Probability Ratio Test (SPRT) as used by chess-engine
+  testing frameworks —
+  <https://www.chessprogramming.org/Sequential_Probability_Ratio_Test>.
+  The principled replacement for our fixed-N gates: it stops as soon as
+  the evidence is decisive, which is the obvious next upgrade given how
+  many of our runs are gate-bound.
+- Fishtest / OpenBench methodology —
+  <https://github.com/official-stockfish/fishtest/wiki>. Practical
+  guidance on paired openings, variance reduction, and avoiding the
+  best-of-N selection bias we hit when re-gating a hand-picked candidate.
+
+### 13.10 Pitfalls we hit, and the literature on them
+
+- Henderson et al. (2018), *Deep RL that Matters* —
+  <https://arxiv.org/abs/1709.06560>. Seed variance and evaluation
+  fragility; the reason every claim here carries an interval.
+- Agarwal et al. (2021), *Deep RL at the Edge of the Statistical
+  Precipice* — <https://arxiv.org/abs/2108.13264>. Correct reporting for
+  small numbers of runs.
+- Cobbe et al. (2019), *Quantifying Generalization in RL* —
+  <https://arxiv.org/abs/1812.02341>. Overfitting to a narrow training
+  distribution — our single-deck-pair training, and the value head
+  memorising a 60-game dataset.
+- Zhang et al. (2018), *A Study on Overfitting in Deep RL* —
+  <https://arxiv.org/abs/1804.06893>. Directly relevant to the
+  correlated-samples problem behind our "value sample size is games, not
+  decisions" finding.
+
+### 13.11 MECCG itself
+
+- Council of Elrond rules, `docs/coe-rules.md` in this repository, and
+  the CRF-22 errata in `docs/crf-22.md`. Every engine behaviour the
+  agents exploit or stumble over is specified there; the offer/validate
+  asymmetries in §3 are all discrepancies against these documents.
