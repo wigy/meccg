@@ -11006,6 +11006,48 @@ the play-condition, which gates *entry* to play; this gates *staying* in play.
 Used by Prophet of Doom (wh-106): "Discard if you have fewer than 5 factions in
 play."
 
+The player-state context also carries `inPlayAnywhere` — the **game-wide**
+in-play card-name list (`buildInPlayNames`, honouring `environment-override`), as
+opposed to the controller-scoped `inPlay`. It backs "Discard this card if
+&lt;named card&gt; is not in play" wordings, which do not care which player put the
+named card on the table — The Will of Sauron (tw-100):
+
+```json
+{ "type": "discard-self-when",
+  "condition": { "$not": { "inPlayAnywhere": "Doors of Night" } } }
+```
+
+### 62a. `retain-hazard-long-events`
+
+Suspends the normal end-of-long-event-phase discard of hazard long-events
+([2.III.3]) while the carrying card is in play, and discards every hazard
+long-event in play the moment the carrier leaves. Takes no fields.
+
+Two halves, both in `engine/retain-hazard-long-events.ts`:
+
+- `hazardLongEventsRetained(state)` — a single-state query consulted by the
+  long-event phase handler (`reducer-events.ts`) before it sweeps the hazard
+  player's long-events. A retainer in **either** player's `cardsInPlay` counts
+  (the effect is game-wide); `pendingTriggerAttack` and set-aside cards do not.
+  While one is in play the sweep is skipped and hazard long-events accumulate
+  across turns.
+- `sweepRetainedHazardLongEvents(prev, next)` — a `postReduce` prev/next diff
+  (the reactive-diff pattern of `discard-on-card-leaves-play`) that fires when
+  the **last** retainer just left play, discarding every `hazard-event` with
+  `eventType: "long"` from both players' `cardsInPlay`. Being a diff, it fires
+  however the retainer left: its own `discard-self-when`, deck exhaustion,
+  cancellation. It runs after the single-state sweeps in `postReduce`, so a
+  retainer discarded by `sweepDiscardSelfWhen` in the same step is already gone
+  from the state being compared.
+
+```json
+{ "type": "retain-hazard-long-events" }
+```
+
+Used by The Will of Sauron (tw-100): "All hazard long-events remain in play until
+this card is discarded. … When this card is discarded, all hazard long events are
+discarded."
+
 ### 63. `item-play-corruption-check` (Greed)
 
 A hazard **short-event** played on a company's site (`play-target: site`) that,
