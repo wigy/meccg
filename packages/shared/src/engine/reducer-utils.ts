@@ -17,7 +17,7 @@ import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
 import { CardStatus, Race, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
 import { resolveDef, normalizeCreatureRace, resolveCheckModifier } from './effects/index.js';
@@ -2815,9 +2815,13 @@ export function startDeckExhaust(state: GameState, playerIndex: 0 | 1): GameStat
  * Complete the deck exhaustion: shuffle the discard pile into a new play deck,
  * increment exhaustion count, and clear the pending flag.
  *
- * Fires `play-deck-exhausted` — discards any permanent event in either
- * player's `cardsInPlay` that declares `on-event: play-deck-exhausted` with a
- * self-discard `move` apply (e.g. Safe from the Shadow, Tokens to Show).
+ * Fires `play-deck-exhausted` — discards any permanent event that declares
+ * `on-event: play-deck-exhausted` with a self-discard `move` apply, whether it
+ * sits in either player's `cardsInPlay` (Safe from the Shadow, Tokens to Show)
+ * or is attached to a character as an item / hazard (Fool's Bane wh-19, a
+ * hazard permanent-event played on the opponent's Fallen-wizard). An attached
+ * card returns to *its owner's* discard pile, so an opponent-owned hazard goes
+ * back to the opponent's pile.
  */
 export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameState {
   const player = state.players[playerIndex];
@@ -2861,82 +2865,36 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
     result = { ...result, players: updatedPlayers as unknown as typeof result.players };
   }
 
-  return discardAttachedOnDeckExhaust(result);
-}
-
-/**
- * Discards every *character-attached* permanent event that declares
- * `on-event: play-deck-exhausted` with a self-discard `move`.
- *
- * A permanent event played "on" a character does not live in `cardsInPlay` — it
- * is attached to the holder's `characters[].hazards` (an opponent's hazard, e.g.
- * Power Relinquished to Artifice wh-28) or `.items` (the holder's own
- * enchantment). The `cardsInPlay` sweep in {@link completeDeckExhaust} cannot
- * see either, so they are collected here.
- *
- * Ownership follows the same convention as the `move` zones in `reducer-move`:
- * an attached hazard belongs to the *opposing* player and returns to their
- * discard pile, while an attached item/event stays with the character's
- * controller.
- */
-function discardAttachedOnDeckExhaust(state: GameState): GameState {
-  interface Removal {
-    readonly holderIndex: number;
-    readonly ownerIndex: number;
-    readonly charId: CardInstanceId;
-    readonly slot: 'hazards' | 'items';
-    readonly instance: CardInstance;
-  }
-  const removals: Removal[] = [];
-  for (let pi = 0; pi < state.players.length; pi++) {
-    const holder = state.players[pi];
-    for (const charId of characterIds(holder)) {
-      const char = holder.characters[charId];
-      for (const slot of ['hazards', 'items'] as const) {
-        for (const attachment of char[slot]) {
-          const def = defById(state, attachment.definitionId);
+  // Same trigger for cards attached to a character (items and hazards). The
+  // card leaves its host and lands in its owner's discard pile.
+  for (let pi = 0; pi < 2; pi++) {
+    for (const [charId, char] of Object.entries(result.players[pi].characters)) {
+      for (const slot of ['items', 'hazards'] as const) {
+        for (const card of char[slot]) {
+          const def = defById(result, card.definitionId);
           if (!getOnEventEffects(def, 'play-deck-exhausted').some(e => isSelfDiscardMove(e.apply))) continue;
-          removals.push({
-            holderIndex: pi,
-            ownerIndex: slot === 'hazards' ? 1 - pi : pi,
-            charId,
-            slot,
-            instance: { instanceId: attachment.instanceId, definitionId: attachment.definitionId },
+          const ownerIndex = getPlayerIndex(result, ownerOf(card.instanceId));
+          logDetail(`play-deck-exhausted: discarding ${cardName(result, card.definitionId)} from ${charId} to ${result.players[ownerIndex].name}'s discard pile`);
+          result = updatePlayer(result, pi, p => {
+            const host = p.characters[charId as CardInstanceId];
+            if (!host) return p;
+            return {
+              ...p,
+              characters: {
+                ...p.characters,
+                [charId]: { ...host, [slot]: host[slot].filter(c => c.instanceId !== card.instanceId) },
+              },
+            };
           });
+          result = updatePlayer(result, ownerIndex, p => ({
+            ...p,
+            discardPile: [...p.discardPile, toCardInstance(card)],
+          }));
         }
       }
     }
   }
-  if (removals.length === 0) return state;
 
-  let result = state;
-  for (const removal of removals) {
-    const players = clonePlayers(result);
-    const holder = players[removal.holderIndex];
-    const char = holder.characters[removal.charId];
-    players[removal.holderIndex] = {
-      ...holder,
-      characters: {
-        ...holder.characters,
-        [removal.charId]: {
-          ...char,
-          [removal.slot]: char[removal.slot].filter(
-            (a: { instanceId: CardInstanceId }) => a.instanceId !== removal.instance.instanceId,
-          ),
-        },
-      },
-    };
-    const owner = players[removal.ownerIndex];
-    players[removal.ownerIndex] = {
-      ...owner,
-      discardPile: [...owner.discardPile, removal.instance],
-    };
-    logDetail(
-      `play-deck-exhausted: discarding ${cardName(result, removal.instance.definitionId)} `
-      + `attached to ${cardName(result, char.definitionId, removal.charId)} → ${owner.name}'s discard pile`,
-    );
-    result = { ...result, players };
-  }
   return result;
 }
 

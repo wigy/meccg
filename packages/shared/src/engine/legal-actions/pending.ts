@@ -39,7 +39,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
+import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -485,13 +485,14 @@ export function factionInfluenceRollActions(
 
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
-      bearer: buildBearerContext(charDef),
+      bearer: { ...buildBearerContext(charDef), stagePoints: player.stagePoints },
       faction: {
         name: def.name,
         race: def.race,
         playableAt: buildFactionPlayableAt(def),
         playableRegions: buildFactionPlayableRegions(state, def),
       },
+      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
       controller: {
         inPlay: buildControllerInPlayNames(state, playerId),
         factionRaces: buildControllerFactionRaces(state, playerId),

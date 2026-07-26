@@ -6,7 +6,7 @@
  * influence attempts, and site phase advancement.
  */
 
-import type { GameState, PlayerState, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company, AutomaticAttack, TwoDiceSix } from '../index.js';
+import type { GameState, PlayerState, CardDefinition, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company, AutomaticAttack, TwoDiceSix } from '../index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
@@ -14,7 +14,7 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isR
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { buildBearerContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
+import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -2810,13 +2810,14 @@ export function resolveInfluenceAttemptRoll(
 
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
-      bearer: buildBearerContext(charDef),
+      bearer: { ...buildBearerContext(charDef), stagePoints: player.stagePoints },
       faction: {
         name: def.name,
         race: def.race,
         playableAt: buildFactionPlayableAt(def),
         playableRegions: buildFactionPlayableRegions(state, def),
       },
+      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
       controller: {
         inPlay: buildControllerInPlayNames(state, entry.declaredBy),
         factionRaces: buildControllerFactionRaces(state, entry.declaredBy),
@@ -3166,6 +3167,9 @@ function handleOpponentInfluenceAttempt(
   // Target identity for the opponent-influence resolver context (booster gating).
   let targetRace = '';
   let targetName = '';
+  // The target's card definition, for the `influenceTarget` context (its
+  // alignment tells "hero resources" apart from minion ones — Fool's Bane wh-19).
+  let targetDefForCtx: CardDefinition | undefined;
   // Character-target stats for the resolver context — effective mind/prowess,
   // set only for a character target so stat-gated DI bonuses (Whip le-348:
   // "against one character with a mind and prowess less than the bearer's")
@@ -3184,6 +3188,7 @@ function handleOpponentInfluenceAttempt(
     targetMind = controlCostOf(state, targetChar, targetDef.mind) ?? targetDef.mind;
     targetRace = targetDef.race;
     targetName = targetDef.name;
+    targetDefForCtx = targetDef;
     targetCtxMind = targetChar.effectiveStats.mind ?? targetDef.mind;
     targetCtxProwess = targetChar.effectiveStats.prowess;
 
@@ -3205,6 +3210,7 @@ function handleOpponentInfluenceAttempt(
         controllerDI = availableDI(state, oppCharId, opponent);
         // Allies carry no race field; only kind matters for booster gating.
         targetName = allyDef?.name ?? '';
+        targetDefForCtx = allyDef;
         allyFound = true;
         break;
       }
@@ -3222,6 +3228,7 @@ function handleOpponentInfluenceAttempt(
     controllerDI = 0;
     targetRace = factionDef.race;
     targetName = factionDef.name;
+    targetDefForCtx = factionDef;
   } else if (action.targetKind === 'item') {
     // CoE rule 8.3: influencing an item — the comparison value is the mind of
     // the character controlling the item, and its controller's unused DI is
@@ -3237,6 +3244,7 @@ function handleOpponentInfluenceAttempt(
         controllerDI = availableDI(state, oppCharId, opponent);
         // Items carry no race field; only kind matters for booster gating.
         targetName = itemDef?.name ?? '';
+        targetDefForCtx = itemDef;
         itemFound = true;
         break;
       }
@@ -3346,13 +3354,14 @@ function handleOpponentInfluenceAttempt(
     // Effective influencer prowess and character-target stats let conditions
     // compare live values (Whip le-348: target has a mind and lower prowess).
     ...(charDef && isCharacterCard(charDef)
-      ? { bearer: { ...buildBearerContext(charDef), prowess: charInPlay.effectiveStats.prowess } }
+      ? { bearer: { ...buildBearerContext(charDef), prowess: charInPlay.effectiveStats.prowess, stagePoints: player.stagePoints } }
       : {}),
     target: {
       kind: action.targetKind, race: targetRace, name: targetName,
       ...(targetCtxMind !== undefined ? { mind: targetCtxMind } : {}),
       ...(targetCtxProwess !== undefined ? { prowess: targetCtxProwess } : {}),
     },
+    influenceTarget: buildInfluenceTargetContext(targetDefForCtx, action.targetKind),
   };
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'check-modifier') continue;
@@ -3363,6 +3372,22 @@ function handleOpponentInfluenceAttempt(
     boostModifier += constraint.kind.value;
     consumedBoostIds.push(constraint.id as string);
     logDetail(`Opponent influence boost ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);
+  }
+
+  // Fold in the influencer's **ongoing** influence `check-modifier` effects —
+  // his own printed ones and those on the items / hazards he carries. An
+  // influence attempt against an opponent's card is an influence check like any
+  // other, so a card that modifies "any influence attempt by this character"
+  // (Foolish Words td-25) or "influence checks he makes against hero resources"
+  // (Fool's Bane wh-19) applies here as well as to a faction attempt; the
+  // `when` gate on each effect (evaluated against `oppInfluenceCtx`) is what
+  // keeps faction-only modifiers out.
+  const ongoingCheckModifier = resolveCheckModifier(
+    collectCharacterEffects(state, charInPlay, oppInfluenceCtx), 'influence',
+  );
+  if (ongoingCheckModifier !== 0) {
+    boostModifier += ongoingCheckModifier;
+    logDetail(`Opponent influence: ongoing influence check-modifiers ${formatSignedNumber(ongoingCheckModifier)}`);
   }
 
   // Fold in conditional direct-influence stat-modifiers borne by the influencer
