@@ -26,6 +26,9 @@ import type {
   ActiveConstraint,
   CardInstanceId,
   CompanyId,
+  CardDefinition,
+  PlayerState,
+  Company,
 } from '../../index.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { formatSignedNumber } from '../../format-helpers.js';
@@ -42,7 +45,7 @@ import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions 
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, collectGlobalCheckModifier, siteRegionTypeOf } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, siteRegionTypeOf } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { asViable as viable } from './evaluated.js';
 
@@ -100,6 +103,77 @@ export function transferReturnedItemActions(
     }
   }
   return actions;
+}
+
+/**
+ * Decide whether a character-targeting hazard event revealed from on-guard
+ * may legally land on `charId`.
+ *
+ * Revealing an on-guard card is still a play of that card (CoE 2.V.6), so the
+ * same gates the movement/hazard phase applies to a hand play apply here: the
+ * card's `play-target` filter (e.g. Lure of Expedience's non-Ringwraith,
+ * non-Wizard, non-Hobbit restriction) and its `duplication-limit` (per
+ * character, or per company for a character-attached card).
+ */
+function onGuardCharTargetEligible(
+  state: GameState,
+  def: CardDefinition,
+  playTarget: PlayTargetEffect,
+  resourcePlayer: PlayerState,
+  company: Company,
+  charId: CardInstanceId,
+): boolean {
+  const charData = resourcePlayer.characters[charId];
+  if (!charData) return false;
+  const charDef = defById(state, charData.definitionId);
+  if (!charDef || !isCharacterCard(charDef)) return false;
+  const charLabel = charDef.name;
+
+  if (playTarget.filter) {
+    const siteInst = company.currentSite ?? null;
+    const siteDef = siteInst ? defById(state, siteInst.definitionId) : undefined;
+    const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : null;
+    const ctx = {
+      target: {
+        cardType: charDef.cardType,
+        race: charDef.race,
+        skills: charDef.skills,
+        name: charDef.name,
+        mind: charDef.mind,
+        possessions: defNamesOf(state, charData.items),
+        itemKeywords: itemKeywordsOf(state, charData.items),
+        itemSubtypes: itemSubtypesOf(state, charData.items),
+      },
+      company: { siteType, atHaven: siteType === SiteType.Haven },
+    };
+    if (!matchesCondition(playTarget.filter, ctx)) {
+      logDetail(`On-guard window: "${def.name}" filter excludes ${charLabel}`);
+      return false;
+    }
+  }
+
+  const copiesOn = (targetCharId: CardInstanceId): number => {
+    const target = resourcePlayer.characters[targetCharId];
+    if (!target) return 0;
+    return target.hazards.filter(h => defById(state, h.definitionId)?.name === def.name).length;
+  };
+
+  const charDupLimit = findDuplicationLimitEffect(def, 'character');
+  if (charDupLimit && copiesOn(charId) >= charDupLimit.max) {
+    logDetail(`On-guard window: "${def.name}" already on ${charLabel} (${copiesOn(charId)}/${charDupLimit.max})`);
+    return false;
+  }
+
+  const companyDupLimit = findDuplicationLimitEffect(def, 'company');
+  if (companyDupLimit) {
+    const copiesInCompany = company.characters.reduce((sum, cId) => sum + copiesOn(cId), 0);
+    if (copiesInCompany >= companyDupLimit.max) {
+      logDetail(`On-guard window: "${def.name}" already in ${charLabel}'s company (${copiesInCompany}/${companyDupLimit.max})`);
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -210,11 +284,14 @@ export function onGuardWindowActions(
       if (!matchesDeferred) continue;
 
       // play-target DSL: character-targeting events get one action per character
-      const isCharTargeting = 'effects' in def && def.effects?.some(
-        e => e.type === 'play-target' && e.target === 'character',
-      );
-      if (isCharTargeting) {
+      const playTarget = ogEffects.find((e): e is PlayTargetEffect => e.type === 'play-target');
+      if (playTarget?.target === 'character') {
+        // A reveal is a play (rule 2.V.6): the card's own play-target filter
+        // and duplication limit still gate which characters it may land on —
+        // e.g. Lure of Expedience cannot be revealed onto a Wizard, a Hobbit,
+        // a Ringwraith, or a character already carrying a copy.
         for (const charId of company.characters) {
+          if (!onGuardCharTargetEligible(state, def, playTarget, activePlayerObj, company, charId)) continue;
           actions.push({
             action: {
               type: 'reveal-on-guard',
