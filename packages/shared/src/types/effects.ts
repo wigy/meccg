@@ -950,6 +950,42 @@ export interface NonCharacterMpOverrideEffect extends EffectBase {
 }
 
 /**
+ * Re-values the controller's **characters** that match a per-card {@link when}
+ * condition, overriding their printed marshalling points and every other
+ * character-MP rule in play (the MEWH §4 flat-1-MP clamp, a Great Patron wh-72
+ * cap, a wh-4 full-MP exemption, an Await the Onset wh-96 pin) — the
+ * character-scoring sibling of {@link NonCharacterMpOverrideEffect}.
+ *
+ * Each of the player's in-play characters is matched against the context
+ * `{ card: { unique, normalMp, cardType, name, race } }`, where `normalMp` is
+ * the character's *printed* marshalling points; a match scores exactly
+ * {@link value}. Characters with no printed MP are unaffected either way.
+ *
+ * The carrying card may be a card in the player's `cardsInPlay`, an item on one
+ * of his characters, or a **hazard attached to one of his characters** — the
+ * last is how an opponent's hazard re-values the cards of the player it is
+ * played on.
+ *
+ * Used by Fool's Bane (wh-19): "his Elf characters … are each worth 0
+ * marshalling points in all cases."
+ *
+ * ```json
+ * { "type": "character-mp-override", "when": { "card.race": "elf" }, "value": 0 }
+ * ```
+ */
+export interface CharacterMpOverrideEffect extends EffectBase {
+  readonly type: 'character-mp-override';
+  /**
+   * Condition matched against the per-character context
+   * `{ card: { unique, normalMp, cardType, name, race } }`. Every matching
+   * character the player controls scores {@link value}.
+   */
+  readonly when: Condition;
+  /** MP each matching character is worth, overriding every other MP rule. */
+  readonly value: number;
+}
+
+/**
  * Pins every MP-scoring card **held by a company that is not at one of the
  * controller's Wizardhavens** to a flat {@link value} marshalling points,
  * overriding all other MP computation for those cards ("regardless of other
@@ -6607,6 +6643,7 @@ export type CardEffect =
   | FactionMpOverrideEffect
   | PermanentEventMpEffect
   | NonCharacterMpOverrideEffect
+  | CharacterMpOverrideEffect
   | NonHavenCompanyMpPinEffect
   | PlayedAfterFactionMpPinEffect
   | RecruitmentVehicleEffect
