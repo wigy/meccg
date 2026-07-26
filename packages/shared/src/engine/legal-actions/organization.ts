@@ -767,7 +767,7 @@ export function siteRingwraithReanimateActivations(state: GameState, playerId: P
       if (!char || char.status !== CardStatus.Untapped) continue;
       const charDef = defById(state, char.definitionId);
       if (!isCharacterCard(charDef) || !isAvatarCharacter(charDef)) continue;
-      if ((charDef as { race?: string }).race !== 'ringwraith') continue;
+      if ((charDef as { race?: Race }).race !== Race.Ringwraith) continue;
       ringwraithId = charId;
       break;
     }
@@ -1308,7 +1308,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
                 if (!coChar) continue;
                 const coCharDef = defById(state, coChar.definitionId);
                 if (!coCharDef || !isCharacterCard(coCharDef)) continue;
-                if (coCharDef.race !== 'dwarf') continue;
+                if (coCharDef.race !== Race.Dwarf) continue;
                 dwarfTargets.push({ instanceId: coCharId, name: coCharDef.name });
               }
             }
@@ -1733,7 +1733,7 @@ export function buildGrantActionContext(
   const bearer = {
     status: statusStr,
     name: charDef?.name ?? '',
-    race: charDef?.race ?? '',
+    race: charDef?.race,
     skills: charDef?.skills ?? [],
     canUsePalantir: !!canUsePalantir,
     siteType,
@@ -2423,7 +2423,7 @@ export function buildPlayerStateContext(
   let hasRingwraithInPlay = false;
   for (const char of Object.values(player.characters)) {
     const def = defById(state, char.definitionId);
-    if (isAvatarCharacter(def) && (def as { race?: string }).race === 'ringwraith') {
+    if (isAvatarCharacter(def) && (def as { race?: Race }).race === Race.Ringwraith) {
       hasRingwraithInPlay = true;
       break;
     }
@@ -2568,7 +2568,7 @@ function eligibleMaladyTargets(
           if (!ch) return false;
           const cDef = defById(state, ch.definitionId);
           if (!cDef || !isCharacterCard(cDef)) return false;
-          if (cDef.race === 'ringwraith') return true;
+          if (cDef.race === Race.Ringwraith) return true;
           return getEffectiveSkills(state, ch, cDef).includes('shadow-magic');
         }),
       );

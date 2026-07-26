@@ -787,7 +787,7 @@ function computeEffectiveStats(
   // item's corruption points still apply — the latter via the structural
   // `corruptionPoints` sum below, not through these effects). Drop every effect
   // sourced from a hero item carried by an Orc/Troll bearer before resolving.
-  const bearerIsOrcOrTroll = charDef.race === 'orc' || charDef.race === 'troll';
+  const bearerIsOrcOrTroll = charDef.race === Race.Orc || charDef.race === Race.Troll;
   if (bearerIsOrcOrTroll) {
     charEffects = charEffects.filter(ce => ce.sourceDef.cardType !== 'hero-resource-item');
   }
@@ -1201,7 +1201,7 @@ function nonCharacterMpOverride(
       normalMp: def.marshallingPoints,
       cardType: def.cardType,
       name: 'name' in def ? def.name : undefined,
-      race: 'race' in def ? (def as { race?: string }).race : undefined,
+      race: 'race' in def ? (def as { race?: Race }).race : undefined,
     },
   };
   let value: number | undefined;
@@ -1970,7 +1970,7 @@ export function computeCombatProwess(
   state: GameState,
   char: CharacterInPlay,
   charDef: CharacterCard,
-  creatureRace: string,
+  creatureRace: Race | undefined,
   strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
 ): number {
   const inPlayNames = buildInPlayNames(state);

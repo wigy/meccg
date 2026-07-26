@@ -79,7 +79,7 @@ describe("Dragon's Desolation (tw-29)", () => {
 
     const combat = makeCancelWindowCombat(base, {
       creatureDefId: SMAUG,
-      creatureRace: 'dragon',
+      creatureRace: Race.Dragon,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 10,
@@ -119,7 +119,7 @@ describe("Dragon's Desolation (tw-29)", () => {
 
     const combat = makeCancelWindowCombat(base, {
       creatureDefId: SMAUG,
-      creatureRace: 'dragon',
+      creatureRace: Race.Dragon,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 10,
@@ -166,7 +166,7 @@ describe("Dragon's Desolation (tw-29)", () => {
 
     const combat = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -200,7 +200,7 @@ describe("Dragon's Desolation (tw-29)", () => {
     });
 
     const combat = makeCancelWindowCombat(base, {
-      creatureRace: 'dragon',
+      creatureRace: Race.Dragon,
       attackSourceType: 'automatic-attack',
       strikesTotal: 1,
       strikeProwess: 12,
@@ -235,7 +235,7 @@ describe("Dragon's Desolation (tw-29)", () => {
 
     const combat = makeCancelWindowCombat(base, {
       creatureDefId: SMAUG,
-      creatureRace: 'dragon',
+      creatureRace: Race.Dragon,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 10,

@@ -47,7 +47,7 @@ import {
   makeCancelWindowCombat,
   Phase, CardStatus,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import type {
   CardDefinitionId, CardInstanceId, CharacterCard, GameState,
   PlayHeroResourceAction, CombatState,
@@ -69,7 +69,7 @@ const DIMRILL_DALE = 'le-365' as CardDefinitionId; // a different (minion R&L) s
 
 /** Build a creature attack against the resource company at the given strike prowess. */
 function creatureCombat(state: GameState, strikeProwess: number): GameState {
-  return makeCancelWindowCombat(state, { creatureRace: 'orc', strikesTotal: 1, strikeProwess });
+  return makeCancelWindowCombat(state, { creatureRace: Race.Orc, strikesTotal: 1, strikeProwess });
 }
 
 describe('Great Lord of Goblin-gate (as-75)', () => {
@@ -170,16 +170,16 @@ describe('Great Lord of Goblin-gate (as-75)', () => {
     const asternakDef = state.cardPool[asternak.definitionId] as CharacterCard;
 
     // Before tapping: both at base prowess.
-    expect(computeCombatProwess(state, gorbag, gorbagDef, 'orc')).toBe(gorbagDef.prowess);
-    expect(computeCombatProwess(state, asternak, asternakDef, 'orc')).toBe(asternakDef.prowess);
+    expect(computeCombatProwess(state, gorbag, gorbagDef, Race.Orc)).toBe(gorbagDef.prowess);
+    expect(computeCombatProwess(state, asternak, asternakDef, Race.Orc)).toBe(asternakDef.prowess);
 
     const after = dispatch(state, { type: 'tap-ally-combat-boost', player: PLAYER_1, cardInstanceId: allyInst });
 
     const gorbagAfter = getCharacter(after, RESOURCE_PLAYER, GORBAG);
     const asternakAfter = getCharacter(after, RESOURCE_PLAYER, ASTERNAK);
     // Orc gains +2; Man unchanged.
-    expect(computeCombatProwess(after, gorbagAfter, gorbagDef, 'orc')).toBe(gorbagDef.prowess + 2);
-    expect(computeCombatProwess(after, asternakAfter, asternakDef, 'orc')).toBe(asternakDef.prowess);
+    expect(computeCombatProwess(after, gorbagAfter, gorbagDef, Race.Orc)).toBe(gorbagDef.prowess + 2);
+    expect(computeCombatProwess(after, asternakAfter, asternakDef, Race.Orc)).toBe(asternakDef.prowess);
 
     // The ally itself is now tapped.
     const allyAfter = getCharacter(after, RESOURCE_PLAYER, GORBAG).allies.find(a => a.instanceId === allyInst);

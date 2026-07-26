@@ -737,16 +737,17 @@ function handleSiteAutomaticAttacks(
     // Each matching auto-attack at the site must be faced a second time.
     // duplicatesRun = attackIndex - autoAttacks.length counts how many
     // race-based duplicates have already been initiated this site phase.
-    const raceDupRaces = new Set<string>();
+    const raceDupRaces = new Set<Race>();
     for (const c of state.activeConstraints) {
       if (c.kind.type === 'auto-attack-race-duplicate') {
-        raceDupRaces.add(c.kind.race.toLowerCase());
+        raceDupRaces.add(c.kind.race);
       }
     }
     if (raceDupRaces.size > 0) {
-      const duplicatableAttacks = autoAttacks.filter(aa =>
-        raceDupRaces.has(normalizeCreatureRace(aa.creatureType)),
-      );
+      const duplicatableAttacks = autoAttacks.filter(aa => {
+        const aaRace = normalizeCreatureRace(aa.creatureType);
+        return aaRace !== undefined && raceDupRaces.has(aaRace);
+      });
       const duplicatesRun = effectiveResolved - autoAttacks.length;
       if (duplicatesRun < duplicatableAttacks.length) {
         const aa = duplicatableAttacks[duplicatesRun];
@@ -759,7 +760,7 @@ function handleSiteAutomaticAttacks(
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
         const dupDetainmentR = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
           attackEffects: siteDef.effects,
-          attackRace: dupRace as Race | null,
+          attackRace: dupRace ?? null,
           defendingAlignment: state.players[activePlayerIndex].alignment,
           defendingCovert,
           defendingSiteEffects: siteDef.effects,
@@ -809,7 +810,7 @@ function handleSiteAutomaticAttacks(
       const dupState = removeConstraint(state, dupConstraint.id);
       const dupDetainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
         attackEffects: siteDef.effects,
-        attackRace: creatureRace2 as Race | null,
+        attackRace: creatureRace2 ?? null,
         defendingAlignment: state.players[activePlayerIndex].alignment,
         defendingCovert,
         defendingSiteEffects: siteDef.effects,
@@ -860,7 +861,7 @@ function handleSiteAutomaticAttacks(
       logDetail(`Site: initiating minion-only additional automatic-attack (No Strangers at this Time): ${aa.creatureType} (${dupStrikesM} strikes, ${dupProwessM} prowess)`);
       const dupDetainmentM = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
         attackEffects: siteDef.effects,
-        attackRace: creatureRaceM as Race | null,
+        attackRace: creatureRaceM ?? null,
         attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
         defendingAlignment: state.players[activePlayerIndex].alignment,
         defendingCovert,
@@ -985,7 +986,7 @@ function handleSiteAutomaticAttacks(
     // apply — still overridden to normal when the defender forces normal attacks.
     detainment: (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
       attackEffects: siteDef.effects,
-      attackRace: creatureRace as Race | null,
+      attackRace: creatureRace ?? null,
       // Site auto-attacks are implicitly "keyed to" the site's type (§3.II.2.R1/B1).
       // The effective type honors any site-type override (e.g. Hold Rebuilt and
       // Repaired turning a Ruins & Lairs into a Shadow-hold) so the standard
@@ -1077,7 +1078,7 @@ function buildSiteRepeatedAttackCombat(
   const strikesTotalValue = isEachCharacter ? facingChars.length : effectiveStrikes;
   const detainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
     attackEffects: siteDef.effects,
-    attackRace: creatureRace as Race | null,
+    attackRace: creatureRace ?? null,
     attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
     defendingAlignment: state.players[activePlayerIndex].alignment,
     defendingCovert,
@@ -1637,7 +1638,7 @@ function handleSitePlaySiteAutoAttack(
         || (dynSiteType !== undefined && siteTypeForcesAutoAttacksNormal(state, dynSiteType));
       return (!dynForcesNormal && (company.currentSite ? siteAutoAttacksForcedDetainment(state, company.currentSite.definitionId) : false)) || isDetainmentAttack({
         attackEffects: creatureDef.effects,
-        attackRace: creatureRace as Race | null,
+        attackRace: creatureRace ?? null,
         attackKeyedTo: creatureDef.keyedTo,
         inPlayNames,
         defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -3156,7 +3157,7 @@ function handleOpponentInfluenceAttempt(
   let targetMind = 0;
   let controllerDI = 0;
   // Target identity for the opponent-influence resolver context (booster gating).
-  let targetRace = '';
+  let targetRace: Race | undefined;
   let targetName = '';
   // Character-target stats for the resolver context — effective mind/prowess,
   // set only for a character target so stat-gated DI bonuses (Whip le-348:

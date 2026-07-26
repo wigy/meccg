@@ -57,6 +57,7 @@ import {
   dispatch, executeAction,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CombatState, GameState } from '../../index.js';
+import { Race } from '../../index.js';
 
 // ── Local card-ID constants ───────────────────────────────────────────────────
 
@@ -169,7 +170,7 @@ describe('Whip of Many Thongs (ba-82)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'orc',
+        creatureRace: Race.Orc,
         strikeAssignments: [{ characterId: balrogId, excessStrikes: 0, resolved: false }],
         currentStrikeIndex: 0,
         phase: 'resolve-strike',
@@ -251,7 +252,7 @@ describe('Whip of Many Thongs (ba-82)', () => {
         strikesTotal: 1,
         strikeProwess: 8,
         creatureBody: null,
-        ...(opts.cvcc === false ? { creatureRace: 'orc' } : { isCvCC: true }),
+        ...(opts.cvcc === false ? { creatureRace: Race.Orc } : { isCvCC: true }),
         strikeAssignments: [{ characterId: balrogId, attackingCharacterId: beregondId, excessStrikes: 0, resolved: false }],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',

@@ -33,7 +33,7 @@ import {
   handCardId, companyIdAt, charIdAt, dispatch, viableActions,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { Phase, SiteType, RegionType, computeLegalActions } from '../../index.js';
+import { Phase, SiteType, RegionType, computeLegalActions, Race } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId } from '../../index.js';
 import { addConstraint } from '../../engine/pending.js';
 
@@ -212,7 +212,7 @@ describe('Chill Douser (dm-106)', () => {
       sourceDefinitionId: CHILL_DOUSER,
       scope: { kind: 'turn' },
       target: { kind: 'company', companyId },
-      kind: { type: 'creature-attack-boost', race: 'undead', strikes: 1, prowess: 1 },
+      kind: { type: 'creature-attack-boost', race: Race.Undead, strikes: 1, prowess: 1 },
     });
 
     // Play Barrow-wight (undead, base prowess 12, 1 strike) against the company
@@ -244,7 +244,7 @@ describe('Chill Douser (dm-106)', () => {
       sourceDefinitionId: CHILL_DOUSER,
       scope: { kind: 'turn' },
       target: { kind: 'company', companyId },
-      kind: { type: 'creature-attack-boost', race: 'undead', strikes: 1, prowess: 1 },
+      kind: { type: 'creature-attack-boost', race: Race.Undead, strikes: 1, prowess: 1 },
     });
 
     // Play Orc-guard (orc, base prowess 8, 5 strikes) — race !== undead

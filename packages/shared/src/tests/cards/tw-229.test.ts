@@ -33,6 +33,7 @@ import {
 } from '../test-helpers.js';
 import type { CancelAttackAction, PlayShortEventAction } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
+import { Race } from '../../index.js';
 
 const ESCAPE = 'tw-229' as CardDefinitionId;
 
@@ -50,7 +51,7 @@ describe('Escape (tw-229)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     // Two unwounded characters → two actions
@@ -82,7 +83,7 @@ describe('Escape (tw-229)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     // Only Bilbo is unwounded
@@ -107,7 +108,7 @@ describe('Escape (tw-229)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(0);
@@ -124,7 +125,7 @@ describe('Escape (tw-229)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(1);
@@ -160,7 +161,7 @@ describe('Escape (tw-229)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     // Tapped is not wounded, so eligible
@@ -183,7 +184,7 @@ describe('Escape (tw-229)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     const after = resolveChain(dispatch(state, actions[0].action));
@@ -239,7 +240,7 @@ describe('Escape (tw-229)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'troll' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Troll });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(2);

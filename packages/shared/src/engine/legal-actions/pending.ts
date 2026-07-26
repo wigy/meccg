@@ -33,7 +33,7 @@ import type {
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard } from '../../types/cards.js';
-import { CardStatus, Skill, SiteType, cardStatusToName } from '../../types/common.js';
+import { CardStatus, Skill, SiteType, Race, cardStatusToName } from '../../types/common.js';
 import type { CardDefinitionId } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
@@ -1003,7 +1003,7 @@ function corruptionCheckEntryActions(
     const compChar = player.characters[cid];
     if (!compChar) return false;
     const def = resolveDef(state, compChar.instanceId);
-    return isCharacterCard(def) && def.race === 'troll' && (def.keywords ?? []).includes('leader');
+    return isCharacterCard(def) && def.race === Race.Troll && (def.keywords ?? []).includes('leader');
   }) ?? false;
 
   // Rule 10.05: a character in the same company as a Ringwraith or the
@@ -1012,7 +1012,7 @@ function corruptionCheckEntryActions(
     const compChar = player.characters[cid];
     if (!compChar) return false;
     const def = resolveDef(state, compChar.instanceId);
-    return isCharacterCard(def) && (def.race === 'ringwraith' || isBalrogAvatarDef(def));
+    return isCharacterCard(def) && (def.race === Race.Ringwraith || isBalrogAvatarDef(def));
   }) ?? false;
   if (hasCorruptingAvatar) {
     totalModifier += 2;

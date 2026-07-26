@@ -16,7 +16,7 @@
 
 import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, CharacterCard, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction } from '../index.js';
 import type { TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, AgentTapReturnCharacterEffect } from '../types/effects.js';
-import type { CardInstanceId } from '../types/common.js';
+import type { CardInstanceId, Race } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isSiteCard } from '../types/cards.js';
@@ -453,7 +453,7 @@ export function handleAgentInfluenceAttempt(
     const factionDef = defById(state, targetFaction.definitionId);
     if (!factionDef || !isFactionCard(factionDef)) return { state, error: 'Target is not a faction' };
     // Conditional DI bonus vs this faction's race (e.g. Lobelia +3 vs Hobbit factions).
-    const diBonus = agentConditionalDirectInfluence(agentDef, { reason: 'faction-influence-check', faction: { race: (factionDef as { race?: string }).race } });
+    const diBonus = agentConditionalDirectInfluence(agentDef, { reason: 'faction-influence-check', faction: { race: (factionDef as { race?: Race }).race } });
     if (diBonus) {
       influencerDI += diBonus;
       logDetail(`Agent influence: ${agentDef.name} +${diBonus} DI vs faction ${factionDef.name} (total: ${influencerDI})`);

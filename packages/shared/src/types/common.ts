@@ -80,6 +80,20 @@ export interface TwoDiceSix {
  * show (an "Orcs" automatic-attack) are `creatureType` display text and are
  * converted here through `normalizeCreatureRace`.
  *
+ * Every race-carrying field, parameter and local in the engine is typed as
+ * this enum rather than `string`, so a plural or misspelt race is a compile
+ * error rather than a condition that quietly never matches. Two consequences
+ * are worth knowing:
+ *
+ * - A race-typed slot holds exactly **one** race. The handful of creatures
+ *   that print several attack types (Goblin-faces wh-13 "Orcs. Men.") keep the
+ *   primary race in `race` and the rest in `additionalRaces`; nothing ever
+ *   stores a comma-joined list.
+ * - Text that names no race — Vile Fumes' "Gas" label, an injected attack's
+ *   empty label, an ally or item being influenced — is represented as absent
+ *   (`undefined`), never as an empty string or a lowercased label posing as a
+ *   race.
+ *
  * A card test asserts that no other race value appears anywhere in the card
  * data, so adding a race means adding it here first.
  */
