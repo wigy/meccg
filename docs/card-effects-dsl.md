@@ -2451,11 +2451,37 @@ Apply types:
     e.g. Stealth) are offered. Used by *Searching Eye* with
     `requiredSkill: "scout"`.
 
+    Instead of (or in addition to) `requiredSkill`, the apply may carry a
+    generic `filter` condition evaluated against the target chain entry's
+    context: `{ target: { cardType, eventType, name }, declaredBy:
+    { alignment } }`. Only entries matching the filter are offered — the
+    chain-declaring emitter (`legal-actions/chain.ts`
+    `playSkillCancelChainActions`) covers hazard short-events in hand
+    responding to a live chain in any phase. A `removeFromGame: true`
+    flag on the apply moves the spent event card from its player's
+    discard pile to their out-of-play pile when its own chain entry
+    resolves un-negated ("Remove this card from the game"); a negated
+    entry leaves the card in the discard pile. Used by *Ire of the East*
+    (wh-24): "Targets and cancels one minion short-event played by a
+    Fallen-wizard earlier in the same chain of effects. … Remove this
+    card from the game." — paired with `play-flag: no-hazard-limit` for
+    "does not count against the hazard limit".
+
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "cancel-chain-entry",
                "select": "target",
                "requiredSkill": "scout" } }
+  ```
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "cancel-chain-entry",
+               "select": "target",
+               "filter": { "target.cardType": "minion-resource-event",
+                           "target.eventType": "short",
+                           "declaredBy.alignment": "fallen-wizard" },
+               "removeFromGame": true } }
   ```
 
 - `offer-char-join-attack` -- under `on-event: creature-attack-begins`,
