@@ -62,8 +62,8 @@ import { CardStatus } from '../../index.js';
 const MONSTROSITY = 'ba-21' as CardDefinitionId;
 const DROWNING_DEEPS = 'ba-89' as CardDefinitionId;
 const REMAINS_OF_THANGORODRIM = 'ba-95' as CardDefinitionId;
-const WOLVES = 'tw-114' as CardDefinitionId; // race "wolves", keys {b}{w}, 3 strikes / 8 prowess
-const CREBAIN = 'tw-25' as CardDefinitionId; // race "animals", keys wilderness, 1 strike / 5 prowess
+const WOLVES = 'tw-114' as CardDefinitionId; // race "wolf", keys {b}{w}, 3 strikes / 8 prowess
+const CREBAIN = 'tw-25' as CardDefinitionId; // race "animal", keys wilderness, 1 strike / 5 prowess
 
 const monstrosityInPlay: CardInPlay = {
   instanceId: 'monstrosity-1' as CardInstanceId,

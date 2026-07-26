@@ -75,7 +75,7 @@ describe('Kíli (tw-167)', () => {
 
     expect(computeCombatProwess(state, kili, kiliDef, 'troll')).toBe(kiliDef.prowess);
     expect(computeCombatProwess(state, kili, kiliDef, 'undead')).toBe(kiliDef.prowess);
-    expect(computeCombatProwess(state, kili, kiliDef, 'nazgul')).toBe(kiliDef.prowess);
+    expect(computeCombatProwess(state, kili, kiliDef, 'ringwraith')).toBe(kiliDef.prowess);
   });
 
   // ── Effect 2: -1 corruption modifier ──

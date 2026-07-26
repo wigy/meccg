@@ -31,7 +31,7 @@
  *     (modifier -2) machinery (le-353 Barrow-downs), which fires per wounded
  *     character after the site's automatic attacks resolve.
  *   - "Any Undead and Spider creatures may be keyed to this site" is two
- *     `allow-creature-by-race` rules ("undead", "spiders"): each grants a keying
+ *     `allow-creature-by-race` rules ("undead", "spider"): each grants a keying
  *     bypass for normal hazard-creature play against a company here.
  *   - "This site is never discarded or returned to its location deck" is
  *     `site-rule: always-return-to-deck` — M/H step 8 always returns the site to
@@ -341,7 +341,7 @@ describe('Ancient Deep-hold (ba-83)', () => {
     expect(plays).toHaveLength(1);
     const action = plays[0].action as { keyedBy?: { method: string; value: string } };
     expect(action.keyedBy?.method).toBe('keying-bypass');
-    expect(action.keyedBy?.value).toBe('spiders');
+    expect(action.keyedBy?.value).toBe('spider');
   });
 
   test('a non-Undead/non-Spider creature not keyed to R&L (Watcher in the Water) is NOT a viable hazard play', () => {

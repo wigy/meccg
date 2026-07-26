@@ -50,8 +50,8 @@ import { Phase, CardStatus } from '../../index.js';
 import type { GameState, CardDefinitionId, PlayHazardAction } from '../../index.js';
 
 const THE_REEK = 'ba-23' as CardDefinitionId;
-const GIANT_SPIDERS = 'tw-40' as CardDefinitionId;       // hazard-creature, race "spiders"
-const WATCHER_IN_THE_WATER = 'tw-110' as CardDefinitionId; // hazard-creature, race "animals"
+const GIANT_SPIDERS = 'tw-40' as CardDefinitionId;       // hazard-creature, race "spider"
+const WATCHER_IN_THE_WATER = 'tw-110' as CardDefinitionId; // hazard-creature, race "animal"
 const SPAWN_OF_UNGOLIANT = 'ba-24' as CardDefinitionId;  // hazard-event, keyword "spawn"
 const ETTENMOORS = 'tw-395' as CardDefinitionId;         // hero ruins-and-lairs
 const DROWNING_DEEPS = 'ba-89' as CardDefinitionId;      // ruins-and-lairs with under-deeps keyword

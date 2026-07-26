@@ -68,7 +68,7 @@ const HOBGOBLINS = 'le-77' as CardDefinitionId;  // orc, prowess 10, 2 strikes
 
 // Not Slay Needlessly — minion short event that cancels if defender.covert, else -2 prowess
 const NSN = 'le-212' as CardDefinitionId;
-// Elf-lord Revealed in Wrath — "elves" race creature, for the NSN + overt test
+// Elf-lord Revealed in Wrath — "elf" race creature, for the NSN + overt test
 const ELF_LORD = 'le-69' as CardDefinitionId;
 
 /** Base two-player M/H state: Asternak at Moria (minion shadow-hold). */
@@ -169,7 +169,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'men',
+      creatureRace: 'man',
       strikesTotal: 2,
       strikeProwess: 10,
     });
@@ -198,7 +198,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const combatState = makeCancelWindowCombat(withAlly, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elves',
+      creatureRace: 'elf',
       strikesTotal: 1,
       strikeProwess: 15,
     });
@@ -219,7 +219,7 @@ describe('Great Bats (as-74)', () => {
     const base = buildTestState(NSN_OPTS);
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elves',
+      creatureRace: 'elf',
       strikesTotal: 1,
       strikeProwess: 15,
     });
@@ -290,7 +290,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'men',
+      creatureRace: 'man',
       strikesTotal: 2,
       strikeProwess: 10,
     });
@@ -348,7 +348,7 @@ describe('Great Bats (as-74)', () => {
     };
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'men',
+      creatureRace: 'man',
       strikesTotal: 2,
       strikeProwess: 10,
     });
@@ -368,7 +368,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'men',
+      creatureRace: 'man',
       strikesTotal: 2,
       strikeProwess: 10,
     });
@@ -406,7 +406,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'men',
+      creatureRace: 'man',
       strikesTotal: 2,
       strikeProwess: 10,
     });
@@ -425,7 +425,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'men',
+      creatureRace: 'man',
       strikesTotal: 2,
       strikeProwess: 10,
     });

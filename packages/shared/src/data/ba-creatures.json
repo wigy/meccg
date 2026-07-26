@@ -9,7 +9,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "animals,men,bears",
+    "race": "animal,man,bear",
     "keyedTo": [
       {
         "regionTypes": [
@@ -68,7 +68,7 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "animals",
+    "race": "animal",
     "keyedTo": [
       {
         "regionTypes": [
@@ -99,7 +99,7 @@
     "prowess": 10,
     "body": 4,
     "killMarshallingPoints": 2,
-    "race": "trolls",
+    "race": "troll",
     "keyedTo": [
       {
         "regionTypes": [
@@ -134,7 +134,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "spiders",
+    "race": "spider",
     "keyedTo": [
       { "siteKeywords": ["under-deeps"] },
       { "adjacentToSiteKeywords": ["under-deeps"] }

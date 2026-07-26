@@ -227,7 +227,7 @@ describe('Barad-dûr (ba-84)', () => {
     // detainment for Nazgûl. Barad-dûr's clause is unfiltered.
     const siteDef = pool[BARAD_DUR as string] as SiteCard;
     const detainment = isDetainmentAttack({
-      attackRace: 'nazgul' as Race,
+      attackRace: 'ringwraith' as Race,
       attackKeyedTo: [DARK_HOLD_KEYING],
       defendingAlignment: Alignment.Balrog,
       defendingSiteEffects: siteDef.effects,

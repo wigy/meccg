@@ -69,6 +69,6 @@ describe('Elladan (tw-143)', () => {
 
     expect(computeCombatProwess(state, elladan, elladanDef, 'troll')).toBe(elladanDef.prowess);
     expect(computeCombatProwess(state, elladan, elladanDef, 'undead')).toBe(elladanDef.prowess);
-    expect(computeCombatProwess(state, elladan, elladanDef, 'nazgul')).toBe(elladanDef.prowess);
+    expect(computeCombatProwess(state, elladan, elladanDef, 'ringwraith')).toBe(elladanDef.prowess);
   });
 });

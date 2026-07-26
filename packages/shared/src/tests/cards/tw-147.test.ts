@@ -51,7 +51,7 @@ describe('Éowyn (tw-147)', () => {
   test('+6 prowess bonus applies in combat vs nazgul (no tap)', () => {
     // Éowyn base prowess 2 + 6 bonus - 3 no-tap = 5.
     // Roll 11: 5 + 11 = 16 > 15 → character defeats strike.
-    const ready = makeSingleCharCombatState({ heroDefId: EOWYN, creatureRace: 'nazgul', creatureProwess: 15, creatureBody: 10 });
+    const ready = makeSingleCharCombatState({ heroDefId: EOWYN, creatureRace: 'ringwraith', creatureProwess: 15, creatureBody: 10 });
     const eowynId = findCharInstanceId(ready, RESOURCE_PLAYER, EOWYN);
 
     // Assign strike
@@ -94,7 +94,7 @@ describe('Éowyn (tw-147)', () => {
   test('tapping to fight with +6 bonus gives correct prowess vs nazgul', () => {
     // Tapping: prowess = 2 + 6 = 8 (no -3 penalty).
     // Roll 8: 8 + 8 = 16 > 15 → character wins.
-    const ready = makeSingleCharCombatState({ heroDefId: EOWYN, creatureRace: 'nazgul', creatureProwess: 15, creatureBody: 10 });
+    const ready = makeSingleCharCombatState({ heroDefId: EOWYN, creatureRace: 'ringwraith', creatureProwess: 15, creatureBody: 10 });
     const eowynId = findCharInstanceId(ready, RESOURCE_PLAYER, EOWYN);
 
     const afterAssign = dispatch(ready, { type: 'assign-strike', player: PLAYER_1, characterId: eowynId });
@@ -107,7 +107,7 @@ describe('Éowyn (tw-147)', () => {
   test('nazgul body 9 (odd) is halved to 5 (rounded up) during body check', () => {
     // Body 9 → ceil(9/2) = 5.
     const ready = makeSingleCharCombatState({
-      heroDefId: EOWYN, creatureRace: 'nazgul', creatureProwess: 5, creatureBody: 9, preAssigned: true,
+      heroDefId: EOWYN, creatureRace: 'ringwraith', creatureProwess: 5, creatureBody: 9, preAssigned: true,
     });
 
     // Win the strike with high roll
@@ -127,7 +127,7 @@ describe('Éowyn (tw-147)', () => {
   test('nazgul body 10 (even) is halved to 5 during body check', () => {
     // Body 10 → ceil(10/2) = 5.
     const ready = makeSingleCharCombatState({
-      heroDefId: EOWYN, creatureRace: 'nazgul', creatureProwess: 5, creatureBody: 10, preAssigned: true,
+      heroDefId: EOWYN, creatureRace: 'ringwraith', creatureProwess: 5, creatureBody: 10, preAssigned: true,
     });
 
     const afterStrike = executeAction(ready, PLAYER_1, 'resolve-strike', 12, false);

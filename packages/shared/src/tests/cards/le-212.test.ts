@@ -11,12 +11,19 @@
  *    prowess. Cannot be duplicated on a given attack."
  *
  * Effects:
- *   1. cancel-attack — when defender.covert AND enemy.race in [elves, dwarves,
- *      dúnedain, men].
+ *   1. cancel-attack — when defender.covert AND enemy.race matches Elf/Dwarf/
+ *      Dúnedain/Man.
  *   2. modify-attack (fromHand, defender, prowessModifier: -2) — when NOT
- *      defender.covert AND enemy.race in [elves, dwarves, dúnedain, men].
+ *      defender.covert AND enemy.race matches Elf/Dwarf/Dúnedain/Man.
  *   3. duplication-limit (scope: attack, max: 1) — prevents a second copy from
  *      being played on the same attack.
+ *
+ * The race list uses the canonical {@link Race} identifiers ("elf", "dwarf",
+ * "dunadan", "man") — the same values hazard-creature card data carries and the
+ * same values a site's automatic-attack `creatureType` normalizes to (see
+ * `normalizeCreatureRace`). The card used to list the printed plural spellings
+ * instead, which made it silently unplayable on a site's automatic-attack
+ * (e.g. Rivendell's "Elves — 4 strikes with 8 prowess").
  *
  * Covert/overt is computed from company composition (rule glossary):
  *   - Overt: contains Orc, Troll, or Balrog character, or an overt-marking ally.
@@ -37,6 +44,7 @@ import {
   RESOURCE_PLAYER,
   viableActions, dispatch,
   makeCancelWindowCombat,
+  buildSitePhaseState, setupAutoAttackStep,
   expectInDiscardPile,
 } from '../test-helpers.js';
 import { Phase } from '../../index.js';
@@ -45,9 +53,9 @@ import type { CardDefinitionId, ModifyAttackAction } from '../../index.js';
 const NSN = 'le-212' as CardDefinitionId;
 
 // Hazard creatures — LE pool, sorted by race.
-const ELF_LORD = 'le-69' as CardDefinitionId;    // race "elves"
-const SONS_OF_KINGS = 'le-91' as CardDefinitionId; // race "dúnedain"
-const AMBUSHER = 'le-59' as CardDefinitionId;     // race "men"
+const ELF_LORD = 'le-69' as CardDefinitionId;    // race "elf"
+const SONS_OF_KINGS = 'le-91' as CardDefinitionId; // race "dunadan"
+const AMBUSHER = 'le-59' as CardDefinitionId;     // race "man"
 const HOBGOBLINS = 'le-77' as CardDefinitionId;   // race "orc" (control — not Elf/Dwarf/Dúnedain/Men)
 
 // Minion characters.
@@ -59,6 +67,7 @@ const ASTERNAK = 'le-1' as CardDefinitionId;  // man, mind 5 — covert race (no
 const DOL_GULDUR = 'le-367' as CardDefinitionId;  // minion haven
 const MINAS_MORGUL = 'le-390' as CardDefinitionId; // minion haven
 const MORIA = 'le-392' as CardDefinitionId;        // shadow-hold (non-haven, company destination)
+const RIVENDELL_MINION = 'as-160' as CardDefinitionId; // automatic-attacks: Elves (4/8), Dúnedain (3/10)
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -91,10 +100,10 @@ describe('Not Slay Needlessly (le-212)', () => {
 
   // ─── Effect 2: -2 prowess vs. matching races (non-covert) ────────────────────
 
-  test('modify-attack is available against an Elf (elves) creature', () => {
+  test('modify-attack is available against an Elf creature', () => {
     const state = makeCancelWindowCombat(buildBase(), {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elves',
+      creatureRace: 'elf',
       strikeProwess: 10,
     });
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
@@ -107,7 +116,7 @@ describe('Not Slay Needlessly (le-212)', () => {
   test('modify-attack is available against a Dúnedain creature', () => {
     const state = makeCancelWindowCombat(buildBase(), {
       creatureDefId: SONS_OF_KINGS,
-      creatureRace: 'dúnedain',
+      creatureRace: 'dunadan',
       strikeProwess: 8,
     });
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
@@ -117,7 +126,7 @@ describe('Not Slay Needlessly (le-212)', () => {
   test('modify-attack is available against a Men creature', () => {
     const state = makeCancelWindowCombat(buildBase(), {
       creatureDefId: AMBUSHER,
-      creatureRace: 'men',
+      creatureRace: 'man',
       strikeProwess: 7,
     });
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
@@ -139,7 +148,7 @@ describe('Not Slay Needlessly (le-212)', () => {
     const strikeProwess = 10;
     const state = makeCancelWindowCombat(buildBase(), {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elves',
+      creatureRace: 'elf',
       strikeProwess,
     });
     const [action] = viableActions(state, PLAYER_1, 'modify-attack');
@@ -151,7 +160,7 @@ describe('Not Slay Needlessly (le-212)', () => {
   test('NSN is discarded from hand after playing (short-event lifecycle)', () => {
     const state = makeCancelWindowCombat(buildBase(), {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elves',
+      creatureRace: 'elf',
       strikeProwess: 10,
     });
     const [action] = viableActions(state, PLAYER_1, 'modify-attack');
@@ -168,7 +177,7 @@ describe('Not Slay Needlessly (le-212)', () => {
     const base = buildBase({ nsnCopies: 2 });
     const state = makeCancelWindowCombat(base, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elves',
+      creatureRace: 'elf',
       strikeProwess: 10,
     });
 
@@ -183,6 +192,60 @@ describe('Not Slay Needlessly (le-212)', () => {
     // The player still has one NSN in hand but the attack constraint blocks it.
     expect(after.players[RESOURCE_PLAYER].hand).toHaveLength(1);
     expect(viableActions(after, PLAYER_1, 'modify-attack')).toHaveLength(0);
+  });
+
+  // ─── Regression: site automatic-attacks use normalized singular races ────────
+
+  test('modify-attack is available against a site automatic-attack by Elves', () => {
+    // A site's automatic-attack `creatureType: "Elves"` is normalized to the
+    // singular race "elf" on the combat state (Rivendell as-160, 4 strikes at
+    // 8 prowess). The card must still be playable against it.
+    const state = makeCancelWindowCombat(buildBase(), {
+      attackSourceType: 'automatic-attack',
+      creatureRace: 'elf',
+      strikesTotal: 4,
+      strikeProwess: 8,
+    });
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
+    expect(actions).toHaveLength(1);
+
+    const after = dispatch(state, actions[0].action);
+    expect(after.combat?.strikeProwess).toBe(6);
+  });
+
+  test('modify-attack is available against a Dúnedain site automatic-attack (3 strikes, 10 prowess)', () => {
+    // The reported save: Rivendell's 2nd automatic-attack, "Dúnedain — 3 strikes
+    // with 10 prowess", normalized to the race "dunadan" on the combat state.
+    const state = makeCancelWindowCombat(buildBase(), {
+      attackSourceType: 'automatic-attack',
+      creatureRace: 'dunadan',
+      strikesTotal: 3,
+      strikeProwess: 10,
+    });
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
+    expect(actions).toHaveLength(1);
+
+    const after = dispatch(state, actions[0].action);
+    expect(after.combat?.strikeProwess).toBe(8);
+  });
+
+  test('modify-attack is offered on a real site automatic-attack driven through the site phase', () => {
+    // End-to-end through the engine (no hand-built combat): a minion company at
+    // Rivendell (as-160, the site from the reported game) triggers the site's
+    // first automatic-attack, "Elves — 4 strikes with 8 prowess". The site's
+    // `creatureType` is normalized to the singular race "elf", which is what the
+    // card's race filter has to match.
+    const state = setupAutoAttackStep(
+      buildSitePhaseState({ site: RIVENDELL_MINION, characters: [GORBAG], hand: [NSN] }),
+    );
+    const inCombat = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(inCombat.combat?.creatureRace).toBe('elf');
+
+    const actions = viableActions(inCombat, PLAYER_1, 'modify-attack');
+    expect(actions).toHaveLength(1);
+
+    const after = dispatch(inCombat, actions[0].action);
+    expect(after.combat?.strikeProwess).toBe(6);
   });
 
   // ─── Regression: must not be playable outside of an appropriate attack ───────
@@ -238,7 +301,7 @@ describe('Not Slay Needlessly (le-212)', () => {
     });
     const state = makeCancelWindowCombat(base, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elves',
+      creatureRace: 'elf',
       strikeProwess: 10,
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
@@ -249,7 +312,7 @@ describe('Not Slay Needlessly (le-212)', () => {
     // GORBAG is Orc (overt race) → overt company gets modify-attack, not cancel.
     const overtState = makeCancelWindowCombat(buildBase(), {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elves',
+      creatureRace: 'elf',
       strikeProwess: 10,
     });
     expect(viableActions(overtState, PLAYER_1, 'cancel-attack')).toHaveLength(0);

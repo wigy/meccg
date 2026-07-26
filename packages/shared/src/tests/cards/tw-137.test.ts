@@ -97,7 +97,7 @@ describe('Círdan (tw-137)', () => {
       ],
     });
     const withCombat = makeCancelWindowCombat(base, {
-      creatureRace: 'animals',
+      creatureRace: 'animal',
       attackKeying: [RegionType.Coastal],
     });
 
@@ -163,7 +163,7 @@ describe('Círdan (tw-137)', () => {
       ],
     });
     const withCombat = makeCancelWindowCombat(base, {
-      creatureRace: 'animals',
+      creatureRace: 'animal',
       attackKeying: [RegionType.Coastal],
     });
 

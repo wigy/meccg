@@ -4229,9 +4229,8 @@ export interface CancelAttackEffect extends EffectBase {
 export interface ConvertCreatureToAllyEffect extends EffectBase {
   readonly type: 'convert-creature-to-ally';
   /**
-   * Lowercase creature races eligible for conversion (matched against the
-   * combat's normalized `creatureRace`). Both singular and plural data forms
-   * should be listed where they differ (e.g. "orc"/"orcs").
+   * Canonical {@link Race} values eligible for conversion (matched against the
+   * combat's `creatureRace`, e.g. `["orc", "troll"]`).
    */
   readonly races: readonly string[];
   /** Maximum printed strikes the creature may have (1 for "one strike for each of its attacks"). */
@@ -6049,7 +6048,7 @@ export interface DiscardOnCardLeavesPlayEffect extends EffectBase {
  *
  * ```json
  * { "type": "grant-creature-keying",
- *   "creatureFilter": { "race": { "$in": ["spider", "spiders"] }, "unique": { "$ne": true } },
+ *   "creatureFilter": { "race": "spider", "unique": { "$ne": true } },
  *   "siteFilter": { "siteTypes": ["ruins-and-lairs", "shadow-hold"], "siteKeywords": ["under-deeps"] } }
  * ```
  *
@@ -7932,7 +7931,7 @@ export interface PlayCreatureFromDiscardEffect extends EffectBase {
  *    (tracked via `MovementHazardPhaseState.spawnReplayUsedSources`).
  *
  * The creature's race is matched by the card's authoritative `race` string
- * (e.g. "wolves", "animals"); the source permanent-event's own name in the
+ * (e.g. "wolf", "animal"); the source permanent-event's own name in the
  * printed text ("This card must have already attacked the company this turn")
  * is realised as the "already attacked this turn" gate — the Balrog set's
  * intent, confirmed by the French text ("Cette créature doit déjà avoir
@@ -7943,7 +7942,7 @@ export interface GrantReplayAttackedCreatureEffect extends EffectBase {
   /**
    * Condition matched against each candidate creature's card definition to
    * decide which discard-pile creatures may be replayed (e.g.
-   * `{ "race": { "$in": ["wolves", "animals"] } }`). Reuses the shared
+   * `{ "race": { "$in": ["wolf", "animal"] } }`). Reuses the shared
    * condition-matcher rather than a card-specific keyword.
    */
   readonly filter: Condition;

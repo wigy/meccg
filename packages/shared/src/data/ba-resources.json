@@ -1412,11 +1412,11 @@
         "type": "site-instance-transform",
         "associated": {
           "siteType": "shadow-hold",
-          "removeAutoAttacksByRace": "Dwarves"
+          "removeAutoAttacksByRace": "dwarf"
         },
         "others": {
           "siteType": "shadow-hold",
-          "removeAutoAttacksByRace": "Dwarves",
+          "removeAutoAttacksByRace": "dwarf",
           "addAutoAttack": { "creatureType": "Orcs", "strikes": 4, "prowess": 7 }
         },
         "noFactions": true
@@ -1480,15 +1480,10 @@
         "type": "convert-creature-to-ally",
         "races": [
           "man",
-          "men",
           "drake",
-          "drakes",
           "orc",
-          "orcs",
           "troll",
-          "trolls",
-          "giant",
-          "giants"
+          "giant"
         ],
         "maxStrikes": 1,
         "controllerTaps": false,

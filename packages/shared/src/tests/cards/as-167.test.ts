@@ -315,7 +315,7 @@ describe('The Under-leas (as-167)', () => {
     // via §3.II.2.R1 (keyed to Dark-domain, as Nazgûl are).
     const siteDef = pool[THE_UNDER_LEAS as string] as SiteCard;
     const detainment = isDetainmentAttack({
-      attackRace: 'nazgul' as Race,
+      attackRace: 'ringwraith' as Race,
       attackKeyedTo: [{ regionTypes: [RegionType.Dark] }],
       defendingAlignment: Alignment.Ringwraith,
       defendingSiteEffects: siteDef.effects,

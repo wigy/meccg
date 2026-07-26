@@ -102,7 +102,7 @@ describe('The Old Thrush (tw-346)', () => {
 
     // Use automatic-attack so prowess comes from strikeProwess directly.
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'nazgul',
+      creatureRace: 'ringwraith',
       strikeProwess: 15,
       attackSourceType: 'automatic-attack',
     });

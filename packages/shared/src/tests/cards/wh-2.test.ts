@@ -36,7 +36,7 @@
  * Fixtures:
  *   DOETH (wh-2)        — unique minion Half-orc warrior/sage, body 9, discardBodyCheck [9]
  *   NSN (le-212)        — Not Slay Needlessly: cancels vs covert, -2 prowess vs overt
- *   ELF_LORD (le-69)    — "elves" creature (NSN cancel-window target)
+ *   ELF_LORD (le-69)    — "elf" creature (NSN cancel-window target)
  *   ORC_GUARD (tw-072)  — creature with killMarshallingPoints 1 (trophy source)
  *   CARN_DUM (le-359)   — minion ruins-and-lairs (company site)
  *   MINAS_MORGUL (le-390) — minion haven (siteDeck filler)
@@ -59,7 +59,7 @@ import type {
 
 const DOETH = 'wh-2' as CardDefinitionId;
 const NSN = 'le-212' as CardDefinitionId;        // Not Slay Needlessly
-const ELF_LORD = 'le-69' as CardDefinitionId;    // "elves" creature
+const ELF_LORD = 'le-69' as CardDefinitionId;    // "elf" creature
 const ORC_GUARD = 'tw-072' as CardDefinitionId;  // creature, killMarshallingPoints 1
 
 const CARN_DUM = 'le-359' as CardDefinitionId;
@@ -128,7 +128,7 @@ describe('Doeth (Durthak) (wh-2)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elves',
+        creatureRace: 'elf',
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',

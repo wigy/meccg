@@ -11,7 +11,7 @@
     "body": null,
     "killMarshallingPoints": 1,
     "starredKillMarshallingPoints": true,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionNames": [
@@ -90,7 +90,7 @@
     "body": null,
     "killMarshallingPoints": 2,
     "starredKillMarshallingPoints": true,
-    "race": "dwarves",
+    "race": "dwarf",
     "keyedTo": [
       {
         "regionTypes": [
@@ -148,7 +148,7 @@
     "body": null,
     "killMarshallingPoints": 1,
     "starredKillMarshallingPoints": true,
-    "race": "dwarves",
+    "race": "dwarf",
     "keyedTo": [
       {
         "regionTypes": [
@@ -170,7 +170,7 @@
     "body": 7,
     "killMarshallingPoints": 2,
     "starredKillMarshallingPoints": true,
-    "race": "elves",
+    "race": "elf",
     "keyedTo": []
   },
   {
@@ -212,7 +212,7 @@
     "body": 8,
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
-    "race": "dúnedain",
+    "race": "dunadan",
     "keyedTo": []
   },
   {
@@ -227,7 +227,7 @@
     "body": 10,
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
-    "race": "elves",
+    "race": "elf",
     "manifestId": "tw-153",
     "certified": "2026-07-25",
     "keyedTo": [
@@ -294,7 +294,7 @@
     "body": 9,
     "killMarshallingPoints": 2,
     "starredKillMarshallingPoints": true,
-    "race": "men",
+    "race": "man",
     "keyedTo": [],
     "effects": [
       {
@@ -315,7 +315,7 @@
     "body": 9,
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
-    "race": "elves",
+    "race": "elf",
     "keyedTo": [],
     "effects": [
       {
@@ -336,7 +336,7 @@
     "body": 9,
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
-    "race": "elves",
+    "race": "elf",
     "keyedTo": [],
     "effects": [
       {
@@ -438,7 +438,7 @@
     "body": null,
     "killMarshallingPoints": 1,
     "starredKillMarshallingPoints": true,
-    "race": "dúnedain",
+    "race": "dunadan",
     "keyedTo": []
   },
   {
@@ -453,7 +453,7 @@
     "body": 5,
     "killMarshallingPoints": 2,
     "starredKillMarshallingPoints": false,
-    "race": "trolls",
+    "race": "troll",
     "keyedTo": [
       {
         "regionTypes": [

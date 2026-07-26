@@ -55,7 +55,7 @@ describe('dm-58: Flies and Spiders', () => {
       strikesTotal: 1,
       strikeProwess: 5,
       creatureBody: null,
-      creatureRace: 'Orc', // Not a Spider
+      creatureRace: 'orc', // Not a Spider
       strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike' as const,
@@ -97,7 +97,7 @@ describe('dm-58: Flies and Spiders', () => {
         strikesTotal: 1,
         strikeProwess: 5,
         creatureBody: null,
-        creatureRace: 'Spider',
+        creatureRace: 'spider',
         strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
         currentStrikeIndex: 0,
         phase: 'resolve-strike' as const,
@@ -158,7 +158,7 @@ describe('dm-58: Flies and Spiders', () => {
       strikesTotal: 1,
       strikeProwess: 99, // Creature guaranteed to win
       creatureBody: null,
-      creatureRace: 'Spider',
+      creatureRace: 'spider',
       strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike' as const,

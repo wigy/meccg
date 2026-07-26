@@ -136,7 +136,7 @@
                 "enemy.race": "undead"
               },
               {
-                "enemy.race": "nazgul"
+                "enemy.race": "ringwraith"
               }
             ]
           }
@@ -951,9 +951,9 @@
         "when": {
           "enemy.race": {
             "$in": [
-              "spiders",
-              "animals",
-              "wolves"
+              "spider",
+              "animal",
+              "wolf"
             ]
           }
         },

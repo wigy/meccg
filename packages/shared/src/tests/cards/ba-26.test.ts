@@ -51,7 +51,7 @@ import { resolveCancelAttackEntry } from '../../engine/combat-cancel.js';
 import type { CardDefinitionId, GameState, ModifyAttackAction } from '../../index.js';
 
 const UNABATED_IN_MALICE = 'ba-26' as CardDefinitionId;
-const SHELOB = 'tw-86' as CardDefinitionId; // unique Spider, race "spiders"
+const SHELOB = 'tw-86' as CardDefinitionId; // unique Spider, race "spider"
 
 /** Base two-Wizard state with the hazard player (PLAYER_2) holding the given hand. */
 function baseWithHazardHand(hand: CardDefinitionId[], resourceHand: CardDefinitionId[] = []): GameState {
@@ -143,7 +143,7 @@ describe('Unabated in Malice (ba-26)', () => {
     const base = baseWithHazardHand([UNABATED_IN_MALICE]);
     const combat = makeCancelWindowCombat(base, {
       creatureDefId: SHELOB,
-      creatureRace: 'spiders',
+      creatureRace: 'spider',
       attackSourceType: 'creature',
       strikesTotal: 1,
       strikeProwess: 18,

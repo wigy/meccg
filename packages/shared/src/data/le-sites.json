@@ -262,7 +262,7 @@
         "rule": "attacks-not-detainment",
         "filter": {
           "enemy.race": {
-            "$ne": "nazgul"
+            "$ne": "ringwraith"
           }
         }
       }
@@ -1003,7 +1003,7 @@
         "rule": "attacks-not-detainment",
         "filter": {
           "enemy.race": {
-            "$ne": "nazgul"
+            "$ne": "ringwraith"
           }
         }
       }
@@ -1360,7 +1360,7 @@
         "rule": "attacks-not-detainment",
         "filter": {
           "enemy.race": {
-            "$ne": "nazgul"
+            "$ne": "ringwraith"
           }
         }
       }

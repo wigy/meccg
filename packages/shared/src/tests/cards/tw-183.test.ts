@@ -76,7 +76,7 @@ describe('Thorin II (tw-183)', () => {
 
     expect(computeCombatProwess(state, thorin, thorinDef, 'troll')).toBe(thorinDef.prowess);
     expect(computeCombatProwess(state, thorin, thorinDef, 'undead')).toBe(thorinDef.prowess);
-    expect(computeCombatProwess(state, thorin, thorinDef, 'nazgul')).toBe(thorinDef.prowess);
+    expect(computeCombatProwess(state, thorin, thorinDef, 'ringwraith')).toBe(thorinDef.prowess);
   });
 
   // ── Effect 3: +2 DI vs Dwarf characters ──

@@ -939,7 +939,7 @@
     "prowess": 18,
     "body": 8,
     "killMarshallingPoints": 6,
-    "race": "nazgûl",
+    "race": "ringwraith",
     "keywords": [
       "Nazgûl"
     ],
@@ -1010,7 +1010,7 @@
     "prowess": 15,
     "body": 10,
     "killMarshallingPoints": 5,
-    "race": "nazgûl",
+    "race": "ringwraith",
     "keywords": [
       "Nazgûl"
     ],
@@ -1906,7 +1906,7 @@
           "$and": [
             {
               "race": {
-                "$in": ["animal", "animals", "spider", "spiders", "wolf", "wolves"]
+                "$in": ["animal", "spider", "wolf"]
               }
             },
             {

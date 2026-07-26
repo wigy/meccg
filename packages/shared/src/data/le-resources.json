@@ -315,9 +315,7 @@
           "enemy.race": {
             "$in": [
               "wolf",
-              "wolves",
-              "animal",
-              "animals"
+              "animal"
             ]
           }
         }
@@ -353,7 +351,6 @@
             "$in": [
               "orc",
               "troll",
-              "men",
               "man"
             ]
           }
@@ -847,10 +844,10 @@
             {
               "enemy.race": {
                 "$in": [
-                  "elves",
-                  "dwarves",
-                  "dúnedain",
-                  "men"
+                  "elf",
+                  "dwarf",
+                  "dunadan",
+                  "man"
                 ]
               }
             },
@@ -870,10 +867,10 @@
             {
               "enemy.race": {
                 "$in": [
-                  "elves",
-                  "dwarves",
-                  "dúnedain",
-                  "men"
+                  "elf",
+                  "dwarf",
+                  "dunadan",
+                  "man"
                 ]
               }
             },
@@ -1717,12 +1714,10 @@
         "type": "convert-creature-to-ally",
         "races": [
           "orc",
-          "orcs",
           "troll",
-          "trolls",
           "giant",
           "slayer",
-          "men"
+          "man"
         ],
         "maxStrikes": 1,
         "controllerTaps": true,

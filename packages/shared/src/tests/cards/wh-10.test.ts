@@ -34,7 +34,7 @@
  *   SLY_SOUTHERNER (wh-10)     — minion Half-orc warrior/scout, body 9, discardBodyCheck [9]
  *   GORBAG (le-11)             — plain minion Orc, body 9, discardBodyCheck [9] (overt/trophy control)
  *   NSN (le-212)               — Not Slay Needlessly: cancels vs covert, -2 prowess vs overt
- *   ELF_LORD (le-69)           — "elves" creature (NSN cancel-window target)
+ *   ELF_LORD (le-69)           — "elf" creature (NSN cancel-window target)
  *   ORC_GUARD (tw-072)         — creature with killMarshallingPoints 1 (trophy source)
  *   CARN_DUM (le-359)          — minion ruins-and-lairs (company site)
  *   MINAS_MORGUL (le-390)      — minion haven (siteDeck filler / opponent site)
@@ -57,7 +57,7 @@ import type {
 const SLY_SOUTHERNER = 'wh-10' as CardDefinitionId;
 const GORBAG = 'le-11' as CardDefinitionId;      // plain Orc, body 9, discardBodyCheck [9]
 const NSN = 'le-212' as CardDefinitionId;        // Not Slay Needlessly
-const ELF_LORD = 'le-69' as CardDefinitionId;    // "elves" creature
+const ELF_LORD = 'le-69' as CardDefinitionId;    // "elf" creature
 const ORC_GUARD = 'tw-072' as CardDefinitionId;  // creature, killMarshallingPoints 1
 
 const CARN_DUM = 'le-359' as CardDefinitionId;
@@ -101,7 +101,7 @@ describe('Sly Southerner (wh-10)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elves',
+        creatureRace: 'elf',
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -148,7 +148,7 @@ describe('Sly Southerner (wh-10)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elves',
+        creatureRace: 'elf',
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',

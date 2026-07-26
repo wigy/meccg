@@ -38,7 +38,7 @@
  *   GRISHNAKH (le-12)          — minion orc, mind 3, non-leader (DI target / merge control)
  *   OSTISEN (le-36)            — minion man, mind 2, no effects (DI negative control)
  *   NSN (le-212)               — Not Slay Needlessly: cancels vs covert, -2 prowess vs overt
- *   ELF_LORD (le-69)           — "elves" creature (NSN cancel-window target)
+ *   ELF_LORD (le-69)           — "elf" creature (NSN cancel-window target)
  *   ORC_GUARD (tw-072)         — creature with killMarshallingPoints 1 (trophy source)
  *   GOBLINS_OF_GOBLIN_GATE (le-265) — minion orc faction, influence# 9
  *   GOBLIN_GATE (le-378)       — shadow-hold where the faction is playable
@@ -68,7 +68,7 @@ const GORBAG = 'le-11' as CardDefinitionId;      // plain Orc leader (overt/trop
 const GRISHNAKH = 'le-12' as CardDefinitionId;   // orc, mind 3, non-leader
 const OSTISEN = 'le-36' as CardDefinitionId;     // man, mind 2, no effects
 const NSN = 'le-212' as CardDefinitionId;        // Not Slay Needlessly
-const ELF_LORD = 'le-69' as CardDefinitionId;    // "elves" creature
+const ELF_LORD = 'le-69' as CardDefinitionId;    // "elf" creature
 const ORC_GUARD = 'tw-072' as CardDefinitionId;  // creature, killMarshallingPoints 1
 
 const GOBLINS_OF_GOBLIN_GATE = 'le-265' as CardDefinitionId; // orc faction, influence# 9
@@ -132,7 +132,7 @@ describe('Euog (Ulzog) (wh-3)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elves',
+        creatureRace: 'elf',
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -179,7 +179,7 @@ describe('Euog (Ulzog) (wh-3)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elves',
+        creatureRace: 'elf',
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',

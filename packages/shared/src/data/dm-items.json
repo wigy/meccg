@@ -193,7 +193,7 @@
         },
         "when": {
           "enemy.race": {
-            "$in": ["dragon", "dragons", "drake", "drakes"]
+            "$in": ["dragon", "drake"]
           }
         }
       }
@@ -239,7 +239,7 @@
           "$or": [
             {
               "enemy.race": {
-                "$in": ["orc", "orcs", "troll", "trolls"]
+                "$in": ["orc", "troll"]
               }
             },
             {

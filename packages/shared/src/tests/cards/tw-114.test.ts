@@ -10,7 +10,7 @@
  *
  * "Wolves. Three strikes."
  *
- * Wolves is a vanilla hazard creature. The race ("wolves") and strike count
+ * Wolves is a vanilla hazard creature. The race ("wolf") and strike count
  * (3) are base stats — no special effects. The card requires both a
  * border-land and a wilderness region in the company's travel path.
  *

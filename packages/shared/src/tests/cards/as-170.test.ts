@@ -57,7 +57,7 @@ import {
   dispatch, viableActions,
 } from '../test-helpers.js';
 import {
-  isSiteCard, buildMovementMap, getReachableSites,
+  isSiteCard, buildMovementMap, getReachableSites, Race,
 } from '../../index.js';
 import type { SiteCard, CardDefinitionId, SitePhaseState } from '../../index.js';
 
@@ -163,7 +163,7 @@ describe('Wellinghall (as-170)', () => {
     expect(next.combat).not.toBeNull();
     expect(next.combat!.strikesTotal).toBe(2);
     expect(next.combat!.strikeProwess).toBe(10);
-    expect(next.combat!.creatureRace).toBe('awakened plant');
+    expect(next.combat!.creatureRace).toBe(Race.AwakenedPlant);
     expect(next.combat!.attackSource.type).toBe('automatic-attack');
   });
 
@@ -186,7 +186,7 @@ describe('Wellinghall (as-170)', () => {
     expect(next.combat).not.toBeNull();
     expect(next.combat!.strikesTotal).toBe(2);
     expect(next.combat!.strikeProwess).toBe(10);
-    expect(next.combat!.creatureRace).toBe('awakened plant');
+    expect(next.combat!.creatureRace).toBe(Race.AwakenedPlant);
     expect(next.combat!.attackSource.type).toBe('automatic-attack');
   });
 

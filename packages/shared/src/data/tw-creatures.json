@@ -410,7 +410,7 @@
     "prowess": 11,
     "body": null,
     "killMarshallingPoints": 2,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "siteTypes": [
@@ -532,7 +532,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionTypes": [
@@ -575,7 +575,7 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "wolves",
+    "race": "wolf",
     "certified": "2026-05-11",
     "keyedTo": [
       {
@@ -598,7 +598,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "animals",
+    "race": "animal",
     "keyedTo": [
       {
         "regionTypes": [
@@ -635,7 +635,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "wolves",
+    "race": "wolf",
     "keyedTo": [
       {
         "regionTypes": [
@@ -657,7 +657,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionTypes": [
@@ -727,7 +727,7 @@
     "prowess": 9,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionTypes": [
@@ -799,7 +799,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "spiders",
+    "race": "spider",
     "keyedTo": [
       {
         "regionTypes": [
@@ -848,7 +848,7 @@
     "prowess": 7,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "animals",
+    "race": "animal",
     "keyedTo": [
       {
         "regionTypes": [
@@ -888,7 +888,7 @@
     "prowess": 11,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "pûkel-creature",
+    "race": "pukel-creature",
     "keyedTo": [
       {
         "siteTypes": [
@@ -971,7 +971,7 @@
     "prowess": 16,
     "body": 9,
     "killMarshallingPoints": 5,
-    "race": "nazgûl",
+    "race": "ringwraith",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1000,7 +1000,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1027,7 +1027,7 @@
     "prowess": 5,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "animals",
+    "race": "animal",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1056,7 +1056,7 @@
     "prowess": 15,
     "body": 10,
     "killMarshallingPoints": 5,
-    "race": "nazgûl",
+    "race": "ringwraith",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1085,7 +1085,7 @@
     "prowess": 15,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "animals",
+    "race": "animal",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1132,7 +1132,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "trolls",
+    "race": "troll",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1159,7 +1159,7 @@
     "prowess": 15,
     "body": 9,
     "killMarshallingPoints": 5,
-    "race": "nazgûl",
+    "race": "ringwraith",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1188,7 +1188,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "awakened plant",
+    "race": "awakened-plant",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1209,7 +1209,7 @@
     "prowess": 15,
     "body": 10,
     "killMarshallingPoints": 5,
-    "race": "nazgûl",
+    "race": "ringwraith",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1238,7 +1238,7 @@
     "prowess": 12,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "animals",
+    "race": "animal",
     "keyedTo": [],
     "effects": [
       {
@@ -1262,7 +1262,7 @@
     "prowess": 13,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "awakened plant",
+    "race": "awakened-plant",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1308,7 +1308,7 @@
     "prowess": 10,
     "body": 5,
     "killMarshallingPoints": 2,
-    "race": "trolls",
+    "race": "troll",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1334,7 +1334,7 @@
     "prowess": 6,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "orcs",
+    "race": "orc",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1359,7 +1359,7 @@
     "prowess": 7,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "orcs",
+    "race": "orc",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1384,7 +1384,7 @@
     "prowess": 11,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "siteTypes": [
@@ -1406,7 +1406,7 @@
     "prowess": 11,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "siteTypes": [
@@ -1428,7 +1428,7 @@
     "prowess": 15,
     "body": 10,
     "killMarshallingPoints": 5,
-    "race": "nazgûl",
+    "race": "ringwraith",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1489,7 +1489,7 @@
     "prowess": 13,
     "body": 8,
     "killMarshallingPoints": 2,
-    "race": "trolls",
+    "race": "troll",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1514,7 +1514,7 @@
     "prowess": 8,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "pûkel-creature",
+    "race": "pukel-creature",
     "keyedTo": [
       {
         "siteTypes": [
@@ -1574,7 +1574,7 @@
     "prowess": 12,
     "body": 7,
     "killMarshallingPoints": 2,
-    "race": "orcs",
+    "race": "orc",
     "keyedTo": [
       {
         "siteTypes": [
@@ -1595,7 +1595,7 @@
     "prowess": 15,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1619,7 +1619,7 @@
     "prowess": 15,
     "body": 9,
     "killMarshallingPoints": 5,
-    "race": "nazgûl",
+    "race": "ringwraith",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1672,7 +1672,7 @@
     "prowess": 13,
     "body": 8,
     "killMarshallingPoints": 3,
-    "race": "men",
+    "race": "man",
     "keyedTo": [
       {
         "regionTypes": [
@@ -1719,7 +1719,7 @@
     "prowess": 18,
     "body": 9,
     "killMarshallingPoints": 6,
-    "race": "spiders",
+    "race": "spider",
     "keyedTo": [],
     "effects": [
       {

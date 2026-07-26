@@ -30,13 +30,14 @@ import type {
   SiteCard,
 } from '../index.js';
 import type { CardInstanceId } from '../types/common.js';
+import { Race } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { ownerOf } from '../types/state.js';
 import { isBalrogAvatarDef } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import { cardName, defById, getCardEffects, matchesDefinition, toCardInstance } from './reducer-utils.js';
 import { isFactionCard } from '../types/cards.js';
-import { factionRaceToAttackType } from './effects/index.js';
+import { factionRaceToAttackType, normalizeCreatureRace } from './effects/index.js';
 import { resolveSiteInstanceTransform } from './effective.js';
 
 /**
@@ -300,7 +301,7 @@ export function getActiveAutoAttacks(
     if (isManifestationDefeated(state, lairOf)) {
       // Dragon defeated → strip its Dragon-typed printed attacks. Other
       // attacks on the same site (rare) are left intact.
-      printed = printed.filter(a => a.creatureType !== 'Dragon');
+      printed = printed.filter(a => normalizeCreatureRace(a.creatureType) !== Race.Dragon);
     }
 
     // Augment with any in-play At-Home effect for this manifestation,
@@ -349,9 +350,9 @@ export function getActiveAutoAttacks(
   // automatic-attacks (i.e., at The Under-gates)." Strip Balrog-typed attacks
   // (e.g. The Under-gates dm-38, 2×16) once the Balrog avatar has entered play
   // or has been defeated/eliminated.
-  if (combined.some(a => a.creatureType === 'Balrog') && isBalrogInPlayOrDefeated(state)) {
+  if (combined.some(a => normalizeCreatureRace(a.creatureType) === Race.Balrog) && isBalrogInPlayOrDefeated(state)) {
     const before = combined.length;
-    combined = combined.filter(a => a.creatureType !== 'Balrog');
+    combined = combined.filter(a => normalizeCreatureRace(a.creatureType) !== Race.Balrog);
     logDetail(`MEBA: Balrog in play or defeated — ${before - combined.length} Balrog automatic-attack(s) at ${siteDef.name} ignored`);
   }
 
@@ -416,7 +417,7 @@ export function getActiveAutoAttacks(
     if (roleCfg.removeAutoAttacksByRace) {
       const race = roleCfg.removeAutoAttacksByRace;
       const before = combined.length;
-      combined = combined.filter(a => a.creatureType !== race);
+      combined = combined.filter(a => normalizeCreatureRace(a.creatureType) !== race);
       logDetail(`site-instance-transform: ${transform.role} version of ${siteDef.name} loses ${before - combined.length} ${race} automatic-attack(s)`);
     }
     if (transform.role === 'other' && transform.effect.others.addAutoAttack) {
