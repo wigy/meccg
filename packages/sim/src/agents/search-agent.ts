@@ -33,7 +33,7 @@ export interface SearchAgentOptions {
 export function createSearchAgent(weightsPath: string, options: SearchAgentOptions): Agent {
   const model = loadBcWeights(weightsPath);
   const selfTestError = runBcSelfTest(model);
-  if (selfTestError > 2e-4) {
+  if (!(selfTestError <= 2e-4)) {
     throw new Error(`search agent weights self-test failed: deviation ${selfTestError}`);
   }
   let vocab: CardVocab | null = null;

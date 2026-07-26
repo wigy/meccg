@@ -63,7 +63,7 @@ DIM_PRESETS = {
 class BcNet(nn.Module):
     """Action-conditioned policy + value network over feature spec v1."""
 
-    def __init__(self, vocab_size, action_types, global_width, dims):
+    def __init__(self, vocab_size, action_types, global_width, dims, value_skip=True):
         super().__init__()
         d_card, d_type, d_zone, d_ent, d_glob, d_state, d_cand, d_score = dims
         self.emb_card = nn.Embedding(vocab_size + 1, d_card)
@@ -75,7 +75,15 @@ class BcNet(nn.Module):
         self.cand_lin = nn.Linear(d_type + d_card + len(CAND_NUMERIC_COLS), d_cand)
         self.score1 = nn.Linear(d_state + d_cand, d_score)
         self.score2 = nn.Linear(d_score, 1)
-        self.value1 = nn.Linear(d_state, d_score // 2)
+        # The value head reads the global vector directly, not only the
+        # shared torso output. Measured motivation: the torso is dominated
+        # by the policy loss, and the value head trained through it scored
+        # 0.48 mid-game sign accuracy — worse than the raw tournament-score
+        # differential (0.63-0.68), a feature it nominally already had.
+        # `value_skip=False` rebuilds the pre-2026-07-26 head so existing
+        # weights files still load (warm starts, evaluation).
+        self.value_skip = value_skip
+        self.value1 = nn.Linear(d_state + (global_width if value_skip else 0), d_score // 2)
         self.value2 = nn.Linear(d_score // 2, 1)
 
     def encode_state(self, glob, entities, entity_mask):
@@ -104,8 +112,19 @@ class BcNet(nn.Module):
     def forward(self, glob, entities, entity_mask, candidates):
         state = self.encode_state(glob, entities, entity_mask)
         logits = self.score_candidates(state, candidates)
-        value = torch.tanh(self.value2(F.relu(self.value1(state))))
+        value_input = torch.cat([state, glob], dim=1) if self.value_skip else state
+        value = torch.tanh(self.value2(F.relu(self.value1(value_input))))
         return logits, value.squeeze(1)
+
+
+def checkpoint_value_skip(payload, dims, global_width):
+    """True when a weights payload was trained with the value skip connection.
+
+    Detected from the layer's input width so pre-2026-07-26 files keep
+    loading (the TypeScript forward pass does the same).
+    """
+    shape = payload["weights"]["value1.weight"]["shape"]
+    return shape[1] == dims[5] + global_width
 
 
 def parse_data_spec(spec):
@@ -362,10 +381,14 @@ def main():
                 f"--init vocab hash {init_payload.get('vocabHash')} does not match data {header.get('vocabHash')}")
         dims = tuple(init_payload["dims"]["values"])
         dims_label = init_payload["dims"]["preset"]
+        value_skip = checkpoint_value_skip(init_payload, dims, global_width)
+        if not value_skip:
+            print("warm start: checkpoint predates the value skip connection — matching its shape")
     else:
         dims = DIM_PRESETS[args.dims]
         dims_label = args.dims
-    net = BcNet(header["vocabSize"], header["actionTypeCount"], global_width, dims)
+        value_skip = True
+    net = BcNet(header["vocabSize"], header["actionTypeCount"], global_width, dims, value_skip)
     if args.init:
         net.load_state_dict({
             name: torch.tensor(tensor["data"]).reshape(tensor["shape"])
