@@ -47,6 +47,7 @@ import { resolveWinConditionRoll } from './reducer-win-conditions.js';
 import { revealInstances } from './visibility.js';
 import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
 import { applyShortEventDiscardInPlay } from './short-event-discard.js';
+import { fireStageCardPlayedTriggers } from './stage-card-played.js';
 import { shuffle } from '../rng.js';
 
 /**
@@ -2505,6 +2506,12 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }
     }
   }
+
+  // Inner Rot (wh-23): a hazard riding the Fallen-wizard makes him check for
+  // corruption "whenever his controlling player plays a stage card". Most stage
+  // cards are permanent-events, so this is their entry point; the site-phase
+  // stage item/ally/faction seams fire the same trigger in `reducer-site.ts`.
+  newState = fireStageCardPlayedTriggers(newState, playerIndex, def);
 
   return newState;
 }

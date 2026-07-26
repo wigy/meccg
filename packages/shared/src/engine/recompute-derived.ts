@@ -643,11 +643,12 @@ function buildEffectiveStatsContext(
   ringwraithMode?: RingwraithModeEffect['mode'],
   isFollower = false,
   atOrMovingUnderDeeps = false,
+  stagePoints = 0,
 ): ResolverContext {
   const charInfo = buildBearerContext(charDef);
   return {
     reason: 'effective-stats',
-    bearer: { ...charInfo, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps },
+    bearer: { ...charInfo, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps, stagePoints },
     target: charInfo,
     inPlay: inPlayNames,
     company: { characterNames: companionNames },
@@ -770,9 +771,10 @@ function computeEffectiveStats(
   controllingPlayerId?: PlayerId,
   bearerPlayerAlignment?: Alignment,
   atOrMovingUnderDeeps = false,
+  stagePoints = 0,
 ): EffectiveStats {
   const isFollower = char.controlledBy !== 'general';
-  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps);
+  const context = buildEffectiveStatsContext(charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, isFollower, atOrMovingUnderDeeps, stagePoints);
   let charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
   // `own-characters`-scoped effects (e.g. A Strident Spawn wh-61) apply only to
@@ -1206,6 +1208,72 @@ function nonCharacterMpOverride(
   return value;
 }
 
+/**
+ * The player's running stage-point total (MEWH §1).
+ *
+ * Sums every `stage-points` effect the player currently benefits from: bare
+ * in-play stage permanent-events, stage cards attached to a character (as an
+ * item or as a hazard), the Stage resources drafted but not yet in play during
+ * the character draft, and the "while occupied" points of Fallen-wizard sites.
+ * Always 0 for a non-Fallen-wizard player — stage resources are a
+ * Fallen-wizard-only card type.
+ *
+ * Split out of {@link recomputePlayer} so it can run before the per-character
+ * effective-stats pass, which consumes the total as `bearer.stagePoints`.
+ */
+function playerStagePoints(state: GameState, player: PlayerState): number {
+  if (player.alignment !== 'fallen-wizard') return 0;
+  let stagePoints = 0;
+  for (const def of playerCardsInPlayDefs(state, player)) {
+    stagePoints += stagePointsOfCard(def);
+  }
+  // A stage permanent-event played "on a character" (Wizard's Myrmidon wh-84,
+  // The Forge-master wh-117) is attached to the bearer's `items`, not to
+  // `cardsInPlay`, so its stage points must be summed from there too. An
+  // opponent's *hazard* may likewise carry stage points it forces onto the
+  // Fallen-wizard it is played on (Inner Rot wh-23), so the `hazards` slot is
+  // scanned the same way. `stagePointsOfCard` returns 0 for ordinary
+  // attachments, so iterating every one is safe.
+  for (const char of Object.values(player.characters)) {
+    const charDef = resolveDef(state, char.instanceId);
+    // Bearer context for `when`-gated stage points ("If he is a Fallen-wizard,
+    // he receives 2 stage points").
+    const ctx = isCharacterCard(charDef) ? { bearer: buildBearerContext(charDef) } : {};
+    for (const attachment of [...char.items, ...char.hazards]) {
+      stagePoints += stagePointsOfCard(resolveDef(state, attachment.instanceId), ctx);
+    }
+  }
+  // MEWH §1 / CoE 1.7.F1: during the character draft the Stage resources a
+  // Fallen-wizard has drafted are not yet in play (they only enter
+  // `cardsInPlay` at draft finalize, see `applyDraftResults`), but they
+  // already contribute to the running stage-point total the player is
+  // building toward the required three. Sum them from the draft state so the
+  // total is shown correctly mid-draft; they are not double-counted afterwards
+  // because the `character-draft` step (and its `draftState`) is gone by then.
+  if (
+    state.phaseState.phase === Phase.Setup
+    && state.phaseState.setupStep.step === SetupStep.CharacterDraft
+  ) {
+    const draft = state.phaseState.setupStep.draftState[getPlayerIndex(state, player.id)];
+    for (const card of draft.draftedStageResources) {
+      stagePoints += stagePointsOfCard(defById(state, card.definitionId));
+    }
+  }
+  // A Fallen-wizard site that grants stage points *while occupied* (Deep Mines
+  // wh-55: "You receive the three stage points if any of your companies are at
+  // the site") contributes from each distinct occupied site instance. Dedup by
+  // instance so two companies at the same site do not double the points; two
+  // different occupied Deep Mines each count once.
+  const countedSiteInstances = new Set<string>();
+  for (const company of player.companies) {
+    const site = company.currentSite;
+    if (!site || countedSiteInstances.has(site.instanceId as string)) continue;
+    countedSiteInstances.add(site.instanceId as string);
+    stagePoints += siteOccupancyStagePointsOfCard(defById(state, site.definitionId));
+  }
+  return stagePoints;
+}
+
 function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: readonly string[]): PlayerState {
   // MEWH §4 exception: items matching an in-play `fw-item-mp-full` effect's
   // filter (e.g. Saruman's non-combat items, or Join the Hunt's weapon/armor/
@@ -1243,6 +1311,19 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       return avatar ? findCharacterCompany(player.companies, avatar.instanceId)?.id : undefined;
     })()
     : undefined;
+  // MEWH §1: derive Fallen-wizard stage points by summing the `stage-points`
+  // effect across this player's in-play stage permanent-events. Kept here so the
+  // running total is a single source of truth alongside the MP tally rather than
+  // a mutable counter. Only Fallen-wizard players accrue stage points (stage
+  // resources are a Fallen-wizard-only card type), so this stays 0 for everyone
+  // else regardless of what is in play.
+  //
+  // Computed *before* the per-character pass below because it feeds the
+  // effective-stats context as `bearer.stagePoints` (Inner Rot wh-23 tiers its
+  // corruption points on the bearer's stage-point total). The sum reads only
+  // card definitions, in-play zones and site occupancy — never a character's
+  // effective stats — so there is no cycle.
+  const stagePoints = playerStagePoints(state, player);
   let generalInfluenceUsed = 0;
   let generalInfluenceBonus = 0;
   let generalInfluenceControlPenalty = 0;
@@ -1315,7 +1396,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // company spatial relationship to any Under-deeps site so `all-characters`
     // effects can gate on `bearer.atOrMovingUnderDeeps`.
     const atOrMovingUnderDeeps = companyAtOrMovingUnderDeeps(state, charCompany);
-    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, player.id, player.alignment, atOrMovingUnderDeeps);
+    const newStats = computeEffectiveStats(state, char, charDef, inPlayNames, companionNames, companionDefinitionIds, ringwraithMode, player.id, player.alignment, atOrMovingUnderDeeps, stagePoints);
     if (statsEqual(char.effectiveStats, newStats)) {
       newCharacters[key] = char;
     } else {
@@ -1810,57 +1891,6 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         kill: mp.kill - underDeepsMp.kill,
         misc: mp.misc - underDeepsMp.misc,
       };
-
-  // MEWH §1: derive Fallen-wizard stage points by summing the `stage-points`
-  // effect across this player's in-play stage permanent-events. Kept here so the
-  // running total is a single source of truth alongside the MP tally rather than
-  // a mutable counter. Only Fallen-wizard players accrue stage points (stage
-  // resources are a Fallen-wizard-only card type), so this stays 0 for everyone
-  // else regardless of what is in play.
-  let stagePoints = 0;
-  if (player.alignment === 'fallen-wizard') {
-    for (const def of playerCardsInPlayDefs(state, player)) {
-      stagePoints += stagePointsOfCard(def);
-    }
-    // A stage permanent-event played "on a character" (Wizard's Myrmidon wh-84,
-    // The Forge-master wh-117) is attached to the bearer's `items`, not to
-    // `cardsInPlay`, so its stage points must be summed from there too.
-    // `stagePointsOfCard` returns 0 for ordinary items, so iterating all items
-    // is safe.
-    for (const char of Object.values(player.characters)) {
-      for (const item of char.items) {
-        stagePoints += stagePointsOfCard(resolveDef(state, item.instanceId));
-      }
-    }
-    // MEWH §1 / CoE 1.7.F1: during the character draft the Stage resources a
-    // Fallen-wizard has drafted are not yet in play (they only enter
-    // `cardsInPlay` at draft finalize, see `applyDraftResults`), but they
-    // already contribute to the running stage-point total the player is
-    // building toward the required three. Sum them from the draft state so the
-    // total is shown correctly mid-draft; they are not double-counted afterwards
-    // because the `character-draft` step (and its `draftState`) is gone by then.
-    if (
-      state.phaseState.phase === Phase.Setup
-      && state.phaseState.setupStep.step === SetupStep.CharacterDraft
-    ) {
-      const draft = state.phaseState.setupStep.draftState[getPlayerIndex(state, player.id)];
-      for (const card of draft.draftedStageResources) {
-        stagePoints += stagePointsOfCard(defById(state, card.definitionId));
-      }
-    }
-    // A Fallen-wizard site that grants stage points *while occupied* (Deep Mines
-    // wh-55: "You receive the three stage points if any of your companies are at
-    // the site") contributes from each distinct occupied site instance. Dedup by
-    // instance so two companies at the same site do not double the points; two
-    // different occupied Deep Mines each count once.
-    const countedSiteInstances = new Set<string>();
-    for (const company of player.companies) {
-      const site = company.currentSite;
-      if (!site || countedSiteInstances.has(site.instanceId as string)) continue;
-      countedSiteInstances.add(site.instanceId as string);
-      stagePoints += siteOccupancyStagePointsOfCard(defById(state, site.definitionId));
-    }
-  }
 
   // Skip update if nothing changed
   if (

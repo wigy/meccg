@@ -36,6 +36,7 @@ import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
+import { fireStageCardPlayedTriggers } from './stage-card-played.js';
 import type { AgentAttackModifierEffect, MoveEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
 import type { PendingEffect, StrikeAssignment } from '../types/state-combat.js';
 
@@ -2400,6 +2401,11 @@ function handleSitePlayHeroResource(
     logDetail(`An Untimely Brood: recorded once-per-site-phase Wizardhaven ally lock on ${grantId as string}`);
   }
 
+  // Inner Rot (wh-23): a stage item (Keys of Orthanc wh-88, Keys to the White
+  // Towers wh-89) or the stage ally (Radagast's Black Bird wh-114) entering
+  // play is "playing a stage card" just as much as a stage permanent-event is.
+  afterAttach = fireStageCardPlayedTriggers(afterAttach, playerIndex, def);
+
   // Troll-purse (dm-95): playing an item at a site bearing an opponent's
   // Troll-purse forces the company to re-face all the site's automatic-attacks
   // (+3 prowess, prisoner-on-success). If triggered, the first re-faced attack
@@ -3092,7 +3098,11 @@ export function resolveInfluenceAttemptRoll(
     const triggeredState = charInPlay
       ? fireSuccessfulInfluenceTriggers(successState, charId, entry.declaredBy)
       : successState;
-    return { state: triggeredState, effects: rollEffect ? [rollEffect] : [] };
+    // Inner Rot (wh-23): a stage faction (Half-orcs wh-87, Greater Half-orcs
+    // wh-86) influenced into play counts as "playing a stage card". A failed
+    // influence attempt never puts the faction in play, so it does not trigger.
+    const stageTriggered = fireStageCardPlayedTriggers(triggeredState, playerIndex, def);
+    return { state: stageTriggered, effects: rollEffect ? [rollEffect] : [] };
   }
 
   logDetail(`Influence attempt failed (${total} < ${influenceNumber})`);
