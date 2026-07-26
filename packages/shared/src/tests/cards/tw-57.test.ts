@@ -3,7 +3,8 @@
  *
  * Card test: Lure of Expedience (tw-57)
  * Type: hazard-event (permanent, character-targeting)
- * Effects: 5 (play-target character filter non-ringwraith/non-wizard/non-hobbit,
+ * Effects: 6 (play-target character filter non-ringwraith/non-wizard/non-hobbit,
+ *             on-guard-reveal trigger:resource-play,
  *             duplication-limit scope:character max:1,
  *             stat-modifier corruption-points +2,
  *             on-event character-gains-item force-check corruption,
@@ -30,6 +31,7 @@
  * | 5 | Tap to attempt removal (roll>5)           | IMPLEMENTED | grant-action remove-self-on-roll threshold 6   |
  * | 5b| Already-tapped: may still attempt at −3   | IMPLEMENTED | noTap variant offered per rule 10.08           |
  * | 6 | Cannot be duplicated on a character       | IMPLEMENTED | duplication-limit scope:character max:1        |
+ * | 7 | Revealable from on-guard at a resource play| IMPLEMENTED | on-guard-reveal trigger:resource-play (CRF 22) |
  *
  * Playable: YES
  */
@@ -43,7 +45,7 @@ import {
   viableActions, CardStatus, dispatch, expectCharStatus, expectInDiscardPile,
   buildSitePhaseState, handCardId, companyIdAt, findCharInstanceId,
   attachHazardToChar, getCharacter, getHazardsOn,
-  charIdAt, makeMHState,
+  charIdAt, makeMHState, placeOnGuard, resolveChain,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   DAGGER_OF_WESTERNESSE,
 } from '../test-helpers.js';
@@ -51,6 +53,7 @@ import type {
   ActivateGrantedAction,
   CardDefinitionId,
   PlayHazardAction,
+  RevealOnGuardAction,
 } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
@@ -278,6 +281,76 @@ describe('Lure of Expedience (tw-57)', () => {
       r => r.actor === PLAYER_1 && r.kind.type === 'corruption-check',
     );
     expect(pending).toHaveLength(0);
+  });
+
+  // ── On-guard reveal (CoE 2.V.6 / CRF 22) ─────────────────────────────────
+
+  test('revealed from on-guard when an item is played: attaches to a legal target and forces a corruption check', () => {
+    // CRF 22 (Lure of Expedience): "Can be played on-guard and will trigger a
+    // corruption check when revealed in response to an item played."
+    // Company: Aragorn (man — legal target), Bilbo (hobbit) and Gandalf
+    // (wizard) are excluded by the card's play-target filter.
+    const base = buildSitePhaseState({
+      site: MORIA,
+      characters: [ARAGORN, BILBO, GANDALF],
+      hand: [DAGGER_OF_WESTERNESSE],
+    });
+    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, LURE_OF_EXPEDIENCE);
+
+    const aragornId = findCharInstanceId(withOG, RESOURCE_PLAYER, ARAGORN);
+    const afterPlay = dispatch(withOG, {
+      type: 'play-hero-resource',
+      player: PLAYER_1,
+      cardInstanceId: handCardId(withOG, RESOURCE_PLAYER),
+      companyId: companyIdAt(withOG, RESOURCE_PLAYER),
+      attachToCharacterId: aragornId,
+    });
+
+    // The item play is intercepted by the on-guard window and the reveal is
+    // offered — only on Aragorn (hobbit and wizard fail the filter).
+    expect(afterPlay.pendingResolutions).toHaveLength(1);
+    expect(afterPlay.pendingResolutions[0].kind.type).toBe('on-guard-window');
+    const reveals = viableActions(afterPlay, PLAYER_2, 'reveal-on-guard');
+    expect(reveals).toHaveLength(1);
+    expect((reveals[0].action as RevealOnGuardAction).cardInstanceId).toBe(ogCard.instanceId);
+    expect((reveals[0].action as RevealOnGuardAction).targetCharacterId).toBe(aragornId);
+
+    // Reveal → chain; resolving it attaches Lure of Expedience to Aragorn.
+    const resolved = recomputeDerived(resolveChain(dispatch(afterPlay, reveals[0].action)));
+    expect(getHazardsOn(resolved, RESOURCE_PLAYER, ARAGORN).map(h => h.definitionId)).toEqual([LURE_OF_EXPEDIENCE]);
+    expect(getCharacter(resolved, RESOURCE_PLAYER, ARAGORN).effectiveStats.corruptionPoints).toBe(2);
+
+    // The resource player passes to close the window: the deferred item play
+    // resolves and the freshly attached Lure forces a corruption check.
+    const afterPass = dispatch(resolved, { type: 'pass', player: PLAYER_1 });
+    const checks = afterPass.pendingResolutions.filter(r => r.kind.type === 'corruption-check');
+    expect(checks).toHaveLength(1);
+    if (checks[0].kind.type === 'corruption-check') {
+      expect(checks[0].kind.characterId).toBe(aragornId);
+      expect(checks[0].kind.reason).toContain('Lure of Expedience');
+    }
+  });
+
+  test('cannot be revealed from on-guard onto a company of only illegal targets', () => {
+    // Bilbo (hobbit) and Gandalf (wizard) are both excluded by the filter, so
+    // the on-guard window offers no reveal at all.
+    const base = buildSitePhaseState({
+      site: MORIA,
+      characters: [BILBO, GANDALF],
+      hand: [DAGGER_OF_WESTERNESSE],
+    });
+    const { state: withOG } = placeOnGuard(base, RESOURCE_PLAYER, 0, LURE_OF_EXPEDIENCE);
+
+    const afterPlay = dispatch(withOG, {
+      type: 'play-hero-resource',
+      player: PLAYER_1,
+      cardInstanceId: handCardId(withOG, RESOURCE_PLAYER),
+      companyId: companyIdAt(withOG, RESOURCE_PLAYER),
+      attachToCharacterId: findCharInstanceId(withOG, RESOURCE_PLAYER, BILBO),
+    });
+
+    expect(afterPlay.pendingResolutions[0].kind.type).toBe('on-guard-window');
+    expect(viableActions(afterPlay, PLAYER_2, 'reveal-on-guard')).toHaveLength(0);
   });
 
   // ── Effect: tap bearer to attempt removal (roll > 5) ─────────────────────

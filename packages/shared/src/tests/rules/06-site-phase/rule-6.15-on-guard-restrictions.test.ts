@@ -26,12 +26,16 @@ import { describe, test } from 'vitest';
 // `on-guard-reveal` trigger (creature keying / hazard-event-affects-auto-attack
 // / resource-play / influence-attempt), never on what the card's *other*
 // effects would do to the company. The restriction is instead enforced by
-// data curation: only the three cards carrying `on-guard-reveal` in the
-// current pool (Foolish Words td-25/le-112, Searching Eye le-136) were
-// authored to comply, and none has an effect that would return the company
-// to its site of origin, tap the site, remove a character (or discard an
-// ally — the one case the rule explicitly still permits), force the company
-// to do nothing, or directly tap a character. There is no reachable
+// data curation: only the cards carrying `on-guard-reveal` in the current
+// pool (Foolish Words td-25/le-112, Searching Eye le-136/td-67, Heedless
+// Revelry le-114, Lure of Expedience tw-57/le-122) were authored to comply,
+// and none has an effect that would return the company to its site of
+// origin, tap the site, remove a character (or discard an ally — the one
+// case the rule explicitly still permits), force the company to do nothing,
+// or directly tap a character. Lure of Expedience can eventually remove its
+// bearer, but only through a corruption check, which clause (c) explicitly
+// permits; the tap it grants is an optional organization-phase action taken
+// by the bearer's own controller, not a direct tap. There is no reachable
 // scenario to prove any of the five checks fires without first authoring a
 // non-compliant card, which would test invented data rather than the
 // engine.

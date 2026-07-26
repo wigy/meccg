@@ -1370,6 +1370,10 @@
         }
       },
       {
+        "type": "on-guard-reveal",
+        "trigger": "resource-play"
+      },
+      {
         "type": "duplication-limit",
         "scope": "character",
         "max": 1
