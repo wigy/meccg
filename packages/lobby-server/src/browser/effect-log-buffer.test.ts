@@ -49,6 +49,8 @@ const corruptionCheck = (characterId: CardInstanceId, corruptionPoints: number):
   corruptionPoints,
   corruptionModifier: 0,
   possessions: [],
+  need: corruptionPoints + 1,
+  explanation: `Lure of Expedience: need roll > ${corruptionPoints} (CP ${corruptionPoints})`,
 });
 
 /** The dice-roll effect the reducer emits for that check. */
