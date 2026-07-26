@@ -45,6 +45,8 @@ import {
   evaluateExpr,
 } from './effects/index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
+import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corruption.js';
+import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
 import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
 import type { Condition, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
@@ -678,87 +680,24 @@ function resolveCompanyRingwraithMode(
   return undefined;
 }
 
-/** One in-play global item-stat modifier (from an `in-play-item-modifier` effect). */
-type InPlayItemModifier = {
-  readonly itemFilter?: Condition;
-  readonly bearerFilter?: Condition;
-  readonly corruptionPoints: number;
-  readonly marshallingPoints: number;
-  readonly corruptionMultiplier: number;
-};
-
 /**
  * Collects every `in-play-item-modifier` effect carried by a card in either
  * player's `cardsInPlay` (e.g. Rumor of the One le-224, "+1 to the corruption
  * points and the marshalling points for all ring items"). Returns an empty
  * array when no such card is in play, so the per-item scan below short-circuits.
+ *
+ * The per-item arithmetic itself lives in `item-corruption.ts` so the clients
+ * can paint an item's CP badge with the very number this recompute charges its
+ * bearer.
  */
 function collectInPlayItemModifiers(state: GameState): InPlayItemModifier[] {
-  const out: InPlayItemModifier[] = [];
+  const defs: (CardDefinition | undefined)[] = [];
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
-      const def = resolveDef(state, card.instanceId);
-      if (!def) continue;
-      for (const effect of getCardEffects(def)) {
-        if (effect.type !== 'in-play-item-modifier') continue;
-        out.push({
-          itemFilter: effect.itemFilter,
-          bearerFilter: effect.bearerFilter,
-          corruptionPoints: effect.corruptionPoints ?? 0,
-          marshallingPoints: effect.marshallingPoints ?? 0,
-          corruptionMultiplier: effect.corruptionMultiplier ?? 1,
-        });
-      }
+      defs.push(resolveDef(state, card.instanceId) ?? undefined);
     }
   }
-  return out;
-}
-
-/**
- * Sums the corruption-point and marshalling-point deltas that the in-play
- * global item modifiers grant to a single item, matching each modifier's
- * optional `itemFilter` against a per-item context `{ item: { keywords, name,
- * cardType, subtype } }` and its optional `bearerFilter` against the bearer's
- * controlling player `{ bearer: { alignment, minion } }`. Returns
- * `{ cp: 0, mp: 0, cpMultiplier: 1 }` when nothing matches.
- *
- * `cpMultiplier` is the product of every matching modifier's
- * `corruptionMultiplier` and is applied by the caller *after* the `cp` delta,
- * so "Palantíri corruption doubled" (Bane of the Ithil-stone tw-13) stacks
- * sensibly on top of a flat "+1 corruption per greater item" (td-38).
- *
- * `bearerAlignment` is omitted only where no bearer is in scope; a modifier
- * carrying a `bearerFilter` then does not apply.
- */
-function itemModifierDeltas(
-  itemDef: CardDefinition,
-  mods: readonly InPlayItemModifier[],
-  bearerAlignment?: Alignment,
-): { cp: number; mp: number; cpMultiplier: number } {
-  if (mods.length === 0) return { cp: 0, mp: 0, cpMultiplier: 1 };
-  const ctx = {
-    item: {
-      keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
-      name: itemDef.name,
-      cardType: itemDef.cardType,
-      subtype: (itemDef as { subtype?: string }).subtype,
-    },
-    bearer: bearerAlignment === undefined ? undefined : {
-      alignment: bearerAlignment,
-      minion: bearerAlignment === Alignment.Ringwraith || bearerAlignment === Alignment.Balrog,
-    },
-  };
-  let cp = 0;
-  let mp = 0;
-  let cpMultiplier = 1;
-  for (const m of mods) {
-    if (m.itemFilter && !matchesContext(m.itemFilter, ctx)) continue;
-    if (m.bearerFilter && (bearerAlignment === undefined || !matchesContext(m.bearerFilter, ctx))) continue;
-    cp += m.corruptionPoints;
-    mp += m.marshallingPoints;
-    cpMultiplier *= m.corruptionMultiplier;
-  }
-  return { cp, mp, cpMultiplier };
+  return collectItemModifiersFromDefs(defs);
 }
 
 /**

@@ -755,7 +755,9 @@ under the same Balrog-avatar exclusion as the item's printed corruption); the
 `marshallingPoints` delta is added flat to the item's marshalling category in the
 MP tally (independent of the cross-alignment / MEWH §4 clamps applied to the
 item's own printed MP). Both collected once per recompute via
-`collectInPlayItemModifiers` in `recompute-derived.ts`.
+`collectInPlayItemModifiers` in `recompute-derived.ts`; the per-item arithmetic
+itself lives in `item-corruption.ts`, so the clients can paint an item's CP badge
+with the very number the recompute charges its bearer.
 
 ```json
 { "type": "in-play-item-modifier",
