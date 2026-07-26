@@ -152,6 +152,14 @@ export interface DeclareAgentAttackAction {
    * Omitted for already-revealed (face-up) agents.
    */
   readonly homeSiteInstanceId?: CardInstanceId;
+  /**
+   * When `true`, the agent taps as part of declaring the attack to gain an
+   * extra strike (2 strikes instead of 1). Only legal for an untapped agent
+   * whose card carries an `agent-attack-modifier` effect with
+   * `tapForExtraStrike` (Elerína dm-7: "Agent only: may tap for an extra
+   * strike").
+   */
+  readonly tapForExtraStrike?: boolean;
 }
 
 /**

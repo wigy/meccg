@@ -676,10 +676,18 @@
           "strikes": 3,
           "prowess": 13
         }
+      },
+      {
+        "type": "in-play-item-modifier",
+        "itemFilter": {
+          "item.subtype": "major"
+        },
+        "corruptionPoints": 1
       }
     ],
     "text": "Unique. Unless Scorba Ahunt is in play, Zarak Dûm has an additional automatic-attack: Dragon — 3 strikes at 13/8. In addition, each major item gives an additional corruption point.",
-    "manifestId": "td-63"
+    "manifestId": "td-63",
+    "certified": "2026-07-26"
   },
   {
     "cardType": "hazard-event",
