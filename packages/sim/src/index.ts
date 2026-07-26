@@ -96,3 +96,5 @@ export { searchBestAction } from './search/puct.js';
 export type { SearchOptions, SearchResult } from './search/puct.js';
 export { createSearchAgent } from './agents/search-agent.js';
 export type { SearchAgentOptions } from './agents/search-agent.js';
+
+export { viewSignature } from './state-signature.js';

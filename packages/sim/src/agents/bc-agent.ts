@@ -18,6 +18,7 @@ import * as fs from 'fs';
 import type { CardDefinition } from '@meccg/shared';
 import type { Agent, AgentContext, AgentDecision } from '../types.js';
 import { buildCardVocab, featurizeState, featurizeActions, FEATURE_SPEC_VERSION } from '../features/index.js';
+import { viewSignature } from '../state-signature.js';
 import type { CardVocab, StateFeatures, ActionFeatures } from '../features/index.js';
 
 /** One exported tensor: shape plus flat row-major data. */
@@ -219,6 +220,15 @@ export function createBcAgent(weightsPath: string, options?: BcAgentOptions): Ag
   if (selfTestError > SELF_TEST_TOLERANCE) {
     throw new Error(`bc weights self-test failed: max deviation ${selfTestError} > ${SELF_TEST_TOLERANCE}`);
   }
+  // Cycle guard: which action keys this agent has already taken from each
+  // distinct state signature. Some cards make a costless no-op loop legal
+  // (I'll Report You le-196: play -> return to hand -> replay), and an
+  // argmax policy will happily ride it forever — it burned an entire
+  // 25,000-decision budget in bc-vs-bc benchmarks and would hang a human's
+  // lobby game. Revisiting a signature, we skip actions already tried from
+  // it and take the next-best instead, which breaks the loop while leaving
+  // ordinary play untouched (real progress changes the signature).
+  const triedBySignature = new Map<string, Set<string>>();
   const temperature = options?.temperature;
   if (temperature !== undefined && !(temperature > 0)) {
     throw new Error(`bc temperature must be > 0, got ${temperature}`);
@@ -240,13 +250,28 @@ export function createBcAgent(weightsPath: string, options?: BcAgentOptions): Ag
       const actions = featurizeActions(context.view, context.cardPool, vocab);
       const output = bcForward(model, state, actions);
 
+      const signature = viewSignature(context.view);
+      const tried = triedBySignature.get(signature);
+      const actionKey = (index: number): string =>
+        context.view.legalActions[index].actionId ?? `${context.view.legalActions[index].action.type}#${index}`;
+      /** Viable, and not already taken from this exact signature. */
+      const allowed = (index: number): boolean =>
+        context.view.legalActions[index].viable && !(tried?.has(actionKey(index)) ?? false);
+
       let bestIndex = -1;
       if (temperature === undefined) {
         output.probs.forEach((prob, i) => {
-          if (context.view.legalActions[i].viable && (bestIndex === -1 || prob > output.probs[bestIndex])) {
-            bestIndex = i;
-          }
+          if (allowed(i) && (bestIndex === -1 || prob > output.probs[bestIndex])) bestIndex = i;
         });
+        // Every candidate already tried from here: fall back to the plain
+        // argmax rather than failing (the guard only ever redirects).
+        if (bestIndex === -1) {
+          output.probs.forEach((prob, i) => {
+            if (context.view.legalActions[i].viable && (bestIndex === -1 || prob > output.probs[bestIndex])) {
+              bestIndex = i;
+            }
+          });
+        }
       } else {
         // Temperature sampling over viable candidates from the seeded stream.
         const sharpened = output.probs.map((prob, i) =>
@@ -270,6 +295,9 @@ export function createBcAgent(weightsPath: string, options?: BcAgentOptions): Ag
       if (bestIndex === -1) {
         return { action: context.legalActions[0], note: 'bc: no viable candidate scored — took first legal action' };
       }
+      const seen = triedBySignature.get(signature) ?? new Set<string>();
+      seen.add(actionKey(bestIndex));
+      triedBySignature.set(signature, seen);
       const considered = context.view.legalActions
         .map((evaluated, i) => ({ action: evaluated.action, weight: output.probs[i] }))
         .filter((_, i) => context.view.legalActions[i].viable);
