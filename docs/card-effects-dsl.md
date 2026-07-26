@@ -9445,20 +9445,25 @@ Behaviour:
 ### 51. `recruit-character`
 
 Marks a **short** resource-event as a character-recruitment event — A Chance
-Meeting (tw-188). Playing the event brings one character from hand into play in
-an existing company under relaxed recruitment rules.
+Meeting (tw-188), We Have Come to Kill (le-252). Playing the event brings one
+character from hand into play in an existing company under relaxed recruitment
+rules.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `controlledBy` | yes | How the recruit is controlled. Only `"direct-influence"` is supported (the event does not allow general-influence play). |
+| `controlledBy` | yes | Which influence pays for the recruit: `"direct-influence"` (a character in the company with enough unused DI controls it as a follower), `"general-influence"` (the player's unused general influence), or `"either"`. |
 | `siteTypes` | yes | {@link SiteType} values where the recruit may enter play (e.g. `["free-hold", "border-hold", "ruins-and-lairs"]`). |
 | `filter` | no | DSL `Condition` matched against the recruit's card definition (e.g. `{ "$not": { "race": "wizard" } }` to bar Wizards). |
+| `allowAgents` | no | When `true`, an **agent** may be recruited, overriding rule 2.II.2.2.5 (an agent played as a character otherwise enters play only at its home site). Alignment gating is unchanged: Wizard and Balrog players treat agent cards as hazards (1.3.W2/1.3.B2). |
+| `allowRingwraithFollowers` | no | When `true`, the event is "a card or ability that allows a Ringwraith follower to be played" (rule 2.II.2.1.R4) — see below. |
 | `bypassOneCharacterLimit` | no | When `true`, the play does **not** consume the one-character-per-turn slot. |
 
 ```json
-{ "type": "recruit-character", "controlledBy": "direct-influence",
-  "siteTypes": ["free-hold", "border-hold", "ruins-and-lairs"],
-  "filter": { "$not": { "race": "wizard" } },
+{ "type": "recruit-character", "controlledBy": "either",
+  "siteTypes": ["shadow-hold", "ruins-and-lairs", "border-hold"],
+  "filter": { "$not": { "race": { "$in": ["ringwraith", "fallen-wizard"] } } },
+  "allowAgents": true,
+  "allowRingwraithFollowers": true,
   "bypassOneCharacterLimit": true }
 ```
 
@@ -9468,12 +9473,29 @@ Behaviour:
   active player, `recruitViaEventActions` finds in-hand events carrying this
   effect and emits one `play-character` action — carrying `viaEventInstanceId`
   (the event card) — per eligible (recruit-in-hand, company at a `siteTypes`
-  site, direct-influence controller with enough unused DI) combination. Avatars
-  (null mind) and recruits failing `filter` or the uniqueness rule are skipped.
-  The helper is wired into the organization, movement/hazard, and site phase
-  aggregators, so the event "may be played on your turn during any phase the
-  company is at a site"; it self-gates on a company actually being at a
-  qualifying site.
+  site, permitted influence source) combination. Recruits failing `filter`, the
+  uniqueness rule, or the g.man.1 manifestation rule are skipped, as is any
+  company closed to joins (`block-company-joins`). The helper is wired into the
+  organization, movement/hazard, and site phase aggregators, so the event "may
+  be played on your turn during any phase the company is at a site"; it
+  self-gates on a company actually being at a qualifying site.
+- **Influence.** A direct-influence play emits `controlledBy` = the controlling
+  character's instance (the recruit becomes their follower); a general-influence
+  play emits `controlledBy: "general"` and is gated on the player's unused
+  general influence (`generalInfluenceControlLimit − generalInfluenceUsed`),
+  overriding rule 2.II.2.2's "only at the avatar's site" restriction exactly as
+  `siteTypes` overrides the haven / home-site restriction.
+- **Avatars.** Avatars (null mind) are never ordinary recruits — they enter play
+  by their own reveal rules. The one exception is `allowRingwraithFollowers`: a
+  **Ringwraith** avatar card in hand may be brought in as a Ringwraith follower
+  of the player's revealed Ringwraith, whose company must be at a `siteTypes`
+  site (in place of the usual Darkhaven / home-site condition). Per rule
+  2.II.2.1.R5 the follower costs one point of the revealed Ringwraith's unused
+  direct influence, unless a no-influence ability covers it — a free
+  `ringwraith-follower-slots` slot on the revealed Ringwraith (The Witch-king
+  le-58) or `ringwraith-self-follower` on the card played (Ûvatha le-57).
+  A player who counts as Sauron (The Lidless Eye le-203 / Sauron ba-43) may
+  never play Ringwraith followers.
 - **Resolution (`reducer-organization.ts`).** `handlePlayCharacter` (now shared
   by the site and movement/hazard reducers for this path) brings the recruit into
   the company under the controller's direct influence, discards the enabling

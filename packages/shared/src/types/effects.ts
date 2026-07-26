@@ -1044,12 +1044,20 @@ export interface RecruitmentVehicleEffect extends EffectBase {
  *   company being present at a qualifying site).
  * - **One per turn.** When {@link bypassOneCharacterLimit} is set the play does
  *   **not** consume the one-character-per-turn slot.
- * - **Influence.** {@link controlledBy} `"direct-influence"` means the recruit
- *   must be controlled by a character already in that company with enough
- *   unused direct influence (the event does not allow general-influence play).
+ * - **Influence.** {@link controlledBy} selects which influence may pay for the
+ *   recruit: `"direct-influence"` (a character already in that company with
+ *   enough unused direct influence controls it as a follower — A Chance
+ *   Meeting), `"general-influence"`, or `"either"` (We Have Come to Kill
+ *   le-252: "under general or direct influence (if you have enough unused)").
+ *   The general-influence branch overrides rule 2.II.2.2's "only at the
+ *   avatar's site" restriction, exactly as the site list overrides the normal
+ *   haven / home-site restriction.
  * - **Who.** The optional {@link filter} (matched against the recruit's card
  *   definition) restricts which characters may be brought in — e.g. A Chance
  *   Meeting excludes Wizard avatars with `{ "$not": { "race": "wizard" } }`.
+ *   Avatars (`mind === null`) are never ordinary recruits; the only avatar an
+ *   event may bring in is a Ringwraith follower (see
+ *   {@link allowRingwraithFollowers}).
  *
  * Consumed by `recruitViaEventActions` (legal-action emission, one
  * `play-character` per eligible recruit/site/controller, carrying
@@ -1058,12 +1066,34 @@ export interface RecruitmentVehicleEffect extends EffectBase {
  */
 export interface RecruitCharacterEffect extends EffectBase {
   readonly type: 'recruit-character';
-  /** How the recruit is controlled. Only direct influence is supported today. */
-  readonly controlledBy: 'direct-influence';
+  /** Which influence pays for the recruit (see the interface docs). */
+  readonly controlledBy: 'direct-influence' | 'general-influence' | 'either';
   /** Site types ({@link import('./common.js').SiteType}) where the recruit may enter play. */
   readonly siteTypes: readonly string[];
   /** Optional filter on the recruit's card definition (e.g. exclude Wizards). */
   readonly filter?: Condition;
+  /**
+   * When true, an *agent* character may be recruited, overriding rule
+   * 2.II.2.2.5 (an agent played as a character otherwise enters play only at
+   * its own home site). Alignment gating is unchanged: only Ringwraith and
+   * Fallen-wizard players may play agents as characters at all (rule
+   * 1.3.W2/1.3.B2). We Have Come to Kill (le-252): "May be used to bring in …
+   * agents".
+   */
+  readonly allowAgents?: boolean;
+  /**
+   * When true, the event is "a card or ability that allows a Ringwraith
+   * follower to be played" (rule 2.II.2.1.R4): a Ringwraith avatar card in
+   * hand may be brought in as a follower of the player's revealed Ringwraith,
+   * whose company must be at one of {@link siteTypes} (in place of the usual
+   * Darkhaven / home-site condition). Per rule 2.II.2.1.R5 the follower costs
+   * one point of the revealed Ringwraith's direct influence, unless a
+   * no-influence ability covers it (a free `ringwraith-follower-slots` slot on
+   * the revealed Ringwraith, or `ringwraith-self-follower` on the card played).
+   * We Have Come to Kill (le-252): "May be used to bring in Ringwraith
+   * followers".
+   */
+  readonly allowRingwraithFollowers?: boolean;
   /** When true, the play does not count against the one-character-per-turn limit. */
   readonly bypassOneCharacterLimit?: boolean;
 }

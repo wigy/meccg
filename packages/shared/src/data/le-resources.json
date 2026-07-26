@@ -4176,8 +4176,32 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "A character may be brought into play under general or direct influence (if you have enough unused) at any Shadow-hold [{S}], Ruins & Lairs [{R}], or Border-hold [{B}]. This does not count against the one character per turn limit. May be played on your turn during any phase the company is at a site. May be used to bring in Ringwraith followers or agents, but not Ringwraiths or Fallen-wizards."
+    "effects": [
+      {
+        "type": "recruit-character",
+        "controlledBy": "either",
+        "siteTypes": [
+          "shadow-hold",
+          "ruins-and-lairs",
+          "border-hold"
+        ],
+        "filter": {
+          "$not": {
+            "race": {
+              "$in": [
+                "ringwraith",
+                "fallen-wizard"
+              ]
+            }
+          }
+        },
+        "allowAgents": true,
+        "allowRingwraithFollowers": true,
+        "bypassOneCharacterLimit": true
+      }
+    ],
+    "text": "A character may be brought into play under general or direct influence (if you have enough unused) at any Shadow-hold [{S}], Ruins & Lairs [{R}], or Border-hold [{B}]. This does not count against the one character per turn limit. May be played on your turn during any phase the company is at a site. May be used to bring in Ringwraith followers or agents, but not Ringwraiths or Fallen-wizards.",
+    "certified": "2026-07-26"
   },
   {
     "cardType": "minion-resource-event",
