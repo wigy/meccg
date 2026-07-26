@@ -199,10 +199,10 @@ describe('Arthadan Rangers (le-60)', () => {
 
     expect(afterChain.combat!.detainment).toBe(true);
 
-    // Assign the strike to Legolas
-    const assignActions = viableActions(afterChain, PLAYER_1, 'assign-strike');
-    expect(assignActions.length).toBeGreaterThan(0);
-    let current = dispatch(afterChain, assignActions[0].action);
+    // "Each character faces one strike": the strike is assigned to Legolas
+    // automatically when the defender closes the pre-assignment window.
+    let current = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(current.combat!.strikeAssignments).toHaveLength(1);
 
     // Resolve with a low roll — strike succeeds (prowess 10 vs roll ~2)
     const resolveActions = viableActions({ ...current, cheatRollTotal: 2 }, PLAYER_1, 'resolve-strike');

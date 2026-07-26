@@ -630,9 +630,23 @@ export interface CombatState {
    * directly to the resolve-strike phase.
    *
    * Used by sites like Mount Gundabad (le-395) whose auto-attack text reads
-   * "each character faces 1 strike with N prowess".
+   * "each character faces 1 strike with N prowess", and by creatures carrying
+   * `combat-one-strike-per-character` (Wandering Eldar le-97, Watcher in the
+   * Water le-99, Neeker-breekers tw-493, …). Site automatic-attacks pre-assign
+   * at combat creation; creature attacks keep the defender's pre-assignment
+   * window (CoE 3.i) and assign when it is closed by a `pass`.
    */
   readonly eachCharacterFacesOneStrike?: boolean;
+  /**
+   * Set when the defending player closed their pre-assignment window (CoE 3.i)
+   * on an `eachCharacterFacesOneStrike` attack, which assigns every strike at
+   * once. Per CRF 22 Annotation 13 an attack may not be canceled once its
+   * strikes have been assigned, so this ends the cancel window that
+   * {@link CombatState.eachCharacterFacesOneStrike} otherwise keeps open for
+   * attacks that never offer an `assign-strikes` window at all (site
+   * automatic-attacks, Carrion Feeders ba-11).
+   */
+  readonly preAssignmentWindowClosed?: boolean;
   /**
    * Set on a Troll-purse (dm-95) re-faced automatic-attack: a successful
    * strike does not wound the character but takes them prisoner at the bound

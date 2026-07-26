@@ -38,12 +38,12 @@ import {
   buildTestState, resetMint,
   makeMHState, makeWildernessMHState,
   playCreatureHazardAndResolve,
-  handCardId, companyIdAt,
+  handCardId, companyIdAt, findCharInstanceId,
   viableActions,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import {
-  Phase, Alignment, RegionType, SiteType, CardStatus,
+  Phase, Alignment, RegionType, SiteType, CardStatus, reduce,
 } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, GameState } from '../../index.js';
 
@@ -164,6 +164,67 @@ describe('Wandering Eldar (le-97)', () => {
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.strikesTotal).toBe(3);
     expect(afterChain.combat!.detainment).toBe(true);
+  });
+
+  test('strike assignment is automatic: no assign-strike choices, pass assigns one strike per character', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{
+            site: MORIA,
+            characters: [
+              ARAGORN,
+              { defId: BILBO, status: CardStatus.Tapped },
+              { defId: GIMLI, status: CardStatus.Tapped },
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [WANDERING_ELDAR],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const ready: GameState = { ...state, phaseState: makeWildernessMHState() };
+    const creatureId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING,
+    );
+
+    // The attack still opens the defender's pre-assignment window (CoE 3.i) —
+    // cancel/modify cards remain playable — but offers no assignment choices.
+    expect(afterChain.combat!.phase).toBe('assign-strikes');
+    expect(afterChain.combat!.eachCharacterFacesOneStrike).toBe(true);
+    expect(afterChain.combat!.strikeAssignments).toHaveLength(0);
+    expect(viableActions(afterChain, PLAYER_1, 'assign-strike')).toHaveLength(0);
+
+    // Closing the window assigns all three strikes, one per character —
+    // including the tapped ones the attacker used to have to assign by hand.
+    const passed = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(passed.error).toBeUndefined();
+    const combat = passed.state.combat!;
+    expect(combat.assignmentPhase).toBe('done');
+    expect(combat.phase).toBe('choose-strike-order');
+    expect(combat.strikesTotal).toBe(3);
+    expect(new Set(combat.strikeAssignments.map(a => a.characterId as string))).toEqual(
+      new Set([ARAGORN, BILBO, GIMLI].map(
+        defId => findCharInstanceId(passed.state, RESOURCE_PLAYER, defId) as string,
+      )),
+    );
+    // The attacker never gets an assignment step either.
+    expect(viableActions(passed.state, PLAYER_2, 'assign-strike')).toHaveLength(0);
   });
 
   // ─── Detainment depends on defender alignment ───────────────────────────

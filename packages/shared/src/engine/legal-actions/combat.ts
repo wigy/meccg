@@ -484,6 +484,23 @@ function assignStrikeActions(
       return actions;
     }
 
+    // "Each character faces one strike" (Wandering Eldar le-97, Watcher in the
+    // Water le-99, …): every character in the company is assigned exactly one
+    // strike, so there is nothing for either player to choose (CoE 3.ii.2).
+    // The defender keeps their pre-assignment window (cancel/modify/protect
+    // cards are still offered by `combatActions`) but the only assignment
+    // action is `pass`, which assigns all strikes at once and skips the
+    // attacker's assignment step (see `handleCombatPass`). If an effect has
+    // reduced the attack below one strike per character (`halve-strikes`),
+    // picking who faces them is a real choice again and the normal menu applies.
+    if (combat.eachCharacterFacesOneStrike
+      && combat.strikeAssignments.length === 0
+      && combat.strikesTotal >= company.characters.length) {
+      logDetail(`Each character faces one strike — assignment is automatic; defender may only close the pre-assignment window`);
+      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+      return actions;
+    }
+
     // Forced-strike targets (e.g. Alatar haven-join): each listed character
     // must receive a strike before any other assignment is legal. The filter
     // collapses the defender's legal menu to only the unassigned forced
@@ -1919,13 +1936,17 @@ function convertCreatureToAllyActions(
  *   `choose-strike-order` (multi-character) or `resolve-strike`
  *   (single-character) with no player-driven `assign-strikes` step. The rules
  *   cancel window still precedes that automatic assignment, so the defender may
- *   cancel until the first strike has resolved.
+ *   cancel until the first strike has resolved. Creature "each character faces
+ *   one strike" attacks (e.g. Wandering Eldar le-97) do open an `assign-strikes`
+ *   window and assign on the defender's `pass`; that pass sets
+ *   `preAssignmentWindowClosed`, which ends the cancel window as usual.
  */
 function inCancelWindow(combat: CombatState): boolean {
   if (combat.phase === 'assign-strikes') {
     return combat.strikeAssignments.length === 0;
   }
   if (combat.eachCharacterFacesOneStrike
+    && !combat.preAssignmentWindowClosed
     && (combat.phase === 'choose-strike-order' || combat.phase === 'resolve-strike')) {
     return combat.strikeAssignments.every(sa => !sa.resolved);
   }
