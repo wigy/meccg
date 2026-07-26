@@ -10423,6 +10423,61 @@ which honours g.man.1's "would leave play" clause for chains like The Balrog
 ba-3 / Balrog of Moria tw-12). A unique creature already in `cardsInPlay` as a
 permanent-event likewise blocks a second copy's play in either mode.
 
+### 56e. `force-check-all-in-play`
+
+When this hazard short-event resolves — including a dual-mode creature's
+tap-to-short-event conversion (§56c) — **every character in play, both
+players'**, must make a check. Used by Ren the Unclean (tw-83)'s on-tap
+conversion: "each character in play must make a corruption check. If you tap
+Ren the Unclean, then you cannot play resources to aid your character's
+corruption checks. Your characters may tap in support. The moving player makes
+corruption checks first. Each player decides the order of the corruption
+checks for their characters."
+
+```json
+{
+  "type": "force-check-all-in-play",
+  "check": "corruption",
+  "declarerMayTapSupport": true,
+  "declarerNoResourceAid": true
+}
+```
+
+- `check` — which check each character makes (`"corruption"`).
+- `modifier` (optional) — roll modifier applied to every check (default 0).
+- `declarerMayTapSupport` — the declaring player's characters' checks allow
+  tap-in-support: each untapped company mate may tap for +1 (the Free
+  Council / CoE 7.1.1 mechanic, granted mid-game).
+- `declarerNoResourceAid` — the declaring player may not play resource cards
+  from hand to aid their characters' checks (activating an in-play grant is a
+  *use*, not a play, and stays legal).
+
+Resolution (`applyForceCheckAllInPlay`, `chain-reducer.ts`) enqueues one
+`corruption-check` pending resolution per character in play, actor = the
+character's controller, honouring the printed sequencing via three new
+fields on the `corruption-check` pending kind plus one on
+{@link PendingResolution} itself:
+
+- **`blockedBy`** (on `PendingResolution`) — a scheduling gate: while any
+  listed resolution ID is still queued, `topResolutionFor` skips the entry.
+  The non-moving player's checks are blocked by every moving-player check ID
+  ("the moving player makes corruption checks first"); entries dropped by
+  scope sweeps also unblock their dependents.
+- **`selectableOrder`** — the actor may resolve any of their same-source
+  queued checks, not just the head: `corruptionCheckActions` offers one roll
+  action per selectable sibling ("each player decides the order of the
+  corruption checks for their characters"), and the apply half swaps the
+  head for the sibling matching the rolled character.
+- **`allowSupport`** — untapped company mates may tap for +1 each before the
+  roll, via `support-corruption-check` (whose optional `targetCharacterId`
+  names which queued check is being supported). Each support tap adds a
+  one-shot corruption `check-modifier` constraint on the checking character,
+  which the roll action re-reads and the roll resolution consumes.
+- **`noResourceAid`** — suppresses reactive resource short-event plays from
+  hand for this check (Halfling Strength-style boosts); in-play
+  corruption-check grant activations (When I Know Anything td-166) remain
+  legal.
+
 ### 57. `agent-tap-return-character`
 
 Hazard short-event played on one of the hazard player's **untapped agents**. The

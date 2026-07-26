@@ -4966,6 +4966,41 @@ export interface ForceCheckAllCompanyTopEffect extends EffectBase {
 }
 
 /**
+ * When this hazard short-event resolves, **every character in play — both
+ * players'** — must make a check. Enqueued as one `corruption-check`
+ * {@link PendingResolution} per character, actor = the character's
+ * controller, honouring the sequencing printed on the source card:
+ *
+ *  - The moving player (the active player whose M/H phase this is) makes
+ *    their checks first — the declaring player's checks carry `blockedBy`
+ *    referencing the moving player's resolution IDs.
+ *  - Each player decides the order of their own characters' checks —
+ *    every enqueued check carries `selectableOrder: true`.
+ *  - `declarerMayTapSupport` grants the declaring player's checks
+ *    `allowSupport` (company mates tap for +1, the Free Council mechanic).
+ *  - `declarerNoResourceAid` marks the declaring player's checks
+ *    `noResourceAid` (no reactive resource plays from hand to aid them).
+ *
+ * Used by Ren the Unclean (tw-83) as the on-tap short-event conversion of
+ * its permanent-event mode: "each character in play must make a corruption
+ * check. If you tap Ren the Unclean, then you cannot play resources to aid
+ * your character's corruption checks. Your characters may tap in support.
+ * The moving player makes corruption checks first. Each player decides the
+ * order of the corruption checks for their characters."
+ */
+export interface ForceCheckAllInPlayEffect extends EffectBase {
+  readonly type: 'force-check-all-in-play';
+  /** Which check every character in play must make (`"corruption"`). */
+  readonly check: 'corruption';
+  /** Roll modifier applied to every check (default 0). */
+  readonly modifier?: number;
+  /** The declaring player's characters' checks allow tap-in-support (+1 each). */
+  readonly declarerMayTapSupport?: boolean;
+  /** The declaring player may not play resources from hand to aid their checks. */
+  readonly declarerNoResourceAid?: boolean;
+}
+
+/**
  * Hazard short-event that makes **each character** in the target company face
  * one strike (not part of a creature attack — "not an attack"). The strike has
  * a fixed prowess, carries no creature race, and resolves through the normal
@@ -6330,6 +6365,7 @@ export type CardEffect =
   | CallOfHomeCheckEffect
   | ProtectFromRemovalEffect
   | ForceCheckAllCompanyTopEffect
+  | ForceCheckAllInPlayEffect
   | CompanyStrikeEffect
   | CompanyTapCharactersEffect
   | CompanyTapRollEffect
