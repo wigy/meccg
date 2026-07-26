@@ -85,7 +85,7 @@ describe('Dire Wolves (le-68)', () => {
     expect(afterChain.combat!.strikesTotal).toBe(4);
     expect(afterChain.combat!.strikeProwess).toBe(8);
     expect(afterChain.combat!.creatureBody).toBeNull();
-    // 'wolves' normalizes to 'wolf' in the engine
+    // 'wolf' normalizes to 'wolf' in the engine
     expect(afterChain.combat!.creatureRace).toBe('wolf');
   });
 

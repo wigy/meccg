@@ -286,7 +286,7 @@ describe('Dead Marshes (le-364)', () => {
     // attacker does not match, so the override does not fire and the attack
     // remains detainment via R1 (keyed to Dark-domain).
     const detainment = isDetainmentAttack({
-      attackRace: 'nazgul' as Race,
+      attackRace: 'ringwraith' as Race,
       attackKeyedTo: [{ regionTypes: [RegionType.Dark] }],
       defendingAlignment: Alignment.Ringwraith,
       defendingSiteEffects: (pool[DEAD_MARSHES as string] as SiteCard).effects,

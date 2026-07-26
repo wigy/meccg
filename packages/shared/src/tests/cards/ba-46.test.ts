@@ -53,7 +53,7 @@ const troop = {
   strikesTotal: 2,
   strikeProwess: 5,
   creatureBody: null,
-  creatureRace: 'Orc',
+  creatureRace: 'orc',
   currentStrikeIndex: 0,
   phase: 'assign-strikes' as const,
   assignmentPhase: 'defender' as const,

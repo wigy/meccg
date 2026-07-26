@@ -84,7 +84,7 @@ describe('Bofur (tw-132)', () => {
 
     expect(computeCombatProwess(state, bofur, bofurDef, 'troll')).toBe(bofurDef.prowess);
     expect(computeCombatProwess(state, bofur, bofurDef, 'undead')).toBe(bofurDef.prowess);
-    expect(computeCombatProwess(state, bofur, bofurDef, 'nazgul')).toBe(bofurDef.prowess);
+    expect(computeCombatProwess(state, bofur, bofurDef, 'ringwraith')).toBe(bofurDef.prowess);
   });
 
   // ── Effect 2: -1 to all corruption checks ──

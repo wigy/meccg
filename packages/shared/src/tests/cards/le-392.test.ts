@@ -156,7 +156,7 @@ describe('Moria (le-392)', () => {
     // detainment via R1 (keyed to Dark-domain, as Nazgûl tend to be).
     const moriaDef = pool[MORIA_LE as string] as SiteCard;
     const detainment = isDetainmentAttack({
-      attackRace: 'nazgul' as Race,
+      attackRace: 'ringwraith' as Race,
       attackKeyedTo: [{ regionTypes: [RegionType.Dark] }],
       defendingAlignment: Alignment.Ringwraith,
       defendingSiteEffects: moriaDef.effects,

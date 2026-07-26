@@ -50,7 +50,7 @@
  *   TROLL_LOUT (le-44)         — plain minion Troll, mind 3, home "Any Dark-hold" (non-Orc control)
  *   ORCS_OF_UDUN (le-282)      — Orc faction with leader-control, at Cirith Gorgor
  *   NSN (le-212)               — Not Slay Needlessly (cancels vs covert)
- *   ELF_LORD (le-69)           — "elves" creature (NSN cancel-window target)
+ *   ELF_LORD (le-69)           — "elf" creature (NSN cancel-window target)
  *   ORC_GUARD (tw-072)         — creature with killMarshallingPoints 1 (trophy source)
  *   CIRITH_GORGOR (le-361)     — dark-hold (Orcs of Udûn's only playable site)
  *   CARN_DUM (le-359)          — minion ruins-and-lairs (combat company site)
@@ -83,7 +83,7 @@ const ORC_TRACKER = 'le-34' as CardDefinitionId;   // plain Orc, mind 3, "Any Da
 const TROLL_LOUT = 'le-44' as CardDefinitionId;    // plain Troll, mind 3, "Any Dark-hold"
 const ORCS_OF_UDUN = 'le-282' as CardDefinitionId; // Orc faction, leader-control, at Cirith Gorgor
 const NSN = 'le-212' as CardDefinitionId;          // Not Slay Needlessly
-const ELF_LORD = 'le-69' as CardDefinitionId;      // "elves" creature
+const ELF_LORD = 'le-69' as CardDefinitionId;      // "elf" creature
 const ORC_GUARD = 'tw-072' as CardDefinitionId;    // creature, killMarshallingPoints 1
 
 const CIRITH_GORGOR = 'le-361' as CardDefinitionId; // dark-hold
@@ -131,7 +131,7 @@ describe('Baugúr (dm-181)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elves',
+        creatureRace: 'elf',
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -178,7 +178,7 @@ describe('Baugúr (dm-181)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elves',
+        creatureRace: 'elf',
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',

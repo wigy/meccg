@@ -68,6 +68,6 @@ describe('Gildor Inglorion (tw-158)', () => {
 
     expect(computeCombatProwess(state, gildor, gildorDef, 'troll')).toBe(gildorDef.prowess);
     expect(computeCombatProwess(state, gildor, gildorDef, 'undead')).toBe(gildorDef.prowess);
-    expect(computeCombatProwess(state, gildor, gildorDef, 'nazgul')).toBe(gildorDef.prowess);
+    expect(computeCombatProwess(state, gildor, gildorDef, 'ringwraith')).toBe(gildorDef.prowess);
   });
 });

@@ -171,7 +171,7 @@ describe('Dol Guldur (ba-88)', () => {
     const state = balrogAutoAttackStep(2);
     const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
     expect(next.combat).not.toBeNull();
-    expect(next.combat!.creatureRace).toBe('nazgûl');
+    expect(next.combat!.creatureRace).toBe('ringwraith');
     expect(next.combat!.strikesTotal).toBe(1);
     expect(next.combat!.strikeProwess).toBe(15);
     expect(next.combat!.detainment).toBe(false);

@@ -100,7 +100,7 @@ describe('Rule 8.35 — Prisoners', () => {
       strikesTotal: 1,
       strikeProwess: 99, // Guaranteed win for creature
       creatureBody: null,
-      creatureRace: 'Spider',
+      creatureRace: 'spider',
       strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike' as const,

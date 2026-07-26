@@ -14,7 +14,7 @@
  *   1. Playable-at restriction — `playableAt` with `siteType: ruins-and-lairs`
  *      and `when: { "site.autoAttack.race": "wolf" }`.
  *   2. cancel-attack — `cost: { "tap": "self" }` with `enemy.race` $in
- *      ["wolf", "wolves", "animal", "animals"]. Sourced from in-play ally;
+ *      ["wolf", "wolf", "animal", "animal"]. Sourced from in-play ally;
  *      taps the ally rather than discarding from hand.
  *   3. check-modifier — +2 influence when faction race is "wolf",
  *      collected from any ally in the influencing character's company.
@@ -54,8 +54,8 @@ const MORIA_MINION = 'le-392' as CardDefinitionId; // shadow-hold (default desti
 // pool have empty `keyedTo` arrays (they would normally be played via site
 // auto-attacks), so the combat tests construct {@link CombatState} directly
 // to exercise the cancel-attack legal-action path.
-const DIRE_WOLVES = 'le-68' as CardDefinitionId;          // race "wolves"
-const WATCHER_IN_THE_WATER = 'le-99' as CardDefinitionId; // race "animals"
+const DIRE_WOLVES = 'le-68' as CardDefinitionId;          // race "wolf"
+const WATCHER_IN_THE_WATER = 'le-99' as CardDefinitionId; // race "animal"
 const CAVE_DRAKE = 'tw-082' as CardDefinitionId;          // race "drake" (control: not Wolf/Animal)
 
 /**
@@ -182,7 +182,7 @@ describe('The Warg-king (le-158)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, WARG_KING);
-    const combatState = setupCombat(withAlly, DIRE_WOLVES, 'wolves');
+    const combatState = setupCombat(withAlly, DIRE_WOLVES, 'wolf');
 
     expect(combatState.combat).not.toBeNull();
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
@@ -207,7 +207,7 @@ describe('The Warg-king (le-158)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, WARG_KING);
-    const combatState = setupCombat(withAlly, WATCHER_IN_THE_WATER, 'animals');
+    const combatState = setupCombat(withAlly, WATCHER_IN_THE_WATER, 'animal');
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
@@ -258,7 +258,7 @@ describe('The Warg-king (le-158)', () => {
       ] as unknown as typeof withAlly.players,
     };
 
-    const combatState = setupCombat(withAlly, DIRE_WOLVES, 'wolves');
+    const combatState = setupCombat(withAlly, DIRE_WOLVES, 'wolf');
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
   });
@@ -274,7 +274,7 @@ describe('The Warg-king (le-158)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, WARG_KING);
-    const combatState = setupCombat(withAlly, DIRE_WOLVES, 'wolves');
+    const combatState = setupCombat(withAlly, DIRE_WOLVES, 'wolf');
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);

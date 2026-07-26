@@ -32,7 +32,7 @@
  *     This is meaningful only for the minion (Ringwraith) company here: a
  *     Shadow-hold-keyed creature attacking a Ringwraith company is detainment
  *     by §3.II.2.R1; the override converts it to a normal attack. (No hazard
- *     creature has race "nazgul" — Nazgûl are minion characters — so in
+ *     creature has race "ringwraith" — Nazgûl are minion characters — so in
  *     practice every opponent-played creature attacks normally; the filter
  *     mirrors the certified Moria le-392 precedent.) The hero twin dm-38 has no
  *     such rule because §3.II.2 never applies to a hero defender.
@@ -232,7 +232,7 @@ describe('The Under-gates (as-165)', () => {
     // rather than blanket-cancelling every attack.
     const siteDef = pool[THE_UNDER_GATES as string] as SiteCard;
     const detainment = isDetainmentAttack({
-      attackRace: 'nazgul' as Race,
+      attackRace: 'ringwraith' as Race,
       attackKeyedTo: [{ siteTypes: [SiteType.ShadowHold] }],
       defendingAlignment: Alignment.Ringwraith,
       defendingSiteEffects: siteDef.effects,

@@ -336,7 +336,7 @@ describe("Shelob's Lair (le-402)", () => {
   test('Nazgûl attacker: override filter skips it, detainment preserved', () => {
     const shelobDef = pool[SHELOBS_LAIR as string] as SiteCard;
     const detainment = isDetainmentAttack({
-      attackRace: 'nazgul' as Race,
+      attackRace: 'ringwraith' as Race,
       attackKeyedTo: [{ regionTypes: [RegionType.Dark] }],
       defendingAlignment: Alignment.Ringwraith,
       defendingSiteEffects: shelobDef.effects,

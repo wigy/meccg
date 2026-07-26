@@ -69,7 +69,7 @@ const CAVE_DRAKE = 'tw-082' as CardDefinitionId; // race "drake", prowess 9
 // Not Slay Needlessly — minion short event that cancels if defender.covert, else -2 prowess
 const NSN = 'le-212' as CardDefinitionId;
 
-// Elf-lord Revealed in Wrath — "elves" race creature, for NSN + overt test
+// Elf-lord Revealed in Wrath — "elf" race creature, for NSN + overt test
 const ELF_LORD = 'le-69' as CardDefinitionId;
 
 /**
@@ -254,7 +254,7 @@ describe('Regiment of Black Crows (as-76)', () => {
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, REGIMENT);
 
-    // Build a cancel-window combat state with the Elf-lord (race "elves").
+    // Build a cancel-window combat state with the Elf-lord (race "elf").
     const creatureInstanceId = 'creature-elves-1' as CardInstanceId;
     const updatedHazardPlayer = {
       ...withAlly.players[HAZARD_PLAYER],
@@ -275,7 +275,7 @@ describe('Regiment of Black Crows (as-76)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elves',
+        creatureRace: 'elf',
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -327,7 +327,7 @@ describe('Regiment of Black Crows (as-76)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elves',
+        creatureRace: 'elf',
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',

@@ -190,7 +190,7 @@ describe('Star-glass (tw-330)', () => {
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
     const state = makeCancelWindowCombat(withItem, {
       creatureDefId: GIANT_SPIDERS,
-      creatureRace: 'spiders',
+      creatureRace: 'spider',
     });
 
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
@@ -212,7 +212,7 @@ describe('Star-glass (tw-330)', () => {
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
 
-    for (const race of ['wolves', 'animals'] as const) {
+    for (const race of ['wolf', 'animal'] as const) {
       const state = makeCancelWindowCombat(withItem, { creatureRace: race });
       const actions = viableActions(state, PLAYER_1, 'modify-attack');
       expect(actions).toHaveLength(1);
@@ -234,7 +234,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'spiders' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: 'spider' });
 
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
     expect(actions).toHaveLength(0);
@@ -271,7 +271,7 @@ describe('Star-glass (tw-330)', () => {
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
     const state = makeCancelWindowCombat(withItem, {
-      creatureRace: 'spiders',
+      creatureRace: 'spider',
       strikeProwess: 9,
     });
 
@@ -297,7 +297,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'spiders' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: 'spider' });
 
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
     const after = dispatch(state, actions[0].action);
@@ -323,7 +323,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'spiders' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: 'spider' });
 
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
     const after = dispatch(state, actions[0].action);

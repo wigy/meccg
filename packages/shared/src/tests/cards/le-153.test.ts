@@ -78,7 +78,7 @@ const MINAS_MORGUL = 'le-390' as CardDefinitionId;  // minion haven
 
 // Not Slay Needlessly — minion short event: cancels if defender.covert, else -2 prowess.
 const NSN = 'le-212' as CardDefinitionId;
-// Elf-lord Revealed in Wrath — "elves" race creature, for the NSN + overt test.
+// Elf-lord Revealed in Wrath — "elf" race creature, for the NSN + overt test.
 const ELF_LORD = 'le-69' as CardDefinitionId;
 
 /** Base two-player M/H state: Asternak at Shelob's Lair, NSN in the resource player's hand. */
@@ -137,7 +137,7 @@ describe('Last Child of Ungoliant (le-153)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, LAST_CHILD);
     const combatState = makeCancelWindowCombat(withAlly, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elves',
+      creatureRace: 'elf',
       strikesTotal: 1,
       strikeProwess: 15,
     });
@@ -158,7 +158,7 @@ describe('Last Child of Ungoliant (le-153)', () => {
     const base = buildTestState(NSN_OPTS);
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elves',
+      creatureRace: 'elf',
       strikesTotal: 1,
       strikeProwess: 15,
     });

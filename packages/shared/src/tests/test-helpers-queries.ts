@@ -331,3 +331,73 @@ export function constraintsFromSource(
 ): readonly ActiveConstraint[] {
   return state.activeConstraints.filter(c => c.source === source);
 }
+
+/**
+ * A race identifier found in the card data, with enough context to name the
+ * offender in a failure message.
+ */
+export interface RaceDataValue {
+  /** Card definition the value was found on. */
+  readonly cardId: string;
+  /** The key that owns the value (e.g. `race`, `enemy.race`, `races`). */
+  readonly key: string;
+  /** The raw value as stored in the JSON. */
+  readonly value: string;
+}
+
+/**
+ * Walk every card definition and collect the values of all race-typed keys —
+ * `race`, `enemy.race`, `target.race`, `races`, and every other key whose name
+ * mentions a race — no matter how deeply nested inside effects, conditions or
+ * `$in`/`$ne` operator objects. Comma-separated multi-race strings (a few
+ * hazard creatures belong to several races at once) are split into their
+ * members. Used by the race-vocabulary integrity test.
+ */
+export function collectRaceValuesFromCardData(): RaceDataValue[] {
+  const found: RaceDataValue[] = [];
+  const visit = (node: unknown, cardId: string, key: string | null): void => {
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item, cardId, key);
+      return;
+    }
+    if (node === null || typeof node !== 'object') {
+      if (typeof node === 'string' && key !== null && /race/i.test(key)) {
+        for (const part of node.split(',')) found.push({ cardId, key, value: part });
+      }
+      return;
+    }
+    for (const [childKey, childValue] of Object.entries(node)) {
+      // Operator wrappers ($in, $ne, ...) carry the enclosing key's meaning.
+      visit(childValue, cardId, childKey.startsWith('$') ? key : childKey);
+    }
+  };
+  for (const card of Object.values(pool)) visit(card, card.id as string, null);
+  return found;
+}
+
+/**
+ * Collect every automatic-attack `creatureType` label printed on a card,
+ * including the per-site-type variants of `creatureTypeBySiteType`. These are
+ * card text (plural, capitalized) rather than race identifiers and reach the
+ * engine only through `normalizeCreatureRace`.
+ */
+export function collectCreatureTypesFromCardData(): RaceDataValue[] {
+  const found: RaceDataValue[] = [];
+  const visit = (node: unknown, cardId: string, key: string | null): void => {
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item, cardId, key);
+      return;
+    }
+    if (node === null || typeof node !== 'object') {
+      if (typeof node === 'string' && key !== null && /creatureType/i.test(key)) {
+        found.push({ cardId, key, value: node });
+      }
+      return;
+    }
+    for (const [childKey, childValue] of Object.entries(node)) {
+      visit(childValue, cardId, childKey);
+    }
+  };
+  for (const card of Object.values(pool)) visit(card, card.id as string, null);
+  return found;
+}
