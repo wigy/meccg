@@ -4509,6 +4509,11 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             : undefined;
           const characterCount = targetCompany?.characters.length ?? 1;
           constraintValue = Math.round(evaluateExpr(apply.valueExpr, { target: { baseProwess }, company: { characterCount } }));
+        } else if (apply.prowessSubstitution) {
+          // Threats (le-244): resolution-time prowess substitution — no baked
+          // value; the influence check computes the modifier when it consumes
+          // the constraint.
+          constraintValue = 0;
         }
         const scope = parseConstraintScope(apply.scope ?? 'until-cleared', null);
         if (constraintValue !== undefined && scope) {
@@ -4528,6 +4533,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               // Carry the failure fate for the boosted faction (The Dark Power
               // as-79: failed check → shuffle the faction into the play deck).
               ...(apply.onFailure ? { onFailure: apply.onFailure } : {}),
+              // Carry the prowess substitution (Threats le-244: unused DI
+              // replaced by min(effective prowess, max) at resolution).
+              ...(apply.prowessSubstitution ? { prowessSubstitution: apply.prowessSubstitution } : {}),
             },
           });
         } else {

@@ -1999,6 +1999,14 @@ function playResourcesActions(
             if (constraint.target.characterId !== ch.instanceId) continue;
             const boostSourceName = (defById(state, constraint.sourceDefinitionId) as { name?: string } | undefined)?.name;
             if (boostSourceName && blockedBoosts.has(boostSourceName)) continue; // suppressed
+            if (constraint.kind.prowessSubstitution) {
+              // Threats (le-244): unused DI is replaced by min(prowess, max).
+              const effectiveProwess = fullCharacter.effectiveStats.prowess;
+              const substituted = Math.min(constraint.kind.prowessSubstitution.max, effectiveProwess);
+              infModifier += substituted - freeDI - dslDI;
+              infParts.push(`prowess ${substituted} replaces DI ${freeDI + dslDI}`);
+              continue;
+            }
             infModifier += constraint.kind.value;
             infParts.push(`constraint bonus ${formatSignedNumber(constraint.kind.value)}`);
           }

@@ -1678,10 +1678,20 @@ function applyPlayOptionAddConstraint(
         constraintValue = Math.round(evaluateExpr(apply.valueExpr, { target: { baseProwess }, company: { characterCount } }));
       } else if (typeof apply.value === 'number') {
         constraintValue = apply.value;
+      } else if (apply.prowessSubstitution) {
+        // Threats (le-244): the payload is a resolution-time prowess
+        // substitution, not a baked value — the modifier is computed when the
+        // influence check consumes the constraint.
+        constraintValue = 0;
       } else {
         return { error: `${def.name} option '${option.id}': check-modifier requires 'value' (number) or 'valueExpr' (expression)` };
       }
-      kind = { type: 'check-modifier', check: apply.check, value: constraintValue };
+      kind = {
+        type: 'check-modifier',
+        check: apply.check,
+        value: constraintValue,
+        ...(apply.prowessSubstitution ? { prowessSubstitution: apply.prowessSubstitution } : {}),
+      };
       break;
     }
     case 'hazard-limit-modifier':

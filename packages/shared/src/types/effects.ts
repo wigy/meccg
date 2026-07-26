@@ -2000,6 +2000,16 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * `resolveInfluenceAttemptRoll` when the consuming check fails.
    */
   readonly onFailure?: 'shuffle-faction-into-deck';
+  /**
+   * For an influence `check-modifier` payload: replace the influencer's unused
+   * direct influence with `min(effective prowess, max)` when the constraint is
+   * consumed by a faction-influence check. The prowess is read at resolution
+   * time, not at play time (CRF 22 on Threats le-244: "your prowess is
+   * calculated when it resolves"). Threats (le-244): "Warrior does not use his
+   * unused direct influence for the attempt. Instead he uses his prowess, to a
+   * maximum modifier of +6."
+   */
+  readonly prowessSubstitution?: { readonly max: number };
   /** Which stat a company/character-stat-modifier applies to. */
   readonly stat?: 'prowess' | 'body' | 'direct-influence';
   /** Creature race filter for creature-attack-boost. */

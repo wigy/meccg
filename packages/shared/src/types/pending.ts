@@ -1028,6 +1028,20 @@ export interface ActiveConstraint {
          * successful, shuffle the faction into your play deck."
          */
         readonly onFailure?: 'shuffle-faction-into-deck';
+        /**
+         * For a faction-influence modifier: substitute the influencer's
+         * unused direct influence with his prowess. When the constraint is
+         * consumed, the influencer's whole unused-DI contribution (free DI
+         * plus conditional DI bonuses) is removed from the check and
+         * `min(effective prowess, max)` is added instead. The prowess is
+         * read at *resolution* time — CRF 22 on Threats (le-244): "your
+         * prowess is calculated when it resolves" — which is why this is a
+         * constraint payload rather than a play-time baked `value`.
+         * Threats: "Warrior does not use his unused direct influence for
+         * the attempt. Instead he uses his prowess, to a maximum modifier
+         * of +6."
+         */
+        readonly prowessSubstitution?: { readonly max: number };
       }
     | {
         /**

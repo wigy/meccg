@@ -474,6 +474,36 @@ play deck."
              "value": 3, "scope": "until-cleared", "onFailure": "shuffle-faction-into-deck" } }
 ```
 
+A one-shot faction-influence constraint may instead carry a
+**`prowessSubstitution`** payload: `{ "max": N }` on the `add-constraint
+check-modifier` apply (no `value`/`valueExpr` needed). When the
+faction-influence check consumes such a constraint, the influencer's whole
+unused-direct-influence contribution — free DI plus conditional
+`direct-influence` bonuses — is removed from the check and
+`min(effective prowess, max)` is added in its place. Unlike Muster's play-time
+`valueExpr`, the prowess is read at **resolution** time from the character's
+effective stats (CRF 22 on Threats: "your prowess is calculated when it
+resolves"), so item prowess bonuses gained or lost between play and roll are
+honoured. Applied at all three influence seams: the influence-attempt need
+display (`legal-actions/site.ts`), the pending faction-influence-roll need
+(`legal-actions/pending.ts`), and the roll resolver (`reducer-site.ts`, which
+also consumes the constraint). Used by Threats (le-244): "Warrior only.
+Playable on a warrior attempting to influence a faction. Warrior does not use
+his unused direct influence for the attempt. Instead he uses his prowess, to a
+maximum modifier of +6." — the play-target pins the card to the influencing
+warrior via `target.isInfluencing` (the Dark Power shape) AND a warrior skill
+filter:
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [ { "target.skills": { "$includes": "warrior" } },
+                        { "target.isInfluencing": true } ] } },
+{ "type": "play-option", "id": "influence-boost",
+  "when": { "player.hasFactionInHand": true },
+  "apply": { "type": "add-constraint", "constraint": "check-modifier", "check": "influence",
+             "scope": "until-cleared", "prowessSubstitution": { "max": 6 } } }
+```
+
 Beyond one-shot constraints, a **persistent** `stat-modifier direct-influence`
 borne by the influencer is also folded into an opponent-influence attempt when
 its `when` matches the `opponent-influence-check` context. `reducer-site.ts`

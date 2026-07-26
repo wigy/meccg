@@ -449,6 +449,14 @@ export function factionInfluenceRollActions(
       if (constraint.kind.check !== 'influence') continue;
       if (constraint.target.kind !== 'character') continue;
       if (constraint.target.characterId !== influencingCharacterId) continue;
+      if (constraint.kind.prowessSubstitution) {
+        // Threats (le-244): unused DI is replaced by min(prowess, max).
+        const effectiveProwess = charInPlay.effectiveStats.prowess;
+        const substituted = Math.min(constraint.kind.prowessSubstitution.max, effectiveProwess);
+        modifier += substituted - freeDI - dslDI;
+        parts.push(`prowess ${substituted} replaces DI ${freeDI + dslDI}`);
+        continue;
+      }
       modifier += constraint.kind.value;
       parts.push(`constraint ${formatSignedNumber(constraint.kind.value)}`);
     }
