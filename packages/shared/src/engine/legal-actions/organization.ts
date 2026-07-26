@@ -166,12 +166,19 @@ export function availableDI(
     if (ctrlDef && isCharacterCard(ctrlDef)) {
       const resolverCtx: ResolverContext = {
         reason: 'influence-check',
-        bearer: buildBearerContext(ctrlDef),
+        // Effective prowess so stat-comparing conditions (Whip le-348:
+        // "prowess less than the bearer's") see the live value, not the
+        // printed one.
+        bearer: { ...buildBearerContext(ctrlDef), prowess: controller.effectiveStats.prowess },
         target: {
           name: targetDef.name,
           race: targetDef.race,
           homesite: parseHomesiteNames(targetDef.homesite ?? ''),
           keywords: targetDef.keywords ?? [],
+          // Printed stats — the target is a definition, not yet in play here.
+          // `mind` is omitted for avatars so "with a mind" gates fail (Whip le-348).
+          ...(targetDef.mind !== null ? { mind: targetDef.mind } : {}),
+          prowess: targetDef.prowess,
         },
       };
       const charEffects = collectCharacterEffects(state, controller, resolverCtx);

@@ -83,14 +83,21 @@ export interface ConditionMatch {
 export interface ConditionOperator {
   /** Checks that the context value (which must be an array) includes this element. */
   readonly $includes?: string | number;
+  /**
+   * The four comparison operators accept either a number literal or a
+   * context-path string that is resolved against the same context at match
+   * time — both sides must then be numbers. This backs card text that
+   * compares two stats, e.g. Whip (le-348) "prowess less than the bearer's":
+   * `{ "target.prowess": { "$lt": "bearer.prowess" } }`.
+   */
   /** Greater than. */
-  readonly $gt?: number;
+  readonly $gt?: number | string;
   /** Greater than or equal. */
-  readonly $gte?: number;
+  readonly $gte?: number | string;
   /** Less than. */
-  readonly $lt?: number;
+  readonly $lt?: number | string;
   /** Less than or equal. */
-  readonly $lte?: number;
+  readonly $lte?: number | string;
   /** Not equal. */
   readonly $ne?: string | number | boolean | null;
   /** Checks that the context value is a member of the given array. */
@@ -318,7 +325,7 @@ export interface MpModifierEffect extends EffectBase {
  * character of any player.
  *
  * `itemFilter` is evaluated against a per-item context `{ item: { keywords,
- * name, cardType } }` (an absent filter matches every item). The `corruptionPoints`
+ * name, cardType, subtype } }` (an absent filter matches every item). The `corruptionPoints`
  * delta is folded into each matching item's bearer corruption total (in
  * `computeEffectiveStats`, respecting the same Balrog-avatar exclusion as the
  * item's printed corruption); the `marshallingPoints` delta is added flat to the
@@ -327,7 +334,9 @@ export interface MpModifierEffect extends EffectBase {
  * Used by Rumor of the One (le-224): "+1 to the corruption points and the
  * marshalling points for all ring items." — `itemFilter`
  * `{ "item.keywords": { "$includes": "ring" } }`, `corruptionPoints: 1`,
- * `marshallingPoints: 1`.
+ * `marshallingPoints: 1`. And by Scorba at Home (td-65): "each major item
+ * gives an additional corruption point." — `itemFilter`
+ * `{ "item.subtype": "major" }`, `corruptionPoints: 1`.
  */
 export interface InPlayItemModifierEffect extends EffectBase {
   readonly type: 'in-play-item-modifier';
@@ -2352,6 +2361,19 @@ export interface CancelChainEntryAction extends TriggeredActionBase {
   readonly select?: 'most-recent-unresolved-hazard' | 'target';
   /** For `select: 'target'`: restrict to entries whose source has a matching skill effect. */
   readonly requiredSkill?: string;
+  /**
+   * For `select: 'target'`: generic filter over the target chain entry,
+   * evaluated against `{ target: { cardType, eventType, name }, declaredBy:
+   * { alignment } }`. Used by Ire of the East (wh-24) to target "one minion
+   * short-event played by a Fallen-wizard earlier in the same chain".
+   */
+  readonly filter?: Condition;
+  /**
+   * When true, the spent event card is removed from the game (moved from its
+   * player's discard pile to their out-of-play pile) as its own chain entry
+   * resolves un-negated — "Remove this card from the game" (wh-24).
+   */
+  readonly removeFromGame?: boolean;
 }
 
 /**
@@ -3187,6 +3209,15 @@ export interface AgentAttackModifierEffect extends EffectBase {
    * the discard, matching the `tap-agent-at-site` precedent (dm-43).
    */
   readonly strikeEffect?: 'discard-item';
+  /**
+   * "Agent only: may tap for an extra strike" (Elerína dm-7). When the agent
+   * is untapped, the hazard player may declare the standard site-phase attack
+   * with an additional strike (2 instead of 1) at the cost of tapping the
+   * agent. Offered as an alternative `declare-agent-attack` legal action
+   * carrying `tapForExtraStrike: true`; declining leaves the normal 1-strike
+   * attack (and the agent untapped).
+   */
+  readonly tapForExtraStrike?: boolean;
 }
 
 /**
