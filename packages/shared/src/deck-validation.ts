@@ -73,6 +73,7 @@ const FALLEN_WIZARD_BANNED_CARD_IDS = new Set([
   'le-208', // News Must Get Through
   'le-209', // News of the Shire
   'tw-294', // Old Road
+  'ba-43',  // Sauron
   'as-56',  // The Sun Unveiled
   'as-107', // Use Your Legs
   'dm-164', // The Windlord Found Me

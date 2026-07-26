@@ -3619,6 +3619,7 @@
         "cost": {},
         "apply": { "type": "peek-opponent-hand", "count": 5 }
       },
+      { "type": "play-condition", "requires": "card-not-in-play", "cardName": "Sauron" },
       { "type": "duplication-limit", "scope": "game", "max": 1 }
     ],
     "text": "Playable if your opponent is a Wizard and you have not revealed a Ringwraith. You are Sauron, not a Ringwraith. You may not reveal a Ringwraith or play Ringwraith followers. +7 to your general influence. You may keep one more card than normal in your hand. Discards and prevents the subsequent play of Bade of Rule. Once during each of your organization phases, you may: bring a resource or character from your sideboard into your play deck and shuffle or choose and discard a card from your hand to look at up to 5 random cards at once from your opponent’s hand. Cannot be duplicated. Cannot be included in a Balrog's/Fallen-wizard's deck."

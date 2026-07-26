@@ -434,7 +434,51 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "certified": "2026-07-25",
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": {
+          "$and": [
+            { "opponent.alignment": "wizard" },
+            { "player.hasRingwraithInPlay": false }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-not-in-play",
+        "cardName": "The Lidless Eye"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "value": 10
+      },
+      {
+        "type": "play-as-sauron"
+      },
+      {
+        "type": "no-character-play-limit"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "discard-named-in-play", "cardName": "Bade to Rule" }
+      },
+      {
+        "type": "grant-action",
+        "action": "sauron-sideboard-fetch",
+        "cost": {},
+        "apply": { "type": "sauron-sideboard-fetch" }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
     "text": "Manifestation of The Lidless Eye. Playable if your opponent is a Wizard and you have not revealed a Ringwraith. You are Sauron, not a Ringwraith. You may not reveal a Ringwraith or play Ringwraith followers. +10 to your general influence. Discards and prevents the subsequent play of Bade to Rule. During your organization phase, you may bring a resource or character from your sideboard into your play deck and shuffle and there is no limit to the number of characters you may bring into play. Cannot be duplicated. Cannot be included in a Balrog's/Fallen-wizard's deck."
   },
   {

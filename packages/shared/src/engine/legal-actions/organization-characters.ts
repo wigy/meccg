@@ -17,7 +17,7 @@ import { logDetail } from './log.js';
 import { evaluateAction } from '../../rules/evaluator.js';
 import { CHARACTER_PLAY_RULES } from '../../rules/definitions/character-play.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit } from '../reducer-utils.js';
 import { blockingManifestationForCharacterPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
@@ -585,6 +585,13 @@ export function playCharacterActions(
 
   // Per-player facts shared by every candidate's eligibility context.
   const playsAsSauron = playerPlaysAsSauron(state, player);
+  // Sauron (ba-43): "there is no limit to the number of characters you may
+  // bring into play" — a `no-character-play-limit` marker in play skips the
+  // one-character-per-turn gate entirely.
+  const noCharacterPlayLimit = playerHasNoCharacterPlayLimit(state, player);
+  if (noCharacterPlayLimit) {
+    logDetail('no-character-play-limit marker in play — one-character-per-turn limit lifted');
+  }
   const agentsAreHazards = player.alignment === Alignment.Wizard || player.alignment === Alignment.Balrog;
   const playerAvatarEliminated = hasEliminatedAvatar(state, player);
   const opponentPlayer = state.players.find(p => p.id !== playerId);
@@ -631,7 +638,9 @@ export function playCharacterActions(
         ctx: {
           playsAsSauron,
           agentsAreHazards,
-          characterPlayLimitReached: characterPlayLimitReached(phaseState, player.alignment, cardDef),
+          characterPlayLimitReached: noCharacterPlayLimit
+            ? false
+            : characterPlayLimitReached(phaseState, player.alignment, cardDef),
           uniqueAlreadyInPlay: cardDef.unique && isUniqueCharacterInPlay(state, charName),
           blockingManifestation: blockingManifestationForCharacterPlay(state, cardDef),
           hasEliminatedAvatar: playerAvatarEliminated,
