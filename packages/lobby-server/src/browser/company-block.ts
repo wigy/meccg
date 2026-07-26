@@ -58,6 +58,22 @@ import { showTooltipMenu } from './tooltip-menu.js';
 import { switchToAllCompanies } from './company-view.js';
 
 /**
+ * The card definitions of every card in play, both players'. Game-wide effects
+ * carried by a permanent event reach cards of either side (an
+ * `in-play-item-modifier` raises the corruption points of *all* matching items,
+ * not only its controller's), so renderers that need them must consult both
+ * `cardsInPlay` lists. Unknown definitions (redacted cards) are skipped.
+ */
+export function inPlayCardDefs(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): CardDefinition[] {
+  return [...view.self.cardsInPlay, ...view.opponent.cardsInPlay]
+    .map(c => cardPool[c.definitionId as string])
+    .filter((d): d is CardDefinition => d != null);
+}
+
+/**
  * All viable influence-attempt actions for a given (faction, character) pair.
  *
  * A faction carrying a `leader-control` effect (LE "Orcs of Udûn"-style
@@ -911,15 +927,21 @@ export function renderCompanyBlock(
     return influenceResult ?? companyResult;
   };
 
+  // Definitions of every card in play, either player's: an `in-play-item-modifier`
+  // (Scorba at Home td-65, Itangast at Home td-38, Rumor of the One le-224)
+  // raises the corruption points of matching items regardless of who played it,
+  // so the item CP badges must take both sides into account.
+  const inPlayDefs = inPlayCardDefs(view, cardPool);
+
   if (titleChar) {
-    row.appendChild(renderCharacterColumn(titleChar, cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick, buildHazardClick));
+    row.appendChild(renderCharacterColumn(titleChar, cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs));
   }
   for (const charInstId of company.characters) {
     if (followerIds.has(charInstId as string)) continue;
     const char = charMap[charInstId as string];
     if (!char) continue;
     if (titleChar && char.instanceId === titleChar.instanceId) continue;
-    row.appendChild(renderCharacterColumn(char, cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick));
+    row.appendChild(renderCharacterColumn(char, cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs));
   }
 
   // Company-targeting permanent events bound to this company (e.g. Fellowship,

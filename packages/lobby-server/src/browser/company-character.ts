@@ -11,12 +11,17 @@ import type {
   CardInstanceId,
   CharacterInPlay,
 } from '@meccg/shared';
-import { cardImageProxyPath, isCharacterCard, isItemCard, CardStatus } from '@meccg/shared';
+import { cardImageProxyPath, effectiveItemCorruptionPoints, isCharacterCard, isItemCard, CardStatus } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
 
 /**
  * Render a single character column: character card + items stacked below.
  * Applies tapped/wounded transforms based on character status.
+ *
+ * `inPlayDefs` are the definitions of every card in play (both players'), used
+ * to raise an item's CP badge by any `in-play-item-modifier` in effect (e.g.
+ * *Scorba at Home* td-65 makes Glamdring cost 2 CP, not its printed 1) so the
+ * badge matches the corruption check the engine computes.
  */
 export function renderCharacterColumn(
   char: CharacterInPlay,
@@ -27,6 +32,7 @@ export function renderCharacterColumn(
   influenceClickBuilder?: (id: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
   itemClickBuilder?: (itemInstId: CardInstanceId, charInstId: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
   hazardClickBuilder?: (hazardInstId: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
+  inPlayDefs: readonly CardDefinition[] = [],
 ): HTMLElement {
   const col = document.createElement('div');
   col.className = 'character-column';
@@ -126,13 +132,14 @@ export function renderCharacterColumn(
         }
       }
       // Wrap item in a container for CP badge positioning
-      if (isItemCard(attDef) && attDef.corruptionPoints > 0) {
+      const attCp = isItemCard(attDef) ? effectiveItemCorruptionPoints(attDef, inPlayDefs) : 0;
+      if (attCp > 0) {
         const itemWrap = document.createElement('div');
         itemWrap.className = 'item-card-wrap';
         itemWrap.appendChild(attEl);
         const cpBadge = document.createElement('div');
         cpBadge.className = 'item-cp-badge';
-        cpBadge.textContent = `${attDef.corruptionPoints} CP`;
+        cpBadge.textContent = `${attCp} CP`;
         itemWrap.appendChild(cpBadge);
         attachments.appendChild(itemWrap);
       } else {
@@ -236,13 +243,14 @@ export function renderCharacterColumn(
               }
             }
             // Wrap item in a container for CP badge positioning
-            if (isItemCard(fAttDef) && fAttDef.corruptionPoints > 0) {
+            const fAttCp = isItemCard(fAttDef) ? effectiveItemCorruptionPoints(fAttDef, inPlayDefs) : 0;
+            if (fAttCp > 0) {
               const fItemWrap = document.createElement('div');
               fItemWrap.className = 'item-card-wrap';
               fItemWrap.appendChild(fAttEl);
               const fCpBadge = document.createElement('div');
               fCpBadge.className = 'item-cp-badge';
-              fCpBadge.textContent = `${fAttDef.corruptionPoints} CP`;
+              fCpBadge.textContent = `${fAttCp} CP`;
               fItemWrap.appendChild(fCpBadge);
               fAttRow.appendChild(fItemWrap);
             } else {
