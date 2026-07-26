@@ -3123,6 +3123,19 @@ function playHazardsActions(
             continue;
           }
         }
+        // Company site context for the filter: a moving company is "at" its
+        // new site for hazard purposes, so use the destination when set,
+        // falling back to the current site for a non-moving company. Exposed
+        // as `company.siteType` / `company.atHaven` so location-gated
+        // corruption cards (The Burden of Time tw-94: "Playable on an Elf
+        // not in a Haven/Darkhaven") can express the gate in their filter.
+        const charTargetSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+        const charTargetSiteDef = charTargetSiteInst ? defById(state, charTargetSiteInst.definitionId) : undefined;
+        const charTargetSiteType = charTargetSiteDef && isSiteCard(charTargetSiteDef) ? charTargetSiteDef.siteType : null;
+        const charTargetCompanyCtx = {
+          siteType: charTargetSiteType,
+          atHaven: charTargetSiteType === SiteType.Haven,
+        };
         for (const charId of targetCompany.characters) {
           // Apply play-target filter condition (e.g. non-wizard, non-ringwraith)
           if (playTarget.filter) {
@@ -3144,6 +3157,7 @@ function playHazardsActions(
                     itemKeywords,
                     itemSubtypes,
                   },
+                  company: charTargetCompanyCtx,
                 };
                 if (!matchesCondition(playTarget.filter, ctx)) {
                   logDetail(`Hazard "${def.name}" filter excludes ${charDef.name}`);
