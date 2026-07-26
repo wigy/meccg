@@ -567,6 +567,14 @@ its owner's pile. Pair it with `card-not-in-play` play-conditions on the named
 card to also forbid replaying it (le-167 Bade to Rule bars The Lidless Eye and
 Sauron).
 
+`{ "type": "no-character-play-limit" }` is a marker on a bare permanent-event in
+`cardsInPlay` lifting the one-character-play-per-turn limit for its controller
+("there is no limit to the number of characters you may bring into play",
+Sauron ba-43). While it is in play the `one-character-per-turn` gate in
+`organization-characters.ts` is skipped (via the `playerHasNoCharacterPlayLimit`
+helper in `reducer-utils.ts`, detected by effect type); all other character-play
+gates (influence, sites, uniqueness, …) still apply. No fields.
+
 `{ "type": "sauron-sideboard-fetch" }` and `{ "type": "peek-opponent-hand",
 "count": 5 }` are the two `apply` payloads of the `grant-action`s that back The
 Lidless Eye's once-per-organization-phase dual-mode ability
