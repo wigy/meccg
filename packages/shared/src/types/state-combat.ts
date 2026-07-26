@@ -749,6 +749,21 @@ export type ChainEntryPayload =
       /** For Stay Her Appetite (le-140): the ally being targeted. */
       readonly targetAllyId?: CardInstanceId;
       /**
+       * For a short-event that discards a card in play (Voices of Malice
+       * le-250, Marvels Told td-134, Ancient Secrets ba-36, The Cock Crows
+       * tw-342), the in-play card chosen at declaration time. The discard is
+       * performed by the chain resolver — not at play time — so the opponent
+       * gets the response window every action is owed (CoE 9.4/9.5).
+       */
+      readonly discardTargetInstanceId?: CardInstanceId;
+      /**
+       * The character tapped as the short-event's `play-target` cost. Kept
+       * separate from {@link targetCharacterId} (which selects other,
+       * character-targeting resolution branches) because this one only
+       * identifies who makes the follow-up corruption check.
+       */
+      readonly costTapCharacterId?: CardInstanceId;
+      /**
        * For site-targeting short-events (e.g. Greed le-113): the site
        * definition ID the event is bound to. On resolution the event
        * installs its turn-scoped `item-play-corruption-check` constraint

@@ -46,6 +46,7 @@ import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestatio
 import { resolveWinConditionRoll } from './reducer-win-conditions.js';
 import { revealInstances } from './visibility.js';
 import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
+import { applyShortEventDiscardInPlay } from './short-event-discard.js';
 import { shuffle } from '../rng.js';
 
 /**
@@ -3324,7 +3325,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // Short events with fetch-to-deck effects (e.g. An Unexpected Outpost):
   // move the card from the declaring player's discard pile to cardsInPlay
   // and queue the pending effects so the player can pick cards to fetch.
-  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+  // A dual-mode card played in its discard-in-play mode (Ancient Secrets
+  // ba-36 mode 1) carries a discard target on the payload and must NOT also
+  // run its sideboard fetch — the same guard the play-time handler applies.
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && !entry.payload.discardTargetInstanceId) {
     current = queueFetchToDecEffects(current, entry);
   }
 
@@ -3389,6 +3396,42 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         ...(drawEffect.removeFromGame
           ? { outOfPlayPile: [...p.outOfPlayPile, spentCard] }
           : { discardPile: [...p.discardPile, spentCard] }),
+      }));
+    }
+  }
+
+  // Resource short events that discard a card in play (Voices of Malice
+  // le-250, Marvels Told td-134, Ancient Secrets ba-36, The Cock Crows
+  // tw-342) ride the chain from the player's hand (see
+  // handlePlayResourceShortEvent) so the opponent gets the response window
+  // every action is owed (CoE 9.4/9.5). Now that the entry resolved
+  // un-negated, perform the discard plus its follow-up corruption check and
+  // dispose of the spent event card. A negated entry never discards anything;
+  // `completeChain` flushes its card to the declaring player's discard.
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && entry.payload.discardTargetInstanceId) {
+    const def = defById(current, entry.card.definitionId);
+    if (def) {
+      const result = applyShortEventDiscardInPlay(
+        current,
+        def,
+        entry.card.instanceId,
+        entry.declaredBy,
+        entry.payload.discardTargetInstanceId,
+        entry.payload.costTapCharacterId,
+      );
+      if (result.error) {
+        logDetail(`${def.name}: discard-in-play did not resolve — ${result.error}`);
+      } else {
+        current = result.state;
+      }
+      const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+      logDetail(`${def.name}: spent event card → discard`);
+      current = updatePlayer(current, declaringIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, toCardInstance(entry.card!)],
       }));
     }
   }

@@ -20,7 +20,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, companyById, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
@@ -556,6 +556,31 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       workingState = costResult.state;
     }
   }
+
+  // A short event that discards a card in play (Voices of Malice le-250,
+  // Marvels Told td-134, Ancient Secrets ba-36 mode 1, The Cock Crows tw-342
+  // mode 2) is an action like any other, so per CoE 9.4/9.5 it must be
+  // declared on the chain of effects — the opponent is owed a response window
+  // before the target leaves play. Tapping the character above was an active
+  // condition of the declaration (rule 9.5.2) and is therefore already paid;
+  // the card itself now leaves the hand and rides the chain entry, carrying
+  // the chosen target and the tapped character. `resolveEntry` performs the
+  // discard and the follow-up corruption check once both players pass
+  // priority. Previously this resolved inline, silently skipping the response
+  // window.
+  if (action.discardTargetInstanceId && findMoveEffectByShape(def, 'target', 'in-play', 'discard')) {
+    const targetName = resolveDef(workingState, action.discardTargetInstanceId)?.name
+      ?? (action.discardTargetInstanceId as string);
+    logDetail(`${def.name} → chain of effects (discard of ${targetName} resolves on chain resolution)`);
+    const afterHand = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand }));
+    const payload: ChainEntryPayload = {
+      type: 'short-event',
+      discardTargetInstanceId: action.discardTargetInstanceId,
+      ...(action.targetScoutInstanceId ? { costTapCharacterId: action.targetScoutInstanceId } : {}),
+    };
+    return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
+  }
+
   let newCharacters = workingState.players[playerIndex].characters;
 
   // Handle DSL-declared play-option `set-character-status` applies (e.g.
@@ -709,95 +734,6 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     );
     if ('error' in constraintResult) return { state, error: constraintResult.error };
     newState = constraintResult.state;
-  }
-
-  // Resolve discard-in-play inline (e.g. Marvels Told). The target was
-  // chosen by the legal-action emitter as part of the play action, so no
-  // sub-flow is needed: we move the target to its owner's discard pile
-  // and enqueue the post-discard corruption check, then the event card
-  // itself is discarded below. The target may live either in the owner's
-  // general cards-in-play list (Eye of Sauron long-events, free-standing
-  // permanent-events) or attached to one of their characters as a hazard
-  // (Foolish Words, Lure of the Senses, etc.).
-  // Resolve discard-in-play only when a discard target was actually chosen.
-  // Dual-mode cards (ba-36) may carry a discard-in-play move but be played in
-  // their alternative (sideboard-fetch) mode, in which case no discard target
-  // is set and this block must be skipped.
-  const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
-  if (discardInPlay && action.discardTargetInstanceId) {
-    const targetId = action.discardTargetInstanceId;
-    let foundOwnerIndex = -1;
-    let foundCardsInPlayIdx = -1;
-    let foundCharId: string | null = null;
-    let foundHazardIdx = -1;
-    for (let oi = 0; oi < newState.players.length; oi++) {
-      const idx = newState.players[oi].cardsInPlay.findIndex(c => c.instanceId === targetId);
-      if (idx !== -1) { foundOwnerIndex = oi; foundCardsInPlayIdx = idx; break; }
-      const chars = newState.players[oi].characters;
-      for (const charId of Object.keys(chars) as CardInstanceId[]) {
-        const hIdx = chars[charId].hazards.findIndex(h => h.instanceId === targetId);
-        if (hIdx !== -1) { foundOwnerIndex = oi; foundCharId = charId; foundHazardIdx = hIdx; break; }
-      }
-      if (foundOwnerIndex !== -1) break;
-    }
-    if (foundOwnerIndex === -1) return { state, error: 'discard-in-play target not found in any zone' };
-    const owner = newState.players[foundOwnerIndex];
-    let targetInstance: { instanceId: CardInstanceId; definitionId: import('../index.js').CardDefinitionId };
-    if (foundCardsInPlayIdx !== -1) {
-      const targetCard = owner.cardsInPlay[foundCardsInPlayIdx];
-      targetInstance = toCardInstance(targetCard);
-      const newOwnerCardsInPlay = [...owner.cardsInPlay];
-      newOwnerCardsInPlay.splice(foundCardsInPlayIdx, 1);
-      newState = updatePlayer(newState, foundOwnerIndex, p => ({
-        ...p,
-        cardsInPlay: newOwnerCardsInPlay,
-        discardPile: [...p.discardPile, targetInstance],
-      }));
-    } else {
-      const charId = foundCharId! as CardInstanceId;
-      const char = owner.characters[charId];
-      const haz = char.hazards[foundHazardIdx];
-      targetInstance = toCardInstance(haz);
-      const newHazards = [...char.hazards];
-      newHazards.splice(foundHazardIdx, 1);
-      // Remove the hazard from the character (character belongs to foundOwnerIndex).
-      newState = updatePlayer(newState, foundOwnerIndex, p => ({
-        ...updateCharacter(p, charId, c => ({ ...c, hazards: newHazards })),
-      }));
-      // Discard to the card's actual owner's discard pile. In production, instance IDs
-      // are player-prefixed (e.g. "p2-29"), so ownerOf() resolves to the hazard player.
-      // In synthetic test states with "inst-N" IDs, fall back to foundOwnerIndex.
-      const hazOwner = ownerOf(haz.instanceId) as string;
-      let hazardOwnerIdx = newState.players.findIndex(p => (p.id as string) === hazOwner);
-      if (hazardOwnerIdx === -1) hazardOwnerIdx = foundOwnerIndex;
-      newState = updatePlayer(newState, hazardOwnerIdx, p => ({
-        ...p,
-        discardPile: [...p.discardPile, targetInstance],
-      }));
-    }
-    const targetDef = defById(newState, targetInstance.definitionId)!;
-    logDetail(`${def.name} discards ${targetDef.name} from ${owner.id as string}'s in-play`);
-
-    if (discardInPlay.corruptionCheck && action.targetScoutInstanceId) {
-      // Rule 7.4: allies never make corruption checks, but may still fulfill
-      // the skill-only active condition that let them tap (e.g. a sage ally
-      // tapping for Marvels Told). When the sage is an ally the discard is
-      // still implemented but the corruption check is skipped entirely.
-      const sageIsAlly = !newState.players[playerIndex].characters[action.targetScoutInstanceId]
-        && findAttachment(newState.players[playerIndex], 'allies', action.targetScoutInstanceId) != null;
-      if (sageIsAlly) {
-        logDetail(`${def.name}: sage ${action.targetScoutInstanceId as string} is an ally — corruption check skipped (rule 7.4)`);
-      } else {
-        newState = enqueueCorruptionCheck(newState, {
-          source: handCard.instanceId,
-          actor: action.player,
-          scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
-          characterId: action.targetScoutInstanceId,
-          modifier: discardInPlay.corruptionCheck.modifier,
-          reason: def.name,
-        });
-      }
-    }
   }
 
   // roll-remove-hazard-events (Glamour of Surpassing Excellance, as-49): enqueue one

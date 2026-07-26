@@ -240,7 +240,7 @@ describe('The Cock Crows (tw-342)', () => {
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
 
-    const after = dispatch(state, playActions[0].action);
+    const after = resolveChain(dispatch(state, playActions[0].action));
 
     // The Cock Crows discarded after use
     expect(after.players[0].hand).toHaveLength(0);
@@ -277,7 +277,7 @@ describe('The Cock Crows (tw-342)', () => {
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
 
-    const after = dispatch(state, playActions[0].action);
+    const after = resolveChain(dispatch(state, playActions[0].action));
 
     // The Cock Crows discarded after use
     expect(after.players[RESOURCE_PLAYER].hand).toHaveLength(0);

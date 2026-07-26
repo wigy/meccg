@@ -48,7 +48,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, mint, dispatch,
+  buildTestState, resetMint, mint, dispatch, resolveChain,
   viableActions, actionAs, findCharInstanceId, setCharStatus, expectCharStatus,
   makeSitePhase, expectInDiscardPile,
   DOORS_OF_NIGHT, FOOLISH_WORDS, EYE_OF_SAURON, MINAS_TIRITH,
@@ -173,7 +173,7 @@ describe('Ancient Secrets (ba-36)', () => {
 
     const secretsInst = state.players[RESOURCE_PLAYER].hand[0].instanceId;
     const action = discardActions(state).find(a => a.discardTargetInstanceId === doors.instanceId)!;
-    const next = dispatch(state, action);
+    const next = resolveChain(dispatch(state, action));
 
     // Ringwraith tapped.
     expectCharStatus(next, RESOURCE_PLAYER, KHAMUL, CardStatus.Tapped);
