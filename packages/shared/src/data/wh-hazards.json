@@ -6,7 +6,27 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/BlindtotheWest.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "cancel-chain-entry",
+          "select": "target",
+          "filter": {
+            "target.cardType": "hero-resource-event",
+            "target.eventType": "short",
+            "declaredBy.alignment": "fallen-wizard"
+          },
+          "removeFromGame": true
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-hazard-limit"
+      }
+    ],
+    "certified": "2026-07-26",
     "text": "Targets and cancels one hero short-event played by a Fallen-wizard earlier in the same chain of effects. This card can be played at any time and does not count against the hazard limit. Remove this card from the game."
   },
   {
