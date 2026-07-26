@@ -281,6 +281,10 @@ def main():
         help="PPO early-stop: end the update when the mean approximate KL from the "
              "behavior policy exceeds this (0 disables)")
     parser.add_argument(
+        "--contested-only", action="store_true",
+        help="train only on decisions with >=2 viable candidates (the pre-2026-07-26 "
+             "behavior; starves the value head of forced-decision outcome signal)")
+    parser.add_argument(
         "--value-prefit", type=int, default=1,
         help="PPO: epochs of value-head-only fitting on the new rollouts before "
              "computing advantages (0 disables). The warm-started value head is "
@@ -306,7 +310,15 @@ def main():
     holdout_games = set(games[int(len(games) * (1 - args.holdout)) :]) if len(games) > 1 else set()
     train_all = [e for e in examples if e[0]["game"] not in holdout_games]
     held_all = [e for e in examples if e[0]["game"] in holdout_games]
-    train = [e for e in train_all if contested(e)]
+    # Train on ALL decisions, not only contested ones. Forced decisions
+    # (a single viable candidate) carry no policy gradient — the masked
+    # softmax over one candidate is identically 1, so the policy loss and
+    # the PPO ratio are constants there — but they carry OUTCOME signal,
+    # and the value head starved without them: it saw only the ~50% of
+    # states with branching, which is exactly why holdout value MSE sat
+    # near 1.0 and PUCT leaf evaluations were weak. --contested-only
+    # restores the old behavior for comparison runs.
+    train = train_all if not args.contested_only else [e for e in train_all if contested(e)]
     print(
         f"data: {len(examples)} examples / {len(games)} games "
         f"(train {len(train_all)} [{len(train)} contested], holdout {len(held_all)} over {len(holdout_games)} games)"
