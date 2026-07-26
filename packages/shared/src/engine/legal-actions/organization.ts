@@ -38,7 +38,7 @@ import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { isUniqueCharacterInPlay } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay } from '../manifestations.js';
@@ -2540,6 +2540,11 @@ function eligiblePlayOptionTargets(
  * acting player controls a shadow-magic user (a Ringwraith, or a character with
  * the `shadow-magic` skill incl. item-granted) in a company at the candidate's
  * current site — a different character than the candidate itself.
+ *
+ * Co-location is matched by site *name*: the caster and an opposing target sit
+ * at different alignment versions of the same location (e.g. minion Rivendell
+ * `as-160` vs hero Rivendell `tw-421`), so comparing definition ids would never
+ * find an opponent's character.
  */
 function eligibleMaladyTargets(
   state: GameState,
@@ -2553,10 +2558,10 @@ function eligibleMaladyTargets(
       if (!charDef || !isCharacterCard(charDef)) continue;
       if (playTarget.filter && !matchesCondition(playTarget.filter, buildTargetContext(state, char, owner))) continue;
       const targetCompany = findCharacterCompany(owner.companies, charId);
-      const siteDefId = targetCompany?.currentSite?.definitionId;
-      if (!siteDefId) continue;
+      const siteName = companySiteName(state, targetCompany);
+      if (!siteName) continue;
       const hasUserAtSite = caster.companies.some(co =>
-        co.currentSite?.definitionId === siteDefId
+        companySiteName(state, co) === siteName
         && co.characters.some(cid => {
           if (cid === charId) return false;
           const ch = caster.characters[cid];

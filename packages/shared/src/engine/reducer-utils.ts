@@ -2597,6 +2597,22 @@ export function generalInfluenceSubstitutionValue(
   return Math.max(0, Math.min(sub.max, rounded));
 }
 
+/**
+ * Name of the site a company currently occupies, or undefined when it has no
+ * site card in play. The site *name* — not its definition id — is the identity
+ * of the physical location: each location exists as several alignment-specific
+ * cards (e.g. Rivendell is `tw-421` for hero players and `as-160` for minion
+ * players) and both players may have a copy in play at once (rule g.site.1).
+ * Any "at the same site" check that compares companies across players must
+ * therefore compare names, not definition ids.
+ */
+export function companySiteName(state: GameState, company: Company | undefined): string | undefined {
+  const siteId = company?.currentSite?.instanceId;
+  if (!siteId) return undefined;
+  const def = resolveDef(state, siteId);
+  return def && isSiteCard(def) ? def.name : undefined;
+}
+
 /** Region name of the site a company currently occupies, or undefined. */
 export function companySiteRegion(state: GameState, company: Company | undefined): string | undefined {
   const siteId = company?.currentSite?.instanceId;

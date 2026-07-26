@@ -50,6 +50,7 @@
  * |10 | Surviving hero passes the body check → survives, no kill MP             | IMPLEMENTED |
  * |11 | The body check is +1 when the target is tapped                          | IMPLEMENTED |
  * |12 | Hero eliminated by the corruption check → kill MP, no body check         | IMPLEMENTED |
+ * |13 | Co-location across the hero/minion versions of one site                 | IMPLEMENTED |
  *
  * Playable: YES
  *
@@ -62,6 +63,9 @@
  *   GANDALF (tw-156)    - Wizard avatar (excluded target)
  *   PALANTIR (tw-296)   - Palantír of Amon Sûl, item worth 3 corruption points
  *   SITE / SITE_B       - minion sites used to place / separate companies
+ *   RIVENDELL_MINION (as-160) / RIVENDELL_HERO (tw-421) - the two alignment
+ *                         versions of one physical location, used to check that
+ *                         co-location is matched by site name, not card id
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -82,6 +86,8 @@ const GANDALF = 'tw-156' as CardDefinitionId;
 const PALANTIR = 'tw-296' as CardDefinitionId;
 const SITE = 'le-367' as CardDefinitionId;
 const SITE_B = 'le-390' as CardDefinitionId;
+const RIVENDELL_MINION = 'as-160' as CardDefinitionId;
+const RIVENDELL_HERO = 'tw-421' as CardDefinitionId;
 
 /** A play-resources SitePhaseState with the first company active. */
 const SITE_PHASE_STATE: SitePhaseState = {
@@ -184,6 +190,32 @@ describe('A Malady Without Healing (le-159)', () => {
       .map(ea => ea.action as PlayShortEventAction)
       .filter(a => a.cardInstanceId === inst);
     expect(anyPlay).toHaveLength(0);
+  });
+
+  test('targets an opponent standing at the other alignment version of the same site', () => {
+    // The caster's company holds minion Rivendell (as-160) while the opponent
+    // holds hero Rivendell (tw-421). Both are the same physical location
+    // (rule g.site.1), so the shadow-magic user is co-located with the target.
+    const state = build({
+      casterChars: [CIRYAHER], targetChars: [LEGOLAS],
+      casterSite: RIVENDELL_MINION, targetSite: RIVENDELL_HERO,
+    });
+    const legolasId = findCharInstanceId(state, 1, LEGOLAS);
+    expect(maladyActionsForTarget(state, legolasId)).toHaveLength(1);
+
+    // Playing it splits the checks between the two players: the opponent rolls
+    // the target's -1 check, the caster rolls his shadow-magic user's -5 check.
+    const after = playMalady(state, legolasId);
+    const ciryaherId = findCharInstanceId(state, 0, CIRYAHER);
+    const targetCheck = after.pendingResolutions.find(
+      r => r.kind.type === 'corruption-check' && r.kind.characterId === legolasId,
+    );
+    expect(targetCheck?.actor).toBe(PLAYER_2);
+    const casterCheck = after.pendingResolutions.find(
+      r => r.kind.type === 'corruption-check' && r.kind.characterId === ciryaherId,
+    );
+    expect(casterCheck?.actor).toBe(PLAYER_1);
+    expect((casterCheck!.kind as { modifier: number }).modifier).toBe(-5);
   });
 
   test('not playable when no co-located character can use shadow-magic', () => {
