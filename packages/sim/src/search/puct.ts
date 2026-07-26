@@ -91,6 +91,13 @@ function mpSpreadValue(view: PlayerView, actorIsSearcher: boolean): number {
   return Math.tanh(actorIsSearcher ? spread : -spread);
 }
 
+/**
+ * How many forced decisions may be skipped in one step. Kept small: with
+ * boundary-stopping in place this is a backstop, and a large budget would
+ * reintroduce the depth asymmetry it exists to prevent.
+ */
+const FORCED_SKIP_LIMIT = 8;
+
 /** One search tree node: a concrete world state plus PUCT statistics. */
 interface Node {
   readonly state: GameState;
@@ -128,27 +135,50 @@ function terminalValue(state: GameState, searcher: PlayerId): number {
   return winner === null ? 0 : winner === searcher ? 1 : -1;
 }
 
+/** Outcome of forced-move skipping: where we stopped and how far we went. */
+interface AdvanceResult {
+  /** State at the stopping point, or null on an engine error. */
+  readonly state: GameState | null;
+  /** Forced decisions consumed, counted toward search depth. */
+  readonly plies: number;
+}
+
 /**
  * Steps through forced decisions (exactly one viable action) until a
- * branching point, terminal, error, or the step limit. Returns the final
- * state (or null on engine error — treated as terminal by the caller).
+ * branching point, terminal, error, the step limit, or **a phase/turn
+ * boundary**.
+ *
+ * Stopping at boundaries is what keeps leaf evaluations comparable. The
+ * value head's calibration is strongly stage-dependent (mean |value| runs
+ * 0.40 early to 0.82 late), so a child reached by skipping deep into a
+ * later phase is scored on a different scale than a sibling evaluated
+ * immediately. Measured: with unbounded skipping, `pass` — which ends the
+ * phase and therefore triggers long forced sequences — collected 22 root
+ * visits against 2-7 for real moves at a position where the policy ranked
+ * it nowhere, and search lost to its own policy at 5.8%. That is the
+ * classic horizon effect, not a value-sign error.
  */
 function autoAdvanceForced(
   state: GameState,
   playerIds: readonly [PlayerId, PlayerId],
   limit: number,
-): GameState | null {
+): AdvanceResult {
   let current = state;
-  for (let i = 0; i < limit; i++) {
-    if (current.phaseState.phase === Phase.GameOver) return current;
+  const startPhase = current.phaseState.phase;
+  const startTurn = current.turnNumber;
+  for (let plies = 0; plies < limit; plies++) {
+    if (current.phaseState.phase === Phase.GameOver) return { state: current, plies };
+    if (current.phaseState.phase !== startPhase || current.turnNumber !== startTurn) {
+      return { state: current, plies };
+    }
     const acting = actingView(current, playerIds);
-    if (!acting) return current; // deadlock-shaped: let the caller value it
-    if (acting.viable.length !== 1) return current;
+    if (!acting) return { state: current, plies }; // deadlock-shaped
+    if (acting.viable.length !== 1) return { state: current, plies };
     const result = reduce(current, acting.viable[0].action);
-    if (result.error) return null;
+    if (result.error) return { state: null, plies };
     current = result.state;
   }
-  return current;
+  return { state: current, plies: limit };
 }
 
 /** Creates an unexpanded node for a state (classifying terminals). */
@@ -185,6 +215,23 @@ function expand(node: Node, searcher: PlayerId, playerIds: readonly [PlayerId, P
   const actionFeatures = featurizeActions(acting.view, opts.cardPool, opts.vocab);
   const output = bcForward(opts.model, stateFeatures, actionFeatures);
 
+  // Leaf value is always read from the SEARCHER's own view, never from the
+  // actor's view negated. Nothing in training makes the value head
+  // zero-sum consistent — the two players' views of one state are
+  // different feature vectors and can yield values that do not sum to
+  // zero — so negating the opponent's estimate puts siblings on
+  // incomparable scales. Search exploited exactly that: handing the turn
+  // over scored better than acting, and `pass` collected 19-22 root visits
+  // against 2-8 for real moves. Priors still come from the actor's view,
+  // which is the only view whose candidates are meaningful.
+  const valueOutput = acting.actor === searcher
+    ? output
+    : bcForward(
+      opts.model,
+      featurizeState(projectPlayerView(node.state, searcher), opts.cardPool, opts.vocab),
+      { candidates: [], mask: [] },
+    );
+
   // Collect priors for viable candidates only, renormalized.
   const priors: number[] = [];
   const candidates: EvaluatedAction[] = [];
@@ -203,13 +250,11 @@ function expand(node: Node, searcher: PlayerId, playerIds: readonly [PlayerId, P
   node.children = new Array<Node | null>(candidates.length).fill(null);
   node.expanded = true;
 
-  // Leaf value: the net's opinion blended with the observable score
-  // differential (see SearchOptions.mpWeight). Both are oriented to the
-  // searcher before blending.
-  const actorIsSearcher = acting.actor === searcher;
-  const netValue = actorIsSearcher ? output.value : -output.value;
+  // Leaf value: the net's opinion (already searcher-oriented above)
+  // blended with the observable score differential (see mpWeight).
+  const netValue = valueOutput.value;
   const mpWeight = opts.mpWeight ?? 0;
-  return (1 - mpWeight) * netValue + mpWeight * mpSpreadValue(acting.view, actorIsSearcher);
+  return (1 - mpWeight) * netValue + mpWeight * mpSpreadValue(acting.view, acting.actor === searcher);
 }
 
 /** One PUCT simulation from the root; returns the searcher-value backed up. */
@@ -245,6 +290,7 @@ function simulate(
   }
 
   let child = node.children[best];
+  let childPlies = 0;
   if (!child) {
     const result = reduce(node.state, node.candidates[best].action);
     if (result.error) {
@@ -253,14 +299,17 @@ function simulate(
       child = makeNode(node.state, searcher);
       child.terminalValue = 0;
     } else {
-      const advanced = autoAdvanceForced(result.state, playerIds, 40);
-      child = advanced === null ? makeNode(result.state, searcher) : makeNode(advanced, searcher);
-      if (advanced === null) child.terminalValue = 0;
+      const advanced = autoAdvanceForced(result.state, playerIds, FORCED_SKIP_LIMIT);
+      child = makeNode(advanced.state ?? result.state, searcher);
+      if (advanced.state === null) child.terminalValue = 0;
+      // Forced plies are real game progress and count toward the depth
+      // budget, so a line that skips ahead cannot buy extra lookahead.
+      childPlies = advanced.plies;
     }
     node.children[best] = child;
   }
 
-  const value = simulate(child, searcher, playerIds, opts, depth + 1);
+  const value = simulate(child, searcher, playerIds, opts, depth + 1 + childPlies);
   node.visits[best] += 1;
   node.values[best] += value;
   return value;
