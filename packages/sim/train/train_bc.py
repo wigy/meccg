@@ -321,7 +321,7 @@ def main():
     train = train_all if not args.contested_only else [e for e in train_all if contested(e)]
     print(
         f"data: {len(examples)} examples / {len(games)} games "
-        f"(train {len(train_all)} [{len(train)} contested], holdout {len(held_all)} over {len(holdout_games)} games)"
+        f"(train {len(train)} [{sum(1 for e in train if contested(e))} contested], holdout {len(held_all)} over {len(holdout_games)} games)"
     )
 
     if args.init:
