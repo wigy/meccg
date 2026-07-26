@@ -7,23 +7,36 @@
  * actions against the static card pool.
  *
  * Usage: npx tsx ai-client.ts <port> <playerName> <token> --deck <deckId>
+ *          [--model <weights.json>]
+ *
+ * With `--model`, decisions come from a trained policy net (the sim's
+ * `bc` agent: argmax over the masked softmax, with the same load-time
+ * runtime-parity self-test the training pipeline uses) instead of the
+ * heuristic strategy.
  */
 
 import { WebSocket } from 'ws';
 import type { ClientMessage, GameAction, EvaluatedAction, PlayerView } from '@meccg/shared';
 import type { AiContext, WeightedAction } from '@meccg/sim';
 import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers } from '@meccg/shared';
-import { loadAiStrategy, sampleWeighted } from '@meccg/sim';
+import { loadAiStrategy, sampleWeighted, createBcAgent } from '@meccg/sim';
+import type { Agent } from '@meccg/sim';
 import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage } from './client-common.js';
 
 const clientArgs = parseSpawnedClientArgs('ai-client');
 
+/** Trained-model agent (Real-AI mode), or null for the heuristic strategy. */
+let modelAgent: Agent | null = null;
+if (clientArgs.modelPath) {
+  modelAgent = createBcAgent(clientArgs.modelPath);
+  console.log(`AI using trained model: ${clientArgs.modelPath}`);
+}
 const strategy = loadAiStrategy('heuristic');
-if (!strategy) {
+if (!strategy && !modelAgent) {
   console.error('Heuristic AI strategy is not available — this should never happen.');
   process.exit(1);
 }
-console.log(`AI using strategy: ${strategy.name}`);
+if (!modelAgent) console.log(`AI using strategy: ${strategy!.name}`);
 
 /** Static card pool — loaded once and reused for every decision. */
 const cardPool = loadCardPool();
@@ -74,6 +87,20 @@ function describeWeighted(weighted: WeightedAction, view: PlayerView): string {
  * with their score so a tail of the lobby log shows what the AI is thinking.
  */
 function pickAction(view: PlayerView, actions: readonly GameAction[]): GameAction {
+  // Real-AI mode: the trained net picks the argmax action from the same
+  // projected view a human client sees; the value estimate is logged so a
+  // lobby-log tail shows the model's win-probability read of the position.
+  if (modelAgent) {
+    const decision = modelAgent.chooseAction({
+      view,
+      cardPool,
+      legalActions: actions,
+      evaluated: view.legalActions,
+      random: Math.random,
+    });
+    console.log(`AI [${view.phaseState.phase}] model pick${decision.note ? ` (${decision.note})` : ''} of ${actions.length} actions`);
+    return decision.action;
+  }
   const context: AiContext = { view, cardPool, legalActions: actions };
   const weighted = strategy!.weighActions(context);
   if (weighted.length === 0) {
