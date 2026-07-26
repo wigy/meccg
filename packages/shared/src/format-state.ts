@@ -14,6 +14,7 @@ import { resolveInstanceId } from './types/state.js';
 import type { PlayerView, OpponentCompanyView } from './types/player-view.js';
 import { computeTournamentBreakdown } from './state-utils.js';
 import { cardsAttachedToSite, isAttachedToPresentSite } from './site-attachments.js';
+import { cardsAttachedToCompany, isAttachedToPresentCompany } from './company-attachments.js';
 import type { CardInstanceId, CardDefinitionId } from './types/common.js';
 import { GENERAL_INFLUENCE } from './constants.js';
 import { effectiveGeneralInfluence } from './engine/reducer-utils.js';
@@ -190,6 +191,7 @@ type RenderCardInPlay = {
   readonly instanceId: CardInstanceId;
   readonly definitionId: CardDefinitionId;
   readonly attachedToSite?: CardDefinitionId;
+  readonly companyId?: Company['id'];
 };
 
 /**
@@ -215,6 +217,25 @@ function appendSiteAttachments(
 }
 
 /**
+ * Append lines for company-targeting permanent events bound to this company
+ * (e.g. Fellowship, Going Ever Under Dark), nested under the company header —
+ * mirroring items nested under a character. Such cards are omitted from the
+ * flat cards-in-play list (see {@link isAttachedToPresentCompany}).
+ */
+function appendCompanyAttachments(
+  companyId: Company['id'],
+  cardsInPlay: readonly RenderCardInPlay[],
+  defOf: CardLookup,
+  instOf: InstanceLookup,
+  lines: string[],
+  indent: string,
+): void {
+  for (const c of cardsAttachedToCompany(cardsInPlay, companyId)) {
+    lines.push(`${indent}  ⤷ ${formatInstanceName(c.instanceId, defOf, instOf)} (bound to company)`);
+  }
+}
+
+/**
  * Format a company as indented text lines. Shared by the player's own
  * companies (full visibility) and the redacted opponent view.
  *
@@ -226,6 +247,7 @@ function appendSiteAttachments(
  */
 function formatCompanyLines(
   company: {
+    readonly id: Company['id'];
     readonly currentSite: Company['currentSite'];
     readonly siteCardOwned: Company['siteCardOwned'];
     readonly onGuardCards: readonly { readonly instanceId: CardInstanceId }[];
@@ -254,6 +276,9 @@ function formatCompanyLines(
 
   // Cards bound to this company's site location (e.g. Hidden Haven)
   appendSiteAttachments(company.currentSite, cardsInPlay, defOf, instOf, lines, indent);
+
+  // Company-targeting permanent events bound to this company (e.g. Fellowship)
+  appendCompanyAttachments(company.id, cardsInPlay, defOf, instOf, lines, indent);
 
   // On-guard cards
   if (company.onGuardCards.length > 0) {
@@ -368,6 +393,8 @@ interface RenderPlayerInput {
     readonly definitionId: CardDefinitionId;
     /** Site location this card is bound to, if any (e.g. Hidden Haven). */
     readonly attachedToSite?: CardDefinitionId;
+    /** Company this card is bound to, if any (e.g. Fellowship). */
+    readonly companyId?: Company['id'];
   }[];
   /** Most recent dice roll for this player. */
   readonly lastDiceRoll?: { readonly die1: number; readonly die2: number } | null;
@@ -549,15 +576,19 @@ function renderState(input: RenderInput): string {
     }
 
     // Cards in play (permanent resources, factions, etc.). Cards bound to a site
-    // occupied by one of this player's companies are shown under that site, so
-    // omit them here to avoid duplication.
+    // occupied by one of this player's companies are shown under that site, and
+    // cards bound to a rendered company are shown under that company, so omit
+    // both here to avoid duplication.
     const presentSiteDefIds = new Set<string>();
+    const presentCompanyIds = new Set<string>();
     for (const company of [...player.companies, ...(player.opponentCompanies ?? [])]) {
+      presentCompanyIds.add(company.id as string);
       if (!company.currentSite) continue;
       const defId = instOf(company.currentSite.instanceId);
       if (defId) presentSiteDefIds.add(defId as string);
     }
-    const flatCardsInPlay = cardsInPlay.filter(c => !isAttachedToPresentSite(c, presentSiteDefIds));
+    const flatCardsInPlay = cardsInPlay.filter(c =>
+      !isAttachedToPresentSite(c, presentSiteDefIds) && !isAttachedToPresentCompany(c, presentCompanyIds));
     if (flatCardsInPlay.length > 0) {
       lines.push('  Cards in play:');
       for (const card of flatCardsInPlay) {
