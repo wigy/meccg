@@ -10,6 +10,7 @@ import { createRandomAgent } from '../agents/random-agent.js';
 import { createHeuristicAgent } from '../agents/heuristic-agent.js';
 import { createNoisyHeuristicAgent } from '../agents/noisy-heuristic-agent.js';
 import { createBcAgent } from '../agents/bc-agent.js';
+import { createSearchAgent } from '../agents/search-agent.js';
 import { loadDeck } from '../decks.js';
 import type { LoadedDeck } from '../decks.js';
 
@@ -57,7 +58,7 @@ export function stringFlag(args: CliArgs, name: string): string | undefined {
 }
 
 /** Available agent names for the CLIs. */
-export const AGENT_NAMES = ['random', 'heuristic', 'noisy-heuristic', 'bc'] as const;
+export const AGENT_NAMES = ['random', 'heuristic', 'noisy-heuristic', 'bc', 'search'] as const;
 
 /**
  * Instantiate an agent by registry spec. A spec is a name with an optional
@@ -75,6 +76,21 @@ export function resolveAgent(spec: string): Agent {
       const epsilon = param === undefined ? 0.5 : Number(param);
       if (!Number.isFinite(epsilon)) throw new Error(`noisy-heuristic expects a numeric ε, got "${param}"`);
       return createNoisyHeuristicAgent(epsilon);
+    }
+    case 'search': {
+      // Determinizing-PUCT search: `search:weights.json[@sims]`. The
+      // determinizer needs both deck lists (public for challenge decks);
+      // they come from SIM_SEARCH_DECKS ("deckA,deckB", matching the run's
+      // --decks) or default to challenge decks a/b.
+      if (param === undefined) throw new Error('search expects a weights path: search:weights.json[@sims]');
+      const searchAt = param.lastIndexOf('@');
+      const weightsPath = searchAt > 0 ? param.slice(0, searchAt) : param;
+      const sims = searchAt > 0 ? Number(param.slice(searchAt + 1)) : undefined;
+      if (sims !== undefined && !Number.isFinite(sims)) {
+        throw new Error(`search expects a numeric sims after "@", got "${param.slice(searchAt + 1)}"`);
+      }
+      const [deckA, deckB] = (process.env.SIM_SEARCH_DECKS ?? 'challenge-deck-a,challenge-deck-b').split(',');
+      return createSearchAgent(weightsPath, { decks: [loadDeck(deckA.trim()), loadDeck(deckB.trim())], sims });
     }
     case 'bc': {
       if (param === undefined) throw new Error('bc expects a weights path: bc:path/to/weights.json[@temperature]');
