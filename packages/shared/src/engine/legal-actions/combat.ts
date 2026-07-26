@@ -1708,9 +1708,15 @@ function bodyCheckActions(
   const isWounded = combat.bodyCheckTarget === 'character' &&
     combat.strikeAssignments[combat.currentStrikeIndex]?.wasAlreadyWounded === true;
   const woundedBonus = isWounded ? 1 : 0;
-  const bcNeed = body + 1 - woundedBonus;
+  // Attack-level body-check modifier (Traitor tw-105 +1, Cruel Caradhras td-9
+  // +1, ...). The resolver adds it to the roll, so it lowers the roll needed to
+  // eliminate the target by the same amount — the quoted `need` must match, or
+  // the player is told the target is safer than it is.
+  const attackBodyCheckModifier = combat.bodyCheckModifier ?? 0;
+  const bcNeed = body + 1 - woundedBonus - attackBodyCheckModifier;
   const bcParts = [`${targetLabel} body ${body}`];
   if (woundedBonus) bcParts.push('+1 wounded');
+  if (attackBodyCheckModifier) bcParts.push(`${formatSignedNumber(attackBodyCheckModifier)} attack`);
 
   logDetail(`${roller === combat.attackingPlayerId ? 'Attacker' : 'Defender'} rolls body check vs ${targetLabel} (body ${body}${isWounded ? ', wounded +1' : ''})`);
   return [{

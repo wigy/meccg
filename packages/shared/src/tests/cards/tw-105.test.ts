@@ -187,6 +187,21 @@ describe('Traitor (tw-105)', () => {
     expect(s.players[0].outOfPlayPile.map(c => c.definitionId)).toContain(LEGOLAS);
   });
 
+  test('body check +1 is reflected in the quoted need, not just in the resolution', () => {
+    // Legolas body 8: a plain body check needs 9+ to eliminate, but Traitor's
+    // +1 to the roll brings that down to 8+. The `need` offered to the roller
+    // must say 8 — quoting 9 tells him the target survives a roll the engine
+    // will in fact resolve as an elimination.
+    let s = failedCheckState([ARAGORN, LEGOLAS]);
+    s = executeAction(s, PLAYER_1, 'pass');
+    s = executeAction(s, PLAYER_2, 'assign-strike');
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2);
+
+    const rolls = viableActions(s, PLAYER_2, 'body-check-roll');
+    expect(rolls).toHaveLength(1);
+    expect((rolls[0].action as { need: number }).need).toBe(8);
+  });
+
   test('body check boundary: a roll one below body survives (wounded, not eliminated)', () => {
     // Body check roll 7: 7 + 1 = 8, which equals body 8 (not greater) → wounded.
     let s = failedCheckState([ARAGORN, LEGOLAS]);

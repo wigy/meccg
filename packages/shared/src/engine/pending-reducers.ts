@@ -117,7 +117,9 @@ function resolveChainEntryAndContinue(
  * - its followers are promoted to general influence,
  * - selected possessions are discarded — hazards among them to the hazard
  *   player's discard pile, the rest to the checking player's,
- * - hazards attached to the character are discarded to their owner's pile.
+ * - hazards attached to the character are discarded to their owner's pile,
+ *   skipping any that were already discarded as a possession (a corruption
+ *   hazard appears in both lists and must land in the pile exactly once).
  */
 function removeFailedCorruptionCharacter(
   state: GameState,
@@ -181,8 +183,18 @@ function removeFailedCorruptionCharacter(
         discardPile: [...playersAfterRoll[playerIndex].discardPile, ...nonHazardPossessions],
       };
 
+  // A corruption hazard attached to the character (e.g. Lure of the Senses
+  // tw-60) contributes corruption points, so it is listed in `possessions` *and*
+  // sits in `char.hazards`. It was already routed to its owner's discard pile
+  // above; discarding it again here would put the same instance in the pile
+  // twice, duplicating a card instance in the game state.
+  const alreadyDiscarded = new Set<string>(possessions as readonly string[]);
   const pastTense = destination === 'discard' ? 'discarded' : 'eliminated';
   for (const hazard of char.hazards) {
+    if (alreadyDiscarded.has(hazard.instanceId as string)) {
+      logDetail(`Hazard ${hazard.instanceId as string} already discarded as a possession — not discarding it twice`);
+      continue;
+    }
     logDetail(`Discarding hazard ${hazard.instanceId as string} from ${pastTense} character`);
     const hazOwner = ownerOf(hazard.instanceId);
     let hazOwnerIdx = playersAfterRoll.findIndex(p => p.id === hazOwner);
