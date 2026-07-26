@@ -1419,6 +1419,20 @@ function handleDeclareAgentAttack(
   }
   const attackerAssigns = (isFaceDown && isAtHome) || attackModifier?.attackerAssigns === true;
 
+  // "Agent only: may tap for an extra strike" (Elerína dm-7): the declare
+  // action may carry tapForExtraStrike — the agent taps as part of the
+  // declaration and the attack has 2 strikes instead of 1.
+  const tapForExtraStrike = action.tapForExtraStrike === true;
+  if (tapForExtraStrike) {
+    if (attackModifier?.tapForExtraStrike !== true) {
+      return { state, error: `Agent "${agentDef.name}" has no tap-for-extra-strike ability` };
+    }
+    if (agent.character.status !== CardStatus.Untapped) {
+      return { state, error: `Agent "${agentDef.name}" must be untapped to tap for an extra strike` };
+    }
+  }
+  const strikesTotal = tapForExtraStrike ? 2 : 1;
+
   // Rule 3.II.2.R3/B3: Ringwraith/Balrog players → detainment
   const defendingAlignment = state.players[activePlayerIndex].alignment;
   const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
@@ -1492,18 +1506,34 @@ function handleDeclareAgentAttack(
     }));
   }
 
-  // Build CombatState with pre-computed modifiers
+  // Tap the agent when the extra strike was bought (tapForExtraStrike).
+  if (tapForExtraStrike) {
+    logDetail(`Site: declare-agent-attack — "${agentDef.name}" taps for an extra strike (2 strikes)`);
+    stateAfterReveal = updatePlayer(stateAfterReveal, hazardPlayerIndex, p => ({
+      ...p,
+      agents: p.agents.map(a =>
+        a.character.instanceId === action.agentInstanceId
+          ? { ...a, character: { ...a.character, status: CardStatus.Tapped } }
+          : a,
+      ),
+    }));
+  }
+
+  // Build CombatState with pre-computed modifiers. forceSingleTarget only
+  // applies to the normal 1-strike agent attack — a 2-strike attack follows
+  // the standard assignment rules (each strike to a different character
+  // where possible), even when the attacker assigns.
   const combat: CombatState = makeCombatState({
     attackSource: { type: 'agent', instanceId: action.agentInstanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayer.id,
-    strikesTotal: 1,
+    strikesTotal,
     strikeProwess: prowess,
     creatureBody: body,
     assignmentPhase: attackerAssigns ? 'attacker' : 'defender',
     detainment,
-    ...(attackerAssigns ? { forceSingleTarget: true } : {}),
+    ...(attackerAssigns && strikesTotal === 1 ? { forceSingleTarget: true } : {}),
     ...(attackModifier?.strikeEffect ? { strikeEffect: attackModifier.strikeEffect } : {}),
   });
 
@@ -2999,6 +3029,12 @@ function handleOpponentInfluenceAttempt(
   // Target identity for the opponent-influence resolver context (booster gating).
   let targetRace = '';
   let targetName = '';
+  // Character-target stats for the resolver context — effective mind/prowess,
+  // set only for a character target so stat-gated DI bonuses (Whip le-348:
+  // "against one character with a mind and prowess less than the bearer's")
+  // can compare them; they stay undefined for ally/faction/item targets.
+  let targetCtxMind: number | undefined;
+  let targetCtxProwess: number | undefined;
 
   if (action.targetKind === 'character') {
     const targetChar = opponent.characters[action.targetInstanceId];
@@ -3011,6 +3047,8 @@ function handleOpponentInfluenceAttempt(
     targetMind = controlCostOf(state, targetChar, targetDef.mind) ?? targetDef.mind;
     targetRace = targetDef.race;
     targetName = targetDef.name;
+    targetCtxMind = targetChar.effectiveStats.mind ?? targetDef.mind;
+    targetCtxProwess = targetChar.effectiveStats.prowess;
 
     // Controller DI (rule 10.12 step 5) — only if under DI, not GI
     if (targetChar.controlledBy !== 'general') {
@@ -3168,8 +3206,16 @@ function handleOpponentInfluenceAttempt(
   const consumedBoostIds: string[] = [];
   const oppInfluenceCtx: ResolverContext = {
     reason: 'opponent-influence-check',
-    ...(charDef && isCharacterCard(charDef) ? { bearer: buildBearerContext(charDef) } : {}),
-    target: { kind: action.targetKind, race: targetRace, name: targetName },
+    // Effective influencer prowess and character-target stats let conditions
+    // compare live values (Whip le-348: target has a mind and lower prowess).
+    ...(charDef && isCharacterCard(charDef)
+      ? { bearer: { ...buildBearerContext(charDef), prowess: charInPlay.effectiveStats.prowess } }
+      : {}),
+    target: {
+      kind: action.targetKind, race: targetRace, name: targetName,
+      ...(targetCtxMind !== undefined ? { mind: targetCtxMind } : {}),
+      ...(targetCtxProwess !== undefined ? { prowess: targetCtxProwess } : {}),
+    },
   };
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'check-modifier') continue;

@@ -389,10 +389,11 @@ export function describeAction(
       return `Play ${instName(action.cardInstanceId)} from hand as site's automatic-attack`;
     case 'cancel-auto-attack':
       return `Tap ${instName(action.characterId)} to cancel automatic-attack at home site`;
-    case 'declare-agent-attack':
-      return action.homeSiteInstanceId
-        ? `Declare agent attack ${instName(action.agentInstanceId)} (reveal at ${instName(action.homeSiteInstanceId)})`
-        : `Declare agent attack ${instName(action.agentInstanceId)}`;
+    case 'declare-agent-attack': {
+      const reveal = action.homeSiteInstanceId ? ` (reveal at ${instName(action.homeSiteInstanceId)})` : '';
+      const tap = action.tapForExtraStrike ? ' (tap for an extra strike)' : '';
+      return `Declare agent attack ${instName(action.agentInstanceId)}${reveal}${tap}`;
+    }
     case 'pass-chain-priority':
       return `Pass chain priority`;
     case 'order-passives':

@@ -332,11 +332,16 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
  * During chain declaring, the priority player may play a hazard short
  * event whose `on-event: self-enters-play` apply is
  * `cancel-chain-entry` with `select: 'target'` and a `requiredSkill`
- * filter. Emits one `play-short-event` action per eligible target —
- * an unresolved chain entry whose source card carries at least one
- * effect with a matching `requiredSkill`. Used by Searching Eye to
- * cancel scout-skill cards (Concealment, A Nice Place to Hide, Stealth)
- * before they resolve.
+ * and/or `filter` restriction. Emits one `play-short-event` action per
+ * eligible target — an unresolved chain entry whose source card carries
+ * at least one effect with a matching `requiredSkill` (Searching Eye
+ * canceling scout-skill cards like Concealment, A Nice Place to Hide,
+ * Stealth before they resolve), and/or whose entry context matches the
+ * apply's `filter` condition. The filter context exposes the target
+ * card's identity (`target.cardType`, `target.eventType`, `target.name`)
+ * and the declaring player's alignment (`declaredBy.alignment`) — Ire of
+ * the East (wh-24) uses it to cancel "one minion short-event played by a
+ * Fallen-wizard earlier in the same chain of effects".
  */
 function playSkillCancelChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const chain = state.chain;
@@ -357,21 +362,39 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
         && e.event === 'self-enters-play'
         && e.apply?.type === 'cancel-chain-entry'
         && e.apply?.select === 'target'
-        && typeof e.apply?.requiredSkill === 'string',
+        && (typeof e.apply?.requiredSkill === 'string' || e.apply?.filter != null),
     );
     if (!cancelEffect) continue;
-    const requiredSkill = cancelEffect.apply.requiredSkill!;
+    const requiredSkill = cancelEffect.apply.requiredSkill;
+    const filter = cancelEffect.apply.filter;
 
     for (const entry of chain.entries) {
       if (entry.resolved || entry.negated || !entry.card) continue;
       if (entry.card.instanceId === handCard.instanceId) continue;
       const targetDef = defById(state, entry.card.definitionId);
-      const hasSkill = getCardEffects(targetDef).some(
-        e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill,
-      );
-      if (!hasSkill) continue;
+      if (requiredSkill != null) {
+        const hasSkill = getCardEffects(targetDef).some(
+          e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill,
+        );
+        if (!hasSkill) continue;
+      }
+      if (filter != null) {
+        const declaredByPlayer = playerById(state, entry.declaredBy);
+        const entryCtx = {
+          target: {
+            cardType: targetDef?.cardType,
+            eventType: (targetDef as { eventType?: string } | undefined)?.eventType,
+            name: (targetDef as { name?: string } | undefined)?.name,
+          },
+          declaredBy: { alignment: declaredByPlayer?.alignment },
+        };
+        if (!matchesCondition(filter, entryCtx)) {
+          logDetail(`Chain response: ${hazDef.name} — entry "${(targetDef as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string)}" does not match filter (cardType ${targetDef?.cardType ?? '?'}, declaredBy ${declaredByPlayer?.alignment ?? '?'})`);
+          continue;
+        }
+      }
 
-      logDetail(`Chain response: ${hazDef.name} can cancel ${(targetDef as { name?: string } | undefined)?.name ?? entry.card.definitionId} (requires ${requiredSkill})`);
+      logDetail(`Chain response: ${hazDef.name} can cancel ${(targetDef as { name?: string } | undefined)?.name ?? entry.card.definitionId}${requiredSkill != null ? ` (requires ${requiredSkill})` : ''}`);
       actions.push({
         action: {
           type: 'play-short-event',

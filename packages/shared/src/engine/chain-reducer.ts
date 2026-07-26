@@ -3194,6 +3194,36 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
   }
 
+  // "Remove this card from the game." — a short-event whose self-enters-play
+  // `cancel-chain-entry` apply carries `removeFromGame` (Ire of the East
+  // wh-24) moves the spent card from its player's discard pile (where it was
+  // placed at play time) to their out-of-play pile once its entry resolves
+  // un-negated, so it can never be recurred. A negated entry leaves the card
+  // in the discard pile — a canceled card's instructions never execute.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const removesSelf = getCardEffects(def).some(
+      e => e.type === 'on-event'
+        && e.event === 'self-enters-play'
+        && e.apply?.type === 'cancel-chain-entry'
+        && e.apply.removeFromGame === true,
+    );
+    if (removesSelf) {
+      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
+      const eventInstId = entry.card.instanceId;
+      const eventCard = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
+      if (eventCard) {
+        const cardName = (def as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
+        current = updatePlayer(current, declarerIdx, p => ({
+          ...p,
+          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
+          outOfPlayPile: [...p.outOfPlayPile, eventCard],
+        }));
+        logDetail(`${cardName}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
+      }
+    }
+  }
+
   // Short events that carry an on-event company-arrives-at-site → add-
   // constraint effect (e.g. *River*) have the target company fully
   // determined at play time (the active M/H company). Fire the trigger
