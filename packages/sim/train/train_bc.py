@@ -34,6 +34,7 @@ Usage:
 
 import argparse
 import json
+import re
 import math
 import random
 
@@ -115,8 +116,27 @@ def parse_data_spec(spec):
     return spec, {0, 1}
 
 
-def load_dataset(specs, limit):
+# Decision lines start `{"k":"d","game":G,"seq":S,...` — the sequence
+# number can be read without paying for a full JSON parse, which is what
+# makes stride subsampling a load-time saving rather than a filter.
+_SEQ_RE = re.compile(rb'"seq":(\d+)')
+
+
+def _decision_seq(raw):
+    """Sequence number of a decision line, or None if unreadable."""
+    match = _SEQ_RE.search(raw)
+    return int(match.group(1)) if match else None
+
+
+def load_dataset(specs, limit, stride=1):
     """Parses one or more export JSONL files -> (header, examples).
+
+    `stride` keeps every Nth decision of each file (by sequence number),
+    skipping the JSON parse for the rest. Decisions inside one game are
+    highly correlated — they all share a single win/loss target — so for
+    value learning the binding sample size is the number of GAMES, not
+    decisions; striding trades redundant decisions for the ability to fit
+    many more games in the same memory and load time.
 
     Each spec is `path[@seat]`: with a seat suffix only that player's
     decisions are kept — used for league rollouts where the learner sits in
@@ -133,16 +153,21 @@ def load_dataset(specs, limit):
         file_header = None
         decisions = []
         outcomes = {}
-        with open(path, "r", encoding="utf-8") as handle:
-            for line in handle:
-                record = json.loads(line)
+        with open(path, "rb") as handle:
+            for raw in handle:
+                if raw.startswith(b'{"k":"d"'):
+                    if stride > 1:
+                        seq = _decision_seq(raw)
+                        if seq is not None and seq % stride != 0:
+                            continue
+                    decisions.append(json.loads(raw))
+                    if limit and len(decisions) >= limit:
+                        break
+                    continue
+                record = json.loads(raw)
                 kind = record.get("k")
                 if kind == "h":
                     file_header = record
-                elif kind == "d":
-                    decisions.append(record)
-                    if limit and len(decisions) >= limit:
-                        break
                 elif kind == "r":
                     outcomes[record["game"]] = record
         if file_header is None:
@@ -269,6 +294,11 @@ def main():
     parser.add_argument("--value-weight", type=float, default=0.5)
     parser.add_argument("--limit", type=int, default=0, help="cap parsed decisions (debug)")
     parser.add_argument(
+        "--stride", type=int, default=1,
+        help="keep every Nth decision per file (skips the JSON parse for the rest). "
+             "Decisions in a game share one outcome, so value learning is limited by "
+             "game count; striding buys many more games per GB and per minute")
+    parser.add_argument(
         "--mode", choices=["bc", "reinforce", "ppo"], default="bc",
         help="bc: imitate teacher soft targets; reinforce: 1-epoch policy gradient on game "
              "outcome; ppo: clipped-ratio surrogate over multiple epochs (both RL modes need "
@@ -297,7 +327,7 @@ def main():
     torch.manual_seed(args.seed)
     random.seed(args.seed)
 
-    header, examples = load_dataset(args.data, args.limit)
+    header, examples = load_dataset(args.data, args.limit, args.stride)
     if header.get("featureSpecVersion") != 1:
         raise SystemExit(f"unsupported feature spec {header.get('featureSpecVersion')}")
     global_width = header["globalWidth"]
