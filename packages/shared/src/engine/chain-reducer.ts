@@ -185,6 +185,8 @@ export function handleChainAction(state: GameState, action: GameAction): Reducer
       return handleChainRevealOnGuard(state, chain, action);
     case 'cancel-return-to-origin':
       return handleCancelReturnToOrigin(state, chain, action);
+    case 'cancel-hazard-event':
+      return handleCancelHazardEvent(state, chain, action);
     case 'counter-cancel-roll':
       return handleCounterCancelRoll(state, chain, action);
     case 'counter-cancel-attack':
@@ -329,11 +331,13 @@ function handleChainRevealOnGuard(state: GameState, chain: ChainState, action: G
 
   let newState: GameState = { ...state, players: newPlayers };
 
-  // Push as chain entry
+  // Push as chain entry. `fromOnGuard` marks the reveal origin so cancels
+  // that "cannot be used against an on-guard card" (The Great Eye as-85)
+  // can exclude this entry.
   const isPermanent = def && 'eventType' in def && (def as { eventType?: string }).eventType === 'permanent';
   const payload: ChainEntryPayload = isPermanent
-    ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
-    : { type: 'short-event' as const };
+    ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId, fromOnGuard: true }
+    : { type: 'short-event' as const, fromOnGuard: true };
   const cardInstance: CardInstance = toCardInstance(revealedCard);
 
   // Revealed short events mirror hand-played ones: the card moves to its
@@ -416,6 +420,93 @@ function handleCancelReturnToOrigin(
   // Flip priority to opponent so they may respond
   const newPriority = opponent(state, action.player);
   logDetail(`cancel-return-to-origin: priority flips to ${newPriority as string}`);
+
+  const newChain: ChainState = {
+    ...chain,
+    entries: newEntries,
+    priority: newPriority,
+    priorityPlayerPassed: false,
+    nonPriorityPlayerPassed: false,
+  };
+
+  return { state: { ...state, players: newPlayers, chain: newChain } };
+}
+
+/**
+ * Handles a `cancel-hazard-event` action (The Great Eye as-85): the acting
+ * player discards an in-play card carrying `cancel-hazard-event-play` to
+ * negate an unresolved hazard *event* chain entry declared by the opponent,
+ * before it resolves. Entries revealed from on-guard (`payload.fromOnGuard`)
+ * are rejected — "this cannot be used against an on-guard card".
+ *
+ * The negated entry's card is routed to its owner's discard by
+ * {@link completeChain}'s negated-entry flush (short events, already discarded
+ * at play time, are not duplicated thanks to the flush's already-in-discard
+ * guard). Priority then flips to the opponent so they may respond — the same
+ * pattern as {@link handleCancelReturnToOrigin}.
+ */
+function handleCancelHazardEvent(
+  state: GameState,
+  chain: ChainState,
+  action: import('../index.js').CancelHazardEventAction,
+): ReducerResult {
+  logHeading(`Chain: cancel-hazard-event by player ${action.player as string}`);
+
+  if (chain.mode !== 'declaring') {
+    return { state, error: 'cancel-hazard-event: chain is not in declaring mode' };
+  }
+  if (action.player !== chain.priority) {
+    return { state, error: 'cancel-hazard-event: player does not have priority' };
+  }
+
+  // The source card must be in the acting player's cardsInPlay and carry the effect.
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const sourceCard = findById(player.cardsInPlay, action.cardInstanceId);
+  if (!sourceCard) return { state, error: 'cancel-hazard-event: source card not in play' };
+  const sourceDef = defById(state, sourceCard.definitionId);
+  if (!getCardEffects(sourceDef).some(e => e.type === 'cancel-hazard-event-play')) {
+    return { state, error: 'cancel-hazard-event: source card has no cancel-hazard-event-play effect' };
+  }
+  const sourceName = (sourceDef as { name?: string } | undefined)?.name ?? (sourceCard.definitionId as string);
+
+  // The target must be an unresolved, un-negated hazard-event entry declared
+  // by the opponent, not revealed from on-guard.
+  const entryIdx = chain.entries.findIndex(
+    e => e.card?.instanceId === action.targetInstanceId && !e.resolved && !e.negated,
+  );
+  if (entryIdx === -1) return { state, error: 'cancel-hazard-event: target chain entry not found' };
+  const entry = chain.entries[entryIdx];
+  if (entry.declaredBy === action.player) {
+    return { state, error: 'cancel-hazard-event: cannot target your own event' };
+  }
+  const targetDef = defById(state, entry.card!.definitionId);
+  if (targetDef?.cardType !== 'hazard-event') {
+    return { state, error: 'cancel-hazard-event: target is not a hazard event' };
+  }
+  if ((entry.payload.type === 'short-event' || entry.payload.type === 'permanent-event')
+      && entry.payload.fromOnGuard) {
+    return { state, error: 'cancel-hazard-event: cannot be used against an on-guard card' };
+  }
+  const targetName = (targetDef as { name?: string }).name ?? (action.targetInstanceId as string);
+
+  // Pay the cost: discard the source card from play.
+  logDetail(`cancel-hazard-event: discarding ${sourceName} to cancel "${targetName}"`);
+  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  newPlayers[playerIndex] = {
+    ...player,
+    cardsInPlay: player.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...player.discardPile, toCardInstance(sourceCard)],
+  };
+
+  // Negate the target chain entry
+  const newEntries = chain.entries.map((e, i) =>
+    i === entryIdx ? { ...e, negated: true } : e,
+  );
+
+  // Flip priority to opponent so they may respond
+  const newPriority = opponent(state, action.player);
+  logDetail(`cancel-hazard-event: priority flips to ${newPriority as string}`);
 
   const newChain: ChainState = {
     ...chain,
@@ -4553,10 +4644,21 @@ function completeChain(state: GameState): GameState {
   const chain = state.chain!;
   logHeading(`Chain complete — ${chain.entries.length} entries resolved`);
 
-  // Flush negated entries: cards still on the chain go to their declaring player's discard
+  // Flush negated entries: cards still on the chain go to their declaring player's discard.
+  // A card already sitting in a discard pile (short events are discarded at play
+  // time; some cancel paths route the card themselves) is skipped — flushing it
+  // again would duplicate the instance.
   let current = state;
   for (const entry of chain.entries) {
     if (entry.negated && entry.card) {
+      const instanceId = entry.card.instanceId;
+      const alreadyDiscarded = current.players.some(p =>
+        p.discardPile.some(c => c.instanceId === instanceId),
+      );
+      if (alreadyDiscarded) {
+        logDetail(`Negated card ${instanceId as string} already in a discard pile — not flushing again`);
+        continue;
+      }
       const playerIndex = getPlayerIndex(current, entry.declaredBy);
       const player = current.players[playerIndex];
       const def = defById(current, entry.card.definitionId);
