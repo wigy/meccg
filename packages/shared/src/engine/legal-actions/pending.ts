@@ -2009,8 +2009,9 @@ export function discardOneCompanyItemActions(
  * Legal actions for a `force-discard-card` pending resolution. The actor (the
  * card-player's opponent) must discard a card:
  *
- * - Fixed-candidate mode (Rolled down to the Sea wh-29): one action per
- *   pre-computed candidate ring instance.
+ * - Fixed-candidate mode (Rolled down to the Sea wh-29: rings; Echoes of the
+ *   Song wh-17: the opponent's in-play Stage cards): one action per
+ *   pre-computed candidate instance.
  * - Any-from-hand mode (Khamûl the Easterling tw-47): one action per card
  *   currently in the actor's hand (candidates are recomputed each step as the
  *   hand shrinks).
@@ -2047,7 +2048,7 @@ export function forceDiscardCardActions(
     const defId = resolveInstanceId(state, instanceId);
     const cardDef = defId ? defById(state, defId) : undefined;
     const cardName = cardDef?.name ?? (instanceId as string);
-    logDetail(`force-discard-card: offering ring "${cardName}" (${instanceId as string})`);
+    logDetail(`force-discard-card: offering candidate "${cardName}" (${instanceId as string})`);
     actions.push({
       action: {
         type: 'force-discard-card' as const,

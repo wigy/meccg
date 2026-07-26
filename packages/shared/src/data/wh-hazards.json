@@ -36,7 +36,26 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/EchoesoftheSong.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      { "type": "play-flag", "flag": "remove-from-game" },
+      { "type": "play-target", "target": "character" },
+      {
+        "type": "play-option",
+        "id": "discard-stage-card",
+        "untargeted": true,
+        "when": {
+          "opponent.stageCardCount": { "$gt": 1 },
+          "opponent.stagePoints": { "$gte": 4 }
+        },
+        "apply": { "type": "force-discard-stage-card" }
+      },
+      {
+        "type": "play-option",
+        "id": "corruption-check",
+        "apply": { "type": "force-check", "check": "corruption" }
+      }
+    ],
+    "certified": "2026-07-26",
     "text": "If your opponent has more than one stage card and 4 or more stage points, he must discard one stage card of his choice. Alternatively, force a target character to make a corruption check. Remove this card from the game."
   },
   {

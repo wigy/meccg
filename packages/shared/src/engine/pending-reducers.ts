@@ -49,6 +49,7 @@ import {
   executeDeferredSiteAction,
 } from './reducer-site.js';
 import { autoResolve } from './chain-reducer.js';
+import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
 import { eligibleRingCategories } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
@@ -2820,14 +2821,21 @@ export function applyForceDiscardCardResolution(
     return { state, error: `Card ${cardInstanceId as string} is not a valid card to discard` };
   }
 
-  // Locate the chosen card: first the hand, then any character's items.
+  // Locate the chosen card: the hand first, then `cardsInPlay` (stage
+  // permanent-events and stage factions — Echoes of the Song wh-17), then any
+  // character's items (a ring, or a stage permanent-event played on a
+  // character) and allies.
   let removed: CardInstance | null = null;
   const handIdx = actorPlayer.hand.findIndex(c => c.instanceId === cardInstanceId);
   let newHand = actorPlayer.hand;
+  let newCardsInPlay = actorPlayer.cardsInPlay;
   const newCharacters = { ...actorPlayer.characters };
   if (handIdx >= 0) {
     removed = toCardInstance(actorPlayer.hand[handIdx]);
     newHand = actorPlayer.hand.filter((_, i) => i !== handIdx);
+  } else if (actorPlayer.cardsInPlay.some(c => c.instanceId === cardInstanceId)) {
+    removed = toCardInstance(actorPlayer.cardsInPlay.find(c => c.instanceId === cardInstanceId)!);
+    newCardsInPlay = actorPlayer.cardsInPlay.filter(c => c.instanceId !== cardInstanceId);
   } else {
     for (const [charId, charData] of Object.entries(newCharacters)) {
       const idx = charData.items.findIndex(it => it.instanceId === cardInstanceId);
@@ -2839,10 +2847,19 @@ export function applyForceDiscardCardResolution(
         };
         break;
       }
+      const allyIdx = charData.allies.findIndex(a => a.instanceId === cardInstanceId);
+      if (allyIdx >= 0) {
+        removed = toCardInstance(charData.allies[allyIdx]);
+        newCharacters[charId as CardInstanceId] = {
+          ...charData,
+          allies: charData.allies.filter((_, i) => i !== allyIdx),
+        };
+        break;
+      }
     }
   }
   if (!removed) {
-    return { state, error: `Card ${cardInstanceId as string} not found in hand or company` };
+    return { state, error: `Card ${cardInstanceId as string} not found in hand, in play or in the company` };
   }
 
   const cardDef = defById(state, removed.definitionId);
@@ -2853,10 +2870,13 @@ export function applyForceDiscardCardResolution(
   newPlayers[actorIdx] = {
     ...actorPlayer,
     hand: newHand,
+    cardsInPlay: newCardsInPlay,
     characters: newCharacters,
     discardPile: [...actorPlayer.discardPile, removed],
   };
-  const stateAfter = { ...state, players: newPlayers };
+  // Discarding a stage card changes the actor's stage-point total, which is
+  // derived — recompute so the drop is reflected immediately.
+  const stateAfter = recomputeDerived({ ...state, players: newPlayers });
 
   // Any-from-hand: keep the resolution alive until the required count is met or
   // the hand runs out.

@@ -1783,6 +1783,7 @@ export type TriggeredActionType =
   | 'sequence'
   | 'force-check'
   | 'force-check-all-company'
+  | 'force-discard-stage-card'
   | 'offer-char-join-attack'
   | 'offer-resource-play'
   | 'offer-restore-character'
@@ -1873,6 +1874,29 @@ export interface ForceCheckAction extends TriggeredActionBase {
   readonly perOthersItem?: boolean;
   /** @deprecated Documented historically but never read; kept for data-compat. */
   readonly target?: string;
+}
+
+/**
+ * `force-discard-stage-card` — the card-player's opponent must discard one of
+ * their in-play Fallen-wizard **Stage** cards, of their own choice.
+ *
+ * A Stage card is any card whose definition carries `alignment: "stage"`
+ * (MEWH §1) — stage permanent-events in `cardsInPlay`, stage permanent-events
+ * played on a character (which live in the bearer's `items`), stage items, and
+ * stage allies. Every such card the opponent controls is offered as a
+ * candidate; the opponent picks one and it goes to their discard pile, which
+ * re-derives their stage-point total.
+ *
+ * Resolution raises a `force-discard-card` pending resolution with the
+ * candidate set pre-computed, so the *opponent* makes the choice.
+ *
+ * Used by Echoes of the Song (wh-17): "If your opponent has more than one
+ * stage card and 4 or more stage points, he must discard one stage card of his
+ * choice." — the gate itself is expressed as the play-option's `when`
+ * (`opponent.stageCardCount` / `opponent.stagePoints`), not here.
+ */
+export interface ForceDiscardStageCardAction extends TriggeredActionBase {
+  readonly type: 'force-discard-stage-card';
 }
 
 /** `force-check-all-company` — a corruption/body check for every company character. */
@@ -2556,6 +2580,7 @@ export interface TraitorAttackAction extends TriggeredActionBase {
  */
 export type TriggeredAction =
   | ForceCheckAction
+  | ForceDiscardStageCardAction
   | ForceCheckAllCompanyAction
   | EnqueueCorruptionCheckAction
   | EnqueueBodyCheckAction
@@ -2645,6 +2670,19 @@ export interface PlayOptionEffect extends EffectBase {
   readonly id: string;
   /** The effect that resolves when this option is selected. */
   readonly apply: TriggeredAction;
+  /**
+   * When true this option needs **no** target, even though the card also
+   * carries a {@link PlayTargetEffect} for its other options. The hazard
+   * short-event emitter offers it exactly once (no `targetCharacterId` on the
+   * action) instead of once per candidate target, and its `when` is evaluated
+   * against a card-level context (`{ opponent: { stagePoints, stageCardCount },
+   * inPlay }`) rather than a per-target one.
+   *
+   * Used by Echoes of the Song (wh-17): the "opponent discards a stage card"
+   * mode is untargeted while the "Alternatively, force a target character to
+   * make a corruption check" mode is played on a character.
+   */
+  readonly untargeted?: boolean;
 }
 
 /**
@@ -3000,7 +3038,7 @@ export interface CombatTapLowMindEffect extends EffectBase {
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven';
+export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
