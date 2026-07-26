@@ -35,6 +35,7 @@ import type { CardDefinition } from '../types/cards.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyCost } from './cost-evaluator.js';
 import { buildInPlayNames } from './recompute-derived.js';
+import { hazardLongEventsRetained } from './retain-hazard-long-events.js';
 
 
 /**
@@ -195,10 +196,17 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
     const activePlayer = state.activePlayer!;
     const hazardPlayerIndex = (getPlayerIndex(state, activePlayer) + 1) % state.players.length;
     const hazardPlayer = state.players[hazardPlayerIndex];
+    // The Will of Sauron (tw-100): while a `retain-hazard-long-events` card is
+    // in play, hazard long-events survive this sweep and accumulate; they are
+    // discarded en masse when that card leaves play instead.
+    const retained = hazardLongEventsRetained(state);
+    if (retained) {
+      logDetail('Long-event exit: hazard long-events retained in play by a retain-hazard-long-events card');
+    }
     const discardedEvents: CardInstance[] = [];
     const remainingCards = hazardPlayer.cardsInPlay.filter(card => {
       const def = defById(state, card.definitionId);
-      if (def && def.cardType === 'hazard-event' && def.eventType === 'long') {
+      if (!retained && def && def.cardType === 'hazard-event' && def.eventType === 'long') {
         logDetail(`Long-event exit: discarding hazard long-event "${def.name}" (${card.instanceId as string})`);
         discardedEvents.push(toCardInstance(card));
         return false;
