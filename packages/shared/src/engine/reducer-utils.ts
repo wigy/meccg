@@ -17,7 +17,7 @@ import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
 import { CardStatus, Race, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
 import { resolveDef, normalizeCreatureRace, resolveCheckModifier } from './effects/index.js';
@@ -2815,12 +2815,13 @@ export function startDeckExhaust(state: GameState, playerIndex: 0 | 1): GameStat
  * Complete the deck exhaustion: shuffle the discard pile into a new play deck,
  * increment exhaustion count, and clear the pending flag.
  *
- * Fires `play-deck-exhausted` — discards any permanent event in either
- * player's `cardsInPlay` that declares `on-event: play-deck-exhausted` with a
- * self-discard `move` apply (e.g. Safe from the Shadow, Tokens to Show), plus
- * any such event *attached to a character* (Cruel Claw Perceived wh-16 rides a
- * Wizard / Fallen-wizard / Ringwraith in his `hazards` slot: "Discard when any
- * play deck is exhausted").
+ * Fires `play-deck-exhausted` — discards any permanent event that declares
+ * `on-event: play-deck-exhausted` with a self-discard `move` apply, whether it
+ * sits in either player's `cardsInPlay` (Safe from the Shadow, Tokens to Show)
+ * or is attached to a character as an item / hazard (Fool's Bane wh-19 and
+ * Cruel Claw Perceived wh-16, both hazard permanent-events played on the
+ * opponent's avatar). An attached card returns to *its owner's* discard pile,
+ * so an opponent-owned hazard goes back to the opponent's pile.
  */
 export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameState {
   const player = state.players[playerIndex];
@@ -2864,64 +2865,37 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
     result = { ...result, players: updatedPlayers as unknown as typeof result.players };
   }
 
-  // The same trigger on a *character-attached* permanent event. Items stay with
-  // the character's controller; hazards belong to the opposing (hazard) player,
-  // so each discarded attachment routes to its own owner's discard pile.
-  result = discardAttachmentsOnDeckExhaust(result);
-
-  return result;
-}
-
-/**
- * Discards every card attached to a character (in its `items` or `hazards`
- * slot) that declares `on-event: play-deck-exhausted` with a self-discard
- * `move` apply. Split out of {@link completeDeckExhaust} purely for
- * readability; it runs as the last step of a completed deck exhaustion.
- *
- * Ownership follows the same convention as {@link module:reducer-move}'s
- * instance locator: an item is owned by the character's controller, a hazard by
- * that controller's opponent.
- */
-function discardAttachmentsOnDeckExhaust(state: GameState): GameState {
-  let changed = false;
-  const newPlayers = clonePlayers(state);
-
+  // Same trigger for cards attached to a character (items and hazards). The
+  // card leaves its host and lands in its owner's discard pile.
   for (let pi = 0; pi < 2; pi++) {
-    for (const charId of Object.keys(newPlayers[pi].characters) as CardInstanceId[]) {
-      const char = newPlayers[pi].characters[charId];
-      const triggers = (attachment: { definitionId: CardDefinitionId }): boolean =>
-        getOnEventEffects(defById(state, attachment.definitionId), 'play-deck-exhausted')
-          .some(e => isSelfDiscardMove(e.apply));
-
-      const keptItems = char.items.filter(i => !triggers(i));
-      const keptHazards = char.hazards.filter(h => !triggers(h));
-      if (keptItems.length === char.items.length && keptHazards.length === char.hazards.length) continue;
-
-      changed = true;
-      const droppedItems = char.items.filter(triggers);
-      const droppedHazards = char.hazards.filter(triggers);
-      for (const dropped of [...droppedItems, ...droppedHazards]) {
-        logDetail(`play-deck-exhausted: discarding ${cardName(state, dropped.definitionId)} from ${cardName(state, char.definitionId)}`);
+    for (const [charId, char] of Object.entries(result.players[pi].characters)) {
+      for (const slot of ['items', 'hazards'] as const) {
+        for (const card of char[slot]) {
+          const def = defById(result, card.definitionId);
+          if (!getOnEventEffects(def, 'play-deck-exhausted').some(e => isSelfDiscardMove(e.apply))) continue;
+          const ownerIndex = getPlayerIndex(result, ownerOf(card.instanceId));
+          logDetail(`play-deck-exhausted: discarding ${cardName(result, card.definitionId)} from ${charId} to ${result.players[ownerIndex].name}'s discard pile`);
+          result = updatePlayer(result, pi, p => {
+            const host = p.characters[charId as CardInstanceId];
+            if (!host) return p;
+            return {
+              ...p,
+              characters: {
+                ...p.characters,
+                [charId]: { ...host, [slot]: host[slot].filter(c => c.instanceId !== card.instanceId) },
+              },
+            };
+          });
+          result = updatePlayer(result, ownerIndex, p => ({
+            ...p,
+            discardPile: [...p.discardPile, toCardInstance(card)],
+          }));
+        }
       }
-      newPlayers[pi] = updateCharacter(newPlayers[pi], charId, c => ({
-        ...c,
-        items: keptItems,
-        hazards: keptHazards,
-      }));
-      // Items belong to the character's controller, hazards to the opponent.
-      newPlayers[pi] = {
-        ...newPlayers[pi],
-        discardPile: [...newPlayers[pi].discardPile, ...droppedItems.map(toCardInstance)],
-      };
-      const hazardOwner = 1 - pi;
-      newPlayers[hazardOwner] = {
-        ...newPlayers[hazardOwner],
-        discardPile: [...newPlayers[hazardOwner].discardPile, ...droppedHazards.map(toCardInstance)],
-      };
     }
   }
 
-  return changed ? { ...state, players: [newPlayers[0], newPlayers[1]] } : state;
+  return result;
 }
 
 /**

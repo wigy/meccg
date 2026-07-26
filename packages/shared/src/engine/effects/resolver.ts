@@ -122,10 +122,12 @@ export interface ResolverContext {
     readonly atOrMovingUnderDeeps?: boolean;
     /**
      * The running stage-point total (MEWH §1) of the player controlling this
-     * character. Populated only in the effective-stats context, and computed
-     * *before* the per-character pass so an effect can read the same total the
-     * card it rides on has already contributed to. Used by corruption tiers
-     * that scale with a Fallen-wizard's progress, e.g. Inner Rot (wh-23):
+     * character. Populated in the effective-stats context — computed *before*
+     * the per-character pass so an effect can read the same total the card it
+     * rides on has already contributed to — and in the three influence-check
+     * contexts (`faction-influence-check`, `opponent-influence-check`). Used by
+     * modifiers that scale with a Fallen-wizard's progress, e.g. Inner Rot
+     * (wh-23) corruption tiers and Fool's Bane (wh-19) influence tiers:
      * `{ "bearer.stagePoints": { "$gt": 11 } }`.
      */
     readonly stagePoints?: number;
@@ -158,6 +160,35 @@ export interface ResolverContext {
      * +2 DI against factions playable in five Southern-Gondor regions).
      */
     readonly playableRegions?: readonly string[];
+  };
+  /**
+   * The card an influence check is being made **against**, in whichever
+   * influence check is running: the faction being brought into play
+   * (`faction-influence-check`) or the opponent's card being influenced away
+   * (`opponent-influence-check`). Unlike `faction` / `target` — each of which
+   * is populated in only one of those contexts — this sub-object is present in
+   * both, so a modifier that applies to "influence checks against <kind of
+   * card>" needs a single condition rather than one per path.
+   *
+   * Used by Fool's Bane (wh-19): "influence checks he makes against hero
+   * resources are modified by …" —
+   * `{ "influenceTarget.alignment": "hero", "influenceTarget.kind": { "$ne": "character" } }`
+   * (a character is not a resource card, CoE §"resource cards … and character
+   * cards").
+   */
+  readonly influenceTarget?: {
+    /**
+     * The alignment of the card being influenced, derived from its card type:
+     * `"hero"`, `"minion"`, `"fallen-wizard"`, or `"balrog"`. Absent when the
+     * card type carries no alignment prefix.
+     */
+    readonly alignment?: string;
+    /** What kind of card is being influenced: `"faction"`, `"character"`, `"ally"`, or `"item"`. */
+    readonly kind: string;
+    /** The card's name, for name-gated modifiers. */
+    readonly name?: string;
+    /** The card's race, when it has one (factions and characters). */
+    readonly race?: string;
   };
   /** The target of an influence check (character being controlled). */
   readonly target?: {
@@ -236,6 +267,33 @@ export function buildBearerContext(charDef: CharacterCard): NonNullable<Resolver
     ...(charDef.mind !== null ? { baseMind: charDef.mind } : {}),
     name: charDef.name,
     keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
+  };
+}
+
+/**
+ * Builds the `influenceTarget` sub-object of a {@link ResolverContext} for the
+ * card an influence check is being made against.
+ *
+ * The alignment is read off the card type's prefix (`hero-resource-faction` →
+ * `"hero"`, `minion-character` → `"minion"`, …), which is the only alignment
+ * marker a card definition carries. Card types with no alignment prefix (sites,
+ * hazards) yield an undefined alignment rather than a made-up one.
+ *
+ * `kind` is passed by the caller because it is a property of the *attempt*, not
+ * of the card: the same faction card can be the target of a faction-influence
+ * check (bringing it into play) or of an opponent-influence attempt.
+ */
+export function buildInfluenceTargetContext(
+  def: CardDefinition | undefined,
+  kind: string,
+): NonNullable<ResolverContext['influenceTarget']> {
+  const cardType = def?.cardType ?? '';
+  const alignment = ['hero', 'minion', 'fallen-wizard', 'balrog'].find(a => cardType.startsWith(`${a}-`));
+  return {
+    kind,
+    ...(alignment !== undefined ? { alignment } : {}),
+    ...(def && 'name' in def ? { name: def.name } : {}),
+    ...(def && 'race' in def ? { race: (def as { race?: string }).race } : {}),
   };
 }
 
