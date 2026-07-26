@@ -25,6 +25,8 @@ export interface DeckFile {
   id: string;
   name: string;
   alignment: string;
+  /** Human-reviewed as actually playable; absent means not approved. */
+  approved?: boolean;
   pool: DeckEntry[];
   deck: { characters: DeckEntry[]; hazards: DeckEntry[]; resources: DeckEntry[] };
   sites: DeckEntry[];
@@ -67,6 +69,12 @@ export interface LoadedDeck {
   readonly alignment: Alignment;
   /** Deck-file alignment string (hero / minion / fallen-wizard / balrog). */
   readonly alignmentLabel: string;
+  /**
+   * Human-reviewed as actually playable (see `DeckList.approved`). Training
+   * and rated play should use approved decks only: an unapproved deck may
+   * produce games the engine cannot finish.
+   */
+  readonly approved: boolean;
   readonly draftPool: readonly CardDefinitionId[];
   readonly playDeck: readonly CardDefinitionId[];
   readonly siteDeck: readonly CardDefinitionId[];
@@ -80,6 +88,7 @@ export function loadDeck(deckId: string): LoadedDeck {
   return {
     id: deck.id,
     name: deck.name,
+    approved: deck.approved === true,
     alignment: DECK_ALIGNMENT_MAP[deck.alignment] ?? Alignment.Wizard,
     alignmentLabel: deck.alignment,
     draftPool: expandEntries(deck.pool),
@@ -94,12 +103,21 @@ export function loadDeck(deckId: string): LoadedDeck {
 }
 
 /** List `{id, name}` of every deck in the catalog. */
-export function listDecks(): { id: string; name: string }[] {
+export function listDecks(): { id: string; name: string; approved: boolean }[] {
   const files = fs.readdirSync(DECK_CATALOG_DIR).filter(f => f.endsWith('.json'));
   return files.map(f => {
     const d = JSON.parse(fs.readFileSync(path.join(DECK_CATALOG_DIR, f), 'utf-8')) as DeckFile;
-    return { id: d.id, name: d.name };
+    return { id: d.id, name: d.name, approved: d.approved === true };
   });
+}
+
+/**
+ * Catalog decks a human has approved as actually playable. This is the
+ * correct default for training data and rated matches — see
+ * `DeckList.approved` for why unapproved decks are unsafe to learn from.
+ */
+export function listApprovedDecks(): { id: string; name: string; approved: boolean }[] {
+  return listDecks().filter(d => d.approved);
 }
 
 /** Convert a loaded deck into the engine's per-player game configuration. */

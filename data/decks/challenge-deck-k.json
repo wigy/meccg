@@ -2,6 +2,7 @@
   "id": "challenge-deck-k",
   "name": "(K) Lord of Rings",
   "alignment": "minion",
+  "approved": false,
   "notes": "Play rings, test these rings, get more direct influence to play more characters and make it easier to get factions. The hazards modify the auto attacks.\n\n### Starting Company (1) at Dol Guldur\n\n- Dror with Open to the Summons, Gulla, Layos, Surion with Open to the Summons, Dror controls Gulla.\n\n### Resource Play\n\nYou have to go to Free-holds to play Bright Gold Ring and to Ruins & Lairs to play Gold Ring that Sauron Fancies. You can test the Rings by using Test of Fire or at a site where information is playable to replace the Gold Ring with the Ring you want. For all ring tests you need sages, so be aware that you always have a sage available.\n\n### Ren\n\nRen is sitting the whole game in Dol Guldur. He can sideboard or, when needed, tap to give +2 for all corruption checks in the company with the Rings. So this is a help to survive the corruption check at the end of the untap phase for the untested Gold Ring.\n\n### Hazard Play\n\nThe main idea is modifying auto attacks at all versions of sites. But be aware that the long events like Fell Winter and Awaken Minions can also hurt you. Note that Fell Winter with Doors of Night treat all Borderlands as Wildernesses.",
   "pool": [
     {

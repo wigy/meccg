@@ -95,6 +95,23 @@ export interface DeckList {
    * decks built before this field existed.
    */
   readonly gameLength?: GameLength;
+  /**
+   * Whether a human has reviewed this deck and confirmed it actually plays:
+   * legal, functional, and free of engine defects across a real number of
+   * games. **Set by hand only** — no tool may flip it.
+   *
+   * Most catalog decks are not in that state. Automated probing of one deck
+   * against nine opponents found five clean pairings, two that deadlocked,
+   * one with an engine error, and one that failed every single game, and
+   * short probes had previously passed matchups whose defects only appear
+   * over longer runs. Training on an unapproved deck therefore produces
+   * data from games the engine cannot finish, and evaluating on one yields
+   * ratings that mean nothing.
+   *
+   * Absent is treated as not approved, so a new or edited deck must be
+   * reviewed before it can be used for training or rated play.
+   */
+  readonly approved?: boolean;
   /** Starting company -- characters and minor items available for the pre-game draft. */
   readonly pool: readonly DeckListEntry[];
   /** The main deck split into characters, hazards, and resources. */

@@ -11,7 +11,7 @@ import { createHeuristicAgent } from '../agents/heuristic-agent.js';
 import { createNoisyHeuristicAgent } from '../agents/noisy-heuristic-agent.js';
 import { createBcAgent } from '../agents/bc-agent.js';
 import { createSearchAgent } from '../agents/search-agent.js';
-import { loadDeck } from '../decks.js';
+import { loadDeck, listDecks } from '../decks.js';
 import type { LoadedDeck } from '../decks.js';
 
 /** Parsed CLI arguments: positional list plus `--flag value` / `--flag` pairs. */
@@ -126,8 +126,23 @@ export function resolvePair(args: CliArgs, name: string, defaults: readonly [str
   return [parts[0], parts[1]];
 }
 
-/** Load the two decks named by `--decks` (default challenge decks a/b). */
+/**
+ * Load the two decks named by `--decks` (default challenge decks a/b).
+ *
+ * Warns when either deck is not human-approved: most catalog decks have
+ * matchups the engine cannot finish, so training on them yields data from
+ * broken games and rating on them yields meaningless numbers. The warning
+ * does not block — deliberately playing an unapproved deck is how it gets
+ * qualified — but it must be impossible to do by accident.
+ */
 export function resolveDecks(args: CliArgs): [LoadedDeck, LoadedDeck] {
   const [d0, d1] = resolvePair(args, 'decks', ['challenge-deck-a', 'challenge-deck-b']);
-  return [loadDeck(d0), loadDeck(d1)];
+  const decks: [LoadedDeck, LoadedDeck] = [loadDeck(d0), loadDeck(d1)];
+  const unapproved = decks.filter(d => !d.approved).map(d => d.id);
+  if (unapproved.length > 0) {
+    console.warn(`WARNING: ${unapproved.join(' and ')} ${unapproved.length > 1 ? 'are' : 'is'} not approved — `
+      + 'results may come from games the engine cannot finish. '
+      + `Approved decks: ${listDecks().filter(d => d.approved).map(d => d.id).join(', ') || '(none)'}`);
+  }
+  return decks;
 }
