@@ -11,12 +11,18 @@
  *    prowess. Cannot be duplicated on a given attack."
  *
  * Effects:
- *   1. cancel-attack — when defender.covert AND enemy.race in [elves, dwarves,
- *      dúnedain, men].
+ *   1. cancel-attack — when defender.covert AND enemy.race matches Elf/Dwarf/
+ *      Dúnedain/Man.
  *   2. modify-attack (fromHand, defender, prowessModifier: -2) — when NOT
- *      defender.covert AND enemy.race in [elves, dwarves, dúnedain, men].
+ *      defender.covert AND enemy.race matches Elf/Dwarf/Dúnedain/Man.
  *   3. duplication-limit (scope: attack, max: 1) — prevents a second copy from
  *      being played on the same attack.
+ *
+ * The race lists carry both the plural spellings used by hazard-creature card
+ * data ("elves", "men") and the singular identifiers a site's automatic-attack
+ * `creatureType` normalizes to ("elf", "man") — see `normalizeCreatureRace`.
+ * Without the singular forms the card is silently unplayable on a site's
+ * automatic-attack (e.g. Rivendell's "Elves — 4 strikes with 8 prowess").
  *
  * Covert/overt is computed from company composition (rule glossary):
  *   - Overt: contains Orc, Troll, or Balrog character, or an overt-marking ally.
@@ -183,6 +189,25 @@ describe('Not Slay Needlessly (le-212)', () => {
     // The player still has one NSN in hand but the attack constraint blocks it.
     expect(after.players[RESOURCE_PLAYER].hand).toHaveLength(1);
     expect(viableActions(after, PLAYER_1, 'modify-attack')).toHaveLength(0);
+  });
+
+  // ─── Regression: site automatic-attacks use normalized singular races ────────
+
+  test('modify-attack is available against a site automatic-attack by Elves', () => {
+    // A site's automatic-attack `creatureType: "Elves"` is normalized to the
+    // singular race "elf" on the combat state (Rivendell as-160, 4 strikes at
+    // 8 prowess). The card must still be playable against it.
+    const state = makeCancelWindowCombat(buildBase(), {
+      attackSourceType: 'automatic-attack',
+      creatureRace: 'elf',
+      strikesTotal: 4,
+      strikeProwess: 8,
+    });
+    const actions = viableActions(state, PLAYER_1, 'modify-attack');
+    expect(actions).toHaveLength(1);
+
+    const after = dispatch(state, actions[0].action);
+    expect(after.combat?.strikeProwess).toBe(6);
   });
 
   // ─── Regression: must not be playable outside of an appropriate attack ───────

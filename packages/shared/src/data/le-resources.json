@@ -847,9 +847,13 @@
             {
               "enemy.race": {
                 "$in": [
+                  "elf",
                   "elves",
+                  "dwarf",
                   "dwarves",
+                  "dunadan",
                   "dúnedain",
+                  "man",
                   "men"
                 ]
               }
@@ -870,9 +874,13 @@
             {
               "enemy.race": {
                 "$in": [
+                  "elf",
                   "elves",
+                  "dwarf",
                   "dwarves",
+                  "dunadan",
                   "dúnedain",
+                  "man",
                   "men"
                 ]
               }
