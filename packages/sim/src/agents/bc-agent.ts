@@ -166,8 +166,14 @@ export function bcForward(model: BcWeightsFile, state: StateFeatures, actions: A
   const total = exps.reduce((sum, e) => sum + e, 0) || 1;
   const probs = exps.map(e => e / total);
 
-  // Value head.
-  const valueHidden = relu(linear(w['value1.weight'], w['value1.bias'], stateVector));
+  // Value head. Weights trained after 2026-07-26 give the head a direct
+  // skip connection from the global feature vector (the shared torso is
+  // dominated by the policy loss); detect that by the layer's input width
+  // so older weights files keep loading unchanged.
+  const valueInput = w['value1.weight'].shape[1] === stateVector.length + state.global.length
+    ? [...stateVector, ...state.global]
+    : stateVector;
+  const valueHidden = relu(linear(w['value1.weight'], w['value1.bias'], valueInput));
   const value = Math.tanh(linear(w['value2.weight'], w['value2.bias'], valueHidden)[0]);
 
   return { probs, value };

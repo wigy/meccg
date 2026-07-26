@@ -31,7 +31,7 @@ import json
 
 import torch
 
-from train_bc import BcNet, collate, load_dataset
+from train_bc import BcNet, checkpoint_value_skip, collate, load_dataset
 
 
 def bucket_of(fraction):
@@ -54,6 +54,7 @@ def main():
     parser.add_argument("--data", required=True, nargs="+", help="export JSONL file(s), path[@seat]")
     parser.add_argument("--batch", type=int, default=256)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--stride", type=int, default=1, help="keep every Nth decision (see train_bc.py)")
     args = parser.parse_args()
 
     with open(args.weights, "r", encoding="utf-8") as handle:
@@ -64,8 +65,9 @@ def main():
             f"vocab mismatch: weights {payload.get('vocabHash')} vs data {header.get('vocabHash')}")
     global_width = header["globalWidth"]
 
-    net = BcNet(header["vocabSize"], header["actionTypeCount"], global_width,
-                tuple(payload["dims"]["values"]))
+    dims = tuple(payload["dims"]["values"])
+    net = BcNet(header["vocabSize"], header["actionTypeCount"], global_width, dims,
+                checkpoint_value_skip(payload, dims, global_width))
     net.load_state_dict({
         name: torch.tensor(tensor["data"]).reshape(tensor["shape"])
         for name, tensor in payload["weights"].items()
