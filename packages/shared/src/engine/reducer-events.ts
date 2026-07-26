@@ -20,7 +20,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, companyById, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
@@ -1819,7 +1819,10 @@ function applyShortEventOnEntersPlay(
       const casterId = state.players[playerIndex].id;
       const targetOwnerId = state.players[ownerIdx].id;
       const targetCompany = findCharacterCompany(state.players[ownerIdx].companies, targetId);
-      const targetSiteDefId = targetCompany?.currentSite?.definitionId;
+      // Co-location is matched by site *name*: an opposing target stands at the
+      // other alignment's version of the same location (e.g. hero Rivendell vs
+      // minion Rivendell), so definition ids would never match.
+      const targetSiteName = companySiteName(state, targetCompany);
 
       // Collect the caster's shadow-magic users co-located with the target
       // (excluding the target itself). A Ringwraith among them lets the caster
@@ -1827,7 +1830,7 @@ function applyShortEventOnEntersPlay(
       const caster = state.players[playerIndex];
       const enablers: { id: CardInstanceId; isRingwraith: boolean }[] = [];
       for (const co of caster.companies) {
-        if (!targetSiteDefId || co.currentSite?.definitionId !== targetSiteDefId) continue;
+        if (!targetSiteName || companySiteName(state, co) !== targetSiteName) continue;
         for (const cid of co.characters) {
           if (cid === targetId) continue;
           const ch = caster.characters[cid];
