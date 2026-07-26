@@ -48,7 +48,7 @@ import {
   Alignment, Phase,
   RIVENDELL, LORIEN, ARAGORN,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, formatGameState } from '../../index.js';
 import { MovementType } from '../../types/common.js';
 import { snapshotHazardLimit } from '../../engine/mh-steps.js';
 import type { CardDefinitionId, GameState, CombatState, PlayPermanentEventAction } from '../../index.js';
@@ -336,5 +336,29 @@ describe('Going Ever Under Dark (ba-37)', () => {
     expect(after.error).toBeUndefined();
     expect(after.state.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(0);
     expect(after.state.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === cardInst)).toBe(true);
+  });
+
+  // ─── Placement: bound card renders with its company, not the general pile ──
+  // Regression for bug report 6e25583bf69deb74 (game ms1ouxw9-n417mp, seq 58):
+  // a company-targeting permanent event was shown in the flat "Cards in play"
+  // list instead of with the company it is bound to.
+
+  test('the bound card is placed under its company, not in the flat cards-in-play list', () => {
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [ASTERNAK] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    state = addCardInPlay(state, RESOURCE_PLAYER, GOING_EVER_UNDER_DARK, companyId);
+
+    const text = formatGameState(state);
+    // Nested under the company block, like items under a character.
+    expect(text).toContain('⤷ Going Ever Under Dark (bound to company)');
+    // Not duplicated in (nor relegated to) the flat cards-in-play list.
+    expect(text).not.toContain('· Going Ever Under Dark');
   });
 });

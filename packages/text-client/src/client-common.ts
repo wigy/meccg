@@ -50,6 +50,8 @@ export interface SpawnedClientArgs {
   playerName: string;
   token: string;
   deckId?: string;
+  /** Trained-model weights path (Real-AI games): passed as `--model <path>`. */
+  modelPath?: string;
 }
 
 /**
@@ -63,11 +65,13 @@ export function parseSpawnedClientArgs(usageName: string): SpawnedClientArgs {
   const token = args[4];
   const deckIdx = process.argv.indexOf('--deck');
   const deckId = deckIdx >= 0 ? process.argv[deckIdx + 1] : undefined;
+  const modelIdx = process.argv.indexOf('--model');
+  const modelPath = modelIdx >= 0 ? process.argv[modelIdx + 1] : undefined;
   if (!port || !playerName || !token) {
     console.error(`Usage: ${usageName} <port> <playerName> <token> [--deck <deckId>]`);
     process.exit(1);
   }
-  return { port, playerName, token, deckId };
+  return { port, playerName, token, deckId, modelPath };
 }
 
 /**

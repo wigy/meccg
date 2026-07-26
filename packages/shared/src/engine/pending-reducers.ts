@@ -36,7 +36,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { isCharacterRemovalProtected } from './removal-protection.js';
@@ -191,6 +191,121 @@ function removeFailedCorruptionCharacter(
   }
 }
 
+/**
+ * Traitor (tw-105): fire any `on-event: corruption-check-failed` +
+ * `traitor-attack` trigger after a character failed a corruption check.
+ *
+ * Every in-play copy carrying the trigger (either player's `cardsInPlay`) is
+ * discarded on the one failed check — duplicates have no extra effect (CRF
+ * erratum). If the traitor's company still has a character, an attack is made
+ * against it: prowess = traitor's printed prowess + `prowessBonus`, same race
+ * as the traitor (CRF), `strikes` strikes, no creature body, character body
+ * checks modified by `bodyCheckModifier`. The character to be attacked is
+ * chosen by the player who does not control the traitor's company — the
+ * attack uses the attacker-chooses-defenders machinery with the opponent as
+ * the attacking player (a cancel-window still precedes assignment, as with
+ * attacker-chooses automatic-attacks).
+ *
+ * When a combat is already active (e.g. a Corpse-candle pre-defense check
+ * failed mid-combat), the attack is queued as a `traitor-attack-queued`
+ * constraint that `finalizeCombat` initiates right after the current combat —
+ * the CRF "chain immediately following" timing.
+ *
+ * Called from every failed-check outcome (discard, eliminate, Press-gang
+ * capture, discard-ring-only): the trigger keys on the *failed check*, not on
+ * how the character left play. Returns the state unchanged when no trigger
+ * card is in play.
+ */
+function applyTraitorTrigger(
+  state: GameState,
+  traitorOwnerIndex: number,
+  traitorDef: import('../index.js').CardDefinition | undefined,
+  traitorCompanyId: import('../index.js').CompanyId | undefined,
+): GameState {
+  type Trigger = { playerIdx: number; card: CardInPlay; apply: import('../types/effects.js').TraitorAttackAction };
+  const triggers: Trigger[] = [];
+  state.players.forEach((p, idx) => {
+    for (const card of p.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      for (const oe of getOnEventEffects(def, 'corruption-check-failed')) {
+        if (oe.apply.type === 'traitor-attack') {
+          triggers.push({ playerIdx: idx, card, apply: oe.apply });
+        }
+      }
+    }
+  });
+  if (triggers.length === 0) return state;
+
+  let newState = state;
+  for (const t of triggers) {
+    const name = cardName(newState, t.card.definitionId, '?');
+    logDetail(`corruption-check-failed: discarding "${name}" (${t.card.instanceId as string}) — trigger consumed`);
+    newState = updatePlayer(newState, t.playerIdx, p => ({
+      ...p,
+      cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== t.card.instanceId),
+      discardPile: [...p.discardPile, toCardInstance(t.card)],
+    }));
+  }
+
+  const { apply, card } = triggers[0];
+  if (!traitorDef || !isCharacterCard(traitorDef)) {
+    logDetail('traitor-attack: failed character has no character definition — no attack');
+    return newState;
+  }
+  const defendingPlayer = newState.players[traitorOwnerIndex];
+  const company = traitorCompanyId
+    ? defendingPlayer.companies.find(c => c.id === traitorCompanyId)
+    : undefined;
+  if (!company || company.characters.length === 0) {
+    logDetail(`traitor-attack: no surviving character in the traitor's company — no attack`);
+    return newState;
+  }
+
+  const prowess = (traitorDef.prowess ?? 0) + (apply.prowessBonus ?? 10);
+  const strikes = apply.strikes ?? 1;
+  const bodyCheckModifier = apply.bodyCheckModifier ?? 0;
+  const race = traitorDef.race ? (traitorDef.race as string).toLowerCase() : undefined;
+  const defendingPlayerId = defendingPlayer.id;
+  const attackingPlayerId = newState.players[1 - traitorOwnerIndex].id;
+
+  if (newState.combat) {
+    logDetail(`traitor-attack: combat already active — queuing ${prowess}-prowess attack on company ${company.id as string} for after this combat`);
+    return addConstraint(newState, {
+      source: card.instanceId,
+      sourceDefinitionId: card.definitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'company', companyId: company.id },
+      kind: {
+        type: 'traitor-attack-queued',
+        prowess,
+        strikes,
+        bodyCheckModifier,
+        race,
+        traitorDefinitionId: traitorDef.id,
+        defendingPlayerId,
+        attackingPlayerId,
+      },
+    });
+  }
+
+  logDetail(`traitor-attack: "${traitorDef.name}" turns traitor — ${strikes}-strike ${prowess}-prowess attack against company ${company.id as string}; ${attackingPlayerId as string} chooses the character to be attacked`);
+  const combat = makeCombatState({
+    attackSource: { type: 'traitor-attack', eventInstanceId: card.instanceId, traitorDefinitionId: traitorDef.id },
+    companyId: company.id,
+    defendingPlayerId,
+    attackingPlayerId,
+    strikesTotal: strikes,
+    strikeProwess: prowess,
+    creatureBody: null,
+    ...(race ? { creatureRace: race } : {}),
+    assignmentPhase: 'cancel-window',
+    detainment: false,
+    attackerChoosesDefenders: true,
+    ...(bodyCheckModifier !== 0 ? { bodyCheckModifier } : {}),
+  });
+  return { ...newState, combat };
+}
+
 export function applyCorruptionCheckResolution(
   state: GameState,
   action: GameAction,
@@ -209,6 +324,68 @@ export function applyCorruptionCheckResolution(
   // resolution stays queued; the next legal-action cycle re-emits the roll
   // action with the freshly-added check-modifier constraint factored in.
   if (action.type === 'activate-granted-action') return null;
+  if (top.kind.type !== 'corruption-check') return null;
+
+  // Tap-in-support (`allowSupport`, Ren the Unclean tw-83): tap an untapped
+  // company mate of the checking character for +1 to the upcoming roll. The
+  // +1 rides a one-shot corruption `check-modifier` constraint on the
+  // checking character, which the roll action re-reads on the next
+  // legal-action cycle and the roll resolution consumes — the same plumbing
+  // as reactive short-event boosts. The pending entry stays queued.
+  if (action.type === 'support-corruption-check') {
+    const topKind = top.kind;
+    const topId = top.id;
+    const topActor = top.actor;
+    const topSource = top.source;
+    const supportTargetId = action.targetCharacterId ?? topKind.characterId;
+    const supportEntry = state.pendingResolutions.find(r =>
+      r.actor === topActor
+      && r.kind.type === 'corruption-check'
+      && r.kind.characterId === supportTargetId
+      && (r.id === topId || (topKind.selectableOrder && r.source === topSource && r.kind.selectableOrder)));
+    if (!supportEntry || supportEntry.kind.type !== 'corruption-check' || !supportEntry.kind.allowSupport) {
+      return { state, error: 'support-corruption-check: this pending corruption check does not allow tap-in-support' };
+    }
+    const supPlayerIndex = getPlayerIndex(state, action.player);
+    const supPlayer = state.players[supPlayerIndex];
+    const supporter = supPlayer.characters[action.supportingCharacterId];
+    if (!supporter) return { state, error: 'support-corruption-check: supporting character not found' };
+    if (supporter.status !== CardStatus.Untapped) return { state, error: 'support-corruption-check: supporting character is not untapped' };
+    if (action.supportingCharacterId === supportTargetId) return { state, error: 'support-corruption-check: a character cannot support its own check' };
+    const supportCompany = findCharacterCompany(supPlayer.companies, supportTargetId);
+    if (!supportCompany || !supportCompany.characters.includes(action.supportingCharacterId)) {
+      return { state, error: 'support-corruption-check: supporter must be in the checking character\'s company' };
+    }
+    logDetail(`Support: ${cardName(state, supporter.definitionId)} taps for +1 to ${cardName(state, resolveInstanceId(state, supportTargetId) ?? supporter.definitionId)}'s corruption check (${supportEntry.kind.reason})`);
+    let supState = updatePlayer(state, supPlayerIndex, p =>
+      updateCharacter(p, action.supportingCharacterId, ch => ({ ...ch, status: CardStatus.Tapped })));
+    supState = addConstraint(supState, {
+      source: supporter.instanceId,
+      sourceDefinitionId: supporter.definitionId,
+      target: { kind: 'character', characterId: supportTargetId },
+      kind: { type: 'check-modifier', check: 'corruption', value: 1 },
+      scope: { kind: 'phase', phase: Phase.MovementHazard },
+    });
+    return { state: supState };
+  }
+
+  // Selectable order (Ren the Unclean tw-83): the actor may resolve any of
+  // their same-source queued checks, not just the head — swap `top` for the
+  // sibling entry matching the rolled character.
+  if (action.type === 'corruption-check'
+    && top.kind.selectableOrder
+    && action.characterId !== top.kind.characterId) {
+    const sibling = state.pendingResolutions.find(r =>
+      r.actor === top.actor
+      && r.kind.type === 'corruption-check'
+      && r.source === top.source
+      && r.kind.selectableOrder
+      && r.kind.characterId === action.characterId);
+    if (sibling) {
+      logDetail(`Selectable corruption-check order: resolving sibling entry ${sibling.id} instead of head ${top.id}`);
+      top = sibling;
+    }
+  }
   if (top.kind.type !== 'corruption-check') return null;
 
   const { characterId, transferredItemId, reason } = top.kind;
@@ -238,6 +415,9 @@ export function applyCorruptionCheckResolution(
   const charName = charDef?.name ?? '?';
   const cp = action.corruptionPoints;
   const modifier = action.corruptionModifier;
+  // Captured before any removal: on a failed check the Traitor trigger needs
+  // to know which company the (possibly removed) character belonged to.
+  const traitorCompanyId = player.companies.find(c => c.characters.includes(characterId))?.id;
 
   // Roll 2d6 + modifier
   const { roll, rng, cheatRollTotal } = roll2d6(state);
@@ -385,8 +565,12 @@ export function applyCorruptionCheckResolution(
       characters: newCharacters,
       discardPile: newDiscardPile,
     };
+    // The check still FAILED (only the failure consequence was softened) —
+    // the Traitor trigger fires; the still-in-play character may itself be
+    // chosen as the target of the attack.
+    const ringOnlyState = dequeueResolution({ ...postRollState, players: playersAfterRoll }, top.id);
     return {
-      state: dequeueResolution({ ...postRollState, players: playersAfterRoll }, top.id),
+      state: applyTraitorTrigger(ringOnlyState, playerIndex, charDef, traitorCompanyId),
       effects: [rollEffect],
     };
   }
@@ -415,7 +599,11 @@ export function applyCorruptionCheckResolution(
     const pressHost = findCapturingPressGang(stateAfterRoll, playerIndex);
     if (pressHost) {
       const captured = capturePressGang(stateAfterRoll, playerIndex, characterId, pressHost);
-      return { state: dequeueResolution(captured, top.id), effects: [rollEffect] };
+      const capturedState = dequeueResolution(captured, top.id);
+      return {
+        state: applyTraitorTrigger(capturedState, playerIndex, charDef, traitorCompanyId),
+        effects: [rollEffect],
+      };
     }
 
     // Roll == CP or CP - 1 on a hero character: it + possessions discarded (not followers)
@@ -448,8 +636,9 @@ export function applyCorruptionCheckResolution(
     players: playersAfterRoll,
   });
 
+  const failedState = dequeueResolution(cleanedState, top.id);
   return {
-    state: dequeueResolution(cleanedState, top.id),
+    state: applyTraitorTrigger(failedState, playerIndex, charDef, traitorCompanyId),
     effects: [rollEffect],
   };
 }

@@ -963,6 +963,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     stateAfterCombat = removeConstraint(stateAfterCombat, tidingsConstraint.id);
   }
 
+
   // MELE §8.37: Trophy offer — after a non-detainment non-played-auto-attack
   // creature defeat, eligible Orc/Troll characters may take the creature as
   // a trophy. We transition to the `trophy-offer` phase rather than finalizing
@@ -1015,9 +1016,55 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   }
 
   return {
-    state: stateWithRule8_22,
+    state: initiateQueuedTraitorAttack(stateWithRule8_22),
     effects,
   };
+}
+
+/**
+ * Traitor (tw-105): a corruption check failed while a combat was active
+ * (e.g. a Corpse-candle pre-defense check), so the traitor attack was queued
+ * as a `traitor-attack-queued` constraint instead of clobbering the running
+ * combat. Called at every combat-completion exit (normal finalization, trophy
+ * declined, trophy taken): when no combat remains active and the constraint
+ * is present, remove it and initiate the traitor attack — the CRF timing puts
+ * it in the chain immediately following the one containing the corruption
+ * check. The attack is dropped (with a log) if the traitor's company no
+ * longer has any characters. No-ops when a combat is still active or no
+ * constraint is queued.
+ */
+export function initiateQueuedTraitorAttack(state: GameState): GameState {
+  if (state.combat) return state;
+  const queued = state.activeConstraints.find(c => c.kind.type === 'traitor-attack-queued');
+  if (!queued || queued.kind.type !== 'traitor-attack-queued') return state;
+  const tk = queued.kind;
+  const newState = removeConstraint(state, queued.id);
+  const companyId = queued.target.kind === 'company' ? queued.target.companyId : undefined;
+  const defIdx = getPlayerIndex(newState, tk.defendingPlayerId);
+  const company = companyId !== undefined && defIdx >= 0
+    ? companyById(newState.players[defIdx].companies, companyId)
+    : undefined;
+  if (!company || company.characters.length === 0) {
+    logDetail('Traitor: queued attack dropped — the traitor\'s company no longer has any characters');
+    return newState;
+  }
+  const traitorName = cardName(newState, tk.traitorDefinitionId, 'traitor');
+  logDetail(`Traitor: initiating queued attack — "${traitorName}" (${tk.strikes} strike(s), ${tk.prowess} prowess) against company ${company.id as string}`);
+  const traitorCombat: CombatState = makeCombatState({
+    attackSource: { type: 'traitor-attack', eventInstanceId: queued.source, traitorDefinitionId: tk.traitorDefinitionId },
+    companyId: company.id,
+    defendingPlayerId: tk.defendingPlayerId,
+    attackingPlayerId: tk.attackingPlayerId,
+    strikesTotal: tk.strikes,
+    strikeProwess: tk.prowess,
+    creatureBody: null,
+    ...(tk.race ? { creatureRace: tk.race } : {}),
+    assignmentPhase: 'cancel-window',
+    detainment: false,
+    attackerChoosesDefenders: true,
+    ...(tk.bodyCheckModifier !== 0 ? { bodyCheckModifier: tk.bodyCheckModifier } : {}),
+  });
+  return { ...newState, combat: traitorCombat };
 }
 
 /**

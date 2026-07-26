@@ -25,6 +25,13 @@ export interface SupportCorruptionCheckAction {
   readonly player: PlayerId;
   /** The untapped character being tapped for +1 support. */
   readonly supportingCharacterId: CardInstanceId;
+  /**
+   * The character whose check is being supported. Required in the pending
+   * corruption-check window (a card like Ren the Unclean tw-83 may queue
+   * several supportable checks at once); omitted in the Free Council flow,
+   * where the phase state's `pendingCheck` names the target.
+   */
+  readonly targetCharacterId?: CardInstanceId;
 }
 
 /**

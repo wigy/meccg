@@ -4970,6 +4970,23 @@ body.all-companies-mode:has(#debug-view.hidden) {
   border-radius: 4px;
 }
 
+/* Company-targeting permanent events bound to a company (e.g. Fellowship,
+   Going Ever Under Dark): rendered inside the company block as a strip after
+   the character columns, mirroring the site-attachments strip. */
+.company-attachments {
+  position: relative;
+  z-index: var(--z-attachment);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 0.15rem;
+}
+
+.company-card--company-attachment {
+  height: calc(var(--card-table-height) * var(--company-scale, 1) * 0.7);
+  border-radius: 4px;
+}
+
 /* Stats badge — prowess/body (bottom-right) */
 .char-stats-badge {
   position: absolute;

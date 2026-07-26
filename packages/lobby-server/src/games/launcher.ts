@@ -52,6 +52,12 @@ export interface LaunchOptions {
   aiDeckId?: string;
   /** Whether the AI is a pseudo-AI (human controls both sides via IPC relay). */
   pseudoAi?: boolean;
+  /**
+   * Trained-model weights path for a Real-AI opponent. Forwarded to the
+   * spawned AI client as `--model <path>`; without it the client plays the
+   * heuristic strategy.
+   */
+  aiModelPath?: string;
 }
 
 /**
@@ -154,6 +160,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
       throw new Error('aiDeckId is required to start an AI game');
     }
     const aiArgs = ['tsx', aiScript, String(port), player2, tokens[1], '--deck', options.aiDeckId];
+    if (options.aiModelPath) aiArgs.push('--model', options.aiModelPath);
     const aiChild = spawn('npx', aiArgs, {
       env: process.env,
       stdio: isPseudo ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],

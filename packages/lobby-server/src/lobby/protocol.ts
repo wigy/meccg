@@ -26,11 +26,24 @@ export interface DeclineChallengeMessage {
   readonly from: string;
 }
 
-/** Start a game against the heuristic ("Smart") AI. */
-export interface PlaySmartAiMessage {
-  readonly type: 'play-smart-ai';
+/** Start a game against the Heuristic-AI (rule-based strategy). */
+export interface PlayHeuristicAiMessage {
+  readonly type: 'play-heuristic-ai';
   /** Catalog deck ID for the AI opponent to use. */
   readonly deckId: string;
+}
+
+/**
+ * Start a game against a Real-AI: a trained model from the server's
+ * `~/.meccg/models` directory (see GET /api/models). The `model` field is
+ * the bare file name from that listing — never a path.
+ */
+export interface PlayRealAiMessage {
+  readonly type: 'play-real-ai';
+  /** Catalog deck ID for the AI opponent to use. */
+  readonly deckId: string;
+  /** Model file name from /api/models (e.g. "gen2-it3-promoted-2026-07-25.json"). */
+  readonly model: string;
 }
 
 /** Start a game against the pseudo-AI (human controls both sides). */
@@ -59,7 +72,8 @@ export type LobbyClientMessage =
   | ChallengeMessage
   | AcceptChallengeMessage
   | DeclineChallengeMessage
-  | PlaySmartAiMessage
+  | PlayHeuristicAiMessage
+  | PlayRealAiMessage
   | PlayPseudoAiMessage
   | PseudoAiPickMessage
   | RejoinGameMessage;

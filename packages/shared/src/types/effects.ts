@@ -83,14 +83,21 @@ export interface ConditionMatch {
 export interface ConditionOperator {
   /** Checks that the context value (which must be an array) includes this element. */
   readonly $includes?: string | number;
+  /**
+   * The four comparison operators accept either a number literal or a
+   * context-path string that is resolved against the same context at match
+   * time — both sides must then be numbers. This backs card text that
+   * compares two stats, e.g. Whip (le-348) "prowess less than the bearer's":
+   * `{ "target.prowess": { "$lt": "bearer.prowess" } }`.
+   */
   /** Greater than. */
-  readonly $gt?: number;
+  readonly $gt?: number | string;
   /** Greater than or equal. */
-  readonly $gte?: number;
+  readonly $gte?: number | string;
   /** Less than. */
-  readonly $lt?: number;
+  readonly $lt?: number | string;
   /** Less than or equal. */
-  readonly $lte?: number;
+  readonly $lte?: number | string;
   /** Not equal. */
   readonly $ne?: string | number | boolean | null;
   /** Checks that the context value is a member of the given array. */
@@ -318,7 +325,7 @@ export interface MpModifierEffect extends EffectBase {
  * character of any player.
  *
  * `itemFilter` is evaluated against a per-item context `{ item: { keywords,
- * name, cardType } }` (an absent filter matches every item). The `corruptionPoints`
+ * name, cardType, subtype } }` (an absent filter matches every item). The `corruptionPoints`
  * delta is folded into each matching item's bearer corruption total (in
  * `computeEffectiveStats`, respecting the same Balrog-avatar exclusion as the
  * item's printed corruption); the `marshallingPoints` delta is added flat to the
@@ -327,7 +334,11 @@ export interface MpModifierEffect extends EffectBase {
  * Used by Rumor of the One (le-224): "+1 to the corruption points and the
  * marshalling points for all ring items." — `itemFilter`
  * `{ "item.keywords": { "$includes": "ring" } }`, `corruptionPoints: 1`,
- * `marshallingPoints: 1`.
+ * `marshallingPoints: 1`. And by Scorba at Home (td-65): "each major item
+ * gives an additional corruption point." — `itemFilter`
+ * `{ "item.subtype": "major" }`, `corruptionPoints: 1`. Also by Itangast at
+ * Home (td-38): "each greater item gives an additional corruption point" —
+ * `itemFilter` `{ "item.subtype": "greater" }`, `corruptionPoints: 1`.
  */
 export interface InPlayItemModifierEffect extends EffectBase {
   readonly type: 'in-play-item-modifier';
@@ -1782,6 +1793,7 @@ export type TriggeredActionType =
   | 'transform-site'
   | 'untap-site'
   | 'cancel-current-attack'
+  | 'traitor-attack'
   | 'win-condition-roll'
   | 'win-game';
 
@@ -2369,6 +2381,19 @@ export interface CancelChainEntryAction extends TriggeredActionBase {
   readonly select?: 'most-recent-unresolved-hazard' | 'target';
   /** For `select: 'target'`: restrict to entries whose source has a matching skill effect. */
   readonly requiredSkill?: string;
+  /**
+   * For `select: 'target'`: generic filter over the target chain entry,
+   * evaluated against `{ target: { cardType, eventType, name }, declaredBy:
+   * { alignment } }`. Used by Ire of the East (wh-24) to target "one minion
+   * short-event played by a Fallen-wizard earlier in the same chain".
+   */
+  readonly filter?: Condition;
+  /**
+   * When true, the spent event card is removed from the game (moved from its
+   * player's discard pile to their out-of-play pile) as its own chain entry
+   * resolves un-negated — "Remove this card from the game" (wh-24).
+   */
+  readonly removeFromGame?: boolean;
 }
 
 /**
@@ -2452,6 +2477,38 @@ export interface CancelCurrentAttackAction extends TriggeredActionBase {
 }
 
 /**
+ * `traitor-attack` — the apply of an `on-event: corruption-check-failed`
+ * trigger (Traitor tw-105). When any character fails a corruption check, the
+ * failed character "becomes a traitor": an attack is immediately made against
+ * a character in the traitor's company, chosen by the player who does NOT
+ * control that company (`attacker-chooses-defenders` machinery). The attack's
+ * prowess is the traitor's printed prowess plus `prowessBonus`, its race is
+ * the traitor's race (CRF), it has no body (no creature body check), and any
+ * resulting character body check is modified by `bodyCheckModifier`.
+ *
+ * Firing consumes the source card: every copy carrying this trigger (both
+ * players' `cardsInPlay`) is discarded on the one failed check, and duplicates
+ * have no extra effect (CRF: "Two instances in play of Traitor have no extra
+ * effect and are both discarded with the next failed corruption check").
+ *
+ * If a combat is already active when the check fails (e.g. a Corpse-candle
+ * pre-defense check), the attack is queued as a `traitor-attack-queued`
+ * constraint and initiated by `finalizeCombat` right after the current attack
+ * — matching the CRF timing ("the first declared action in a chain of effects
+ * immediately following the chain of effects that contains the corruption
+ * check").
+ */
+export interface TraitorAttackAction extends TriggeredActionBase {
+  readonly type: 'traitor-attack';
+  /** Added to the traitor's printed prowess to form the attack prowess (default 10). */
+  readonly prowessBonus?: number;
+  /** Number of strikes the attack delivers (default 1). */
+  readonly strikes?: number;
+  /** Modifier applied to any character body check the attack produces (default 0). */
+  readonly bodyCheckModifier?: number;
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -2503,7 +2560,8 @@ export type TriggeredAction =
   | ModifyCurrentStrikeProwessAction
   | TransformSiteAction
   | UntapSiteAction
-  | CancelCurrentAttackAction;
+  | CancelCurrentAttackAction
+  | TraitorAttackAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -3204,6 +3262,15 @@ export interface AgentAttackModifierEffect extends EffectBase {
    * the discard, matching the `tap-agent-at-site` precedent (dm-43).
    */
   readonly strikeEffect?: 'discard-item';
+  /**
+   * "Agent only: may tap for an extra strike" (Elerína dm-7). When the agent
+   * is untapped, the hazard player may declare the standard site-phase attack
+   * with an additional strike (2 instead of 1) at the cost of tapping the
+   * agent. Offered as an alternative `declare-agent-attack` legal action
+   * carrying `tapForExtraStrike: true`; declining leaves the normal 1-strike
+   * attack (and the agent untapped).
+   */
+  readonly tapForExtraStrike?: boolean;
 }
 
 /**
@@ -4950,6 +5017,41 @@ export interface ForceCheckAllCompanyTopEffect extends EffectBase {
 }
 
 /**
+ * When this hazard short-event resolves, **every character in play — both
+ * players'** — must make a check. Enqueued as one `corruption-check`
+ * {@link PendingResolution} per character, actor = the character's
+ * controller, honouring the sequencing printed on the source card:
+ *
+ *  - The moving player (the active player whose M/H phase this is) makes
+ *    their checks first — the declaring player's checks carry `blockedBy`
+ *    referencing the moving player's resolution IDs.
+ *  - Each player decides the order of their own characters' checks —
+ *    every enqueued check carries `selectableOrder: true`.
+ *  - `declarerMayTapSupport` grants the declaring player's checks
+ *    `allowSupport` (company mates tap for +1, the Free Council mechanic).
+ *  - `declarerNoResourceAid` marks the declaring player's checks
+ *    `noResourceAid` (no reactive resource plays from hand to aid them).
+ *
+ * Used by Ren the Unclean (tw-83) as the on-tap short-event conversion of
+ * its permanent-event mode: "each character in play must make a corruption
+ * check. If you tap Ren the Unclean, then you cannot play resources to aid
+ * your character's corruption checks. Your characters may tap in support.
+ * The moving player makes corruption checks first. Each player decides the
+ * order of the corruption checks for their characters."
+ */
+export interface ForceCheckAllInPlayEffect extends EffectBase {
+  readonly type: 'force-check-all-in-play';
+  /** Which check every character in play must make (`"corruption"`). */
+  readonly check: 'corruption';
+  /** Roll modifier applied to every check (default 0). */
+  readonly modifier?: number;
+  /** The declaring player's characters' checks allow tap-in-support (+1 each). */
+  readonly declarerMayTapSupport?: boolean;
+  /** The declaring player may not play resources from hand to aid their checks. */
+  readonly declarerNoResourceAid?: boolean;
+}
+
+/**
  * Hazard short-event that makes **each character** in the target company face
  * one strike (not part of a creature attack — "not an attack"). The strike has
  * a fixed prowess, carries no creature race, and resolves through the normal
@@ -6314,6 +6416,7 @@ export type CardEffect =
   | CallOfHomeCheckEffect
   | ProtectFromRemovalEffect
   | ForceCheckAllCompanyTopEffect
+  | ForceCheckAllInPlayEffect
   | CompanyStrikeEffect
   | CompanyTapCharactersEffect
   | CompanyTapRollEffect
@@ -6361,6 +6464,7 @@ export type CardEffect =
   | RegionMovementLimitEffect
   | ProhibitCompanyEventsEffect
   | HazardLimitEnvironmentEffect
+  | CancelHazardEventPlayEffect
   | TakePrisonerEffect
   | StrikeShieldEffect
   | CancelPrisonerTakingEffect
@@ -6868,30 +6972,70 @@ export interface ProhibitCompanyEventsEffect extends EffectBase {
 }
 
 /**
- * Environment effect that raises a moving company's hazard limit when the
- * company matches a `when` condition. Carried by an in-play hazard
- * environment permanent-event; it applies game-wide (to every player's
+ * Environment-style effect that modifies companies' hazard limits while the
+ * carrying card is in play. Carried by an in-play permanent or long event in
+ * either player's `cardsInPlay`; it applies game-wide (to every player's
  * companies), evaluated independently for each company at the moment its
  * hazard limit is snapshotted (site revelation in the Movement/Hazard phase).
  *
  * The {@link value} is added to the company's hazard limit once per matching
- * in-play card. The {@link when} condition is evaluated against a per-company
- * context exposing `company.size` (effective size, CoE rule 3.24),
+ * in-play card. The optional {@link when} condition is evaluated against a
+ * per-company context exposing `company.size` (effective size, CoE rule 3.24),
  * `company.hasWizard` (a Wizard avatar is in the company) and
  * `company.maxNonRangerMind` (the highest mind among the company's
  * non-ranger characters, or 0 if none) — see `snapshotHazardLimit` in
- * `reducer-movement-hazard.ts`.
+ * `mh-steps.ts`. An absent `when` matches every company.
  *
  * Used by Eyes of the Shadow (dm-56): "The hazard limit is increased by two
  * for each moving company with a size of less than four that also contains a
- * Wizard or a non-ranger character with a mind of 6 or more."
+ * Wizard or a non-ranger character with a mind of 6 or more." — `value: 2`
+ * with a `when` gate (moving companies only, the default).
+ *
+ * Used by The Great Eye (as-85): "The hazard limit against all companies is
+ * decreased by one (to a minimum of two)." — `value: -1, floor: 2,
+ * appliesTo: "all"`.
  */
 export interface HazardLimitEnvironmentEffect extends EffectBase {
   readonly type: 'hazard-limit-environment';
   /** Amount added to a matching company's hazard limit. */
   readonly value: number;
-  /** Condition (over the per-company context) gating whether {@link value} applies. */
-  readonly when: Condition;
+  /** Condition (over the per-company context) gating whether {@link value} applies. Absent = always. */
+  readonly when?: Condition;
+  /**
+   * Floor a negative {@link value} never reduces the limit below ("to a
+   * minimum of two"). A limit already at or below the floor is left
+   * unchanged — the effect only ever decreases, never raises to the floor.
+   */
+  readonly floor?: number;
+  /**
+   * Which companies the effect reaches. `'moving'` (the default) applies only
+   * to a company with a declared destination site — dm-56's "each moving
+   * company". `'all'` also reaches stationary companies — as-85's "against
+   * all companies".
+   */
+  readonly appliesTo?: 'moving' | 'all';
+}
+
+/**
+ * In-play card ability: while the carrying card is in play, its controller may
+ * discard it during chain declaring to negate an unresolved hazard *event*
+ * (short, long, or permanent) declared by the opponent, before it resolves.
+ * An event revealed from on-guard is never a legal target (its chain entry
+ * carries `fromOnGuard`), matching the printed "cannot be used against an
+ * on-guard card" restriction.
+ *
+ * Offered as a `cancel-hazard-event` action by `legal-actions/chain.ts` and
+ * applied by `handleCancelHazardEvent` in `chain-reducer.ts`: the source card
+ * moves from `cardsInPlay` to its owner's discard pile and the target entry is
+ * marked negated (the canceled card is routed to its owner's discard when the
+ * chain completes).
+ *
+ * Used by The Great Eye (as-85): "If this card is in play, you can discard it
+ * to target and cancel the play of a hazard event played by your opponent
+ * before it resolves. This cannot be used against an on-guard card."
+ */
+export interface CancelHazardEventPlayEffect extends EffectBase {
+  readonly type: 'cancel-hazard-event-play';
 }
 
 // ---- Rescue attack shape (used by TakePrisonerEffect) ----

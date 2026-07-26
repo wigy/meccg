@@ -114,8 +114,13 @@
             <label class="lobby-select-label">AI Deck</label>
             <select id="ai-deck-select" class="lobby-deck-select"></select>
           </div>
-          <p class="lobby-ai-description"><strong>Smart-AI</strong> uses heuristics to make competent decisions. <strong>Pseudo-AI</strong> lets you play both sides, making all decisions yourself.</p>
-          <button id="play-smart-ai-btn" class="lobby-play-btn">Play vs Smart-AI</button>
+          <div class="lobby-actions">
+            <label class="lobby-select-label">Real-AI Model</label>
+            <select id="ai-model-select" class="lobby-deck-select"></select>
+          </div>
+          <p class="lobby-ai-description"><strong>Real-AI</strong> plays with a trained neural network model. <strong>Heuristic-AI</strong> uses rules to make competent decisions. <strong>Pseudo-AI</strong> lets you play both sides, making all decisions yourself.</p>
+          <button id="play-real-ai-btn" class="lobby-play-btn">Play vs Real-AI</button>
+          <button id="play-heuristic-ai-btn" class="lobby-play-btn">Play vs Heuristic-AI</button>
           <button id="play-pseudo-ai-btn" class="lobby-play-btn lobby-play-btn--secondary">Play vs Pseudo-AI</button>
         </section>
       </div>
