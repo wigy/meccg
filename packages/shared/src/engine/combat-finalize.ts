@@ -301,6 +301,24 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         .filter(a => a.result === 'wounded')
         .map(a => a.characterId);
 
+  // Combatants whose strike *succeeded* — CoE 3.iv.5: "the strike is successful.
+  // The defending character is immediately wounded (which is considered
+  // synonymous with the strike succeeding) … and then the hazard player
+  // initiates a body check against the character". The wound therefore happens
+  // before, and independently of, the body check, so a combatant that is
+  // subsequently eliminated (or discarded) by that body check still *became
+  // wounded*. `woundedCharIds` above only holds combatants still wounded once
+  // combat finished; triggers that fire on the wound itself must use this
+  // wider set. `'eliminated'` is only ever recorded after a genuine wound
+  // (failed body check, `discardBodyCheck` match, or `wound-eliminates`), so no
+  // unwounded combatant leaks in. Detainment strikes tap instead of wounding
+  // (CoE 3.II.1.1) and are excluded.
+  const struckCharIds = combat.detainment
+    ? []
+    : combat.strikeAssignments
+        .filter(a => a.result === 'wounded' || a.result === 'eliminated')
+        .map(a => a.characterId);
+
   if (
     woundedCharIds.length > 0 &&
     (state.phaseState.phase === Phase.Site || state.phaseState.phase === Phase.MovementHazard)
@@ -390,8 +408,13 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   // the defending company for attached hazards carrying this event; for each
   // match, enqueue a corruption check on the bearer (the character bearing the
   // hazard, not necessarily the wounded character). Used by Despair of the Heart.
+  //
+  // Gated on `struckCharIds`, not `woundedCharIds`: the trigger is the wound
+  // itself, which precedes the body check (CRF 22, Despair of the Heart: "the
+  // corruption check occurs before the body check"). A company member wounded
+  // and then eliminated by its body check still fired this trigger.
   if (
-    woundedCharIds.length > 0 &&
+    struckCharIds.length > 0 &&
     (state.phaseState.phase === Phase.Site || state.phaseState.phase === Phase.MovementHazard)
   ) {
     const defPlayerIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
