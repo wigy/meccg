@@ -10,6 +10,7 @@
 import type WebSocket from 'ws';
 import type { LobbyClientMessage, LobbyServerMessage } from './protocol.js';
 import { launchGame } from '../games/launcher.js';
+import { resolveModelFile } from '../games/models.js';
 import { lobbyLog } from '../lobby-log.js';
 import { getDisplayName, getCredits } from '../players/store.js';
 
@@ -163,12 +164,21 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       break;
     }
 
-    case 'play-smart-ai': {
+    case 'play-heuristic-ai': {
       if (from.inGame) {
         send(from.ws, { type: 'error', message: 'You are already in a game' });
         return;
       }
       void startAiGame(from, msg.deckId);
+      break;
+    }
+
+    case 'play-real-ai': {
+      if (from.inGame) {
+        send(from.ws, { type: 'error', message: 'You are already in a game' });
+        return;
+      }
+      void startAiGame(from, msg.deckId, msg.model);
       break;
     }
 
@@ -268,17 +278,32 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
   }
 }
 
-/** Launch a game against the Smart-AI (heuristic strategy). */
-async function startAiGame(player: OnlinePlayer, deckId?: string): Promise<void> {
+/**
+ * Launch a game against an AI opponent: the Heuristic-AI (rule-based
+ * strategy) by default, or a Real-AI when `modelFile` names a trained
+ * model from the server's models directory. The model argument is a bare
+ * file name validated against the directory listing — never a client
+ * supplied path.
+ */
+async function startAiGame(player: OnlinePlayer, deckId?: string, modelFile?: string): Promise<void> {
   if (!deckId) {
     send(player.ws, { type: 'error', message: 'Select a deck for the AI before starting' });
     return;
   }
+  let aiModelPath: string | undefined;
+  if (modelFile !== undefined) {
+    const resolved = resolveModelFile(modelFile);
+    if (!resolved) {
+      send(player.ws, { type: 'error', message: 'Unknown AI model' });
+      return;
+    }
+    aiModelPath = resolved;
+  }
   player.inGame = true;
-  const aiName = 'AI-Smart';
+  const aiName = modelFile !== undefined ? 'AI-Real' : 'AI-Heuristic';
 
   try {
-    const result = await launchGame(player.name, aiName, { ai: true, aiDeckId: deckId });
+    const result = await launchGame(player.name, aiName, { ai: true, aiDeckId: deckId, aiModelPath });
     lobbyLog.log('game-start', { player1: player.name, player2: aiName, ai: true, port: result.port });
 
     player.activeGame = {

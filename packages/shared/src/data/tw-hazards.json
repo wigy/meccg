@@ -1460,7 +1460,22 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureofPower.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": ["corruption"],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "successful-influence-attempt",
+        "when": { "target.race": { "$ne": "hobbit" } },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            { "type": "enqueue-corruption-check", "modifier": -4 },
+            { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-07-26",
     "text": "The next non-Hobbit character to make a successful influence attempt (e. g., against a faction, an opponent’s character, etc.) must immediately make a corruption check modified by -4. Discard this card after this corruption check."
   },
   {
@@ -1632,7 +1647,66 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheBurdenofTime.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": [
+      "corruption"
+    ],
+    "removalNumber": 7,
+    "certified": "2026-07-26",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.race": "elf"
+            },
+            {
+              "company.atHaven": false
+            }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "untap-phase-end",
+        "when": {
+          "bearer.atHaven": false
+        },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "bearer"
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 8,
+          "onSuccess": {
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
+          }
+        }
+      }
+    ],
     "text": "Corruption. Playable on an Elf not in a Haven/Darkhaven [{H}]. Target Elf receives 2 corruption points and must make a corruption check during each of his untap phases if he is not in a Haven. Cannot be duplicated on a given Elf.During his organization phase, an Elf with this card may tap to attempt to remove it. Make a roll: if this result is greater than 7, discard this card."
   },
   {
@@ -1723,8 +1797,20 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Traitor.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "When the next character fails a corruption check, he becomes a \"traitor\" and an attack is immediately made against a character in the traitor's company.The character to be attacked is chosen by the player who does not control the traitor's company. The prowess of the attack is equal to the prowess of the traitor plus 10. Any resulting body check is modified by +1.This card is discarded when a character fails his corruption check."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "corruption-check-failed",
+        "apply": {
+          "type": "traitor-attack",
+          "prowessBonus": 10,
+          "strikes": 1,
+          "bodyCheckModifier": 1
+        }
+      }
+    ],
+    "text": "When the next character fails a corruption check, he becomes a \"traitor\" and an attack is immediately made against a character in the traitor's company.The character to be attacked is chosen by the player who does not control the traitor's company. The prowess of the attack is equal to the prowess of the traitor plus 10. Any resulting body check is modified by +1.This card is discarded when a character fails his corruption check.",
+    "certified": "2026-07-25"
   },
   {
     "cardType": "hazard-event",

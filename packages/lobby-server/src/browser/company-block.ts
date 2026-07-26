@@ -36,7 +36,7 @@ import type {
   DeclareAgentAttackAction,
   TapAltPermanentEventAction,
 } from '@meccg/shared';
-import { cardImageProxyPath, isAttachedToPresentSite, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
+import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId } from './render-utils.js';
 import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection, getSelectedTapAltPermanentEvent, setSelectedTapAltPermanentEvent, clearTapAltPermanentEventSelection } from './render.js';
@@ -921,6 +921,29 @@ export function renderCompanyBlock(
     if (titleChar && char.instanceId === titleChar.instanceId) continue;
     row.appendChild(renderCharacterColumn(char, cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick));
   }
+
+  // Company-targeting permanent events bound to this company (e.g. Fellowship,
+  // Going Ever Under Dark) render inside the company block — they sit with the
+  // company on the physical table, not in the flat cards-in-play row (which
+  // excludes them; see renderCardsInPlayRow). Either player's card may be
+  // bound here (hazard permanents target the opponent's companies), so both
+  // players' cardsInPlay are consulted.
+  const companyBound = [
+    ...cardsAttachedToCompany(view.self.cardsInPlay, company.id),
+    ...cardsAttachedToCompany(view.opponent.cardsInPlay, company.id),
+  ];
+  if (companyBound.length > 0) {
+    const strip = document.createElement('div');
+    strip.className = 'company-attachments';
+    for (const card of companyBound) {
+      const img = renderInPlayCardImage(card, view, cardPool, options?.onAction);
+      if (!img) continue;
+      img.classList.add('company-card--company-attachment');
+      strip.appendChild(img);
+    }
+    if (strip.childElementCount > 0) row.appendChild(strip);
+  }
+
   block.appendChild(row);
 
   return block;
@@ -1063,6 +1086,95 @@ export function findTapAltPermanentEventTarget(
   );
 }
 
+/**
+ * Render a single in-play permanent (a `cardsInPlay` entry) as a board card
+ * image with its interactive affordances wired: short-event discard-target
+ * highlighting, dual-mode creature-permanent tap, hazard-limit tap/untap, and
+ * discard-for-hazard-limit. Shared by the flat cards-in-play row and the
+ * per-company attachments strip so a company-bound permanent keeps the same
+ * click behaviour wherever it renders. Returns `null` when the card image
+ * cannot be created.
+ */
+function renderInPlayCardImage(
+  card: { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId; readonly status?: string },
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction?: (action: GameAction) => void,
+): HTMLElement | null {
+  const img = createCardImageFromDefId(card.definitionId, cardPool, 'company-card', card.instanceId as string);
+  if (!img) return null;
+  if (card.status === CardStatus.Tapped) img.classList.add('company-card--tapped');
+  const selectedSE = getSelectedShortEvent();
+  // Highlight as discard target when a short event with discardTargetInstanceId is selected
+  if (selectedSE && onAction) {
+    const seAction = viableActions(view.legalActions).find(
+      (a): a is PlayShortEventAction => a.type === 'play-short-event'
+        && a.cardInstanceId === selectedSE
+        && a.discardTargetInstanceId === card.instanceId,
+    );
+    if (seAction) {
+      img.classList.add('company-card--influence-target');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearShortEventSelection();
+        onAction(seAction);
+      });
+    }
+  }
+  else if (onAction) {
+    // Dual-mode creature-permanent-events (Adûnaphel tw-2, Ûvatha tw-107):
+    // clicking the in-play card taps it ("becomes a short-event"). For a
+    // tap-character on-tap effect (tw-2) the tap needs a target character, so
+    // clicking selects the card and highlights eligible characters for a
+    // second click; otherwise (tw-107, whose follow-up is a pending flow) the
+    // single action fires immediately. Without this the only way to tap was
+    // the debug action panel — the card was untappable from the board.
+    const tapAltActions = findTapAltPermanentEventActions(viableActions(view.legalActions), card.instanceId);
+    // Power Built by Waiting (as-34) and similar hazard-limit-swap permanents:
+    // clicking the card-in-play taps it for +hazard limit, or (when tapped)
+    // spends hazard limit to untap it. Without this the only way to activate
+    // the card was the debug action panel — it was invisible on the board.
+    const tapAction = findCardsInPlayTapAction(viableActions(view.legalActions), card.instanceId);
+    // Dragon "At Home" permanents (Daelomin at Home td-11): clicking the
+    // in-play card discards it for +hazard limit against the active company.
+    // Without this the only way to trigger the discard was the debug action
+    // panel — the card had no board affordance.
+    const discardForLimitAction = findDiscardForHazardLimitAction(viableActions(view.legalActions), card.instanceId);
+    if (tapAltActions.length > 0) {
+      const isSelected = getSelectedTapAltPermanentEvent() === card.instanceId;
+      img.classList.add('company-card--movable');
+      if (isSelected) img.classList.add('company-card--influence-source');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const withTarget = tapAltActions.filter(a => a.targetCharacterId);
+        if (withTarget.length === 0) {
+          // No character to choose (e.g. tw-107): fire the single action.
+          clearTapAltPermanentEventSelection();
+          onAction(tapAltActions[0]);
+          return;
+        }
+        // Toggle the two-step character-targeting selection.
+        setSelectedTapAltPermanentEvent(isSelected ? null : card.instanceId);
+        setTargetingInstruction(isSelected ? null : 'Click a character to tap');
+        rerender();
+      });
+    } else if (tapAction) {
+      img.classList.add('company-card--movable');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onAction(tapAction);
+      });
+    } else if (discardForLimitAction) {
+      img.classList.add('company-card--movable');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onAction(discardForLimitAction);
+      });
+    }
+  }
+  return img;
+}
+
 export function renderCardsInPlayRow(
   container: HTMLElement,
   view: PlayerView,
@@ -1070,8 +1182,10 @@ export function renderCardsInPlayRow(
   onAction?: (action: GameAction) => void,
 ): void {
   // Cards bound to a site occupied by one of a player's companies are rendered
-  // beneath that site (see renderSiteArea), so drop them from the flat row to
-  // avoid showing them twice. Site-bound cards with no present site stay here.
+  // beneath that site (see renderSiteArea), and cards bound to a rendered
+  // company are shown inside that company's block (see renderCompanyBlock),
+  // so drop both from the flat row to avoid showing them twice. Bound cards
+  // whose site/company is not on the board stay here.
   const cachedInstanceLookup = getCachedInstanceLookup();
   const presentSiteDefIds = (companies: readonly (Company | OpponentCompanyView)[]): Set<string> => {
     const ids = new Set<string>();
@@ -1084,92 +1198,26 @@ export function renderCardsInPlayRow(
   };
   const selfPresent = presentSiteDefIds(view.self.companies);
   const oppPresent = presentSiteDefIds(view.opponent.companies);
-  const selfCards = view.self.cardsInPlay.filter(c => !isAttachedToPresentSite(c, selfPresent));
-  const oppCards = view.opponent.cardsInPlay.filter(c => !isAttachedToPresentSite(c, oppPresent));
+  const presentCompanyIds = new Set<string>(
+    [...view.self.companies, ...view.opponent.companies].map(c => c.id as string),
+  );
+  const selfCards = view.self.cardsInPlay.filter(c =>
+    !isAttachedToPresentSite(c, selfPresent) && !isAttachedToPresentCompany(c, presentCompanyIds));
+  const oppCards = view.opponent.cardsInPlay.filter(c =>
+    !isAttachedToPresentSite(c, oppPresent) && !isAttachedToPresentCompany(c, presentCompanyIds));
   if (selfCards.length === 0 && oppCards.length === 0) return;
 
   const row = document.createElement('div');
   row.className = 'cards-in-play-row';
   row.style.setProperty('--company-scale', '0.6');
 
-  const selectedSE = getSelectedShortEvent();
-
   const renderGroup = (cards: readonly { instanceId: CardInstanceId; definitionId: CardDefinitionId; status?: string }[], className: string) => {
     if (cards.length === 0) return;
     const group = document.createElement('div');
     group.className = className;
     for (const card of cards) {
-      const img = createCardImageFromDefId(card.definitionId, cardPool, 'company-card', card.instanceId as string);
-      if (!img) continue;
-      if (card.status === CardStatus.Tapped) img.classList.add('company-card--tapped');
-      // Highlight as discard target when a short event with discardTargetInstanceId is selected
-      if (selectedSE && onAction) {
-        const seAction = viableActions(view.legalActions).find(
-          (a): a is PlayShortEventAction => a.type === 'play-short-event'
-            && a.cardInstanceId === selectedSE
-            && a.discardTargetInstanceId === card.instanceId,
-        );
-        if (seAction) {
-          img.classList.add('company-card--influence-target');
-          img.addEventListener('click', (e) => {
-            e.stopPropagation();
-            clearShortEventSelection();
-            onAction(seAction);
-          });
-        }
-      }
-      else if (onAction) {
-        // Dual-mode creature-permanent-events (Adûnaphel tw-2, Ûvatha tw-107):
-        // clicking the in-play card taps it ("becomes a short-event"). For a
-        // tap-character on-tap effect (tw-2) the tap needs a target character, so
-        // clicking selects the card and highlights eligible characters for a
-        // second click; otherwise (tw-107, whose follow-up is a pending flow) the
-        // single action fires immediately. Without this the only way to tap was
-        // the debug action panel — the card was untappable from the board.
-        const tapAltActions = findTapAltPermanentEventActions(viableActions(view.legalActions), card.instanceId);
-        // Power Built by Waiting (as-34) and similar hazard-limit-swap permanents:
-        // clicking the card-in-play taps it for +hazard limit, or (when tapped)
-        // spends hazard limit to untap it. Without this the only way to activate
-        // the card was the debug action panel — it was invisible on the board.
-        const tapAction = findCardsInPlayTapAction(viableActions(view.legalActions), card.instanceId);
-        // Dragon "At Home" permanents (Daelomin at Home td-11): clicking the
-        // in-play card discards it for +hazard limit against the active company.
-        // Without this the only way to trigger the discard was the debug action
-        // panel — the card had no board affordance.
-        const discardForLimitAction = findDiscardForHazardLimitAction(viableActions(view.legalActions), card.instanceId);
-        if (tapAltActions.length > 0) {
-          const isSelected = getSelectedTapAltPermanentEvent() === card.instanceId;
-          img.classList.add('company-card--movable');
-          if (isSelected) img.classList.add('company-card--influence-source');
-          img.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const withTarget = tapAltActions.filter(a => a.targetCharacterId);
-            if (withTarget.length === 0) {
-              // No character to choose (e.g. tw-107): fire the single action.
-              clearTapAltPermanentEventSelection();
-              onAction(tapAltActions[0]);
-              return;
-            }
-            // Toggle the two-step character-targeting selection.
-            setSelectedTapAltPermanentEvent(isSelected ? null : card.instanceId);
-            setTargetingInstruction(isSelected ? null : 'Click a character to tap');
-            rerender();
-          });
-        } else if (tapAction) {
-          img.classList.add('company-card--movable');
-          img.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onAction(tapAction);
-          });
-        } else if (discardForLimitAction) {
-          img.classList.add('company-card--movable');
-          img.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onAction(discardForLimitAction);
-          });
-        }
-      }
-      group.appendChild(img);
+      const img = renderInPlayCardImage(card, view, cardPool, onAction);
+      if (img) group.appendChild(img);
     }
     row.appendChild(group);
   };

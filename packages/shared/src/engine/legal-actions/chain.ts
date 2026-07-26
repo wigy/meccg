@@ -69,6 +69,12 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
     actions.push(...cancelReturnToOriginChainActions(state, playerId));
   }
 
+  // The Great Eye (as-85): discard an in-play cancel-hazard-event-play card to
+  // negate an opponent's unresolved hazard-event entry before it resolves.
+  if (chain.restriction === 'normal') {
+    actions.push(...cancelHazardEventChainActions(state, playerId));
+  }
+
   // Black Vapour (ba-14): the attacking (hazard) player may counter an
   // opponent's chain entry that would cancel a Spider (or matching-race) attack.
   if (chain.restriction === 'normal' && state.combat != null) {
@@ -326,11 +332,16 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
  * During chain declaring, the priority player may play a hazard short
  * event whose `on-event: self-enters-play` apply is
  * `cancel-chain-entry` with `select: 'target'` and a `requiredSkill`
- * filter. Emits one `play-short-event` action per eligible target —
- * an unresolved chain entry whose source card carries at least one
- * effect with a matching `requiredSkill`. Used by Searching Eye to
- * cancel scout-skill cards (Concealment, A Nice Place to Hide, Stealth)
- * before they resolve.
+ * and/or `filter` restriction. Emits one `play-short-event` action per
+ * eligible target — an unresolved chain entry whose source card carries
+ * at least one effect with a matching `requiredSkill` (Searching Eye
+ * canceling scout-skill cards like Concealment, A Nice Place to Hide,
+ * Stealth before they resolve), and/or whose entry context matches the
+ * apply's `filter` condition. The filter context exposes the target
+ * card's identity (`target.cardType`, `target.eventType`, `target.name`)
+ * and the declaring player's alignment (`declaredBy.alignment`) — Ire of
+ * the East (wh-24) uses it to cancel "one minion short-event played by a
+ * Fallen-wizard earlier in the same chain of effects".
  */
 function playSkillCancelChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const chain = state.chain;
@@ -351,21 +362,39 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
         && e.event === 'self-enters-play'
         && e.apply?.type === 'cancel-chain-entry'
         && e.apply?.select === 'target'
-        && typeof e.apply?.requiredSkill === 'string',
+        && (typeof e.apply?.requiredSkill === 'string' || e.apply?.filter != null),
     );
     if (!cancelEffect) continue;
-    const requiredSkill = cancelEffect.apply.requiredSkill!;
+    const requiredSkill = cancelEffect.apply.requiredSkill;
+    const filter = cancelEffect.apply.filter;
 
     for (const entry of chain.entries) {
       if (entry.resolved || entry.negated || !entry.card) continue;
       if (entry.card.instanceId === handCard.instanceId) continue;
       const targetDef = defById(state, entry.card.definitionId);
-      const hasSkill = getCardEffects(targetDef).some(
-        e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill,
-      );
-      if (!hasSkill) continue;
+      if (requiredSkill != null) {
+        const hasSkill = getCardEffects(targetDef).some(
+          e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill,
+        );
+        if (!hasSkill) continue;
+      }
+      if (filter != null) {
+        const declaredByPlayer = playerById(state, entry.declaredBy);
+        const entryCtx = {
+          target: {
+            cardType: targetDef?.cardType,
+            eventType: (targetDef as { eventType?: string } | undefined)?.eventType,
+            name: (targetDef as { name?: string } | undefined)?.name,
+          },
+          declaredBy: { alignment: declaredByPlayer?.alignment },
+        };
+        if (!matchesCondition(filter, entryCtx)) {
+          logDetail(`Chain response: ${hazDef.name} — entry "${(targetDef as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string)}" does not match filter (cardType ${targetDef?.cardType ?? '?'}, declaredBy ${declaredByPlayer?.alignment ?? '?'})`);
+          continue;
+        }
+      }
 
-      logDetail(`Chain response: ${hazDef.name} can cancel ${(targetDef as { name?: string } | undefined)?.name ?? entry.card.definitionId} (requires ${requiredSkill})`);
+      logDetail(`Chain response: ${hazDef.name} can cancel ${(targetDef as { name?: string } | undefined)?.name ?? entry.card.definitionId}${requiredSkill != null ? ` (requires ${requiredSkill})` : ''}`);
       actions.push({
         action: {
           type: 'play-short-event',
@@ -449,6 +478,69 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
     }
   }
 
+  return actions;
+}
+
+/**
+ * The Great Eye (as-85): during chain declaring, the priority player may
+ * discard one of their in-play cards carrying `cancel-hazard-event-play` to
+ * negate an unresolved hazard *event* entry (short, long, or permanent event —
+ * never a creature) declared by the opponent, before it resolves. An event
+ * revealed from on-guard (`payload.fromOnGuard`) is not a legal target —
+ * "this cannot be used against an on-guard card".
+ *
+ * Emits one `cancel-hazard-event` action per (in-play source, target entry)
+ * pair. The reducer path is {@link handleCancelHazardEvent} in
+ * `chain-reducer.ts`: the source card moves to its owner's discard and the
+ * entry is negated (its card is routed to the declarer's discard by the
+ * chain-completion flush).
+ */
+function cancelHazardEventChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const chain = state.chain;
+  if (!chain) return [];
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  // Sources: the player's in-play cards carrying cancel-hazard-event-play.
+  const sources = player.cardsInPlay.filter(c =>
+    getCardEffects(defById(state, c.definitionId)).some(e => e.type === 'cancel-hazard-event-play'),
+  );
+  if (sources.length === 0) return [];
+
+  // Targets: unresolved, un-negated opponent-declared hazard-event entries
+  // not revealed from on-guard.
+  const targets: { instanceId: CardInstanceId; name: string }[] = [];
+  for (const e of chain.entries) {
+    if (e.resolved || e.negated || !e.card) continue;
+    if (e.declaredBy === playerId) continue;
+    const def = defById(state, e.card.definitionId);
+    if (def?.cardType !== 'hazard-event') continue;
+    if ((e.payload.type === 'short-event' || e.payload.type === 'permanent-event')
+        && e.payload.fromOnGuard) {
+      logDetail(`cancel-hazard-event: "${def.name}" was revealed from on-guard — not a legal target`);
+      continue;
+    }
+    targets.push({ instanceId: e.card.instanceId, name: def.name });
+  }
+  if (targets.length === 0) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const source of sources) {
+    const sourceName = (defById(state, source.definitionId) as { name?: string } | undefined)?.name
+      ?? (source.definitionId as string);
+    for (const target of targets) {
+      logDetail(`cancel-hazard-event: ${sourceName} may be discarded to cancel "${target.name}"`);
+      actions.push({
+        action: {
+          type: 'cancel-hazard-event',
+          player: playerId,
+          cardInstanceId: source.instanceId,
+          targetInstanceId: target.instanceId,
+        },
+        viable: true,
+      });
+    }
+  }
   return actions;
 }
 

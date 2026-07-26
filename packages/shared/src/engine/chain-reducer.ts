@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { makeCombatState, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
+import { makeCombatState, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -185,6 +185,8 @@ export function handleChainAction(state: GameState, action: GameAction): Reducer
       return handleChainRevealOnGuard(state, chain, action);
     case 'cancel-return-to-origin':
       return handleCancelReturnToOrigin(state, chain, action);
+    case 'cancel-hazard-event':
+      return handleCancelHazardEvent(state, chain, action);
     case 'counter-cancel-roll':
       return handleCounterCancelRoll(state, chain, action);
     case 'counter-cancel-attack':
@@ -329,11 +331,13 @@ function handleChainRevealOnGuard(state: GameState, chain: ChainState, action: G
 
   let newState: GameState = { ...state, players: newPlayers };
 
-  // Push as chain entry
+  // Push as chain entry. `fromOnGuard` marks the reveal origin so cancels
+  // that "cannot be used against an on-guard card" (The Great Eye as-85)
+  // can exclude this entry.
   const isPermanent = def && 'eventType' in def && (def as { eventType?: string }).eventType === 'permanent';
   const payload: ChainEntryPayload = isPermanent
-    ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId }
-    : { type: 'short-event' as const };
+    ? { type: 'permanent-event' as const, targetCharacterId: action.targetCharacterId, fromOnGuard: true }
+    : { type: 'short-event' as const, fromOnGuard: true };
   const cardInstance: CardInstance = toCardInstance(revealedCard);
 
   // Revealed short events mirror hand-played ones: the card moves to its
@@ -416,6 +420,93 @@ function handleCancelReturnToOrigin(
   // Flip priority to opponent so they may respond
   const newPriority = opponent(state, action.player);
   logDetail(`cancel-return-to-origin: priority flips to ${newPriority as string}`);
+
+  const newChain: ChainState = {
+    ...chain,
+    entries: newEntries,
+    priority: newPriority,
+    priorityPlayerPassed: false,
+    nonPriorityPlayerPassed: false,
+  };
+
+  return { state: { ...state, players: newPlayers, chain: newChain } };
+}
+
+/**
+ * Handles a `cancel-hazard-event` action (The Great Eye as-85): the acting
+ * player discards an in-play card carrying `cancel-hazard-event-play` to
+ * negate an unresolved hazard *event* chain entry declared by the opponent,
+ * before it resolves. Entries revealed from on-guard (`payload.fromOnGuard`)
+ * are rejected — "this cannot be used against an on-guard card".
+ *
+ * The negated entry's card is routed to its owner's discard by
+ * {@link completeChain}'s negated-entry flush (short events, already discarded
+ * at play time, are not duplicated thanks to the flush's already-in-discard
+ * guard). Priority then flips to the opponent so they may respond — the same
+ * pattern as {@link handleCancelReturnToOrigin}.
+ */
+function handleCancelHazardEvent(
+  state: GameState,
+  chain: ChainState,
+  action: import('../index.js').CancelHazardEventAction,
+): ReducerResult {
+  logHeading(`Chain: cancel-hazard-event by player ${action.player as string}`);
+
+  if (chain.mode !== 'declaring') {
+    return { state, error: 'cancel-hazard-event: chain is not in declaring mode' };
+  }
+  if (action.player !== chain.priority) {
+    return { state, error: 'cancel-hazard-event: player does not have priority' };
+  }
+
+  // The source card must be in the acting player's cardsInPlay and carry the effect.
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const sourceCard = findById(player.cardsInPlay, action.cardInstanceId);
+  if (!sourceCard) return { state, error: 'cancel-hazard-event: source card not in play' };
+  const sourceDef = defById(state, sourceCard.definitionId);
+  if (!getCardEffects(sourceDef).some(e => e.type === 'cancel-hazard-event-play')) {
+    return { state, error: 'cancel-hazard-event: source card has no cancel-hazard-event-play effect' };
+  }
+  const sourceName = (sourceDef as { name?: string } | undefined)?.name ?? (sourceCard.definitionId as string);
+
+  // The target must be an unresolved, un-negated hazard-event entry declared
+  // by the opponent, not revealed from on-guard.
+  const entryIdx = chain.entries.findIndex(
+    e => e.card?.instanceId === action.targetInstanceId && !e.resolved && !e.negated,
+  );
+  if (entryIdx === -1) return { state, error: 'cancel-hazard-event: target chain entry not found' };
+  const entry = chain.entries[entryIdx];
+  if (entry.declaredBy === action.player) {
+    return { state, error: 'cancel-hazard-event: cannot target your own event' };
+  }
+  const targetDef = defById(state, entry.card!.definitionId);
+  if (targetDef?.cardType !== 'hazard-event') {
+    return { state, error: 'cancel-hazard-event: target is not a hazard event' };
+  }
+  if ((entry.payload.type === 'short-event' || entry.payload.type === 'permanent-event')
+      && entry.payload.fromOnGuard) {
+    return { state, error: 'cancel-hazard-event: cannot be used against an on-guard card' };
+  }
+  const targetName = (targetDef as { name?: string }).name ?? (action.targetInstanceId as string);
+
+  // Pay the cost: discard the source card from play.
+  logDetail(`cancel-hazard-event: discarding ${sourceName} to cancel "${targetName}"`);
+  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  newPlayers[playerIndex] = {
+    ...player,
+    cardsInPlay: player.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+    discardPile: [...player.discardPile, toCardInstance(sourceCard)],
+  };
+
+  // Negate the target chain entry
+  const newEntries = chain.entries.map((e, i) =>
+    i === entryIdx ? { ...e, negated: true } : e,
+  );
+
+  // Flip priority to opponent so they may respond
+  const newPriority = opponent(state, action.player);
+  logDetail(`cancel-hazard-event: priority flips to ${newPriority as string}`);
 
   const newChain: ChainState = {
     ...chain,
@@ -1323,6 +1414,73 @@ function applyTapCharacter(state: GameState, entry: ChainEntry): GameState {
     }
   }
   return state;
+}
+
+/**
+ * Resolves a `force-check-all-in-play` effect (Ren the Unclean tw-83's on-tap
+ * short-event conversion): every character in play — both players' — must
+ * make a corruption check.
+ *
+ * One `corruption-check` pending resolution is enqueued per character, actor
+ * = the character's controller, scope = the current M/H phase. The moving
+ * player (the active player, in whose M/H phase the tap happened) checks
+ * first: the other player's entries carry `blockedBy` naming every moving-
+ * player check ID, so `topResolutionFor` hides them until the moving player's
+ * queue drains. All entries carry `selectableOrder` ("each player decides the
+ * order of the corruption checks for their characters"); the declaring
+ * player's entries additionally carry `allowSupport` / `noResourceAid` per
+ * the effect's `declarerMayTapSupport` / `declarerNoResourceAid` fields.
+ */
+function applyForceCheckAllInPlay(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event') return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').ForceCheckAllInPlayEffect => e.type === 'force-check-all-in-play',
+  );
+  if (!effect || effect.check !== 'corruption') return state;
+
+  const cardName = (def as { name?: string })?.name ?? (card.definitionId as string);
+  const declarer = entry.declaredBy;
+  // "The moving player makes corruption checks first" — the moving player is
+  // the active player: the tap happens during the opponent's M/H phase.
+  const movingPlayerId = state.activePlayer ?? declarer;
+  const ordered = [...state.players].sort((a, b) =>
+    (a.id === movingPlayerId ? 0 : 1) - (b.id === movingPlayerId ? 0 : 1));
+
+  let current = state;
+  let movingCheckIds: readonly import('../index.js').ResolutionId[] = [];
+  for (const player of ordered) {
+    const isMoving = player.id === movingPlayerId;
+    const isDeclarer = player.id === declarer;
+    for (const charId of characterIds(player)) {
+      const char = player.characters[charId];
+      const possessions = [
+        ...char.items.map(i => i.instanceId),
+        ...char.allies.map(a => a.instanceId),
+        ...char.hazards.map(h => h.instanceId),
+      ];
+      current = enqueueCorruptionCheck(current, {
+        source: card.instanceId,
+        actor: player.id,
+        scope: { kind: 'phase', phase: Phase.MovementHazard },
+        characterId: charId,
+        reason: cardName,
+        modifier: effect.modifier ?? 0,
+        possessions,
+        selectableOrder: true,
+        allowSupport: isDeclarer && effect.declarerMayTapSupport ? true : undefined,
+        noResourceAid: isDeclarer && effect.declarerNoResourceAid ? true : undefined,
+        blockedBy: !isMoving && movingCheckIds.length > 0 ? movingCheckIds : undefined,
+      });
+      const minted = current.pendingResolutions[current.pendingResolutions.length - 1];
+      if (isMoving) movingCheckIds = [...movingCheckIds, minted.id];
+      logDetail(`${cardName}: corruption check enqueued for ${charId as string} (${player.name}${isMoving ? ' — moving player, checks first' : ' — waits for moving player'})`);
+    }
+  }
+  const total = current.pendingResolutions.length - state.pendingResolutions.length;
+  logDetail(`${cardName}: force-check-all-in-play — ${total} corruption check(s) enqueued, moving player ${movingPlayerId as string} first`);
+  return current;
 }
 
 /**
@@ -3103,6 +3261,36 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
   }
 
+  // "Remove this card from the game." — a short-event whose self-enters-play
+  // `cancel-chain-entry` apply carries `removeFromGame` (Ire of the East
+  // wh-24) moves the spent card from its player's discard pile (where it was
+  // placed at play time) to their out-of-play pile once its entry resolves
+  // un-negated, so it can never be recurred. A negated entry leaves the card
+  // in the discard pile — a canceled card's instructions never execute.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const removesSelf = getCardEffects(def).some(
+      e => e.type === 'on-event'
+        && e.event === 'self-enters-play'
+        && e.apply?.type === 'cancel-chain-entry'
+        && e.apply.removeFromGame === true,
+    );
+    if (removesSelf) {
+      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
+      const eventInstId = entry.card.instanceId;
+      const eventCard = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
+      if (eventCard) {
+        const cardName = (def as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
+        current = updatePlayer(current, declarerIdx, p => ({
+          ...p,
+          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
+          outOfPlayPile: [...p.outOfPlayPile, eventCard],
+        }));
+        logDetail(`${cardName}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
+      }
+    }
+  }
+
   // Short events that carry an on-event company-arrives-at-site → add-
   // constraint effect (e.g. *River*) have the target company fully
   // determined at play time (the active M/H company). Fire the trigger
@@ -3160,6 +3348,12 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // and rides on the chain entry's payload.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyTapCharacter(current, entry);
+  }
+
+  // Short events that force every character in play — both players' — to make
+  // a corruption check (Ren the Unclean tw-83's on-tap short-event conversion).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyForceCheckAllInPlay(current, entry);
   }
 
   // draw-cards (Dark Tryst as-80): a resource short event that draws cards
@@ -4531,10 +4725,21 @@ function completeChain(state: GameState): GameState {
   const chain = state.chain!;
   logHeading(`Chain complete — ${chain.entries.length} entries resolved`);
 
-  // Flush negated entries: cards still on the chain go to their declaring player's discard
+  // Flush negated entries: cards still on the chain go to their declaring player's discard.
+  // A card already sitting in a discard pile (short events are discarded at play
+  // time; some cancel paths route the card themselves) is skipped — flushing it
+  // again would duplicate the instance.
   let current = state;
   for (const entry of chain.entries) {
     if (entry.negated && entry.card) {
+      const instanceId = entry.card.instanceId;
+      const alreadyDiscarded = current.players.some(p =>
+        p.discardPile.some(c => c.instanceId === instanceId),
+      );
+      if (alreadyDiscarded) {
+        logDetail(`Negated card ${instanceId as string} already in a discard pile — not flushing again`);
+        continue;
+      }
       const playerIndex = getPlayerIndex(current, entry.declaredBy);
       const player = current.players[playerIndex];
       const def = defById(current, entry.card.definitionId);

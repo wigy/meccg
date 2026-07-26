@@ -33,8 +33,10 @@ export function updatePlayControls(): void {
   const hasDeck = appState.currentDeckId !== null;
   const notice = document.getElementById('no-deck-notice');
   if (notice) notice.classList.toggle('hidden', hasDeck);
-  const playSmartAiBtn = document.getElementById('play-smart-ai-btn') as HTMLButtonElement | null;
-  if (playSmartAiBtn) playSmartAiBtn.disabled = !hasDeck;
+  const playHeuristicAiBtn = document.getElementById('play-heuristic-ai-btn') as HTMLButtonElement | null;
+  if (playHeuristicAiBtn) playHeuristicAiBtn.disabled = !hasDeck;
+  const playRealAiBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement | null;
+  if (playRealAiBtn) playRealAiBtn.disabled = !hasDeck;
   const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
   if (aiDeckSelect) aiDeckSelect.disabled = !hasDeck;
   // Disable challenge buttons on online player list

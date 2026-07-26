@@ -202,7 +202,13 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "agent-attack-modifier",
+        "tapForExtraStrike": true
+      }
+    ],
+    "certified": "2026-07-26",
     "text": "Unique. Agent. Can use shadow-magic and spirit-magic. Agent only: may tap for an extra strike."
   },
   {

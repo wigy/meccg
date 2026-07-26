@@ -77,8 +77,10 @@ export function showScreen(id: ScreenId): void {
   updateCreditsBadge();
   // Reset lobby button state when showing the lobby
   if (id === 'lobby-screen') {
-    const smartBtn = document.getElementById('play-smart-ai-btn') as HTMLButtonElement | null;
-    if (smartBtn) { smartBtn.textContent = 'Play vs Smart-AI'; smartBtn.disabled = false; }
+    const heuristicBtn = document.getElementById('play-heuristic-ai-btn') as HTMLButtonElement | null;
+    if (heuristicBtn) { heuristicBtn.textContent = 'Play vs Heuristic-AI'; heuristicBtn.disabled = false; }
+    const realBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement | null;
+    if (realBtn) { realBtn.textContent = 'Play vs Real-AI'; realBtn.disabled = false; }
     const pseudoBtn = document.getElementById('play-pseudo-ai-btn') as HTMLButtonElement | null;
     if (pseudoBtn) { pseudoBtn.textContent = 'Play vs Pseudo-AI'; pseudoBtn.disabled = false; }
     void loadDeckEditorBundle().then(() => window.__meccg?.loadDecks?.());

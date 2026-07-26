@@ -33,7 +33,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveStrikeCore, nextStrikePhase } from './combat-strike.js';
-import { discardCardTriggeredCard, recordHazardEncountered } from './combat-finalize.js';
+import { discardCardTriggeredCard, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 
 /**
@@ -723,7 +723,9 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
   stateWithCancelledPlayers = recordHazardEncountered(stateWithCancelledPlayers, state, combat);
 
   logDetail('Combat canceled by chain resolution — returning to enclosing phase');
-  return stateWithCancelledPlayers;
+  // A Traitor attack queued mid-combat still fires after the cancellation
+  // (no-op while a follow-up combat, e.g. a multi-attack card, is active).
+  return initiateQueuedTraitorAttack(stateWithCancelledPlayers);
 }
 
 /**
@@ -841,7 +843,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
           };
         }
       }
-      return { state: { ...state, players: newPlayersW, combat: null } };
+      return { state: initiateQueuedTraitorAttack({ ...state, players: newPlayersW, combat: null }) };
     }
 
     let newCombatW: CombatState = {
@@ -911,7 +913,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
         };
       }
     }
-    return { state: { ...state, players: newPlayers, combat: null } };
+    return { state: initiateQueuedTraitorAttack({ ...state, players: newPlayers, combat: null }) };
   }
 
   let newCombat: CombatState = {

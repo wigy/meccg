@@ -91,3 +91,8 @@ export { heuristicStrategy } from './ai/heuristic.js';
 
 export { determinize, isDeterminizableView } from './search/determinize.js';
 export type { DeterminizeOptions } from './search/determinize.js';
+
+export { searchBestAction } from './search/puct.js';
+export type { SearchOptions, SearchResult } from './search/puct.js';
+export { createSearchAgent } from './agents/search-agent.js';
+export type { SearchAgentOptions } from './agents/search-agent.js';

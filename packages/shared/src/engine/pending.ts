@@ -84,12 +84,17 @@ export function enqueueCorruptionCheck(
     readonly failureMode?: 'discard-ring-only' | 'discard-instead-of-eliminate';
     readonly onSuccess?: import('../types/effects.js').TriggeredAction;
     readonly awardKillMpTo?: PlayerId;
+    readonly selectableOrder?: boolean;
+    readonly allowSupport?: boolean;
+    readonly noResourceAid?: boolean;
+    readonly blockedBy?: readonly ResolutionId[];
   },
 ): GameState {
   return enqueueResolution(state, {
     source: opts.source,
     actor: opts.actor,
     scope: opts.scope,
+    ...(opts.blockedBy ? { blockedBy: opts.blockedBy } : {}),
     kind: {
       type: 'corruption-check',
       characterId: opts.characterId,
@@ -100,6 +105,9 @@ export function enqueueCorruptionCheck(
       failureMode: opts.failureMode,
       onSuccess: opts.onSuccess,
       awardKillMpTo: opts.awardKillMpTo,
+      selectableOrder: opts.selectableOrder,
+      allowSupport: opts.allowSupport,
+      noResourceAid: opts.noResourceAid,
     },
   });
 }
@@ -114,11 +122,17 @@ export function dequeueResolution(state: GameState, id: ResolutionId): GameState
 /**
  * The first pending resolution waiting on the given actor, or null if
  * none. Resolutions for other actors are skipped (they will surface when
- * those actors compute legal actions).
+ * those actors compute legal actions). An entry whose `blockedBy` list
+ * still names a queued resolution is skipped too — the actor must wait
+ * until every blocking entry has drained (Ren the Unclean tw-83: "The
+ * moving player makes corruption checks first").
  */
 export function topResolutionFor(state: GameState, actor: PlayerId): PendingResolution | null {
+  const queuedIds = new Set(state.pendingResolutions.map(r => r.id));
   for (const r of state.pendingResolutions) {
-    if (r.actor === actor) return r;
+    if (r.actor !== actor) continue;
+    if (r.blockedBy?.some(id => queuedIds.has(id))) continue;
+    return r;
   }
   return null;
 }
