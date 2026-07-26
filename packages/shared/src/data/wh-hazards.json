@@ -85,7 +85,44 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/FlotsamandJetsam.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      {
+        "type": "cancel-deck-search",
+        "affects": "all",
+        "when": {
+          "$or": [
+            {
+              "$and": [
+                { "player.alignment": { "$ne": "fallen-wizard" } },
+                { "player.playDeckSize": { "$lte": 15 } }
+              ]
+            },
+            {
+              "$and": [
+                { "player.alignment": "fallen-wizard" },
+                { "player.playDeckSize": { "$lte": 20 } }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "certified": "2026-07-27",
     "text": "If a player has 15 or fewer cards in his play deck (20 or fewer if a Fallen-wizard), all effects are automatically canceled which allow him to search through or look at any portion of his play deck or discard pile outside of the normal sequence of play. Discard when any play deck is exhausted. Cannot be duplicated."
   },
   {
