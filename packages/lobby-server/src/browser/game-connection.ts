@@ -19,6 +19,8 @@ import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCounc
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
+import { queueEffectLog, flushEffectLog, clearEffectLog } from './effect-log-buffer.js';
+import { diceRollLogLine, diceRollNotification } from './dice-roll-log.js';
 
 // Forward-declared function references set by the lobby module to avoid
 // circular imports. The lobby module calls setLobbyCallbacks() at startup.
@@ -83,6 +85,7 @@ export function disconnect(): void {
   document.getElementById('draft')!.textContent = '';
   document.getElementById('actions')!.innerHTML = '';
   document.getElementById('log')!.innerHTML = '';
+  clearEffectLog();
   clearGameMessageLog();
   // Hide pseudo-AI panel
   const pseudoPanel = document.getElementById('pseudo-ai-panel');
@@ -366,6 +369,7 @@ export function connect(name: string): void {
         appState.reconnectAttempts = 0;
         appState.playerId = msg.playerId;
         appState.currentGameId = msg.gameId;
+        clearEffectLog();
         clearGameMessageLog();
         renderLog(`Game ${msg.gameId} -- assigned player ID: ${appState.playerId}`);
         { const h = document.getElementById('state-heading');
@@ -419,11 +423,30 @@ export function connect(name: string): void {
         const actionLookup = (id: CardInstanceId): CardDefinitionId | undefined =>
           msg.lastActionCardDefs?.[id] ?? prevInstanceLookup(id);
         renderLog(`State update: turn ${msg.view.turnNumber}, phase ${msg.view.phaseState.phase}`);
-        // Log opponent actions so the text log captures what the other player did
-        if (msg.lastAction && msg.lastAction.player !== msg.view.self.id) {
+        // Announce what a player just did *before* replaying the effects that
+        // action produced — a roll result must never precede the line telling
+        // about the roll.
+        if (msg.lastAction) {
           const desc = describeOpponentAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames, appState.lastPlayerNames);
-          renderLog(`<< ${desc}`, cardPool);
+          const isSelf = msg.lastAction.player === msg.view.self.id;
+          // Log opponent actions so the text log captures what the other player did
+          if (!isSelf) renderLog(`<< ${desc}`, cardPool);
+          if (msg.lastAction.type !== 'pass' && msg.lastAction.type !== 'pass-chain-priority') {
+            if (isSelf) {
+              showNotification(desc, { cardPool, self: msg.view.self.name });
+            } else {
+              showNotification(desc, { cardPool, opponent: msg.view.opponent.name });
+            }
+          }
+          // A dedicated entry when a player picks a creature race (e.g. Two or
+          // Three Tribes Present), so the opponent can see the choice clearly.
+          if (msg.lastAction.type === 'play-hazard' && msg.lastAction.chosenCreatureRace) {
+            showNotification(`Chosen creature race: ${msg.lastAction.chosenCreatureRace}`,
+              isSelf ? { self: msg.view.self.name } : { opponent: msg.view.opponent.name });
+          }
         }
+        // Now the deferred dice rolls and text notifications of that action.
+        flushEffectLog();
         // Log roll outcomes (dice result + strike/body-check result) for both players
         if (msg.lastAction) {
           const instanceToName = (id: import('@meccg/shared').CardInstanceId): string => {
@@ -472,26 +495,6 @@ export function connect(name: string): void {
             isMine ? 'Your turn' : `${msg.view.opponent.name}'s turn`,
             isMine ? undefined : { opponent: '' },
           );
-        }
-        // Show notification describing what either player just did
-        if (msg.lastAction && msg.lastAction.type !== 'pass' && msg.lastAction.type !== 'pass-chain-priority') {
-          const isSelf = msg.lastAction.player === msg.view.self.id;
-          const desc = describeOpponentAction(msg.lastAction, cardPool, actionLookup, prevCompanyNames, appState.lastPlayerNames);
-          if (isSelf) {
-            showNotification(desc, { cardPool, self: msg.view.self.name });
-          } else {
-            showNotification(desc, { cardPool, opponent: msg.view.opponent.name });
-          }
-        }
-        // Show a dedicated text-log entry when a player picks a creature race
-        // (e.g. Two or Three Tribes Present), so the opponent can see the choice clearly.
-        if (msg.lastAction?.type === 'play-hazard' && msg.lastAction.chosenCreatureRace) {
-          const isSelf = msg.lastAction.player === msg.view.self.id;
-          if (isSelf) {
-            showNotification(`Chosen creature race: ${msg.lastAction.chosenCreatureRace}`, { self: msg.view.self.name });
-          } else {
-            showNotification(`Chosen creature race: ${msg.lastAction.chosenCreatureRace}`, { opponent: msg.view.opponent.name });
-          }
         }
         appState.lastPhase = msg.view.phaseState.phase;
         // Prepare/clear site selection or fetch-from-pile based on legal actions
@@ -543,31 +546,29 @@ export function connect(name: string): void {
       }
 
       case 'effect':
+        // Effects arrive before the state message of the action that caused
+        // them, so their log lines are deferred until that action has been
+        // announced (see effect-log-buffer). The dice animation is not.
         if (msg.effect.effect === 'dice-roll') {
-          const { playerName, die1, die2, label, total } = msg.effect;
-          renderLog(`${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}${total !== undefined ? ` (total ${total})` : ''}`);
-          // CvCC strikes carry a prowess total — format as prowess+d1+d2=total.
-          // Result line is shown later via describeRollOutcome once the state arrives.
-          if (total !== undefined) {
-            const prowess = total - die1 - die2;
-            const charName = label.startsWith('CvCC Strike: ') ? label.slice('CvCC Strike: '.length) : label;
-            const rollStr = `${prowess}+${die1}+${die2}=${total}`;
-            if (playerName === name) {
-              showNotification(`rolled ${rollStr} for ${charName} in CvCC`, { self: name });
-            } else {
-              showNotification(`rolled ${rollStr} for ${charName} in CvCC`, { opponent: appState.opponentName ?? playerName });
-            }
-          } else if (playerName !== name) {
-            showNotification(`rolled ${die1} + ${die2} = ${die1 + die2} (${label})`, { opponent: playerName });
-          }
+          const rollEffect = msg.effect;
+          queueEffectLog(() => {
+            renderLog(diceRollLogLine(rollEffect));
+            // CvCC strikes carry a prowess total — the matching result line is
+            // shown later via describeRollOutcome once the state arrives.
+            const notification = diceRollNotification(rollEffect, name, appState.opponentName);
+            if (notification) showNotification(notification.message, notification.opts);
+          });
           const visualView = document.getElementById('visual-view');
           if (visualView && !visualView.classList.contains('hidden')) {
-            const variant = playerName === name ? 'black' : 'red';
-            rollDice(die1, die2, variant);
+            const variant = rollEffect.playerName === name ? 'black' : 'red';
+            rollDice(rollEffect.die1, rollEffect.die2, variant);
           }
         } else if (msg.effect.effect === 'text-notification') {
-          renderLog(msg.effect.message, cardPool);
-          showNotification(msg.effect.message, { cardPool });
+          const { message } = msg.effect;
+          queueEffectLog(() => {
+            renderLog(message, cardPool);
+            showNotification(message, { cardPool });
+          });
         }
         break;
 
@@ -596,6 +597,7 @@ export function connect(name: string): void {
         break;
 
       case 'restart':
+        clearEffectLog();
         renderLog(msg.message);
         showNotification(msg.message);
         resetVisualBoard();
