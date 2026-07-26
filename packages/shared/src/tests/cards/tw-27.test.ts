@@ -184,6 +184,47 @@ describe('Despair of the Heart (tw-27)', () => {
     expect(pending[0].kind.characterId).toBe(aragornId);
   });
 
+  test('bearer still gets a corruption check when the wounded company member is eliminated by the body check', () => {
+    // CRF 22: "The corruption check occurs before the body check." The wound
+    // triggers Despair regardless of whether the wounded character survives the
+    // body check that follows it.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN, BEREGOND] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [ORC_LIEUTENANT], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, DESPAIR_OF_THE_HEART, HAZARD_PLAYER);
+    const ready = { ...withCard, phaseState: makeWildernessMHState() };
+
+    const orcId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const afterChain = playCreatureHazardAndResolve(ready, PLAYER_2, orcId, companyId, WILDERNESS_KEYING);
+
+    // Beregond defends — roll 2 → 4+2=6 < 7 → wound; body 8, roll 12 → 12 > 8 → eliminated
+    const afterCombat = runCreatureCombat(afterChain, BEREGOND, 2, 12);
+
+    // Beregond is gone, but Aragorn still owes the corruption check for the wound.
+    const company = afterCombat.players[RESOURCE_PLAYER].companies[0];
+    expect(company.characters).toHaveLength(1);
+
+    const aragornId = findCharInstanceId(afterCombat, RESOURCE_PLAYER, ARAGORN);
+    const pending = afterCombat.pendingResolutions.filter(
+      r => r.actor === PLAYER_1 && r.kind.type === 'corruption-check',
+    );
+    expect(pending).toHaveLength(1);
+    if (pending[0].kind.type !== 'corruption-check') return;
+    expect(pending[0].kind.characterId).toBe(aragornId);
+  });
+
   test('no corruption check fires when no company member is wounded (strike succeeded)', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
