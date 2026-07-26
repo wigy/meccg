@@ -24,7 +24,6 @@ import type {
   CharacterCard,
   CardEffect,
   FactionCard,
-  Alignment,
   Company,
   CompanyId,
   CardDefinitionId,
@@ -33,7 +32,7 @@ import type {
   FallenWizardCharacterAllyMpEffect,
 } from '../index.js';
 import { isCharacterCard, isItemCard, isFactionCard, isSiteCard } from '../types/cards.js';
-import { MarshallingCategory, Race } from '../types/common.js';
+import { Alignment, MarshallingCategory, Race } from '../types/common.js';
 import { ZERO_MARSHALLING_POINTS } from '../types/state-cards.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
 import { getPlayerIndex, isBalrogAvatarDef } from '../state-utils.js';
@@ -950,7 +949,11 @@ function computeEffectiveStats(
       // MEBA: an item borne by the Balrog avatar has no effect on his
       // attributes — its corruption points do not apply either.
       if (!bearerIsBalrogAvatar) {
-        const itemCp = itemDef.corruptionPoints + itemModifierDeltas(itemDef, inPlayItemMods).cp;
+        // Flat deltas first (Rumor of the One, Itangast at Home), then any
+        // multiplier (Bane of the Ithil-stone: "Corruption points for Palantíri
+        // are doubled").
+        const deltas = itemModifierDeltas(itemDef, inPlayItemMods, bearerPlayerAlignment);
+        const itemCp = (itemDef.corruptionPoints + deltas.cp) * deltas.cpMultiplier;
         corruptionPoints += itemCp;
         if (trackCorruptionSources && itemCp > 0) corruptionSources.push(itemCp);
       }
@@ -1518,7 +1521,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       // Global item-MP bonus (Rumor of the One le-224): a flat delta to the
       // item's marshalling category, independent of the cross-alignment / §4
       // clamps applied to the item's own printed MP above.
-      const globalMpDelta = itemModifierDeltas(itemDef, inPlayItemMods).mp;
+      const globalMpDelta = itemModifierDeltas(itemDef, inPlayItemMods, player.alignment).mp;
       if (globalMpDelta !== 0 && hasMarshallingPoints(itemDef)) {
         const cat = itemDef.marshallingCategory;
         mp = { ...mp, [cat]: mp[cat] + globalMpDelta };

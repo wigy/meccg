@@ -1208,7 +1208,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/PalantirofElostirion.jpg",
     "unique": true,
     "subtype": "special",
-    "keywords": [],
+    "keywords": [
+      "palantir"
+    ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
     "corruptionPoints": 3,

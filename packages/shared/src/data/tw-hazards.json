@@ -1135,14 +1135,28 @@
     "eventType": "permanent",
     "effects": [
       {
-        "type": "play-restriction",
-        "rule": "unplayable-when",
-        "when": {
-          "opponent.alignment": "ringwraith"
-        },
-        "reason": "cannot be played against a Ringwraith player"
-      }
+        "type": "in-play-item-modifier",
+        "itemFilter": { "item.keywords": { "$includes": "palantir" } },
+        "bearerFilter": { "bearer.minion": false },
+        "corruptionMultiplier": 2
+      },
+      {
+        "type": "cancel-deck-search",
+        "affects": "non-minion"
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
     ],
+    "certified": "2026-07-26",
     "text": "Corruption points for Palantíri are doubled.Automatically cancels any effect that causes a player to search through or look at any portion of a play deck or a discard pile outside of the normal sequence of play. Discard Bane of the Ithil-stone whenever a play deck is exhausted.This card has no effect on a minion player.Cannot be duplicated."
   },
   {

@@ -930,18 +930,21 @@ export function renderCompanyBlock(
   // Definitions of every card in play, either player's: an `in-play-item-modifier`
   // (Scorba at Home td-65, Itangast at Home td-38, Rumor of the One le-224)
   // raises the corruption points of matching items regardless of who played it,
-  // so the item CP badges must take both sides into account.
+  // so the item CP badges must take both sides into account. A modifier may also
+  // spare some players (Bane of the Ithil-stone tw-13 skips minion players), so
+  // the badges also need the alignment of this company's controlling player.
   const inPlayDefs = inPlayCardDefs(view, cardPool);
+  const bearerAlignment = owner === 'self' ? view.self.alignment : view.opponent.alignment;
 
   if (titleChar) {
-    row.appendChild(renderCharacterColumn(titleChar, cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs));
+    row.appendChild(renderCharacterColumn(titleChar, cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment));
   }
   for (const charInstId of company.characters) {
     if (followerIds.has(charInstId as string)) continue;
     const char = charMap[charInstId as string];
     if (!char) continue;
     if (titleChar && char.instanceId === titleChar.instanceId) continue;
-    row.appendChild(renderCharacterColumn(char, cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs));
+    row.appendChild(renderCharacterColumn(char, cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment));
   }
 
   // Company-targeting permanent events bound to this company (e.g. Fellowship,

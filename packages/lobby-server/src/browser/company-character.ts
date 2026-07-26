@@ -7,6 +7,7 @@
  */
 
 import type {
+  Alignment,
   CardDefinition,
   CardInstanceId,
   CharacterInPlay,
@@ -21,7 +22,10 @@ import { createCardImage } from './render-utils.js';
  * `inPlayDefs` are the definitions of every card in play (both players'), used
  * to raise an item's CP badge by any `in-play-item-modifier` in effect (e.g.
  * *Scorba at Home* td-65 makes Glamdring cost 2 CP, not its printed 1) so the
- * badge matches the corruption check the engine computes.
+ * badge matches the corruption check the engine computes. `bearerAlignment` is
+ * the alignment of the player controlling this character, needed because some
+ * modifiers spare certain players (*Bane of the Ithil-stone* tw-13 doubles
+ * Palantír corruption but "has no effect on a minion player").
  */
 export function renderCharacterColumn(
   char: CharacterInPlay,
@@ -33,6 +37,7 @@ export function renderCharacterColumn(
   itemClickBuilder?: (itemInstId: CardInstanceId, charInstId: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
   hazardClickBuilder?: (hazardInstId: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
   inPlayDefs: readonly CardDefinition[] = [],
+  bearerAlignment?: Alignment,
 ): HTMLElement {
   const col = document.createElement('div');
   col.className = 'character-column';
@@ -132,7 +137,7 @@ export function renderCharacterColumn(
         }
       }
       // Wrap item in a container for CP badge positioning
-      const attCp = isItemCard(attDef) ? effectiveItemCorruptionPoints(attDef, inPlayDefs) : 0;
+      const attCp = isItemCard(attDef) ? effectiveItemCorruptionPoints(attDef, inPlayDefs, bearerAlignment) : 0;
       if (attCp > 0) {
         const itemWrap = document.createElement('div');
         itemWrap.className = 'item-card-wrap';
@@ -243,7 +248,7 @@ export function renderCharacterColumn(
               }
             }
             // Wrap item in a container for CP badge positioning
-            const fAttCp = isItemCard(fAttDef) ? effectiveItemCorruptionPoints(fAttDef, inPlayDefs) : 0;
+            const fAttCp = isItemCard(fAttDef) ? effectiveItemCorruptionPoints(fAttDef, inPlayDefs, bearerAlignment) : 0;
             if (fAttCp > 0) {
               const fItemWrap = document.createElement('div');
               fItemWrap.className = 'item-card-wrap';

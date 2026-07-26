@@ -2867,20 +2867,29 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
 /**
  * Returns the name of an in-play card (either player's `cardsInPlay`) whose
  * `cancel-deck-search` effect cancels own-deck/discard searches for the given
- * acting player, or `null` when none applies. Only minion players (Ringwraith
- * or Balrog alignment — MEBA: the Balrog player is a minion player) are
- * affected: "all effects are automatically canceled which allow a minion
- * player to search through or look at any portion of his play deck or discard
- * pile outside of the normal sequence of play" (Lady of the Golden Wood as-13).
+ * acting player, or `null` when none applies.
+ *
+ * Each `cancel-deck-search` effect declares which players it hits via
+ * `affects`: the default `"minion"` covers Ringwraith/Balrog players (MEBA: the
+ * Balrog player is a minion player) — "all effects are automatically canceled
+ * which allow a minion player to search through or look at any portion of his
+ * play deck or discard pile outside of the normal sequence of play" (Lady of
+ * the Golden Wood as-13) — while `"non-minion"` covers Wizard and
+ * Fallen-wizard players (Bane of the Ithil-stone tw-13, which "has no effect on
+ * a minion player").
  */
 export function deckSearchCancellerFor(state: GameState, actorId: PlayerId): string | null {
   const actor = state.players.find(p => p.id === actorId);
-  if (!actor || !isMinionOrBalrog(actor)) return null;
+  if (!actor) return null;
+  const actorIsMinion = isMinionOrBalrog(actor);
   for (const p of state.players) {
     for (const card of p.cardsInPlay) {
       const def = defById(state, card.definitionId);
-      if (def && getCardEffects(def).some(e => e.type === 'cancel-deck-search')) {
-        return def.name;
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'cancel-deck-search') continue;
+        const hitsMinion = (effect.affects ?? 'minion') === 'minion';
+        if (hitsMinion === actorIsMinion) return def.name;
       }
     }
   }
@@ -2905,7 +2914,7 @@ export function gateDeckSearchFetch(
   if (!canceller) return effect;
   const remaining = effect.source.filter(s => s !== 'deck' && s !== 'discard-pile');
   if (remaining.length === 0) {
-    logDetail(`cancel-deck-search: "${canceller}" cancels the play-deck/discard search for minion player ${actorId as string} — fetch fizzles`);
+    logDetail(`cancel-deck-search: "${canceller}" cancels the play-deck/discard search for player ${actorId as string} — fetch fizzles`);
     return null;
   }
   logDetail(`cancel-deck-search: "${canceller}" strips play-deck/discard sources from ${actorId as string}'s fetch (remaining: ${remaining.join(', ')})`);

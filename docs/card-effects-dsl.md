@@ -755,7 +755,9 @@ under the same Balrog-avatar exclusion as the item's printed corruption); the
 `marshallingPoints` delta is added flat to the item's marshalling category in the
 MP tally (independent of the cross-alignment / MEWH §4 clamps applied to the
 item's own printed MP). Both collected once per recompute via
-`collectInPlayItemModifiers` in `recompute-derived.ts`.
+`collectInPlayItemModifiers` in `recompute-derived.ts`; the per-item arithmetic
+itself lives in `item-corruption.ts`, so the clients can paint an item's CP badge
+with the very number the recompute charges its bearer.
 
 ```json
 { "type": "in-play-item-modifier",
@@ -772,6 +774,26 @@ point." — `itemFilter` `{ "item.subtype": "major" }`, `corruptionPoints: 1`.
 Also by Itangast at Home (td-38): "each greater item gives an additional
 corruption point." — `itemFilter` `{ "item.subtype": "greater" }`,
 `corruptionPoints: 1` (matching on the item's `subtype` field).
+
+Two optional fields refine the modifier:
+
+- **`corruptionMultiplier`** (default 1) scales each matching item's corruption
+  *after* the `corruptionPoints` delta. Multipliers from several in-play sources
+  compound.
+- **`bearerFilter`** restricts the whole modifier to items borne by characters of
+  a player matching a player-context condition `{ bearer: { alignment, minion } }`
+  (`minion` is true for the Ringwraith and Balrog alignments — MEBA: the Balrog
+  player is a minion player). Absent → every player's items are affected.
+
+```json
+{ "type": "in-play-item-modifier",
+  "itemFilter": { "item.keywords": { "$includes": "palantir" } },
+  "bearerFilter": { "bearer.minion": false },
+  "corruptionMultiplier": 2 }
+```
+
+Used by Bane of the Ithil-stone (tw-13): "Corruption points for Palantíri are
+doubled. … This card has no effect on a minion player."
 
 ### 3a-iii. `corruption-source-multiplier`
 
@@ -10591,8 +10613,7 @@ mechanism as Safe from the Shadow / Tokens to Show, fired by
 ```
 
 While the card is in either player's `cardsInPlay`, all effects that would let
-a **minion player** (Ringwraith or Balrog alignment — MEBA: the Balrog player
-is a minion player) search through or look at any portion of **his own** play
+an affected player search through or look at any portion of **his own** play
 deck or discard pile outside of the normal sequence of play are automatically
 canceled. Enforcement is centralised in `gateDeckSearchFetch`
 (`reducer-utils.ts`), called at every point that enqueues a `fetch-to-deck`
@@ -10600,9 +10621,24 @@ pending effect: the `deck` / `discard-pile` sources are stripped from the
 fetch for such a player (a sideboard source survives — e.g. Weigh All Things
 to a Nicety le-253 keeps its sideboard arm); when no source remains the fetch
 fizzles entirely (e.g. Akhôrahil Unleashed le-162, Inner Cunning dm-68's agent
-tutor, grant-action and org-phase fetches). Hero and fallen-wizard players are
-unaffected, as are the normal sequence of play (end-of-turn draws, the
-deck-exhaustion reshuffle and its sideboard exchange).
+tutor, grant-action and org-phase fetches). The normal sequence of play
+(end-of-turn draws, the deck-exhaustion reshuffle and its sideboard exchange)
+is never affected.
+
+Which players are hit is chosen by the optional **`affects`** field:
+
+- `"minion"` (the default) — Ringwraith and Balrog players (MEBA: the Balrog
+  player is a minion player). Hero and fallen-wizard players are unaffected.
+  Lady of the Golden Wood (as-13).
+- `"non-minion"` — Wizard and Fallen-wizard players; minion players are
+  unaffected. Bane of the Ithil-stone (tw-13), whose blanket "Automatically
+  cancels any effect that causes a player to search through or look at any
+  portion of a play deck or a discard pile outside of the normal sequence of
+  play" is narrowed by its own "This card has no effect on a minion player".
+
+```json
+{ "type": "cancel-deck-search", "affects": "non-minion" }
+```
 
 The card's "Manifestation of Galadriel" line is the `manifestId` chain tag
 (§ manifestations): `manifestId: "tw-153"` on as-13 blocks playing the Lady —
