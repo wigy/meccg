@@ -2,3 +2,6 @@
 # not source; the committed exception is test-fixtures/bc-mini-weights.json).
 *.jsonl
 bc-weights*.json
+
+# Python bytecode from the training scripts.
+__pycache__/

@@ -13,7 +13,7 @@
  * at opponent-to-move nodes during selection.
  */
 
-import { reduce, Phase } from '@meccg/shared';
+import { reduce, Phase, computeTournamentScore } from '@meccg/shared';
 import type {
   CardDefinition,
   EvaluatedAction,
@@ -50,6 +50,45 @@ export interface SearchOptions {
   readonly maxDepth?: number;
   /** Base seed for world sampling (derive from the agent's seeded stream). */
   readonly seed: number;
+  /**
+   * Weight of the observable tournament-score differential in a leaf's
+   * value, in [0, 1]. **Defaults to 0 (off) — measured harmful at 0.5.**
+   *
+   * The motivation was sound but the experiment refuted it: the trained
+   * value head calls the winner well only in the last quarter of a game
+   * (sign accuracy 0.78) and sits at chance through the middle (0.48) —
+   * and a few-dozen-ply search from a mid-game position lands every leaf
+   * in exactly that blind zone, which is why pure-net search only tied
+   * the bare policy (50.5%, +3 Elo over 100 games). The score
+   * differential is computable directly from the leaf state, so it
+   * looked like signal where the net is noise — but at weight 0.5,
+   * search collapsed to 2 wins in 12 games against that same policy.
+   * Maximizing the immediate score spread is greedy in a game where
+   * marshalling points are bought with corruption risk and capped by
+   * the doubling rule, and that greed costs more than the noisy net
+   * value does. Retained as a tunable (small weights are untested) but
+   * off by default; revisit once the value head beats the
+   * score-differential baseline it currently loses to mid-game.
+   */
+  readonly mpWeight?: number;
+}
+
+/**
+ * Tournament-score points that map to a decisive evaluation. MECCG games
+ * are decided by a handful of points, so a spread of ~6 saturates tanh
+ * toward ±1.
+ */
+const MP_SPREAD_SCALE = 6;
+
+/**
+ * Observable score differential at a leaf, oriented to the searcher and
+ * squashed into [-1, 1].
+ */
+function mpSpreadValue(view: PlayerView, actorIsSearcher: boolean): number {
+  const selfScore = computeTournamentScore(view.self.marshallingPoints, view.opponent.marshallingPoints);
+  const opponentScore = computeTournamentScore(view.opponent.marshallingPoints, view.self.marshallingPoints);
+  const spread = (selfScore - opponentScore) / MP_SPREAD_SCALE;
+  return Math.tanh(actorIsSearcher ? spread : -spread);
 }
 
 /** One search tree node: a concrete world state plus PUCT statistics. */
@@ -164,7 +203,13 @@ function expand(node: Node, searcher: PlayerId, playerIds: readonly [PlayerId, P
   node.children = new Array<Node | null>(candidates.length).fill(null);
   node.expanded = true;
 
-  return acting.actor === searcher ? output.value : -output.value;
+  // Leaf value: the net's opinion blended with the observable score
+  // differential (see SearchOptions.mpWeight). Both are oriented to the
+  // searcher before blending.
+  const actorIsSearcher = acting.actor === searcher;
+  const netValue = actorIsSearcher ? output.value : -output.value;
+  const mpWeight = opts.mpWeight ?? 0;
+  return (1 - mpWeight) * netValue + mpWeight * mpSpreadValue(acting.view, actorIsSearcher);
 }
 
 /** One PUCT simulation from the root; returns the searcher-value backed up. */
