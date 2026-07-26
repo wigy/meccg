@@ -2413,6 +2413,11 @@ export function buildActiveCompanyContext(
  *   protected Wizardhavens [{H}]".
  * - `inPlay` — the names of cards the player has in play, for
  *   `{ "inPlay": "<name>" }` prerequisites (e.g. The White Hand wh-122).
+ * - `inPlayAnywhere` — the names of cards **either** player has in play (the
+ *   game-wide environment list, honouring `environment-override`), for rules
+ *   that key off a card being on the table regardless of who put it there —
+ *   e.g. The Will of Sauron (tw-100) "Discard this card if Doors of Night is
+ *   not in play": `{ "$not": { "inPlayAnywhere": "Doors of Night" } }`.
  */
 export function buildPlayerStateContext(
   state: GameState,
@@ -2469,6 +2474,7 @@ export function buildPlayerStateContext(
     },
     opponent: { alignment: opponent?.alignment },
     inPlay: buildControllerInPlayNames(state, playerId),
+    inPlayAnywhere: buildInPlayNames(state),
   };
 }
 

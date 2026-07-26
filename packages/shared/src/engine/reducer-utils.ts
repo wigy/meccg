@@ -17,7 +17,7 @@ import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
 import { CardStatus, Race, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
 import { resolveDef, normalizeCreatureRace, resolveCheckModifier } from './effects/index.js';
@@ -2815,9 +2815,13 @@ export function startDeckExhaust(state: GameState, playerIndex: 0 | 1): GameStat
  * Complete the deck exhaustion: shuffle the discard pile into a new play deck,
  * increment exhaustion count, and clear the pending flag.
  *
- * Fires `play-deck-exhausted` — discards any permanent event in either
- * player's `cardsInPlay` that declares `on-event: play-deck-exhausted` with a
- * self-discard `move` apply (e.g. Safe from the Shadow, Tokens to Show).
+ * Fires `play-deck-exhausted` — discards any permanent event that declares
+ * `on-event: play-deck-exhausted` with a self-discard `move` apply, whether it
+ * sits in either player's `cardsInPlay` (Safe from the Shadow, Tokens to Show)
+ * or is attached to a character as an item / hazard (Fool's Bane wh-19, a
+ * hazard permanent-event played on the opponent's Fallen-wizard). An attached
+ * card returns to *its owner's* discard pile, so an opponent-owned hazard goes
+ * back to the opponent's pile.
  */
 export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameState {
   const player = state.players[playerIndex];
@@ -2859,6 +2863,36 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
       return { ...pl, cardsInPlay: remaining, discardPile: discarded };
     });
     result = { ...result, players: updatedPlayers as unknown as typeof result.players };
+  }
+
+  // Same trigger for cards attached to a character (items and hazards). The
+  // card leaves its host and lands in its owner's discard pile.
+  for (let pi = 0; pi < 2; pi++) {
+    for (const [charId, char] of Object.entries(result.players[pi].characters)) {
+      for (const slot of ['items', 'hazards'] as const) {
+        for (const card of char[slot]) {
+          const def = defById(result, card.definitionId);
+          if (!getOnEventEffects(def, 'play-deck-exhausted').some(e => isSelfDiscardMove(e.apply))) continue;
+          const ownerIndex = getPlayerIndex(result, ownerOf(card.instanceId));
+          logDetail(`play-deck-exhausted: discarding ${cardName(result, card.definitionId)} from ${charId} to ${result.players[ownerIndex].name}'s discard pile`);
+          result = updatePlayer(result, pi, p => {
+            const host = p.characters[charId as CardInstanceId];
+            if (!host) return p;
+            return {
+              ...p,
+              characters: {
+                ...p.characters,
+                [charId]: { ...host, [slot]: host[slot].filter(c => c.instanceId !== card.instanceId) },
+              },
+            };
+          });
+          result = updatePlayer(result, ownerIndex, p => ({
+            ...p,
+            discardPile: [...p.discardPile, toCardInstance(card)],
+          }));
+        }
+      }
+    }
   }
 
   return result;

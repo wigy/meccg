@@ -251,6 +251,36 @@ backs "Standard Modifications: if <Wizard> is your Wizard (+N)" — e.g. Wild Ho
 The avatar is a company character, not a `cardsInPlay` entry, so it is reached via
 `controller.wizard`, not `controller.inPlay`.
 
+Both influence-check contexts — the faction-influence check and the
+`opponent-influence-check` attempt against a card the opponent controls — also
+expose **`influenceTarget`**: `alignment` (`"hero"`, `"minion"`,
+`"fallen-wizard"`, `"balrog"`, read off the target's card-type prefix), `kind`
+(`"faction"`, `"character"`, `"ally"`, `"item"`), `name`, and `race`. Unlike
+`faction` / `target`, which each exist in only one of the two paths, this
+sub-object is present in both, so "influence checks against <kind of card>"
+needs a single condition. The influencer's **ongoing** influence
+check-modifiers — his own and those on his items / attached hazards — are folded
+into the opponent-influence attempt as well as the faction attempt, so a card
+that modifies "any influence attempt by this character" (Foolish Words td-25)
+covers both. The `bearer.stagePoints` path (the controller's MEWH §1 total) is
+populated in both contexts too.
+
+Used by Fool's Bane (wh-19): "Influence checks he makes against hero resources
+are modified by: -9 if his stage points exceed 18, -7 if … (use the first
+modifier that applies)" — five mutually exclusive tiers, each gated on a
+half-open `bearer.stagePoints` band plus the hero-resource test. A character is
+not a resource card (CoE: "resource cards … and character cards"), hence the
+`kind` exclusion:
+
+```json
+{ "type": "check-modifier", "check": "influence", "value": -7,
+  "when": { "$and": [
+    { "influenceTarget.alignment": "hero" },
+    { "influenceTarget.kind": { "$ne": "character" } },
+    { "bearer.stagePoints": { "$gt": 12 } },
+    { "bearer.stagePoints": { "$lte": 18 } } ] } }
+```
+
 A faction/ally `playableAt` entry may itself carry a `when` clause matched by
 `siteMatchesEntry`. Its context exposes `site.name`, `site.siteType`,
 `site.region` (the named region), `site.autoAttack.race`, and — for the faction
@@ -1006,6 +1036,40 @@ marshalling point regardless of other cards in play."
 
 ```json
 { "type": "nonhaven-company-mp-pin", "value": 1 }
+```
+
+### 3c-2b. `character-mp-override` (and its `noncharacter-mp-override` sibling)
+
+Re-values the controller's cards that match a per-card `when` condition,
+overriding their printed marshalling points and every other MP rule in play (the
+MEWH §4 flat-1 clamp, a Great Patron wh-72 cap, a wh-4 full-MP exemption, an
+Await the Onset wh-96 pin). Two effects share one shape:
+
+- `character-mp-override` — matched against the player's **characters**.
+- `noncharacter-mp-override` — matched against his **non-character** MP cards
+  (items, allies, factions, misc permanent-events). Used by Give Welcome to the
+  Unexpected (wh-99): "your unique non-character cards normally worth 1
+  marshalling point are each worth 2 marshalling points."
+
+Both are evaluated against the per-card context
+`{ card: { unique, normalMp, cardType, name, race } }`, where `normalMp` is the
+card's *printed* MP; the last matching rule wins, and a card with no printed MP
+is never overridden. Rules are collected (`mpOverrideRules` in
+`recompute-derived.ts`) from three places: the player's `cardsInPlay`, the items
+on his characters (a stage permanent-event placed "on the avatar" lives there),
+and the **hazards attached to his characters** — which is how an opponent's
+hazard re-values the cards of the player it was played on.
+
+Used by Fool's Bane (wh-19): "his Elf characters and Elf factions are each worth
+0 marshalling points in all cases" — one effect of each kind, the non-character
+one narrowed to faction card types so Elf-named allies/items are untouched.
+
+```json
+{ "type": "character-mp-override", "when": { "card.race": "elf" }, "value": 0 }
+{ "type": "noncharacter-mp-override",
+  "when": { "card.race": "elf",
+            "card.cardType": { "$in": ["hero-resource-faction", "minion-resource-faction"] } },
+  "value": 0 }
 ```
 
 ### 3c-3. `played-after-faction-mp-pin`
@@ -10997,6 +11061,48 @@ the play-condition, which gates *entry* to play; this gates *staying* in play.
 
 Used by Prophet of Doom (wh-106): "Discard if you have fewer than 5 factions in
 play."
+
+The player-state context also carries `inPlayAnywhere` — the **game-wide**
+in-play card-name list (`buildInPlayNames`, honouring `environment-override`), as
+opposed to the controller-scoped `inPlay`. It backs "Discard this card if
+&lt;named card&gt; is not in play" wordings, which do not care which player put the
+named card on the table — The Will of Sauron (tw-100):
+
+```json
+{ "type": "discard-self-when",
+  "condition": { "$not": { "inPlayAnywhere": "Doors of Night" } } }
+```
+
+### 62a. `retain-hazard-long-events`
+
+Suspends the normal end-of-long-event-phase discard of hazard long-events
+([2.III.3]) while the carrying card is in play, and discards every hazard
+long-event in play the moment the carrier leaves. Takes no fields.
+
+Two halves, both in `engine/retain-hazard-long-events.ts`:
+
+- `hazardLongEventsRetained(state)` — a single-state query consulted by the
+  long-event phase handler (`reducer-events.ts`) before it sweeps the hazard
+  player's long-events. A retainer in **either** player's `cardsInPlay` counts
+  (the effect is game-wide); `pendingTriggerAttack` and set-aside cards do not.
+  While one is in play the sweep is skipped and hazard long-events accumulate
+  across turns.
+- `sweepRetainedHazardLongEvents(prev, next)` — a `postReduce` prev/next diff
+  (the reactive-diff pattern of `discard-on-card-leaves-play`) that fires when
+  the **last** retainer just left play, discarding every `hazard-event` with
+  `eventType: "long"` from both players' `cardsInPlay`. Being a diff, it fires
+  however the retainer left: its own `discard-self-when`, deck exhaustion,
+  cancellation. It runs after the single-state sweeps in `postReduce`, so a
+  retainer discarded by `sweepDiscardSelfWhen` in the same step is already gone
+  from the state being compared.
+
+```json
+{ "type": "retain-hazard-long-events" }
+```
+
+Used by The Will of Sauron (tw-100): "All hazard long-events remain in play until
+this card is discarded. … When this card is discarded, all hazard long events are
+discarded."
 
 ### 63. `item-play-corruption-check` (Greed)
 

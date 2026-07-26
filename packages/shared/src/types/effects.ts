@@ -950,6 +950,42 @@ export interface NonCharacterMpOverrideEffect extends EffectBase {
 }
 
 /**
+ * Re-values the controller's **characters** that match a per-card {@link when}
+ * condition, overriding their printed marshalling points and every other
+ * character-MP rule in play (the MEWH §4 flat-1-MP clamp, a Great Patron wh-72
+ * cap, a wh-4 full-MP exemption, an Await the Onset wh-96 pin) — the
+ * character-scoring sibling of {@link NonCharacterMpOverrideEffect}.
+ *
+ * Each of the player's in-play characters is matched against the context
+ * `{ card: { unique, normalMp, cardType, name, race } }`, where `normalMp` is
+ * the character's *printed* marshalling points; a match scores exactly
+ * {@link value}. Characters with no printed MP are unaffected either way.
+ *
+ * The carrying card may be a card in the player's `cardsInPlay`, an item on one
+ * of his characters, or a **hazard attached to one of his characters** — the
+ * last is how an opponent's hazard re-values the cards of the player it is
+ * played on.
+ *
+ * Used by Fool's Bane (wh-19): "his Elf characters … are each worth 0
+ * marshalling points in all cases."
+ *
+ * ```json
+ * { "type": "character-mp-override", "when": { "card.race": "elf" }, "value": 0 }
+ * ```
+ */
+export interface CharacterMpOverrideEffect extends EffectBase {
+  readonly type: 'character-mp-override';
+  /**
+   * Condition matched against the per-character context
+   * `{ card: { unique, normalMp, cardType, name, race } }`. Every matching
+   * character the player controls scores {@link value}.
+   */
+  readonly when: Condition;
+  /** MP each matching character is worth, overriding every other MP rule. */
+  readonly value: number;
+}
+
+/**
  * Pins every MP-scoring card **held by a company that is not at one of the
  * controller's Wizardhavens** to a flat {@link value} marshalling points,
  * overriding all other MP computation for those cards ("regardless of other
@@ -6030,6 +6066,31 @@ export interface DiscardOnCardLeavesPlayEffect extends EffectBase {
 }
 
 /**
+ * Suspends the normal end-of-long-event-phase discard of hazard long-events for
+ * as long as the carrying card stays in play, and discards every hazard
+ * long-event in play the moment the carrier leaves.
+ *
+ * Hazard long-events are normally swept from the hazard player's `cardsInPlay`
+ * when the resource player passes out of the long-event phase ([2.III.3]). While
+ * any card carrying this effect is in play — in *either* player's `cardsInPlay`,
+ * since the effect is game-wide — that sweep is skipped, so the long-events
+ * accumulate. When the last carrier leaves play (for any reason: its own
+ * `discard-self-when`, deck exhaustion, cancellation), the retained long-events
+ * are all discarded at once.
+ *
+ * Used by The Will of Sauron (tw-100): "All hazard long-events remain in play
+ * until this card is discarded. … When this card is discarded, all hazard long
+ * events are discarded."
+ *
+ * ```json
+ * { "type": "retain-hazard-long-events" }
+ * ```
+ */
+export interface RetainHazardLongEventsEffect extends EffectBase {
+  readonly type: 'retain-hazard-long-events';
+}
+
+/**
  * Declares that, while the carrying card is in play, any hazard creature whose
  * card definition matches `creatureFilter` may be keyed to any site matching
  * `siteFilter` (its effective site type is one of `siteTypes` and it carries
@@ -6607,6 +6668,7 @@ export type CardEffect =
   | FactionMpOverrideEffect
   | PermanentEventMpEffect
   | NonCharacterMpOverrideEffect
+  | CharacterMpOverrideEffect
   | NonHavenCompanyMpPinEffect
   | PlayedAfterFactionMpPinEffect
   | RecruitmentVehicleEffect
@@ -6639,6 +6701,7 @@ export type CardEffect =
   | GrantAllyPlayEffect
   | FactionMpBonusEffect
   | DiscardOnCardLeavesPlayEffect
+  | RetainHazardLongEventsEffect
   | FactionInfluenceRestrictionEffect;
 
 /**
