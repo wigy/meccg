@@ -6,6 +6,7 @@
  */
 
 import type { GameState, CombatState, StrikeAssignment, GameAction, CardInstanceId } from '../index.js';
+import { isAvatarCharacter } from '../types/cards.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -297,6 +298,81 @@ function handleApplyAttackerAttackOption(state: GameState, action: GameAction, c
   };
 }
 
+/**
+ * Assign every strike of an "each character in the company faces one strike"
+ * attack at once — one strike per character of the defending company — and
+ * advance to strike ordering (or straight to resolution when a single strike
+ * results).
+ *
+ * Per CoE 3.ii.2 such an attack's strike count cannot be modified and every
+ * character is a target, so neither the defender's (3.ii) nor the attacker's
+ * (3.iii) assignment step has any decision left to make. The engine therefore
+ * performs the assignment itself once the defending player closes their
+ * pre-assignment window (CoE 3.i) with a `pass`, which is also the last moment
+ * the attack can be canceled (CRF 22 Annotation 13) — hence
+ * `preAssignmentWindowClosed`.
+ *
+ * Characters shielded by `protect-from-strike-assignment` (Ruse le-225 mode B)
+ * and, for `excludeAvatarStrikes` attacks (Neeker-breekers tw-493), avatars are
+ * left out; `strikesTotal` is recomputed from the characters that actually face
+ * a strike, since the company may have changed since combat began (e.g. an
+ * Alatar haven-join). With nobody left to strike the attack has no target and
+ * the combat finalizes immediately.
+ *
+ * Returns `null` when an effect has reduced the attack to fewer strikes than
+ * the company has characters (`halve-strikes`): the strikes no longer cover
+ * everybody, so choosing who faces them is a real decision and the normal
+ * defender/attacker assignment steps apply instead.
+ */
+function autoAssignEachCharacterStrikes(state: GameState, combat: CombatState): ReducerResult | null {
+  const defender = playerById(state, combat.defendingPlayerId);
+  const company = defender ? companyById(defender.companies, combat.companyId) : null;
+  if (company && combat.strikesTotal < company.characters.length) {
+    logDetail(`Each character faces one strike: only ${combat.strikesTotal} strike(s) left for ${company.characters.length} character(s) — falling back to manual assignment`);
+    return null;
+  }
+  const protectedIds = new Set(
+    (combat.protectedFromStrikeAssignment ?? []).map(id => id as string),
+  );
+  const facing = (company?.characters ?? []).filter(charId => {
+    if (protectedIds.has(charId as string)) {
+      logDetail(`Each character faces one strike: ${charId as string} is protected from strike assignment — skipping`);
+      return false;
+    }
+    if (combat.excludeAvatarStrikes) {
+      const charData = defender?.characters[charId];
+      const charDef = charData ? defById(state, charData.definitionId) : undefined;
+      if (isAvatarCharacter(charDef)) {
+        logDetail(`Each character faces one strike: ${charId as string} is an avatar — excluded from strike assignment`);
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const strikeAssignments: StrikeAssignment[] = facing.map(characterId => ({
+    characterId,
+    excessStrikes: 0,
+    resolved: false,
+  }));
+  const assigned: CombatState = {
+    ...combat,
+    strikesTotal: strikeAssignments.length,
+    strikeAssignments,
+    assignmentPhase: 'done',
+    havenJumpOffers: undefined,
+    preAssignmentWindowClosed: true,
+  };
+
+  const next = nextStrikePhase(assigned);
+  if (!next) {
+    logDetail('Each character faces one strike: no character faces a strike — finalizing combat');
+    return finalizeCombat({ ...state, combat: assigned });
+  }
+  logDetail(`Each character faces one strike: automatically assigning ${strikeAssignments.length} strike(s), one per character → phase ${next.phase ?? assigned.phase}`);
+  return { state: { ...state, combat: { ...assigned, ...next } } };
+}
+
 /** Defender passes during strike assignment — attacker assigns remaining. */
 
 
@@ -383,6 +459,21 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
     return {
       state: { ...state, combat: { ...combat, assignmentPhase: 'done', ...next } },
     };
+  }
+
+  // Pass closing the pre-assignment window of an "each character in the company
+  // faces one strike" attack (Wandering Eldar le-97, Watcher in the Water le-99,
+  // …). Every character faces exactly one strike, so neither player has an
+  // assignment to make: the engine assigns them all here and jumps straight to
+  // strike ordering/resolution, skipping both the defender and the attacker
+  // assignment steps. Site automatic-attacks and Carrion Feeders (ba-11)
+  // pre-assign at combat creation, so their assignments are already non-empty
+  // and this branch does not apply to them.
+  if (combat.phase === 'assign-strikes'
+    && combat.eachCharacterFacesOneStrike
+    && combat.strikeAssignments.length === 0) {
+    const autoAssigned = autoAssignEachCharacterStrikes(state, combat);
+    if (autoAssigned) return autoAssigned;
   }
 
   // Pass during cancel-window: defender declined to cancel. If the window was

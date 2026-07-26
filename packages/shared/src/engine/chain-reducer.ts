@@ -3162,6 +3162,12 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     cancelByTapRemaining: cancelByTapMax > 0 ? cancelByTapMax : undefined,
     cancelByTapAllowTarget: cancelByTapAllowTarget ? true : undefined,
     excludeAvatarStrikes: excludeAvatarStrikes ? true : undefined,
+    // "Each character in the company faces one strike" (Wandering Eldar le-97,
+    // Watcher in the Water le-99, …): assignment is fully determined, so the
+    // engine assigns the strikes itself when the defender closes the
+    // pre-assignment window instead of walking both players through a menu of
+    // forced choices (see `handleCombatPass`).
+    eachCharacterFacesOneStrike: oneStrikePerCharacter ? true : undefined,
     defenderProwessFromMind: defenderProwessFromMind ? true : undefined,
     tapLowMindAfterStrike: tapLowMindAfterStrike ? true : undefined,
     bodyCheckModifier: attackBodyCheckModifier !== 0 ? attackBodyCheckModifier : undefined,
