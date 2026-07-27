@@ -2089,8 +2089,46 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Iron Hill Dwarf-hold",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Iron Hill Dwarves faction, +2 prowess against Orcs. +1 direct influence against Men and Man factions."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Iron Hill Dwarves"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "man"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "man"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Iron Hill Dwarves faction, +2 prowess against Orcs. +1 direct influence against Men and Man factions.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-character",
