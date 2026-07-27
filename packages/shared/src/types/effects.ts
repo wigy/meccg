@@ -5466,6 +5466,40 @@ export interface ForceCheckAllInPlayEffect extends EffectBase {
 }
 
 /**
+ * When this short-event resolves, the **target character's controller** must
+ * discard one item borne by that character — the choosing player picks which,
+ * so the effect is a forced discard with an owner-chosen victim.
+ *
+ * Both halves of the choice are DSL conditions rather than hardcoded keywords:
+ *
+ *  - `targetFilter` narrows which characters the card-player may aim at. It is
+ *    evaluated against the shared play-option context
+ *    (`buildPlayOptionContext`), so it can read state as well as printed data —
+ *    `{ "target.status": "inverted" }` is "a wounded character".
+ *  - `itemFilter` narrows which of that character's items are eligible. It is
+ *    evaluated against the item's card definition, so
+ *    `{ "$not": { "keywords": { "$includes": "ring" } } }` is "but not a ring".
+ *
+ * Only characters that match `targetFilter` **and** bear at least one item
+ * matching `itemFilter` are offered as targets — a card with no legal victim is
+ * never playable "without effect" (CoE 9.6). Resolution enqueues the shared
+ * `discard-one-company-item` pending resolution narrowed to that one character,
+ * so Leaf Brooch (dm-171) style `discard-substitute` items interpose exactly as
+ * they do for Brigands (tw-17).
+ *
+ * Used by Indûr Dawndeath (tw-46) as the on-tap short-event conversion of its
+ * permanent-event mode: "makes any wounded character discard an item of his
+ * choice (but not a ring)."
+ */
+export interface ForceDiscardTargetItemEffect extends EffectBase {
+  readonly type: 'force-discard-target-item';
+  /** Condition on a candidate target character (play-option context). */
+  readonly targetFilter?: Condition;
+  /** Condition on a candidate item's card definition. */
+  readonly itemFilter?: Condition;
+}
+
+/**
  * Hazard short-event that makes **each character** in the target company face
  * one strike (not part of a creature attack — "not an attack"). The strike has
  * a fixed prowess, carries no creature race, and resolves through the normal
@@ -6911,6 +6945,7 @@ export type CardEffect =
   | ProtectFromRemovalEffect
   | ForceCheckAllCompanyTopEffect
   | ForceCheckAllInPlayEffect
+  | ForceDiscardTargetItemEffect
   | CompanyStrikeEffect
   | CompanyTapCharactersEffect
   | CompanyTapRollEffect
