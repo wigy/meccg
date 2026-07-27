@@ -1394,6 +1394,51 @@ function applyCompanySitePhaseDoNothing(state: GameState, entry: ChainEntry): Ga
 }
 
 /**
+ * Applies a `site-type-remap` short-event effect on chain resolution: installs
+ * the class-wide `site.type` override ("all Shadow-holds [{S}] become
+ * Dark-holds [{D}]" — Witch-king of Angmar tw-113's on-tap long-event).
+ *
+ * The constraint is filtered by the sites' *printed* type rather than by any
+ * definition id, so it retypes every matching site in the game at once, and it
+ * is targeted at the declaring player (the effect is global; it must outlive
+ * every company). With `duration: "long-event"` its scope is
+ * `next-long-event-phase`, which expires it exactly when a hazard long-event
+ * owned by the declarer would be discarded ([2.III.3]) — the card itself goes
+ * to the discard pile immediately, so the constraint carries the whole
+ * duration.
+ */
+function applySiteTypeRemap(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event') return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').SiteTypeRemapEffect => e.type === 'site-type-remap',
+  );
+  if (!effect) return state;
+
+  const scope: import('../types/pending.js').ConstraintScope = effect.duration === 'long-event'
+    ? { kind: 'next-long-event-phase', playerId: entry.declaredBy, afterTurn: state.turnNumber }
+    : { kind: 'turn' };
+  logDetail(
+    `${def?.name ?? (card.definitionId as string)}: all ${effect.from} sites become ${effect.to} `
+    + `(scope ${scope.kind}, owner ${entry.declaredBy as string})`,
+  );
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope,
+    target: { kind: 'player', playerId: entry.declaredBy },
+    kind: {
+      type: 'attribute-modifier',
+      attribute: 'site.type',
+      op: 'override',
+      value: effect.to,
+      filter: { 'site.printedType': effect.from } as unknown as import('../types/effects.js').Condition,
+    },
+  });
+}
+
+/**
  * Applies a `tap-character` short-event effect on chain resolution: taps the
  * character chosen when the card was played/tapped (the chain entry payload's
  * `targetCharacterId`). Used by Adûnaphel tw-2's permanent-event on-tap ("causes
@@ -3483,6 +3528,12 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // was chosen at tap time and rides on the chain entry's payload.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyForceDiscardTargetItem(current, entry);
+  }
+
+  // Short events that retype a whole class of sites (Witch-king of Angmar
+  // tw-113's on-tap long-event: "all Shadow-holds become Dark-holds").
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applySiteTypeRemap(current, entry);
   }
 
   // draw-cards (Dark Tryst as-80): a resource short event that draws cards

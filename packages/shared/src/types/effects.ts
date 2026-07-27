@@ -3920,6 +3920,56 @@ export interface RegionTypeRemapEffect extends EffectBase {
 }
 
 /**
+ * Retype a whole **class of sites** at once: every site whose *printed*
+ * {@link SiteType} is {@link from} counts as a {@link to} everywhere the
+ * engine asks for a site's effective type — hazard keying, item / ally /
+ * faction playability, haven tests, movement. The site-type sibling of
+ * {@link RegionTypeRemapEffect}.
+ *
+ * Unlike the bound `site-type-override` add-constraint (Hold Rebuilt and
+ * Repaired as-88, Nature's Revenge wh-27), which retypes *one* site — the one
+ * the carrying card was played on, or every printing of it — this remap is
+ * bound to no site at all. It installs a single `site.type` `override`
+ * `attribute-modifier` whose filter is `{ 'site.printedType': from }`, so it
+ * needs neither an active company nor a destination to resolve, and it
+ * survives the card leaving play.
+ *
+ * Resolved as a top-level effect when the carrying card resolves as a
+ * short-event on the chain (`applySiteTypeRemap`, `chain-reducer.ts`) — which
+ * includes the on-tap "becomes a short-event" conversion of a
+ * {@link CreatureAltEventEffect} permanent-event.
+ *
+ * Used by Witch-king of Angmar (tw-113): "When tapped, Witch-king of Angmar
+ * becomes a long-event and causes all Shadow-holds [{S}] to become Dark-holds
+ * [{D}]. When resolved, the long-event effect will remain and this card is
+ * discarded."
+ *
+ * ```json
+ * { "type": "site-type-remap", "from": "shadow-hold", "to": "dark-hold",
+ *   "duration": "long-event" }
+ * ```
+ */
+export interface SiteTypeRemapEffect extends EffectBase {
+  readonly type: 'site-type-remap';
+  /** The printed site type being reinterpreted. */
+  readonly from: SiteType;
+  /** The site type every site of type {@link from} is treated as. */
+  readonly to: SiteType;
+  /**
+   * How long the remap lasts.
+   *
+   * - `"long-event"` — exactly as long as a hazard long-event owned by the
+   *   declaring player would ([2.III.3]), via the `next-long-event-phase`
+   *   constraint scope. This is what "becomes a long-event … the long-event
+   *   effect will remain and this card is discarded" means: the card goes to
+   *   the discard pile immediately, so only the constraint carries the
+   *   duration (CRF 22 on tw-113).
+   * - `"turn"` (default) — swept at end of turn.
+   */
+  readonly duration?: 'turn' | 'long-event';
+}
+
+/**
  * A persistent environment effect (Girdle of Radagast, wh-110) that converts a
  * specific set of **named regions** — the region of the Wizardhaven the carrying
  * card is bound to (`attachedToSite`) and, when {@link includeAdjacent} is set,
@@ -6858,6 +6908,7 @@ export type CardEffect =
   | DiscardToRecruitEffect
   | RegionKeyingBoostEffect
   | RegionTypeRemapEffect
+  | SiteTypeRemapEffect
   | RegionTypeConversionEffect
   | ItemPlayCorruptionCheckEffect
   | PlayTargetEffect

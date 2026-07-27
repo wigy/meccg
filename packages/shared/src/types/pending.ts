@@ -954,6 +954,21 @@ export type ConstraintScope =
    * player's next one (necessarily a later turn) does.
    */
   | { readonly kind: 'next-organization-phase'; readonly playerId: PlayerId; readonly afterTurn: number }
+  /**
+   * Lives exactly as long as a hazard long-event owned by {@link playerId}
+   * would — "the long-event effect will remain until the appropriate time"
+   * (CRF 22 on Witch-king of Angmar tw-113). Hazard long-events are discarded
+   * at the end of the long-event phase in which their owner is the *hazard*
+   * player ([2.III.3]), so the `long-event-phase-end` boundary drops this
+   * constraint the first time it is raised for {@link playerId} on a strictly
+   * later turn than {@link afterTurn} (the turn the effect was created in).
+   *
+   * Used for a long-event whose *effect* outlives the card: Witch-king of
+   * Angmar is discarded the moment his long-event resolves, so there is no
+   * card in play for the ordinary [2.III.3] sweep to remove — the constraint
+   * has to carry the duration itself.
+   */
+  | { readonly kind: 'next-long-event-phase'; readonly playerId: PlayerId; readonly afterTurn: number }
   /** Cleared explicitly by another effect; never auto-swept. */
   | { readonly kind: 'until-cleared' };
 
@@ -1884,4 +1899,11 @@ export type ScopeBoundary =
    * `next-organization-phase`-scoped constraints created on an earlier turn.
    */
   | { readonly kind: 'organization-phase-end'; readonly playerId: PlayerId; readonly turnNumber: number }
+  /**
+   * Raised when the long-event phase ends ([2.III.3] — the moment the hazard
+   * player's hazard long-events are discarded), carrying that hazard player's
+   * id and the turn number. Clears `next-long-event-phase`-scoped constraints
+   * owned by {@link hazardPlayerId} that were created on an earlier turn.
+   */
+  | { readonly kind: 'long-event-phase-end'; readonly hazardPlayerId: PlayerId; readonly turnNumber: number }
   | { readonly kind: 'turn-end' };
