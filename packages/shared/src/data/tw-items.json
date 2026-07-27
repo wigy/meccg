@@ -1304,7 +1304,34 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "ring-test-table",
+        "table": [
+          {
+            "category": "lesser-ring",
+            "min": null,
+            "max": null
+          },
+          {
+            "category": "magic-ring",
+            "min": 1,
+            "max": 6
+          },
+          {
+            "category": "dwarven-ring",
+            "min": 9,
+            "max": null
+          },
+          {
+            "category": "the-one-ring",
+            "min": 11,
+            "max": null
+          }
+        ]
+      }
+    ],
+    "certified": "2026-07-27",
     "text": "Discard Fair Gold Ring when tested. If tested, make a roll to determine which ring card may be immediately played:• The One Ring (11,12+);• a Dwarven Ring (9,10,11,12+);• a Magic Ring (1,2,3,4,5,6);• a Lesser Ring (any result)."
   },
   {
