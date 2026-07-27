@@ -3090,7 +3090,24 @@ export function resolveInfluenceAttemptRoll(
   // The influencer may be a character or an ally that "influences factions as
   // if a character" (Radagast's Black Bird wh-114).
   const influencerAlly = charInPlay ? null : findAttachment(player, 'allies', charId);
-  if (!charInPlay && !influencerAlly) return { state, effects: [] };
+  if (!charInPlay && !influencerAlly) {
+    // The influencer left play between declaring the attempt and the roll
+    // (eliminated by an attack, discarded, returned to hand). Nobody is left
+    // to make the check, so the attempt simply fails and the faction is
+    // discarded. Returning the state untouched instead would strand the
+    // chain: the entry stays unresolved, the chain stays in `resolving` mode
+    // where no actions are offered, and the game deadlocks with neither
+    // player able to act (seed 90260).
+    logDetail(`Influence attempt fails: influencer ${charId as string} is no longer in play — discarding ${def.name}`);
+    const failedState = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, entry.card!],
+    }));
+    return {
+      state: { ...failedState, phaseState: { ...siteState, resourcePlayed: true } },
+      effects: [],
+    };
+  }
 
   const charDef = defById(state, (charInPlay ?? influencerAlly!.attachment).definitionId);
   const charName = charDef?.name ?? charId;
