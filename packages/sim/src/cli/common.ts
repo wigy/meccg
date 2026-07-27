@@ -11,6 +11,7 @@ import { createHeuristicAgent } from '../agents/heuristic-agent.js';
 import { createNoisyHeuristicAgent } from '../agents/noisy-heuristic-agent.js';
 import { createBcAgent } from '../agents/bc-agent.js';
 import { createSearchAgent } from '../agents/search-agent.js';
+import { createHeuristic2Agent } from '../ai/h2/agent.js';
 import { loadDeck, listDecks } from '../decks.js';
 import type { LoadedDeck } from '../decks.js';
 
@@ -58,7 +59,7 @@ export function stringFlag(args: CliArgs, name: string): string | undefined {
 }
 
 /** Available agent names for the CLIs. */
-export const AGENT_NAMES = ['random', 'heuristic', 'noisy-heuristic', 'bc', 'search'] as const;
+export const AGENT_NAMES = ['random', 'heuristic', 'noisy-heuristic', 'h2', 'bc', 'search'] as const;
 
 /**
  * Instantiate an agent by registry spec. A spec is a name with an optional
@@ -76,6 +77,20 @@ export function resolveAgent(spec: string): Agent {
       const epsilon = param === undefined ? 0.5 : Number(param);
       if (!Number.isFinite(epsilon)) throw new Error(`noisy-heuristic expects a numeric ε, got "${param}"`);
       return createNoisyHeuristicAgent(epsilon);
+    }
+    case 'h2': {
+      // Heuristics 2 with a module selector for ablation gates:
+      // `h2` (everything shipped), `h2:combat`, `h2:combat,kill`,
+      // `h2:all@0.5` (softmax temperature 0.5). Decisions no enabled module
+      // claims fall through to Heuristics 1, so `h2:<module>` isolates
+      // exactly that module's contribution.
+      const at = param === undefined ? -1 : param.lastIndexOf('@');
+      const modules = param === undefined ? undefined : at > 0 ? param.slice(0, at) : param;
+      const temperature = at > 0 ? Number(param!.slice(at + 1)) : undefined;
+      if (temperature !== undefined && !Number.isFinite(temperature)) {
+        throw new Error(`h2 expects a numeric temperature after "@", got "${param!.slice(at + 1)}"`);
+      }
+      return createHeuristic2Agent({ modules, temperature });
     }
     case 'search': {
       // Determinizing-PUCT search: `search:weights.json[@sims]`. The

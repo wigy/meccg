@@ -1,0 +1,116 @@
+/**
+ * @module ai/h2/agent
+ *
+ * The Heuristics-2 agent: builds the module context for a decision, lets the
+ * registry pick an owning module, and converts the resulting utilities into
+ * the weighted distribution the rest of the harness already speaks.
+ *
+ * Two seams are preserved deliberately. First, H2 returns *utilities* and the
+ * agent converts them with a softmax rather than playing the argmax, because
+ * the behavioural-cloning pipeline consumes the weight distribution as soft
+ * targets and the noisy-heuristic variants sample from it. Second, decisions
+ * no module claims are delegated to Heuristics 1 unchanged, so `h2:<module>`
+ * is a genuine ablation: only the named module's decisions differ.
+ */
+
+import type { Agent, AgentContext, AgentDecision, ConsideredAction } from '../../types.js';
+import type { AiContext } from '../strategy.js';
+import { heuristicStrategy } from '../heuristic.js';
+import { sampleWeighted } from '../strategy.js';
+import type { H2Module, ModuleContext } from './core/types.js';
+import type { Tunables } from './core/tunables.js';
+import { DEFAULT_TUNABLES } from './core/tunables.js';
+import type { WinProbModel } from './core/winprob.js';
+import { loadWinProbModel } from './core/winprob.js';
+import { ALL_MODULES, evaluateDecision, resolveModules } from './core/registry.js';
+import { computeStanding } from './services/standing.js';
+
+/** Construction options for {@link createHeuristic2Agent}. */
+export interface Heuristic2Options {
+  /** Module selector: `undefined`/`'all'` for everything, or `'combat,kill'`. */
+  readonly modules?: string;
+  /** Softmax temperature override; defaults to `tunables.softmaxTemperature`. */
+  readonly temperature?: number;
+  /** Forces the risk posture instead of deriving it from `W`. */
+  readonly riskOverride?: number;
+  /** Constants override, for sweeps. */
+  readonly tunables?: Tunables;
+  /** Win-probability model override; loaded from the shipped fit by default. */
+  readonly model?: WinProbModel;
+  /** Module set override, for tests that register a stub module. */
+  readonly available?: readonly H2Module[];
+}
+
+/**
+ * Softmax over utilities. Utilities are win-probability deltas — small numbers
+ * in absolute terms — so the temperature is correspondingly small; shifting by
+ * the maximum first keeps `exp` in range.
+ */
+function softmax(utilities: readonly number[], temperature: number): number[] {
+  const max = Math.max(...utilities);
+  const weights = utilities.map(u => Math.exp((u - max) / temperature));
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  return total > 0 ? weights.map(w => w / total) : utilities.map(() => 1 / utilities.length);
+}
+
+/**
+ * Create the Heuristics-2 agent.
+ *
+ * The win-probability model is resolved once at construction: an agent without
+ * `W` has no utility scale, and discovering that mid-game would abort a whole
+ * self-play batch rather than the run that misconfigured it.
+ */
+export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
+  const tunables = options.tunables ?? DEFAULT_TUNABLES;
+  const modules = resolveModules(options.modules, options.available ?? ALL_MODULES);
+  const model = options.model ?? loadWinProbModel();
+  const temperature = options.temperature ?? tunables.softmaxTemperature;
+  const label = options.modules && options.modules !== 'all' ? `h2:${options.modules}` : 'h2';
+
+  return {
+    name: label,
+
+    chooseAction(context: AgentContext): AgentDecision {
+      if (context.legalActions.length === 0) {
+        throw new Error('h2 agent asked to choose with no legal actions');
+      }
+      const moduleContext: ModuleContext = {
+        view: context.view,
+        cardPool: context.cardPool,
+        legalActions: context.legalActions,
+        tunables,
+        standing: computeStanding(context.view, model, tunables, options.riskOverride),
+      };
+      const { module, evaluations } = evaluateDecision(modules, moduleContext);
+
+      if (!module) {
+        // No H2 owner: Heuristics 1 handles the decision in its own units.
+        const aiContext: AiContext = {
+          view: context.view,
+          cardPool: context.cardPool,
+          legalActions: context.legalActions,
+          random: context.random,
+        };
+        const weighted = heuristicStrategy.weighActions(aiContext);
+        if (weighted.length === 0) {
+          return { action: context.legalActions[0], note: 'h1 fallback: no weighted actions' };
+        }
+        return { action: sampleWeighted(weighted, context.random), considered: weighted, note: 'h1 fallback' };
+      }
+
+      const probabilities = softmax(evaluations.map(e => e.utility), temperature);
+      const considered: ConsideredAction[] = evaluations.map((e, i) => ({
+        action: e.action,
+        weight: probabilities[i],
+      }));
+      const action = sampleWeighted(considered, context.random);
+      const best = evaluations[0];
+      return {
+        action,
+        considered,
+        note: `${module.name}: best ΔP(win) ${(best.utility * 100).toFixed(2)}% `
+          + `(E[Δtsd] ${best.expectedTsd.toFixed(1)}, σ ${best.sigmaTsd.toFixed(1)}, ${best.method})`,
+      };
+    },
+  };
+}

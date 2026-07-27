@@ -11,6 +11,7 @@
 
 import type {
   GameAction,
+  GameState,
   PlayerView,
   CardDefinition,
   EvaluatedAction,
@@ -228,6 +229,17 @@ export type ReplayRecord = ReplayHeader | DecisionRecord | TransitionRecord | Ga
  */
 export interface GameObserver {
   onHeader?(header: ReplayHeader): void;
+  /**
+   * The full game state immediately before a decision is made, with the
+   * player about to act.
+   *
+   * Unlike every other hook this exposes server-only state, so it is for
+   * tooling that stands outside the game — scenario capture and the H2
+   * calibration harness — and never for an agent. Agents receive only their
+   * projected {@link PlayerView}, and that boundary is what makes self-play
+   * results meaningful.
+   */
+  onStateSnapshot?(state: GameState, decisionSeq: number, actingPlayer: PlayerId): void;
   onDecision?(record: DecisionRecord): void;
   onTransition?(record: TransitionRecord): void;
   onResult?(record: GameResultRecord): void;

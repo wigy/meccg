@@ -27,7 +27,54 @@ npm run replay -w @meccg/sim -- path/to/replay.jsonl [--verify] [--steps] [--qui
 ```
 
 Available agents: `random` (uniform over viable actions), `heuristic` (the
-"Smart-AI" strategy, lifted from the text client into `src/ai/`).
+"Smart-AI" strategy, lifted from the text client into `src/ai/`), `h2`
+(Heuristics 2, see below), `bc` and `search` (learned policies).
+
+## Heuristics 2
+
+`src/ai/h2/` implements the modular, probabilistic, explainable AI of
+`specs/2026-07-27-heuristics-2-ai.md`. Where Heuristics 1 returns unitless
+per-phase weights, an H2 module answers every candidate action with an
+**outcome distribution** — enumerated outcomes carrying tournament-score
+differentials (TSD) — which the risk oracle converts into a change in win
+probability by integrating the fitted curve `W(tsd, turn)`. Risk attitude is
+emergent from that curvature rather than tuned: a trailing player sits on the
+convex limb of `W`, so variance raises `E[W]` and the gamble wins on its own.
+
+Every number is traceable. Any constant that is not read from card data, the
+view or a probability table lives in `core/tunables.ts` and must be named in
+the `Rationale` tree the module returns beside its number.
+
+```sh
+# Why would the AI do that? — the primary development tool
+npm run explain -w @meccg/sim -- --scenario combat/orc-ambush-3v1 [--risk +0.6] [--json]
+npm run explain -w @meccg/sim -- --game <gameId> --seq 412 [--player p1] [--hash <h>]
+
+# The fixed sample set: named positions modules are tested and explained against
+npm run scenarios -w @meccg/sim -- list [--module combat]
+npm run scenarios -w @meccg/sim -- capture --game <id> --seq 412 --as combat/orc-ambush-3v1
+npm run scenarios -w @meccg/sim -- capture --seed 7 --at 'turn=14,phase=movement-hazard' --as x/y
+npm run scenarios -w @meccg/sim -- verify
+
+# Refit W(tsd, turn) from self-play; reports Brier and a reliability diagram
+# on held-out *games* (never held-out decisions — see ai-training-system §9)
+npm run fit-winprob -w @meccg/sim -- --games 400 [--holdout 0.25] [--out path]
+```
+
+The agent takes a module selector, which is what makes per-module ablation
+gates possible — decisions no enabled module claims fall through to
+Heuristics 1 unchanged:
+
+```sh
+npm run gate -w @meccg/sim -- --challenger h2:combat --champion heuristic --games 400
+npm run gate -w @meccg/sim -- --challenger h2:combat,kill --champion h2:combat --games 400
+```
+
+Status: **P0 shipped** — core (TSD, dice, rationale, tunables, risk oracle,
+registry), the `standing` service, the fitted `W`, the scenario store and the
+`explain` / `scenarios` / `fit-winprob` CLIs. No evaluation module has shipped
+yet, so `h2` currently plays every decision through the Heuristics-1 fallback;
+`combat` is P1.
 
 ## Replay format
 

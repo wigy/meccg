@@ -226,6 +226,8 @@ export function playGame(options: PlayGameOptions): GameRunResult {
         break;
       }
 
+      for (const o of observers) o.onStateSnapshot?.(state, decisions, playerIds[actingIndex]);
+
       const agent = options.agents[actingIndex];
       const legalActions = viable.map(e => e.action);
       const actionIds = new Map<GameAction, string | undefined>(viable.map(e => [e.action, e.actionId]));

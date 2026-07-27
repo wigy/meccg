@@ -98,3 +98,25 @@ export { createSearchAgent } from './agents/search-agent.js';
 export type { SearchAgentOptions } from './agents/search-agent.js';
 
 export { viewSignature } from './state-signature.js';
+
+// Heuristics 2 — modular, probabilistic, explainable AI
+// (`specs/2026-07-27-heuristics-2-ai.md`). Modules score actions in one
+// common currency (change in win probability) and return the derivation
+// alongside the number.
+export { createHeuristic2Agent } from './ai/h2/agent.js';
+export type { Heuristic2Options } from './ai/h2/agent.js';
+export type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from './ai/h2/core/types.js';
+export { DEFAULT_TUNABLES, withTunable } from './ai/h2/core/tunables.js';
+export type { Tunables } from './ai/h2/core/tunables.js';
+export { MP_SOURCES, marginalMpValue, netTsdDelta, tsd, tsdAfter } from './ai/h2/core/tsd.js';
+export type { MpDelta, MpSource, TsdComponents } from './ai/h2/core/tsd.js';
+export { loadWinProbModel, winProbability, winProbabilitySlope } from './ai/h2/core/winprob.js';
+export type { WinProbModel } from './ai/h2/core/winprob.js';
+export { riskPosture, scoreMeanVariance, scoreOutcomes } from './ai/h2/core/risk.js';
+export type { RiskPosture } from './ai/h2/core/risk.js';
+export { computeStanding } from './ai/h2/services/standing.js';
+export type { Standing } from './ai/h2/services/standing.js';
+export { renderRationale, collectTunables } from './ai/h2/core/rationale.js';
+export { renderExplanation } from './ai/h2/explain.js';
+export { listScenarioIds, loadScenario, saveScenario, scenarioView } from './ai/h2/scenario-store.js';
+export type { Scenario, ScenarioSource } from './ai/h2/scenario-store.js';

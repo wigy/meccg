@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "fittedAt": "2026-07-27T09:52:11.880Z",
+  "turnScale": 38,
+  "tsd": 0.041009836236237926,
+  "tsdTurn": 0.10963001813847785,
+  "corpus": {
+    "games": 288,
+    "samples": 22962,
+    "agents": [
+      "heuristic",
+      "heuristic"
+    ],
+    "decks": [
+      "challenge-deck-a",
+      "challenge-deck-b"
+    ],
+    "seedBase": 1,
+    "holdoutFraction": 0.25
+  },
+  "holdout": {
+    "games": 96,
+    "samples": 7426,
+    "brier": 0.2083594860870672,
+    "logLoss": 0.6034090725093972,
+    "signAccuracy": 0.6955069823922283,
+    "reliability": [
+      {
+        "from": 0,
+        "to": 0.1,
+        "count": 491,
+        "predicted": 0.052040097169758354,
+        "actual": 0.10183299389002037
+      },
+      {
+        "from": 0.1,
+        "to": 0.2,
+        "count": 572,
+        "predicted": 0.14953117790363818,
+        "actual": 0.23426573426573427
+      },
+      {
+        "from": 0.2,
+        "to": 0.3,
+        "count": 530,
+        "predicted": 0.2513413579236562,
+        "actual": 0.3283018867924528
+      },
+      {
+        "from": 0.3,
+        "to": 0.4,
+        "count": 757,
+        "predicted": 0.3570445848655615,
+        "actual": 0.3474240422721268
+      },
+      {
+        "from": 0.4,
+        "to": 0.5,
+        "count": 944,
+        "predicted": 0.4417831209884109,
+        "actual": 0.4046610169491525
+      },
+      {
+        "from": 0.5,
+        "to": 0.6,
+        "count": 1782,
+        "predicted": 0.5308399179500238,
+        "actual": 0.5505050505050505
+      },
+      {
+        "from": 0.6,
+        "to": 0.7,
+        "count": 757,
+        "predicted": 0.6429554151344383,
+        "actual": 0.6525759577278731
+      },
+      {
+        "from": 0.7,
+        "to": 0.8,
+        "count": 530,
+        "predicted": 0.7486586420763421,
+        "actual": 0.6716981132075471
+      },
+      {
+        "from": 0.8,
+        "to": 0.9,
+        "count": 572,
+        "predicted": 0.8504688220963608,
+        "actual": 0.7657342657342657
+      },
+      {
+        "from": 0.9,
+        "to": 1,
+        "count": 491,
+        "predicted": 0.9479599028302416,
+        "actual": 0.8981670061099797
+      }
+    ]
+  }
+}

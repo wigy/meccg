@@ -1,8 +1,15 @@
 # Heuristics 2: Modular, Probabilistic, Explainable AI
 
-*Status: plan, 2026-07-27. Supersedes nothing yet — Heuristics 1
+*Status: in progress, 2026-07-27. Supersedes nothing yet — Heuristics 1
 (`packages/sim/src/ai/`) stays in place and remains the fallback until each
 H2 module has independently cleared a gate.*
+
+*Implementation: **P0 shipped** (`packages/sim/src/ai/h2/`) — core, the
+`standing` service, the fitted `W`, the scenario store, and the `explain` /
+`scenarios` / `fit-winprob` CLIs. No evaluation module exists yet, so the `h2`
+agent currently routes every decision to the H1 fallback; `combat` is P1. The
+calibration harness (§6.2) is deferred to P1, since it validates a module's
+claimed probabilities against the reducer and there are none to validate yet.*
 
 ## 1. Motivation
 
