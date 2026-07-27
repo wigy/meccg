@@ -58,7 +58,13 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // single-state sweeps so a retainer discarded by its own `discard-self-when`
   // (Doors of Night gone) is already absent from the state being compared.
   const afterRetention = prevState ? sweepRetainedHazardLongEvents(prevState, swept) : swept;
-  return accrueRevealedInstances(recomputeDerived(afterRetention));
+  // No News of Our Riding (le-211): an attack that just ended opens the
+  // "immediately after his company faces …" resource play window for the
+  // defending player. Another prev/next diff — every combat teardown path
+  // (strikes resolved, canceled on the chain, canceled by tap) is covered by
+  // the single `prev.combat → next.combat` transition.
+  const afterAttackWindow = prevState ? enqueuePostAttackPlayOffers(prevState, afterRetention) : afterRetention;
+  return accrueRevealedInstances(recomputeDerived(afterAttackWindow));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
@@ -68,6 +74,7 @@ import { topResolutionFor } from './pending.js';
 import { applyEvilHourTaps } from './evil-hour.js';
 import { applyDiscardOnCardLeaves } from './discard-on-card-leaves.js';
 import { sweepRetainedHazardLongEvents } from './retain-hazard-long-events.js';
+import { enqueuePostAttackPlayOffers } from './post-attack-play.js';
 import { applyResolution } from './pending-handlers.js';
 import { applyPairResourceWithCof } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';
