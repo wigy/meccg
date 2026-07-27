@@ -46,7 +46,7 @@ import {
   makeMHState, expectInDiscardPile, executeAction,
   assertEveryInstanceReachable,
 } from '../test-helpers.js';
-import { Phase, CardStatus, reduce } from '../../index.js';
+import { Phase, CardStatus, reduce, Race } from '../../index.js';
 import type {
   CardDefinitionId, CardInstanceId, CombatState, GameState,
   PlanMovementAction, PlayHeroResourceAction,
@@ -138,7 +138,7 @@ function setupCombat(state: GameState): GameState {
     strikesTotal: 1,
     strikeProwess: 9,
     creatureBody: null,
-    creatureRace: 'drake',
+    creatureRace: Race.Drake,
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',

@@ -9,6 +9,7 @@
 
 import type { CardDefinition } from './types/cards.js';
 import type { CardDefinitionId, CardInstanceId } from './types/common.js';
+import { Race } from './types/common.js';
 
 // ---- Formatting helpers ----
 
@@ -75,17 +76,17 @@ const STAGE_CSS = 'color:#20c8d8';
  * Wizard, Ringwraith, and Balrog avatars get distinct colors from their
  * alignment's regular characters.
  */
-export function getCardCss(def: { cardType: string; race?: string; alignment?: string }): string | undefined {
+export function getCardCss(def: { cardType: string; race?: Race; alignment?: string }): string | undefined {
   if (def.alignment === 'stage') {
     return STAGE_CSS;
   }
-  if (def.cardType === 'hero-character' && def.race === 'wizard') {
+  if (def.cardType === 'hero-character' && def.race === Race.Wizard) {
     return WIZARD_CSS;
   }
-  if (def.cardType === 'minion-character' && def.race === 'ringwraith') {
+  if (def.cardType === 'minion-character' && def.race === Race.Ringwraith) {
     return RINGWRAITH_CSS;
   }
-  if (def.cardType === 'minion-character' && def.race === 'balrog') {
+  if (def.cardType === 'minion-character' && def.race === Race.Balrog) {
     return BALROG_CSS;
   }
   return CARD_TYPE_CSS[def.cardType];

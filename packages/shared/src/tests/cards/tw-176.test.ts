@@ -29,7 +29,7 @@ import {
   buildSitePhaseState,
   getCharacter, companyIdAt, handCardId, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { Phase, computeLegalActions } from '../../index.js';
+import { Phase, computeLegalActions, Race } from '../../index.js';
 import type { CombatState, InfluenceAttemptAction } from '../../index.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -140,7 +140,7 @@ describe('Peath (tw-176)', () => {
       strikesTotal: 1,
       strikeProwess: 15,
       creatureBody: 10,
-      creatureRace: 'ringwraith',
+      creatureRace: Race.Ringwraith,
       strikeAssignments: [],
       currentStrikeIndex: 0,
       phase: 'assign-strikes',
@@ -212,7 +212,7 @@ describe('Peath (tw-176)', () => {
       strikesTotal: 1,
       strikeProwess: 15,
       creatureBody: 10,
-      creatureRace: 'ringwraith',
+      creatureRace: Race.Ringwraith,
       strikeAssignments: [{ characterId: peathId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
@@ -254,7 +254,7 @@ describe('Peath (tw-176)', () => {
       strikesTotal: 1,
       strikeProwess: 5,
       creatureBody: 9,
-      creatureRace: 'ringwraith',
+      creatureRace: Race.Ringwraith,
       strikeAssignments: [{ characterId: peathId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
@@ -304,7 +304,7 @@ describe('Peath (tw-176)', () => {
       strikesTotal: 1,
       strikeProwess: 5,
       creatureBody: 10,
-      creatureRace: 'ringwraith',
+      creatureRace: Race.Ringwraith,
       strikeAssignments: [{ characterId: peathId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
@@ -352,7 +352,7 @@ describe('Peath (tw-176)', () => {
       strikesTotal: 1,
       strikeProwess: 3,
       creatureBody: 9,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: peathId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',

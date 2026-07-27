@@ -27,7 +27,7 @@ import {
   charIdAt, pool, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeCombatProwess, recomputeDerived } from '../../engine/recompute-derived.js';
-import { Alignment } from '../../index.js';
+import { Alignment, Race } from '../../index.js';
 import type { CardDefinitionId, CharacterCard } from '../../index.js';
 
 const BLACK_MACE = 'le-299' as CardDefinitionId;
@@ -105,7 +105,7 @@ describe('Black Mace (le-299)', () => {
     const gorbag = withMace.players[0].characters[gorbagId];
     const gorbagDef = pool[GORBAG as string] as CharacterCard;
 
-    const combatProwessVsElf = computeCombatProwess(withMace, gorbag, gorbagDef, 'elf');
+    const combatProwessVsElf = computeCombatProwess(withMace, gorbag, gorbagDef, Race.Elf);
     // 6 + 4 (override) = 10, under cap
     expect(combatProwessVsElf).toBe(gorbagDef.prowess + 4);
   });
@@ -126,7 +126,7 @@ describe('Black Mace (le-299)', () => {
     const gorbag = withMace.players[0].characters[gorbagId];
     const gorbagDef = pool[GORBAG as string] as CharacterCard;
 
-    const combatProwessVsOrc = computeCombatProwess(withMace, gorbag, gorbagDef, 'orc');
+    const combatProwessVsOrc = computeCombatProwess(withMace, gorbag, gorbagDef, Race.Orc);
     expect(combatProwessVsOrc).toBe(gorbagDef.prowess + 3);
   });
 
@@ -147,7 +147,7 @@ describe('Black Mace (le-299)', () => {
     const lotDef = pool[LIEUTENANT_OF_MORGUL as string] as CharacterCard;
 
     // 8 + 4 = 12, capped at 10
-    const combatProwessVsElf = computeCombatProwess(withMace, lot, lotDef, 'elf');
+    const combatProwessVsElf = computeCombatProwess(withMace, lot, lotDef, Race.Elf);
     expect(combatProwessVsElf).toBe(10);
   });
 
@@ -189,7 +189,7 @@ describe('Black Mace (le-299)', () => {
     const layos = withMace.players[0].characters[layosId];
     const layosDef = pool[LAYOS as string] as CharacterCard;
 
-    const combatProwessVsElf = computeCombatProwess(withMace, layos, layosDef, 'elf');
+    const combatProwessVsElf = computeCombatProwess(withMace, layos, layosDef, Race.Elf);
     expect(combatProwessVsElf).toBe(layosDef.prowess);
   });
 });

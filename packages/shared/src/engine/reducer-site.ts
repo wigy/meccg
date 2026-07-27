@@ -20,11 +20,11 @@ import { allyEffectiveMind } from './ally-stats.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { matchesContext } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
-import { availableDI } from './legal-actions/organization.js';
+import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -737,16 +737,17 @@ function handleSiteAutomaticAttacks(
     // Each matching auto-attack at the site must be faced a second time.
     // duplicatesRun = attackIndex - autoAttacks.length counts how many
     // race-based duplicates have already been initiated this site phase.
-    const raceDupRaces = new Set<string>();
+    const raceDupRaces = new Set<Race>();
     for (const c of state.activeConstraints) {
       if (c.kind.type === 'auto-attack-race-duplicate') {
-        raceDupRaces.add(c.kind.race.toLowerCase());
+        raceDupRaces.add(c.kind.race);
       }
     }
     if (raceDupRaces.size > 0) {
-      const duplicatableAttacks = autoAttacks.filter(aa =>
-        raceDupRaces.has(normalizeCreatureRace(aa.creatureType)),
-      );
+      const duplicatableAttacks = autoAttacks.filter(aa => {
+        const aaRace = normalizeCreatureRace(aa.creatureType);
+        return aaRace !== undefined && raceDupRaces.has(aaRace);
+      });
       const duplicatesRun = effectiveResolved - autoAttacks.length;
       if (duplicatesRun < duplicatableAttacks.length) {
         const aa = duplicatableAttacks[duplicatesRun];
@@ -759,7 +760,7 @@ function handleSiteAutomaticAttacks(
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
         const dupDetainmentR = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
           attackEffects: siteDef.effects,
-          attackRace: dupRace as Race | null,
+          attackRace: dupRace ?? null,
           defendingAlignment: state.players[activePlayerIndex].alignment,
           defendingCovert,
           defendingSiteEffects: siteDef.effects,
@@ -809,7 +810,7 @@ function handleSiteAutomaticAttacks(
       const dupState = removeConstraint(state, dupConstraint.id);
       const dupDetainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
         attackEffects: siteDef.effects,
-        attackRace: creatureRace2 as Race | null,
+        attackRace: creatureRace2 ?? null,
         defendingAlignment: state.players[activePlayerIndex].alignment,
         defendingCovert,
         defendingSiteEffects: siteDef.effects,
@@ -860,7 +861,7 @@ function handleSiteAutomaticAttacks(
       logDetail(`Site: initiating minion-only additional automatic-attack (No Strangers at this Time): ${aa.creatureType} (${dupStrikesM} strikes, ${dupProwessM} prowess)`);
       const dupDetainmentM = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
         attackEffects: siteDef.effects,
-        attackRace: creatureRaceM as Race | null,
+        attackRace: creatureRaceM ?? null,
         attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
         defendingAlignment: state.players[activePlayerIndex].alignment,
         defendingCovert,
@@ -985,7 +986,7 @@ function handleSiteAutomaticAttacks(
     // apply — still overridden to normal when the defender forces normal attacks.
     detainment: (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
       attackEffects: siteDef.effects,
-      attackRace: creatureRace as Race | null,
+      attackRace: creatureRace ?? null,
       // Site auto-attacks are implicitly "keyed to" the site's type (§3.II.2.R1/B1).
       // The effective type honors any site-type override (e.g. Hold Rebuilt and
       // Repaired turning a Ruins & Lairs into a Shadow-hold) so the standard
@@ -1077,7 +1078,7 @@ function buildSiteRepeatedAttackCombat(
   const strikesTotalValue = isEachCharacter ? facingChars.length : effectiveStrikes;
   const detainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer)) || isDetainmentAttack({
     attackEffects: siteDef.effects,
-    attackRace: creatureRace as Race | null,
+    attackRace: creatureRace ?? null,
     attackKeyedTo: [{ siteTypes: [effectiveSiteType] }],
     defendingAlignment: state.players[activePlayerIndex].alignment,
     defendingCovert,
@@ -1637,7 +1638,7 @@ function handleSitePlaySiteAutoAttack(
         || (dynSiteType !== undefined && siteTypeForcesAutoAttacksNormal(state, dynSiteType));
       return (!dynForcesNormal && (company.currentSite ? siteAutoAttacksForcedDetainment(state, company.currentSite.definitionId) : false)) || isDetainmentAttack({
         attackEffects: creatureDef.effects,
-        attackRace: creatureRace as Race | null,
+        attackRace: creatureRace ?? null,
         attackKeyedTo: creatureDef.keyedTo,
         inPlayNames,
         defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -2803,11 +2804,11 @@ export function resolveInfluenceAttemptRoll(
   // Red Arrow (tw-312): an `auto-influence-faction` grant on the influencer (or
   // an item they bear) lets this faction be influenced with no 2d6 check.
   let autoInfluence = false;
+  // Webs of Fear & Treachery (le-150): every card-sourced modification to this
+  // attempt is reduced to zero — only unused general influence and unused
+  // *normal* direct influence survive (see `influenceModificationsNullified`).
+  const nullifyMods = influenceModificationsNullified(state);
   if (charInPlay && charDef && isCharacterCard(charDef)) {
-    // Use free DI (total DI minus mind cost of followers), not the raw card stat
-    const freeDI = availableDI(state, charId, player);
-    modifier += freeDI;
-
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
       bearer: { ...buildBearerContext(charDef), stagePoints: player.stagePoints },
@@ -2839,7 +2840,18 @@ export function resolveInfluenceAttemptRoll(
       }
     }
 
-    const dslModifier = resolveCheckModifier(charEffects, 'influence');
+    // Under nullification only the influencer's OWN card text contributes.
+    const ownCardEffects = charEffects.filter(e => e.sourceInstance === charId);
+
+    // Use free DI (total DI minus mind cost of followers), not the raw card
+    // stat — or, under nullification, his *normal* unused DI (printed value
+    // plus his own card-text modifications, without rings and other grants).
+    const freeDI = nullifyMods
+      ? normalUnusedDI(state, charId, player, ownCardEffects, resolverCtx)
+      : availableDI(state, charId, player);
+    modifier += freeDI;
+
+    const dslModifier = resolveCheckModifier(nullifyMods ? ownCardEffects : charEffects, 'influence');
     if (dslModifier !== 0) {
       logDetail(`DSL influence check-modifiers: ${formatSignedNumber(dslModifier)}`);
     }
@@ -2847,12 +2859,13 @@ export function resolveInfluenceAttemptRoll(
 
     // `freeDI` already carries every DI modifier baked into the influencer's
     // effective stats, so only the faction-conditional ones borne by the
-    // character are folded in here (see `checkConditionalEffects`).
+    // character are folded in here (see `checkConditionalEffects`). Under a
+    // le-150 nullification all card-sourced modifications are stripped.
     const diEffects = [
       ...checkConditionalEffects(ownEffects),
       ...charEffects.slice(ownEffects.length),
     ];
-    const dslDI = resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
+    const dslDI = nullifyMods ? 0 : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       logDetail(`DSL direct-influence modifiers: ${formatSignedNumber(dslDI)}`);
     }
@@ -2876,8 +2889,8 @@ export function resolveInfluenceAttemptRoll(
     const { modifier: restrictionModifier, blockedCardNames: blockedBoostCardNames } =
       collectFactionInfluenceRestriction(state, siteRegionName, influencerIsMinion);
     if (restrictionModifier !== 0) {
-      logDetail(`Faction-influence-restriction at ${siteRegionName}: ${formatSignedNumber(restrictionModifier)}${blockedBoostCardNames.size > 0 ? `, blocks [${[...blockedBoostCardNames].join(', ')}]` : ''}`);
-      modifier += restrictionModifier;
+      logDetail(`Faction-influence-restriction at ${siteRegionName}: ${formatSignedNumber(restrictionModifier)}${blockedBoostCardNames.size > 0 ? `, blocks [${[...blockedBoostCardNames].join(', ')}]` : ''}${nullifyMods ? ' — nullified' : ''}`);
+      if (!nullifyMods) modifier += restrictionModifier;
     }
 
     // One-shot check-modifier constraints for influence (e.g. Muster): consume after use
@@ -2896,6 +2909,14 @@ export function resolveInfluenceAttemptRoll(
         // "cannot be done with <named card>": the boost is suppressed (still consumed).
         consumedConstraintIds.push(constraint.id as string);
         logDetail(`Influence boost from "${boostSourceName}" suppressed by faction-influence-restriction (consumed, no effect)`);
+        continue;
+      }
+      if (nullifyMods) {
+        // Webs of Fear & Treachery (le-150): the boost is a modification to the
+        // attempt, so it is worth zero — but the card was still played on this
+        // attempt, so the constraint is consumed all the same.
+        consumedConstraintIds.push(constraint.id as string);
+        logDetail(`Influence boost from ${constraint.sourceDefinitionId as string} reduced to zero (consumed)`);
         continue;
       }
       if (constraint.kind.prowessSubstitution) {
@@ -2925,7 +2946,7 @@ export function resolveInfluenceAttemptRoll(
     // ba-78: "+2 to all influence attempts this turn by any of your
     // characters"): applied to every influence check by any character of the
     // targeted player, and NOT consumed (persist for the constraint's scope).
-    for (const constraint of state.activeConstraints) {
+    for (const constraint of nullifyMods ? [] : state.activeConstraints) {
       if (constraint.kind.type !== 'check-modifier') continue;
       if (constraint.kind.check !== 'influence') continue;
       if (constraint.target.kind !== 'player') continue;
@@ -2948,12 +2969,12 @@ export function resolveInfluenceAttemptRoll(
     const siteRegionName = (currentSiteDef as { region?: string } | undefined)?.region;
     const influencerIsMinion = player.alignment === Alignment.Ringwraith;
     const { modifier: restrictionModifier } = collectFactionInfluenceRestriction(state, siteRegionName, influencerIsMinion);
-    if (restrictionModifier !== 0) {
+    if (restrictionModifier !== 0 && !nullifyMods) {
       modifier += restrictionModifier;
       logDetail(`Faction-influence-restriction at ${siteRegionName}: ${formatSignedNumber(restrictionModifier)}`);
     }
 
-    for (const constraint of state.activeConstraints) {
+    for (const constraint of nullifyMods ? [] : state.activeConstraints) {
       if (constraint.kind.type !== 'check-modifier') continue;
       if (constraint.kind.check !== 'influence') continue;
       if (constraint.target.kind !== 'player') continue;
@@ -2966,7 +2987,9 @@ export function resolveInfluenceAttemptRoll(
   // Game-wide ongoing influence modifier from a bare in-play event owned by
   // either player (Times Are Evil td-76: "All … influence attempts are modified
   // by -3"). Applies to every influence attempt regardless of the influencer.
-  const globalInfluenceMod = collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
+  const globalInfluenceMod = nullifyMods
+    ? 0
+    : collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     logDetail(`Game-wide influence check-modifier: ${formatSignedNumber(globalInfluenceMod)}`);
@@ -2977,7 +3000,7 @@ export function resolveInfluenceAttemptRoll(
   // attempt at any version of the company's current site, for either player —
   // mirroring the legal-action `need` computation.
   const influenceSiteDefId = player.companies[siteState.activeCompanyIndex]?.currentSite?.definitionId;
-  const siteBoundInfluenceMod = siteFactionInfluenceModifier(state, influenceSiteDefId);
+  const siteBoundInfluenceMod = nullifyMods ? 0 : siteFactionInfluenceModifier(state, influenceSiteDefId);
   if (siteBoundInfluenceMod !== 0) {
     modifier += siteBoundInfluenceMod;
     logDetail(`Site-bound faction-influence modifier at ${influenceSiteDefId as string}: ${formatSignedNumber(siteBoundInfluenceMod)}`);
@@ -2987,7 +3010,9 @@ export function resolveInfluenceAttemptRoll(
   // Roused le-285): the influencer discarded an item on declare to gain this
   // modifier. The item is already in the discard pile; the modifier applies
   // whether or not the check now succeeds.
-  const paidBonus = entry.payload.bonusModifier ?? 0;
+  // A nullifying event (le-150) reduces it to zero like every other
+  // modification; the discarded item is not returned.
+  const paidBonus = nullifyMods ? 0 : (entry.payload.bonusModifier ?? 0);
   if (paidBonus !== 0) {
     modifier += paidBonus;
     logDetail(`Influence paid-modification bonus ${formatSignedNumber(paidBonus)} (item discarded on declare)`);
@@ -3162,10 +3187,21 @@ function handleOpponentInfluenceAttempt(
   const opponentIndex = 1 - playerIndex;
   const opponent = state.players[opponentIndex];
 
+  // Webs of Fear & Treachery (le-150): every card-sourced modification to this
+  // attempt is reduced to zero. What survives is the attacker's and defender's
+  // 2d6 rolls, the target's mind, the defender's unused general influence, the
+  // *normal* unused direct influence on both sides, and the rules-level
+  // cross-alignment penalty.
+  const nullifyMods = influenceModificationsNullified(state);
+  /** Unused DI of an opponent's controlling character, honouring le-150. */
+  const controllerUnusedDI = (id: CardInstanceId): number => nullifyMods
+    ? normalUnusedDI(state, id, opponent, [], { reason: 'influence-check' })
+    : availableDI(state, id, opponent);
+
   let targetMind = 0;
   let controllerDI = 0;
   // Target identity for the opponent-influence resolver context (booster gating).
-  let targetRace = '';
+  let targetRace: Race | undefined;
   let targetName = '';
   // The target's card definition, for the `influenceTarget` context (its
   // alignment tells "hero resources" apart from minion ones — Fool's Bane wh-19).
@@ -3194,7 +3230,7 @@ function handleOpponentInfluenceAttempt(
 
     // Controller DI (rule 10.12 step 5) — only if under DI, not GI
     if (targetChar.controlledBy !== 'general') {
-      controllerDI = availableDI(state, targetChar.controlledBy, opponent);
+      controllerDI = controllerUnusedDI(targetChar.controlledBy);
     }
   } else if (action.targetKind === 'ally') {
     // Find the ally on an opponent character
@@ -3207,7 +3243,7 @@ function handleOpponentInfluenceAttempt(
         // instance override; otherwise the target must be a real ally card.
         if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) return { state, error: 'Target is not an ally' };
         targetMind = allyEffectiveMind(state, allyInst);
-        controllerDI = availableDI(state, oppCharId, opponent);
+        controllerDI = controllerUnusedDI(oppCharId);
         // Allies carry no race field; only kind matters for booster gating.
         targetName = allyDef?.name ?? '';
         targetDefForCtx = allyDef;
@@ -3241,7 +3277,7 @@ function handleOpponentInfluenceAttempt(
         const itemDef = defById(state, itemInst.definitionId);
         const ctrlDef = defById(state, oppChar.definitionId);
         targetMind = ctrlDef && isCharacterCard(ctrlDef) && ctrlDef.mind !== null ? ctrlDef.mind : 0;
-        controllerDI = availableDI(state, oppCharId, opponent);
+        controllerDI = controllerUnusedDI(oppCharId);
         // Items carry no race field; only kind matters for booster gating.
         targetName = itemDef?.name ?? '';
         targetDefForCtx = itemDef;
@@ -3299,8 +3335,31 @@ function handleOpponentInfluenceAttempt(
 
   const rollEffect = diceRollEffect(player.name, roll, `Opponent influence: ${charName} attacks${revealedCard ? ' (identical revealed)' : ''}`);
 
+  // The resolver context for this attempt: the target's kind/identity gates
+  // both the influencer's ongoing modifiers and any one-shot booster.
+  const oppInfluenceCtx: ResolverContext = {
+    reason: 'opponent-influence-check',
+    // Effective influencer prowess and character-target stats let conditions
+    // compare live values (Whip le-348: target has a mind and lower prowess).
+    ...(charDef && isCharacterCard(charDef)
+      ? { bearer: { ...buildBearerContext(charDef), prowess: charInPlay.effectiveStats.prowess, stagePoints: player.stagePoints } }
+      : {}),
+    target: {
+      kind: action.targetKind, race: targetRace, name: targetName,
+      ...(targetCtxMind !== undefined ? { mind: targetCtxMind } : {}),
+      ...(targetCtxProwess !== undefined ? { prowess: targetCtxProwess } : {}),
+    },
+    influenceTarget: buildInfluenceTargetContext(targetDefForCtx, action.targetKind),
+  };
+  // Every effect the influencer brings to this attempt, and the slice of them
+  // printed on his own card — the only slice a le-150 nullification spares.
+  const influencerEffects = collectCharacterEffects(state, charInPlay, oppInfluenceCtx);
+  const ownInfluencerEffects = influencerEffects.filter(e => e.sourceInstance === charId);
+
   // Calculate modifiers
-  const influencerDI = availableDI(state, charId, player);
+  const influencerDI = nullifyMods
+    ? normalUnusedDI(state, charId, player, ownInfluencerEffects, oppInfluenceCtx)
+    : availableDI(state, charId, player);
   const opponentGI = effectiveGeneralInfluence(state, opponent.id) - opponent.generalInfluenceUsed;
   // CoE rules 8.W1, 8.R1, 8.F1, 8.B1: cross-alignment influence penalty.
   const crossAlignmentPenalty = crossAlignmentInfluencePenalty(player.alignment, opponent.alignment);
@@ -3319,7 +3378,10 @@ function handleOpponentInfluenceAttempt(
       influencerContribution = generalInfluenceSubstitutionValue(unusedGI, override.generalInfluenceSubstitution);
       logDetail(`Prophet of Doom: substituting general influence — unused GI ${unusedGI} → contribution ${influencerContribution} (was DI ${influencerDI})`);
     }
-    if (override.regionDistancePenalty) {
+    // The region-distance penalty is a card-sourced modification, so a le-150
+    // nullification zeroes it; the general-influence substitution survives —
+    // what it contributes IS unused general influence.
+    if (override.regionDistancePenalty && !nullifyMods) {
       const influencerRegion = companySiteRegion(state, findCharacterCompany(player.companies, charId));
       let targetRegions: readonly string[];
       if (action.targetKind === 'faction') {
@@ -3349,29 +3411,17 @@ function handleOpponentInfluenceAttempt(
   // race so the booster can gate on the printed target list.
   let boostModifier = 0;
   const consumedBoostIds: string[] = [];
-  const oppInfluenceCtx: ResolverContext = {
-    reason: 'opponent-influence-check',
-    // Effective influencer prowess and character-target stats let conditions
-    // compare live values (Whip le-348: target has a mind and lower prowess).
-    ...(charDef && isCharacterCard(charDef)
-      ? { bearer: { ...buildBearerContext(charDef), prowess: charInPlay.effectiveStats.prowess, stagePoints: player.stagePoints } }
-      : {}),
-    target: {
-      kind: action.targetKind, race: targetRace, name: targetName,
-      ...(targetCtxMind !== undefined ? { mind: targetCtxMind } : {}),
-      ...(targetCtxProwess !== undefined ? { prowess: targetCtxProwess } : {}),
-    },
-    influenceTarget: buildInfluenceTargetContext(targetDefForCtx, action.targetKind),
-  };
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'check-modifier') continue;
     if (constraint.kind.check !== 'influence') continue;
     if (constraint.target.kind !== 'character' || constraint.target.characterId !== charId) continue;
     if (!constraint.kind.when) continue; // no `when` → faction-influence booster, not for this path
     if (!matchesContext(constraint.kind.when, oppInfluenceCtx)) continue;
-    boostModifier += constraint.kind.value;
+    // Under a le-150 nullification the boost is still spent on this attempt,
+    // but contributes nothing.
+    if (!nullifyMods) boostModifier += constraint.kind.value;
     consumedBoostIds.push(constraint.id as string);
-    logDetail(`Opponent influence boost ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);
+    logDetail(`Opponent influence boost ${formatSignedNumber(nullifyMods ? 0 : constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);
   }
 
   // Fold in the influencer's **ongoing** influence `check-modifier` effects —
@@ -3383,7 +3433,7 @@ function handleOpponentInfluenceAttempt(
   // `when` gate on each effect (evaluated against `oppInfluenceCtx`) is what
   // keeps faction-only modifiers out.
   const ongoingCheckModifier = resolveCheckModifier(
-    collectCharacterEffects(state, charInPlay, oppInfluenceCtx), 'influence',
+    nullifyMods ? ownInfluencerEffects : influencerEffects, 'influence',
   );
   if (ongoingCheckModifier !== 0) {
     boostModifier += ongoingCheckModifier;
@@ -3398,10 +3448,13 @@ function handleOpponentInfluenceAttempt(
   // bearer alone (Power Relinquished to Artifice wh-28), is already baked into
   // effective stats and folded into `influencerContribution` via availableDI
   // above, so including it again would double-count. See
-  // `checkConditionalEffects`.
-  const conditionalInfluencerEffects = checkConditionalEffects(
-    collectCharacterEffects(state, charInPlay, oppInfluenceCtx),
-  );
+  // `checkConditionalEffects`, which supersedes the older `when !== undefined`
+  // heuristic. Under a le-150 nullification the influencer's own conditional DI
+  // is already inside `influencerDI` (normal unused DI) and no other card's
+  // counts.
+  const conditionalInfluencerEffects = nullifyMods
+    ? []
+    : checkConditionalEffects(collectCharacterEffects(state, charInPlay, oppInfluenceCtx));
   const conditionalInfluencerDI = resolveStatModifiers(conditionalInfluencerEffects, 'direct-influence', 0, oppInfluenceCtx);
   if (conditionalInfluencerDI !== 0) {
     influencerContribution += conditionalInfluencerDI;

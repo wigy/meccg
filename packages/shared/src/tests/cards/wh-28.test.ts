@@ -73,7 +73,7 @@ import {
   dispatch, expectInDiscardPile, buildSitePhaseState, viableActions,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { Alignment, computeLegalActions } from '../../index.js';
+import { Alignment, Race, computeLegalActions } from '../../index.js';
 import { computeCombatProwess } from '../../engine/recompute-derived.js';
 import { availableDI } from '../../engine/legal-actions/organization.js';
 import type {
@@ -346,13 +346,13 @@ describe('Power Relinquished to Artifice (wh-28)', () => {
     const charId = charIdAt(state, RESOURCE_PLAYER);
     const gandalfDef = pool[GANDALF_FW as string] as CharacterCard;
     const before = state.players[RESOURCE_PLAYER].characters[charId];
-    expect(computeCombatProwess(state, before, gandalfDef, 'orc')).toBe(6);
+    expect(computeCombatProwess(state, before, gandalfDef, Race.Orc)).toBe(6);
 
     // Combat prowess is re-resolved from the printed value rather than read off
     // effectiveStats, so the stage-point-tiered penalty must be visible there too.
     const withCard = recomputeDerived(attachHazardToChar(state, RESOURCE_PLAYER, GANDALF_FW, POWER_RELINQUISHED));
     const after = withCard.players[RESOURCE_PLAYER].characters[charId];
-    expect(computeCombatProwess(withCard, after, gandalfDef, 'orc')).toBe(3);
+    expect(computeCombatProwess(withCard, after, gandalfDef, Race.Orc)).toBe(3);
   });
 
   // ─── The DI penalty is applied exactly once per influence check ─────────────

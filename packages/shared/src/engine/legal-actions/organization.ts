@@ -123,6 +123,73 @@ function grantActionUsedThisTurn(
 }
 
 /**
+ * Sum of the mind cost of every character a controller holds under direct
+ * influence — the part of his direct influence that is already *used*. Uses
+ * effective mind (The Arkenstone raises Dwarf mind by 1) and honours a
+ * `control-restriction` cost override (Wizard's Myrmidon).
+ *
+ * Shared by {@link availableDI} and {@link normalUnusedDI} so both agree on
+ * what "unused" means; only the *total* DI they start from differs.
+ */
+function followersMindCost(
+  state: GameState,
+  controller: import('../../index.js').CharacterInPlay,
+  player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
+): number {
+  let usedDI = 0;
+  for (const followerId of controller.followers) {
+    const followerChar = player.characters[followerId as string];
+    if (!followerChar) continue;
+    const followerDef = resolveDef(state, followerChar.instanceId);
+    if (isCharacterCard(followerDef) && followerDef.mind !== null) {
+      usedDI += controlCostOf(state, followerChar, followerChar.effectiveStats.mind ?? followerDef.mind) ?? 0;
+    }
+  }
+  return usedDI;
+}
+
+/**
+ * The character's **unused normal direct influence** — the value Webs of Fear
+ * & Treachery (le-150) preserves when every other influence modification is
+ * reduced to zero.
+ *
+ * "Normal" direct influence is the influence the character has *of his own*:
+ * his printed `directInfluence`, plus "influence modifications given in a
+ * character's card text" (the `direct-influence` `stat-modifier` effects
+ * printed on his own card, e.g. Strider ba-1's "+3 direct influence when
+ * influencing Rangers of the North"), minus his followers' mind cost. Direct
+ * influence granted by *other* cards — rings and other items, permanent-events
+ * played on him, attached hazards — is a modification from another card's text
+ * and is therefore nullified, so it is deliberately **not** read off
+ * `effectiveStats.directInfluence` the way {@link availableDI} does.
+ *
+ * @param ownEffects - the influencer's own-card effects, already filtered
+ *   against `context` (i.e. the `sourceInstance === controllerInstanceId`
+ *   slice of a `collectCharacterEffects` result). Pass an empty array when no
+ *   influence context is available; only the printed value then applies.
+ * @param context - the influence resolver context the modifications were
+ *   filtered against, used for value-expression evaluation and clamps.
+ */
+export function normalUnusedDI(
+  state: GameState,
+  controllerInstanceId: CardInstanceId,
+  player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
+  ownEffects: readonly import('../effects/resolver.js').CollectedEffect[],
+  context: ResolverContext,
+): number {
+  const controller = player.characters[controllerInstanceId as string];
+  if (!controller) return 0;
+  const def = resolveDef(state, controller.instanceId);
+  if (!isCharacterCard(def)) return 0;
+
+  const printedDI = def.directInfluence;
+  const normalDI = resolveStatModifiers(ownEffects, 'direct-influence', printedDI, context);
+  const unused = normalDI - followersMindCost(state, controller, player);
+  logDetail(`  Normal unused DI for ${def.name}: printed ${printedDI} → own card text ${normalDI}, unused ${unused}`);
+  return unused;
+}
+
+/**
  * Computes the available (unused) direct influence for a character in play,
  * optionally factoring in conditional DI bonuses against a specific target.
  *
@@ -145,17 +212,7 @@ export function availableDI(
   const controller = player.characters[controllerInstanceId as string];
   if (!controller) return 0;
 
-  let usedDI = 0;
-  for (const followerId of controller.followers) {
-    const followerChar = player.characters[followerId as string];
-    if (!followerChar) continue;
-    const followerDef = resolveDef(state, followerChar.instanceId);
-    if (isCharacterCard(followerDef) && followerDef.mind !== null) {
-      // Use effective mind when available (e.g. The Arkenstone raises Dwarf mind by 1),
-      // and honor a `control-restriction` cost override (e.g. Wizard's Myrmidon).
-      usedDI += controlCostOf(state, followerChar, followerChar.effectiveStats.mind ?? followerDef.mind) ?? 0;
-    }
-  }
+  const usedDI = followersMindCost(state, controller, player);
 
   let baseDI = controller.effectiveStats.directInfluence;
 
@@ -770,7 +827,7 @@ export function siteRingwraithReanimateActivations(state: GameState, playerId: P
       if (!char || char.status !== CardStatus.Untapped) continue;
       const charDef = defById(state, char.definitionId);
       if (!isCharacterCard(charDef) || !isAvatarCharacter(charDef)) continue;
-      if ((charDef as { race?: string }).race !== 'ringwraith') continue;
+      if ((charDef as { race?: Race }).race !== Race.Ringwraith) continue;
       ringwraithId = charId;
       break;
     }
@@ -1311,7 +1368,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
                 if (!coChar) continue;
                 const coCharDef = defById(state, coChar.definitionId);
                 if (!coCharDef || !isCharacterCard(coCharDef)) continue;
-                if (coCharDef.race !== 'dwarf') continue;
+                if (coCharDef.race !== Race.Dwarf) continue;
                 dwarfTargets.push({ instanceId: coCharId, name: coCharDef.name });
               }
             }
@@ -1736,7 +1793,7 @@ export function buildGrantActionContext(
   const bearer = {
     status: statusStr,
     name: charDef?.name ?? '',
-    race: charDef?.race ?? '',
+    race: charDef?.race,
     skills: charDef?.skills ?? [],
     canUsePalantir: !!canUsePalantir,
     siteType,
@@ -2431,7 +2488,7 @@ export function buildPlayerStateContext(
   let hasRingwraithInPlay = false;
   for (const char of Object.values(player.characters)) {
     const def = defById(state, char.definitionId);
-    if (isAvatarCharacter(def) && (def as { race?: string }).race === 'ringwraith') {
+    if (isAvatarCharacter(def) && (def as { race?: Race }).race === Race.Ringwraith) {
       hasRingwraithInPlay = true;
       break;
     }
@@ -2577,7 +2634,7 @@ function eligibleMaladyTargets(
           if (!ch) return false;
           const cDef = defById(state, ch.definitionId);
           if (!cDef || !isCharacterCard(cDef)) return false;
-          if (cDef.race === 'ringwraith') return true;
+          if (cDef.race === Race.Ringwraith) return true;
           return getEffectiveSkills(state, ch, cDef).includes('shadow-magic');
         }),
       );

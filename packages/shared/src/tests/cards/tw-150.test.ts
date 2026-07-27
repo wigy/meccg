@@ -36,7 +36,7 @@ import {
   getCharacter, RESOURCE_PLAYER,
   makeSingleCharCombatState, executeAction,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import type { CardDefinitionId, InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
 
 const FILI = 'tw-150' as CardDefinitionId;
@@ -65,7 +65,7 @@ describe('Fíli (tw-150)', () => {
     // Without the bonus: 2 - 3 = -1. Roll 7: -1 + 7 = 6 = 6, not > 6 → Fíli wounded.
     const ready = makeSingleCharCombatState({
       heroDefId: FILI,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       creatureProwess: 6,
       creatureBody: 5,
     });
@@ -82,7 +82,7 @@ describe('Fíli (tw-150)', () => {
     // Roll 7: -1 + 7 = 6 = undead prowess 6, not > 6 → Fíli is wounded.
     const ready = makeSingleCharCombatState({
       heroDefId: FILI,
-      creatureRace: 'undead',
+      creatureRace: Race.Undead,
       creatureProwess: 6,
       creatureBody: 5,
     });

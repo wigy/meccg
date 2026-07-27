@@ -37,7 +37,7 @@ import {
   dispatch, resolveChain, placeOnGuard,
   handCardId, charIdAt, viableActions,
 } from '../test-helpers.js';
-import { Phase, reduce } from '../../index.js';
+import { Phase, reduce, Race } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
 
 const BLACK_VAPOUR = 'ba-14' as CardDefinitionId;
@@ -63,7 +63,7 @@ describe('Black Vapour (ba-14)', () => {
   // ── Mode B: +1 prowess to a Spider attack (from hand) ─────────────────────
 
   test('Mode B: attacker offered modify-attack vs a Spider attack', () => {
-    const state = makeCancelWindowCombat(baseState(), { creatureDefId: GIANT_SPIDERS, creatureRace: 'spider', strikeProwess: 8 });
+    const state = makeCancelWindowCombat(baseState(), { creatureDefId: GIANT_SPIDERS, creatureRace: Race.Spider, strikeProwess: 8 });
     const bv = handCardId(state, HAZARD_PLAYER);
     const actions = viableActions(state, PLAYER_2, 'modify-attack').filter(
       ea => (ea.action as { cardInstanceId: unknown }).cardInstanceId === bv,
@@ -72,7 +72,7 @@ describe('Black Vapour (ba-14)', () => {
   });
 
   test('Mode B: NOT offered vs a non-Spider (Orc) attack', () => {
-    const state = makeCancelWindowCombat(baseState(), { creatureRace: 'orc', strikeProwess: 8 });
+    const state = makeCancelWindowCombat(baseState(), { creatureRace: Race.Orc, strikeProwess: 8 });
     const bv = handCardId(state, HAZARD_PLAYER);
     const actions = viableActions(state, PLAYER_2, 'modify-attack').filter(
       ea => (ea.action as { cardInstanceId: unknown }).cardInstanceId === bv,
@@ -81,7 +81,7 @@ describe('Black Vapour (ba-14)', () => {
   });
 
   test('Mode B: playing it adds +1 strike prowess and discards the card', () => {
-    const state = makeCancelWindowCombat(baseState(), { creatureDefId: GIANT_SPIDERS, creatureRace: 'spider', strikeProwess: 8 });
+    const state = makeCancelWindowCombat(baseState(), { creatureDefId: GIANT_SPIDERS, creatureRace: Race.Spider, strikeProwess: 8 });
     const action = viableActions(state, PLAYER_2, 'modify-attack')[0].action;
     const after = dispatch(state, action);
     expect(after.combat).not.toBeNull();
@@ -94,7 +94,7 @@ describe('Black Vapour (ba-14)', () => {
 
   test('Mode B: revealable from on-guard to boost a Spider attack', () => {
     const withOG = placeOnGuard(baseState({ attackerHand: [] }), RESOURCE_PLAYER, 0, BLACK_VAPOUR);
-    const state = makeCancelWindowCombat(withOG.state, { creatureDefId: GIANT_SPIDERS, creatureRace: 'spider', strikeProwess: 8 });
+    const state = makeCancelWindowCombat(withOG.state, { creatureDefId: GIANT_SPIDERS, creatureRace: Race.Spider, strikeProwess: 8 });
     const ogId = withOG.ogCard.instanceId;
 
     const actions = viableActions(state, PLAYER_2, 'modify-attack').filter(
@@ -115,7 +115,7 @@ describe('Black Vapour (ba-14)', () => {
   function defenderCancelsSpider(strikeProwess = 8) {
     const state = makeCancelWindowCombat(
       baseState({ defenderHand: [ESCAPE] }),
-      { creatureDefId: GIANT_SPIDERS, creatureRace: 'spider', strikeProwess },
+      { creatureDefId: GIANT_SPIDERS, creatureRace: Race.Spider, strikeProwess },
     );
     const escapeCard = handCardId(state, RESOURCE_PLAYER);
     const aragornId = charIdAt(state, RESOURCE_PLAYER);
@@ -140,7 +140,7 @@ describe('Black Vapour (ba-14)', () => {
   test('Mode A: NOT offered when the attack is not a Spider (Orc)', () => {
     const state = makeCancelWindowCombat(
       baseState({ defenderHand: [ESCAPE] }),
-      { creatureRace: 'orc', strikeProwess: 8 },
+      { creatureRace: Race.Orc, strikeProwess: 8 },
     );
     const escapeCard = handCardId(state, RESOURCE_PLAYER);
     const aragornId = charIdAt(state, RESOURCE_PLAYER);
@@ -198,7 +198,7 @@ describe('Black Vapour (ba-14)', () => {
     // Defender holds Escape (the cancel); Black Vapour sits on-guard on the
     // defending company (owned by the hazard/attacking player).
     const withOG = placeOnGuard(baseState({ defenderHand: [ESCAPE], attackerHand: [] }), RESOURCE_PLAYER, 0, BLACK_VAPOUR);
-    const state = makeCancelWindowCombat(withOG.state, { creatureDefId: GIANT_SPIDERS, creatureRace: 'spider', strikeProwess: 8 });
+    const state = makeCancelWindowCombat(withOG.state, { creatureDefId: GIANT_SPIDERS, creatureRace: Race.Spider, strikeProwess: 8 });
 
     const escapeCard = handCardId(state, RESOURCE_PLAYER);
     const aragornId = charIdAt(state, RESOURCE_PLAYER);

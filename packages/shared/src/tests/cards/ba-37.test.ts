@@ -48,7 +48,7 @@ import {
   Alignment, Phase,
   RIVENDELL, LORIEN, ARAGORN,
 } from '../test-helpers.js';
-import { computeLegalActions, formatGameState } from '../../index.js';
+import { computeLegalActions, formatGameState, Race } from '../../index.js';
 import { MovementType } from '../../types/common.js';
 import { snapshotHazardLimit } from '../../engine/mh-steps.js';
 import type { CardDefinitionId, GameState, CombatState, PlayPermanentEventAction } from '../../index.js';
@@ -245,7 +245,7 @@ describe('Going Ever Under Dark (ba-37)', () => {
     const cvcc = opts.cvcc ?? true;
     const combat: CombatState = cvcc
       ? { ...(withCombat.combat as CombatState), isCvCC: true, companyId, attackSource: { type: 'company-attack', attackingCompanyId: companyIdAt(base, HAZARD_PLAYER) } }
-      : { ...(withCombat.combat as CombatState), isCvCC: false, companyId, attackSource: { type: 'creature', instanceId: 'fake-creature' as never }, creatureRace: 'orc' };
+      : { ...(withCombat.combat as CombatState), isCvCC: false, companyId, attackSource: { type: 'creature', instanceId: 'fake-creature' as never }, creatureRace: Race.Orc };
     let state: GameState = { ...withCombat, combat };
     if (opts.bind) state = addCardInPlay(state, RESOURCE_PLAYER, GOING_EVER_UNDER_DARK, companyId);
     return state;
