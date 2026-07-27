@@ -10676,6 +10676,11 @@ The `when` condition is evaluated against a per-company context exposing:
 - `company.hasWizard` — `true` if a Wizard avatar is in the company.
 - `company.maxNonRangerMind` — the highest mind among the company's characters
   that are **not** rangers (`0` if none; Wizards have no mind and never count here).
+- `company.alignment` — the owning player's alignment (`"wizard"`,
+  `"ringwraith"`, `"fallen-wizard"`, `"balrog"`), for rules that name one side's
+  companies.
+- `company.covert` — MELE covert/overt status (`isCovertCompany`); an **overt**
+  company is `false`.
 
 ```json
 {
@@ -10703,7 +10708,17 @@ increased by two for each moving company with a size of less than four that also
 contains a Wizard or a non-ranger character with a mind of 6 or more." Also used
 by The Great Eye (as-85): "The hazard limit against all companies is decreased
 by one (to a minimum of two)" — `value: -1, floor: 2, appliesTo: "all"`, no
-`when`.
+`when`. And by Gandalf the White Rider (as-11): "the hazard limit against all
+overt minion companies is increased by one" —
+
+```json
+{
+  "type": "hazard-limit-environment",
+  "value": 1,
+  "appliesTo": "all",
+  "when": { "company.alignment": "ringwraith", "company.covert": false }
+}
+```
 
 ### 54b. `cancel-hazard-event-play`
 
@@ -11394,6 +11409,26 @@ named card on the table — The Will of Sauron (tw-100):
 { "type": "discard-self-when",
   "condition": { "$not": { "inPlayAnywhere": "Doors of Night" } } }
 ```
+
+`inPlay` / `inPlayAnywhere` list `cardsInPlay` only and never see **characters**,
+so a rule about a *person* arriving reads `charactersInPlayAnywhere` — the names
+of every character either player has in play (`charactersInPlayNames` in
+`manifestations.ts`). Matched by name, so every printing counts (Gandalf is the
+hero Wizard tw-156 and the Fallen-wizard wh-4). Gandalf the White Rider (as-11),
+"Discard this card if Gandalf comes into play":
+
+```json
+{ "type": "discard-self-when",
+  "condition": { "charactersInPlayAnywhere": "Gandalf" } }
+```
+
+A `discard-self-when` on a **manifestation** sister also satisfies glossary
+g.man.1's "unless the current manifestation would leave play when the new
+manifestation is played" clause: `blockingManifestationForCharacterPlay`
+(`manifestations.ts`) re-evaluates each in-play sister's condition against a
+hypothetical `charactersInPlayAnywhere` that already includes the character
+being played, and a sister that would yield stops blocking. So the in-play White
+Rider never bars playing Gandalf — the post-action sweep discards it instead.
 
 ### 62a. `retain-hazard-long-events`
 

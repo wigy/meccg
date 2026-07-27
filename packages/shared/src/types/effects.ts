@@ -7503,10 +7503,12 @@ export interface ProhibitCompanyEventsEffect extends EffectBase {
  * The {@link value} is added to the company's hazard limit once per matching
  * in-play card. The optional {@link when} condition is evaluated against a
  * per-company context exposing `company.size` (effective size, CoE rule 3.24),
- * `company.hasWizard` (a Wizard avatar is in the company) and
+ * `company.hasWizard` (a Wizard avatar is in the company),
  * `company.maxNonRangerMind` (the highest mind among the company's
- * non-ranger characters, or 0 if none) — see `snapshotHazardLimit` in
- * `mh-steps.ts`. An absent `when` matches every company.
+ * non-ranger characters, or 0 if none), `company.alignment` (the owning
+ * player's alignment) and `company.covert` (MELE covert/overt status — an
+ * overt company is `false`) — see `snapshotHazardLimit` in `mh-steps.ts`. An
+ * absent `when` matches every company.
  *
  * Used by Eyes of the Shadow (dm-56): "The hazard limit is increased by two
  * for each moving company with a size of less than four that also contains a
@@ -7516,6 +7518,10 @@ export interface ProhibitCompanyEventsEffect extends EffectBase {
  * Used by The Great Eye (as-85): "The hazard limit against all companies is
  * decreased by one (to a minimum of two)." — `value: -1, floor: 2,
  * appliesTo: "all"`.
+ *
+ * Used by Gandalf the White Rider (as-11): "the hazard limit against all overt
+ * minion companies is increased by one." — `value: 1, appliesTo: "all"` with
+ * `when: { "company.alignment": "ringwraith", "company.covert": false }`.
  */
 export interface HazardLimitEnvironmentEffect extends EffectBase {
   readonly type: 'hazard-limit-environment';
@@ -8559,11 +8565,17 @@ export interface OpponentInfluenceOverrideEffect extends EffectBase {
  * Evaluated as post-action housekeeping against the card controller's
  * player-state context (the same context used by `play-condition`
  * `requires: "player-state"`: `player.avatar`, `player.stagePoints`,
- * `player.factionCount`, …). Distinct from the play-condition, which gates
- * *entry*; this gates *staying in play*.
+ * `player.factionCount`, `charactersInPlayAnywhere`, …). Distinct from the
+ * play-condition, which gates *entry*; this gates *staying in play*.
  *
  * Used by Prophet of Doom (wh-106): "Discard if you have fewer than 5 factions
  * in play."
+ *
+ * Used by Gandalf the White Rider (as-11): "Discard this card if Gandalf comes
+ * into play." — `{ "charactersInPlayAnywhere": "Gandalf" }`. A `discard-self-when`
+ * on a manifestation sister also satisfies g.man.1's "unless the current
+ * manifestation would leave play" clause, so the named character stays playable
+ * (see `blockingManifestationForCharacterPlay` in `manifestations.ts`).
  */
 export interface DiscardSelfWhenEffect extends EffectBase {
   readonly type: 'discard-self-when';
