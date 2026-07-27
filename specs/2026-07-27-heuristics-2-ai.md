@@ -10,8 +10,11 @@ H2 module has independently cleared a gate.*
 strike window (tap mode, support, strike events from hand) and the attack
 window before it (`assign-strike`, `choose-strike-order`, `cancel-attack`,
 `cancel-by-tap`, `halve-strikes`), plus the calibration harness of §6.2, which
-validates the strike window's claims against the reducer. Still outstanding in
-P1: the `kill` module on top of it, and the strength gate.*
+validates the strike window's claims against the reducer. The attack is
+resolved **strike by strike**, carrying the company's condition between
+strikes, so the degradation §3.4 relies on is modelled rather than assumed
+away. Still outstanding in P1: the `kill` module on top of it, and the
+strength gate.*
 
 *Two corrections to this document, found by reading the engine:*
 

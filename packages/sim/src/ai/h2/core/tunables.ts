@@ -77,6 +77,15 @@ export interface Tunables {
    * explanation can never hide which price produced the decision.
    */
   readonly provisionalCardPrice: number;
+  /**
+   * Ceiling on the number of live states while an attack is resolved strike by
+   * strike. Beyond it, states are merged — probability mass is conserved, but
+   * the enumeration stops being exhaustive and says so.
+   *
+   * A performance bound, not a gameplay choice: the sequence branches about
+   * fivefold per strike, and the per-decision budget is a millisecond.
+   */
+  readonly attackStateCap: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -89,6 +98,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   woundTempoCost: 1.5,
   eliminationTempoCost: 3,
   provisionalCardPrice: 1,
+  attackStateCap: 192,
 };
 
 /**

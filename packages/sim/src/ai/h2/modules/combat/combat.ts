@@ -36,11 +36,9 @@ import type { StrikeOption, StrikeOutcome, StrikeSituation, TapMode } from './st
 import { strikeOutcomes } from './strike-model.js';
 import type { EliminationCost } from './mp-value.js';
 import { attackStillDefeatable, eliminationCost, killMpOnOffer, strikeCompletesTheAttack } from './mp-value.js';
-import type { PlannedStrike } from './attack-model.js';
-import { composeAttack, planDefence } from './attack-model.js';
 import type { StrikeTarget } from './prowess.js';
 import { DEFAULT_BODY, bodyOf as bodyOfTarget, predictedNeed, strikeTargets } from './prowess.js';
-import { convolveOutcomes } from '../../core/distribution.js';
+import { resolveSequentially } from './sequence.js';
 
 /**
  * Action types this module scores.
@@ -253,41 +251,30 @@ function priceProjectedOutcome(
 }
 
 /**
- * The kill-MP distribution for an attack: the points arrive only if every
- * strike is defeated (`combat-finalize.ts`), so this is one two-outcome
- * distribution convolved alongside the strikes rather than a term inside each.
- * It is treated as independent of the harm outcomes, which is a simplification
- * the evaluation declares.
+ * The distribution of facing `strikeCount` more strikes of this attack,
+ * resolved in sequence so the company's condition carries between them.
  */
-function killTerm(context: StrikeContext, planned: readonly PlannedStrike[]): Outcome[] {
-  if (context.killTsd <= 0 || !context.stillDefeatable || planned.length === 0) return [];
-  let pAll = 1;
-  for (const strike of planned) {
-    const defeated = strikeOutcomes(strike.option, strike.situation)
-      .filter(o => o.strike === 'defeated')
-      .reduce((sum, o) => sum + o.p, 0);
-    pAll *= defeated;
-  }
-  if (pAll <= 0) return [];
-  if (pAll >= 1) return [{ p: 1, label: `attack beaten — ${context.killMp} kill MP`, dtsd: context.killTsd }];
-  return [
-    { p: pAll, label: `attack beaten — ${context.killMp} kill MP`, dtsd: context.killTsd },
-    { p: 1 - pAll, label: 'the attack is not fully defeated', dtsd: 0 },
-  ];
-}
-
-/** The distribution of facing `strikeCount` more strikes of this attack. */
 function facingOutcomes(
   context: StrikeContext,
   strikeCount: number,
   forcedFirst?: StrikeTarget,
-): { outcomes: Outcome[]; merged: boolean; planned: PlannedStrike[] } {
-  const planned = planDefence(context.view, context.cardPool, context.combat, strikeCount, forcedFirst);
-  const attack = composeAttack(planned, (outcome, target) => priceProjectedOutcome(context, outcome, target));
-  const kill = killTerm(context, planned);
-  if (kill.length === 0) return { ...attack, outcomes: [...attack.outcomes], planned };
-  const combined = convolveOutcomes([attack.outcomes, kill]);
-  return { outcomes: [...combined.outcomes], merged: attack.merged || combined.merged, planned };
+): { outcomes: Outcome[]; merged: boolean; opening: readonly { target: StrikeTarget; need: number }[] } {
+  const result = resolveSequentially(
+    context.view,
+    context.cardPool,
+    context.combat,
+    strikeCount,
+    (outcome, target) => priceProjectedOutcome(context, outcome, target),
+    {
+      maxStates: context.tunables.attackStateCap,
+      forcedFirst,
+      // Exact rather than convolved: a sequence knows whether every strike was
+      // defeated, which is the all-or-nothing condition the points depend on.
+      killTsd: context.stillDefeatable ? context.killTsd : 0,
+      killLabel: context.killMp > 0 ? `attack beaten, ${context.killMp} kill MP` : undefined,
+    },
+  );
+  return { outcomes: [...result.outcomes], merged: result.merged, opening: result.opening };
 }
 
 /** How many strikes of this attack are still to come. */
@@ -301,10 +288,8 @@ const ATTACK_ASSUMPTIONS: readonly string[] = [
   'strike targets are projected from effective prowess, which misses modifiers keyed to the '
   + 'attacker\'s race (measured at within 1 on the corpus); the engine publishes the exact target '
   + 'once the strike is reached',
-  'strikes are priced independently — a character wounded by an earlier strike '
-  + 'in fact faces the next one at -2, so a multi-strike attack is worse than modelled',
-  'the defence is assigned greedily (the best parrier takes each strike) and excess strikes pile onto the same characters',
-  'the kill-MP term is convolved independently of the harm outcomes',
+  'the defence answers each strike with its best remaining parrier, and the attacker does not '
+  + 'concentrate strikes to force a kill',
 ];
 
 /** Human-readable label for a joint outcome. */
@@ -527,23 +512,28 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
 
   /** The distribution of facing `count` strikes, with its rationale. */
   const facing = (count: number, label: string, forcedFirst?: StrikeTarget): { outcomes: Outcome[]; detail: Rationale[] } => {
-    const { outcomes, merged, planned } = facingOutcomes(context, count, forcedFirst);
+    const { outcomes, merged, opening } = facingOutcomes(context, count, forcedFirst);
     const detail: Rationale[] = [
       leaf('strikes faced', count, { note: `${combat.strikesTotal} in the attack, ${remaining} still to come` }),
-      ...planned.map((strike, i) => leaf(
+      leaf('resolved in sequence', 1, {
+        note: 'each strike lands on the company the previous one left behind',
+      }),
+      ...opening.map((strike, i) => leaf(
         `strike ${i + 1} → ${strike.target.instanceId as string}`,
-        strike.option.need,
-        {
-          note: `projected need on 2d6${strike.excessStrikes > 0 ? `, ${strike.excessStrikes} excess strike(s)` : ''}`,
-        },
+        strike.need,
+        { note: 'projected need on 2d6 along the likeliest line' },
       )),
     ];
     if (context.killMp > 0) {
-      detail.push(leaf('kill MP if every strike is defeated', context.killTsd, { unit: 'tsd' }));
+      detail.push(leaf('kill MP if every strike is defeated', context.killTsd, {
+        unit: 'tsd',
+        note: 'banked only on the branches where none got through',
+      }));
     }
     if (merged) {
-      detail.push(leaf('outcomes merged', 1, {
-        note: 'the joint space exceeded the cap and was bucketed — this enumeration is not exhaustive',
+      detail.push(leaf('states merged', context.tunables.attackStateCap, {
+        tunable: 'attackStateCap',
+        note: 'the sequence exceeded the cap and states were merged — this enumeration is not exhaustive',
       }));
     }
     return { outcomes, detail: [node(label, count, detail)] };
