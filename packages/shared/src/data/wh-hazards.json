@@ -621,7 +621,46 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/NaturesRevenge.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-07-27",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "regionType": "wilderness" },
+            {
+              "$or": [
+                { "siteType": { "$in": ["border-hold", "shadow-hold"] } },
+                { "$and": [{ "isWizardhaven": true }, { "isProtected": false }] }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "ruins-and-lairs",
+          "allVersions": true,
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "permanent-event-auto-attack",
+        "siteIds": [],
+        "boundSite": true,
+        "attack": {
+          "creatureType": "Animals",
+          "strikes": 1,
+          "prowess": 7,
+          "combatRules": ["each-character"]
+        }
+      }
+    ],
     "text": "Playable on a site in a Wilderness [{w}] that normally is a Border-hold [{B}] or a Shadow-hold [{S}], or on a non-protected Wizardhaven [{H}] in a Wilderness [{w}]. All versions of the site become Ruins & Lairs [{R}] and each gains an additional automatic-attack: Animals — each character faces 1 strike with 7 prowess. Discard this card when the site is discarded or returned to its location deck."
   },
   {

@@ -23,10 +23,10 @@ import { isCharacterCard, isAvatarCharacter, isSiteCard, isFactionCard } from '.
 import { Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { getEffectiveSkills } from '../effects/index.js';
-import { getEffectiveSiteType } from '../effective.js';
+import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes } from '../reducer-utils.js';
+import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -260,9 +260,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         const siteDef = defById(state, siteDefId);
         if (!siteDef || !isSiteCard(siteDef)) return false;
         if (!filter) return true;
-        const regionType = siteRegionTypeOf(state, siteDef);
-        const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, siteInstanceId);
-        return matchesCondition(filter, { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType });
+        return matchesCondition(filter, buildSiteFilterContext(state, siteDef, siteInstanceId));
       };
 
       // Mode 1 — play-with-stored-card: the companion (e.g. The White Tree)
@@ -385,14 +383,12 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         const siteDef = defById(state, siteDefId);
         if (!siteDef || !isSiteCard(siteDef)) continue;
         if (sitePlayTarget.filter) {
-          // Mirror the site-phase matcher context: expose the site's region
-          // type (lives on a separate region card) and its *effective* type
-          // after any wizardhaven-conversion / site-type-override, so filters
-          // like Hidden Haven's region gate or Guarded Haven's "your
+          // The shared site play-target context — the site definition plus its
+          // region type, its *effective* type after any wizardhaven-conversion
+          // / site-type-override, and the Wizardhaven / protected flags — so
+          // filters like Hidden Haven's region gate or Guarded Haven's "your
           // Wizardhaven [{H}]" match dynamically converted sites.
-          const regionType = siteRegionTypeOf(state, siteDef);
-          const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, company.currentSite.instanceId);
-          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType };
+          const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
           if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
             logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
             continue;

@@ -902,11 +902,17 @@
         "value": 2
       },
       {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
+      },
+      {
         "type": "allow-character-play",
         "filter": { "race": { "$in": ["orc", "troll"] } }
       }
     ],
-    "text": "You may play Orc and Troll characters and include them in your starting company. You cannot start with a character that says he cannot be in the starting company. Cannot be duplicated by a given player."
+    "text": "You may play Orc and Troll characters and include them in your starting company. You cannot start with a character that says he cannot be in the starting company. Cannot be duplicated by a given player.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "minion-resource-event",
