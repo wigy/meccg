@@ -157,6 +157,18 @@ function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: () => void
   return item;
 }
 
+/**
+ * Label for a deck option in the deck dropdown. Prefixes a star for decks
+ * a human has approved for AI use (see `DeckList.approved`) and a warning
+ * sign for decks with cards missing from the pool.
+ */
+function deckSelectLabel(deck: FullDeck): string {
+  let label = deck.name;
+  if (deck.approved === true) label = `\u2605 ${label}`;
+  if (missingCards(deck).length > 0) label = `\u26A0 ${label}`;
+  return label;
+}
+
 /** Render a compact, read-only listing of a deck in a 3-column grid. */
 export function renderCompactDeck(container: HTMLElement, deck: FullDeck): void {
   const sections: { label: string; entries: DeckListEntry[] }[][] = [
@@ -306,12 +318,7 @@ export async function loadDecks(): Promise<void> {
         for (const deck of myDecks) {
           const opt = document.createElement('option');
           opt.value = deck.id;
-          const missing = missingCards(deck);
-          const uncert = uncertifiedCards(deck);
-          let label = deck.name;
-          if (missing.length > 0) label = `\u26A0 ${label}`;
-          if (uncert.length > 0) label = `\u2606 ${label}`;
-          opt.textContent = label;
+          opt.textContent = deckSelectLabel(deck);
           opt.selected = deck.id === appState.currentDeckId;
           group.appendChild(opt);
         }
@@ -323,12 +330,7 @@ export async function loadDecks(): Promise<void> {
         for (const deck of catalog) {
           const opt = document.createElement('option');
           opt.value = deck.id;
-          const missing = missingCards(deck);
-          const uncert = uncertifiedCards(deck);
-          let label = deck.name;
-          if (missing.length > 0) label = `\u26A0 ${label}`;
-          if (uncert.length > 0) label = `\u2606 ${label}`;
-          opt.textContent = label;
+          opt.textContent = deckSelectLabel(deck);
           opt.selected = deck.id === appState.currentDeckId;
           group.appendChild(opt);
         }
@@ -416,9 +418,14 @@ async function importDeckFile(file: File): Promise<void> {
   await openDeckEditorFn?.(deck.id);
 }
 
-/** Add a catalog deck to the player's collection, then refresh. */
+/**
+ * Add a catalog deck to the player's collection, then refresh. The copy is
+ * editable, so it drops the catalog deck's `approved` flag: approval is
+ * granted by hand per deck (see `DeckList.approved`) and does not survive
+ * into a deck a player can change.
+ */
 export async function addDeckToCollection(deck: FullDeck): Promise<void> {
-  const personalDeck = { ...deck, id: `${appState.lobbyPlayerName}-${deck.id}` };
+  const personalDeck = { ...deck, approved: undefined, id: `${appState.lobbyPlayerName}-${deck.id}` };
   const resp = await apiSend('/api/my-decks', 'POST', personalDeck);
   if (resp.ok) {
     await loadDecks();

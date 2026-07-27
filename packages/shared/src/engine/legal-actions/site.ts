@@ -10,7 +10,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, RegionType, CardDefinition, CardDefinitionId, CardEffect } from '../../index.js';
-import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform } from '../effective.js';
+import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform, buildSiteFilterContext } from '../effective.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
@@ -33,7 +33,7 @@ import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { isUnderDeepsSurfaceSite } from './organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay, manifestationInCardsInPlay, manifestIdOf } from '../manifestations.js';
-import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
+import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions, sitePlayTargetContext } from '../recompute-derived.js';
 import { asViable as viable } from './evaluated.js';
 
 /**
@@ -244,9 +244,13 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
 
   if (siteState.step === 'automatic-attacks'
     || siteState.step === 'troll-purse-attacks'
-    || siteState.step === 'rescue-attacks') {
-    // Repeated/sequenced attacks (Troll-purse re-face, prisoner-rescue): the
-    // active player passes to initiate the next attack (or to finish).
+    || siteState.step === 'rescue-attacks'
+    || siteState.step === 'site-entry-attack'
+    || siteState.step === 'siege-attacks') {
+    // Repeated/sequenced attacks (Troll-purse re-face, prisoner-rescue, Siege
+    // tw-87) and the `site-entry-roll-attack` gate window (Doubled Vigilance
+    // dm-51): the active player passes to initiate the next attack (or to
+    // finish).
     return viable(automaticAttacksActions(state, playerId, siteState));
   }
 
@@ -408,10 +412,26 @@ function revealOnGuardAttacksActions(
         cardInstanceId: ogCard.instanceId,
       });
     } else if (def.cardType === 'hazard-event' && hasAutoAttacks) {
-      // Rule 2.V.i: hazard events that affect automatic-attacks can be revealed here
+      // Rule 2.V.i: hazard events that affect automatic-attacks can be revealed
+      // here. Rule 2.V.i.1 extends that to adding an attack, which is what a
+      // `site-entry-roll-attack` gate (Doubled Vigilance dm-51) can do — CRF
+      // confirms it "can be revealed on-guard".
       const affectsAutoAttacks = 'effects' in def && def.effects?.some(
-        e => e.type === 'stat-modifier' && (e.target === 'all-automatic-attacks' || e.target === 'all-attacks'),
+        e => (e.type === 'stat-modifier' && (e.target === 'all-automatic-attacks' || e.target === 'all-attacks'))
+          || e.type === 'site-entry-roll-attack',
       );
+      // A site-targeting event is played on the company's site as it is
+      // revealed, so it must be legal there (Doubled Vigilance: a Shadow-hold,
+      // or a Ruins & Lairs / Border-hold while Doors of Night is in play).
+      const siteTarget = 'effects' in def
+        ? def.effects?.find(e => e.type === 'play-target' && e.target === 'site')
+        : undefined;
+      if (siteTarget && siteTarget.type === 'play-target' && siteTarget.filter
+        && !(siteDef && isSiteCard(siteDef)
+          && matchesContext(siteTarget.filter, sitePlayTargetContext(state, siteDef)))) {
+        logDetail(`On-guard event "${def.name}" cannot be played on ${siteDef && isSiteCard(siteDef) ? siteDef.name : '?'} — not revealable`);
+        continue;
+      }
       if (affectsAutoAttacks) {
         logDetail(`On-guard event "${def.name}" affects automatic-attacks — eligible for reveal`);
         actions.push({
@@ -1003,24 +1023,17 @@ function playResourcesActions(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
         );
         if (sitePlayTarget?.filter && siteDef) {
-          // Augment the matched object with the site's own region type so a
-          // filter can gate on it (e.g. Hidden Haven's "in a Wilderness,
-          // Border-land, or Shadow-land"). The region type lives on a separate
-          // region card, so it is not a field on the site definition itself.
-          const regionType = siteRegionTypeOf(state, siteDef);
-          // Expose the site's *effective* type (after any wizardhaven-conversion
-          // / site-type-override) as `effectiveSiteType` so a filter can gate on
-          // "your Wizardhaven [{H}]" and still match a haven the player converted
-          // dynamically (Guarded Haven wh-74 on a Hidden Haven site). The raw
-          // `siteType` field remains the printed type for filters that need it.
-          const effectiveSiteType = siteDefId && isSiteCard(siteDef)
-            ? getEffectiveSiteType(state, siteDefId, siteDef.siteType, siteInstanceId ?? undefined)
-            : undefined;
-          // Expose whether this site is the surface entrance of an Under-deeps
-          // site so a filter can exclude it (Tempest of Fire ba-77: "the site
-          // cannot be an Under-deeps site or surface site thereof").
+          // The shared site play-target context (`regionType`,
+          // `effectiveSiteType`, `isWizardhaven`, `isProtected` on top of the
+          // site definition), plus the one fact only this layer needs: whether
+          // the site is the surface entrance of an Under-deeps site, so a
+          // filter can exclude it (Tempest of Fire ba-77: "the site cannot be
+          // an Under-deeps site or surface site thereof").
           const isUnderDeepsSurface = isUnderDeepsSurfaceSite(state, siteDef);
-          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType, isUnderDeepsSurface };
+          const matchTarget = {
+            ...buildSiteFilterContext(state, siteDef, siteInstanceId ?? undefined),
+            isUnderDeepsSurface,
+          };
           if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
             logDetail(`Permanent event ${eventDef.name}: site filter excludes ${siteName}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: site ${siteName} does not match play-target filter`));

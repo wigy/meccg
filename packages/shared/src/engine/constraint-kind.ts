@@ -143,12 +143,22 @@ export function buildConstraintKind(
       // healing-only override — `getEffectiveSiteType` skips it, so only the
       // untap-phase haven-healing sweep honours it.
       const purpose = (onEvent.apply as { purpose?: string }).purpose;
+      // Nature's Revenge (wh-27): "All versions of the site become Ruins &
+      // Lairs" — scope the override by printed *name* so the hero, minion,
+      // Fallen-wizard and Balrog printings of the location (distinct
+      // definitions sharing a name) are all retyped, not just the one the
+      // card was played on.
+      const allVersions = (onEvent.apply as { allVersions?: boolean }).allVersions === true;
+      const siteName = (state.cardPool[siteDefinitionId] as { name?: string } | undefined)?.name;
+      if (allVersions && siteName === undefined) return null;
       return {
         type: 'attribute-modifier',
         attribute: 'site.type',
         op: 'override',
         value: overrideType,
-        filter: { 'site.definitionId': siteDefinitionId as string },
+        filter: allVersions
+          ? { 'site.name': siteName! }
+          : { 'site.definitionId': siteDefinitionId as string },
         ...(purpose === 'healing' ? { healingOnly: true } : {}),
       };
     }

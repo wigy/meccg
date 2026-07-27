@@ -2532,7 +2532,7 @@ Apply types:
 - `discard-character` -- discard the affected character to the defending player's discard pile (not the out-of-play pile). The character is removed from their company; all their items and allies are also discarded immediately. No item-salvage phase is offered. Condition context exposes `{ target: { race } }` (evaluated per character). Supported under two events:
   - `on-event: character-body-check-equals-body` — fires when the body check result **exactly equals** the character's body. Implemented in `reducer-combat.ts` `handleBodyCheckRoll()`. Used by *Giant Spiders* (tw-40).
   - `on-event: character-wounded-by-self` — fires after combat finalization for each wounded character. The condition is evaluated per wounded character; any that pass are discarded. Implemented in `reducer-combat.ts` `discardWoundedCharacters()`. Used by *Abductor* (tw-1).
-- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`, `"hazard-draw-multiplier"`, `"haven-return-option"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost` (when added from a **resource short-event's** `on-event: self-enters-play` — Come By Night Upon Them le-176 — it resolves the active site-phase company itself, bakes a `doublesWithDoorsOfNight` doubling at play time, and is stored as a **persistent** `auto-attack.prowess` `attribute-modifier` that weakens *every* automatic-attack the company faces at the site, not just the first), `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase; an optional `purpose: "healing"` makes the override **healing-only** — `getEffectiveSiteType` ignores it so hazard keying / movement / bring-into-play / playability keep the printed type, while the untap-phase healing sweep still treats the site as a Haven, as used by *Houses of Healing* td-125), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `replace-automatic-attacks` constraint (scope `"until-cleared"`, added by *Vile Fumes*' `transform-site` action — see above) carries a `siteDefinitionId` and an `attack`; `manifestations.ts` `getActiveAutoAttacks` returns that single attack in place of all printed/augmented attacks for every version of the site. The attack may set `uncancelable` (mapped to the `cannot-be-canceled` combat rule, suppressing cancel-attack) and `eachCharacter` (each character in the company faces one strike). When added via a grant-action `add-constraint` apply (rather than the permanent-event on-event path), both `skip-automatic-attacks` and `influence-at-site-modifier` resolve their `siteDefinitionId` from the *bearer's company's* current site; `influence-at-site-modifier` reads its `+value` from the apply clause and adds that bonus to every faction-influence attempt against a faction at that site for its scope (`turn`). Both are used by *Blasting Fire* (wh-51): its discard ability is a `sequence` of these two `add-constraint` applies. The `company-cannot-move` constraint (scope `"turn"`, target a company) locks that company stationary for the rest of the turn: the org-phase `plan-movement` emitter (`planMovementActions`) skips it and the reducer (`handlePlanMovement`) rejects any movement declaration for it. Used by *Hide in Dark Places* (le-192), which adds it alongside `no-creature-hazards-on-company` (two `on-event: self-enters-play` → `add-constraint` effects) so the protected company cannot carry its hazard-creature immunity onto a moving company. The `no-creatures-keyed-to-site` constraint (scope `"turn"`, target a company) is the inverse of `only-creatures-keyed-to-site`: hazard-creature plays keyed *to the target company's new site* (the play action's `keyedBy.method` is `site-type`, `site-name`, `site-keyword`, or `adjacent-to-site-keyword`) are dropped, while region-keyed plays of the same creature survive as their own actions. An optional `unlessSiteRegionType` field (e.g. `"free"`) voids the restriction entirely when the destination site's containing region has that type, resolved via `siteRegionTypeOf`. Used by *Crack in the Wall* (le-177): "Unless the site is in a Free-domain [{f}], no hazard creatures may be played at the company's new site." The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The `hazard-draw-multiplier` constraint (scope `"company-mh-phase"`) multiplies the hazard draw count during the target company's M/H draw step by the `value` field (e.g. `2` to double opponent draws, as used by *Great-road*). The `haven-return-option` constraint (scope `"turn"`) records the company's origin haven at play time and enables a `haven-return` action during end-of-turn discard and signal-end steps, allowing the company to teleport back to the recorded haven without a new M/H phase (used by *Great-road*). The `check-modifier` constraint kind may also be added via a grant-action `add-constraint` apply (carrying `check` and a numeric `value`): a one-shot bonus/penalty consumed the first time the targeted character makes a matching check — e.g. *When You Know More* (dm-163) adds a `+2` `influence` modifier. Such a grant-action targets the chosen character with `target: "action-target-character"`, which resolves to `{ kind: "character", characterId: <action.targetCardId> }` (the candidate the legal-action generator put on the activation). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
+- `add-constraint` -- add an {@link ActiveConstraint} of the named kind to the target. Reserves the entry's `constraint` field for the kind name (e.g. `"site-phase-do-nothing"`, `"no-creature-hazards-on-company"`, `"deny-scout-resources"`, `"auto-attack-prowess-boost"`, `"auto-attack-duplicate"`, `"site-type-override"`, `"region-type-override"`, `"skip-automatic-attacks"`, `"cancel-character-discard"`, `"hazard-draw-multiplier"`, `"haven-return-option"`) and the `scope` field for the auto-clear boundary (e.g. `"company-site-phase"`, `"company-mh-phase"`, `"turn"`, `"until-cleared"`). Constraint-kind-specific fields include `value` + `siteType` for `auto-attack-prowess-boost` (when added from a **resource short-event's** `on-event: self-enters-play` — Come By Night Upon Them le-176 — it resolves the active site-phase company itself, bakes a `doublesWithDoorsOfNight` doubling at play time, and is stored as a **persistent** `auto-attack.prowess` `attribute-modifier` that weakens *every* automatic-attack the company faces at the site, not just the first), `overrideType` for `site-type-override` (the site is the active company's current site during site phase, or the destination during M/H phase; an optional `purpose: "healing"` makes the override **healing-only** — `getEffectiveSiteType` ignores it so hazard keying / movement / bring-into-play / playability keep the printed type, while the untap-phase healing sweep still treats the site as a Haven, as used by *Houses of Healing* td-125; an optional `allVersions: true` scopes the override by the site's printed **name** instead of its definition id, so every printing of the location — hero / minion / Fallen-wizard / Balrog, distinct definitions sharing one name — is retyped, as used by *Nature's Revenge* wh-27 "All versions of the site become Ruins & Lairs"), and `overrideType` + `regionName` for `region-type-override` (use the token `"destination"` as the region name to target the destination region of the active company). The `skip-automatic-attacks` constraint removes all automatic attacks from the bound site (resolved from the active company's current site during site phase). The `replace-automatic-attacks` constraint (scope `"until-cleared"`, added by *Vile Fumes*' `transform-site` action — see above) carries a `siteDefinitionId` and an `attack`; `manifestations.ts` `getActiveAutoAttacks` returns that single attack in place of all printed/augmented attacks for every version of the site. The attack may set `uncancelable` (mapped to the `cannot-be-canceled` combat rule, suppressing cancel-attack) and `eachCharacter` (each character in the company faces one strike). When added via a grant-action `add-constraint` apply (rather than the permanent-event on-event path), both `skip-automatic-attacks` and `influence-at-site-modifier` resolve their `siteDefinitionId` from the *bearer's company's* current site; `influence-at-site-modifier` reads its `+value` from the apply clause and adds that bonus to every faction-influence attempt against a faction at that site for its scope (`turn`). Both are used by *Blasting Fire* (wh-51): its discard ability is a `sequence` of these two `add-constraint` applies. The `company-cannot-move` constraint (scope `"turn"`, target a company) locks that company stationary for the rest of the turn: the org-phase `plan-movement` emitter (`planMovementActions`) skips it and the reducer (`handlePlanMovement`) rejects any movement declaration for it. Used by *Hide in Dark Places* (le-192), which adds it alongside `no-creature-hazards-on-company` (two `on-event: self-enters-play` → `add-constraint` effects) so the protected company cannot carry its hazard-creature immunity onto a moving company. The `no-creatures-keyed-to-site` constraint (scope `"turn"`, target a company) is the inverse of `only-creatures-keyed-to-site`: hazard-creature plays keyed *to the target company's new site* (the play action's `keyedBy.method` is `site-type`, `site-name`, `site-keyword`, or `adjacent-to-site-keyword`) are dropped, while region-keyed plays of the same creature survive as their own actions. An optional `unlessSiteRegionType` field (e.g. `"free"`) voids the restriction entirely when the destination site's containing region has that type, resolved via `siteRegionTypeOf`. Used by *Crack in the Wall* (le-177): "Unless the site is in a Free-domain [{f}], no hazard creatures may be played at the company's new site." The `cancel-character-discard` constraint is placed by *Magical Harp* on the bearer's company; any future character-discard effect should consult this constraint to short-circuit the discard for the rest of the turn. The `hazard-draw-multiplier` constraint (scope `"company-mh-phase"`) multiplies the hazard draw count during the target company's M/H draw step by the `value` field (e.g. `2` to double opponent draws, as used by *Great-road*). The `haven-return-option` constraint (scope `"turn"`) records the company's origin haven at play time and enables a `haven-return` action during end-of-turn discard and signal-end steps, allowing the company to teleport back to the recorded haven without a new M/H phase (used by *Great-road*). The `check-modifier` constraint kind may also be added via a grant-action `add-constraint` apply (carrying `check` and a numeric `value`): a one-shot bonus/penalty consumed the first time the targeted character makes a matching check — e.g. *When You Know More* (dm-163) adds a `+2` `influence` modifier. Such a grant-action targets the chosen character with `target: "action-target-character"`, which resolves to `{ kind: "character", characterId: <action.targetCardId> }` (the candidate the legal-action generator put on the activation). The constraint filter in `legal-actions/pending.ts` rewrites legal actions for the affected target while the constraint lives.
 - self-discard `move` (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) -- discard the card carrying this effect (typically an ally or attached hazard) from its bearer to the owning player's discard pile. This is the generic `move` primitive in its "discard the bearer" shape — it replaced the former dedicated `discard-self` verb (the legacy→`move` mapping is in the migration table below). Event sweepers detect it via the shared `isSelfDiscardMove` predicate (`reducer-utils.ts`); the slot-specific removal stays inline per sweeper because the move locator does not scan every attachment slot (e.g. allies). Used with `company-arrives-at-site` + a `when` condition on `site.region` to enforce region-based restrictions (e.g. Treebeard), with `company-composition-changed` + a `when` condition on `company.characterCount` to discard on company size (e.g. Alone and Unadvised), and with `untap-phase-end` + `when: { "bearer.atHaven": true }` to discard at the Untap→Organization transition when at a haven (e.g. Well-preserved). Implemented in `reducer-movement-hazard.ts` `fireAllyArrivalEffects()`, `reducer-utils.ts` `sweepAutoDiscardHazards()`, and `reducer-untap.ts` `advanceToOrganization()`.
 - `discard-named-card-from-company` -- find an item attached to any
   character in any company at the bearer's current site (matched by
@@ -3069,6 +3069,40 @@ to hazard creature attacks:
 A combat-only short event carrying such a gate is still classified
 combat-only (the `play-condition` is a neutral companion effect in both
 short-event classifiers), so it is never offered outside combat.
+
+**Site-swap cancel (`siteSwap`).** An in-play resource permanent-event carrying
+`cost: { "discard": "self" }` plus a `siteSwap` payload cancels an attack by
+*moving the site out from under the company*. Used by *Farmer Maggot* (as-48):
+"If one of your companies faces an attack while at a site in The Shire,
+Arthedain, or Cardolan, you may immediately replace its site card with another
+site card in The Shire, Arthedain, or Cardolan (from your location deck). If your
+company takes this option, the attack is canceled and this card is discarded."
+
+```json
+{ "type": "cancel-attack",
+  "cost": { "discard": "self" },
+  "siteSwap": { "regions": ["The Shire", "Arthedain", "Cardolan"] } }
+```
+
+`siteSwap.regions` lists the region names (site cards' `region` field) that both
+the company's current site and the replacement must belong to.
+`siteSwapCancelActions` (`legal-actions/combat.ts`) offers the option only while
+the defending company is **at** such a site — a company in the middle of a move
+is not "at" a site, so `destinationSite` must be null — and emits one
+`cancel-attack` action per eligible site left in the controller's location deck,
+each carrying its instance in `replacementSiteInstanceId`.
+
+`handleCancelAttackBySiteSwap` (`combat-cancel.ts`) then, in order: disposes the
+replaced site exactly as a departure site (CoE 2.IV.viii — tapped non-haven to
+the site discard pile, otherwise back to the location deck; a site still occupied
+by a sibling company stays in play), pulls the replacement out of the location
+deck as the company's untapped current site, discards the host card, and cancels
+the attack through `resolveCancelAttackEntry` (in-play source → immediate, no
+chain). Because the company is *placed* at the replacement rather than moving to
+it, it never enters that site: during the site phase the remaining
+automatic-attack sequence for the company is abandoned via
+`SitePhaseState.autoAttacksSkipped`, which also suppresses race-duplicated
+attacks (*The Moon Is Dead*) and is cleared when the next company is selected.
 
 Example (Wild Hounds — discard):
 
@@ -4667,14 +4701,35 @@ Supported targets:
 - `company` — the active company (hazard permanent events that target the whole company rather than individual characters). The filter is evaluated against a context `{ company: { alignment: string, destinationSiteType: string } }` where `alignment` is the resource player's alignment (`"wizard"`, `"ringwraith"`, `"fallen-wizard"`, `"balrog"`) and `destinationSiteType` is the site type of the company's current (or destination) site. Used by *Nothing to Eat or Drink* (le-128) to restrict play to minion companies at free-hold/border-hold or hero companies at shadow-hold/dark-hold.
 - `site` — the company's destination/current site (e.g. River). The `filter`
   matches against the site definition's own fields (`siteType`, `region`,
-  `lairOf`, `adjacentSites`, `keywords`, …) **plus** a synthetic `regionType`
-  field — the {@link RegionType} of the region the site sits in, resolved via
-  `siteRegionTypeOf` and injected at match time (the region's type lives on a
-  separate region card, not on the site). This lets a site filter gate on the
-  site's own region type, e.g. Hidden Haven (wh-75): `{ "$and": [ {
-  "siteType": "ruins-and-lairs" }, { "lairOf": { "$exists": false } }, {
-  "adjacentSites": { "$exists": false } }, { "regionType": { "$in":
-  ["wilderness", "border", "shadow"] } } ] }`.
+  `lairOf`, `adjacentSites`, `keywords`, …) **plus** four synthetic fields
+  injected at match time by the shared `buildSiteFilterContext`
+  (`engine/effective.ts`), used identically by the site, organization and
+  movement/hazard play paths:
+  - `regionType` — the {@link RegionType} of the region the site sits in
+    (`siteRegionTypeOf`); the region's type lives on a separate region card,
+    not on the site. Hidden Haven (wh-75): `{ "$and": [ { "siteType":
+    "ruins-and-lairs" }, { "lairOf": { "$exists": false } }, {
+    "adjacentSites": { "$exists": false } }, { "regionType": { "$in":
+    ["wilderness", "border", "shadow"] } } ] }`.
+  - `effectiveSiteType` — the type after any `site-type-override` /
+    `wizardhaven-conversion`, so "your Wizardhaven [{H}]" also matches a
+    dynamically converted haven (Guarded Haven wh-74).
+  - `isWizardhaven` — the site is a Fallen-wizard haven for some player,
+    printed (a `fallen-wizard`-alignment haven) or converted. Distinguishes a
+    Wizardhaven from a METW Haven / MELE Darkhaven.
+  - `isProtected` — the site is a protected site for some player, whether via
+    a `site-protected` constraint (The Fortress of Isen wh-68, Guarded Haven
+    wh-74) or inherently (Rhosgobel wh-57). Nature's Revenge (wh-27),
+    "a site in a Wilderness that normally is a Border-hold or a Shadow-hold,
+    or a non-protected Wizardhaven in a Wilderness": `{ "$and": [ {
+    "regionType": "wilderness" }, { "$or": [ { "siteType": { "$in":
+    ["border-hold", "shadow-hold"] } }, { "$and": [ { "isWizardhaven": true },
+    { "isProtected": false } ] } ] } ] }`.
+
+  A site-targeting **hazard** binds to the company's *destination* site, which
+  the site-attached orphan sweep (`discardOrphanedSiteAttachedEvents`) counts
+  as occupied alongside current sites — a revealed destination site card is on
+  the table from the moment the path is declared.
 - `faction` — for **resource permanent events**, one of the controller's own
   in-play factions (Long Grievous Siege ba-40, "Playable on a unique non-Dragon
   faction"). One `play-permanent-event` action is emitted per faction in the
@@ -7607,6 +7662,7 @@ dynamic step.
 |-------|----------|-------------|
 | `siteIds` | yes | Array of site definition IDs to augment (e.g. `["tw-413", "le-392"]`). May be empty (`[]`) when `siteType` targets a whole class of site instead. |
 | `siteType` | no | Augment **every** site of this printed type (e.g. `"border-hold"`), in addition to any `siteIds`. Used by *Fell Winter* (le-111): "Each Border-hold receives an additional automatic-attack." |
+| `boundSite` | no | When `true`, augment the site the card was **played on** (`CardInPlay.attachedToSite`, set by the play action's `targetSiteDefinitionId`) and every other printing of that same named location — the hero / minion / Fallen-wizard / Balrog versions are distinct definitions sharing one name. Used by *Nature's Revenge* (wh-27): "All versions of the site … each gains an additional automatic-attack: Animals." |
 | `attack.creatureType` | yes | Creature race label (e.g. `"Balrog"`, `"Spawn"`). |
 | `attack.strikes` | yes | Number of strikes. |
 | `attack.prowess` | yes | Prowess of each strike. |
@@ -9862,6 +9918,14 @@ Implemented in `legal-actions/organization-characters.ts`: the
 `playCharacterActions`, and the `isOwnWizardhaven` relaxation of the
 GI-allowed-at-site check.
 
+The same effect also opens the **character draft** (rule 1.43 / CoE 1.9.F2,
+"…and include them in your starting company"): a Fallen-wizard may draft an
+Orc/Troll only once they have drafted a Stage resource whose
+`allow-character-play` filter matches that candidate. Enforced in
+`legal-actions/draft.ts` *and* in the `draft-pick` reducer (`reducer-setup.ts`).
+The `not-starting-character` play-flag is never lifted by it ("You cannot start
+with a character that says he cannot be in the starting company").
+
 ### 51b. `org-phase-fetch`
 
 Grants the controlling player an optional **once-per-organization-phase** action
@@ -11634,6 +11698,187 @@ at least one Wilderness [{w}] in their site path)":
   carries `{ "target.cardType": "minion-character" }` for its "by minions"
   clause; Shifter of Hues omits it, aiding "the characters in one company"
   wholesale.
+
+### 68. `site-phase-start-attack` + `company-movement-roll` (Siege)
+
+The two ongoing rules of a card that **besieges a site**: a card in play bound
+to a site location (`CardInPlay.attachedToSite`, established by
+`play-target: { target: "site" }`) that punishes every company standing there.
+Both effects are read off the bound card by `siteStartOfPhaseAttacks` /
+`siteMovementRolls` (`reducer-utils.ts`), which scan **both** players'
+`cardsInPlay` for a non-`pendingTriggerAttack` card whose `attachedToSite`
+matches the queried site definition.
+
+#### `site-phase-start-attack`
+
+The company faces the given attack **at the beginning of its site phase** —
+before the enter-or-skip decision, so doing nothing at the site does not avoid
+it. This is what distinguishes it from a site automatic-attack (avoidable by
+skipping the site) and from `permanent-event-auto-attack` (which augments the
+printed attack list of a whole class of sites).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `attack.creatureType` | yes | Creature type, normalized to a race for combat. |
+| `attack.strikes` | yes | Number of strikes. |
+| `attack.prowess` | yes | Strike prowess. |
+| `attack.body` | no | Creature body (omit for "no body", i.e. auto-defeated on a win). |
+
+```json
+{ "type": "site-phase-start-attack",
+  "attack": { "creatureType": "Orcs", "strikes": 3, "prowess": 7 } }
+```
+
+Behaviour: `handleSiteSelectCompany` (`reducer-site.ts`) collects the sieges on
+the selected company's current site and, when any exist, enters the new
+`siege-attacks` site sub-step instead of `enter-or-skip`, initiating the first
+attack. `handleSiteSiegeAttacks` sequences the rest one per `pass` (mirroring
+`automatic-attacks` / `troll-purse-attacks`) and hands control to
+`enter-or-skip` when all are faced; a company wiped out mid-sequence finishes
+its slot through `finishDissolvedCompanySlot`. The combat carries a
+`siege-attack` {@link AttackSource} and is deliberately **not** an
+automatic-attack: `detainment` is false, no auto-attack prowess/duplicate
+constraint applies, and the home-site tap-to-cancel option is not offered.
+Global race-keyed attack modifiers still resolve through `resolveAttack*`.
+Combat finalization disposes of nothing — the besieging card stays in play
+until its bound site leaves play.
+
+#### `company-movement-roll`
+
+At the **end of the controller's organization phase** each of that player's
+companies standing at the besieged site rolls to keep its movement.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `threshold` | yes | The company may move when the modified 2d6 total is ≥ this. |
+| `penaltyPerCharacterWithoutSkill` | yes | Skill a character must have to avoid the penalty. |
+| `penalty` | no | Roll penalty per character lacking the skill (default 1). |
+
+```json
+{ "type": "company-movement-roll", "threshold": 5,
+  "penaltyPerCharacterWithoutSkill": "scout", "penalty": 1 }
+```
+
+Behaviour: `handleOrganizationPass` (`reducer-organization.ts`) enqueues one
+generic `dice-check` resolution per besieged company after the phase transition,
+scoped to the following long-event phase — pending resolutions outrank phase
+actions, so the rolls are resolved before anything else can happen. The penalty
+is a `constant` modifier computed at enqueue from `getEffectiveSkills` (company
+membership cannot change in between). Failing the check runs the new
+`lock-company-movement` `dice-check` verb (`pending-reducers.ts`), which uses
+the extracted `clearPlannedMovement` helper to drop the company's declared
+destination (returning the site card to its location deck) and installs a
+turn-scoped `company-cannot-move` constraint — the same constraint Hide in Dark
+Places (le-192) uses, so a fresh declaration is barred too. The verb reads the
+company from the new `dice-check` field `targetCompanyId`.
+
+Used by Siege (tw-87): "Playable on a Border-hold [{B}] or Free-hold [{F}] site.
+A company at this site must face an Orc attack of three strikes at 7 prowess at
+the beginning of its site phase. At the end of its organization phase, a company
+at a site with Siege on it must make a roll and subtract one from the result for
+every non-scout character it contains. If this result is less than 5, the
+company may not move this turn. Discard when the site card is discarded or when
+the site card is returned to the location deck. Cannot be duplicated on a given
+site." The discard clause is the shared site-attached orphan sweep
+(`discardOrphanedSiteAttachedEvents`), which now also counts a company's
+declared `destinationSite` as occupying that site location — otherwise a
+site-targeting hazard played during the M/H phase would be swept before the
+company it targets ever arrives.
+
+### 68. `site-entry-roll-attack` (Doubled Vigilance)
+
+Carried by a hazard **permanent-event** attached to a site (via
+`play-target: { target: "site" }`). It gates *entering* the bound site behind a
+dice roll: when a company chooses to enter, its controller rolls 2d6 and — with
+`subtractCompanySize` — subtracts the company's effective size (CoE 3.24, so
+Hobbits and Orc scouts count as half). If the modified total beats `threshold`
+(per `comparison`) the company enters as normal; otherwise it faces `attack`
+**before** any of the site's automatic-attacks.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `threshold` | yes | The number the modified roll must beat. |
+| `comparison` | no | `"gt"` (default) or `"gte"`. |
+| `subtractCompanySize` | no | Subtract the entering company's effective size from the roll. |
+| `attack` | yes | `{ creatureType, strikes, prowess, body? }` — the attack faced on a failed roll. |
+
+```json
+{
+  "type": "site-entry-roll-attack",
+  "subtractCompanySize": true,
+  "threshold": 6,
+  "comparison": "gt",
+  "attack": { "creatureType": "Orcs", "strikes": 4, "prowess": 9 }
+}
+```
+
+Behaviour:
+
+- **The gate** (`reducer-site.ts` `advanceThroughSiteEntryGates`): every step
+  that would hand the company on to the site's attack sequence — the
+  `enter-or-skip` → `enter-site` transition and the close of
+  `reveal-on-guard-attacks` — first looks for a host bound to the company's
+  current site (`attachedToSite`, either player's `cardsInPlay`) that this
+  company has not yet rolled against. When one is found, the site step parks at
+  the new `site-entry-attack` sub-step, the step it was heading for is recorded
+  in `SitePhaseState.siteEntryReturnStep`, and the host is appended to
+  `SitePhaseState.siteEntryGatesFaced` so each copy fires exactly once per
+  company site phase (both fields are cleared when a new company is selected).
+- **The roll** is a generic `dice-check` pending resolution owned by the
+  company's controller, with the company size as a negative `constant` modifier.
+  Its `onFail` is the `site-entry-attack` triggered action.
+- **The attack** (`pending-reducers.ts` `applyDiceCheckBranch` →
+  `buildSiteEntryAttackCombat`): a combat with `attackSource`
+  `{ type: "site-entry-attack", eventInstanceId }`. It is *not* an
+  automatic-attack — it carries no site keying, so automatic-attack modifiers
+  and the §3.II site-type detainment branch do not apply; detainment is still
+  derived from the attacking race, the defender's alignment/covert status, and
+  the site's own `combat-detainment` rules. Because the site step is parked at
+  `site-entry-attack`, the combat resolves ahead of every automatic-attack.
+- **Continuing**: once neither the roll nor its combat is outstanding, the
+  active player passes; a further unfired gate at the site opens next, otherwise
+  the company continues to `siteEntryReturnStep`.
+- **On-guard reveal** (`legal-actions/site.ts`): an event carrying this effect
+  is revealable in the `reveal-on-guard-attacks` window (CoE 2.V.i.1 — adding an
+  attack counts as affecting the site's automatic-attacks; the CRF confirms
+  Doubled Vigilance "can be revealed on-guard"). The reveal is only offered when
+  the card's `play-target` site filter matches the company's site, and the
+  revealed permanent event enters play with `attachedToSite` set, exactly as a
+  hand-played copy would.
+- **Discard when the site leaves play** needs no effect: the generic
+  `discardOrphanedSiteAttachedEvents` sweep discards every `attachedToSite` card
+  once no company occupies the bound site.
+
+A `play-target` `target: "site"` filter is evaluated against
+`sitePlayTargetContext` (`recompute-derived.ts`): the site definition's own
+fields at the top level plus `environment.doorsOfNightInPlay`, so the common
+"…or on X if Doors of Night is in play" alternative is expressible directly:
+
+```json
+{
+  "type": "play-target",
+  "target": "site",
+  "filter": {
+    "$or": [
+      { "siteType": "shadow-hold" },
+      {
+        "$and": [
+          { "environment.doorsOfNightInPlay": true },
+          { "siteType": { "$in": ["ruins-and-lairs", "border-hold"] } }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Used by Doubled Vigilance (dm-51): "Playable on a Shadow-hold [{S}] (or on a
+Ruins & Lairs [{R}] or Border-hold [{B}] if Doors of Night is in play). If the
+company chooses to enter the site, its player must make a roll and subtract its
+company size. If the result is greater than 6, the company may enter the site as
+normal. Otherwise, the company must face an attack to be resolved before any
+automatic-attacks: Orcs — 4 strikes at 9 prowess. Discard when the site card is
+discarded or returned to its location deck. Can be revealed on-guard."
 
 ### 68. `opposed-roll` (No More Nonsense)
 

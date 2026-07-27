@@ -21,6 +21,8 @@ import {
   RIVENDELL, LORIEN, MINAS_TIRITH,
   RESOURCE_PLAYER,
 } from '../../test-helpers.js';
+import { reduce } from '../../../engine/reducer.js';
+import type { GameState } from '../../../types/state.js';
 import type { MoveToInfluenceAction } from '../../../types/actions-organization.js';
 
 describe('Rule 3.27 — Move Character to Follower', () => {
@@ -67,5 +69,62 @@ describe('Rule 3.27 — Move Character to Follower', () => {
       a.action.characterInstanceId === aragornId &&
       a.action.controlledBy === adrId,
     )).toBe(false);
+  });
+
+  test('re-assigning a follower to its current controller does not list it twice', () => {
+    // A followers list is a set. Re-assigning a character to the controller
+    // it already follows must leave exactly one entry: a duplicate corrupts
+    // every company later built from the list — split-company copies
+    // `[character, ...followers]` wholesale, producing a company holding the
+    // same instance twice, which then fails validation as "source company
+    // would become empty" because removing that instance removes both copies.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN, ADRAZAR] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const aragornId = findCharInstanceId(built, RESOURCE_PLAYER, ARAGORN);
+    const adrId = findCharInstanceId(built, RESOURCE_PLAYER, ADRAZAR);
+
+    // Start from Adrazar already following Aragorn.
+    const state: GameState = {
+      ...built,
+      players: [
+        {
+          ...built.players[0],
+          characters: {
+            ...built.players[0].characters,
+            [aragornId]: { ...built.players[0].characters[aragornId], followers: [adrId] },
+            [adrId]: { ...built.players[0].characters[adrId], controlledBy: aragornId },
+          },
+        },
+        built.players[1],
+      ],
+    };
+
+    const result = reduce(state, {
+      type: 'move-to-influence',
+      player: PLAYER_1,
+      characterInstanceId: adrId,
+      controlledBy: aragornId,
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.state.players[0].characters[aragornId].followers).toEqual([adrId]);
   });
 });

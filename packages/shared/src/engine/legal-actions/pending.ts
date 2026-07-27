@@ -469,7 +469,26 @@ export function factionInfluenceRollActions(
   // The influencer may be a character or an ally that "influences factions as
   // if a character" (Radagast's Black Bird wh-114).
   const influencerAlly = charInPlay ? null : findAttachment(player, 'allies', influencingCharacterId);
-  if (!charInPlay && !influencerAlly) return [];
+  if (!charInPlay && !influencerAlly) {
+    // The influencer left play before the roll. Offer the resolution anyway —
+    // the resolver fails the attempt and discards the faction. Returning no
+    // actions would deadlock the game outright: this resolution's chain entry
+    // is still unresolved, and a chain in `resolving` mode offers no actions
+    // of its own, so nothing would ever call `reduce` to advance it.
+    logDetail(`Pending faction-influence-roll for ${def.name}: influencer no longer in play — attempt fails automatically`);
+    return [{
+      action: {
+        type: 'faction-influence-roll' as const,
+        player: playerId,
+        factionInstanceId,
+        influencingCharacterId,
+        // No 2d6 total can reach this: the check cannot be made at all.
+        need: 13,
+        explanation: `${def.name}: the influencing character is no longer in play — the attempt fails and the faction is discarded`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, (charInPlay ?? influencerAlly!.attachment).definitionId);
   const charName = (isCharacterCard(charDef) || isAllyCard(charDef)) ? charDef.name : '?';
