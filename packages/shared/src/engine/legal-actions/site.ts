@@ -913,6 +913,17 @@ function playResourcesActions(
         // wh-65: "Playable during the site phase if one of your companies enters
         // the Deep Mines site."). Such a card is evaluated here against the
         // active company and is NOT offered during the organization phase.
+        // A permanent-event declaring its own `play-window` belongs to that
+        // window only (No News of Our Riding le-211: the after-attack combat
+        // window, offered by the `post-attack-play-offer` resolution).
+        const eventPlayWindow = getCardEffects(eventDef).find(
+          (e): e is import('../../types/effects.js').PlayWindowEffect => e.type === 'play-window',
+        );
+        if (eventPlayWindow && eventPlayWindow.phase !== Phase.Site) {
+          logDetail(`Permanent event ${eventDef.name}: play-window restricts it to the ${eventPlayWindow.phase} phase — not playable during the site phase`);
+          continue;
+        }
+
         const stageActiveCompanyCond = (eventDef as { alignment?: string }).alignment === 'stage'
           ? findPlayConditionEffect(eventDef, 'active-company')
           : undefined;

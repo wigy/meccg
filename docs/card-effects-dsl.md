@@ -102,13 +102,23 @@ Used by the troll triplets (as-1/as-5/as-6, `value: -1`) and Awaiting the
 Call (le-165).
 
 The `general-influence` stat is a player-level modifier (not per-character). It is collected
-during `recomputeDerived` from **both** an item / attached permanent-event on a character
-(Bade to Rule le-167 on the Ringwraith, Great Shadow ba-62 on the Balrog) **and** a bare
-stage permanent-event sitting in the player's `cardsInPlay` (Truths of Doom wh-108).
+during `recomputeDerived` from an item / attached permanent-event on a character
+(Bade to Rule le-167 on the Ringwraith, Great Shadow ba-62 on the Balrog), from an attached
+**hazard** (Cruel Claw Perceived wh-16, the opponent's permanent-event played on a Wizard /
+Fallen-wizard / Ringwraith), **and** from a bare stage permanent-event sitting in the
+player's `cardsInPlay` (Truths of Doom wh-108).
 `PlayerState.generalInfluenceBonus` is incremented by `value`; effective GI pool =
 `GENERAL_INFLUENCE (20) + generalInfluenceBonus` (for a Fallen-wizard, the avatar's
-white-hand number replaces the 20). Example: Bade to Rule (le-167) grants +5 GI to the
-Ringwraith player while attached to the Ringwraith.
+white-hand number replaces the 20). `value` may be negative, which shrinks the pool.
+Example: Bade to Rule (le-167) grants +5 GI to the Ringwraith player while attached to the
+Ringwraith.
+
+A `when` on a character-borne general-influence modifier is evaluated against the bearer
+context — `bearer.race`, `bearer.stagePoints` (the controller's Fallen-wizard stage-point
+total) and the rest of `buildBearerContext`. That lets one card carry a ladder of mutually
+exclusive alternatives over disjoint bands, e.g. Cruel Claw Perceived's `-1` for a Wizard or
+Ringwraith bearer versus `-9 / -7 / -5 / -3` for a Fallen-wizard by stage points. A bare
+`cardsInPlay` card has no bearer, so a bearer-gated `when` never fires from there.
 
 An optional `controlLimit` caps how many of the added `value` points may be used to
 **control characters**. The excess (`value - controlLimit`) is accumulated into
@@ -906,8 +916,11 @@ MP instead. The `filter` is matched against each item's card definition (via
 `matchesDefinition`); every item the Fallen-wizard player controls — on any
 character — that matches scores its printed MP while the card carrying this
 effect is in play. Items that do not match remain clamped to 1. Collected once
-per player from the player's in-play characters **and** `cardsInPlay` and
-consumed in `recompute-derived.ts` (`addItemMP`'s `fwItemMpExempt` path).
+per player from the player's in-play characters, `cardsInPlay`, **and the cards
+attached to those characters** — a stage permanent-event played "on the avatar"
+lives in the avatar's `items` rather than in `cardsInPlay` (Oromë's Warders
+wh-94) — then consumed in `recompute-derived.ts` (`addItemMP`'s
+`fwItemMpExempt` path).
 
 The optional `inAvatarCompany: true` restricts the exemption to items borne by
 characters in the same company as the player's revealed avatar ("your … items in
@@ -915,7 +928,8 @@ Alatar's company"); omit it for a player-wide exemption.
 
 Used by Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
 are each worth full marshalling points." (player-wide). Join the Hunt (wh-93)
-uses the company-restricted form for its weapon/armor/shield/helmet items.
+uses the company-restricted form for its weapon/armor/shield/helmet items, and
+Oromë's Warders (wh-94) the player-wide form for the same filter.
 
 ```json
 { "type": "fw-item-mp-full",
@@ -933,13 +947,15 @@ Fallen-wizard **ally** marshalling-point exemption (MEWH §4 exception). Like
 printed** MP instead of the §4 flat-1 clamp (distinct from `fw-character-ally-mp`,
 which pins a fixed value). The optional `inAvatarCompany: true` restricts the
 exemption to allies borne by characters in the player's avatar company. Collected
-per player from in-play characters and `cardsInPlay` and consumed in
-`recompute-derived.ts` (`addMP`'s `fwFullMp` path); full-MP takes precedence over
-any `fw-character-ally-mp` cap and never applies to stage cards or non-Fallen-wizards.
+per player from in-play characters, `cardsInPlay`, and the cards attached to
+those characters, then consumed in `recompute-derived.ts` (`addMP`'s `fwFullMp`
+path); full-MP takes precedence over any `fw-character-ally-mp` cap and never
+applies to stage cards or non-Fallen-wizards.
 
 Used by Join the Hunt (wh-93): "Your allies with a prowess attribute in Alatar's
 company are each worth full marshalling points." Oromë's Warders (wh-94) reuses
-the same effect player-wide (no `inAvatarCompany`).
+the same effect player-wide (no `inAvatarCompany`): "Your allies with a prowess
+attribute are each worth full marshalling points."
 
 ```json
 { "type": "fw-ally-mp-full",
@@ -1271,7 +1287,10 @@ the controller's revealed avatar, e.g. `"Alatar"`). The **last** matching rule
 sets the faction's MP, so order entries from least to most specific. A faction
 matching no rule scores normally. The override value replaces both the printed
 MP and the Fallen-wizard §4 flat-1 clamp. Collected from the player's in-play
-cards **and in-play characters** and consumed in `recompute-derived.ts`.
+cards, **in-play characters**, and the cards attached to those characters (a
+stage permanent-event placed on the avatar — Oromë's Warders wh-94: "Your Elf
+factions are each worth 2 marshalling points", a single rule
+`{ "faction.race": "elf" } → 2`), and consumed in `recompute-derived.ts`.
 
 Used by Gatherer of Loyalties (wh-70): "Your unique factions are each worth 2
 marshalling points. If you are Alatar, your unique Dragon factions are each
@@ -1392,6 +1411,19 @@ haven — a `minion-site` or `balrog-site` with `siteType: "haven"`). Use
 ```json
 { "type": "hand-size-modifier", "value": 1,
   "when": { "self.atDarkhaven": true } }
+```
+
+The context also carries the full bearer block, including `bearer.race` and
+`bearer.stagePoints` (the controller's Fallen-wizard stage-point total), so a card attached
+to a character can gate its modifier on who carries it and how far along he is. `value` may
+be negative, and independent modifiers on the same card simply sum — Cruel Claw Perceived
+(wh-16) reduces the Fallen-wizard's hand size "by 1 if his SPs exceed 10, and by 1 more if
+his SPs exceed 20" with two `-1` effects whose bands overlap above 20:
+
+```json
+{ "type": "hand-size-modifier", "value": -1,
+  "when": { "$and": [{ "bearer.race": "fallen-wizard" },
+                     { "bearer.stagePoints": { "$gt": 10 } }] } }
 ```
 
 ### 6a. `character-stat-modifier` constraint kind
@@ -2345,6 +2377,13 @@ Events:
   - `force-check` (with `check: "corruption"`) — enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses* (at-haven only, `"bearer.atHaven": true`), *Longing for the West* wh-25 (away from Haven/Wizardhaven only, `"bearer.atHaven": false`) and *The Least of Gold Rings* (any site).
   - a self-discard `move` (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) — removes the card from the bearer's items/hazards/allies and places it in the owner's discard pile. The optional `when` condition gates the discard (e.g. `"when": { "bearer.atHaven": true }` to discard at Darkhavens). Used by *Well-preserved* (as-108).
 - `stage-card-played` -- fires every time a player brings a **stage card** (any definition with `alignment: "stage"` — the Fallen-wizard progress track, MEWH §1) into play. `fireStageCardPlayedTriggers` (`stage-card-played.ts`) scans that player's own characters for attached items/hazards carrying this on-event; an optional `when` is evaluated against the bearer context `{ bearer: { race, skills, name, keywords, … } }`. The only supported apply is `force-check` with `check: "corruption"` (optional `modifier`), which enqueues a phase-scoped `corruption-check` on the bearer, made by the bearer's *controlling* player even when the card is an opponent's hazard. Fired from every seam a stage card can enter play through: the permanent-event chain resolution (`chain-reducer.ts`, covering the 56 stage permanent-events) and the site-phase item/ally attach and successful faction-influence paths (`reducer-site.ts`, covering wh-88/89/114 and wh-86/87). "Plays a stage card" is read as "a stage card of his enters play", so a faction whose influence attempt fails never triggers it. Used by *Inner Rot* (wh-23): "The target makes a corruption check whenever his controlling player plays a stage card."
+- `play-deck-exhausted` -- fires when **any** player completes a play-deck exhaustion (`completeDeckExhaust`, `reducer-utils.ts`): the discard pile is shuffled into a new play deck and the exhaustion count ticks up. The only supported apply is a self-discard `move` (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`); no `when` is evaluated. Both players' `cardsInPlay` are scanned (Safe from the Shadow as-54, Tokens to Show as-101, Bane of the Ithil-stone tw-13), **and** every character's attached `items` / `hazards` (`discardAttachmentsOnDeckExhaust`), so a card played on a character leaves play too — Cruel Claw Perceived (wh-16): "Discard when any play deck is exhausted." Each discarded attachment routes to its own owner's pile: an item to the character's controller, a hazard to the opponent.
+
+  ```json
+  { "type": "on-event", "event": "play-deck-exhausted",
+    "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+  ```
+
 - `organization-phase-start` -- fires during the Untap → Organization transition immediately after `untap-phase-end` processing. The reducer (`reducer-untap.ts` `advanceToOrganization`) scans **every** player's `cardsInPlay` for company-bound permanent events (cards with a `companyId`) carrying this on-event. The condition is evaluated against a combined context: `{ company: { siteType, atHaven: boolean }, player: { avatarId: string | null } }` where `atHaven` is `true` when the bound company's current site is a haven/darkhaven, and `avatarId` is the definition ID of the player's ringwraith/wizard avatar character (or `null` if none is in play). Supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) to move the card to its owner's discard pile. Used by *Nothing to Eat or Drink* (le-128), which discards itself when the company is at a haven; and by *Orders from Lugbúrz* (as-94), which discards itself when `player.avatarId` is `"le-56"` (Ren the Ringwraith). The same reducer also scans every active-player character's **attached** hazards/items/allies for `organization-phase-start` self-discards, evaluated against `{ bearer: { siteType, atHaven }, company: { characterCount } }` and routed to each card's **owner** (via `ownerOf`, so an opponent-owned hazard returns to the opponent's pile). Used by *So You've Come Back* (le-138): "Discard this card during the organization phase if target character is in a company by himself and at a Haven [{H}]" — `when: { "$and": [ { "company.characterCount": 1 }, { "bearer.atHaven": true } ] }`. The attached-card scan's context also exposes the **host character's** identity — `bearer.name` and `bearer.mind` — and beyond a self-discard `move` it also supports the `enqueue-opponent-elimination-roll` apply: the active player's **opponent** rolls 2d6, adds the apply's (negative) `modifier`, and the host character is eliminated when the total strictly exceeds `bearer.mind`. It enqueues a generic `dice-check` resolution (roller/actor = the opponent, `threshold = bearer.mind`, `comparison: "gt"`, `onPass: { "type": "eliminate-character" }`) scoped to the Organization phase, so it is offered to the opponent immediately at org-phase start. Used by *Evil Things Lingering* (ba-45): "If this ally's controlling character is not The Balrog, your opponent makes a roll during your organization phase and subtracts four. The controlling character is eliminated if the result is greater than his mind." — `when: { "bearer.name": { "$ne": "The Balrog" } }`, `apply: { "type": "enqueue-opponent-elimination-roll", "modifier": -4 }`. The `eliminate-character` dice-check branch removes the target from its company and sends the character card to its owner's **out-of-play pile** (eliminated, not discarded), discarding its possessions and freeing its followers (`eliminateCharacter` in `pending-reducers.ts`).
 - `leader-leaves-company` -- fires in the Organization phase whenever a character with the `leader` keyword departs the bound company, for any reason: `split-company`, `move-to-company` (source company), `merge-companies` (source company), or combat elimination. The reducer calls `sweepLeaderLeavesCompanyEvents(state, [affectedCompanyId])` in `reducer-utils.ts`, which scans every player's `cardsInPlay` for permanent events bound to the affected company carrying this on-event with a self-discard `move` apply and moves matching cards to their owner's discard pile. The "is leader" check uses the card's definition `keywords` array (contains `"leader"`); it is evaluated *before* the state transition so the departing character is still findable. Only supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`). No `when` condition is evaluated. Used by *Orders from Lugbúrz* (as-94).
 
@@ -5604,7 +5643,12 @@ check) and `reducer-events.ts` (discard execution).
   character-attached permanent events* (`isCardNameInPlayForPlayer`,
   `legal-actions/organization.ts`) — used by Terror Heralds Doom (ba-78),
   "Playable during the organization phase if Flame of Udûn is in play" (Flame of
-  Udûn is a permanent-event held in The Balrog's items).
+  Udûn is a permanent-event held in The Balrog's items). On a **resource
+  permanent-event** the same own-play-area, attachment-aware check runs in
+  `legal-actions/organization-events.ts` (`playPermanentEventActions`), ahead of
+  every play-target branch, and **every** `card-in-play` condition on the card
+  must hold (`findPlayConditionEffects`) — used by Oromë's Warders (wh-94),
+  "Playable on Alatar if Join the Hunt is in play."
 
 ```json
 { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }
@@ -6902,6 +6946,59 @@ The site phase legal-action emitter in `engine/legal-actions/site.ts`
 evaluates `siteTypes` against the active company's current site type
 (via `company.siteType` in the `play-target` filter context). Used by
 Lucky Search (tw-269).
+
+#### 32a. After-attack resource window (`step: "after-attack"`)
+
+A **resource permanent-event** may declare
+
+```json
+{ "type": "play-window", "phase": "combat", "step": "after-attack",
+  "when": { "$and": [
+    { "attack.source": { "$in": ["creature", "on-guard-creature"] } },
+    { "enemy.race": { "$in": ["elf", "dunadan", "man"] } } ] } }
+```
+
+for card text of the form "Playable … **immediately after** his company faces a
+&lt;race&gt; hazard creature". Per CoE rule 8.03 a company has "faced" an attack
+once combat is initiated — even if the attack is then canceled — so the window
+opens on **every** way an attack can end.
+
+The trigger lives in `engine/post-attack-play.ts` as a prev/next diff
+(`enqueuePostAttackPlayOffers`, called from `postReduce` in `reducer.ts`), the
+same reactive pattern as `evil-hour` / `discard-on-card-leaves`; hooking the
+`prev.combat → next.combat` transition covers strikes-resolved, canceled-on-the-
+chain, and canceled-by-tap teardowns alike. The optional `when` is matched
+against the ended attack's context — `{ enemy: { race }, attack: { source } }`,
+the same discriminators a `cancel-attack` `when` sees, so one expression can gate
+both a card's play window and the ability it grants.
+
+The window itself is a `post-attack-play-offer` pending resolution owned by the
+defending player: `play-permanent-event` (naming one offered card and a legal
+bearer) plays it, `pass` declines. The play is delegated to the ordinary
+`handlePlayPermanentEvent`, so it routes through the chain — the opponent keeps
+their response window, the `play-target` `cost: { tap: "character" }` is paid on
+resolution, and the card attaches to the chosen character. Bearer eligibility
+(`play-target` character `filter`, plus untapped when a tap cost is declared) is
+recomputed live by `afterAttackPlayTargets`, and a `duplication-limit` scope
+`"company"` closes the window while a copy is already borne in that company.
+
+A permanent-event carrying **any** `play-window` is now offered only in that
+window: both the organization-phase emitter (`legal-actions/organization-events.ts`)
+and the site-phase one (`legal-actions/site.ts`) skip permanent-events whose
+`play-window.phase` is not the current phase.
+
+Used by No News of Our Riding (le-211): "Playable on an untapped character
+immediately after his company faces an Elf, Dúnadan, or Man hazard creature. Tap
+the character. The character can later tap to cancel an Elf, Dúnadan, or Man
+hazard creature attack against his company. Cannot be duplicated in a given
+company." — the window above, a `play-target` character (`target.status:
+"untapped"`, `cost: { tap: "character" }`), `duplication-limit` scope `company`
+max 1, and a `cancel-attack` `cost: { tap: "bearer" }` under the identical attack
+filter. A resource permanent-event played on a character attaches into that
+character's `items`, so the existing in-play-item `cancel-attack` path
+(`legal-actions/combat.ts` → `handleCancelAttackByInPlayItem`) provides the
+"later tap to cancel" with no further engine work: the bearer must be untapped
+and taps, while the card itself stays untapped and in play for later turns.
 
 ### 33. `combat-protection`
 
