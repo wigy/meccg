@@ -624,6 +624,16 @@ export type SiteStep =
    */
   | 'select-company'
   /**
+   * Siege window (Siege tw-87). A card besieging the company's current site
+   * (`site-phase-start-attack`, bound via `CardInPlay.attachedToSite`) forces
+   * the company to face its attack "at the beginning of its site phase" —
+   * before the enter-or-skip decision, so doing nothing at the site does not
+   * avoid it. The attacks are sequenced one at a time (mirroring
+   * 'automatic-attacks'); once all are faced, control passes to
+   * 'enter-or-skip'. Skipped entirely when no siege binds the site.
+   */
+  | 'siege-attacks'
+  /**
    * The resource player declares whether the company will enter its
    * current site or do nothing. Doing nothing ends the company's site
    * phase immediately (CoE lines 341–343).
@@ -763,6 +773,18 @@ export interface SitePhaseState {
    */
   readonly rescueInProgress?: {
     readonly hostInstanceId: CardInstanceId;
+    readonly resolved: number;
+  };
+  /**
+   * Active siege-attack progress (Siege tw-87). Set at `select-company` when
+   * one or more cards bearing a `site-phase-start-attack` effect are bound to
+   * the selected company's current site; holds those cards' instance ids (in
+   * the order their attacks are faced) and how many have been faced so far.
+   * Undefined when no siege binds the site. Cleared (and the step advanced to
+   * 'enter-or-skip') once every siege attack has been faced.
+   */
+  readonly siegeAttacks?: {
+    readonly sourceInstanceIds: readonly CardInstanceId[];
     readonly resolved: number;
   };
   /**

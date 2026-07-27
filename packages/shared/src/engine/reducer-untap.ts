@@ -15,7 +15,7 @@ import { CardStatus, SiteType } from '../types/common.js';
 import type { CardInstanceId, CompanyId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { ownerOf } from '../types/state.js';
-import { getEffectiveSiteType, resolveSiteInstanceTransform } from './effective.js';
+import { getEffectiveSiteType, resolveSiteInstanceTransform, siteConstraintFilterMatches } from './effective.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { clonePlayers, defById, getCardEffects, isHavenForPlayer, isSelfDiscardMove, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
@@ -175,14 +175,13 @@ function performUntap(state: GameState): GameState {
       playerId: player.id,
     });
     if (!isHaven) {
-      const siteDefId = company.currentSite.definitionId as string;
+      const siteDefId = company.currentSite.definitionId;
       isHaven = state.activeConstraints.some(c => {
         if (c.kind.type !== 'attribute-modifier'
           || c.kind.attribute !== 'site.type'
           || c.kind.op !== 'override'
           || c.kind.value !== SiteType.Haven) return false;
-        const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
-        return filterSiteDefId === siteDefId;
+        return siteConstraintFilterMatches(c.kind.filter, siteDefId, siteDef.name);
       });
     }
     if (!isHaven && siteDef.effects) {
