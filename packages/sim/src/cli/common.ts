@@ -59,7 +59,7 @@ export function stringFlag(args: CliArgs, name: string): string | undefined {
 }
 
 /** Available agent names for the CLIs. */
-export const AGENT_NAMES = ['random', 'heuristic', 'noisy-heuristic', 'h2', 'bc', 'search'] as const;
+export const AGENT_NAMES = ['random', 'heuristic', 'noisy-heuristic', 'h2', 'bc', 'search', 'search-h2'] as const;
 
 /**
  * Instantiate an agent by registry spec. A spec is a name with an optional
@@ -91,6 +91,24 @@ export function resolveAgent(spec: string): Agent {
         throw new Error(`h2 expects a numeric temperature after "@", got "${param!.slice(at + 1)}"`);
       }
       return createHeuristic2Agent({ modules, temperature });
+    }
+    case 'search-h2': {
+      // Search with the fitted win-probability model as the leaf evaluator
+      // instead of the net's value head — the experiment §11 of the training
+      // doc names as the immediate one. Priors still come from the net.
+      if (param === undefined) throw new Error('search-h2 expects a weights path: search-h2:weights.json[@sims]');
+      const h2At = param.lastIndexOf('@');
+      const h2Path = h2At > 0 ? param.slice(0, h2At) : param;
+      const h2Sims = h2At > 0 ? Number(param.slice(h2At + 1)) : undefined;
+      if (h2Sims !== undefined && !Number.isFinite(h2Sims)) {
+        throw new Error(`search-h2 expects a numeric sims after "@", got "${param.slice(h2At + 1)}"`);
+      }
+      const [h2DeckA, h2DeckB] = (process.env.SIM_SEARCH_DECKS ?? 'challenge-deck-a,challenge-deck-b').split(',');
+      return createSearchAgent(h2Path, {
+        decks: [loadDeck(h2DeckA.trim()), loadDeck(h2DeckB.trim())],
+        sims: h2Sims,
+        winProbWeight: 1,
+      });
     }
     case 'search': {
       // Determinizing-PUCT search: `search:weights.json[@sims]`. The

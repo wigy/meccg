@@ -85,6 +85,24 @@ npm run gate -w @meccg/sim -- --challenger h2:combat --champion heuristic --game
 npm run gate -w @meccg/sim -- --challenger h2:combat,kill --champion h2:combat --games 400
 ```
 
+The fitted `W` is also available as the leaf evaluator for the determinizing
+PUCT search, which is the experiment `docs/ai-training-system.md` §11 names as
+the immediate one — §8 records that search only ties the bare policy, and §9
+that the value head is at chance through the middle game where every leaf of a
+mid-game search lands:
+
+```sh
+npm run gate -w @meccg/sim -- --challenger search-h2:weights.json@192   --champion search:weights.json@192 --games 200
+```
+
+`search-h2` keeps the net's move priors and replaces its value head with
+`W(tsd, turn)`. This is the same idea as the `mpWeight` knob that was measured
+harmful — with the three defects that made it fail removed: that one is an
+unfitted `tanh(spread / 6)` with a guessed scale, no turn term, and no notion
+that a point means less once a game is decided, so it valued an early
+six-point spread as decisively as a late one. **Not yet run** — the gate is
+the point of it.
+
 Status: **P0 shipped**, **P1 in progress**. P0 is the core (TSD, dice,
 rationale, tunables, risk oracle, registry), the `standing` service, the fitted
 `W`, the scenario store and the `explain` / `scenarios` / `fit-winprob` CLIs.

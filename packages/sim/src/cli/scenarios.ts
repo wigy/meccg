@@ -49,7 +49,8 @@ Capturing from self-play (cheaper, and needs nobody to have played it):
                       matching all of them is captured. Keys:
                         turn, phase, step, seq, stateSeq, player,
                         combat (true|false), combatPhase, creatureBody,
-                        strikes, action (an action type that must be offered)
+                        strikes, companySize (characters in the defending
+                        company), action (an action type that must be offered)
                       e.g. --at 'combat=true,combatPhase=resolve-strike,strikes=2'
 
 Describing what was captured:
@@ -102,12 +103,23 @@ function parseAtCondition(spec: string): (state: GameState, decisionSeq: number,
       case 'creatureBody': return (state.combat?.creatureBody !== null && state.combat?.creatureBody !== undefined)
         === (value === 'true' || value === 'yes');
       case 'strikes': return state.combat?.strikesTotal === Number(value);
+      // How many characters the defending company can put in front of the
+      // attack. With more strikes than bodies the sequential model's
+      // degradation bites, so this is how those positions get mined.
+      case 'companySize': {
+        const combat = state.combat;
+        if (!combat) return false;
+        const defender = state.players.find(p => p.id === combat.defendingPlayerId);
+        const company = defender?.companies.find(c => c.id === combat.companyId);
+        return company?.characters.length === Number(value);
+      }
       // An action type that must be on offer — the way to mine positions where
       // a specific option (a strike event, the stay-untapped choice) exists.
       case 'action': return projectPlayerView(state, player).legalActions
         .some(e => e.viable && e.action.type === value);
       default: throw new Error(`--at: unknown key "${key}" `
-        + '(turn, phase, step, seq, stateSeq, player, combat, combatPhase, creatureBody, strikes, action)');
+        + '(turn, phase, step, seq, stateSeq, player, combat, combatPhase, creatureBody, '
+        + 'strikes, companySize, action)');
     }
   });
 }

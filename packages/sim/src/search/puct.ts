@@ -29,6 +29,8 @@ import { bcForward } from '../agents/bc-agent.js';
 import type { BcWeightsFile } from '../agents/bc-agent.js';
 import { featurizeState, featurizeActions } from '../features/index.js';
 import type { CardVocab } from '../features/index.js';
+import type { WinProbModel } from '../ai/h2/core/winprob.js';
+import { winProbability } from '../ai/h2/core/winprob.js';
 
 /** Options for {@link searchBestAction}. */
 export interface SearchOptions {
@@ -71,6 +73,25 @@ export interface SearchOptions {
    * score-differential baseline it currently loses to mid-game.
    */
   readonly mpWeight?: number;
+  /**
+   * Use the fitted Heuristics-2 win-probability model as the leaf value.
+   *
+   * This is the same idea `mpWeight` tried and the same idea that failed —
+   * with the three defects that made it fail removed. The raw differential
+   * above is an unfitted `tanh(spread / 6)`: a guessed scale, no turn term,
+   * and no notion that a point means less once a game is decided. So it
+   * valued an early six-point spread as decisively as a late one, which is
+   * precisely the greed that cost search 2 wins in 12 games.
+   *
+   * `W(tsd, turn)` is fitted on held-out *games* (Brier 0.2084 against 0.25
+   * for a coin flip, sign accuracy 69.6%) and is explicitly a function of how
+   * far the game has run. It is also already a win probability, so blending
+   * it with the net's value head mixes two estimates of the same quantity
+   * rather than two different ones.
+   *
+   * `weight` in [0, 1]; 1 replaces the net's value entirely.
+   */
+  readonly winProb?: { readonly model: WinProbModel; readonly weight: number };
 }
 
 /**
@@ -89,6 +110,23 @@ function mpSpreadValue(view: PlayerView, actorIsSearcher: boolean): number {
   const opponentScore = computeTournamentScore(view.opponent.marshallingPoints, view.self.marshallingPoints);
   const spread = (selfScore - opponentScore) / MP_SPREAD_SCALE;
   return Math.tanh(actorIsSearcher ? spread : -spread);
+}
+
+/**
+ * The fitted win probability at a leaf, on the search's [-1, 1] scale and
+ * oriented to the searcher.
+ *
+ * Orientation is free here in a way it is not for the net: `W` is odd in TSD
+ * by construction, so negating the value and negating the differential give
+ * the same number. The net's two views of one state are different feature
+ * vectors whose values need not sum to zero, which is why that path has to
+ * re-project instead.
+ */
+function winProbLeafValue(model: WinProbModel, view: PlayerView, actorIsSearcher: boolean): number {
+  const differential = computeTournamentScore(view.self.marshallingPoints, view.opponent.marshallingPoints)
+    - computeTournamentScore(view.opponent.marshallingPoints, view.self.marshallingPoints);
+  const w = winProbability(model, actorIsSearcher ? differential : -differential, view.turnNumber);
+  return 2 * w - 1;
 }
 
 /**
@@ -253,6 +291,11 @@ function expand(node: Node, searcher: PlayerId, playerIds: readonly [PlayerId, P
   // Leaf value: the net's opinion (already searcher-oriented above)
   // blended with the observable score differential (see mpWeight).
   const netValue = valueOutput.value;
+  if (opts.winProb) {
+    const weight = opts.winProb.weight;
+    return (1 - weight) * netValue
+      + weight * winProbLeafValue(opts.winProb.model, acting.view, acting.actor === searcher);
+  }
   const mpWeight = opts.mpWeight ?? 0;
   return (1 - mpWeight) * netValue + mpWeight * mpSpreadValue(acting.view, acting.actor === searcher);
 }

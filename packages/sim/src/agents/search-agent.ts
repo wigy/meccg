@@ -17,6 +17,7 @@ import { loadBcWeights, runBcSelfTest, bcForward } from './bc-agent.js';
 import { buildCardVocab, featurizeState, featurizeActions } from '../features/index.js';
 import type { CardVocab } from '../features/index.js';
 import { searchBestAction } from '../search/puct.js';
+import { loadWinProbModel } from '../ai/h2/core/winprob.js';
 import type { LoadedDeck } from '../decks.js';
 
 /** Options for {@link createSearchAgent}. */
@@ -27,6 +28,15 @@ export interface SearchAgentOptions {
   readonly sims?: number;
   /** Root determinizations per decision (default 4). */
   readonly worlds?: number;
+  /**
+   * Weight of the fitted Heuristics-2 win-probability model in a leaf's
+   * value, in [0, 1]. At 1 the net supplies only the move priors and `W`
+   * supplies the evaluation — which is the sharpest test of whether the
+   * value head is what has been holding search back (§9 of the training doc
+   * says it is: chance-level through the middle game, where every leaf of a
+   * mid-game search lands).
+   */
+  readonly winProbWeight?: number;
 }
 
 /** Creates the search agent from a weights file. */
@@ -40,7 +50,9 @@ export function createSearchAgent(weightsPath: string, options: SearchAgentOptio
   let cachedPool: Readonly<Record<string, CardDefinition>> | null = null;
 
   return {
-    name: `search@${options.sims ?? 192}`,
+    // The leaf evaluator is part of the agent's identity: a gate that cannot
+    // tell `search` from `search-h2` in its own output is not a comparison.
+    name: `search${options.winProbWeight ? '-h2' : ''}@${options.sims ?? 192}`,
     chooseAction(context: AgentContext): AgentDecision {
       if (vocab === null || cachedPool !== context.cardPool) {
         vocab = buildCardVocab(context.cardPool);
@@ -58,6 +70,7 @@ export function createSearchAgent(weightsPath: string, options: SearchAgentOptio
           decks: options.decks,
           sims: options.sims,
           worlds: options.worlds,
+          ...(options.winProbWeight ? { winProb: { model: loadWinProbModel(), weight: options.winProbWeight } } : {}),
           seed: Math.floor(context.random() * 0x7fffffff),
         })
         : null;
