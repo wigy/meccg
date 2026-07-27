@@ -5490,6 +5490,46 @@ export interface FactionInfluenceRestrictionEffect extends EffectBase {
 }
 
 /**
+ * Environment effect carried by a bare in-play hazard event that strips every
+ * **card-sourced modification** from every influence attempt in the game, for
+ * either player.
+ *
+ * Used by Webs of Fear & Treachery (le-150): "Except for unused general
+ * influence and unused normal direct influence (including influence
+ * modifications given in a character's card text), all modifications to each
+ * influence attempt are reduced to zero."
+ *
+ * While a card carrying this effect sits bare (unattached) in either player's
+ * `cardsInPlay`, {@link import('../engine/reducer-utils.js').influenceModificationsNullified}
+ * reports true and every influence-check computation collapses to:
+ *
+ * - the 2d6 roll(s) and the printed target value (faction influence #, target
+ *   mind, in-play influence #) — not modifications;
+ * - unused **general** influence (the defender's opposing GI in an
+ *   opponent-influence attempt, and a general-influence substitution that
+ *   yields unused GI — Prophet of Doom wh-106);
+ * - unused **normal** direct influence — the influencer's *printed* direct
+ *   influence plus the influence modifications given in **his own card text**,
+ *   minus his followers' mind cost
+ *   ({@link import('../engine/legal-actions/organization.js').normalUnusedDI});
+ * - rules-level (non-card) modifications: the cross-alignment influence
+ *   penalty (CoE 8.W1/8.R1/8.F1/8.B1) and the rule 10.14 agent home-site
+ *   bonuses. The defender's 2d6 roll is likewise untouched (Alfano, Worlds
+ *   2009: Webs does not remove the defensive roll).
+ *
+ * Everything else contributes zero: influence `check-modifier` and
+ * `direct-influence` `stat-modifier` effects from items, attached hazards,
+ * allies and other players' in-play events; the faction card's own printed
+ * "standard modifications"; one-shot influence constraints (Muster, Threats'
+ * prowess substitution, …) — which are still *consumed*, just worth 0;
+ * player-, site- and game-wide influence constraints; `faction-influence-
+ * restriction` environments; and paid `influence-modification` bonuses.
+ */
+export interface NullifyInfluenceModificationsEffect extends EffectBase {
+  readonly type: 'nullify-influence-modifications';
+}
+
+/**
  * Prone to Violence (ba-42): a minion permanent-event that grants an *extra*
  * Company-vs-Company-combat attack permission beyond the default alignment
  * matrix ({@link import('../engine/reducer-utils.js').canAttackAlignment}, CoE
@@ -6702,7 +6742,8 @@ export type CardEffect =
   | FactionMpBonusEffect
   | DiscardOnCardLeavesPlayEffect
   | RetainHazardLongEventsEffect
-  | FactionInfluenceRestrictionEffect;
+  | FactionInfluenceRestrictionEffect
+  | NullifyInfluenceModificationsEffect;
 
 /**
  * Grants extended ally-play permission from a permanent-event attached to a

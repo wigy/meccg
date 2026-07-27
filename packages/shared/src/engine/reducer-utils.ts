@@ -952,6 +952,43 @@ export function collectGlobalCheckModifier(
 }
 
 /**
+ * True while a bare in-play event in **either** player's `cardsInPlay` carries
+ * a `nullify-influence-modifications` effect — Webs of Fear & Treachery
+ * (le-150): "Except for unused general influence and unused normal direct
+ * influence (including influence modifications given in a character's card
+ * text), all modifications to each influence attempt are reduced to zero."
+ *
+ * Only bare, unattached cards contribute, mirroring
+ * {@link collectGlobalCheckModifier} — a long-event resolves bare into the
+ * declaring player's play area via `in-play-general`, and the effect is
+ * game-wide, so both players' areas are scanned.
+ *
+ * Every influence-check computation consults this flag: the faction-influence
+ * display (`legal-actions/site.ts`), the paused faction-influence roll
+ * (`legal-actions/pending.ts`), the faction roll resolver (`reducer-site.ts`),
+ * the opponent-influence attempt (`reducer-site.ts`) and the agent influence
+ * attempt (`mh-agents.ts`). See {@link import('../types/effects.js').NullifyInfluenceModificationsEffect}
+ * for exactly what survives the nullification.
+ */
+export function influenceModificationsNullified(state: GameState): boolean {
+  for (const pl of state.players) {
+    for (const cip of pl.cardsInPlay) {
+      if (cip.attachedTo !== undefined || cip.attachedToItem !== undefined
+        || cip.attachedToSite !== undefined || cip.attachedToAgentId !== undefined
+        || cip.companyId !== undefined || cip.setAsideHost !== undefined
+        || cip.pendingTriggerAttack) continue;
+      const def = defById(state, cip.definitionId);
+      if (!def) continue;
+      if (getCardEffects(def).some(e => e.type === 'nullify-influence-modifications')) {
+        logDetail(`Influence modifications nullified by "${def.name}" (${cip.definitionId as string})`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Total stage points a single card definition contributes (MEWH §1): the sum of
  * its `stage-points` effect values (usually one, may be zero). Used both by the
  * derived per-player total and by the discard-stage-resource legality check.
