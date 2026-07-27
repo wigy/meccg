@@ -88,12 +88,12 @@ npm run gate -w @meccg/sim -- --challenger h2:combat,kill --champion h2:combat -
 Status: **P0 shipped**, **P1 in progress**. P0 is the core (TSD, dice,
 rationale, tunables, risk oracle, registry), the `standing` service, the fitted
 `W`, the scenario store and the `explain` / `scenarios` / `fit-winprob` CLIs.
-P1 has landed the first half of `combat` — the strike window: tap to fight or
-stay untapped, tap a companion to support, and play a strike event from hand,
-all calibrated against the reducer. The attack-level decisions before
-assignment (cancel the attack, cancel-by-tap, halve strikes) and the `kill`
-module on top of it are still to come, and until then every decision outside a
-strike falls through to Heuristics 1.
+P1 has landed `combat`: the strike window (tap to fight or stay untapped, tap
+a companion to support, play a strike event from hand — all calibrated against
+the reducer) and the attack window before it (who faces which strike, whether
+to cancel the attack, cancel-by-tap, halve strikes). The `kill` module on top
+of it and the strength gate are still to come, and every decision outside a
+combat falls through to Heuristics 1.
 
 ## Replay format
 

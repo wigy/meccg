@@ -7,11 +7,11 @@ H2 module has independently cleared a gate.*
 *Implementation (`packages/sim/src/ai/h2/`): **P0 shipped** — core, the
 `standing` service, the fitted `W`, the scenario store, and the `explain` /
 `scenarios` / `fit-winprob` CLIs. **P1 in progress** — the `combat` module's
-strike window (tap mode, support, strike events from hand) plus the
-calibration harness of §6.2, which validates its claims against the reducer.
-Still outstanding in P1: the attack-level window before assignment
-(`cancel-attack`, `cancel-by-tap`, `halve-strikes`, `assign-strike`,
-`choose-strike-order`), the `kill` module on top of it, and the strength gate.*
+strike window (tap mode, support, strike events from hand) and the attack
+window before it (`assign-strike`, `choose-strike-order`, `cancel-attack`,
+`cancel-by-tap`, `halve-strikes`), plus the calibration harness of §6.2, which
+validates the strike window's claims against the reducer. Still outstanding in
+P1: the `kill` module on top of it, and the strength gate.*
 
 *Two corrections to this document, found by reading the engine:*
 
