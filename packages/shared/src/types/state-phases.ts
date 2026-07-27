@@ -665,6 +665,17 @@ export type SiteStep =
    */
   | 'play-site-auto-attack'
   /**
+   * Site-entry gate window (`site-entry-roll-attack`, Doubled Vigilance
+   * dm-51). Entered when the company commits to entering a site carrying such
+   * a hazard permanent-event (and again after `reveal-on-guard-attacks`, for a
+   * copy revealed from an on-guard slot). A `dice-check` pending resolution
+   * holds the entry roll; if it fails, the effect's attack is initiated and
+   * resolved here — before any automatic-attack. Passing checks for a further
+   * unfired gate and otherwise returns to
+   * {@link SitePhaseState.siteEntryReturnStep}.
+   */
+  | 'site-entry-attack'
+  /**
    * Step 2 (CoE line 350): Automatic-attacks are initiated and resolved
    * one at a time in the order listed on the site card. Each triggers the
    * combat sub-state. Once all are faced (regardless of outcome), the
@@ -776,6 +787,22 @@ export interface SitePhaseState {
     readonly resolved: number;
   };
   /**
+   * Site step to return to once the `site-entry-attack` window closes — the
+   * step the company would have advanced to had no `site-entry-roll-attack`
+   * gate (Doubled Vigilance dm-51) been bound to its site. Absent while no
+   * gate window is open.
+   */
+  readonly siteEntryReturnStep?: SiteStep;
+  /**
+   * Instance IDs of the `site-entry-roll-attack` host cards whose entry roll
+   * the active company has already made this site phase. Each host fires at
+   * most once per company site phase, so a second pass through the gate check
+   * (after `reveal-on-guard-attacks`, or after the gate's own attack) only
+   * picks up hosts that have not yet rolled. Reset when a new company's site
+   * phase begins (a fresh {@link SitePhaseState} is built).
+   */
+  readonly siteEntryGatesFaced?: readonly CardInstanceId[];
+  /**
    * Active siege-attack progress (Siege tw-87). Set at `select-company` when
    * one or more cards bearing a `site-phase-start-attack` effect are bound to
    * the selected company's current site; holds those cards' instance ids (in
@@ -794,6 +821,16 @@ export interface SitePhaseState {
    * Undefined means all attacks are processed normally.
    */
   readonly selectedAutoAttackIndex?: number;
+  /**
+   * Set when the active company's remaining automatic-attacks are abandoned
+   * rather than faced. Farmer Maggot (as-48) replaces the company's site card
+   * mid-attack: the company is *placed* at the replacement site instead of
+   * moving to it, so it never enters that site and faces none of its automatic
+   * attacks. The `automatic-attacks` step treats the sequence as finished while
+   * this is set. Absent (undefined → treated as false) for a normal site entry;
+   * reset to absent when a new company's site phase begins.
+   */
+  readonly autoAttacksSkipped?: boolean;
   /** Whether the company has successfully entered the site (past all auto-attacks). */
   readonly siteEntered: boolean;
   /** Whether a resource that taps the site has been played by the current company. */

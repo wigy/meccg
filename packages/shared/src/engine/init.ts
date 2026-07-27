@@ -47,7 +47,7 @@ import { ZERO_MARSHALLING_POINTS, ZERO_EFFECTIVE_STATS } from '../types/state-ca
 import { Phase, SetupStep } from '../types/state-phases.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { logDetail } from './legal-actions/log.js';
-import { defById, findById, isStageResourceCard, hasRecruitmentVehicleEffect, hasStartingCompanyPlacementInDeck } from './reducer-utils.js';
+import { defById, findById, isStageResourceCard, hasRecruitmentVehicleEffect, hasStartingCompanyPlacementInDeck, hasStartingCompanyPlacementEffect } from './reducer-utils.js';
 import { stageResourceNeedsSite } from './stage-resource-sites.js';
 import { applyStageResourceSiteConstraints } from './chain-reducer.js';
 
@@ -383,7 +383,14 @@ export function applyDraftResults(
     //    site enters play bound to that site (which becomes a starting
     //    Wizardhaven); a colliding pairing (both players chose the same site
     //    definition) is set aside to the hand instead (CRF 22).
-    //  - Any other Stage resource (or an unpaired Hidden Haven) goes to the hand.
+    //  - A Stage resource that is "played with a starting company in lieu of a
+    //    minor item" (`starting-company-placement`) waits in the hand until the
+    //    item-draft step places it.
+    //  - Any other Stage resource is put into play (CoE 1.9.F4: "if not
+    //    duplicated, the Stage resource is put into play") — Bad Company (wh-63)
+    //    must be in play for the Orc/Troll characters it let into the starting
+    //    company to stay legal, and for its stage points to count from turn 1.
+    //  - An unpaired Hidden Haven goes to the hand.
     const handAdditions: CardInstance[] = [];
     const cardsInPlayAdditions: CardInPlay[] = [];
     // Character each Thrall of the Voice (recruitment-vehicle Stage resource) is
@@ -439,8 +446,19 @@ export function applyDraftResults(
           });
           conversionsToApply.push({ playerId: player.id, hhCard: card, siteDefId: pairing.siteDefId });
         }
-      } else {
+      } else if (hasStartingCompanyPlacementEffect(def)) {
+        // Placed with the starting company "in lieu of a minor item" during the
+        // item-draft step — keep it in hand until then.
         handAdditions.push(card);
+      } else {
+        // CoE 1.9.F4: a drafted Stage resource that needs neither a character nor
+        // a site pairing is simply put into play (Bad Company, wh-63).
+        logDetail(`${def?.name ?? (card.definitionId as string)} enters play with the starting company (CoE 1.9.F4)`);
+        cardsInPlayAdditions.push({
+          instanceId: card.instanceId,
+          definitionId: card.definitionId,
+          status: CardStatus.Untapped,
+        });
       }
     }
 

@@ -33,7 +33,7 @@ import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { isUnderDeepsSurfaceSite } from './organization-companies.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay, manifestationInCardsInPlay, manifestIdOf } from '../manifestations.js';
-import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
+import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions, sitePlayTargetContext } from '../recompute-derived.js';
 import { asViable as viable } from './evaluated.js';
 
 /**
@@ -245,9 +245,11 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
   if (siteState.step === 'automatic-attacks'
     || siteState.step === 'troll-purse-attacks'
     || siteState.step === 'rescue-attacks'
+    || siteState.step === 'site-entry-attack'
     || siteState.step === 'siege-attacks') {
     // Repeated/sequenced attacks (Troll-purse re-face, prisoner-rescue, Siege
-    // tw-87): the active player passes to initiate the next attack (or to
+    // tw-87) and the `site-entry-roll-attack` gate window (Doubled Vigilance
+    // dm-51): the active player passes to initiate the next attack (or to
     // finish).
     return viable(automaticAttacksActions(state, playerId, siteState));
   }
@@ -410,10 +412,26 @@ function revealOnGuardAttacksActions(
         cardInstanceId: ogCard.instanceId,
       });
     } else if (def.cardType === 'hazard-event' && hasAutoAttacks) {
-      // Rule 2.V.i: hazard events that affect automatic-attacks can be revealed here
+      // Rule 2.V.i: hazard events that affect automatic-attacks can be revealed
+      // here. Rule 2.V.i.1 extends that to adding an attack, which is what a
+      // `site-entry-roll-attack` gate (Doubled Vigilance dm-51) can do — CRF
+      // confirms it "can be revealed on-guard".
       const affectsAutoAttacks = 'effects' in def && def.effects?.some(
-        e => e.type === 'stat-modifier' && (e.target === 'all-automatic-attacks' || e.target === 'all-attacks'),
+        e => (e.type === 'stat-modifier' && (e.target === 'all-automatic-attacks' || e.target === 'all-attacks'))
+          || e.type === 'site-entry-roll-attack',
       );
+      // A site-targeting event is played on the company's site as it is
+      // revealed, so it must be legal there (Doubled Vigilance: a Shadow-hold,
+      // or a Ruins & Lairs / Border-hold while Doors of Night is in play).
+      const siteTarget = 'effects' in def
+        ? def.effects?.find(e => e.type === 'play-target' && e.target === 'site')
+        : undefined;
+      if (siteTarget && siteTarget.type === 'play-target' && siteTarget.filter
+        && !(siteDef && isSiteCard(siteDef)
+          && matchesContext(siteTarget.filter, sitePlayTargetContext(state, siteDef)))) {
+        logDetail(`On-guard event "${def.name}" cannot be played on ${siteDef && isSiteCard(siteDef) ? siteDef.name : '?'} — not revealable`);
+        continue;
+      }
       if (affectsAutoAttacks) {
         logDetail(`On-guard event "${def.name}" affects automatic-attacks — eligible for reveal`);
         actions.push({

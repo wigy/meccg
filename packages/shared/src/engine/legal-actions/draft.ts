@@ -20,7 +20,7 @@ import { Alignment, Race } from '../../types/common.js';
 import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { logDetail } from './log.js';
-import { defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, getCardEffects, matchesDefinition, countAgentSummonsEnablersForDraft, countDraftedAgents } from '../reducer-utils.js';
+import { defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, getCardEffects, matchesDefinition, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached } from '../reducer-utils.js';
 import { siteMatchesStageResourceTarget, unpairedSiteStageResources, blockingSiteStageResources } from '../stage-resource-sites.js';
 
 export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -139,7 +139,14 @@ export function draftActions(state: GameState, playerId: PlayerId): EvaluatedAct
           // Fallen-wizard-only Stage resources.
           isAgentSummonsEnabler: hasAgentSummonsEffect(charDef),
         },
-        ctx: { isFallenWizard, isRingwraith },
+        ctx: {
+          isFallenWizard,
+          isRingwraith,
+          // "Cannot be duplicated by a given player" (Bad Company wh-63): a
+          // player-scoped `duplication-limit` caps the copies one player may
+          // draft, since every drafted copy ends up in their play area.
+          duplicationLimitReached: stageResourceDuplicationLimitReached(state, draft, charCard.definitionId),
+        },
       };
       const action = { type: 'draft-pick' as const, player: playerId, characterInstanceId: charCard.instanceId };
       const result = evaluateAction(action, STAGE_RESOURCE_DRAFT_RULES, stageContext);
