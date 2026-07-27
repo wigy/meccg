@@ -2978,7 +2978,7 @@ export function applyDiscardOneCompanyItemResolution(
   }
 
   const { itemInstanceId } = action;
-  const { companyId } = top.kind;
+  const { companyId, characterId, itemFilter } = top.kind;
 
   const defIdx = state.players.findIndex(p => p.companies.some(co => co.id === companyId));
   if (defIdx < 0) return { state, error: `Company ${companyId as string} not found` };
@@ -2988,8 +2988,14 @@ export function applyDiscardOneCompanyItemResolution(
   let itemRemoved = false;
   let removedItem: { instanceId: import('../types/common.js').CardInstanceId; definitionId: import('../types/common.js').CardDefinitionId } | null = null;
   for (const [charId, charData] of Object.entries(newCharacters)) {
+    // Narrowed resolutions (tw-46) may only give up the named character's items.
+    if (characterId && charId !== (characterId as string)) continue;
     const idx = charData.items.findIndex(it => it.instanceId === itemInstanceId);
     if (idx >= 0) {
+      const chosenDef = defById(state, charData.items[idx].definitionId);
+      if (itemFilter && (!chosenDef || !matchesDefinition(chosenDef, itemFilter))) {
+        return { state, error: `Item ${itemInstanceId as string} is excluded by the source card's item filter` };
+      }
       const item = charData.items[idx];
       removedItem = toCardInstance(item);
       newCharacters[charId as CardInstanceId] = { ...charData, items: charData.items.filter((_, i) => i !== idx) };

@@ -2084,6 +2084,11 @@ export function selectCardBearerActions(
  * The defending player must choose one item from any character in their
  * company to discard. One `discard-item-from-company` action is emitted
  * per available item.
+ *
+ * Two optional narrowings on the resolution kind restrict the candidate set
+ * (Indûr Dawndeath tw-46): `characterId` limits the choice to one character's
+ * items, and `itemFilter` is matched against each item's card definition
+ * ("but not a ring").
  */
 export function discardOneCompanyItemActions(
   state: GameState,
@@ -2091,7 +2096,7 @@ export function discardOneCompanyItemActions(
   top: PendingResolution,
 ): EvaluatedAction[] {
   if (top.kind.type !== 'discard-one-company-item') return [];
-  const { companyId } = top.kind;
+  const { companyId, characterId, itemFilter } = top.kind;
 
   const defPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
   if (!defPlayer) return [];
@@ -2100,6 +2105,7 @@ export function discardOneCompanyItemActions(
 
   const actions: EvaluatedAction[] = [];
   for (const charId of company.characters) {
+    if (characterId && charId !== characterId) continue;
     const ch = defPlayer.characters[charId];
     if (!ch) continue;
     for (const item of ch.items) {
@@ -2111,6 +2117,11 @@ export function discardOneCompanyItemActions(
       // valid discard targets — skip anything that is not an item.
       if (!isItemCard(itemDef)) {
         logDetail(`discard-one-company-item: skipping ${itemName} (not an item)`);
+        continue;
+      }
+      // Card-supplied item filter (tw-46: "but not a ring").
+      if (itemFilter && !matchesDefinition(itemDef, itemFilter)) {
+        logDetail(`discard-one-company-item: skipping ${itemName} (excluded by the source card's item filter)`);
         continue;
       }
       logDetail(`discard-one-company-item: offering ${itemName}`);

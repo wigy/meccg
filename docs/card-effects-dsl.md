@@ -11219,6 +11219,54 @@ fields on the `corruption-check` pending kind plus one on
   corruption-check grant activations (When I Know Anything td-166) remain
   legal.
 
+### 56f. `force-discard-target-item`
+
+When this short-event resolves — including a dual-mode creature's
+tap-to-short-event conversion (§56c) — the **target character's controller**
+must give up one item borne by that character. The card-player names the
+victim; the victim's own controller picks which item. Used by Indûr Dawndeath
+(tw-46)'s on-tap conversion: "makes any wounded character discard an item of
+his choice (but not a ring)."
+
+```json
+{
+  "type": "force-discard-target-item",
+  "targetFilter": { "target.status": "inverted" },
+  "itemFilter": { "$not": { "keywords": { "$includes": "ring" } } }
+}
+```
+
+- `targetFilter` (optional) — condition narrowing which characters may be
+  named. Evaluated against the shared play-option context
+  (`buildPlayOptionContext`), so it reads state as well as printed data:
+  `{ "target.status": "inverted" }` is "a wounded character".
+- `itemFilter` (optional) — condition every candidate item's card definition
+  must match. `{ "$not": { "keywords": { "$includes": "ring" } } }` is "but
+  not a ring" (every ring item in the pool carries the `ring` keyword,
+  whether it is a `gold-ring` or a tested `special` ring).
+
+Target selection happens at declaration time. The legal-action emitter
+(`tapAltPermanentEventActions`, `legal-actions/movement-hazard.ts`) offers one
+`tap-alt-permanent-event` action per **opponent** character (CoE 2.1.2 — as a
+hazard it never aims at the card-player's own characters) that both matches
+`targetFilter` and bears at least one item passing `itemFilter`; with no such
+character the tap is emitted as not viable rather than as a play without
+effect (CoE 9.6). The chosen `targetCharacterId` rides on the chain entry
+payload.
+
+Resolution (`applyForceDiscardTargetItem`, `chain-reducer.ts`) enqueues the
+shared `discard-one-company-item` pending resolution for the victim's
+controller, narrowed by two optional fields on that pending kind:
+
+- **`characterId`** — only the named character's items are offered (absent for
+  Brigands tw-17, whose text covers the whole company).
+- **`itemFilter`** — copied from the effect, re-checked both when emitting the
+  choices and when applying the chosen `discard-item-from-company` action, so a
+  forged action naming a ring (or another character's item) is rejected.
+
+Routing through that resolution also inherits the Leaf Brooch (dm-171)
+`discard-substitute` interposition for free.
+
 ### 57. `agent-tap-return-character`
 
 Hazard short-event played on one of the hazard player's **untapped agents**. The

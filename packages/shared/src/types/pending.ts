@@ -550,6 +550,18 @@ export interface PendingResolution {
         readonly type: 'discard-one-company-item';
         /** The company whose items are candidates for discard. */
         readonly companyId: CompanyId;
+        /**
+         * Narrows the candidates to the items borne by this one character
+         * (Indûr Dawndeath tw-46: "makes any wounded character discard an item
+         * of his choice" — the card-player picked the character, its controller
+         * picks the item). Absent = any item in the company (Brigands).
+         */
+        readonly characterId?: CardInstanceId;
+        /**
+         * DSL condition every candidate item's card definition must match
+         * (tw-46: "but not a ring"). Absent = every item qualifies.
+         */
+        readonly itemFilter?: Condition;
       }
     | {
         /**

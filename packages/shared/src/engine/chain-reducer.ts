@@ -19,7 +19,7 @@ import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceC
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '../state-utils.js';
-import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard, isFactionCard } from '../types/cards.js';
+import { isSiteCard, isAvatarCharacter, isAllyCard, isCharacterCard, isFactionCard, isItemCard } from '../types/cards.js';
 import { placeCardSetAside } from './set-aside.js';
 import { ownerOf } from '../types/state.js';
 import { CardStatus, SiteType, Race, RegionType } from '../types/common.js';
@@ -1483,6 +1483,71 @@ function applyForceCheckAllInPlay(state: GameState, entry: ChainEntry): GameStat
   const total = current.pendingResolutions.length - state.pendingResolutions.length;
   logDetail(`${cardName}: force-check-all-in-play — ${total} corruption check(s) enqueued, moving player ${movingPlayerId as string} first`);
   return current;
+}
+
+/**
+ * Resolves a `force-discard-target-item` effect (Indûr Dawndeath tw-46's on-tap
+ * short-event conversion): "makes any wounded character discard an item of his
+ * choice (but not a ring)".
+ *
+ * The card-player already chose *which* character when the permanent-event was
+ * tapped (the target rides on the chain entry payload, and the emitter only
+ * offered characters matching the effect's `targetFilter` that bear a
+ * `itemFilter`-eligible item). The *item* is the target's own choice, so this
+ * enqueues the shared `discard-one-company-item` pending resolution — narrowed
+ * to that one character and carrying the item filter — for the target's
+ * controller. Routing through that resolution also inherits the Leaf Brooch
+ * (dm-171) `discard-substitute` interposition for free.
+ *
+ * No-op if the card carries no such effect, no target rode along, the target is
+ * gone (eliminated before the chain resolved), or nothing eligible remains on it.
+ */
+function applyForceDiscardTargetItem(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event') return state;
+  const targetCharId = entry.payload.targetCharacterId;
+  if (!targetCharId) return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').ForceDiscardTargetItemEffect => e.type === 'force-discard-target-item',
+  );
+  if (!effect) return state;
+  const cardLabel = (def as { name?: string })?.name ?? (card.definitionId as string);
+
+  const owner = state.players.find(p => p.characters[targetCharId]);
+  if (!owner) {
+    logDetail(`${cardLabel}: force-discard-target-item — target character ${targetCharId as string} is no longer in play`);
+    return state;
+  }
+  const char = owner.characters[targetCharId];
+  const charLabel = (defById(state, char.definitionId) as { name?: string } | undefined)?.name ?? (targetCharId as string);
+  const eligible = char.items.filter(item => {
+    const itemDef = defById(state, item.definitionId);
+    if (!itemDef || !isItemCard(itemDef)) return false;
+    return !effect.itemFilter || matchesDefinition(itemDef, effect.itemFilter);
+  });
+  if (eligible.length === 0) {
+    logDetail(`${cardLabel}: force-discard-target-item — ${charLabel} bears no eligible item, nothing to discard`);
+    return state;
+  }
+  const company = findCharacterCompany(owner.companies, targetCharId);
+  if (!company) {
+    logDetail(`${cardLabel}: force-discard-target-item — target character ${targetCharId as string} is in no company`);
+    return state;
+  }
+
+  logDetail(`${cardLabel}: force-discard-target-item — ${charLabel} must discard one of ${eligible.length} eligible item(s), owner's choice`);
+  return enqueueResolution(state, {
+    source: card.instanceId,
+    actor: owner.id,
+    scope: companySubphaseScope(state.phaseState.phase, company.id),
+    kind: {
+      type: 'discard-one-company-item',
+      companyId: company.id,
+      characterId: targetCharId,
+      ...(effect.itemFilter ? { itemFilter: effect.itemFilter } : {}),
+    },
+  });
 }
 
 /**
@@ -3411,6 +3476,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // a corruption check (Ren the Unclean tw-83's on-tap short-event conversion).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyForceCheckAllInPlay(current, entry);
+  }
+
+  // Short events that make one chosen character give up an item of the owner's
+  // choice (Indûr Dawndeath tw-46's on-tap short-event conversion). The victim
+  // was chosen at tap time and rides on the chain entry's payload.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    current = applyForceDiscardTargetItem(current, entry);
   }
 
   // draw-cards (Dark Tryst as-80): a resource short event that draws cards

@@ -1210,6 +1210,9 @@
     "body": 10,
     "killMarshallingPoints": 5,
     "race": "ringwraith",
+    "keywords": [
+      "Nazgûl"
+    ],
     "keyedTo": [
       {
         "regionTypes": [
@@ -1218,14 +1221,53 @@
         "siteTypes": [
           "dark-hold"
         ]
+      },
+      {
+        "regionNames": [
+          "Harondor",
+          "Imlad Morgul",
+          "Gorgoroth",
+          "Khand"
+        ]
       }
     ],
     "effects": [
       {
+        "type": "permanent-event-auto-attack",
+        "siteIds": [
+          "dm-36"
+        ],
+        "attack": {
+          "creatureType": "Nazgûl",
+          "strikes": 1,
+          "prowess": 15,
+          "body": 10
+        },
+        "discardAfterUse": true
+      },
+      {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event"
+      },
+      {
+        "type": "force-discard-target-item",
+        "targetFilter": {
+          "target.status": "inverted"
+        },
+        "itemFilter": {
+          "$not": {
+            "keywords": {
+              "$includes": "ring"
+            }
+          }
+        }
       }
     ],
+    "certified": "2026-07-27",
     "text": "Unique.Nazgûl (4th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Harondor, Imlad Morgul, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Indûr Dawndeath becomes a short-event and makes any wounded character discard an item of his choice (but not a ring)."
   },
   {

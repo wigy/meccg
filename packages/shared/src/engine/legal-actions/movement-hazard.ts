@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect } from '../../types/effects.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -32,7 +32,7 @@ import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
-import { grantedActionActivations } from './organization.js';
+import { grantedActionActivations, buildPlayOptionContext } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -3553,8 +3553,11 @@ const MIN_DECK_SIZE_FOR_NAZGUL_TO_DECK = 5;
  * mode `permanent-event`, e.g. Ûvatha tw-107 / Adûnaphel tw-2) during the
  * opponent's movement/hazard phase. Tapping "becomes a short-event" (counts one
  * against the hazard limit). For a `tap-character` on-tap effect (tw-2), one
- * action is emitted per eligible untapped target character; otherwise a single
- * action (the fetch target, tw-107, is chosen in the follow-up pending flow).
+ * action is emitted per eligible untapped target character; for a
+ * `force-discard-target-item` on-tap effect (tw-46), one per character matching
+ * the effect's `targetFilter` that actually bears a discardable item; otherwise
+ * a single action (the fetch target, tw-107, is chosen in the follow-up pending
+ * flow).
  */
 function tapAltPermanentEventActions(
   state: GameState,
@@ -3604,9 +3607,47 @@ function tapAltPermanentEventActions(
       if (!offered) {
         actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character to tap' });
       }
-    } else {
-      actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
+      continue;
     }
+
+    // Indûr Dawndeath (tw-46): the on-tap short-event "makes any wounded
+    // character discard an item of his choice (but not a ring)". As a hazard
+    // (CoE 2.1.2) it may only aim at the resource (active) player's characters.
+    // A character is only a legal target when it matches the effect's
+    // `targetFilter` (wounded) AND bears at least one item the `itemFilter`
+    // allows — otherwise tapping would be a play without effect (CoE 9.6).
+    const discardItemEffect = getCardEffects(def).find(
+      (e): e is ForceDiscardTargetItemEffect => e.type === 'force-discard-target-item',
+    );
+    if (discardItemEffect) {
+      const resourcePlayer = state.players[activeIdx];
+      let offered = false;
+      for (const [charId, ch] of Object.entries(resourcePlayer.characters)) {
+        const charDef = defById(state, ch.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (discardItemEffect.targetFilter) {
+          const ctx = buildPlayOptionContext(state, ch, resourcePlayer);
+          if (!matchesCondition(discardItemEffect.targetFilter, ctx)) continue;
+        }
+        const hasDiscardableItem = ch.items.some(item => {
+          const itemDef = defById(state, item.definitionId);
+          if (!itemDef || !isItemCard(itemDef)) return false;
+          return !discardItemEffect.itemFilter || matchesDefinition(itemDef, discardItemEffect.itemFilter);
+        });
+        if (!hasDiscardableItem) {
+          logDetail(`${def.name}: ${cardName(state, ch.definitionId)} matches the target filter but bears no discardable item — not offered`);
+          continue;
+        }
+        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
+        offered = true;
+      }
+      if (!offered) {
+        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character with a discardable item' });
+      }
+      continue;
+    }
+
+    actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
   }
   return actions;
 }
