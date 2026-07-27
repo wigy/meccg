@@ -48,6 +48,7 @@ import { canPayCost } from '../cost-evaluator.js';
 import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
+import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
 import { asViable as viable } from './evaluated.js';
 
 
@@ -2124,6 +2125,52 @@ export function discardOneCompanyItemActions(
     }
   }
 
+  return actions;
+}
+
+/**
+ * Legal actions while a `discard-substitute-offer` resolution is pending
+ * (Leaf Brooch dm-171).
+ *
+ * The owner of the doomed cards may name **one** of them to save — the
+ * substitute item is discarded in its place — or decline, letting the forced
+ * discard go through. One `use-discard-substitute` action is emitted per
+ * doomed card the substitute's filter actually covers, plus the decline.
+ */
+export function discardSubstituteOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'discard-substitute-offer') return [];
+  if (actor !== top.actor) return [];
+  const kind = top.kind;
+
+  const ownerIndex = state.players.findIndex(p => p.id === actor);
+  if (ownerIndex < 0) return [];
+  const owner = state.players[ownerIndex];
+
+  const substitute = findDiscardSubstitutes(state, ownerIndex, kind.companyId)
+    .find(s => s.instanceId === kind.substituteInstanceId);
+
+  const actions: EvaluatedAction[] = [];
+  if (substitute) {
+    for (const ch of Object.values(owner.characters)) {
+      for (const item of ch.items) {
+        if (!kind.requiredInstanceIds.includes(item.instanceId)) continue;
+        const doomedDef = defById(state, item.definitionId);
+        if (!substituteCovers(substitute, doomedDef)) continue;
+        logDetail(`discard-substitute-offer: ${substitute.name} may be discarded instead of ${doomedDef?.name ?? (item.definitionId as string)}`);
+        actions.push({
+          action: { type: 'use-discard-substitute' as const, player: actor, itemInstanceId: item.instanceId },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  // Declining is always available — the substitution is a "may".
+  actions.push({ action: { type: 'use-discard-substitute' as const, player: actor }, viable: true });
   return actions;
 }
 

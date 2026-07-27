@@ -548,6 +548,10 @@ export function describeAction(
       return action.itemInstanceId && action.targetCharacterId
         ? `${playerName(action.player)} transfers returned item ${instName(action.itemInstanceId)} to ${instName(action.targetCharacterId)}`
         : `${playerName(action.player)} declines to transfer a returned item`;
+    case 'use-discard-substitute':
+      return action.itemInstanceId
+        ? `${playerName(action.player)} discards a substitute item to save ${instName(action.itemInstanceId)} from discard`
+        : `${playerName(action.player)} declines to substitute an item for the required discard`;
     case 'tap-ally-combat-boost':
       return `${playerName(action.player)} taps ally ${instName(action.cardInstanceId)} to boost its company in combat`;
     case 'tap-ally-body-check-boost':

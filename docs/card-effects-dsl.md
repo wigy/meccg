@@ -12111,3 +12111,57 @@ which also serves the M/H phase) against `state.phaseState.phase`, and by the
 site-phase permanent-event branch in `legal-actions/site.ts`.
 
 Used by: *No More Nonsense* (le-210).
+
+---
+
+### 70. `discard-substitute` (Leaf Brooch)
+
+A replacement effect on an item: when another card **in the bearer's company**
+is required to be discarded by a hazard or resource effect, the owner may
+discard *this* card instead, and the protected card stays in play.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `scope` | yes | Where the replaced card must sit. Only `"company"` (any character of the bearer's own company) is supported. |
+| `filter` | no | Card-definition condition the replaced card must match, evaluated with `matchesDefinition` (e.g. `{ "subtype": { "$ne": "special" } }`). Omit to substitute for any card. |
+
+```json
+{ "type": "discard-substitute", "scope": "company", "filter": { "subtype": { "$ne": "special" } } }
+```
+
+Implemented in `engine/discard-substitute.ts`. Every forced-discard site calls
+`enqueueDiscardSubstituteOffer` **instead of** moving the doomed cards: it
+returns a state carrying a `discard-substitute-offer` pending resolution when a
+covering substitute is in the company, or `null` ("no substitute — discard them
+yourself"). The resolution owns the discard either way, so no call site needs
+its own "did the brooch save this one?" branch.
+
+The owner answers with `use-discard-substitute`: with an `itemInstanceId` to
+name one doomed card to save (the substitute is discarded in its place), or
+with the field omitted to decline (every remaining doomed card is discarded).
+When a second substitute is still borne and doomed cards remain, the resolution
+re-queues itself, so a company holding two copies saves two cards from one
+requirement. Legal actions: `discardSubstituteOfferActions`
+(`legal-actions/pending.ts`); reducer:
+`applyDiscardSubstituteOfferResolution` (`pending-reducers.ts`).
+
+Wired-in forced-discard paths:
+
+- `discard-one-company-item` (`pending-reducers.ts`) — Brigands tw-17/le-64,
+  Pirates le-88, and Scourge of Fire ba-75, where the *opponent* picks the item;
+- `move { select: 'filter-all', from: 'items-on-wounded', to: 'discard' }`
+  (`combat-finalize.ts` `discardWoundedItems`) — the Trolls tw-016 / tw-103 /
+  tw-112, which strip every non-special item off a wounded character at once;
+- the gold-ring test discard, Rule 9.21 (`applyGoldRingTestResolution`). The
+  offer is queued *behind* the `ring-play-offer` so the owner decides knowing
+  the test result, and the ring stays borne meanwhile — matching CRF 22's
+  ruling that "the bearer of the gold ring item gets the special ring item, not
+  the bearer of the Leaf Brooch". A ring stored at a Darkhaven (Rule 9.22) sits
+  in the MP pile rather than in a company, so it cannot be saved.
+
+A requirement phrased as "discard one item of the **defender's** choice" (the
+combat `discard-item-from-company` sub-phase of An Article Missing dm-43) needs
+no replacement machinery: the substitute is itself an item in the company, so
+naming it already fulfils the requirement.
+
+Used by: *Leaf Brooch* (dm-171).

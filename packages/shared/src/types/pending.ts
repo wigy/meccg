@@ -553,6 +553,29 @@ export interface PendingResolution {
       }
     | {
         /**
+         * A `discard-substitute` item (Leaf Brooch dm-171) stands between a
+         * hazard/resource effect and the cards it would discard. The owner of
+         * the doomed cards either names one to save — discarding the substitute
+         * in its place — or declines, in which case every card still listed in
+         * {@link requiredInstanceIds} is discarded.
+         *
+         * The engine enqueues this *instead of* performing the forced discard,
+         * so this resolution owns the discard itself. It re-queues while both
+         * another substitute and another doomed card remain, letting a company
+         * carrying two Leaf Brooches save two items from one requirement.
+         */
+        readonly type: 'discard-substitute-offer';
+        /** The company holding both the substitute and the doomed cards. */
+        readonly companyId: CompanyId;
+        /** The substitute item that would be discarded in place of a saved card. */
+        readonly substituteInstanceId: CardInstanceId;
+        /** Cards the triggering effect requires to be discarded, still in play. */
+        readonly requiredInstanceIds: readonly CardInstanceId[];
+        /** Name of the card that forced the discard, for logging. */
+        readonly sourceName: string;
+      }
+    | {
+        /**
          * The card-player's opponent must discard one or more cards of their
          * choice. Two flavours:
          *

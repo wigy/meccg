@@ -4157,6 +4157,40 @@ export interface ItemPlaySiteEffect extends EffectBase {
 }
 
 /**
+ * Replacement effect on an item: when another card *in the bearer's company*
+ * is required to be discarded by a hazard or resource effect, the owner may
+ * discard **this** card instead to fulfil that requirement — the protected
+ * card stays in play.
+ *
+ * The engine models this as a `discard-substitute-offer` pending resolution
+ * enqueued in place of the forced discard: the owner either names one of the
+ * doomed cards to save (`use-discard-substitute`) — which discards this item —
+ * or declines, and the original discard goes through unchanged. A player
+ * holding two substitutes may save two cards from the same requirement; the
+ * offer re-queues itself until the substitutes or the doomed cards run out.
+ *
+ * Used by *Leaf Brooch* (dm-171): "If a non-special item must be discarded from
+ * the company of Leaf Brooch's bearer (according to any hazard or resource
+ * effect), you may discard Leaf Brooch instead to fulfill this requirement."
+ */
+export interface DiscardSubstituteEffect extends EffectBase {
+  /** Effect discriminant. */
+  readonly type: 'discard-substitute';
+  /**
+   * Which cards this item may stand in for. Only `"company"` — every card
+   * borne by any character in the bearer's own company — is supported.
+   */
+  readonly scope: 'company';
+  /**
+   * Card-definition filter the replaced card must match, evaluated with
+   * `matchesDefinition` against the doomed card's definition (e.g. Leaf
+   * Brooch's `{ "subtype": { "$ne": "special" } }`). Omit to substitute for
+   * any card.
+   */
+  readonly filter?: Condition;
+}
+
+/**
  * Site-rule effects live in `./effects/site-rules.ts` for cohesion; they are
  * re-exported here so the public `types/effects.js` path is unchanged.
  */
@@ -6759,6 +6793,7 @@ export type CardEffect =
   | FetchAgentToHandEffect
   | SiteRuleEffect
   | ItemPlaySiteEffect
+  | DiscardSubstituteEffect
   | StorableAtEffect
   | StorageSiteTransferEffect
   | PlayWithStoredCardEffect
