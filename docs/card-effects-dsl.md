@@ -1809,6 +1809,59 @@ Pallando" clauses are modeled by a `play-window` (`phase: organization`) plus a
 `play-target` (`target: character`, `filter: { "target.name": "Pallando" }`,
 `cost: { tap: character }`).
 
+### 6g-bis. `reveal-opponent-hand` + `peek-deck-top`
+
+Two independent resource short-event effects, established together by Mirror of
+Galadriel (tw-282): "You may look at your opponent's hand and then choose to
+look at the top five cards of any one play deck. Shuffle those 5 cards and
+return them to the top of their play deck."
+
+**`reveal-opponent-hand`** (no fields) records every card currently in the
+opponent's hand in `GameState.revealedInstances` when the event is played. That
+map is what the projection layer consults for the opponent's hand
+(`revealedCardPile`), so the playing player sees those identities in his view
+while cards the opponent draws afterwards stay hidden. For a partial, *random*
+peek see the `peek-opponent-hand` grant-action apply (The Lidless Eye le-203).
+
+**`peek-deck-top`** enqueues a `peek-deck-top` pending resolution (actor = the
+playing player) offering one `choose-peek-deck` action per candidate deck. On
+resolution the top `min(count, deckSize)` cards of the chosen deck are recorded
+as seen, shuffled among themselves with the seeded RNG, and written back to the
+top of the same deck — no instance ever leaves the deck, the deck's size is
+unchanged, and the cards beneath the peeked slice keep their order.
+
+- `count` — how many top cards are looked at.
+- `decks` — which decks may be chosen, `"self"` and/or `"opponent"`. Defaults
+  to both ("any one play deck").
+
+A deck is only offered while it holds at least one card. The player's **own**
+deck is additionally withheld while an in-play `cancel-deck-search` effect
+(Lady of the Golden Wood as-13 / Bane of the Ithil-stone tw-13 / Flotsam and
+Jetsam wh-18) cancels his own-deck searches — looking at the top of your own
+play deck outside the normal sequence of play is exactly what those cards
+forbid; the opponent's deck is never affected by them. When no deck qualifies
+the resolution offers a `pass` so it can clear.
+
+```json
+{ "type": "reveal-opponent-hand" },
+{ "type": "peek-deck-top", "count": 5 }
+```
+
+The "Only playable if any of your characters are at Lórien" gate is a
+`play-condition` `player-state` against the **`player.characterSiteNames`**
+context field (added by `buildPlayerStateContext`): the names of the sites the
+player currently has companies with characters at.
+
+```json
+{ "type": "play-condition", "requires": "player-state",
+  "condition": { "player.characterSiteNames": { "$includes": "Lórien" } } }
+```
+
+Effect resolution lives in `reducer-events.ts`
+(`handlePlayResourceShortEvent`); the choice in `legal-actions/pending.ts`
+(`peekDeckTopActions`) and `pending-reducers.ts`
+(`applyPeekDeckTopResolution`).
+
 ### 6h. `reveal-remove-from-discard`
 
 Carried by a **hazard** short-event. When the event resolves un-negated on the

@@ -43,6 +43,7 @@ export const ACTION_TYPES: readonly string[] = [
   'cancel-weapon-effects',
   'card-sideboard-to-deck',
   'choose-great-hunt-source',
+  'choose-peek-deck',
   'choose-revealed-card',
   'choose-strike-order',
   'convert-creature-to-ally',

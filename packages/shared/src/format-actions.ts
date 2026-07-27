@@ -576,6 +576,8 @@ export function describeAction(
       return `Place ${instName(action.cardInstanceId)} next on top of your play deck`;
     case 'choose-revealed-card':
       return `Take revealed card ${instName(action.cardInstanceId)} into hand (shuffle the rest back into the play deck)`;
+    case 'choose-peek-deck':
+      return `Look at the top cards of ${playerName(action.deckOwner)}'s play deck (then shuffle them back on top)`;
     case 'remove-revealed-card':
       return `${playerName(action.player)} removes revealed card ${instName(action.cardInstanceId)} from play (opponent's discard → out of play)`;
     case 'desire-choose-shown-card':

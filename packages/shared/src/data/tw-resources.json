@@ -2650,8 +2650,17 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Only playable if any of your characters are at Lórien. You may look at your opponent’s hand and then choose to look at the top five cards of any one play deck. Shuffle those 5 cards and return them to the top of their play deck."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.characterSiteNames": { "$includes": "Lórien" } }
+      },
+      { "type": "reveal-opponent-hand" },
+      { "type": "peek-deck-top", "count": 5 }
+    ],
+    "text": "Only playable if any of your characters are at Lórien. You may look at your opponent’s hand and then choose to look at the top five cards of any one play deck. Shuffle those 5 cards and return them to the top of their play deck.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-resource-event",

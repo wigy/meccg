@@ -764,6 +764,23 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Mirror of Galadriel (tw-282): the playing player must choose **which
+         * play deck** he looks at the top of (a `peek-deck-top` effect). A
+         * `choose-peek-deck` action names the deck; its top `count` cards are
+         * then revealed to him, shuffled among themselves, and put back on top
+         * of that deck. A `pass` is only offered when no deck qualifies (every
+         * candidate deck is empty or barred by `cancel-deck-search`).
+         */
+        readonly type: 'peek-deck-top';
+        /** How many top cards are looked at once a deck is chosen. */
+        readonly count: number;
+        /** Player ids of the decks the actor may choose between. */
+        readonly deckOwnerIds: readonly PlayerId[];
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Aware of their Ways (dm-46): the card-player has revealed a random
          * subset of the opponent's discard pile (a `reveal-remove-from-discard`
          * effect) and may now choose at most one **non-unique** revealed card to

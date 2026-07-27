@@ -2588,6 +2588,43 @@ export function revealChooseToHandActions(
 }
 
 /**
+ * Legal actions while a `peek-deck-top` resolution is pending (Mirror of
+ * Galadriel, tw-282): the player chooses which play deck he looks at the top
+ * of ("any one play deck"). One `choose-peek-deck` action per candidate deck.
+ *
+ * The candidates were filtered when the resolution was enqueued (empty decks
+ * and, for the player's own deck, an active `cancel-deck-search` drop out), but
+ * a deck can still have emptied since; re-check it here. When nothing is left
+ * to look at, a `pass` clears the resolution.
+ */
+export function peekDeckTopActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'peek-deck-top') return [];
+  const { deckOwnerIds, count } = top.kind;
+  const actions: EvaluatedAction[] = [];
+  for (const ownerId of deckOwnerIds) {
+    const owner = playerById(state, ownerId);
+    if (!owner || owner.playDeck.length === 0) continue;
+    logDetail(
+      `peek-deck-top: offering to look at the top ${Math.min(count, owner.playDeck.length)} ` +
+      `card(s) of ${owner.name}'s play deck`,
+    );
+    actions.push({
+      action: { type: 'choose-peek-deck' as const, player: actor, deckOwner: ownerId },
+      viable: true,
+    });
+  }
+  if (actions.length === 0) {
+    logDetail('peek-deck-top: no play deck available to look at — offering pass');
+    actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  }
+  return actions;
+}
+
+/**
  * Legal actions while a `reveal-remove-from-discard` resolution is pending
  * (Aware of their Ways, dm-46): the card-player may choose one of the revealed
  * non-unique cards in the opponent's discard pile to remove from the game, or

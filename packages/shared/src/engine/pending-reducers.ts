@@ -3485,6 +3485,67 @@ export function applyRevealChooseToHandResolution(
 }
 
 /**
+ * Resolve a `peek-deck-top` pending resolution (Mirror of Galadriel, tw-282).
+ *
+ * The actor names a play deck via `choose-peek-deck`; the top
+ * `min(count, deckSize)` cards of that deck are recorded as seen by him
+ * ({@link GameState.revealedInstances}), then shuffled among themselves and
+ * written back to the top of the same deck — "Shuffle those 5 cards and return
+ * them to the top of their play deck". No card leaves the deck, so its size is
+ * unchanged and the cards beneath the peeked slice keep their order.
+ *
+ * A `pass` is accepted only as the escape hatch the legal-action layer offers
+ * when no deck is available to look at.
+ */
+export function applyPeekDeckTopResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'peek-deck-top') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for peek-deck-top' };
+  }
+  const { count, deckOwnerIds } = top.kind;
+  const cleared = dequeueResolution(state, top.id);
+
+  if (action.type === 'pass') {
+    logDetail('peek-deck-top: no play deck to look at — passing');
+    return { state: cleared };
+  }
+  if (action.type !== 'choose-peek-deck') {
+    return { state, error: `Pending peek-deck-top requires choose-peek-deck, got '${action.type}'` };
+  }
+  if (!deckOwnerIds.includes(action.deckOwner)) {
+    return { state, error: `Play deck of ${action.deckOwner as string} was not offered to look at` };
+  }
+
+  const ownerIdx = getPlayerIndex(cleared, action.deckOwner);
+  const owner = cleared.players[ownerIdx];
+  const peekCount = Math.min(count, owner.playDeck.length);
+  if (peekCount === 0) {
+    logDetail(`peek-deck-top: ${owner.name}'s play deck is empty — nothing to look at`);
+    return { state: cleared };
+  }
+
+  const peeked = owner.playDeck.slice(0, peekCount);
+  const rest = owner.playDeck.slice(peekCount);
+  const [shuffledTop, nextRng] = shuffle(peeked, cleared.rng);
+  logDetail(
+    `peek-deck-top: ${action.player as string} looks at the top ${peekCount} card(s) of ` +
+    `${owner.name}'s play deck (${peeked.map(c => cardName(cleared, c.definitionId)).join(', ')}), ` +
+    'then shuffles them and returns them to the top',
+  );
+  const revealed = revealInstances({ ...cleared, rng: nextRng }, peeked);
+  return {
+    state: updatePlayer(revealed, ownerIdx, p => ({
+      ...p,
+      playDeck: [...shuffledTop, ...rest],
+    })),
+  };
+}
+
+/**
  * Resolve a `reveal-remove-from-discard` pending resolution (Aware of their
  * Ways, dm-46).
  *

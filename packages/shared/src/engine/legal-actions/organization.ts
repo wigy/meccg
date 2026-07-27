@@ -2541,9 +2541,20 @@ export function buildPlayerStateContext(
   // Deeper dm-156): `findPlayerAvatar` returns the in-play avatar character or
   // undefined, so `false` means no avatar has been brought into play yet.
   const avatarInPlay = findPlayerAvatar(state, player) !== undefined;
+  // Names of the sites the player currently has characters at — one entry per
+  // company holding at least one character. Backs "Only playable if any of your
+  // characters are at <site>" gates (Mirror of Galadriel tw-282) without a
+  // per-card keyword: `{ "player.characterSiteNames": { "$includes": "Lórien" } }`.
+  const characterSiteNames = [...new Set(
+    player.companies
+      .filter(c => c.characters.length > 0 && c.currentSite !== null)
+      .map(c => defById(state, c.currentSite!.definitionId)?.name)
+      .filter((n): n is string => n !== undefined),
+  )];
   return {
     player: {
       alignment: player.alignment,
+      characterSiteNames,
       avatar: avatarName,
       avatarInPlay,
       hasRingwraithInPlay,
