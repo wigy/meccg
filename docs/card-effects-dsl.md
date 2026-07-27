@@ -11509,6 +11509,95 @@ hypothetical `charactersInPlayAnywhere` that already includes the character
 being played, and a sister that would yield stops blocking. So the in-play White
 Rider never bars playing Gandalf — the post-action sweep discards it instead.
 
+### 62b. Company-composition primitives (`company-size-unlimited`, `company-influence-exempt`, `company-character-play-exempt`, `discard-self-when-company`)
+
+Four effects for a permanent-event bound to a **company as a whole** (a
+`play-target` `target: "company"` card, stored as `CardInPlay.companyId`) whose
+rules read the bound company's roster. They live in
+`engine/company-composition.ts`.
+
+Three of them match a card-authored `filter` against a **per-character
+context**, so the class of characters a card cares about stays in card data:
+
+| Path | Description |
+|------|-------------|
+| `character.name` | Card name. |
+| `character.race` | Race (`"dwarf"`, `"hobbit"`, `"wizard"`, …). |
+| `character.mind` | Effective mind (printed mind when unmodified). **Absent** for avatars (printed mind `null`), so `{ "$gt": n }` never matches one. |
+| `character.unique` | Uniqueness flag. |
+| `character.isAvatar` | True for a printed-mind-`null` character. |
+| `character.keywords` | Keyword list (use `$includes`). |
+
+**`company-size-unlimited`** — the bound company ignores the CoE 2.II.3.1
+maximum of seven effective characters outside a haven. Read in
+`organization-companies.ts` by `moveToCompanyActions` and
+`mergeCompaniesActions`; in a merge only the **target** company's marker counts,
+because the target is the company that survives. Contrast `extra-leader-slot`,
+which merely exempts one Leader from the same headcount. No fields.
+
+```json
+{ "type": "company-size-unlimited" }
+```
+
+**`company-influence-exempt`** — characters in the bound company matching
+`filter` cost no influence to control. Two call sites: `recompute-derived.ts`
+stops subtracting their mind from the general-influence pool, and
+`organization-characters.ts` offers them under general influence at cost 0 at a
+site where such a company stands (the direct-influence branch is untouched — a
+character that "does not require influence" is held under general influence, not
+as a discounted follower).
+
+```json
+{ "type": "company-influence-exempt",
+  "filter": { "$and": [{ "character.race": "dwarf" },
+                       { "character.mind": { "$lte": 2 } }] } }
+```
+
+**`company-character-play-exempt`** — characters matching `filter` may join the
+bound company regardless of the one-character-per-turn limit of CoE 2.II.2.1,
+*and* doing so does not consume that turn's single slot (the gate in
+`organization-characters.ts`, the bookkeeping in `reducer-organization.ts`
+`handlePlayCharacter`). The exemption is per company: at a site whose company
+does not carry the card the limit still bites.
+
+```json
+{ "type": "company-character-play-exempt",
+  "filter": { "character.race": "dwarf" } }
+```
+
+**`discard-self-when-company`** — the company-scoped sibling of
+`discard-self-when` (§62): the card is discarded the moment a condition over the
+bound company's composition holds. Swept in `postReduce`
+(`sweepDiscardSelfWhenCompany`), so every roster change — character play, split,
+merge, elimination, being influenced away — is covered by one chokepoint;
+skipped during setup.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `counts` | no | Named filtered headcounts, each `{ "as": <name>, "filter": <condition> }`, published to the condition as `count.<name>`. |
+| `condition` | yes | DSL condition that forces the discard. Sees `company.characterCount`, `company.atHaven`, `company.siteType` and every `count.<name>`. |
+
+The `counts` mechanism is what keeps "more than two non-Dwarf characters"-style
+clauses in card data rather than in engine branches.
+
+```json
+{ "type": "discard-self-when-company",
+  "counts": [
+    { "as": "nonDwarves", "filter": { "character.race": { "$ne": "dwarf" } } },
+    { "as": "bigDwarves",
+      "filter": { "$and": [{ "character.race": "dwarf" },
+                           { "character.mind": { "$gt": 5 } }] } }
+  ],
+  "condition": { "$or": [{ "count.nonDwarves": { "$gt": 2 } },
+                         { "count.bigDwarves": { "$lt": 1 } }] } }
+```
+
+All four are used together by *An Unexpected Party* (dm-114), whose text is
+nothing but company-composition clauses. Its "Only playable during the
+organization phase" sentence is a plain `play-condition` `requires: "phase"`
+with `phases: ["organization"]`, and "Cannot be duplicated on a given company" a
+`duplication-limit` of scope `"company"`.
+
 ### 62a. `retain-hazard-long-events`
 
 Suspends the normal end-of-long-event-phase discard of hazard long-events

@@ -29,6 +29,7 @@ import { matchesCondition } from '../effects/condition-matcher.js';
 import { directInfluenceControlAllowed } from './control-cost.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { wizardSpecificName } from './fallen-wizard-specific.js';
+import { companyExemptsCharacterFromPlayLimit } from './company-composition.js';
 
 
 type OrgHandler = (state: GameState, action: GameAction) => ReducerResult;
@@ -629,7 +630,16 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
     const effects = (eventDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
     return effects.some(e => e.type === 'recruit-character' && e.bypassOneCharacterLimit === true);
   })();
-  const updateOrgState = isOrgPhase && !bypassOneCharLimit;
+  // An Unexpected Party (dm-114): a character brought into a company carrying a
+  // matching `company-character-play-exempt` does not consume the turn's single
+  // character slot, so "any number of Dwarves" may still be followed by one
+  // ordinary character play (CRF 22).
+  const companyPlayExempt = joinedCompany !== undefined
+    && companyExemptsCharacterFromPlayLimit(state, joinedCompany.id, charDef);
+  if (companyPlayExempt) {
+    logDetail(`  ${charDef.name} joins ${joinedCompany.id as string} under a company-character-play-exempt card — one-character-per-turn slot not consumed`);
+  }
+  const updateOrgState = isOrgPhase && !bypassOneCharLimit && !companyPlayExempt;
 
   const stateAfterPlace = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
     ...updatePlayer(state, playerIndex, p => ({
