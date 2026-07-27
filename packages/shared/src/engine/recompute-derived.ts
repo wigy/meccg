@@ -403,16 +403,29 @@ function playerCardsInPlayDefs(state: GameState, player: PlayerState): CardDefin
 
 /**
  * Resolves the card definitions of every source a player-wide, in-play effect
- * can live on: the player's `cardsInPlay` (permanent-events, factions, stage
- * cards, …) plus their in-play characters. Character-carried player-wide effects
- * (e.g. Pallando wh-7's `faction-mp-override`, Saruman wh-9's `fw-item-mp-full`)
- * are collected the same way as ones carried by a stage permanent-event.
+ * can live on:
+ *
+ * - the player's `cardsInPlay` (permanent-events, factions, stage cards, …),
+ * - their in-play characters — character-carried player-wide effects (e.g.
+ *   Pallando wh-7's `faction-mp-override`, Saruman wh-9's `fw-item-mp-full`)
+ *   are collected the same way as ones carried by a stage permanent-event,
+ * - the cards **attached to those characters** (`items`): a stage
+ *   permanent-event played "on the avatar" lives in the avatar's `items`
+ *   rather than in `cardsInPlay`, so its player-wide effects must be picked up
+ *   from there too (Oromë's Warders wh-94, placed on Alatar, carries
+ *   `fw-item-mp-full` / `fw-ally-mp-full` / `faction-mp-override`) — the same
+ *   place {@link mpOverrideRules} already scans for Give Welcome to the
+ *   Unexpected (wh-99).
  */
 function playerInPlayAndCharacterDefs(state: GameState, player: PlayerState): CardDefinition[] {
   const defs = [...playerCardsInPlayDefs(state, player)];
   for (const char of Object.values(player.characters)) {
     const def = resolveDef(state, char.instanceId);
     if (def) defs.push(def);
+    for (const item of char.items) {
+      const itemDef = resolveDef(state, item.instanceId);
+      if (itemDef) defs.push(itemDef);
+    }
   }
   return defs;
 }
@@ -1045,9 +1058,10 @@ type FwMpFullEntry = { readonly filter: Condition | null; readonly inAvatarCompa
 /**
  * Resolves the card definitions of every source a Fallen-wizard's MP-exemption
  * effects can live on: the player's in-play characters (Saruman wh-9 carries
- * `fw-item-mp-full` as a character) plus their `cardsInPlay` permanent-events
- * (Join the Hunt wh-93 / Oromë's Warders wh-94 carry the effects as stage
- * permanent-events).
+ * `fw-item-mp-full` as a character), their `cardsInPlay` permanent-events (Join
+ * the Hunt wh-93 carries the effects as a bare stage permanent-event), and the
+ * cards attached to their characters (Oromë's Warders wh-94 is placed *on
+ * Alatar*, so it lives in his `items`).
  */
 function fwExemptionSourceDefs(state: GameState, player: PlayerState): CardDefinition[] {
   return playerInPlayAndCharacterDefs(state, player);
@@ -1624,23 +1638,34 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   }
 
   // General-influence bonus: sum stat-modifier general-influence effects. These
-  // ride two kinds of source: an item / attached permanent-event on a character
-  // (Bade to Rule le-167 on the Ringwraith, Great Shadow ba-62 on the Balrog),
-  // and a bare stage permanent-event sitting in `cardsInPlay` (Truths of Doom
-  // wh-108, which is not placed on any character). An optional `controlLimit`
-  // caps how many of the added points may control characters; the excess is
-  // accumulated as `generalInfluenceControlPenalty` (still part of the pool for
-  // defensive unused-GI purposes, but never usable to control characters).
+  // ride three kinds of source: an item / attached permanent-event on a
+  // character (Bade to Rule le-167 on the Ringwraith, Great Shadow ba-62 on the
+  // Balrog), an attached *hazard* (Cruel Claw Perceived wh-16, the opponent's
+  // permanent-event played on a Wizard / Fallen-wizard / Ringwraith to shrink
+  // his pool), and a bare stage permanent-event sitting in `cardsInPlay`
+  // (Truths of Doom wh-108, which is not placed on any character). An optional
+  // `controlLimit` caps how many of the added points may control characters;
+  // the excess is accumulated as `generalInfluenceControlPenalty` (still part
+  // of the pool for defensive unused-GI purposes, but never usable to control
+  // characters).
   // `op: "set"` is the exception: it does not add to the pool, it *replaces*
   // the avatar's printed general influence (Radagast's Shapeshifter forms
   // adopt a whole attribute line, e.g. Shifter of Hues wh-115's GI 27 in place
   // of Radagast's printed 22). Recorded separately so `effectiveGeneralInfluence`
   // can substitute it for the printed number and still add ordinary bonuses on
   // top. Last override collected wins.
-  const applyGeneralInfluenceEffect = (effect: CardEffect): void => {
+  //
+  // A `when` condition on the effect is honored against the carrier's context:
+  // for a character-borne card that is the bearer context (race, plus the
+  // player's `stagePoints` total, computed above) so a single card can tier its
+  // modifier by who carries it and how far along the Fallen-wizard is — Cruel
+  // Claw Perceived's -1 / -3 / -5 / -7 / -9 ladder. Bare `cardsInPlay` cards
+  // have no bearer, so a bearer-gated `when` never matches there.
+  const applyGeneralInfluenceEffect = (effect: CardEffect, context: ResolverContext): void => {
     if (effect.type !== 'stat-modifier') return;
     const e = effect as { stat?: string; value?: number; controlLimit?: number; op?: string };
     if (e.stat !== 'general-influence') return;
+    if (effect.when && !matchesContext(effect.when, context)) return;
     const val = typeof e.value === 'number' ? e.value : 0;
     if (e.op === 'set') {
       generalInfluenceOverride = val;
@@ -1652,12 +1677,16 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   };
   for (const char of Object.values(player.characters)) {
-    for (const item of char.items) {
-      const itemDef = resolveDef(state, item.instanceId);
-      const effects = itemDef && 'effects' in itemDef
-        ? (itemDef as { effects?: readonly CardEffect[] }).effects ?? []
+    const charDef = resolveDef(state, char.instanceId);
+    const bearerCtx: ResolverContext = isCharacterCard(charDef)
+      ? { reason: 'general-influence', bearer: { ...buildBearerContext(charDef), stagePoints } }
+      : { reason: 'general-influence' };
+    for (const attachment of [...char.items, ...char.hazards]) {
+      const attDef = resolveDef(state, attachment.instanceId);
+      const effects = attDef && 'effects' in attDef
+        ? (attDef as { effects?: readonly CardEffect[] }).effects ?? []
         : [];
-      for (const effect of effects) applyGeneralInfluenceEffect(effect);
+      for (const effect of effects) applyGeneralInfluenceEffect(effect, bearerCtx);
     }
   }
   for (const card of player.cardsInPlay) {
@@ -1666,7 +1695,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const effects = def && 'effects' in def
       ? (def as { effects?: readonly CardEffect[] }).effects ?? []
       : [];
-    for (const effect of effects) applyGeneralInfluenceEffect(effect);
+    for (const effect of effects) applyGeneralInfluenceEffect(effect, { reason: 'general-influence' });
   }
 
   // Cards in play: factions, permanent events, etc. Set-aside cards (MEAS §1)
