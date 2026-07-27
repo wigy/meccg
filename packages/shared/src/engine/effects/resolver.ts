@@ -53,7 +53,7 @@ export interface ResolverContext {
   readonly reason: string;
   /** The character whose stats are being computed or who is acting. */
   readonly bearer?: {
-    readonly race: string;
+    readonly race: Race;
     readonly skills: readonly string[];
     readonly baseProwess: number;
     readonly baseBody: number;
@@ -134,7 +134,16 @@ export interface ResolverContext {
   };
   /** The enemy creature/hazard (in combat contexts). */
   readonly enemy?: {
-    readonly race: string;
+    /** The attacker's canonical race. Absent for attacks that name no race (e.g. Vile Fumes' "Gas") and for raceless targets. */
+    readonly race?: Race;
+    /**
+     * Every race the attacker counts as, for the few creatures that print more
+     * than one attack type (Goblin-faces wh-13 "Orcs. Men."). Lets a condition
+     * match any of them via `{ "enemy.races": { "$includes": "man" } }`, where
+     * `enemy.race` would only ever equal the primary race. Absent for the
+     * single-race majority.
+     */
+    readonly races?: readonly Race[];
     readonly name: string;
     readonly prowess: number;
     readonly body: number | null;
@@ -142,7 +151,7 @@ export interface ResolverContext {
   /** The faction being influenced (in faction influence check contexts). */
   readonly faction?: {
     readonly name: string;
-    readonly race: string;
+    readonly race: Race;
     /**
      * Names of sites (and/or site types) at which the faction is playable,
      * flattened from the faction card's `playableAt` entries. Used by DSL
@@ -193,7 +202,8 @@ export interface ResolverContext {
   /** The target of an influence check (character being controlled). */
   readonly target?: {
     readonly name: string;
-    readonly race: string;
+    /** The target's canonical race. Absent for allies and items, which carry no race. */
+    readonly race?: Race;
     /**
      * The kind of card being influenced in an opponent-influence attempt:
      * `"character"`, `"ally"`, `"faction"`, or `"item"`. Exposed so an
@@ -871,7 +881,7 @@ export interface CreatureAttackBoostContext {
 function collectCreatureAttackBoostEffects(
   state: GameState,
   stat: 'prowess' | 'strikes',
-  creatureRace: string | undefined,
+  creatureRace: Race | undefined,
   ctx: CreatureAttackBoostContext,
 ): CollectedEffect[] {
   if (state.activeConstraints.length === 0) return [];
@@ -1136,7 +1146,7 @@ const CREATURE_TYPE_TO_RACE: Record<string, Race> = {
  * ba-40): "an additional automatic-attack: same type as your target faction".
  * Unmapped races fall back to the capitalized race name.
  */
-const FACTION_RACE_TO_ATTACK_TYPE: Record<string, string> = {
+const FACTION_RACE_TO_ATTACK_TYPE: Partial<Record<Race, string>> = {
   orc: 'Orcs',
   man: 'Men',
   troll: 'Trolls',
@@ -1156,8 +1166,8 @@ const FACTION_RACE_TO_ATTACK_TYPE: Record<string, string> = {
 };
 
 /** See {@link FACTION_RACE_TO_ATTACK_TYPE}. */
-export function factionRaceToAttackType(race: string): string {
-  return FACTION_RACE_TO_ATTACK_TYPE[race.toLowerCase()]
+export function factionRaceToAttackType(race: Race): string {
+  return FACTION_RACE_TO_ATTACK_TYPE[race]
     ?? race.charAt(0).toUpperCase() + race.slice(1);
 }
 
@@ -1169,10 +1179,29 @@ export function factionRaceToAttackType(race: string): string {
  * Card data already stores canonical races, so this is only needed for the
  * attack labels printed on sites. A handful of automatic-attacks name no race
  * at all — Vile Fumes' "Gas", and injected attacks with an empty label — and
- * those fall through lowercased, matching no race condition.
+ * those return `undefined`, matching no race condition. Returning `undefined`
+ * rather than the lowercased label keeps non-race text out of every
+ * {@link Race}-typed slot, so "gas" can never be compared against a race.
  */
-export function normalizeCreatureRace(creatureType: string): string {
-  return CREATURE_TYPE_TO_RACE[creatureType.toLowerCase()] ?? creatureType.toLowerCase();
+export function normalizeCreatureRace(creatureType: string): Race | undefined {
+  return CREATURE_TYPE_TO_RACE[creatureType.toLowerCase()];
+}
+
+/**
+ * Builds the race half of a {@link ResolverContext.enemy} entry from a combat.
+ *
+ * Keeps `enemy.race` (the single primary race) and `enemy.races` (every race
+ * the attacker counts as, present only for multi-race creatures) populated
+ * consistently wherever an enemy context is assembled, so a DSL condition sees
+ * the same vocabulary regardless of which code path built the context.
+ */
+export function enemyRaceContext(
+  combat: { readonly creatureRace?: Race; readonly creatureRaces?: readonly Race[] },
+): { race?: Race; races?: readonly Race[] } {
+  return {
+    ...(combat.creatureRace !== undefined ? { race: combat.creatureRace } : {}),
+    ...(combat.creatureRaces !== undefined ? { races: combat.creatureRaces } : {}),
+  };
 }
 
 /**
@@ -1184,7 +1213,7 @@ export interface CreatureSelfContext {
   /** The creature card's effects array. */
   readonly effects: readonly CardEffect[];
   /** Creature races the defending company has already faced this turn. */
-  readonly companyFacedRaces: readonly string[];
+  readonly companyFacedRaces: readonly Race[];
   /**
    * Alignment of the defending player (e.g. "hero", "ringwraith"). Exposed
    * as `defender.alignment` in the self-effect context so conditions can
@@ -1213,8 +1242,8 @@ export interface CreatureSelfContext {
  */
 function buildAttackContext(
   inPlayNames: readonly string[],
-  creatureRace?: string,
-  companyFacedRaces?: readonly string[],
+  creatureRace?: Race,
+  companyFacedRaces?: readonly Race[],
   defenderAlignment?: string,
   siteType?: string,
 ): ResolverContext {
@@ -1266,7 +1295,7 @@ export function resolveAttackProwess(
   state: GameState,
   baseProwess: number,
   inPlayNames: readonly string[],
-  creatureRace?: string,
+  creatureRace?: Race,
   isAutomaticAttack = false,
   creatureSelf?: CreatureSelfContext,
   attackBoostCtx?: CreatureAttackBoostContext,
@@ -1320,7 +1349,7 @@ export function resolveAttackStrikes(
   state: GameState,
   baseStrikes: number,
   inPlayNames: readonly string[],
-  creatureRace?: string,
+  creatureRace?: Race,
   isAutomaticAttack = false,
   attackBoostCtx?: CreatureAttackBoostContext,
   siteType?: string,
@@ -1353,7 +1382,7 @@ export function resolveAttackBody(
   state: GameState,
   baseBody: number | null,
   inPlayNames: readonly string[],
-  creatureRace?: string,
+  creatureRace?: Race,
   attackBoostCtx?: CreatureAttackBoostContext,
 ): number | null {
   if (baseBody === null) return null;
@@ -1370,8 +1399,8 @@ export function resolveAttackBody(
  * enemy information, enabling conditional bonuses like Éowyn's +6 vs Nazgûl.
  */
 function buildCombatContext(
-  char: { race: string; skills: readonly string[]; baseProwess: number; baseBody: number; baseDirectInfluence: number; name: string },
-  enemy: { race: string; name: string; prowess: number; body: number | null },
+  char: { race: Race; skills: readonly string[]; baseProwess: number; baseBody: number; baseDirectInfluence: number; name: string },
+  enemy: { race?: Race; name: string; prowess: number; body: number | null },
   inPlayNames: readonly string[],
   strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
 ): ResolverContext {
@@ -1405,7 +1434,7 @@ function buildCombatContext(
 export function resolveCombatProwessBonus(
   state: GameState,
   char: CharacterInPlay,
-  enemy: { race: string; name: string; prowess: number; body: number | null },
+  enemy: { race?: Race; name: string; prowess: number; body: number | null },
   inPlayNames: readonly string[],
 ): number {
   const charDef = resolveDef(state, char.instanceId);
@@ -1452,7 +1481,7 @@ export function resolveCombatProwessBonus(
 export function resolveEnemyBody(
   state: GameState,
   char: CharacterInPlay,
-  enemy: { race: string; name: string; prowess: number; body: number | null },
+  enemy: { race?: Race; name: string; prowess: number; body: number | null },
   baseBody: number,
   inPlayNames: readonly string[],
   strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',

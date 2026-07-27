@@ -34,7 +34,7 @@ import {
   enqueueTransferCorruptionCheck,
   getCharacter, RESOURCE_PLAYER, pool,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import { computeCombatProwess } from '../../engine/recompute-derived.js';
 import type { CardDefinitionId, CharacterCard, CorruptionCheckAction, InfluenceAttemptAction } from '../../index.js';
 
@@ -63,7 +63,7 @@ describe('Bofur (tw-132)', () => {
     const bofur = state.players[RESOURCE_PLAYER].characters[bofurId];
     const bofurDef = pool[BOFUR as string] as CharacterCard;
 
-    const prowessVsOrc = computeCombatProwess(state, bofur, bofurDef, 'orc');
+    const prowessVsOrc = computeCombatProwess(state, bofur, bofurDef, Race.Orc);
     // Base prowess 4 + 1 bonus = 5
     expect(prowessVsOrc).toBe(bofurDef.prowess + 1);
   });
@@ -82,9 +82,9 @@ describe('Bofur (tw-132)', () => {
     const bofur = state.players[RESOURCE_PLAYER].characters[bofurId];
     const bofurDef = pool[BOFUR as string] as CharacterCard;
 
-    expect(computeCombatProwess(state, bofur, bofurDef, 'troll')).toBe(bofurDef.prowess);
-    expect(computeCombatProwess(state, bofur, bofurDef, 'undead')).toBe(bofurDef.prowess);
-    expect(computeCombatProwess(state, bofur, bofurDef, 'ringwraith')).toBe(bofurDef.prowess);
+    expect(computeCombatProwess(state, bofur, bofurDef, Race.Troll)).toBe(bofurDef.prowess);
+    expect(computeCombatProwess(state, bofur, bofurDef, Race.Undead)).toBe(bofurDef.prowess);
+    expect(computeCombatProwess(state, bofur, bofurDef, Race.Ringwraith)).toBe(bofurDef.prowess);
   });
 
   // ── Effect 2: -1 to all corruption checks ──

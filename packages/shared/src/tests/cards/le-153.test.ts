@@ -57,7 +57,7 @@ import {
   viableActions, makeCancelWindowCombat,
   type BuildTestStateOpts,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, CardStatus } from '../../index.js';
+import { computeLegalActions, Phase, CardStatus, Race } from '../../index.js';
 import type { CardDefinitionId, GameState, CancelAttackAction, ModifyAttackAction, PlayHeroResourceAction, TapAllyDiscardHazardAction } from '../../index.js';
 
 const LAST_CHILD = 'le-153' as CardDefinitionId;
@@ -137,7 +137,7 @@ describe('Last Child of Ungoliant (le-153)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, LAST_CHILD);
     const combatState = makeCancelWindowCombat(withAlly, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elf',
+      creatureRace: Race.Elf,
       strikesTotal: 1,
       strikeProwess: 15,
     });
@@ -158,7 +158,7 @@ describe('Last Child of Ungoliant (le-153)', () => {
     const base = buildTestState(NSN_OPTS);
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elf',
+      creatureRace: Race.Elf,
       strikesTotal: 1,
       strikeProwess: 15,
     });

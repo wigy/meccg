@@ -35,7 +35,7 @@ import {
   makeCancelWindowCombat,
   resolveChain,
 } from '../test-helpers.js';
-import { Alignment } from '../../index.js';
+import { Alignment, Race } from '../../index.js';
 import type {
   CardDefinitionId,
   CombatState,
@@ -228,7 +228,7 @@ describe('Great Fissure (ba-61)', () => {
         },
       ],
     });
-    return makeCancelWindowCombat(base, { creatureRace: 'orc', strikesTotal: 1 });
+    return makeCancelWindowCombat(base, { creatureRace: Race.Orc, strikesTotal: 1 });
   }
 
   test('cancel-attack IS offered when the defending company is AT an Under-deeps site', () => {

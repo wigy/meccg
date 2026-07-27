@@ -437,7 +437,7 @@ function bodyCheckRollModifier(state: GameState, charData: CharacterInPlay): num
  * Dwarves, Hobbits, Dúnedain, and Men resulting from Spider attacks." Returns
  * 0 when no such permanent-event is in play or none matches.
  */
-function globalBodyCheckRollModifier(state: GameState, targetRace: string | undefined, creatureRace: string | undefined): number {
+function globalBodyCheckRollModifier(state: GameState, targetRace: Race | undefined, creatureRace: Race | undefined): number {
   let total = 0;
   const ctx = { attack: { creatureRace }, target: { race: targetRace } };
   for (const player of state.players) {
@@ -771,13 +771,14 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       const attackerCharData = stateWithRoll.players[atkPlayerIdxCvCC].characters[strike.attackingCharacterId];
       if (attackerCharData) {
         const targetCharDef = defById(stateWithRoll, charData.definitionId);
-        const targetRace = isCharacterCard(targetCharDef) ? targetCharDef.race : '';
-        const inPlayNamesAtk = buildInPlayNames(stateWithRoll);
-        const enemyCtx = { race: targetRace, name: targetName, prowess: 0, body };
-        const modifiedBody = resolveEnemyBody(stateWithRoll, attackerCharData, enemyCtx, body, inPlayNamesAtk);
-        if (modifiedBody !== body) {
-          logDetail(`CvCC attacker weapon modified defender body: ${body} → ${modifiedBody}`);
-          body = modifiedBody;
+        if (isCharacterCard(targetCharDef)) {
+          const inPlayNamesAtk = buildInPlayNames(stateWithRoll);
+          const enemyCtx = { race: targetCharDef.race, name: targetName, prowess: 0, body };
+          const modifiedBody = resolveEnemyBody(stateWithRoll, attackerCharData, enemyCtx, body, inPlayNamesAtk);
+          if (modifiedBody !== body) {
+            logDetail(`CvCC attacker weapon modified defender body: ${body} → ${modifiedBody}`);
+            body = modifiedBody;
+          }
         }
       }
     }
@@ -801,7 +802,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // Global body-check modifiers from in-play permanent-events (e.g. Spawn of
     // Ungoliant ba-24: +1 to certain races' body checks from Spider attacks).
     const targetRaceForBody = charData && !allyMatch && isCharacterCard(defById(stateWithRoll, charData.definitionId))
-      ? (defById(stateWithRoll, charData.definitionId) as { race?: string }).race
+      ? (defById(stateWithRoll, charData.definitionId) as { race?: Race }).race
       : undefined;
     const globalBodyMod = globalBodyCheckRollModifier(stateWithRoll, targetRaceForBody, combat.creatureRace);
     // bearer-combat body-check modifier (Flame of Udûn ba-58): a successful CvCC
@@ -1128,7 +1129,7 @@ export function handleConvertCreatureToAlly(state: GameState, action: GameAction
   const creatureInstanceId = combat.attackSource.instanceId;
   const creatureDef = resolveDef(state, creatureInstanceId);
   if (!creatureDef || creatureDef.cardType !== 'hazard-creature') return { state, error: 'Attacking creature not found' };
-  const creatureRace = (creatureDef as { race: string }).race.toLowerCase();
+  const creatureRace = (creatureDef as { race: Race }).race;
   const creatureStrikes = (creatureDef as { strikes: number }).strikes;
   if (creatureStrikes > effect.maxStrikes) return { state, error: 'Creature has too many strikes to convert' };
   if (!effect.races.map(r => r.toLowerCase()).includes(creatureRace)) return { state, error: 'Creature race is not eligible for conversion' };
@@ -1484,7 +1485,7 @@ export function handleTapAllyCombatBoost(state: GameState, action: GameAction, c
       if (boostEffect.filter) {
         const ctx = {
           target: {
-            race: ('race' in charCardDef ? (charCardDef as { race?: string }).race : undefined) ?? '',
+            race: 'race' in charCardDef ? (charCardDef as { race?: Race }).race : undefined,
             name: (charCardDef?.name) ?? '',
             skills: ('skills' in charCardDef ? (charCardDef as { skills?: readonly string[] }).skills : undefined) ?? [],
           },
@@ -1823,7 +1824,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
   const itemName = itemDef.name;
 
   const shouldDiscard = !bearerOnly && effect.discardIfBearerNot
-    ? !effect.discardIfBearerNot.race.includes(charDef.race as string)
+    ? !effect.discardIfBearerNot.race.includes(charDef.race)
     : false;
 
   let updatedChar;

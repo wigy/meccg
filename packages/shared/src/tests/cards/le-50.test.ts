@@ -35,7 +35,7 @@ import {
   ARAGORN,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { Alignment, CardStatus } from '../../index.js';
+import { Alignment, CardStatus, Race } from '../../index.js';
 import type {
   CardDefinitionId,
   CancelAttackAction,
@@ -91,7 +91,7 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
     });
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
     });
 
@@ -127,7 +127,7 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
     });
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
     });
 
@@ -175,7 +175,7 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
     });
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'on-guard-creature',
     });
 
@@ -208,7 +208,7 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
     });
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'automatic-attack',
     });
 
@@ -242,7 +242,7 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
     });
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
     });
 
@@ -290,7 +290,7 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
     });
 
@@ -327,7 +327,7 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
     });
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
     });
 

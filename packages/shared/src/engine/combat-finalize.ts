@@ -38,7 +38,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { makeCombatState, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, nextCompanyId, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
-import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef } from './effects/index.js';
+import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired, removeConstraint } from './pending.js';
@@ -581,10 +581,10 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           : combat.attackSource.type === 'on-guard-creature' ? combat.attackSource.cardInstanceId
             : combat.attackSource.type === 'played-auto-attack' ? combat.attackSource.instanceId
               : null;
-      if (creatureSource) {
+      const boostRace = nce.apply.race;
+      if (creatureSource && boostRace !== undefined) {
         const creatureDefId = resolveInstanceId(state, creatureSource);
         const creatureName = cardName(state, creatureDefId!, 'creature');
-        const boostRace = nce.apply.race ?? '';
         const boostStrikes = nce.apply.strikes ?? 0;
         const boostProwess = nce.apply.prowess ?? 0;
         logDetail(`Attack not canceled — ${creatureName} fires creature-attack-boost (race=${boostRace}, +${boostStrikes} strikes, +${boostProwess} prowess) on company ${combat.companyId as string}`);
@@ -612,7 +612,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     const isAutomaticAttack = combat.attackSource.type === 'automatic-attack'
       || combat.attackSource.type === 'played-auto-attack';
     const attackCtx = {
-      enemy: { race: combat.creatureRace },
+      enemy: enemyRaceContext(combat),
       attack: { isolated: combat.isolated ?? false, isAutomaticAttack },
       inPlay: buildInPlayNames(stateAfterCombat),
     };
@@ -958,7 +958,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         assignmentPhase: aaAttackerChooses2 ? 'cancel-window' : 'defender',
         detainment: isDetainmentAttack({
           attackEffects: siteDef2?.effects,
-          attackRace: race as import('../index.js').Race | null,
+          attackRace: race ?? null,
           defendingAlignment: activeIdx2 >= 0 ? stateAfterCombat.players[activeIdx2].alignment : Alignment.Wizard,
           defendingSiteEffects: siteDef2?.effects,
           defenderForcesNormalAttacks: activeIdx2 >= 0 && playerConvertsDetainmentToNormal(stateAfterCombat, stateAfterCombat.players[activeIdx2]),

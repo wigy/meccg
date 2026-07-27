@@ -27,7 +27,7 @@ import {
   findCharInstanceId, companyIdAt, executeAction, attachItemToChar,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { Phase } from '../../index.js';
+import { Phase, Race } from '../../index.js';
 import type { CombatState, CardDefinitionId } from '../../index.js';
 
 const WORMSBANE = 'td-172' as CardDefinitionId;
@@ -71,7 +71,7 @@ describe('Wormsbane (td-172)', () => {
       strikesTotal: 1,
       strikeProwess: 8,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: legolasId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
@@ -105,7 +105,7 @@ describe('Wormsbane (td-172)', () => {
       strikesTotal: 1,
       strikeProwess: 10,
       creatureBody: null,
-      creatureRace: 'dragon',
+      creatureRace: Race.Dragon,
       strikeAssignments: [{ characterId: legolasId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
@@ -135,7 +135,7 @@ describe('Wormsbane (td-172)', () => {
       strikesTotal: 1,
       strikeProwess: 10,
       creatureBody: null,
-      creatureRace: 'drake',
+      creatureRace: Race.Drake,
       strikeAssignments: [{ characterId: legolasId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
@@ -168,7 +168,7 @@ describe('Wormsbane (td-172)', () => {
       strikesTotal: 1,
       strikeProwess: 10,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: legolasId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
@@ -201,7 +201,7 @@ describe('Wormsbane (td-172)', () => {
       strikesTotal: 1,
       strikeProwess: 5,
       creatureBody: 9,
-      creatureRace: 'dragon',
+      creatureRace: Race.Dragon,
       strikeAssignments: [{ characterId: legolasId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
@@ -240,7 +240,7 @@ describe('Wormsbane (td-172)', () => {
       strikesTotal: 1,
       strikeProwess: 5,
       creatureBody: 9,
-      creatureRace: 'drake',
+      creatureRace: Race.Drake,
       strikeAssignments: [{ characterId: legolasId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
@@ -275,7 +275,7 @@ describe('Wormsbane (td-172)', () => {
       strikesTotal: 1,
       strikeProwess: 1,
       creatureBody: 9,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: legolasId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',

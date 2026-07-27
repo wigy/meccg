@@ -33,7 +33,7 @@ import {
   getCharacter, RESOURCE_PLAYER, pool,
 } from '../test-helpers.js';
 import { computeCombatProwess } from '../../engine/recompute-derived.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import type { CardDefinitionId, CharacterCard, CorruptionCheckAction } from '../../index.js';
 
 const OIN = 'tw-172' as CardDefinitionId;
@@ -61,7 +61,7 @@ describe('Óin (tw-172)', () => {
     const oin = state.players[RESOURCE_PLAYER].characters[oinId];
     const oinDef = pool[OIN as string] as CharacterCard;
 
-    const prowessVsOrc = computeCombatProwess(state, oin, oinDef, 'orc');
+    const prowessVsOrc = computeCombatProwess(state, oin, oinDef, Race.Orc);
     // Base prowess 3 + 1 bonus = 4
     expect(prowessVsOrc).toBe(oinDef.prowess + 1);
   });
@@ -72,9 +72,9 @@ describe('Óin (tw-172)', () => {
     const oin = state.players[RESOURCE_PLAYER].characters[oinId];
     const oinDef = pool[OIN as string] as CharacterCard;
 
-    expect(computeCombatProwess(state, oin, oinDef, 'troll')).toBe(oinDef.prowess);
-    expect(computeCombatProwess(state, oin, oinDef, 'undead')).toBe(oinDef.prowess);
-    expect(computeCombatProwess(state, oin, oinDef, 'animal')).toBe(oinDef.prowess);
+    expect(computeCombatProwess(state, oin, oinDef, Race.Troll)).toBe(oinDef.prowess);
+    expect(computeCombatProwess(state, oin, oinDef, Race.Undead)).toBe(oinDef.prowess);
+    expect(computeCombatProwess(state, oin, oinDef, Race.Animal)).toBe(oinDef.prowess);
   });
 
   // ── Effect 2: -1 to corruption checks ────────────────────────────────────

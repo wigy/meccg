@@ -57,7 +57,7 @@ import {
   makeBodyCheckCombat, makeShadowMHState, makeMHState, setCharStatus,
   RESOURCE_PLAYER, HAZARD_PLAYER, CardStatus,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, Alignment } from '../../index.js';
+import { computeLegalActions, Phase, Alignment, Race } from '../../index.js';
 import type {
   CardDefinitionId, CardInstanceId, GameState, CombatState, CompanyId,
   CancelAttackAction, InfluenceAttemptAction, MergeCompaniesAction,
@@ -132,7 +132,7 @@ describe('Euog (Ulzog) (wh-3)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elf',
+        creatureRace: Race.Elf,
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -179,7 +179,7 @@ describe('Euog (Ulzog) (wh-3)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elf',
+        creatureRace: Race.Elf,
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -228,7 +228,7 @@ describe('Euog (Ulzog) (wh-3)', () => {
       strikesTotal: 1,
       strikeProwess: 8,
       creatureBody: 5,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: euogId, excessStrikes: 0, resolved: true, result: 'success' }],
       currentStrikeIndex: 0,
       phase: 'body-check',
@@ -280,7 +280,7 @@ describe('Euog (Ulzog) (wh-3)', () => {
       strikesTotal: 1,
       strikeProwess: 8,
       creatureBody: 5,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: orcId, excessStrikes: 0, resolved: true, result: 'success' }],
       currentStrikeIndex: 0,
       phase: 'body-check',

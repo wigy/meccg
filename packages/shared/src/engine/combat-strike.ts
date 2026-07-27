@@ -33,6 +33,7 @@ import { resolveInstanceId } from '../types/state.js';
 import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, partitionLeavingAllies, roll2d6, toCardInstance, wrongActionType } from './reducer-utils.js';
 import { defenderAlignmentLabel } from './detainment.js';
 import { computeCombatProwess, buildInPlayNames } from './recompute-derived.js';
+import { enemyRaceContext } from './effects/index.js';
 import { findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
 import { finalizeCombat } from './combat-finalize.js';
 
@@ -129,7 +130,7 @@ export function creatureDefenderProwessDelta(
 
   const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defenderAlignment = defenderAlignmentLabel(state.players[defPlayerIndex].alignment);
-  const enemy = { race: combat.creatureRace ?? '', name: creatureDef.name ?? '', prowess: combat.strikeProwess, body: combat.creatureBody };
+  const enemy = { ...enemyRaceContext(combat), name: creatureDef.name ?? '', prowess: combat.strikeProwess, body: combat.creatureBody };
   // Race-less context mirrors what was available at combat initiation: the
   // defending company's alignment is known, an individual character's race is not.
   const baseCtx = {

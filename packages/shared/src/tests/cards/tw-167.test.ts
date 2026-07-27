@@ -33,7 +33,7 @@ import {
   enqueueTransferCorruptionCheck,
   getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import { computeCombatProwess } from '../../engine/recompute-derived.js';
 import type { CharacterCard, InfluenceAttemptAction, CorruptionCheckAction } from '../../index.js';
 
@@ -56,7 +56,7 @@ describe('Kíli (tw-167)', () => {
     const kili = state.players[RESOURCE_PLAYER].characters[kiliId];
     const kiliDef = state.cardPool[kili.definitionId] as CharacterCard;
 
-    expect(computeCombatProwess(state, kili, kiliDef, 'orc')).toBe(kiliDef.prowess + 1);
+    expect(computeCombatProwess(state, kili, kiliDef, Race.Orc)).toBe(kiliDef.prowess + 1);
   });
 
   test('no prowess bonus against non-Orc enemies', () => {
@@ -73,9 +73,9 @@ describe('Kíli (tw-167)', () => {
     const kili = state.players[RESOURCE_PLAYER].characters[kiliId];
     const kiliDef = state.cardPool[kili.definitionId] as CharacterCard;
 
-    expect(computeCombatProwess(state, kili, kiliDef, 'troll')).toBe(kiliDef.prowess);
-    expect(computeCombatProwess(state, kili, kiliDef, 'undead')).toBe(kiliDef.prowess);
-    expect(computeCombatProwess(state, kili, kiliDef, 'ringwraith')).toBe(kiliDef.prowess);
+    expect(computeCombatProwess(state, kili, kiliDef, Race.Troll)).toBe(kiliDef.prowess);
+    expect(computeCombatProwess(state, kili, kiliDef, Race.Undead)).toBe(kiliDef.prowess);
+    expect(computeCombatProwess(state, kili, kiliDef, Race.Ringwraith)).toBe(kiliDef.prowess);
   });
 
   // ── Effect 2: -1 corruption modifier ──

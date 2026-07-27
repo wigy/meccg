@@ -71,7 +71,7 @@ import {
   makeBodyCheckCombat, makeShadowMHState, makeMHState, makeSitePhase, setCharStatus,
   RESOURCE_PLAYER, HAZARD_PLAYER, CardStatus,
 } from '../test-helpers.js';
-import { Phase, Alignment, ZERO_EFFECTIVE_STATS } from '../../index.js';
+import { Phase, Alignment, ZERO_EFFECTIVE_STATS, Race } from '../../index.js';
 import type {
   CardDefinitionId, CardInstanceId, CompanyId, GameState, CombatState,
   CancelAttackAction, InfluenceAttemptAction, AgentInPlay, CharacterInPlay, SiteInPlay,
@@ -131,7 +131,7 @@ describe('Baugúr (dm-181)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elf',
+        creatureRace: Race.Elf,
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -178,7 +178,7 @@ describe('Baugúr (dm-181)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elf',
+        creatureRace: Race.Elf,
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -227,7 +227,7 @@ describe('Baugúr (dm-181)', () => {
       strikesTotal: 1,
       strikeProwess: 8,
       creatureBody: 5,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: halfOrcId, excessStrikes: 0, resolved: true, result: 'success' }],
       currentStrikeIndex: 0,
       phase: 'body-check',
@@ -279,7 +279,7 @@ describe('Baugúr (dm-181)', () => {
       strikesTotal: 1,
       strikeProwess: 8,
       creatureBody: 5,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: orcId, excessStrikes: 0, resolved: true, result: 'success' }],
       currentStrikeIndex: 0,
       phase: 'body-check',

@@ -558,7 +558,7 @@ function collectPermanentEventAttacks(state: GameState, siteDef: SiteCard): Auto
             .find(c => c.instanceId === card.attachedTo);
           const factionDef = factionEntry ? defById(state, factionEntry.definitionId) : undefined;
           if (!factionDef || !isFactionCard(factionDef)) continue;
-          const creatureType = factionRaceToAttackType(factionDef.race as string);
+          const creatureType = factionRaceToAttackType(factionDef.race);
           logDetail(`faction-siege: ${cardName(state, card.definitionId, '?')} adds ${creatureType} auto-attack (${e.attack.strikes} strikes, ${e.attack.prowess} prowess, detainment vs ${player.id as string}) at ${siteDef.name}`);
           out.push({
             creatureType,

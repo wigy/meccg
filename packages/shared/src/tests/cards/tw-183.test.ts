@@ -35,7 +35,7 @@ import {
   getCharacter, pool, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeCombatProwess } from '../../engine/recompute-derived.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import type { CardDefinitionId, CharacterCard, InfluenceAttemptAction } from '../../index.js';
 
 const THORIN_II = 'tw-183' as CardDefinitionId;
@@ -63,7 +63,7 @@ describe('Thorin II (tw-183)', () => {
     const thorin = state.players[RESOURCE_PLAYER].characters[thorinId];
     const thorinDef = pool[THORIN_II as string] as CharacterCard;
 
-    const prowessVsOrc = computeCombatProwess(state, thorin, thorinDef, 'orc');
+    const prowessVsOrc = computeCombatProwess(state, thorin, thorinDef, Race.Orc);
     // Base prowess 5 + 3 bonus = 8
     expect(prowessVsOrc).toBe(thorinDef.prowess + 3);
   });
@@ -74,9 +74,9 @@ describe('Thorin II (tw-183)', () => {
     const thorin = state.players[RESOURCE_PLAYER].characters[thorinId];
     const thorinDef = pool[THORIN_II as string] as CharacterCard;
 
-    expect(computeCombatProwess(state, thorin, thorinDef, 'troll')).toBe(thorinDef.prowess);
-    expect(computeCombatProwess(state, thorin, thorinDef, 'undead')).toBe(thorinDef.prowess);
-    expect(computeCombatProwess(state, thorin, thorinDef, 'ringwraith')).toBe(thorinDef.prowess);
+    expect(computeCombatProwess(state, thorin, thorinDef, Race.Troll)).toBe(thorinDef.prowess);
+    expect(computeCombatProwess(state, thorin, thorinDef, Race.Undead)).toBe(thorinDef.prowess);
+    expect(computeCombatProwess(state, thorin, thorinDef, Race.Ringwraith)).toBe(thorinDef.prowess);
   });
 
   // ── Effect 3: +2 DI vs Dwarf characters ──

@@ -18,7 +18,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { CardStatus, Phase } from '../../../index.js';
+import { CardStatus, Phase, Race } from '../../../index.js';
 import type { CardDefinitionId, CardInstanceId, CombatState, PlayerState } from '../../../index.js';
 import {
   buildTestState, resetMint, dispatch, viableActions,
@@ -85,7 +85,7 @@ describe('Rule 8.36 — Rescuing Prisoners', () => {
       strikesTotal: 1,
       strikeProwess: 99, // guaranteed to "succeed" against the ally
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: allyInstanceId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
