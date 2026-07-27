@@ -18,6 +18,8 @@ import type {
   PlayerState,
   CardInstance,
   CardInstanceId,
+  CardDefinitionId,
+  CompanyId,
   GameEffect,
   CharacterInPlay,
   TwoDiceSix,
@@ -47,11 +49,13 @@ import {
   resolveInfluenceAttemptRoll,
   resolveOpponentInfluenceDefend,
   applyOnGuardRevealAtResource,
+  buildSiteEntryAttackCombat,
   executeDeferredSiteAction,
 } from './reducer-site.js';
 import { autoResolve } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
+import { clearPlannedMovement } from './reducer-organization.js';
 import { eligibleRingCategories } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
@@ -1102,6 +1106,7 @@ function applyDiceCheckBranch(
   ctx: {
     readonly targetCharacterId?: CardInstanceId;
     readonly targetInstanceId?: CardInstanceId;
+    readonly targetCompanyId?: CompanyId;
     readonly source: CardInstanceId | null;
     readonly rollerIndex: number;
   },
@@ -1299,6 +1304,34 @@ function applyDiceCheckBranch(
     logDetail('wound-or-eliminate: no target character/instance in context — no-op');
     return { state };
   }
+  if (branch.type === 'lock-company-movement') {
+    // Siege (tw-87): the end-of-organization-phase roll failed, so "the company
+    // may not move this turn" — drop any destination it declared earlier in the
+    // organization phase (returning the site card to its location deck) and
+    // install a turn-scoped `company-cannot-move` constraint, which also bars a
+    // fresh declaration should the company get another chance to plan movement.
+    if (!ctx.targetCompanyId) {
+      logDetail('lock-company-movement: no target company in context — no-op');
+      return { state };
+    }
+    const companyId = ctx.targetCompanyId;
+    const ownerIndex = state.players.findIndex(p => p.companies.some(c => c.id === companyId));
+    if (ownerIndex === -1) {
+      logDetail(`lock-company-movement: company ${companyId as string} no longer exists — no-op`);
+      return { state };
+    }
+    logDetail(`lock-company-movement: company ${companyId as string} may not move this turn`);
+    const cleared = clearPlannedMovement(state, ownerIndex, companyId);
+    return {
+      state: addConstraint(cleared, {
+        source: ctx.source ?? ('' as CardInstanceId),
+        sourceDefinitionId: (ctx.source ? resolveInstanceId(cleared, ctx.source) : null) as CardDefinitionId,
+        scope: { kind: 'turn' },
+        target: { kind: 'company', companyId },
+        kind: { type: 'company-cannot-move' },
+      }),
+    };
+  }
   if (branch.type === 'untap-site') {
     // Fireworks (dm-130): the roll passed, so untap the site the target
     // character's company occupies. Owner-agnostic — locate the character's
@@ -1336,6 +1369,27 @@ function applyDiceCheckBranch(
             : c),
       })),
     };
+  }
+  if (branch.type === 'site-entry-attack') {
+    // Doubled Vigilance (dm-51): the entry roll failed, so the company facing
+    // the gate must face the effect's attack now — the site step is parked at
+    // `site-entry-attack`, i.e. ahead of every automatic-attack.
+    if (state.phaseState.phase !== Phase.Site) {
+      logDetail('site-entry-attack: not in the site phase — no-op');
+      return { state };
+    }
+    if (!ctx.source) {
+      logDetail('site-entry-attack: no source card in context — no-op');
+      return { state };
+    }
+    const combat = buildSiteEntryAttackCombat(
+      state, ctx.rollerIndex, state.phaseState, branch.attack, ctx.source,
+    );
+    if (!combat) {
+      logDetail('site-entry-attack: company has no characters left — no attack');
+      return { state };
+    }
+    return { state: { ...state, combat } };
   }
   logDetail(`dice-check: branch verb "${branch.type}" not handled in resolution context — no-op`);
   return { state };
@@ -1392,6 +1446,7 @@ export function applyDiceCheckResolution(
     const r = applyDiceCheckBranch(post, branch, {
       targetCharacterId: kind.targetCharacterId,
       targetInstanceId: kind.targetInstanceId,
+      targetCompanyId: kind.targetCompanyId,
       source: top.source,
       rollerIndex,
     });

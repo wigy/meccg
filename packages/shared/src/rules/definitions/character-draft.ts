@@ -149,6 +149,9 @@ export const CHARACTER_DRAFT_RULES: RuleSet = {
  *   "in lieu of a minor item" (CoE 1.9.R2)
  * - `ctx.isFallenWizard` — whether the drafting player is a Fallen-wizard
  * - `ctx.isRingwraith` — whether the drafting player is a Ringwraith
+ * - `ctx.duplicationLimitReached` — true when the player has already drafted as
+ *   many copies of this Stage resource as its player-scoped `duplication-limit`
+ *   allows ("Cannot be duplicated by a given player" — Bad Company wh-63)
  */
 export const STAGE_RESOURCE_DRAFT_RULES: RuleSet = {
   name: 'Stage Resource Draft Eligibility',
@@ -176,6 +179,14 @@ export const STAGE_RESOURCE_DRAFT_RULES: RuleSet = {
         ],
       },
       failMessage: '{{card.name}} is a Fallen-wizard Stage resource and cannot be drafted by this player',
+    },
+    {
+      // "Cannot be duplicated by a given player" (Bad Company wh-63): every
+      // drafted Stage resource ends up in that player's play area (CoE 1.9.F4),
+      // so a player-scoped duplication limit already bites during the draft.
+      id: 'stage-resource-not-duplicated',
+      condition: { 'ctx.duplicationLimitReached': false },
+      failMessage: '{{card.name}} cannot be duplicated by a given player',
     },
   ],
 };
