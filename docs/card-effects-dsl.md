@@ -916,8 +916,11 @@ MP instead. The `filter` is matched against each item's card definition (via
 `matchesDefinition`); every item the Fallen-wizard player controls — on any
 character — that matches scores its printed MP while the card carrying this
 effect is in play. Items that do not match remain clamped to 1. Collected once
-per player from the player's in-play characters **and** `cardsInPlay` and
-consumed in `recompute-derived.ts` (`addItemMP`'s `fwItemMpExempt` path).
+per player from the player's in-play characters, `cardsInPlay`, **and the cards
+attached to those characters** — a stage permanent-event played "on the avatar"
+lives in the avatar's `items` rather than in `cardsInPlay` (Oromë's Warders
+wh-94) — then consumed in `recompute-derived.ts` (`addItemMP`'s
+`fwItemMpExempt` path).
 
 The optional `inAvatarCompany: true` restricts the exemption to items borne by
 characters in the same company as the player's revealed avatar ("your … items in
@@ -925,7 +928,8 @@ Alatar's company"); omit it for a player-wide exemption.
 
 Used by Saruman (wh-9): "Your non-weapon/non-armor/non-shield/non-helmet items
 are each worth full marshalling points." (player-wide). Join the Hunt (wh-93)
-uses the company-restricted form for its weapon/armor/shield/helmet items.
+uses the company-restricted form for its weapon/armor/shield/helmet items, and
+Oromë's Warders (wh-94) the player-wide form for the same filter.
 
 ```json
 { "type": "fw-item-mp-full",
@@ -943,13 +947,15 @@ Fallen-wizard **ally** marshalling-point exemption (MEWH §4 exception). Like
 printed** MP instead of the §4 flat-1 clamp (distinct from `fw-character-ally-mp`,
 which pins a fixed value). The optional `inAvatarCompany: true` restricts the
 exemption to allies borne by characters in the player's avatar company. Collected
-per player from in-play characters and `cardsInPlay` and consumed in
-`recompute-derived.ts` (`addMP`'s `fwFullMp` path); full-MP takes precedence over
-any `fw-character-ally-mp` cap and never applies to stage cards or non-Fallen-wizards.
+per player from in-play characters, `cardsInPlay`, and the cards attached to
+those characters, then consumed in `recompute-derived.ts` (`addMP`'s `fwFullMp`
+path); full-MP takes precedence over any `fw-character-ally-mp` cap and never
+applies to stage cards or non-Fallen-wizards.
 
 Used by Join the Hunt (wh-93): "Your allies with a prowess attribute in Alatar's
 company are each worth full marshalling points." Oromë's Warders (wh-94) reuses
-the same effect player-wide (no `inAvatarCompany`).
+the same effect player-wide (no `inAvatarCompany`): "Your allies with a prowess
+attribute are each worth full marshalling points."
 
 ```json
 { "type": "fw-ally-mp-full",
@@ -1281,7 +1287,10 @@ the controller's revealed avatar, e.g. `"Alatar"`). The **last** matching rule
 sets the faction's MP, so order entries from least to most specific. A faction
 matching no rule scores normally. The override value replaces both the printed
 MP and the Fallen-wizard §4 flat-1 clamp. Collected from the player's in-play
-cards **and in-play characters** and consumed in `recompute-derived.ts`.
+cards, **in-play characters**, and the cards attached to those characters (a
+stage permanent-event placed on the avatar — Oromë's Warders wh-94: "Your Elf
+factions are each worth 2 marshalling points", a single rule
+`{ "faction.race": "elf" } → 2`), and consumed in `recompute-derived.ts`.
 
 Used by Gatherer of Loyalties (wh-70): "Your unique factions are each worth 2
 marshalling points. If you are Alatar, your unique Dragon factions are each
@@ -5613,7 +5622,12 @@ check) and `reducer-events.ts` (discard execution).
   character-attached permanent events* (`isCardNameInPlayForPlayer`,
   `legal-actions/organization.ts`) — used by Terror Heralds Doom (ba-78),
   "Playable during the organization phase if Flame of Udûn is in play" (Flame of
-  Udûn is a permanent-event held in The Balrog's items).
+  Udûn is a permanent-event held in The Balrog's items). On a **resource
+  permanent-event** the same own-play-area, attachment-aware check runs in
+  `legal-actions/organization-events.ts` (`playPermanentEventActions`), ahead of
+  every play-target branch, and **every** `card-in-play` condition on the card
+  must hold (`findPlayConditionEffects`) — used by Oromë's Warders (wh-94),
+  "Playable on Alatar if Join the Hunt is in play."
 
 ```json
 { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" }

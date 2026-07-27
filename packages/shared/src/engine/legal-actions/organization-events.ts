@@ -26,7 +26,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes } from '../reducer-utils.js';
+import { isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -198,6 +198,28 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play condition not met`));
         continue;
       }
+    }
+
+    // play-condition: card-in-play — one or more named cards must already be in
+    // the **playing player's own** play area (attachment-aware: `cardsInPlay`,
+    // his characters, and the items/hazards they bear, so a stage
+    // permanent-event placed "on the avatar" counts). An opponent's copy never
+    // satisfies "if <card> is in play" on a resource permanent-event, mirroring
+    // the faction gate in `legal-actions/site.ts`. Every such condition is
+    // checked, so a card may require several named cards at once. Used by
+    // Oromë's Warders (wh-94): "Playable on Alatar if Join the Hunt is in play."
+    const cardInPlayConditions = findPlayConditionEffects(def, 'card-in-play');
+    let missingRequiredCard: string | undefined;
+    for (const cond of cardInPlayConditions) {
+      if (cond.cardName && !isCardNameInPlayForPlayer(state, player, cond.cardName)) {
+        missingRequiredCard = cond.cardName;
+        break;
+      }
+    }
+    if (missingRequiredCard) {
+      logDetail(`Permanent event ${def.name}: play-condition card-in-play requires ${missingRequiredCard} in play`);
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name} requires ${missingRequiredCard} in play`));
+      continue;
     }
 
     // Wizard's Trove (wh-85) family: `play-with-stored-card` /
