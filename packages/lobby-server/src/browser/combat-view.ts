@@ -240,7 +240,8 @@ function renderPhaseBanner(
     const defId = cachedInstanceLookup(combat.attackSource.instanceId);
     const def = defId ? cardPool[defId as string] : undefined;
     if (def && 'name' in def) attackerRace = (def as { name: string }).name;
-  } else if (combat.attackSource.type === 'card-triggered-attack' && combat.creatureRace) {
+  } else if ((combat.attackSource.type === 'card-triggered-attack'
+    || combat.attackSource.type === 'siege-attack') && combat.creatureRace) {
     attackerRace = combat.creatureRace;
   } else if (combat.attackSource.type === 'tidings-attack') {
     const company = findCompany(combat.companyId, view);

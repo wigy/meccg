@@ -624,6 +624,16 @@ export type SiteStep =
    */
   | 'select-company'
   /**
+   * Siege window (Siege tw-87). A card besieging the company's current site
+   * (`site-phase-start-attack`, bound via `CardInPlay.attachedToSite`) forces
+   * the company to face its attack "at the beginning of its site phase" —
+   * before the enter-or-skip decision, so doing nothing at the site does not
+   * avoid it. The attacks are sequenced one at a time (mirroring
+   * 'automatic-attacks'); once all are faced, control passes to
+   * 'enter-or-skip'. Skipped entirely when no siege binds the site.
+   */
+  | 'siege-attacks'
+  /**
    * The resource player declares whether the company will enter its
    * current site or do nothing. Doing nothing ends the company's site
    * phase immediately (CoE lines 341–343).
@@ -766,12 +776,34 @@ export interface SitePhaseState {
     readonly resolved: number;
   };
   /**
+   * Active siege-attack progress (Siege tw-87). Set at `select-company` when
+   * one or more cards bearing a `site-phase-start-attack` effect are bound to
+   * the selected company's current site; holds those cards' instance ids (in
+   * the order their attacks are faced) and how many have been faced so far.
+   * Undefined when no siege binds the site. Cleared (and the step advanced to
+   * 'enter-or-skip') once every siege attack has been faced.
+   */
+  readonly siegeAttacks?: {
+    readonly sourceInstanceIds: readonly CardInstanceId[];
+    readonly resolved: number;
+  };
+  /**
    * When *Forewarned Is Forearmed* is in play and the site has multiple
    * automatic attacks, this holds the zero-based index of the single
    * attack the hazard player selected during `forewarned-select-attack`.
    * Undefined means all attacks are processed normally.
    */
   readonly selectedAutoAttackIndex?: number;
+  /**
+   * Set when the active company's remaining automatic-attacks are abandoned
+   * rather than faced. Farmer Maggot (as-48) replaces the company's site card
+   * mid-attack: the company is *placed* at the replacement site instead of
+   * moving to it, so it never enters that site and faces none of its automatic
+   * attacks. The `automatic-attacks` step treats the sequence as finished while
+   * this is set. Absent (undefined → treated as false) for a normal site entry;
+   * reset to absent when a new company's site phase begins.
+   */
+  readonly autoAttacksSkipped?: boolean;
   /** Whether the company has successfully entered the site (past all auto-attacks). */
   readonly siteEntered: boolean;
   /** Whether a resource that taps the site has been played by the current company. */
