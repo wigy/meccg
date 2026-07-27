@@ -477,11 +477,74 @@
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
     "race": "elf",
-    "keyedTo": [],
+    "manifestId": "tw-145",
+    "certified": "2026-07-27",
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Rhudaur",
+          "Arthedain",
+          "High Pass",
+          "The Shire",
+          "Cardolan"
+        ]
+      }
+    ],
     "effects": [
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event",
+        "persistent": true
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "end-of-turn",
+        "actor": "both",
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "count": 1,
+          "filter": {
+            "cardType": "hazard-creature",
+            "race": "elf"
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       }
     ]
   },
