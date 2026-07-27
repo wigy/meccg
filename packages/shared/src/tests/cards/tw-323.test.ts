@@ -25,7 +25,8 @@ import {
   Phase, CardStatus,
   buildTestState, resetMint,
   viableActions,
-  getCharacter, dispatchResult, expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER,
+  getCharacter, expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER,
+  testGoldRingViaWizard, ringPlayOffer,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction } from '../../index.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../../engine/effects/index.js';
@@ -117,23 +118,21 @@ describe('Scroll of Isildur (tw-323)', () => {
       ],
     });
 
-    const cheated = { ...state, cheatRollTotal: 7 };
-    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
+    expect((actions[0].action as ActivateGrantedAction).actionId).toBe('test-gold-ring');
 
-    const action = actions[0].action as ActivateGrantedAction;
-    expect(action.actionId).toBe('test-gold-ring');
-
-    const result = dispatchResult(cheated, action);
-    const nextState = result.state;
+    // Activating the granted action queues the test; the roll resolves it.
+    const nextState = testGoldRingViaWizard(state, PLAYER_1, 7);
 
     // Gandalf tapped, gold ring discarded
     expectCharStatus(nextState, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
     expectInDiscardPile(nextState, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
 
-    // Raw dice roll is 7, but modifier makes effective total 9
+    // Raw dice roll is 7, but the Scroll's +2 makes the effective total 9
     expect(nextState.players[0].lastDiceRoll).toBeDefined();
     expect(nextState.players[0].lastDiceRoll!.die1 + nextState.players[0].lastDiceRoll!.die2).toBe(7);
+    expect(ringPlayOffer(nextState, PLAYER_1).rollTotal).toBe(9);
 
     // Scroll of Isildur should still be on Frodo
     const frodoItems = getCharacter(nextState, RESOURCE_PLAYER, FRODO).items;
@@ -164,15 +163,12 @@ describe('Scroll of Isildur (tw-323)', () => {
       ],
     });
 
-    const cheated = { ...state, cheatRollTotal: 7 };
-    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(1);
+    const nextState = testGoldRingViaWizard(state, PLAYER_1, 7);
 
-    const result = dispatchResult(cheated, actions[0].action);
-
-    // Raw dice roll is 7, no modifier
-    expect(result.state.players[0].lastDiceRoll).toBeDefined();
-    expect(result.state.players[0].lastDiceRoll!.die1 + result.state.players[0].lastDiceRoll!.die2).toBe(7);
+    // Raw dice roll is 7, and without the Scroll the effective total is 7 too
+    expect(nextState.players[0].lastDiceRoll).toBeDefined();
+    expect(nextState.players[0].lastDiceRoll!.die1 + nextState.players[0].lastDiceRoll!.die2).toBe(7);
+    expect(ringPlayOffer(nextState, PLAYER_1).rollTotal).toBe(7);
   });
 
   test('Scroll on different character in same company still provides +2', () => {
@@ -210,9 +206,10 @@ describe('Scroll of Isildur (tw-323)', () => {
     expect((actions[0].action as ActivateGrantedAction).actionId).toBe('test-gold-ring');
 
     // Execute the test — modifier comes from Aragorn's Scroll
-    const cheated = { ...state, cheatRollTotal: 5 };
-    const result = dispatchResult(cheated, actions[0].action);
-    expectCharStatus(result.state, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
-    expectInDiscardPile(result.state, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
+    const nextState = testGoldRingViaWizard(state, PLAYER_1, 5);
+    expectCharStatus(nextState, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
+    expectInDiscardPile(nextState, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
+    // Raw 5 plus the Scroll's +2 → effective total 7
+    expect(ringPlayOffer(nextState, PLAYER_1).rollTotal).toBe(7);
   });
 });
