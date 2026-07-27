@@ -15,6 +15,7 @@ import { buildCompanyNames, buildInstanceLookup, describeAction, stripCardMarker
 import type { Evaluation } from './core/types.js';
 import { renderRationale } from './core/rationale.js';
 import type { Standing } from './services/standing.js';
+import type { Budget } from './services/budget.js';
 
 /** Everything the renderer needs about one decision. */
 export interface ExplanationInput {
@@ -34,6 +35,8 @@ export interface ExplanationInput {
   readonly fallback?: readonly { readonly action: GameAction; readonly weight: number }[];
   /** How many candidates to expand fully. */
   readonly topN: number;
+  /** The hard constraints the position is played inside. */
+  readonly budget?: Budget;
 }
 
 /** Build a describer for the acting player's view. */
@@ -86,6 +89,26 @@ export function renderExplanation(input: ExplanationInput): string[] {
   lines.push('STANDING');
   lines.push(...renderRationale(standing.rationale(), '  '));
   lines.push('');
+
+  if (input.budget) {
+    // The constraints are as much a part of "why" as the score is: a faction
+    // is unreachable without an untapped character holding enough free direct
+    // influence, and that is visible here or nowhere.
+    const budget = input.budget;
+    lines.push('BUDGET');
+    lines.push(`  general influence  ${budget.freeGeneralInfluence} free of ${budget.generalInfluence}`
+      + ` — the mind a new character must fit inside`);
+    lines.push(`  taps available     ${budget.tapsAvailable}`);
+    for (const company of view.self.companies) {
+      const untapped = budget.untappedIn(company.id);
+      const best = budget.bestInfluencerIn(company.id);
+      lines.push(`  ${company.id as string}: ${untapped.length} untapped`
+        + (best
+          ? `, best influence ${best.freeDirectInfluence} free (${best.name})`
+          : ', no untapped character — no influence attempt possible'));
+    }
+    lines.push('');
+  }
 
   if (input.module === null) {
     lines.push(`RANKED (heuristics-1 fallback — no H2 module owns this decision)`);

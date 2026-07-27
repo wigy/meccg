@@ -78,6 +78,30 @@ read at their argmax — the sampling temperature belongs to the harness, not to
 the opinion. Forced decisions are reported separately because agreement is
 free where there is one legal action, and that is 53% of them.
 
+### Services
+
+Modules never call each other — a number one module owns reaches another as a
+typed service on `ModuleContext` (plan §4), so there is one answer per position
+instead of two private guesses that disagree. `standing` (TSD now, the marginal
+value of +1 MP in each source, the risk posture) and `budget` (free general
+influence, per-character free direct influence, mind costs, taps available) are
+built; both print in `explain` above the ranking, because a constraint is as
+much a part of "why" as the score is:
+
+```text
+BUDGET
+  general influence  3 free of 20 — the mind a new character must fit inside
+  taps available     3
+  company-p1-0: 3 untapped, best influence 1 free (Peath)
+  company-p1-1: 0 untapped, no untapped character — no influence attempt possible
+```
+
+That last line is the one to watch: `reducer-site.ts` requires the influencing
+character to be **untapped**, so a company with none cannot attempt a faction
+at all however much influence it holds — and free direct influence subtracts
+what is already committed to followers, so a 5-DI character holding a mind-3
+follower brings 2, not 5.
+
 `heuristic` vs `h2` over six games: 96.7% agreement on contested decisions,
 87.2% inside combat, ~14 divergences per game — and exactly 100% agreement
 outside combat, which is the check that the Heuristics-1 fallback makes
