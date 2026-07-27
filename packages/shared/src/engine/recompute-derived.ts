@@ -403,16 +403,29 @@ function playerCardsInPlayDefs(state: GameState, player: PlayerState): CardDefin
 
 /**
  * Resolves the card definitions of every source a player-wide, in-play effect
- * can live on: the player's `cardsInPlay` (permanent-events, factions, stage
- * cards, …) plus their in-play characters. Character-carried player-wide effects
- * (e.g. Pallando wh-7's `faction-mp-override`, Saruman wh-9's `fw-item-mp-full`)
- * are collected the same way as ones carried by a stage permanent-event.
+ * can live on:
+ *
+ * - the player's `cardsInPlay` (permanent-events, factions, stage cards, …),
+ * - their in-play characters — character-carried player-wide effects (e.g.
+ *   Pallando wh-7's `faction-mp-override`, Saruman wh-9's `fw-item-mp-full`)
+ *   are collected the same way as ones carried by a stage permanent-event,
+ * - the cards **attached to those characters** (`items`): a stage
+ *   permanent-event played "on the avatar" lives in the avatar's `items`
+ *   rather than in `cardsInPlay`, so its player-wide effects must be picked up
+ *   from there too (Oromë's Warders wh-94, placed on Alatar, carries
+ *   `fw-item-mp-full` / `fw-ally-mp-full` / `faction-mp-override`) — the same
+ *   place {@link mpOverrideRules} already scans for Give Welcome to the
+ *   Unexpected (wh-99).
  */
 function playerInPlayAndCharacterDefs(state: GameState, player: PlayerState): CardDefinition[] {
   const defs = [...playerCardsInPlayDefs(state, player)];
   for (const char of Object.values(player.characters)) {
     const def = resolveDef(state, char.instanceId);
     if (def) defs.push(def);
+    for (const item of char.items) {
+      const itemDef = resolveDef(state, item.instanceId);
+      if (itemDef) defs.push(itemDef);
+    }
   }
   return defs;
 }
@@ -1025,9 +1038,10 @@ type FwMpFullEntry = { readonly filter: Condition | null; readonly inAvatarCompa
 /**
  * Resolves the card definitions of every source a Fallen-wizard's MP-exemption
  * effects can live on: the player's in-play characters (Saruman wh-9 carries
- * `fw-item-mp-full` as a character) plus their `cardsInPlay` permanent-events
- * (Join the Hunt wh-93 / Oromë's Warders wh-94 carry the effects as stage
- * permanent-events).
+ * `fw-item-mp-full` as a character), their `cardsInPlay` permanent-events (Join
+ * the Hunt wh-93 carries the effects as a bare stage permanent-event), and the
+ * cards attached to their characters (Oromë's Warders wh-94 is placed *on
+ * Alatar*, so it lives in his `items`).
  */
 function fwExemptionSourceDefs(state: GameState, player: PlayerState): CardDefinition[] {
   return playerInPlayAndCharacterDefs(state, player);
