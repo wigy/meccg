@@ -1048,7 +1048,13 @@ function handleSiteAutomaticAttacks(
         return aaRace !== undefined && raceDupRaces.has(aaRace);
       });
       const duplicatesRun = effectiveResolved - autoAttacks.length;
-      if (duplicatesRun < duplicatableAttacks.length) {
+      // Lower bound matters as much as the upper one: while the site's base
+      // attacks are still being worked through, `effectiveResolved` is below
+      // `autoAttacks.length` and this count is negative. A negative array
+      // index is not out of bounds in JS — it reads back `undefined` — so the
+      // upper-bound check alone let it through and the next line crashed on
+      // `undefined.creatureType`.
+      if (duplicatesRun >= 0 && duplicatesRun < duplicatableAttacks.length) {
         const aa = duplicatableAttacks[duplicatesRun];
         const dupRace = normalizeCreatureRace(aa.creatureType);
         const inPlayNamesR = buildInPlayNames(state);
