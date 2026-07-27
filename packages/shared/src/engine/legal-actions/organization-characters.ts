@@ -19,6 +19,7 @@ import { CHARACTER_PLAY_RULES } from '../../rules/definitions/character-play.js'
 import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit } from '../reducer-utils.js';
 import { blockingManifestationForCharacterPlay } from '../manifestations.js';
+import { companyAtSiteInstance, companyExemptsCharacterFromInfluence, companyExemptsCharacterFromPlayLimit } from '../company-composition.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 
@@ -618,6 +619,26 @@ export function playCharacterActions(
       ? orcTrollPlayPermission(state, player, cardDef)
       : { permitted: true, atOwnWizardhavens: false };
 
+    // An Unexpected Party (dm-114): companies carrying a matching
+    // `company-character-play-exempt` / `company-influence-exempt` waive,
+    // respectively, the one-character-per-turn limit and the influence cost for
+    // this candidate. Both are per-company, so the sets are re-checked against
+    // the company standing at each playable site below; here they only make the
+    // pre-loop gates lenient enough that the per-site branch is reached.
+    const playLimitExemptCompanies = new Set(
+      player.companies
+        .filter(c => companyExemptsCharacterFromPlayLimit(state, c.id, cardDef))
+        .map(c => c.id as string),
+    );
+    const influenceExemptCompanies = new Set(
+      player.companies
+        .filter(c => companyExemptsCharacterFromInfluence(state, c.id, cardDef))
+        .map(c => c.id as string),
+    );
+    const rawPlayLimitReached = noCharacterPlayLimit
+      ? false
+      : characterPlayLimitReached(phaseState, player.alignment, cardDef);
+
     // Sequential eligibility gates, evaluated declaratively against
     // CHARACTER_PLAY_RULES (rules/definitions/character-play.ts). The probe
     // action carries no site: it is surfaced only when blocked, so the client
@@ -638,9 +659,7 @@ export function playCharacterActions(
         ctx: {
           playsAsSauron,
           agentsAreHazards,
-          characterPlayLimitReached: noCharacterPlayLimit
-            ? false
-            : characterPlayLimitReached(phaseState, player.alignment, cardDef),
+          characterPlayLimitReached: rawPlayLimitReached && playLimitExemptCompanies.size === 0,
           uniqueAlreadyInPlay: cardDef.unique && isUniqueCharacterInPlay(state, charName),
           blockingManifestation: blockingManifestationForCharacterPlay(state, cardDef),
           hasEliminatedAvatar: playerAvatarEliminated,
@@ -743,7 +762,12 @@ export function playCharacterActions(
       // Affordability gate below must use the *lowest* achievable cost so an
       // agent affordable only at its Darkhaven (mind − 1) is not filtered out by
       // the home-site cost (full mind).
-      const minCostMind = isAgentSummonsCandidate ? Math.min(costMind, summonsCostMind) : costMind;
+      // An Unexpected Party (dm-114): where a `company-influence-exempt` company
+      // is a possible destination the character costs nothing, so the pre-loop
+      // affordability gate must not reject it on its printed mind.
+      const minCostMind = influenceExemptCompanies.size > 0
+        ? 0
+        : (isAgentSummonsCandidate ? Math.min(costMind, summonsCostMind) : costMind);
       if (recruitViaVehicle) {
         logDetail(`  → recruitment vehicle available: ${charName} (mind ${charMind} → cost ${costMind}) may be brought in via Thrall of the Voice`);
       }
@@ -806,6 +830,18 @@ export function playCharacterActions(
 
       // Generate viable actions for each (site, controlledBy) combination
       for (const site of playableSites) {
+        // An Unexpected Party (dm-114): the company already standing at this
+        // site is the one the character joins (see `handlePlayCharacter`), so
+        // its bound exemptions decide both gates here. With the turn's single
+        // character slot already spent, only an exempting company may still be
+        // joined; a `company-influence-exempt` company costs nothing to join.
+        const companyHere = companyAtSiteInstance(player, site.instanceId);
+        const companyHereId = companyHere ? (companyHere.id as string) : undefined;
+        if (rawPlayLimitReached && (companyHereId === undefined || !playLimitExemptCompanies.has(companyHereId))) {
+          logDetail(`  → skip ${site.siteName}: one-character-per-turn limit reached and no company there exempts ${charName}`);
+          continue;
+        }
+        const influenceFreeHere = companyHereId !== undefined && influenceExemptCompanies.has(companyHereId);
         // Rule 2.II.2.2: with avatar in play, GI play only at avatar's site.
         // A Strident Spawn (wh-61) relaxes this for Half-orcs at the player's
         // own Wizardhavens ("even if your Fallen-wizard is not there").
@@ -817,14 +853,19 @@ export function playCharacterActions(
         // it is played normally at full mind with no vehicle attached.
         const summonHere = isAgentSummonsCandidate && isDarkhavenSite(site.siteDef);
         const costHere = summonHere ? summonsCostMind : costMind;
+        // The waiver applies to the general-influence branch only: a character
+        // that "does not require influence to be controlled" is held under
+        // general influence for free, never as somebody's direct-influence
+        // follower at a discount.
+        const giCostHere = influenceFreeHere ? 0 : costHere;
         const recruitFieldHere = summonHere && vehicle ? { viaRecruitmentInstanceId: vehicle.instanceId } : recruitField;
         // Bree (le-356) `allow-agent-play` grants direct-influence play only;
         // never offer the agent under general influence at such a site.
         if (site.directInfluenceOnly) {
           logDetail(`  → GI play skipped at ${site.siteName}: agent may only be played under direct influence here (allow-agent-play)`);
         }
-        if (costHere <= remainingGI && giAllowedAtSite && !site.directInfluenceOnly) {
-          logDetail(`  → viable: play under GI at ${site.siteName} (mind cost ${costHere}, remaining GI ${remainingGI})${recruitViaVehicle ? ' via recruitment vehicle' : ''}${summonHere ? ' via agent-summons at Darkhaven' : ''}`);
+        if (giCostHere <= remainingGI && giAllowedAtSite && !site.directInfluenceOnly) {
+          logDetail(`  → viable: play under GI at ${site.siteName} (mind cost ${giCostHere}, remaining GI ${remainingGI})${influenceFreeHere ? ' — influence waived by a company-influence-exempt card' : ''}${recruitViaVehicle ? ' via recruitment vehicle' : ''}${summonHere ? ' via agent-summons at Darkhaven' : ''}`);
           results.push({
             action: {
               type: 'play-character',
