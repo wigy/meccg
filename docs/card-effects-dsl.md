@@ -9696,14 +9696,6 @@ effect's `filter` matches that character's card definition.
 
 - Used by *Bad Company* (wh-63): "You may play Orc and Troll characters …" (any
   Orc/Troll, played under the normal avatar-site rules).
-
-The same effect also opens the **character draft** (rule 1.43 / CoE 1.9.F2,
-"…and include them in your starting company"): a Fallen-wizard may draft an
-Orc/Troll only once they have drafted a Stage resource whose `allow-character-play`
-filter matches that candidate. Enforced in `legal-actions/draft.ts` *and* in the
-`draft-pick` reducer (`reducer-setup.ts`). The `not-starting-character` play-flag
-is never lifted by it ("You cannot start with a character that says he cannot be
-in the starting company").
 - Used by *A Strident Spawn* (wh-61): "You may play Half-orc characters at your
   Wizardhavens, even if your Fallen-wizard is not there or Bad Company is not in
   play" (only Half-orcs, with the `atOwnWizardhavens` location relaxation).
@@ -9712,6 +9704,14 @@ Implemented in `legal-actions/organization-characters.ts`: the
 `orcTrollPlayPermission` helper plus the Orc/Troll gate in
 `playCharacterActions`, and the `isOwnWizardhaven` relaxation of the
 GI-allowed-at-site check.
+
+The same effect also opens the **character draft** (rule 1.43 / CoE 1.9.F2,
+"…and include them in your starting company"): a Fallen-wizard may draft an
+Orc/Troll only once they have drafted a Stage resource whose
+`allow-character-play` filter matches that candidate. Enforced in
+`legal-actions/draft.ts` *and* in the `draft-pick` reducer (`reducer-setup.ts`).
+The `not-starting-character` play-flag is never lifted by it ("You cannot start
+with a character that says he cannot be in the starting company").
 
 ### 51b. `org-phase-fetch`
 
