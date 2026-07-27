@@ -915,7 +915,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           const charDefForCtx = defById(state, char.definitionId);
           const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
           const company = findCharacterCompany(player.companies, charId);
-          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player, hazard.instanceId);
           whenSatisfied = matchesCondition(effect.when, ctx);
           if (!whenSatisfied) {
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'}`);
@@ -992,7 +992,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           if (effect.when) {
             const charDefCard = isCharacterCard(charDef) ? charDef : undefined;
             const company = findCharacterCompany(player.companies, charId);
-            const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+            const ctx = buildGrantActionContext(state, char, charDefCard, company, player, char.instanceId);
             if (!matchesCondition(effect.when, ctx)) {
               logDetail(`Grant-action ${effect.action} on ${charDef.name}: when condition failed`);
               continue;
@@ -1129,7 +1129,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
         const company = findCharacterCompany(player.companies, charId);
         if (effect.when) {
-          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player, ally.instanceId);
           if (!matchesCondition(effect.when, ctx)) {
             const def = defById(state, ally.definitionId);
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'} (source ${def?.name ?? '?'})`);
@@ -1172,7 +1172,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         const charDefCard = charDefForCtx && isCharacterCard(charDefForCtx) ? charDefForCtx : undefined;
         const company = findCharacterCompany(player.companies, charId);
         if (effect.when) {
-          const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player, item.instanceId);
           if (!matchesCondition(effect.when, ctx)) {
             const def = defById(state, item.definitionId);
             logDetail(`Grant-action ${effect.action}: when condition failed on ${charDefCard?.name ?? '?'} (source ${def?.name ?? '?'})`);
@@ -1687,6 +1687,13 @@ export function sauronOrgGrantActions(state: GameState, playerId: PlayerId): Eva
  * New grant-action preconditions should be expressed as DSL `when`
  * clauses against this context instead of hardcoded action-ID branches
  * in {@link grantedActionActivations}.
+ *
+ * `sourceInstanceId` is the card whose ability is being gated (the item /
+ * ally / hazard carrying the grant-action, or the character himself). It
+ * only matters for abilities a *specific* card grants to its own bearer —
+ * currently the `can-use-palantir` constraint, which Palantír of Elostirion
+ * (le-332) places on its bearer for that one Palantír ("the bearer is able
+ * to use **this** Palantír this turn if he taps").
  */
 export function buildGrantActionContext(
   state: GameState,
@@ -1694,10 +1701,22 @@ export function buildGrantActionContext(
   charDef: import('../../index.js').CharacterCard | undefined,
   company: import('../../index.js').Company | undefined,
   player?: import('../../index.js').PlayerState,
+  sourceInstanceId?: import('../../index.js').CardInstanceId,
 ): Record<string, unknown> {
   const statusStr = cardStatusToName(char.status);
 
+  // A turn-scoped `can-use-palantir` constraint grants the ability for the one
+  // Palantír that placed it (constraint `source` === the card being gated), so
+  // it never leaks to another Palantír the same character happens to bear.
+  const palantirConstraint = sourceInstanceId !== undefined
+    && state.activeConstraints.some(c =>
+      c.kind.type === 'can-use-palantir'
+      && c.target.kind === 'character'
+      && c.target.characterId === char.instanceId
+      && c.source === sourceInstanceId);
+
   const canUsePalantir = hasPlayFlag(charDef, 'can-use-palantir') ||
+    palantirConstraint ||
     char.items.some(item => {
       const itemDef = defById(state, item.definitionId)!;
       return 'effects' in itemDef && hasPlayFlag(itemDef, 'can-use-palantir');

@@ -1330,6 +1330,11 @@ function applyOneConstraint(
     case 'hand-size-modifier':
       // Consumed directly by `resolveHandSize` — no legal-action filtering needed.
       return base;
+    case 'can-use-palantir':
+      // Consumed directly by `buildGrantActionContext` (Palantír of Elostirion
+      // le-332) when gating the source Palantír's own granted ability — no
+      // broad legal-action filtering needed here.
+      return base;
     case 'creature-attack-boost':
       // Consumed directly by `resolveAttackProwess`/`resolveAttackStrikes` —
       // no legal-action filtering needed here.

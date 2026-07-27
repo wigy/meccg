@@ -798,6 +798,28 @@ function runGrantApply(
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
+  // `draw-cards` — draw N cards from the top of the activating player's play
+  // deck into their hand (Palantír of Elostirion le-332: "tap Palantír of
+  // Elostirion to draw a card"). Drawing stops at deck exhaustion: no card
+  // instance is invented or lost, the deck simply runs out.
+  if (apply.type === 'draw-cards') {
+    const drawingPlayer = newPlayers[ctx.playerIndex];
+    const wanted = apply.count;
+    const drawCount = Math.min(wanted, drawingPlayer.playDeck.length);
+    if (drawCount < wanted) {
+      logDetail(`Grant-action ${ctx.action.actionId}: play deck exhausted — drawing only ${drawCount} of ${wanted}`);
+    }
+    if (drawCount > 0) {
+      logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.sourceName} draws ${drawCount} card(s) from the play deck`);
+      newPlayers[ctx.playerIndex] = {
+        ...drawingPlayer,
+        hand: [...drawingPlayer.hand, ...drawingPlayer.playDeck.slice(0, drawCount)],
+        playDeck: drawingPlayer.playDeck.slice(drawCount),
+      };
+    }
+    return { updatedChar: char, effects: [], stateOps: [] };
+  }
+
   // `discard-target-character` — discard the character identified by
   // action.targetCardId, along with all their items and allies, to the
   // owning player's discard pile. Followers revert to general influence.
@@ -905,6 +927,8 @@ function constraintKindWithoutPayload(
       return { type: 'no-creature-hazards-on-company' };
     case 'auto-attack-duplicate':
       return { type: 'auto-attack-duplicate' };
+    case 'can-use-palantir':
+      return { type: 'can-use-palantir' };
     default:
       return null;
   }
@@ -1010,6 +1034,10 @@ function resolveConstraintTarget(
     }
     case 'player':
       return { kind: 'player', playerId };
+    case 'bearer':
+      // The activating character himself (Palantír of Elostirion le-332: the
+      // sage taps to make *himself* able to use the Palantír this turn).
+      return { kind: 'character', characterId };
     case 'action-target-company': {
       const companyId = action?.targetCompanyId;
       if (!companyId) return null;

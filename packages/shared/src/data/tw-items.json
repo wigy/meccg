@@ -333,6 +333,9 @@
           "fetchShuffle": true,
           "postCorruptionCheck": true
         }
+      },
+      {
+        "type": "fw-mp-none"
       }
     ],
     "text": "Unique. Palantír. Playable only at Isengard. With its bearer able to use a Palantír and with at least 5 cards in your play deck, tap Palantír of Orthanc to choose one card from your discard pile to place in your play deck (reshuffle the play deck). Bearer makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play.",
