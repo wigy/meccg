@@ -3070,6 +3070,40 @@ A combat-only short event carrying such a gate is still classified
 combat-only (the `play-condition` is a neutral companion effect in both
 short-event classifiers), so it is never offered outside combat.
 
+**Site-swap cancel (`siteSwap`).** An in-play resource permanent-event carrying
+`cost: { "discard": "self" }` plus a `siteSwap` payload cancels an attack by
+*moving the site out from under the company*. Used by *Farmer Maggot* (as-48):
+"If one of your companies faces an attack while at a site in The Shire,
+Arthedain, or Cardolan, you may immediately replace its site card with another
+site card in The Shire, Arthedain, or Cardolan (from your location deck). If your
+company takes this option, the attack is canceled and this card is discarded."
+
+```json
+{ "type": "cancel-attack",
+  "cost": { "discard": "self" },
+  "siteSwap": { "regions": ["The Shire", "Arthedain", "Cardolan"] } }
+```
+
+`siteSwap.regions` lists the region names (site cards' `region` field) that both
+the company's current site and the replacement must belong to.
+`siteSwapCancelActions` (`legal-actions/combat.ts`) offers the option only while
+the defending company is **at** such a site — a company in the middle of a move
+is not "at" a site, so `destinationSite` must be null — and emits one
+`cancel-attack` action per eligible site left in the controller's location deck,
+each carrying its instance in `replacementSiteInstanceId`.
+
+`handleCancelAttackBySiteSwap` (`combat-cancel.ts`) then, in order: disposes the
+replaced site exactly as a departure site (CoE 2.IV.viii — tapped non-haven to
+the site discard pile, otherwise back to the location deck; a site still occupied
+by a sibling company stays in play), pulls the replacement out of the location
+deck as the company's untapped current site, discards the host card, and cancels
+the attack through `resolveCancelAttackEntry` (in-play source → immediate, no
+chain). Because the company is *placed* at the replacement rather than moving to
+it, it never enters that site: during the site phase the remaining
+automatic-attack sequence for the company is abandoned via
+`SitePhaseState.autoAttacksSkipped`, which also suppresses race-duplicated
+attacks (*The Moon Is Dead*) and is cleared when the next company is selected.
+
 Example (Wild Hounds — discard):
 
 ```json

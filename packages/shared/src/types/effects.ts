@@ -4293,6 +4293,37 @@ export interface CancelAttackEffect extends EffectBase {
     /** When true, add the number of Scout-skilled characters in the company to the roll. */
     readonly scoutBonus?: true;
   };
+  /**
+   * Site-swap cancellation (Farmer Maggot as-48): "If one of your companies
+   * faces an attack while at a site in The Shire, Arthedain, or Cardolan, you
+   * may immediately replace its site card with another site card in The Shire,
+   * Arthedain, or Cardolan (from your location deck). If your company takes
+   * this option, the attack is canceled and this card is discarded."
+   *
+   * Carried by an in-play resource permanent-event together with
+   * `cost: { discard: "self" }`. The cancel is offered only when the defending
+   * company is standing **at** a site (not moving — `destinationSite` is null)
+   * whose region is one of {@link SiteSwapCancel.regions}; one action is
+   * generated per candidate replacement site in the controller's location deck
+   * whose region is also in that list. Taking the option replaces the company's
+   * current site with the chosen one, discards the host card, and cancels the
+   * attack.
+   */
+  readonly siteSwap?: SiteSwapCancel;
+}
+
+/**
+ * The site-replacement payload of a `cancel-attack` effect (Farmer Maggot
+ * as-48). Both the company's current site and the replacement drawn from the
+ * location deck must lie in one of {@link regions}.
+ */
+export interface SiteSwapCancel {
+  /**
+   * Region names (as printed on site cards' `region` field) that both the
+   * company's current site and the replacement site must belong to — e.g.
+   * `["The Shire", "Arthedain", "Cardolan"]`.
+   */
+  readonly regions: readonly string[];
 }
 
 /**
