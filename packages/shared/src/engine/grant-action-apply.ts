@@ -27,7 +27,7 @@ import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere } from './reducer-utils.js';
-import { enqueueCorruptionCheck, addConstraint, removeConstraint } from './pending.js';
+import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveDef } from './effects/index.js';
@@ -352,6 +352,57 @@ function runGrantApply(
           characterId,
           modifier,
           reason,
+        }),
+      ],
+    };
+  }
+
+  if (apply.type === 'enqueue-gold-ring-test') {
+    // Rule 9.21: a Wizard taps to test a gold ring item borne by a character in
+    // his company. The test is the shared `gold-ring-test` pending resolution —
+    // it rolls 2d6 (plus company `gold-ring-test` check-modifiers such as the
+    // Scroll of Isildur and the MEWH §10 Fallen-wizard -1), discards the tested
+    // ring, consults the ring's own `ring-test-table`, and enqueues the
+    // `ring-play-offer` that lets the player immediately play a matching special
+    // ring. Enqueuing rather than rolling inline is what makes the ring's table
+    // apply: the roll total has to be known to the resolution that owns the
+    // ring, not to the Wizard's grant-action.
+    const goldRingInstanceId = ctx.action.targetCardId;
+    if (!goldRingInstanceId) {
+      return { error: `enqueue-gold-ring-test: no target gold ring on ${ctx.sourceName}` };
+    }
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    let bearerId: CardInstanceId | undefined;
+    for (const [charIdStr, compChar] of Object.entries(bearerPlayer.characters)) {
+      if (compChar.items.some(i => i.instanceId === goldRingInstanceId)) {
+        bearerId = charIdStr as CardInstanceId;
+        break;
+      }
+    }
+    if (!bearerId) {
+      return { error: `enqueue-gold-ring-test: gold ring ${goldRingInstanceId as string} is not borne by any character` };
+    }
+    const rollModifier = apply.rollModifier ?? 0;
+    const actor = ctx.action.player;
+    const currentPhase = state.phaseState.phase;
+    const ringName = defById(state, resolveInstanceId(state, goldRingInstanceId) ?? ('' as import('../types/common.js').CardDefinitionId))?.name ?? (goldRingInstanceId as string);
+    logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} tests ${ringName} — enqueueing gold-ring test (bearer ${bearerId as string}, roll modifier ${formatSignedNumber(rollModifier)})`);
+    const ringId = goldRingInstanceId;
+    const bearer = bearerId;
+    return {
+      updatedChar: char,
+      effects: [],
+      stateOps: [
+        s => enqueueResolution(s, {
+          source: ringId,
+          actor,
+          scope: { kind: 'phase', phase: currentPhase },
+          kind: {
+            type: 'gold-ring-test',
+            goldRingInstanceId: ringId,
+            rollModifier,
+            characterInstanceId: bearer,
+          },
         }),
       ],
     };
@@ -798,6 +849,28 @@ function runGrantApply(
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
+  // `draw-cards` — draw N cards from the top of the activating player's play
+  // deck into their hand (Palantír of Elostirion le-332: "tap Palantír of
+  // Elostirion to draw a card"). Drawing stops at deck exhaustion: no card
+  // instance is invented or lost, the deck simply runs out.
+  if (apply.type === 'draw-cards') {
+    const drawingPlayer = newPlayers[ctx.playerIndex];
+    const wanted = apply.count;
+    const drawCount = Math.min(wanted, drawingPlayer.playDeck.length);
+    if (drawCount < wanted) {
+      logDetail(`Grant-action ${ctx.action.actionId}: play deck exhausted — drawing only ${drawCount} of ${wanted}`);
+    }
+    if (drawCount > 0) {
+      logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.sourceName} draws ${drawCount} card(s) from the play deck`);
+      newPlayers[ctx.playerIndex] = {
+        ...drawingPlayer,
+        hand: [...drawingPlayer.hand, ...drawingPlayer.playDeck.slice(0, drawCount)],
+        playDeck: drawingPlayer.playDeck.slice(drawCount),
+      };
+    }
+    return { updatedChar: char, effects: [], stateOps: [] };
+  }
+
   // `discard-target-character` — discard the character identified by
   // action.targetCardId, along with all their items and allies, to the
   // owning player's discard pile. Followers revert to general influence.
@@ -905,6 +978,8 @@ function constraintKindWithoutPayload(
       return { type: 'no-creature-hazards-on-company' };
     case 'auto-attack-duplicate':
       return { type: 'auto-attack-duplicate' };
+    case 'can-use-palantir':
+      return { type: 'can-use-palantir' };
     default:
       return null;
   }
@@ -1010,6 +1085,10 @@ function resolveConstraintTarget(
     }
     case 'player':
       return { kind: 'player', playerId };
+    case 'bearer':
+      // The activating character himself (Palantír of Elostirion le-332: the
+      // sage taps to make *himself* able to use the Palantír this turn).
+      return { kind: 'character', characterId };
     case 'action-target-company': {
       const companyId = action?.targetCompanyId;
       if (!companyId) return null;

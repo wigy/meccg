@@ -21,6 +21,10 @@
  *   npm run qualify -w @meccg/sim -- [--decks a,b,c | --all]
  *     [--vs challenge-deck-a] [--games N] [--jobs N] [--agents modes]
  *     [--out report.json]
+ *
+ * `--agents` takes one or more agent pairs separated by ';', each pair being
+ * two comma-separated specs — e.g. `--agents 'random,random;bc:model.json,heuristic'`.
+ * Defaults to random and heuristic self-play.
  */
 
 import * as fs from 'fs';
@@ -62,7 +66,13 @@ const jobs = numberFlag(args, 'jobs', Number(process.env.SIM_JOBS ?? 4) || 4);
 const baseSeed = numberFlag(args, 'seed', 424242);
 const maxDecisions = numberFlag(args, 'max-decisions', 25000);
 const outFile = stringFlag(args, 'out');
-const modes = resolveList(args, 'agents', ['random,random', 'heuristic,heuristic']);
+// Each mode is itself a comma-separated agent *pair* ("random,random"), so
+// modes cannot be comma-separated from each other the way `resolveList`
+// splits — they are separated by ';'. A single mode needs no separator.
+const agentsFlag = args.flags['agents'];
+const modes = typeof agentsFlag === 'string'
+  ? agentsFlag.split(';').map(m => m.trim()).filter(m => m.length > 0)
+  : ['random,random', 'heuristic,heuristic'];
 // Default to the approved set; `--all` opens the whole catalog, which is
 // the mode used to gather evidence for approving more decks.
 const catalogIds = (args.flags['all'] === true ? listDecks() : listApprovedDecks()).map(d => d.id);
@@ -89,7 +99,11 @@ async function runMode(deckA: string, deckB: string, mode: string, tempDir: stri
   const slices: number[] = [];
   for (let start = 0; start < games; start += perJob) slices.push(start);
 
-  const files = slices.map((start, i) => path.join(tempDir, `${deckA}-${deckB}-${mode.replace(/,/g, '_')}-${i}.jsonl`));
+  // Agent specs may be file paths (`bc:/home/…/model.json`), so everything
+  // that is not alphanumeric has to go — a raw spec would otherwise be read
+  // as nested directories that do not exist.
+  const modeSlug = mode.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 48);
+  const files = slices.map((start, i) => path.join(tempDir, `${deckA}-${deckB}-${modeSlug}-${i}.jsonl`));
   await runChildren(benchScript, slices.map((start, i) => [
     '--agents', mode,
     '--decks', `${deckA},${deckB}`,

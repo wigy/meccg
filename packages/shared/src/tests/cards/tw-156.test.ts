@@ -12,7 +12,7 @@
  * | # | Feature                              | Status      | Notes                                  |
  * |---|--------------------------------------|-------------|----------------------------------------|
  * | 1 | +1 corruption check modifier         | IMPLEMENTED | check-modifier effect + corruptionModifier stat |
- * | 2 | Tap to test gold ring in company     | IMPLEMENTED | grant-action test-gold-ring             |
+ * | 2 | Tap to test gold ring in company     | IMPLEMENTED | grant-action test-gold-ring → enqueue-gold-ring-test |
  *
  * Playable: YES
  */
@@ -149,7 +149,7 @@ describe('Gandalf (tw-156)', () => {
     expect(actions.length).toBe(0);
   });
 
-  test('test-gold-ring taps Gandalf, rolls 2d6, and discards the gold ring', () => {
+  test('test-gold-ring taps Gandalf and queues the ring test, which rolls 2d6 and discards the ring', () => {
     const state = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
@@ -164,22 +164,26 @@ describe('Gandalf (tw-156)', () => {
       ],
     });
 
-    // Cheat roll to a specific value so we can verify the roll happened
-    const cheated = { ...state, cheatRollTotal: 10 };
-
-    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
-    const result = dispatchResult(cheated, actions[0].action);
+    // Activating taps Gandalf and enqueues the shared gold-ring test (Rule
+    // 9.21); the ring stays on its bearer until the roll resolves.
+    const afterActivate = dispatch(state, actions[0].action);
+    expectCharStatus(afterActivate, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
+    expectCharItemCount(afterActivate, RESOURCE_PLAYER, FRODO, 1);
+    const pending = afterActivate.pendingResolutions.filter(r => r.actor === PLAYER_1);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].kind.type).toBe('gold-ring-test');
+
+    // Cheat roll to a specific value so we can verify the roll happened
+    const rolls = viableActions({ ...afterActivate, cheatRollTotal: 10 }, PLAYER_1, 'gold-ring-test-roll');
+    expect(rolls.length).toBe(1);
+    const result = dispatchResult({ ...afterActivate, cheatRollTotal: 10 }, rolls[0].action);
     const nextState = result.state;
 
-    // Gandalf should be tapped
-    expectCharStatus(nextState, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
-
-    // Gold ring should be removed from Frodo's items
+    // Gold ring should be removed from Frodo's items and discarded
     expectCharItemCount(nextState, RESOURCE_PLAYER, FRODO, 0);
-
-    // Gold ring should be in the player's discard pile
     expectInDiscardPile(nextState, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
 
     // A dice roll should have been recorded
@@ -209,8 +213,9 @@ describe('Gandalf (tw-156)', () => {
     const actions = viableActions(state, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
-    const cheated = { ...state, cheatRollTotal: 7 };
-    const nextState = dispatch(cheated, actions[0].action);
+    const afterActivate = dispatch(state, actions[0].action);
+    const rolls = viableActions(afterActivate, PLAYER_1, 'gold-ring-test-roll');
+    const nextState = dispatch({ ...afterActivate, cheatRollTotal: 7 }, rolls[0].action);
 
     // Gandalf should be tapped and gold ring should be discarded
     expectCharStatus(nextState, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
