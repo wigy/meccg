@@ -9918,6 +9918,14 @@ Implemented in `legal-actions/organization-characters.ts`: the
 `playCharacterActions`, and the `isOwnWizardhaven` relaxation of the
 GI-allowed-at-site check.
 
+The same effect also opens the **character draft** (rule 1.43 / CoE 1.9.F2,
+"…and include them in your starting company"): a Fallen-wizard may draft an
+Orc/Troll only once they have drafted a Stage resource whose
+`allow-character-play` filter matches that candidate. Enforced in
+`legal-actions/draft.ts` *and* in the `draft-pick` reducer (`reducer-setup.ts`).
+The `not-starting-character` play-flag is never lifted by it ("You cannot start
+with a character that says he cannot be in the starting company").
+
 ### 51b. `org-phase-fetch`
 
 Grants the controlling player an optional **once-per-organization-phase** action

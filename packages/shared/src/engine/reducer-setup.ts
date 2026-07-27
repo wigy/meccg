@@ -12,14 +12,14 @@ import { getAlignmentRules } from '../alignment-rules.js';
 import { shuffle } from '../rng.js';
 import { MAX_STARTING_ITEMS } from '../rules/definitions/item-draft.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isCharacterCard } from '../types/cards.js';
+import { isCharacterCard, isHalfOrc } from '../types/cards.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
-import { Alignment, CardStatus } from '../types/common.js';
+import { Alignment, CardStatus, Race } from '../types/common.js';
 import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, getCardEffects, matchesDefinition } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 import { sameManifestationEntity } from './manifestations.js';
 
@@ -209,6 +209,14 @@ function handleCharacterDraft(
         if (!isFallenWizard && !(isRingwraith && isAgentSummonsEnabler)) {
           return { state, error: 'Only a Fallen-wizard may draft a Stage resource' };
         }
+        // "Cannot be duplicated by a given player" (Bad Company wh-63, Open to
+        // the Summons wh-46): a player-scoped `duplication-limit` caps how many
+        // copies of the same Stage resource one player may draft, since each
+        // drafted copy ends up in that player's play area (CoE 1.9.F4).
+        if (stageResourceDuplicationLimitReached(state, playerDraft, charDefId)) {
+          logDetail(`${charDef?.name ?? (charDefId as string)} blocked: already drafted (cannot be duplicated by a given player)`);
+          return { state, error: `${charDef?.name ?? (charDefId as string)} cannot be duplicated by a given player` };
+        }
         logDetail(`${charDef?.name ?? (charDefId as string)} drafted as a Stage resource (completes this player's round action)`);
         const newStageDraftState = [...draft.draftState] as [DraftPlayerState, DraftPlayerState];
         newStageDraftState[playerIndex] = {
@@ -241,6 +249,30 @@ function handleCharacterDraft(
         if (hasPlayFlag(charDef, 'hazard-agent-only')) {
           logDetail(`${charDef.name} blocked: a hazard-only agent cannot be drafted as a character`);
           return { state, error: 'A hazard agent cannot be drafted as a character' };
+        }
+
+        // A character whose text says he cannot be in a starting company
+        // (`not-starting-character` — Wûluag as-6, Fram Framson td-91) can never
+        // be drafted, and no Stage resource lifts that: Bad Company (wh-63) reads
+        // "You cannot start with a character that says he cannot be in the
+        // starting company."
+        if (hasPlayFlag(charDef, 'not-starting-character')) {
+          logDetail(`${charDef.name} blocked: may not be one of the starting characters`);
+          return { state, error: `${charDef.name} may not be one of the starting characters` };
+        }
+
+        // Rule 1.43 (CoE 1.9.F2): a Fallen-wizard cannot reveal an Orc or Troll
+        // character during the draft unless a drafted Stage resource specifically
+        // allows it — an `allow-character-play` effect matching this candidate
+        // (Bad Company, wh-63). The permission is standing: any matching drafted
+        // enabler lifts the gate for the rest of the draft.
+        if (isFallenWizard
+          && (charDef.race === Race.Orc || charDef.race === Race.Troll || isHalfOrc(charDef))
+          && !playerDraft.draftedStageResources.some(c => getCardEffects(defById(state, c.definitionId)).some(
+            eff => eff.type === 'allow-character-play' && matchesDefinition(charDef, eff.filter),
+          ))) {
+          logDetail(`${charDef.name} (${charDef.race}) blocked: a Fallen-wizard needs an enabling Stage resource (e.g. Bad Company) to draft Orc or Troll characters`);
+          return { state, error: 'A Fallen-wizard cannot draft an Orc or Troll character without an enabling Stage resource' };
         }
 
         // Open to the Summons (wh-46): each copy the player has **drafted** (from
