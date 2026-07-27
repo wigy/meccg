@@ -186,10 +186,25 @@
     "killMarshallingPoints": 6,
     "starredKillMarshallingPoints": true,
     "race": "maia",
+    "manifestId": "tw-156",
+    "certified": "2026-07-27",
     "keyedTo": [
       {
         "regionTypes": [
           "free"
+        ],
+        "siteTypes": [
+          "free-hold"
+        ]
+      },
+      {
+        "regionNames": [
+          "Arthedain",
+          "The Shire",
+          "Rhudaur",
+          "Lindon",
+          "Wold & Foothills",
+          "Anfalas"
         ]
       }
     ],
@@ -197,6 +212,64 @@
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event",
+        "persistent": true
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -3,
+        "when": {
+          "defender.alignment": "hero"
+        }
+      },
+      {
+        "type": "discard-self-when",
+        "condition": {
+          "charactersInPlayAnywhere": "Gandalf"
+        }
+      },
+      {
+        "type": "hazard-limit-environment",
+        "value": 1,
+        "appliesTo": "all",
+        "when": {
+          "company.alignment": "ringwraith",
+          "company.covert": false
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       }
     ]
   },
