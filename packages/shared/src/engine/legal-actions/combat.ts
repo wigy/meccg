@@ -1964,6 +1964,71 @@ function inCancelWindow(combat: CombatState): boolean {
   return false;
 }
 
+/**
+ * Candidate site-swap cancellations offered by an in-play card carrying a
+ * `cancel-attack` effect with a `siteSwap` payload (Farmer Maggot as-48).
+ *
+ * "If one of your companies faces an attack while at a site in The Shire,
+ * Arthedain, or Cardolan, you may immediately replace its site card with
+ * another site card in The Shire, Arthedain, or Cardolan (from your location
+ * deck)."
+ *
+ * Two gates apply:
+ * - the defending company must be standing **at** a site in one of the listed
+ *   regions. A company in the middle of a move is not "at" a site (its
+ *   `currentSite` is only the origin it is leaving), so `destinationSite` must
+ *   be null; and
+ * - at least one site card in the controller's location deck must lie in one of
+ *   those regions.
+ *
+ * One action is generated per candidate replacement site, each carrying its
+ * instance id in `replacementSiteInstanceId` — the player chooses where to flee.
+ */
+function siteSwapCancelActions(
+  state: GameState,
+  playerId: PlayerId,
+  player: PlayerState,
+  company: import('../../types/state-cards.js').Company,
+  hostCard: import('../../types/state-cards.js').CardInPlay,
+  siteSwap: import('../../types/effects.js').SiteSwapCancel,
+  label: string,
+): EvaluatedAction[] {
+  if (company.destinationSite) {
+    logDetail(`Cancel-attack ${label}: company is moving — not "at a site", site swap unavailable`);
+    return [];
+  }
+  if (!company.currentSite) {
+    logDetail(`Cancel-attack ${label}: defending company has no current site — site swap unavailable`);
+    return [];
+  }
+  const currentDef = defById(state, company.currentSite.definitionId);
+  const currentRegion = currentDef && isSiteCard(currentDef) ? currentDef.region : undefined;
+  if (!currentRegion || !siteSwap.regions.includes(currentRegion)) {
+    logDetail(`Cancel-attack ${label}: company is at ${currentDef?.name ?? '?'} in "${currentRegion ?? 'unknown'}" — not one of [${siteSwap.regions.join(', ')}]`);
+    return [];
+  }
+  const actions: EvaluatedAction[] = [];
+  for (const siteInstance of player.siteDeck) {
+    const siteDef = defById(state, siteInstance.definitionId);
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    if (!siteSwap.regions.includes(siteDef.region)) continue;
+    logDetail(`Cancel-attack available: discard ${label} to replace ${currentDef?.name ?? '?'} with ${siteDef.name} (${siteDef.region})`);
+    actions.push({
+      action: {
+        type: 'cancel-attack',
+        player: playerId,
+        cardInstanceId: hostCard.instanceId,
+        replacementSiteInstanceId: siteInstance.instanceId,
+      },
+      viable: true,
+    });
+  }
+  if (actions.length === 0) {
+    logDetail(`Cancel-attack ${label}: no site in [${siteSwap.regions.join(', ')}] left in the location deck`);
+  }
+  return actions;
+}
+
 function cancelAttackActions(
   state: GameState,
   playerId: PlayerId,
@@ -2198,6 +2263,19 @@ function cancelAttackActions(
     const discardCost = inPlayCost?.discard === 'self';
     const tapCost = inPlayCost?.tap === 'self';
     if (!discardCost && !tapCost) continue;
+    // Site-swap cancel (Farmer Maggot as-48): the card is discarded to replace
+    // the defending company's site card with another from the location deck,
+    // canceling the attack. One action per candidate replacement site — the
+    // player picks which site to flee to.
+    if (cancelEffect.siteSwap) {
+      const label = (def as { name?: string })?.name ?? inPlayCard.definitionId as string;
+      for (const evaluated of siteSwapCancelActions(
+        state, playerId, player, company, inPlayCard, cancelEffect.siteSwap, label,
+      )) {
+        actions.push(evaluated);
+      }
+      continue;
+    }
     // A tap-cost faction (Beasts of the Wood wh-38) must itself be untapped.
     if (tapCost && inPlayCard.status !== CardStatus.Untapped) {
       logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: in-play faction is tapped, cannot tap to cancel`);

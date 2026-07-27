@@ -1894,8 +1894,10 @@ export type TriggeredActionType =
   | 'roll-then-apply'
   | 'transform-site'
   | 'untap-site'
+  | 'lock-company-movement'
   | 'cancel-current-attack'
   | 'traitor-attack'
+  | 'site-entry-attack'
   | 'win-condition-roll'
   | 'win-game';
 
@@ -2176,6 +2178,16 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * as-88, The White Tree tw-348).
    */
   readonly purpose?: string;
+  /**
+   * For a `site-type-override` add-constraint: apply the override to **all
+   * versions** of the bound site — every printing of the same named location
+   * (hero / minion / Fallen-wizard / Balrog), which are distinct definitions
+   * sharing one name — instead of only the definition the card was played on.
+   * Nature's Revenge (wh-27): "All versions of the site become Ruins & Lairs
+   * [{R}]." Emits a `site.name`-scoped constraint filter (see
+   * {@link import('../engine/effective.js').siteConstraintFilterMatches}).
+   */
+  readonly allVersions?: boolean;
   /** Region name for region-type-override (token `"destination"` = active company's destination region). */
   readonly regionName?: string;
   /**
@@ -2557,6 +2569,21 @@ export interface CounterCancelAttackTriggeredAction extends TriggeredActionBase 
   readonly prowessBonus?: number;
 }
 
+/**
+ * `site-entry-attack` — dice-check onFail verb for a
+ * {@link SiteEntryRollAttackEffect} (Doubled Vigilance dm-51). Initiates the
+ * effect's attack against the company currently resolving its site phase,
+ * while the site step sits at `site-entry-attack` — i.e. before any of the
+ * site's automatic-attacks. The attack is not an automatic-attack: it carries
+ * no site keying, so automatic-attack modifiers and the §3.II site-type
+ * detainment branch do not apply to it.
+ */
+export interface SiteEntryAttackAction extends TriggeredActionBase {
+  readonly type: 'site-entry-attack';
+  /** The attack to initiate. */
+  readonly attack: SiteEntryAttackSpec;
+}
+
 /** `set-company-special-movement` — flag a special-movement mode (Gwaihir flight) on the bearer's company. */
 export interface SetCompanySpecialMovementAction extends TriggeredActionBase {
   readonly type: 'set-company-special-movement';
@@ -2599,6 +2626,18 @@ export interface TransformSiteAction extends TriggeredActionBase {
 /** `untap-site` — untap the bearer's company's current site; type-only marker. */
 export interface UntapSiteAction extends TriggeredActionBase {
   readonly type: 'untap-site';
+}
+
+/**
+ * `lock-company-movement` — the company named by the enclosing `dice-check`
+ * resolution's `targetCompanyId` may not move this turn: its planned
+ * destination (if any) is cancelled and returned to the location deck, and a
+ * turn-scoped `company-cannot-move` constraint is installed. Used as the
+ * `onFail` verb of the {@link CompanyMovementRollEffect} roll (Siege tw-87).
+ * Type-only marker.
+ */
+export interface LockCompanyMovementAction extends TriggeredActionBase {
+  readonly type: 'lock-company-movement';
 }
 
 /**
@@ -2690,12 +2729,14 @@ export type TriggeredAction =
   | CancelChainEntryAction
   | CompanyTapCharactersTriggeredAction
   | CounterCancelAttackTriggeredAction
+  | SiteEntryAttackAction
   | SetCompanySpecialMovementAction
   | ShuffleDeckTopAction
   | IncrementCompanyExtraRegionDistanceAction
   | ModifyCurrentStrikeProwessAction
   | TransformSiteAction
   | UntapSiteAction
+  | LockCompanyMovementAction
   | CancelCurrentAttackAction
   | TraitorAttackAction;
 
@@ -4269,6 +4310,37 @@ export interface CancelAttackEffect extends EffectBase {
     /** When true, add the number of Scout-skilled characters in the company to the roll. */
     readonly scoutBonus?: true;
   };
+  /**
+   * Site-swap cancellation (Farmer Maggot as-48): "If one of your companies
+   * faces an attack while at a site in The Shire, Arthedain, or Cardolan, you
+   * may immediately replace its site card with another site card in The Shire,
+   * Arthedain, or Cardolan (from your location deck). If your company takes
+   * this option, the attack is canceled and this card is discarded."
+   *
+   * Carried by an in-play resource permanent-event together with
+   * `cost: { discard: "self" }`. The cancel is offered only when the defending
+   * company is standing **at** a site (not moving — `destinationSite` is null)
+   * whose region is one of {@link SiteSwapCancel.regions}; one action is
+   * generated per candidate replacement site in the controller's location deck
+   * whose region is also in that list. Taking the option replaces the company's
+   * current site with the chosen one, discards the host card, and cancels the
+   * attack.
+   */
+  readonly siteSwap?: SiteSwapCancel;
+}
+
+/**
+ * The site-replacement payload of a `cancel-attack` effect (Farmer Maggot
+ * as-48). Both the company's current site and the replacement drawn from the
+ * location deck must lie in one of {@link regions}.
+ */
+export interface SiteSwapCancel {
+  /**
+   * Region names (as printed on site cards' `region` field) that both the
+   * company's current site and the replacement site must belong to — e.g.
+   * `["The Shire", "Arthedain", "Cardolan"]`.
+   */
+  readonly regions: readonly string[];
 }
 
 /**
@@ -5904,6 +5976,17 @@ export interface PermanentEventAutoAttackEffect extends EffectBase {
    * automatic-attack"), in addition to any explicit {@link siteIds}.
    */
   readonly siteType?: SiteType;
+  /**
+   * When true, the attack is added to the site this card is **bound to** —
+   * the site chosen when it was played (`CardInPlay.attachedToSite`) — and to
+   * every other printing of that same named location (hero / minion /
+   * Fallen-wizard / Balrog versions are distinct definitions sharing one
+   * name), matching the `allVersions` site-type override. Nature's Revenge
+   * (wh-27): "All versions of the site … each gains an additional
+   * automatic-attack: Animals." Mutually exclusive with a fixed
+   * {@link siteIds} list, which names sites at card-definition time.
+   */
+  readonly boundSite?: boolean;
   /** The attack stats contributed to those sites. */
   readonly attack: {
     readonly creatureType: string;
@@ -6697,6 +6780,9 @@ export type CardEffect =
   | CreateSiteAutoAttackEffect
   | AutoAttackBoostEffect
   | SiteItemTrapEffect
+  | SiteEntryRollAttackEffect
+  | SitePhaseStartAttackEffect
+  | CompanyMovementRollEffect
   | HazardLimitSwapEffect
   | DiscardForHazardLimitEffect
   | RingTestTableEffect
@@ -7507,6 +7593,111 @@ export interface SiteItemTrapEffect extends EffectBase {
   readonly type: 'site-item-trap';
   /** Prowess added to each re-faced automatic-attack (Troll-purse: +3). */
   readonly prowessBonus: number;
+}
+
+/**
+ * The attack a {@link SiteEntryRollAttackEffect} inflicts when its entry roll
+ * fails. Mirrors an {@link import('./cards-sites.js').AutomaticAttack}'s core
+ * fields, but the attack is **not** an automatic-attack: it is created by the
+ * hazard event, so automatic-attack modifiers do not apply to it and it carries
+ * no site keying.
+ */
+export interface SiteEntryAttackSpec {
+  /** Creature race of the attack, e.g. `"Orcs"`. */
+  readonly creatureType: string;
+  /** Number of strikes. */
+  readonly strikes: number;
+  /** Prowess of each strike. */
+  readonly prowess: number;
+  /** Body of the attacking creature (absent → strikes are auto-defeated on a win). */
+  readonly body?: number;
+}
+
+/**
+ * Doubled Vigilance (dm-51): a hazard permanent-event attached to a site that
+ * gates **entering** the site behind a dice roll. When a company chooses to
+ * enter the bound site, its controller rolls 2d6 and subtracts the company's
+ * effective size (CoE 3.24 half-character rule) when
+ * {@link subtractCompanySize} is set. If the modified total beats
+ * {@link threshold} (per {@link comparison}) the company enters as normal;
+ * otherwise it must face {@link attack} **before** any of the site's
+ * automatic-attacks.
+ *
+ * Engine wiring (`reducer-site.ts`): the gate is evaluated when the company
+ * commits to entering (`enter-or-skip` → `enter-site`) and again after the
+ * `reveal-on-guard-attacks` step, so a copy revealed from an on-guard slot
+ * still fires before the automatic-attacks. Each host card fires at most once
+ * per company site phase (tracked by `SitePhaseState.siteEntryGatesFaced`). The
+ * roll runs as a generic `dice-check` pending resolution whose `onFail` is a
+ * {@link SiteEntryAttackAction}; the resulting combat is sequenced through the
+ * `site-entry-attack` site sub-step.
+ *
+ * The "Discard when the site card is discarded or returned to its location
+ * deck" clause needs no effect: every `attachedToSite` card is swept by
+ * `discardOrphanedSiteAttachedEvents` once no company occupies the bound site.
+ */
+export interface SiteEntryRollAttackEffect extends EffectBase {
+  readonly type: 'site-entry-roll-attack';
+  /** Subtract the entering company's effective size from the 2d6 roll. */
+  readonly subtractCompanySize?: boolean;
+  /** The number the modified roll must beat (Doubled Vigilance: 6). */
+  readonly threshold: number;
+  /** How the modified roll is compared to `threshold` (default `"gt"`). */
+  readonly comparison?: 'gt' | 'gte';
+  /** The attack faced when the roll fails, before any automatic-attacks. */
+  readonly attack: SiteEntryAttackSpec;
+}
+
+/**
+ * A besieging card bound to a site (`CardInPlay.attachedToSite`) that forces
+ * every company at that site to face an extra attack **at the beginning of its
+ * site phase** — before the company decides whether to enter the site or do
+ * nothing. This is the distinguishing feature versus a site automatic-attack
+ * (which a company avoids entirely by doing nothing at the site) and versus
+ * {@link PermanentEventAutoAttackEffect} (which augments the printed
+ * automatic-attack list of a whole class of sites).
+ *
+ * The attack is sequenced through the `siege-attacks` site sub-step (mirroring
+ * `automatic-attacks`) with a `siege-attack` {@link import('./state-combat.js').AttackSource};
+ * it is not an automatic-attack, so auto-attack modifiers and the home-site
+ * tap-to-cancel option do not apply to it.
+ *
+ * Used by Siege (tw-87): "A company at this site must face an Orc attack of
+ * three strikes at 7 prowess at the beginning of its site phase."
+ */
+export interface SitePhaseStartAttackEffect extends EffectBase {
+  readonly type: 'site-phase-start-attack';
+  /** The attack every company at the bound site faces. */
+  readonly attack: {
+    readonly creatureType: string;
+    readonly strikes: number;
+    readonly prowess: number;
+    readonly body?: number;
+  };
+}
+
+/**
+ * A besieging card bound to a site (`CardInPlay.attachedToSite`) that makes a
+ * company at that site roll at the **end of its organization phase** to keep
+ * its movement. The roll is 2d6 modified by {@link penalty} for every character
+ * in the company that lacks {@link penaltyPerCharacterWithoutSkill}; a total
+ * below {@link threshold} locks the company stationary for the turn (its
+ * planned destination is cancelled and a turn-scoped `company-cannot-move`
+ * constraint is installed).
+ *
+ * Used by Siege (tw-87): "At the end of its organization phase, a company at a
+ * site with Siege on it must make a roll and subtract one from the result for
+ * every non-scout character it contains. If this result is less than 5, the
+ * company may not move this turn."
+ */
+export interface CompanyMovementRollEffect extends EffectBase {
+  readonly type: 'company-movement-roll';
+  /** The company may move when the modified 2d6 total is ≥ this value. */
+  readonly threshold: number;
+  /** Skill a character must have to avoid contributing {@link penalty}. */
+  readonly penaltyPerCharacterWithoutSkill: import('./common.js').Skill;
+  /** Roll penalty per character lacking the skill (default 1). */
+  readonly penalty?: number;
 }
 
 /**

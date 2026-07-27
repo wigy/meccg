@@ -12,6 +12,16 @@ export PATH="$HOME/.local/bin:$PATH"
 if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
   cat <<'EOF'
 Usage: bin/run-ai [<n>]
+       bin/run-ai <request-id> [<request-id>...]
+
+Given one or more request IDs, run-ai works in ONE-SHOT mode: it handles
+exactly those requests, in the order given, and then quits. One-shot mode skips
+the polling loop, the open-PR sweep and the finalize sweep — it only dispatches
+the named requests to bin/handle-mail. It still refuses to start on a dirty
+working tree, and it still validates the headless claude token first (failing
+immediately rather than waiting, since a human is watching).
+
+With no request IDs it is the long-running worker loop described below.
 
 Long-running worker loop that polls for unhandled ai requests and
 dispatches them to bin/handle-mail one at a time. Pulls master between
@@ -67,6 +77,12 @@ request is picked up again by the next run instead of being stranded as
 
 Arguments:
   <n>             Optional maximum number of requests to handle, then exit.
+                  (Loop mode; a bare number of at most 6 digits.)
+  <request-id>    One or more ai-inbox message IDs (16 hex characters, as
+                  listed by bin/requests or bin/handle-mail). Handles exactly
+                  those requests and exits: 0 if all succeeded, 1 if any
+                  failed, 5 if one was left unhandled by an API capacity limit
+                  (that message stays 'new' and can be re-run later).
 
 Environment:
   MECCG_LOBBY_URL   Lobby base URL (default http://localhost:8080)
@@ -85,9 +101,17 @@ EOF
   exit 0
 fi
 
+# Two argument shapes share one positional slot, so they must be told apart
+# unambiguously. Message IDs are 16 hex characters (crypto.randomBytes(8)), and
+# roughly one in 1800 of those happens to be all digits — so "is it numeric?"
+# alone is not a safe test. A short bare number (<= 6 digits) is the iteration
+# cap; anything else is treated as a request ID.
 MAX_ITERATIONS=""
-if [ $# -ge 1 ] && [[ "$1" =~ ^[0-9]+$ ]]; then
+REQUEST_IDS=()
+if [ $# -eq 1 ] && [[ "$1" =~ ^[0-9]{1,6}$ ]]; then
   MAX_ITERATIONS="$1"
+elif [ $# -ge 1 ]; then
+  REQUEST_IDS=("$@")
 fi
 
 iterations=0
@@ -223,6 +247,45 @@ on_interrupt() {
 }
 trap 'on_interrupt INT' INT
 trap 'on_interrupt TERM' TERM
+
+# Hand one message to handle-mail and return ITS exit code (0 handled, 5 API
+# capacity limit — message already reset to 'new' —, anything else a genuine
+# failure of that request). Shared by the polling loop and one-shot mode.
+#
+# Run handle-mail as a BACKGROUND child and `wait` on it, rather than as a
+# foreground `handle-mail | tee` pipeline. Two reasons:
+#   - Signals: bash defers a trap until the current FOREGROUND command returns,
+#     so with a foreground pipeline a SIGTERM aimed at run-ai alone would not
+#     run on_interrupt until handle-mail finished on its own — i.e. not for
+#     hours. `wait` is interruptible, so the trap fires immediately.
+#   - Exit code: `wait` yields handle-mail's OWN status directly, with no
+#     PIPESTATUS/pipefail juggling around tee. Logging still goes through tee
+#     via process substitution.
+# `|| rc=$?` also shields the non-zero case from `set -e`.
+run_request() {
+  local msg_id="$1" rc=0
+  # In flight from here: an interrupt now must reset this message to 'new'
+  # (handle-mail marks it 'processing' as its first act).
+  CURRENT_MSG_ID="$msg_id"
+  "$SCRIPT_DIR/handle-mail" "$msg_id" > >(tee -a "$LOG_FILE") 2>&1 &
+  HANDLE_PID=$!
+  wait "$HANDLE_PID" || rc=$?
+  HANDLE_PID=""
+  # handle-mail returned on its own; it owns the message's final status now.
+  CURRENT_MSG_ID=""
+  return "$rc"
+}
+
+# A crashed handler can leave its message 'new'/'processing' — a state the queue
+# would pick up and fail on forever. Force it terminal.  $1=msg-id  $2=exit code
+force_failed_if_unresolved() {
+  local msg_id="$1" status_now
+  status_now=$(message_status "$msg_id" 2>/dev/null || echo "")
+  if [ -z "$status_now" ] || [ "$status_now" = "new" ] || [ "$status_now" = "processing" ]; then
+    echo "[run-ai] $msg_id left in '${status_now:-unknown}' by a crashed handler; forcing 'failed' so the queue advances." | tee -a "$LOG_FILE"
+    set_message_status "$msg_id" failed
+  fi
+}
 
 # Fetch unhandled requests from the lobby system API and print the ID of the
 # highest-priority handleable message. Feature-requests need human review
@@ -429,6 +492,12 @@ idle_backoff() {
 # re-check on the idle schedule, so the worker resumes on its own the moment the
 # operator drops a valid token in.
 if ! preflight_token; then
+  # One-shot mode is operator-driven and finite: waiting hours for a token that
+  # only a human can fix would just hang the terminal. Fail fast instead.
+  if [ "${#REQUEST_IDS[@]}" -gt 0 ]; then
+    echo "=== Headless claude token unusable at $(date -Iseconds). Cannot handle the requested requests. ===" | tee -a "$LOG_FILE" >&2
+    exit 4
+  fi
   echo "=== Headless claude token unusable at $(date -Iseconds). Waiting for a usable token; run-ai will resume automatically. ===" | tee -a "$LOG_FILE" >&2
   until preflight_token; do
     idle_backoff "Headless claude token still unusable"
@@ -436,6 +505,89 @@ if ! preflight_token; then
   echo "=== Token usable again at $(date -Iseconds). Resuming. ===" | tee -a "$LOG_FILE"
 fi
 idle_index=0
+
+# ---------------------------------------------------------------------------
+# One-shot mode: handle exactly the named requests, then quit
+# ---------------------------------------------------------------------------
+# No polling, no PR sweep, no finalize sweep — those are the unattended loop's
+# chores. This path exists to run (or re-run) a specific request on demand.
+ONESHOT_LIMIT_RETRIES=3
+
+if [ "${#REQUEST_IDS[@]}" -gt 0 ]; then
+  cd "$SCRIPT_DIR/.."
+
+  # Same reasoning as the loop's dirty-tree guard: leftovers from an earlier
+  # skill would contaminate this request's branch. A human is at the keyboard
+  # here, so say so and stop rather than parking.
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "[run-ai] ERROR: working tree is dirty; refusing to handle requests on top of it." | tee -a "$LOG_FILE" >&2
+    git status --porcelain | sed 's/^/[run-ai]   /' | tee -a "$LOG_FILE" >&2
+    echo "[run-ai] Turn these files into a PR or revert them, then re-run." | tee -a "$LOG_FILE" >&2
+    exit 3
+  fi
+
+  git checkout master 2>&1 | tee -a "$LOG_FILE"
+  # A stale master is a lot better than not running the request at all, so an
+  # unreachable remote is a warning here rather than the loop's back-off.
+  if ! timeout 300 git pull 2>&1 | tee -a "$LOG_FILE"; then
+    echo "[run-ai] WARNING: git pull failed (remote unreachable?); continuing on the local master." | tee -a "$LOG_FILE" >&2
+  fi
+
+  oneshot_failed=0
+  oneshot_deferred=0
+  for MSG_ID in "${REQUEST_IDS[@]}"; do
+    iterations=$((iterations + 1))
+    echo "=== Handling $MSG_ID at $(date -Iseconds) (one-shot ${iterations}/${#REQUEST_IDS[@]}) ===" | tee -a "$LOG_FILE"
+
+    handle_rc=0
+    run_request "$MSG_ID" || handle_rc=$?
+
+    # Exit 5 is the API capacity/usage-limit signal: handle-mail reset the
+    # message to 'new' (never burned) and stopped. Retry a bounded number of
+    # times — unlike the loop we must not wait indefinitely, but a limit that
+    # clears within a couple of backoff steps should not cost the operator a
+    # re-run.
+    attempt=1
+    while [ "$handle_rc" -eq 5 ] && [ "$attempt" -lt "$ONESHOT_LIMIT_RETRIES" ]; do
+      idle_backoff "API capacity/usage limit hit; $MSG_ID reset to 'new', retrying"
+      attempt=$((attempt + 1))
+      handle_rc=0
+      run_request "$MSG_ID" || handle_rc=$?
+    done
+
+    if [ "$handle_rc" -eq 5 ]; then
+      echo "=== $MSG_ID still capacity-blocked after $attempt attempt(s); left 'new' for a later run ===" | tee -a "$LOG_FILE"
+      oneshot_deferred=1
+      continue
+    fi
+
+    if [ "$handle_rc" -ne 0 ]; then
+      echo "=== handle-mail failed for $MSG_ID (exit $handle_rc) at $(date -Iseconds). Marking it failed and continuing. ===" | tee -a "$LOG_FILE"
+      force_failed_if_unresolved "$MSG_ID"
+      oneshot_failed=1
+      # A failed handler may have left the repo on its feature branch; the next
+      # request must start from master like the loop's top-of-iteration does.
+      git checkout master 2>&1 | tee -a "$LOG_FILE" || true
+      continue
+    fi
+
+    echo "=== Finished $MSG_ID at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
+  done
+
+  # Leave the repo where an idle loop would leave it: clean, on master.
+  git checkout master 2>&1 | tee -a "$LOG_FILE" || true
+
+  if [ "$oneshot_failed" -eq 1 ]; then
+    echo "=== One-shot run finished at $(date -Iseconds) with failures. ===" | tee -a "$LOG_FILE"
+    exit 1
+  fi
+  if [ "$oneshot_deferred" -eq 1 ]; then
+    echo "=== One-shot run finished at $(date -Iseconds); at least one request deferred by an API capacity limit. ===" | tee -a "$LOG_FILE"
+    exit 5
+  fi
+  echo "=== One-shot run complete (${#REQUEST_IDS[@]} request(s)) at $(date -Iseconds). ===" | tee -a "$LOG_FILE"
+  exit 0
+fi
 
 # ---------------------------------------------------------------------------
 # Open-PR maintenance
@@ -864,21 +1016,7 @@ while true; do
   idle_index=0
   iterations=$((iterations + 1))
   echo "=== Handling $MSG_ID at $(date -Iseconds) (iteration $iterations) ===" | tee -a "$LOG_FILE"
-  # In flight from here: an interrupt now must reset this message to 'new'
-  # (handle-mail marks it 'processing' as its first act).
-  CURRENT_MSG_ID="$MSG_ID"
 
-  # Run handle-mail as a BACKGROUND child and `wait` on it, rather than as a
-  # foreground `handle-mail | tee` pipeline. Two reasons:
-  #   - Signals: bash defers a trap until the current FOREGROUND command returns,
-  #     so with a foreground pipeline a SIGTERM aimed at run-ai alone would not
-  #     run on_interrupt until handle-mail finished on its own — i.e. not for
-  #     hours. `wait` is interruptible, so the trap fires immediately.
-  #   - Exit code: `wait` yields handle-mail's OWN status directly, with no
-  #     PIPESTATUS/pipefail juggling around tee. Logging still goes through tee
-  #     via process substitution.
-  # `|| handle_rc=$?` also shields the non-zero case from `set -e`.
-  #
   # Exit 5 is the API-capacity/usage-limit signal: handle-mail detected a
   # session/usage limit, rate limit, or overload in the final stream-json result,
   # already reset the message to 'new' (NOT burned), and stopped. This is NOT a
@@ -886,12 +1024,7 @@ while true; do
   # Back off (escalating) and retry the SAME message later; the limit resets in
   # time. Any OTHER non-zero code is a real failure and halts as before.
   handle_rc=0
-  "$SCRIPT_DIR/handle-mail" "$MSG_ID" > >(tee -a "$LOG_FILE") 2>&1 &
-  HANDLE_PID=$!
-  wait "$HANDLE_PID" || handle_rc=$?
-  HANDLE_PID=""
-  # handle-mail returned on its own; it owns the message's final status now.
-  CURRENT_MSG_ID=""
+  run_request "$MSG_ID" || handle_rc=$?
   if [ "$handle_rc" -eq 5 ]; then
     # Don't let a capacity-blocked retry consume the --max-iterations budget.
     iterations=$((iterations - 1))
@@ -904,11 +1037,7 @@ while true; do
     # would pick the very same one again next tick and fail forever. So force it
     # terminal here, then carry on with the rest of the queue.
     echo "=== handle-mail failed for $MSG_ID (exit $handle_rc) at $(date -Iseconds). Marking it failed and continuing. ===" | tee -a "$LOG_FILE"
-    status_now=$(message_status "$MSG_ID" 2>/dev/null || echo "")
-    if [ -z "$status_now" ] || [ "$status_now" = "new" ] || [ "$status_now" = "processing" ]; then
-      echo "[run-ai] $MSG_ID left in '${status_now:-unknown}' by a crashed handler; forcing 'failed' so the queue advances." | tee -a "$LOG_FILE"
-      set_message_status "$MSG_ID" failed
-    fi
+    force_failed_if_unresolved "$MSG_ID"
     idle_backoff "Recovering from handle-mail failure on $MSG_ID"
     continue
   fi

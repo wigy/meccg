@@ -571,12 +571,19 @@ function collectPermanentEventAttacks(state: GameState, siteDef: SiteCard): Auto
         }
         if (e.type !== 'permanent-event-auto-attack') continue;
         const eff = e;
-        // Match either an explicitly listed site definition (Spawn-type events)
+        // Match either an explicitly listed site definition (Spawn-type events),
         // or, when `siteType` is set, every site of that printed type (Fell
-        // Winter le-111: "Each Border-hold receives an additional auto-attack").
+        // Winter le-111: "Each Border-hold receives an additional auto-attack"),
+        // or, when `boundSite` is set, every version of the site the card was
+        // played on (Nature's Revenge wh-27) — matched by printed name, since
+        // the hero/minion/FW/Balrog printings are distinct definitions.
         const matchesById = eff.siteIds.includes(siteDef.id);
         const matchesByType = eff.siteType !== undefined && siteDef.siteType === eff.siteType;
-        if (!matchesById && !matchesByType) continue;
+        let matchesByBinding = false;
+        if (eff.boundSite && card.attachedToSite !== undefined && !card.pendingTriggerAttack) {
+          matchesByBinding = defById(state, card.attachedToSite)?.name === siteDef.name;
+        }
+        if (!matchesById && !matchesByType && !matchesByBinding) continue;
         out.push({
           creatureType: eff.attack.creatureType,
           strikes: eff.attack.strikes,
