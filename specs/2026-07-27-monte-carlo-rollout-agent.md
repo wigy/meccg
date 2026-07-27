@@ -218,22 +218,41 @@ the real choice is mean vs. median vs. max. Use the **mean with paired seeds**:
 max is optimistically biased by lucky rollouts, and median discards the tail
 information that makes risk posture emergent (H2 §2.1).
 
-## 4. Phasing and kill gates
+## 4. What was built
 
-Each phase is independently useful and has an exit that can fail.
+Implemented and shipped; the signal study (originally proposed as a gate before
+writing any agent) was dropped at the author's direction in favour of a working
+agent to play against.
 
-| Phase | Content | Exit criterion |
-|---|---|---|
-| R0 | `search/rollout.ts` (§3.1) + cycle-guard integration + measured rollout cost per horizon | Harness runs 1000 seeded 2-turn rollouts reproducibly; per-horizon cost table recorded; H2 §6.2 can call it |
-| R1 | `determinizeNull` (§3.2) + reducer-tolerance test | A full game plays out from a null-determinized mid-game state with no engine error; re-projection reproduces the searching player's candidate list, same property `determinize.ts` tests |
-| R2 | Signal study, **before any agent** | On ~50 captured mid-game positions: what fraction of 2-turn random rollouts yield Δ TSD ≠ 0, and what sample size separates the best from the median candidate at p < 0.05? **If that number exceeds the budget from §2.1, stop — the answer is on record and R3 is not built.** |
-| R3 | `mc` agent family (§3.3) with CRN + successive rejection + forced-decision skip | `gate mc:random@2t/N vs random` — must beat the random agent. If it cannot beat *random*, the control is dead |
-| R4 | `mc:h1` and `mc:h1+winprob` ablation | `gate mc:h1@2t/64 vs heuristic` lower bound > 0. This is the only configuration with a plausible path to beating H1 |
-| R5 | Decklist-knowledge ablation | `determinize` vs `determinizeNull` at matched budget, reported as an Elo delta |
+| Module | Contents |
+|---|---|
+| `packages/sim/src/search/determinize-null.ts` | Deck-list-free determinizer. Hidden cards keep their instance id and an injected inert stand-in definition; **sites are the exception** and are sampled from the pool by alignment, because an unplayable site deck freezes the opponent's companies for the whole playout (`unknownSites: 'inert'` restores the literal behaviour). |
+| `packages/sim/src/search/rollout.ts` | Seeded playouts over the real reducer: horizon in turns, pluggable policy, TSD terminal via `computeTournamentScore`, cycle guard, decision cap. |
+| `packages/sim/src/agents/mc-agent.ts` | The agent. Round-robin allocation, common random numbers, candidate cap, heuristic fallback on views the determinizer cannot widen. |
+| `packages/sim/src/cli/common.ts` | `mc` registered in the agent registry. |
+| `packages/text-client/src/ai-client.ts` | `--agent <spec>` so any registry agent can play a real lobby game. |
+| `packages/lobby-server/src/games/launcher.ts` | `MECCG_AI_AGENT` env var selects the agent for lobby AI games. |
 
-R2 is the real decision point and costs almost nothing once R0 exists. It
-answers §2.2 with a measurement instead of a prediction, and it is the cheapest
-place for this idea to fail.
+### 4.1 Two things the build changed about the design
+
+**The candidate cap is not optional.** The first full-game attempt did not
+finish in 15 minutes at `rollouts=2, turns=1`. The cause is §2.1's branching
+factor: work per decision is `candidates × rollouts × playout length`, and this
+run observed a maximum branching of 1027. Candidates are now capped (default 8)
+and ranked by the fallback heuristic's own weights, with its pick always
+retained — so the cap acts as a prior and the search refines a competent
+shortlist rather than an arbitrary prefix. With `candidates=4` a full game
+completes in **178.9 s (10 decisions/sec, 1702 decisions)**.
+
+**Exact candidate preservation does not hold, and cannot.** `determinize.ts`
+asserts that re-projecting a sampled world reproduces the searcher's candidate
+list exactly. That property depends on knowing the searcher's *own* deck list,
+so this determinizer cannot have it: actions the engine offers from the own play
+deck have no counterpart in a world where that deck is sentinels. Measured over
+five seeded games: 180/200 candidate lists matched exactly, and 934/936
+individual candidates still applied. The agent absorbs the rest by skipping any
+candidate a given world rejects, and the test asserts the ≥98% applicability
+rather than a false exactness claim.
 
 ## 5. Relationship to existing work
 
@@ -255,17 +274,38 @@ place for this idea to fail.
   decisions, the value-head failure, the greed result, the no-op loop. Every one
   of them bears on this design.
 
-## 6. Bottom line
+## 6. How to run it
 
-The plumbing is sound and partly missing from the repo — build R0 and R1, which
-pay for themselves through H2 regardless of the agent.
+```sh
+# Self-play, one game (~3 minutes at this budget)
+npm run bench -w @meccg/sim -- --games 1 --agents 'mc:rollouts=2/turns=1/candidates=4',heuristic
 
-The decision rule as specified is not viable: it is ~43× short of its own
-compute requirement, uses a rollout policy that cannot execute this game's
-scoring sequences, a terminal evaluator already measured as harmful, and an
-opponent model that is inert in the phase holding 44% of all decisions. R2
-settles that with one cheap experiment before any agent code is written.
+# Rated match against the heuristic
+npm run gate -w @meccg/sim -- --challenger 'mc:rollouts=4/turns=2' --champion heuristic --games 50
 
-The salvage worth pursuing is the same skeleton with two substitutions — H1 as
-the rollout policy and `W(TSD)` as the terminal value — which is R4, and which
-the R0/R1 work makes nearly free to try.
+# Play it in the lobby (any AI game then uses this agent)
+MECCG_AI_AGENT='mc:ms=2000/turns=2' npm run dev -w @meccg/lobby-server
+```
+
+Parameters are `key=value` separated by `/` — `,` is taken by `--agents`:
+`rollouts`, `turns`, `candidates`, `decisions`, `ms`, `sites`, `fallback`.
+Setting `ms` bounds the wall-clock per decision, which is what makes
+interactive play comfortable, at the cost of reproducibility from a seed.
+
+## 7. Bottom line
+
+It is built and it plays. The strength question is open and is not settled by
+the one self-play game run here (mc won it) — that needs `gate`.
+
+The §2 objections stand and are not fixed by the implementation: the rollout
+policy is still uniform-random and cannot execute this game's multi-step scoring
+sequences (§2.3), the terminal value is still raw TSD, which §2.4 records as
+measured-harmful, and the opponent's hand is still inert in the phase holding
+most decisions (§2.5). The candidate cap partly disguises the third problem by
+leaning on the heuristic's shortlist.
+
+The upgrade path is unchanged and is now cheap, because the seams exist:
+`RolloutOptions.policy` already accepts a non-random policy, so passing the
+heuristic there is a one-line change, and swapping the TSD terminal for
+`W(TSD)` from `specs/2026-07-27-heuristics-2-ai.md` §2.1 is another. Those two
+substitutions are the configuration with a plausible path to beating H1.

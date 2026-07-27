@@ -11,6 +11,8 @@ import { createHeuristicAgent } from '../agents/heuristic-agent.js';
 import { createNoisyHeuristicAgent } from '../agents/noisy-heuristic-agent.js';
 import { createBcAgent } from '../agents/bc-agent.js';
 import { createSearchAgent } from '../agents/search-agent.js';
+import { createMcAgent } from '../agents/mc-agent.js';
+import type { McAgentOptions } from '../agents/mc-agent.js';
 import { loadDeck, listDecks } from '../decks.js';
 import type { LoadedDeck } from '../decks.js';
 
@@ -58,7 +60,52 @@ export function stringFlag(args: CliArgs, name: string): string | undefined {
 }
 
 /** Available agent names for the CLIs. */
-export const AGENT_NAMES = ['random', 'heuristic', 'noisy-heuristic', 'bc', 'search'] as const;
+export const AGENT_NAMES = ['random', 'heuristic', 'noisy-heuristic', 'bc', 'search', 'mc'] as const;
+
+/**
+ * Parses an `mc` spec's `key=value/key=value` parameter list. The
+ * separator is `/` rather than `,` because `--agents` splits agent specs on
+ * commas, so a comma here would tear the spec in half. Unknown keys are an
+ * error rather than a silent no-op, so a typo in a sweep does not quietly
+ * benchmark the default configuration.
+ */
+function parseMcOptions(param: string | undefined): McAgentOptions {
+  if (param === undefined || param.length === 0) return {};
+  const options: {
+    rollouts?: number; horizonTurns?: number; maxDecisions?: number;
+    maxCandidates?: number; timeMs?: number;
+    unknownSites?: 'sample' | 'inert'; fallback?: Agent;
+  } = {};
+  for (const part of param.split('/')) {
+    const eq = part.indexOf('=');
+    if (eq < 0) throw new Error(`mc expects key=value parameters separated by "/", got "${part}"`);
+    const key = part.slice(0, eq).trim();
+    const value = part.slice(eq + 1).trim();
+    const asNumber = (): number => {
+      const n = Number(value);
+      if (!Number.isFinite(n)) throw new Error(`mc ${key} expects a number, got "${value}"`);
+      return n;
+    };
+    switch (key) {
+      case 'rollouts': options.rollouts = asNumber(); break;
+      case 'turns': options.horizonTurns = asNumber(); break;
+      case 'decisions': options.maxDecisions = asNumber(); break;
+      case 'candidates': options.maxCandidates = asNumber(); break;
+      case 'ms': options.timeMs = asNumber(); break;
+      case 'sites':
+        if (value !== 'sample' && value !== 'inert') {
+          throw new Error(`mc sites expects "sample" or "inert", got "${value}"`);
+        }
+        options.unknownSites = value;
+        break;
+      // Nested specs are not supported: the fallback is itself an agent
+      // spec, and allowing commas inside it would break this parser.
+      case 'fallback': options.fallback = resolveAgent(value); break;
+      default: throw new Error(`mc: unknown parameter "${key}" — expected rollouts, turns, decisions, candidates, ms, sites, fallback`);
+    }
+  }
+  return options;
+}
 
 /**
  * Instantiate an agent by registry spec. A spec is a name with an optional
@@ -91,6 +138,11 @@ export function resolveAgent(spec: string): Agent {
       }
       const [deckA, deckB] = (process.env.SIM_SEARCH_DECKS ?? 'challenge-deck-a,challenge-deck-b').split(',');
       return createSearchAgent(weightsPath, { decks: [loadDeck(deckA.trim()), loadDeck(deckB.trim())], sims });
+    }
+    case 'mc': {
+      // Flat Monte-Carlo rollouts over the real engine, no deck lists and
+      // no weights: `mc` or `mc:rollouts=16/turns=2/ms=2000/sites=sample`.
+      return createMcAgent({ ...parseMcOptions(param), name: spec });
     }
     case 'bc': {
       if (param === undefined) throw new Error('bc expects a weights path: bc:path/to/weights.json[@temperature]');

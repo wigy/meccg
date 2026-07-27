@@ -7,27 +7,38 @@
  * actions against the static card pool.
  *
  * Usage: npx tsx ai-client.ts <port> <playerName> <token> --deck <deckId>
- *          [--model <weights.json>]
+ *          [--model <weights.json>] [--agent <spec>]
  *
  * With `--model`, decisions come from a trained policy net (the sim's
  * `bc` agent: argmax over the masked softmax, with the same load-time
  * runtime-parity self-test the training pipeline uses) instead of the
  * heuristic strategy.
+ *
+ * With `--agent`, decisions come from any agent in the sim registry, named
+ * by the same spec the sim CLIs take — for example
+ * `--agent 'mc:ms=2000/turns=2'` to play the flat Monte-Carlo searcher with
+ * a two-second budget per decision. `--agent` wins over `--model`.
  */
 
 import { WebSocket } from 'ws';
 import type { ClientMessage, GameAction, EvaluatedAction, PlayerView } from '@meccg/shared';
 import type { AiContext, WeightedAction } from '@meccg/sim';
 import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers } from '@meccg/shared';
-import { loadAiStrategy, sampleWeighted, createBcAgent } from '@meccg/sim';
+import { loadAiStrategy, sampleWeighted, createBcAgent, resolveAgent } from '@meccg/sim';
 import type { Agent } from '@meccg/sim';
 import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage } from './client-common.js';
 
 const clientArgs = parseSpawnedClientArgs('ai-client');
 
-/** Trained-model agent (Real-AI mode), or null for the heuristic strategy. */
+/**
+ * Agent seam: a registry agent (`--agent`), a trained model (`--model`), or
+ * null to fall through to the heuristic strategy below.
+ */
 let modelAgent: Agent | null = null;
-if (clientArgs.modelPath) {
+if (clientArgs.agentSpec) {
+  modelAgent = resolveAgent(clientArgs.agentSpec);
+  console.log(`AI using agent: ${clientArgs.agentSpec}`);
+} else if (clientArgs.modelPath) {
   modelAgent = createBcAgent(clientArgs.modelPath);
   console.log(`AI using trained model: ${clientArgs.modelPath}`);
 }
@@ -98,7 +109,7 @@ function pickAction(view: PlayerView, actions: readonly GameAction[]): GameActio
       evaluated: view.legalActions,
       random: Math.random,
     });
-    console.log(`AI [${view.phaseState.phase}] model pick${decision.note ? ` (${decision.note})` : ''} of ${actions.length} actions`);
+    console.log(`AI [${view.phaseState.phase}] agent pick${decision.note ? ` (${decision.note})` : ''} of ${actions.length} actions`);
     return decision.action;
   }
   const context: AiContext = { view, cardPool, legalActions: actions };
