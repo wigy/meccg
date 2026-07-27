@@ -368,11 +368,78 @@
     "killMarshallingPoints": 2,
     "starredKillMarshallingPoints": true,
     "race": "man",
-    "keyedTo": [],
+    "manifestId": "tw-126",
+    "certified": "2026-07-27",
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Anduin Vales",
+          "Woodland Realm",
+          "Western Mirkwood",
+          "Wold & Foothills",
+          "High Pass",
+          "Redhorn Gate"
+        ]
+      }
+    ],
     "effects": [
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event",
+        "persistent": true
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "target": "all-in-play",
+        "when": {
+          "$or": [
+            {
+              "reason": "faction-influence-check",
+              "faction.race": "man"
+            },
+            {
+              "reason": "opponent-influence-check",
+              "target.kind": "faction",
+              "target.race": "man"
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       }
     ]
   },
