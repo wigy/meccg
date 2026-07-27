@@ -19,7 +19,7 @@ import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharact
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType, SiteType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { defenderAlignmentLabel } from '../detainment.js';
-import { getEffectiveSiteType } from '../effective.js';
+import { getEffectiveSiteType, siteConstraintFilterMatches, buildSiteFilterContext } from '../effective.js';
 import { isUnderDeepsAdjacent, isDeepMinesSite, isDeepMinesDescentLegal, isDeepMinesAscentLegal, balrogOutHeSprangRegionAllowance } from './organization-companies.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -3266,9 +3266,16 @@ function playHazardsActions(
           if (destSiteDefId) {
             const siteDef = defById(state, destSiteDefId);
             const siteDefName = siteDef?.name ?? (destSiteDefId as string);
-            // Apply play-target filter (e.g. Incite Defenders: border-hold or free-hold)
+            // Apply play-target filter (e.g. Incite Defenders: border-hold or
+            // free-hold) against the shared site context, so a hazard can also
+            // gate on the derived facts the site card does not carry —
+            // `regionType`, `effectiveSiteType`, `isWizardhaven`, `isProtected`
+            // (Nature's Revenge wh-27: "a site in a Wilderness that normally is
+            // a Border-hold or a Shadow-hold, or a non-protected Wizardhaven
+            // in a Wilderness").
             if (playTarget.filter && siteDef && isSiteCard(siteDef)) {
-              if (!matchesDefinition(siteDef, playTarget.filter)) {
+              const siteCtx = buildSiteFilterContext(state, siteDef, destSiteInstanceId);
+              if (!matchesCondition(playTarget.filter, siteCtx)) {
                 logDetail(`Hazard "${def.name}" site filter excludes ${siteDefName}`);
                 actions.push({
                   action: { ...action, targetSiteDefinitionId: destSiteDefId },
@@ -3787,10 +3794,11 @@ function findCreatureKeyingMatches(
     : null;
   const effectiveSiteTypes: import('../../types/common.js').SiteType[] = [];
   if (mhState.destinationSiteType) effectiveSiteTypes.push(mhState.destinationSiteType);
+  const destSiteDefName = destSiteDefId ? defById(state, destSiteDefId)?.name : undefined;
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
-    const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
-    if (destSiteDefId === null || filterSiteDefId !== (destSiteDefId as string)) continue;
+    if (destSiteDefId === null) continue;
+    if (!siteConstraintFilterMatches(c.kind.filter, destSiteDefId, destSiteDefName)) continue;
     const overrideType = c.kind.value as import('../../types/common.js').SiteType;
     if (!effectiveSiteTypes.includes(overrideType)) {
       effectiveSiteTypes.push(overrideType);

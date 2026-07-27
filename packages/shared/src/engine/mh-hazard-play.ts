@@ -50,6 +50,7 @@ import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { computeCandidateRegionPaths } from './region-keying.js';
+import { siteConstraintFilterMatches } from './effective.js';
 import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter } from './mh-agents.js';
 
 /**
@@ -2525,8 +2526,8 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   if (mhState.destinationSiteType) effectiveSiteTypes.push(mhState.destinationSiteType);
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
-    const filterSiteDefId = (c.kind.filter as { 'site.definitionId'?: string } | undefined)?.['site.definitionId'];
-    if (!destSiteCard || filterSiteDefId !== (destSiteCard.id as string)) continue;
+    if (!destSiteCard) continue;
+    if (!siteConstraintFilterMatches(c.kind.filter, destSiteCard.id, destSiteCard.name)) continue;
     const overrideType = c.kind.value as import('../types/common.js').SiteType;
     if (!effectiveSiteTypes.includes(overrideType)) effectiveSiteTypes.push(overrideType);
   }
