@@ -11442,3 +11442,89 @@ at least one Wilderness [{w}] in their site path)":
   carries `{ "target.cardType": "minion-character" }` for its "by minions"
   clause; Shifter of Hues omits it, aiding "the characters in one company"
   wholesale.
+
+### 68. `site-phase-start-attack` + `company-movement-roll` (Siege)
+
+The two ongoing rules of a card that **besieges a site**: a card in play bound
+to a site location (`CardInPlay.attachedToSite`, established by
+`play-target: { target: "site" }`) that punishes every company standing there.
+Both effects are read off the bound card by `siteStartOfPhaseAttacks` /
+`siteMovementRolls` (`reducer-utils.ts`), which scan **both** players'
+`cardsInPlay` for a non-`pendingTriggerAttack` card whose `attachedToSite`
+matches the queried site definition.
+
+#### `site-phase-start-attack`
+
+The company faces the given attack **at the beginning of its site phase** —
+before the enter-or-skip decision, so doing nothing at the site does not avoid
+it. This is what distinguishes it from a site automatic-attack (avoidable by
+skipping the site) and from `permanent-event-auto-attack` (which augments the
+printed attack list of a whole class of sites).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `attack.creatureType` | yes | Creature type, normalized to a race for combat. |
+| `attack.strikes` | yes | Number of strikes. |
+| `attack.prowess` | yes | Strike prowess. |
+| `attack.body` | no | Creature body (omit for "no body", i.e. auto-defeated on a win). |
+
+```json
+{ "type": "site-phase-start-attack",
+  "attack": { "creatureType": "Orcs", "strikes": 3, "prowess": 7 } }
+```
+
+Behaviour: `handleSiteSelectCompany` (`reducer-site.ts`) collects the sieges on
+the selected company's current site and, when any exist, enters the new
+`siege-attacks` site sub-step instead of `enter-or-skip`, initiating the first
+attack. `handleSiteSiegeAttacks` sequences the rest one per `pass` (mirroring
+`automatic-attacks` / `troll-purse-attacks`) and hands control to
+`enter-or-skip` when all are faced; a company wiped out mid-sequence finishes
+its slot through `finishDissolvedCompanySlot`. The combat carries a
+`siege-attack` {@link AttackSource} and is deliberately **not** an
+automatic-attack: `detainment` is false, no auto-attack prowess/duplicate
+constraint applies, and the home-site tap-to-cancel option is not offered.
+Global race-keyed attack modifiers still resolve through `resolveAttack*`.
+Combat finalization disposes of nothing — the besieging card stays in play
+until its bound site leaves play.
+
+#### `company-movement-roll`
+
+At the **end of the controller's organization phase** each of that player's
+companies standing at the besieged site rolls to keep its movement.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `threshold` | yes | The company may move when the modified 2d6 total is ≥ this. |
+| `penaltyPerCharacterWithoutSkill` | yes | Skill a character must have to avoid the penalty. |
+| `penalty` | no | Roll penalty per character lacking the skill (default 1). |
+
+```json
+{ "type": "company-movement-roll", "threshold": 5,
+  "penaltyPerCharacterWithoutSkill": "scout", "penalty": 1 }
+```
+
+Behaviour: `handleOrganizationPass` (`reducer-organization.ts`) enqueues one
+generic `dice-check` resolution per besieged company after the phase transition,
+scoped to the following long-event phase — pending resolutions outrank phase
+actions, so the rolls are resolved before anything else can happen. The penalty
+is a `constant` modifier computed at enqueue from `getEffectiveSkills` (company
+membership cannot change in between). Failing the check runs the new
+`lock-company-movement` `dice-check` verb (`pending-reducers.ts`), which uses
+the extracted `clearPlannedMovement` helper to drop the company's declared
+destination (returning the site card to its location deck) and installs a
+turn-scoped `company-cannot-move` constraint — the same constraint Hide in Dark
+Places (le-192) uses, so a fresh declaration is barred too. The verb reads the
+company from the new `dice-check` field `targetCompanyId`.
+
+Used by Siege (tw-87): "Playable on a Border-hold [{B}] or Free-hold [{F}] site.
+A company at this site must face an Orc attack of three strikes at 7 prowess at
+the beginning of its site phase. At the end of its organization phase, a company
+at a site with Siege on it must make a roll and subtract one from the result for
+every non-scout character it contains. If this result is less than 5, the
+company may not move this turn. Discard when the site card is discarded or when
+the site card is returned to the location deck. Cannot be duplicated on a given
+site." The discard clause is the shared site-attached orphan sweep
+(`discardOrphanedSiteAttachedEvents`), which now also counts a company's
+declared `destinationSite` as occupying that site location — otherwise a
+site-targeting hazard played during the M/H phase would be swept before the
+company it targets ever arrives.

@@ -349,6 +349,8 @@ export interface PendingResolution {
         readonly targetCharacterId?: CardInstanceId;
         /** Instance the onPass/onFail verbs act on (muster faction, glamour hazard, cvcc ally). */
         readonly targetInstanceId?: CardInstanceId;
+        /** Company the onPass/onFail verbs act on (`lock-company-movement`, Siege tw-87). */
+        readonly targetCompanyId?: CompanyId;
       }
     | {
         /**
