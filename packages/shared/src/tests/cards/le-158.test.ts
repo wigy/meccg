@@ -32,7 +32,7 @@ import {
   viableActions, companyIdAt, dispatch,
   makeMHState, expectInDiscardPile,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, CardStatus } from '../../index.js';
+import { computeLegalActions, Phase, CardStatus, Race } from '../../index.js';
 import type { CardDefinitionId, CardInstance, CardInstanceId, CombatState, CancelAttackAction, InfluenceAttemptAction, PlayHeroResourceAction, GameState } from '../../index.js';
 
 const WARG_KING = 'le-158' as CardDefinitionId;
@@ -66,7 +66,7 @@ const CAVE_DRAKE = 'tw-082' as CardDefinitionId;          // race "drake" (contr
 function setupCombat(
   state: GameState,
   creatureDefId: CardDefinitionId,
-  creatureRace: string,
+  creatureRace: Race,
 ): GameState {
   const creatureInstanceId = `creature-${creatureRace}-1` as CardInstanceId;
   const creatureCard: CardInstance = { instanceId: creatureInstanceId, definitionId: creatureDefId };
@@ -182,7 +182,7 @@ describe('The Warg-king (le-158)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, WARG_KING);
-    const combatState = setupCombat(withAlly, DIRE_WOLVES, 'wolf');
+    const combatState = setupCombat(withAlly, DIRE_WOLVES, Race.Wolf);
 
     expect(combatState.combat).not.toBeNull();
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
@@ -207,7 +207,7 @@ describe('The Warg-king (le-158)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, WARG_KING);
-    const combatState = setupCombat(withAlly, WATCHER_IN_THE_WATER, 'animal');
+    const combatState = setupCombat(withAlly, WATCHER_IN_THE_WATER, Race.Animal);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
@@ -224,7 +224,7 @@ describe('The Warg-king (le-158)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, WARG_KING);
-    const combatState = setupCombat(withAlly, CAVE_DRAKE, 'drake');
+    const combatState = setupCombat(withAlly, CAVE_DRAKE, Race.Drake);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
@@ -258,7 +258,7 @@ describe('The Warg-king (le-158)', () => {
       ] as unknown as typeof withAlly.players,
     };
 
-    const combatState = setupCombat(withAlly, DIRE_WOLVES, 'wolf');
+    const combatState = setupCombat(withAlly, DIRE_WOLVES, Race.Wolf);
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
   });
@@ -274,7 +274,7 @@ describe('The Warg-king (le-158)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, WARG_KING);
-    const combatState = setupCombat(withAlly, DIRE_WOLVES, 'wolf');
+    const combatState = setupCombat(withAlly, DIRE_WOLVES, Race.Wolf);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);

@@ -434,6 +434,53 @@ long-event: "All offering attempts and influence attempts are modified by -3."
 { "type": "check-modifier", "check": ["influence", "offering"], "value": -3, "target": "all-in-play" }
 ```
 
+### `nullify-influence-modifications` — strip every card modifier from influence attempts
+
+`{ "type": "nullify-influence-modifications" }` is a game-wide environment
+effect carried by a bare in-play event. While one is in play in **either**
+player's `cardsInPlay`, `influenceModificationsNullified` (`reducer-utils.ts`)
+reports true and every influence-check computation in the engine collapses to
+the printed target value plus the two contributions the card spares. Used by
+Webs of Fear & Treachery (le-150), a hazard long-event: "Except for unused
+general influence and unused normal direct influence (including influence
+modifications given in a character's card text), all modifications to each
+influence attempt are reduced to zero."
+
+**Survives the nullification:** the 2d6 roll(s) and the printed target value (a
+faction's influence #, a target's mind, an in-play faction's influence #);
+unused **general** influence (including a `generalInfluenceSubstitution`
+override, which yields exactly that); unused **normal** direct influence —
+computed by `normalUnusedDI` (`legal-actions/organization.ts`) as the
+influencer's *printed* `directInfluence` plus the `direct-influence`
+`stat-modifier` effects on his **own card** (the `sourceInstance ===
+<influencer>` slice of `collectCharacterEffects`), minus his followers' mind
+cost, deliberately **not** read off `effectiveStats.directInfluence`; and
+rules-level modifications — the cross-alignment penalty and the rule 10.14
+agent home-site bonuses. The defender's roll in an opponent-influence attempt
+is untouched (Alfano, Worlds 2009).
+
+**Reduced to zero:** every other card-sourced modification — influence
+`check-modifier` and `direct-influence` `stat-modifier` effects from items,
+attached hazards, allies, `player-in-play` and `all-in-play` events; a faction
+card's own printed "Standard Modifications"; one-shot influence
+`check-modifier` constraints (Muster, `prowessSubstitution`, the
+opponent-influence boosters), which are still **consumed** by the attempt but
+worth 0; player-, site- and game-wide influence constraints
+(`influence-at-site-modifier`, `site-lock` faction modifiers);
+`faction-influence-restriction` environments; the Prophet of Doom region
+penalty; and paid `influence-modification` bonuses (which are also no longer
+offered, so no item is discarded for nothing).
+
+The flag is consulted at every influence site: `legal-actions/site.ts` (the
+faction-influence need and the opponent-influence display), `legal-actions/
+pending.ts` (paused faction-influence roll), `reducer-site.ts` (faction roll
+resolver and opponent-influence attempt) and `mh-agents.ts` (rule 10.14 agent
+attempt).
+
+```json
+{ "type": "nullify-influence-modifications" }
+```
+
 ### `auto-influence-faction` — no-check influence of a named faction
 
 `{ "type": "auto-influence-faction", "faction": "<Faction Name>" }` grants the

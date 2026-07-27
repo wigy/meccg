@@ -9,7 +9,7 @@
  * assignment, resolution, support, and body checks.
  */
 
-import type { PlayerId, CardInstanceId, CardDefinitionId, CompanyId, MovementType } from './common.js';
+import type { PlayerId, CardInstanceId, CardDefinitionId, CompanyId, MovementType, Race } from './common.js';
 
 /**
  * Select which company resolves its movement/hazard sub-phase next.
@@ -126,7 +126,7 @@ export interface PlayHazardAction {
    * For hazard short-events with a creature-race-choice effect (e.g. Two
    * or Three Tribes Present), the race the player announced when playing.
    */
-  readonly chosenCreatureRace?: string;
+  readonly chosenCreatureRace?: Race;
   /**
    * For hazard short-events that tap an agent at the target company's new
    * site (e.g. An Article Missing dm-43, Cunning Foes dm-50), the agent

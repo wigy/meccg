@@ -32,7 +32,7 @@ import {
   findCharInstanceId, findHandCardId, companyIdAt, setCharStatus,
   viableActions, dispatch,
 } from '../test-helpers.js';
-import { Phase, Alignment, RegionType, SiteType, computeLegalActions, CardStatus } from '../../index.js';
+import { Phase, Alignment, RegionType, SiteType, Race, computeLegalActions, CardStatus } from '../../index.js';
 import type { CardDefinitionId, GameState, PlayPermanentEventAction, CancelAttackAction } from '../../index.js';
 
 const NO_NEWS = 'le-211' as CardDefinitionId;
@@ -292,7 +292,7 @@ describe('No News of Our Riding (le-211)', () => {
 
   /** Minion company with the card borne by Luitprand, stopped in a cancel window. */
   function cancelWindow(opts: {
-    creatureRace: string;
+    creatureRace: Race;
     creatureDefId: CardDefinitionId;
     bearerTapped?: boolean;
     attackSourceType?: 'creature' | 'on-guard-creature' | 'automatic-attack';
@@ -314,7 +314,7 @@ describe('No News of Our Riding (le-211)', () => {
   }
 
   test('the bearer taps to cancel a Man hazard creature attack', () => {
-    const state = cancelWindow({ creatureRace: 'man', creatureDefId: ABDUCTOR });
+    const state = cancelWindow({ creatureRace: Race.Man, creatureDefId: ABDUCTOR });
     const noNews = noNewsOn(state, LUITPRAND)!;
 
     const cancels = viableActions(state, PLAYER_1, 'cancel-attack');
@@ -330,36 +330,36 @@ describe('No News of Our Riding (le-211)', () => {
   });
 
   test('the bearer may cancel Elf and Dúnadan creature attacks too', () => {
-    for (const race of ['elf', 'dunadan']) {
+    for (const race of [Race.Elf, Race.Dunadan]) {
       const state = cancelWindow({ creatureRace: race, creatureDefId: ELF_LORD });
       expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
     }
   });
 
   test('no cancel is offered against an Orc attack', () => {
-    const state = cancelWindow({ creatureRace: 'orc', creatureDefId: ORC_LIEUTENANT });
+    const state = cancelWindow({ creatureRace: Race.Orc, creatureDefId: ORC_LIEUTENANT });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('no cancel is offered against a site automatic-attack (not a hazard creature)', () => {
-    const state = cancelWindow({ creatureRace: 'man', creatureDefId: ABDUCTOR, attackSourceType: 'automatic-attack' });
+    const state = cancelWindow({ creatureRace: Race.Man, creatureDefId: ABDUCTOR, attackSourceType: 'automatic-attack' });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('an on-guard creature attack of a matching race can be canceled', () => {
-    const state = cancelWindow({ creatureRace: 'man', creatureDefId: ABDUCTOR, attackSourceType: 'on-guard-creature' });
+    const state = cancelWindow({ creatureRace: Race.Man, creatureDefId: ABDUCTOR, attackSourceType: 'on-guard-creature' });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
   });
 
   test('no cancel is offered while the bearer is tapped', () => {
-    const state = cancelWindow({ creatureRace: 'man', creatureDefId: ABDUCTOR, bearerTapped: true });
+    const state = cancelWindow({ creatureRace: Race.Man, creatureDefId: ABDUCTOR, bearerTapped: true });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('the card in hand grants no cancel — it must be in play', () => {
     const base = mhBase({ characters: [REN_RW, LUITPRAND], hand: [NO_NEWS] });
     const state = makeCancelWindowCombat(base, {
-      creatureDefId: ABDUCTOR, creatureRace: 'man', attackSourceType: 'creature',
+      creatureDefId: ABDUCTOR, creatureRace: Race.Man, attackSourceType: 'creature',
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });

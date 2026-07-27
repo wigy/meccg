@@ -41,7 +41,7 @@ import {
   dispatch, getCharacter, actionAs, CardStatus,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CharacterCard, GameConfig, ActivateGrantedAction, GameState } from '../../index.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import { computeCombatProwess } from '../../engine/recompute-derived.js';
 
 const BURAT = 'as-1' as CardDefinitionId;
@@ -195,7 +195,7 @@ describe('Bûrat (as-1)', () => {
     const burat = state.players[RESOURCE_PLAYER].characters[buratId];
     const buratDef = state.cardPool[burat.definitionId] as CharacterCard;
 
-    expect(computeCombatProwess(state, burat, buratDef, 'dwarf')).toBe(buratDef.prowess + 1);
+    expect(computeCombatProwess(state, burat, buratDef, Race.Dwarf)).toBe(buratDef.prowess + 1);
   });
 
   test('no prowess bonus against non-Dwarf enemies', () => {
@@ -224,9 +224,9 @@ describe('Bûrat (as-1)', () => {
     const burat = state.players[RESOURCE_PLAYER].characters[buratId];
     const buratDef = state.cardPool[burat.definitionId] as CharacterCard;
 
-    expect(computeCombatProwess(state, burat, buratDef, 'orc')).toBe(buratDef.prowess);
-    expect(computeCombatProwess(state, burat, buratDef, 'elf')).toBe(buratDef.prowess);
-    expect(computeCombatProwess(state, burat, buratDef, 'troll')).toBe(buratDef.prowess);
+    expect(computeCombatProwess(state, burat, buratDef, Race.Orc)).toBe(buratDef.prowess);
+    expect(computeCombatProwess(state, burat, buratDef, Race.Elf)).toBe(buratDef.prowess);
+    expect(computeCombatProwess(state, burat, buratDef, Race.Troll)).toBe(buratDef.prowess);
   });
 
   // ── Effect 5: tap Bûrat to untap Tûma or Wûluag ──────────────────────────────

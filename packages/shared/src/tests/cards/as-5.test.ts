@@ -32,7 +32,7 @@ import {
   findCharInstanceId, getCharacter, dispatch, actionAs,
   CardStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { Phase, Alignment, computeLegalActions } from '../../index.js';
+import { Phase, Alignment, computeLegalActions, Race } from '../../index.js';
 import type { CardDefinitionId, ActivateGrantedAction, GameState } from '../../index.js';
 import { resolveCombatProwessBonus } from '../../engine/effects/index.js';
 
@@ -66,7 +66,7 @@ describe('Tûma (as-5)', () => {
     });
 
     const tumaChar = getCharacter(state, RESOURCE_PLAYER, TUMA);
-    const dwarfEnemy = { race: 'dwarf', name: 'Gimli', prowess: 5, body: 9 };
+    const dwarfEnemy = { race: Race.Dwarf, name: 'Gimli', prowess: 5, body: 9 };
     expect(resolveCombatProwessBonus(state, tumaChar, dwarfEnemy, [])).toBe(1);
   });
 
@@ -88,7 +88,7 @@ describe('Tûma (as-5)', () => {
     });
 
     const tumaChar = getCharacter(state, RESOURCE_PLAYER, TUMA);
-    const orcEnemy = { race: 'orc', name: 'Gorbag', prowess: 5, body: 7 };
+    const orcEnemy = { race: Race.Orc, name: 'Gorbag', prowess: 5, body: 7 };
     expect(resolveCombatProwessBonus(state, tumaChar, orcEnemy, [])).toBe(0);
   });
 

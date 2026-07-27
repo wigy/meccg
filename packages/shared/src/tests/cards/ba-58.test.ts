@@ -56,6 +56,7 @@ import {
   companyIdAt, addP2CardsInPlay, makeBodyCheckCombat, makeShadowMHState, findInPile,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CardInPlay, GameState } from '../../index.js';
+import { Race } from '../../index.js';
 
 // ── Local card-ID constants ───────────────────────────────────────────────────
 
@@ -232,7 +233,7 @@ describe('Flame of Udûn (ba-58)', () => {
         bodyCheckTarget: 'creature',
         result: 'success', // the Balrog parried this strike
         creatureBody: 8,
-        creatureRace: 'orc',
+        creatureRace: Race.Orc,
         attackSource: { type: 'creature', instanceId: creatureId },
       });
       return { state: { ...state, phaseState: makeShadowMHState(), combat }, creatureId };

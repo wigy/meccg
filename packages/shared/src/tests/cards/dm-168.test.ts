@@ -37,7 +37,7 @@ import {
   ARAGORN, GIMLI, MORIA, MINAS_TIRITH,
   Phase,
 } from '../test-helpers.js';
-import { MovementType } from '../../types/common.js';
+import { MovementType, Race } from '../../types/common.js';
 import { computeLegalActions } from '../../index.js';
 import type { CardDefinitionId, MovementHazardPhaseState, ModifyAttackAction } from '../../index.js';
 
@@ -120,7 +120,7 @@ describe('Dwarven Light-stone (dm-168)', () => {
 
   // ─── Rule 3: Tap to modify by -2 the prowess of one Orc or Troll attack ───
 
-  function combatVs(race: string, opts: { weaponsIneffective?: boolean; source?: 'creature' | 'automatic-attack' } = {}) {
+  function combatVs(race: Race, opts: { weaponsIneffective?: boolean; source?: 'creature' | 'automatic-attack' } = {}) {
     let base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -144,7 +144,7 @@ describe('Dwarven Light-stone (dm-168)', () => {
   }
 
   test('modify-attack IS available against an Orc attack', () => {
-    const state = combatVs('orc');
+    const state = combatVs(Race.Orc);
     const acts = viableActions(state, PLAYER_1, 'modify-attack');
     expect(acts).toHaveLength(1);
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
@@ -152,12 +152,12 @@ describe('Dwarven Light-stone (dm-168)', () => {
   });
 
   test('modify-attack IS available against a Troll attack', () => {
-    const state = combatVs('troll');
+    const state = combatVs(Race.Troll);
     expect(viableActions(state, PLAYER_1, 'modify-attack')).toHaveLength(1);
   });
 
   test('executing modify-attack against an Orc attack lowers prowess by 2 and taps the stone', () => {
-    const state = combatVs('orc');
+    const state = combatVs(Race.Orc);
     const acts = viableActions(state, PLAYER_1, 'modify-attack');
     expect(acts).toHaveLength(1);
 
@@ -179,7 +179,7 @@ describe('Dwarven Light-stone (dm-168)', () => {
   test('modify-attack IS available against a non-Orc/Troll attack when weapons do not modify prowess', () => {
     // A Lava-Flow-style attack (race not Orc/Troll) that carries the
     // weapons-ineffective flag — the second OR branch of the gate.
-    const state = combatVs('undead', { weaponsIneffective: true, source: 'automatic-attack' });
+    const state = combatVs(Race.Undead, { weaponsIneffective: true, source: 'automatic-attack' });
     const acts = viableActions(state, PLAYER_1, 'modify-attack');
     expect(acts).toHaveLength(1);
 
@@ -190,19 +190,19 @@ describe('Dwarven Light-stone (dm-168)', () => {
   // ─── Negative: neither Orc/Troll nor weapons-ineffective ──────────────────
 
   test('modify-attack is NOT available against an ordinary non-Orc/Troll attack (Wolves)', () => {
-    const state = combatVs('wolf');
+    const state = combatVs(Race.Wolf);
     expect(viableActions(state, PLAYER_1, 'modify-attack')).toHaveLength(0);
   });
 
   test('modify-attack is NOT available against a non-Orc/Troll attack that does not carry the weapons-ineffective flag', () => {
     // Same race as the weapons-ineffective case, but without the flag → the
     // gate must reject it (proves the flag is what enables branch 4).
-    const state = combatVs('undead', { source: 'automatic-attack' });
+    const state = combatVs(Race.Undead, { source: 'automatic-attack' });
     expect(viableActions(state, PLAYER_1, 'modify-attack')).toHaveLength(0);
   });
 
   test('modify-attack is NOT available when the Light-stone is already tapped', () => {
-    const state = combatVs('orc');
+    const state = combatVs(Race.Orc);
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const char = state.players[RESOURCE_PLAYER].characters[aragornId];
     const tapped = {
