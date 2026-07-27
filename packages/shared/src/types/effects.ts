@@ -3915,6 +3915,17 @@ export interface PlayWindowEffect extends EffectBase {
    * the phase restriction; both must be satisfied. Uses {@link SiteType} values.
    */
   readonly siteTypes?: readonly string[];
+  /**
+   * Optional attack filter for a `phase: "combat"` window. Evaluated against
+   * the just-faced attack's context — `{ enemy: { race }, attack: { source } }`
+   * — using the same discriminators as a `cancel-attack` `when` clause.
+   *
+   * Used with `step: "after-attack"` by resource permanent-events whose text
+   * reads "Playable … immediately after his company faces a <race> hazard
+   * creature" (No News of Our Riding le-211): the card is offered only while
+   * the ended attack matches.
+   */
+  readonly when?: Condition;
 }
 
 /**
