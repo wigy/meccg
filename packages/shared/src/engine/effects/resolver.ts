@@ -1494,6 +1494,11 @@ export function resolveEnemyBody(
  * is the name of the character's current site. This supports conditions
  * like Elrond's "+1 hand size when at Rivendell".
  *
+ * The bearer context additionally carries the player's `stagePoints` total, so
+ * a card attached to a character can tier its modifier by how far along its
+ * Fallen-wizard bearer is — Cruel Claw Perceived (wh-16) reduces the
+ * Fallen-wizard's hand size by 1 above 10 SPs and by 1 more above 20.
+ *
  * @param state - The full game state.
  * @param playerIndex - Which player (0 or 1) to compute for.
  * @returns The effective hand size (base + all matching modifiers).
@@ -1530,7 +1535,7 @@ export function resolveHandSize(state: GameState, playerIndex: number): number {
       const context: ResolverContext = {
         reason: 'hand-size',
         self: { location: siteName, atDarkhaven },
-        bearer: buildBearerContext(charDef),
+        bearer: { ...buildBearerContext(charDef), stagePoints: player.stagePoints },
       };
 
       // Collect effects from this character and their items

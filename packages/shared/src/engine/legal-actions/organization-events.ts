@@ -26,7 +26,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, siteRegionTypeOf, matchesCompanyContextCondition, isCompanyEventPlayProhibited, characterHomeSiteTypes } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -114,6 +114,19 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // (e.g. Wizard's Myrmidon wh-84) must not be offered during the
     // movement/hazard phase, where this function is also consulted under the
     // general "any phase" allowance of rule 2.1.1.
+    // A permanent-event that declares its own `play-window` is offered only in
+    // that window. No News of Our Riding (le-211) declares the after-attack
+    // combat window (`phase: "combat"`, `step: "after-attack"`) and is offered
+    // solely by the `post-attack-play-offer` resolution — never here, in any
+    // phase this emitter is consulted for.
+    const playWindow = getCardEffects(def).find(
+      (e): e is import('../../types/effects.js').PlayWindowEffect => e.type === 'play-window',
+    );
+    if (playWindow && playWindow.phase !== state.phaseState.phase) {
+      logDetail(`Permanent event ${def.name}: play-window restricts it to the ${playWindow.phase} phase (current ${state.phaseState.phase})`);
+      continue;
+    }
+
     const isStageResource = (def as { alignment?: string }).alignment === 'stage';
     if (isStageResource && state.phaseState.phase !== Phase.Organization) {
       logDetail(`Stage permanent-event ${def.name}: only playable during the organization phase (current phase ${state.phaseState.phase})`);
@@ -208,6 +221,28 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play condition not met`));
         continue;
       }
+    }
+
+    // play-condition: card-in-play — one or more named cards must already be in
+    // the **playing player's own** play area (attachment-aware: `cardsInPlay`,
+    // his characters, and the items/hazards they bear, so a stage
+    // permanent-event placed "on the avatar" counts). An opponent's copy never
+    // satisfies "if <card> is in play" on a resource permanent-event, mirroring
+    // the faction gate in `legal-actions/site.ts`. Every such condition is
+    // checked, so a card may require several named cards at once. Used by
+    // Oromë's Warders (wh-94): "Playable on Alatar if Join the Hunt is in play."
+    const cardInPlayConditions = findPlayConditionEffects(def, 'card-in-play');
+    let missingRequiredCard: string | undefined;
+    for (const cond of cardInPlayConditions) {
+      if (cond.cardName && !isCardNameInPlayForPlayer(state, player, cond.cardName)) {
+        missingRequiredCard = cond.cardName;
+        break;
+      }
+    }
+    if (missingRequiredCard) {
+      logDetail(`Permanent event ${def.name}: play-condition card-in-play requires ${missingRequiredCard} in play`);
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name} requires ${missingRequiredCard} in play`));
+      continue;
     }
 
     // Wizard's Trove (wh-85) family: `play-with-stored-card` /

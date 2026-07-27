@@ -55,6 +55,7 @@ import {
   applyTransferReturnedItemResolution,
   applyGreatHuntSourceResolution,
   applyGreatHuntDiscardAttackResolution,
+  applyPostAttackPlayOfferResolution,
 } from './pending-reducers.js';
 import {
   corruptionCheckActions,
@@ -86,6 +87,7 @@ import {
   transferReturnedItemActions,
   greatHuntSourceActions,
   greatHuntDiscardAttackActions,
+  postAttackPlayOfferActions,
 } from './legal-actions/pending.js';
 
 /** The discriminant of every {@link PendingResolution} kind. */
@@ -145,6 +147,7 @@ export const PENDING_HANDLERS: { readonly [K in PendingKindType]: PendingHandler
   'transfer-returned-item': { legalActions: transferReturnedItemActions, apply: applyTransferReturnedItemResolution },
   'great-hunt-source': { legalActions: greatHuntSourceActions, apply: applyGreatHuntSourceResolution },
   'great-hunt-discard-attack': { legalActions: greatHuntDiscardAttackActions, apply: applyGreatHuntDiscardAttackResolution },
+  'post-attack-play-offer': { legalActions: postAttackPlayOfferActions, apply: applyPostAttackPlayOfferResolution },
 };
 
 /**

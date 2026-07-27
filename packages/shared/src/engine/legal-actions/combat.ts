@@ -558,7 +558,15 @@ function assignStrikeActions(
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
         continue;
       }
-      if (combat.excludeAvatarStrikes) {
+      // A forced-strike target overrides the avatar exclusion for the same
+      // reason it overrides the status gate: the character must face a strike
+      // "regardless of any conflicting effects", and the player opted into
+      // that when joining the attack. Without this, Alatar's haven-join
+      // (wh-1) into a Neeker-breekers attack (`excludeAvatarStrikes`) left the
+      // forced target unassignable while `restrictToForced` blocked every
+      // other character and forbade passing — zero legal actions for either
+      // player (decks b/c, seed 424243).
+      if (combat.excludeAvatarStrikes && !isForcedTarget) {
         const defId = charData.definitionId;
         const def = defId ? defById(state, defId) : undefined;
         if (isAvatarCharacter(def)) {
@@ -640,13 +648,16 @@ function assignStrikeActions(
       }
     }
 
-    // Defender may pass only when no forced-strike target is still unassigned.
+    // Defender may pass only when no forced-strike target is still unassigned
+    // — unless the forced target turned out to be unassignable, in which case
+    // withholding pass would leave no legal action at all. Every branch must
+    // always offer something the reducer accepts.
     if (!restrictToForced) {
       logDetail(`Defender can pass (${strikesRemaining} strike(s) remaining)`);
-      actions.push({
-        action: { type: 'pass', player: playerId },
-        viable: true,
-      });
+      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+    } else if (actions.length === 0) {
+      logDetail('Defender cannot assign the forced-strike target and has no other option — offering pass');
+      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
     } else {
       logDetail(`Defender cannot pass: forced-strike target(s) still unassigned`);
     }
