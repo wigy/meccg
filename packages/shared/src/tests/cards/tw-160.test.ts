@@ -35,7 +35,7 @@ import {
   getCharacter, RESOURCE_PLAYER,
   makeSingleCharCombatState, executeAction,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase } from '../../index.js';
+import { computeLegalActions, Phase, Race } from '../../index.js';
 import type { CardDefinitionId, CharacterCard, InfluenceAttemptAction } from '../../index.js';
 
 const GLOIN = 'tw-160' as CardDefinitionId;
@@ -157,7 +157,7 @@ describe('Glóin (tw-160)', () => {
     // Without the bonus: 5 - 3 = 2. Roll 7: 2 + 7 = 9, not > 9 → wounded.
     const ready = makeSingleCharCombatState({
       heroDefId: GLOIN,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       creatureProwess: 9,
       creatureBody: 5,
     });
@@ -174,7 +174,7 @@ describe('Glóin (tw-160)', () => {
     // Roll 7: 2 + 7 = 9 = undead prowess 9, not > 9 → Glóin is wounded.
     const ready = makeSingleCharCombatState({
       heroDefId: GLOIN,
-      creatureRace: 'undead',
+      creatureRace: Race.Undead,
       creatureProwess: 9,
       creatureBody: 5,
     });

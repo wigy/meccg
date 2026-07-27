@@ -29,6 +29,7 @@ import {
 } from '../test-helpers.js';
 import { computeCombatProwess } from '../../engine/recompute-derived.js';
 import type { CardDefinitionId, CharacterCard } from '../../index.js';
+import { Race } from '../../index.js';
 
 const GILDOR_INGLORION = 'tw-158' as CardDefinitionId;
 
@@ -55,7 +56,7 @@ describe('Gildor Inglorion (tw-158)', () => {
     const gildor = state.players[RESOURCE_PLAYER].characters[gildorId];
     const gildorDef = pool[GILDOR_INGLORION as string] as CharacterCard;
 
-    const prowessVsOrc = computeCombatProwess(state, gildor, gildorDef, 'orc');
+    const prowessVsOrc = computeCombatProwess(state, gildor, gildorDef, Race.Orc);
     // Base prowess 5 + 2 bonus = 7
     expect(prowessVsOrc).toBe(gildorDef.prowess + 2);
   });
@@ -66,8 +67,8 @@ describe('Gildor Inglorion (tw-158)', () => {
     const gildor = state.players[RESOURCE_PLAYER].characters[gildorId];
     const gildorDef = pool[GILDOR_INGLORION as string] as CharacterCard;
 
-    expect(computeCombatProwess(state, gildor, gildorDef, 'troll')).toBe(gildorDef.prowess);
-    expect(computeCombatProwess(state, gildor, gildorDef, 'undead')).toBe(gildorDef.prowess);
-    expect(computeCombatProwess(state, gildor, gildorDef, 'ringwraith')).toBe(gildorDef.prowess);
+    expect(computeCombatProwess(state, gildor, gildorDef, Race.Troll)).toBe(gildorDef.prowess);
+    expect(computeCombatProwess(state, gildor, gildorDef, Race.Undead)).toBe(gildorDef.prowess);
+    expect(computeCombatProwess(state, gildor, gildorDef, Race.Ringwraith)).toBe(gildorDef.prowess);
   });
 });

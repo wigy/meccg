@@ -14,7 +14,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { Phase } from '../../../index.js';
+import { Phase, Race } from '../../../index.js';
 import type { CardInstanceId, CombatState } from '../../../index.js';
 import {
   buildTestState, resetMint, dispatch, viableActions, executeAction,
@@ -69,7 +69,7 @@ describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
       strikesTotal: 1,
       strikeProwess: 99, // unwinnable — Aragorn is wounded
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',

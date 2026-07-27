@@ -9,7 +9,8 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "animal,man,bear",
+    "race": "animal",
+    "additionalRaces": ["man", "bear"],
     "keyedTo": [
       {
         "regionTypes": [

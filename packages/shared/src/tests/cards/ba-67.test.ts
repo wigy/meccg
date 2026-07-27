@@ -48,7 +48,7 @@ import {
   charIdAt,
   Alignment, Phase,
 } from '../test-helpers.js';
-import { CardStatus } from '../../index.js';
+import { CardStatus, Race } from '../../index.js';
 import { RegionType } from '../../types/common.js';
 import { endCompanyMH } from '../../engine/mh-hazard-play.js';
 import { discardOrphanedConvertedAllyEvents } from '../../engine/reducer-utils.js';
@@ -80,9 +80,9 @@ describe('Memories of Old Torture (ba-67)', () => {
   // ── Availability & eligible races ───────────────────────────────────
 
   test.each([
-    { race: 'giant', defId: GIANT, prowess: 6 },
-    { race: 'men', defId: MAN_ABDUCTOR, prowess: 3 },
-    { race: 'drake', defId: LAND_DRAKE, prowess: 1 },
+    { race: Race.Giant, defId: GIANT, prowess: 6 },
+    { race: Race.Man, defId: MAN_ABDUCTOR, prowess: 3 },
+    { race: Race.Drake, defId: LAND_DRAKE, prowess: 1 },
   ])('offered against an eligible 1-strike $race creature; ally prowess = printed − 7', ({ race, defId, prowess }) => {
     const { state, creatureInstanceId } = buildRingwraithCreatureCombat({
       creatureDefId: defId, creatureRace: race, characters: [ORC_BRAWLER], hand: [MEMORIES],
@@ -99,21 +99,21 @@ describe('Memories of Old Torture (ba-67)', () => {
 
   test('NOT offered against a creature with more than one strike', () => {
     const { state } = buildRingwraithCreatureCombat({
-      creatureDefId: ORC_PATROL, creatureRace: 'orc', characters: [ORC_BRAWLER], hand: [MEMORIES],
+      creatureDefId: ORC_PATROL, creatureRace: Race.Orc, characters: [ORC_BRAWLER], hand: [MEMORIES],
     });
     expect(viableActions(state, PLAYER_1, 'convert-creature-to-ally')).toHaveLength(0);
   });
 
   test('NOT offered against an ineligible race (undead)', () => {
     const { state } = buildRingwraithCreatureCombat({
-      creatureDefId: BARROW_WIGHT, creatureRace: 'undead', characters: [ORC_BRAWLER], hand: [MEMORIES],
+      creatureDefId: BARROW_WIGHT, creatureRace: Race.Undead, characters: [ORC_BRAWLER], hand: [MEMORIES],
     });
     expect(viableActions(state, PLAYER_1, 'convert-creature-to-ally')).toHaveLength(0);
   });
 
   test('NOT offered to the attacking (hazard) player', () => {
     const { state } = buildRingwraithCreatureCombat({
-      creatureDefId: GIANT, creatureRace: 'giant', characters: [ORC_BRAWLER], hand: [MEMORIES],
+      creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER], hand: [MEMORIES],
     });
     expect(viableActions(state, PLAYER_2, 'convert-creature-to-ally')).toHaveLength(0);
   });
@@ -122,7 +122,7 @@ describe('Memories of Old Torture (ba-67)', () => {
 
   test('one action per company character, including a tapped one (need not tap)', () => {
     const { state } = buildRingwraithCreatureCombat({
-      creatureDefId: GIANT, creatureRace: 'giant', characters: [ORC_BRAWLER, MUZGASH], hand: [MEMORIES],
+      creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER, MUZGASH], hand: [MEMORIES],
     });
     // Both untapped → two controller choices.
     expect(viableActions(state, PLAYER_1, 'convert-creature-to-ally')).toHaveLength(2);
@@ -144,7 +144,7 @@ describe('Memories of Old Torture (ba-67)', () => {
 
   test('conversion does NOT tap the controlling character and ends combat', () => {
     const { state, creatureInstanceId } = buildRingwraithCreatureCombat({
-      creatureDefId: GIANT, creatureRace: 'giant', characters: [ORC_BRAWLER], hand: [MEMORIES],
+      creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER], hand: [MEMORIES],
     });
     const controllerId = charIdAt(state, RESOURCE_PLAYER);
     const action = findAction<ConvertCreatureToAllyAction>(
@@ -166,7 +166,7 @@ describe('Memories of Old Torture (ba-67)', () => {
 
   test('places the event card with the creature and scores 1 ally marshalling point', () => {
     const { state, creatureInstanceId } = buildRingwraithCreatureCombat({
-      creatureDefId: GIANT, creatureRace: 'giant', characters: [ORC_BRAWLER], hand: [MEMORIES],
+      creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER], hand: [MEMORIES],
     });
     const action = findAction<ConvertCreatureToAllyAction>(state, PLAYER_1, 'convert-creature-to-ally');
     const after = dispatch(state, action!);

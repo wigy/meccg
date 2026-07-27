@@ -38,7 +38,7 @@ import {
   makeCancelWindowCombat,
   actionAs, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions, CardStatus } from '../../index.js';
+import { computeLegalActions, CardStatus, Race } from '../../index.js';
 import type { CardDefinitionId, TapItemForStrikeAction, ResolveStrikeAction } from '../../index.js';
 
 const SHIELD = 'tw-327' as CardDefinitionId;
@@ -184,7 +184,7 @@ describe('Shield of Iron-bound Ash (tw-327)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 1,
       strikeProwess: 5,

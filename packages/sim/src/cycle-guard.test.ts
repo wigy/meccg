@@ -81,4 +81,36 @@ describe('bc agent cycle guard', () => {
     expect(run.result.outcome === 'completed' || run.result.outcome === 'decision-limit').toBe(true);
     expect(takenBySignature.size).toBeGreaterThan(10);
   });
+
+  test('guard memory is per game, so a reused agent replays a seed identically', () => {
+    // The tournament and gate harnesses build one agent per participant and
+    // reuse it for every game of the run. Guard memory kept across games
+    // would block, in game two, every action already taken in game one —
+    // silently corrupting later games and making a failing seed impossible
+    // to reproduce on its own.
+    const agents: [Agent, Agent] = [createBcAgent(FIXTURE), createHeuristicAgent()];
+    const first = playGame({ agents, decks: DECKS, seed: 777, maxDecisions: 400 });
+    const second = playGame({ agents, decks: DECKS, seed: 777, maxDecisions: 400 });
+
+    expect(second.result.decisions).toBe(first.result.decisions);
+    expect(second.result.outcome).toBe(first.result.outcome);
+    expect(second.result.turns).toBe(first.result.turns);
+    expect(second.winnerIndex).toBe(first.winnerIndex);
+  });
+
+  test('playGame starts every game on each agent', () => {
+    const starts = [0, 0];
+    const inner = createHeuristicAgent();
+    const counting = (index: number): Agent => ({
+      name: `count-${index}`,
+      startGame() {
+        starts[index]++;
+      },
+      chooseAction: context => inner.chooseAction(context),
+    });
+    const agents: [Agent, Agent] = [counting(0), counting(1)];
+    playGame({ agents, decks: DECKS, seed: 91, maxDecisions: 60 });
+    playGame({ agents, decks: DECKS, seed: 92, maxDecisions: 60 });
+    expect(starts).toEqual([2, 2]);
+  });
 });

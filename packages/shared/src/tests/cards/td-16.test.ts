@@ -47,7 +47,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CombatState, CorruptionCheckAction, GameState, PlayHazardAction } from '../../index.js';
-import { CardStatus } from '../../index.js';
+import { CardStatus, Race } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 const DRAGONS_CURSE = 'td-16' as CardDefinitionId;
@@ -63,7 +63,7 @@ const ADAMANT_HELMET = 'td-96' as CardDefinitionId;
 function makeDragonResolveStrikeState(opts: {
   defender: CardDefinitionId;
   secondDefender?: CardDefinitionId;
-  creatureRace?: string;
+  creatureRace?: Race;
   strikeProwess?: number;
   curseInHand?: boolean;
   bearHelmet?: boolean;
@@ -97,7 +97,7 @@ function makeDragonResolveStrikeState(opts: {
     strikesTotal: 1,
     strikeProwess: opts.strikeProwess ?? 8,
     creatureBody: null,
-    creatureRace: opts.creatureRace ?? 'dragon',
+    creatureRace: opts.creatureRace ?? Race.Dragon,
     strikeAssignments: [{ characterId: defenderId, excessStrikes: 0, resolved: false }],
     currentStrikeIndex: 0,
     phase: 'resolve-strike',
@@ -312,7 +312,7 @@ describe("Dragon’s Curse (td-16)", () => {
   });
 
   test('NOT offered when the attacking creature is not a Dragon', () => {
-    const { state } = makeDragonResolveStrikeState({ defender: ARAGORN, creatureRace: 'drake' });
+    const { state } = makeDragonResolveStrikeState({ defender: ARAGORN, creatureRace: Race.Drake });
     const plays = viableActions(state, PLAYER_2, 'play-hazard');
     expect(plays).toHaveLength(0);
   });

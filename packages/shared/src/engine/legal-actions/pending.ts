@@ -33,7 +33,7 @@ import type {
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isAvatarCharacter, isSiteCard, isResourceEventCard, isItemCard } from '../../types/cards.js';
-import { CardStatus, Skill, SiteType, cardStatusToName } from '../../types/common.js';
+import { CardStatus, Skill, SiteType, Race, cardStatusToName } from '../../types/common.js';
 import type { CardDefinitionId } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
@@ -41,11 +41,11 @@ import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
 import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
-import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions } from './organization.js';
+import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, siteRegionTypeOf } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
 import { asViable as viable } from './evaluated.js';
@@ -479,11 +479,11 @@ export function factionInfluenceRollActions(
   let modifier = 0;
   const parts: string[] = [];
 
-  if (charInPlay && charDef && isCharacterCard(charDef)) {
-    const freeDI = availableDI(state, influencingCharacterId, player);
-    modifier += freeDI;
-    parts.push(`DI ${freeDI}`);
+  // Webs of Fear & Treachery (le-150): every card-sourced modification to this
+  // attempt is reduced to zero (see `influenceModificationsNullified`).
+  const nullifyMods = influenceModificationsNullified(state);
 
+  if (charInPlay && charDef && isCharacterCard(charDef)) {
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
       bearer: { ...buildBearerContext(charDef), stagePoints: player.stagePoints },
@@ -510,20 +510,30 @@ export function factionInfluenceRollActions(
       }
     }
 
-    const dslModifier = resolveCheckModifier(charEffects, 'influence');
+    // Under nullification only the influencer's own card text counts.
+    const ownEffects = charEffects.filter(e => e.sourceInstance === influencingCharacterId);
+
+    const freeDI = nullifyMods
+      ? normalUnusedDI(state, influencingCharacterId, player, ownEffects, resolverCtx)
+      : availableDI(state, influencingCharacterId, player);
+    modifier += freeDI;
+    parts.push(nullifyMods ? `normal DI ${freeDI}` : `DI ${freeDI}`);
+
+    const dslModifier = resolveCheckModifier(nullifyMods ? ownEffects : charEffects, 'influence');
     if (dslModifier !== 0) {
       modifier += dslModifier;
       parts.push(`check mod ${formatSignedNumber(dslModifier)}`);
     }
 
-    const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+    // Own-card DI modifications are already inside `freeDI` under nullification.
+    const dslDI = nullifyMods ? 0 : resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       modifier += dslDI;
       parts.push(`DI mod ${formatSignedNumber(dslDI)}`);
     }
 
     // One-shot check-modifier constraints for influence (e.g. Muster): must match the pending roll
-    for (const constraint of state.activeConstraints) {
+    for (const constraint of nullifyMods ? [] : state.activeConstraints) {
       if (constraint.kind.type !== 'check-modifier') continue;
       if (constraint.kind.check !== 'influence') continue;
       if (constraint.target.kind !== 'character') continue;
@@ -546,7 +556,7 @@ export function factionInfluenceRollActions(
     modifier += allyDI;
     parts.push(`DI ${allyDI}`);
 
-    for (const constraint of state.activeConstraints) {
+    for (const constraint of nullifyMods ? [] : state.activeConstraints) {
       if (constraint.kind.type !== 'check-modifier') continue;
       if (constraint.kind.check !== 'influence') continue;
       if (constraint.target.kind !== 'player') continue;
@@ -560,21 +570,25 @@ export function factionInfluenceRollActions(
   // either player (Times Are Evil td-76: "All … influence attempts are modified
   // by -3"). Applies to every influence attempt regardless of the influencer.
   // The context carries the faction being influenced so a game-wide modifier
-  // can be race-gated (Lord of the Carrock as-14).
-  const globalInfluenceMod = collectGlobalCheckModifier(state, 'influence', {
-    reason: 'faction-influence-check',
-    faction: {
-      name: def.name,
-      race: def.race,
-      playableAt: buildFactionPlayableAt(def),
-      playableRegions: buildFactionPlayableRegions(state, def),
-    },
-    influenceTarget: buildInfluenceTargetContext(def, 'faction'),
-  });
+  // can be race-gated (Lord of the Carrock as-14). Webs of Fear & Treachery
+  // (le-150) nullifies every card-sourced modification, so the gate wins.
+  const globalInfluenceMod = nullifyMods
+    ? 0
+    : collectGlobalCheckModifier(state, 'influence', {
+      reason: 'faction-influence-check',
+      faction: {
+        name: def.name,
+        race: def.race,
+        playableAt: buildFactionPlayableAt(def),
+        playableRegions: buildFactionPlayableRegions(state, def),
+      },
+      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
+    });
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     parts.push(`game-wide ${formatSignedNumber(globalInfluenceMod)}`);
   }
+  if (nullifyMods) parts.push('all other modifications nullified');
 
   const influenceNumber = def.influenceNumber;
   const need = influenceNumber - modifier;
@@ -1016,7 +1030,7 @@ function corruptionCheckEntryActions(
     const compChar = player.characters[cid];
     if (!compChar) return false;
     const def = resolveDef(state, compChar.instanceId);
-    return isCharacterCard(def) && def.race === 'troll' && (def.keywords ?? []).includes('leader');
+    return isCharacterCard(def) && def.race === Race.Troll && (def.keywords ?? []).includes('leader');
   }) ?? false;
 
   // Rule 10.05: a character in the same company as a Ringwraith or the
@@ -1025,7 +1039,7 @@ function corruptionCheckEntryActions(
     const compChar = player.characters[cid];
     if (!compChar) return false;
     const def = resolveDef(state, compChar.instanceId);
-    return isCharacterCard(def) && (def.race === 'ringwraith' || isBalrogAvatarDef(def));
+    return isCharacterCard(def) && (def.race === Race.Ringwraith || isBalrogAvatarDef(def));
   }) ?? false;
   if (hasCorruptingAvatar) {
     totalModifier += 2;
