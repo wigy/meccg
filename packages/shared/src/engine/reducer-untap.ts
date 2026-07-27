@@ -181,7 +181,7 @@ function performUntap(state: GameState): GameState {
           || c.kind.attribute !== 'site.type'
           || c.kind.op !== 'override'
           || c.kind.value !== SiteType.Haven) return false;
-        return siteConstraintFilterMatches(c.kind.filter, siteDefId, siteDef.name);
+        return siteConstraintFilterMatches(c.kind.filter, siteDefId, siteDef.name, siteDef.siteType);
       });
     }
     if (!isHaven && siteDef.effects) {

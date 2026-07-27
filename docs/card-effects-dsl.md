@@ -11219,6 +11219,60 @@ fields on the `corruption-check` pending kind plus one on
   corruption-check grant activations (When I Know Anything td-166) remain
   legal.
 
+### 56f. `site-type-remap` (class-wide site retype)
+
+The site-type sibling of `region-type-remap` (§43): **every site whose printed
+site type is `from` counts as a `to`**, everywhere the engine asks for a site's
+effective type — hazard keying, item / ally / faction playability, haven tests,
+movement.
+
+```json
+{ "type": "site-type-remap", "from": "shadow-hold", "to": "dark-hold",
+  "duration": "long-event" }
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `from` | yes | The printed `SiteType` being reinterpreted. |
+| `to` | yes | The `SiteType` every such site is treated as. |
+| `duration` | no | `"long-event"` — lives as long as a hazard long-event owned by the declarer would ([2.III.3]); `"turn"` (default) — swept at end of turn. |
+
+Unlike the bound `site-type-override` add-constraint (§ `add-constraint`; Hold
+Rebuilt and Repaired as-88, Nature's Revenge wh-27), which retypes *one* site —
+the one the card was played on, or every printing of it — this remap is bound to
+no site at all. It installs a single `site.type` `override`
+`attribute-modifier` whose filter is `{ "site.printedType": <from> }`, the third
+filter shape understood by `siteConstraintFilterMatches` (`engine/effective.ts`)
+alongside `site.definitionId` and `site.name`. It therefore needs neither an
+active company nor a destination to resolve, and it survives the carrying card
+leaving play. The MEAS §6(d) Under-deeps type-immutability short-circuit in
+`getEffectiveSiteType` still wins: an Under-deeps Shadow-hold keeps its printed
+type.
+
+Resolved as a **top-level effect** when the carrying card resolves as a
+short-event on the chain (`applySiteTypeRemap`, `chain-reducer.ts`) — which
+includes the on-tap "becomes a short-event" conversion of a `creature-alt-event`
+permanent-event (§56c). The constraint targets the *declaring* player (the
+effect is global and must outlive any company).
+
+**`duration: "long-event"`** maps to the `next-long-event-phase`
+{@link ConstraintScope}, stamped with the declarer's id and `state.turnNumber`
+at creation. The new `long-event-phase-end` sweep boundary — raised in
+`handleLongEvent`'s pass branch, at the same moment [2.III.3] discards the
+hazard player's long-event *cards* — drops it once it sees that player as the
+hazard player on a strictly later turn. That is exactly one turn cycle: the
+declarer's own next turn does not expire it (he is the resource player then),
+his opponent's next turn does.
+
+Used by Witch-king of Angmar (tw-113): "When tapped, Witch-king of Angmar
+becomes a long-event and causes all Shadow-holds [{S}] to become Dark-holds
+[{D}]. When resolved, the long-event effect will remain and this card is
+discarded." The card goes to the discard pile the instant its entry resolves
+(CRF 22: "he is discarded when the effect resolves just like other Nazgûl. The
+long-event effect will remain until the appropriate time"), so there is no card
+in play for the ordinary [2.III.3] card sweep to remove — the constraint carries
+the whole duration on its own.
+
 ### 57. `agent-tap-return-character`
 
 Hazard short-event played on one of the hazard player's **untapped agents**. The

@@ -235,6 +235,9 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
       case 'organization-phase-end':
         // No ResolutionScope is keyed to the organization phase boundary.
         return true;
+      case 'long-event-phase-end':
+        // No ResolutionScope is keyed to the long-event phase boundary.
+        return true;
       case 'turn-end':
         return true;
     }
@@ -263,6 +266,15 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
         // number) — that is the phase the card was activated during.
         if (s.kind === 'next-organization-phase'
           && s.playerId === boundary.playerId
+          && boundary.turnNumber > s.afterTurn) return false;
+        return true;
+      case 'long-event-phase-end':
+        // "The long-event effect will remain until the appropriate time": drop
+        // it when its owner's hazard long-events are swept ([2.III.3]), but
+        // never in the turn it was created in — that long-event phase already
+        // passed before the effect was declared during the M/H phase.
+        if (s.kind === 'next-long-event-phase'
+          && s.playerId === boundary.hazardPlayerId
           && boundary.turnNumber > s.afterTurn) return false;
         return true;
       case 'turn-end':
