@@ -5029,7 +5029,16 @@ export interface PlayRestrictionEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region';
+  readonly requires: 'site-path' | 'discard-named-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region';
+  /**
+   * For `requires: 'phase'`: the phases during which the card may be played.
+   * A permanent resource-event is otherwise offered in **both** the
+   * organization and the site phase; a card whose text names one of them
+   * ("Playable on a leader during the organization phase" — No More Nonsense
+   * le-210) declares it here, e.g. `{ "requires": "phase", "phases":
+   * ["organization"] }`. Values are {@link Phase} strings.
+   */
+  readonly phases?: readonly string[];
   /**
    * `requires: 'site-protected'` takes no extra fields. On a faction it gates
    * the influence attempt on the company's current site being **protected by
@@ -6888,8 +6897,110 @@ export type CardEffect =
   | FactionMpBonusEffect
   | DiscardOnCardLeavesPlayEffect
   | RetainHazardLongEventsEffect
+  | OpposedRollEffect
   | FactionInfluenceRestrictionEffect
   | NullifyInfluenceModificationsEffect;
+
+/**
+ * One consequence of an {@link OpposedRollEffect} contest, run against one of
+ * the two rollers. Kept a small closed union (rather than the open
+ * {@link TriggeredAction} set) because both branches must name *which* roller
+ * they act on — an ambiguity the generic triggered actions cannot express.
+ */
+export type OpposedRollOutcome =
+  | OpposedRollDiscardAttachedOutcome
+  | OpposedRollStatModifierOutcome;
+
+/**
+ * Discard cards attached to one of the two rollers, each to its **owner's**
+ * discard pile (a hazard attached to your character belongs to the opponent).
+ * Implemented by the shared `move` primitive with `from: 'hazards-on-target'`,
+ * so the owner routing matches The Sun Unveiled (as-56).
+ *
+ * No More Nonsense (le-210) uses it as: "discard any hazard permanent-events on
+ * the other character".
+ */
+export interface OpposedRollDiscardAttachedOutcome {
+  /** Discriminant. */
+  readonly type: 'discard-attached';
+  /** Whose attached cards are discarded. */
+  readonly on: 'challenger' | 'opponent';
+  /**
+   * DSL condition matched against each attached card's definition (e.g.
+   * `{ "$and": [ { "cardType": "hazard-event" }, { "eventType": "permanent" } ] }`).
+   * Omit to discard every attached hazard.
+   */
+  readonly filter?: Condition;
+}
+
+/**
+ * Grant one of the two rollers a persistent stat modifier bound to the card
+ * that ran the contest. Modelled as a `character-stat-modifier` active
+ * constraint with `scope: until-cleared` and `requiresSourceBorne`, so the
+ * bonus lasts exactly as long as the source card stays attached to that
+ * character — matching a permanent event that keeps sitting on its bearer.
+ *
+ * No More Nonsense (le-210) uses it as: "the leader receives +2 direct
+ * influence" / "the leader receives -2 direct influence".
+ */
+export interface OpposedRollStatModifierOutcome {
+  /** Discriminant. */
+  readonly type: 'stat-modifier';
+  /** Which roller receives the modifier. */
+  readonly on: 'challenger' | 'opponent';
+  /** Which stat the modifier adjusts. */
+  readonly stat: 'prowess' | 'body' | 'direct-influence';
+  /** Signed adjustment (le-210: `2` on a win, `-2` on a loss). */
+  readonly value: number;
+}
+
+/**
+ * An **opposed roll**: two characters each make a 2d6 roll, a stat is added to
+ * each total, and the totals are compared. The *challenger* is the card's
+ * play-target; the *opponent* is a second character chosen when the card is
+ * played (`opponent: 'chosen-company-member'` — any other character in the
+ * challenger's company). The two rolls are made one at a time through an
+ * `opposed-roll` pending resolution, so each is a distinct, modifiable game
+ * event rather than a hidden pair of RNG draws.
+ *
+ * Used by No More Nonsense (le-210): "Make a roll for the leader. Choose
+ * another character in the company and do the same. If the leader's result plus
+ * his prowess is greater than the other character's result plus his prowess,
+ * discard any hazard permanent-events on the other character and the leader
+ * receives +2 direct influence. Otherwise, the leader receives -2 direct
+ * influence."
+ *
+ * ```json
+ * { "type": "opposed-roll", "opponent": "chosen-company-member",
+ *   "addStat": "prowess", "comparison": "gt",
+ *   "onWin": [ { "type": "discard-attached", "on": "opponent", "filter": … },
+ *              { "type": "stat-modifier", "on": "challenger",
+ *                "stat": "direct-influence", "value": 2 } ],
+ *   "onLose": [ { "type": "stat-modifier", "on": "challenger",
+ *                 "stat": "direct-influence", "value": -2 } ] }
+ * ```
+ */
+export interface OpposedRollEffect extends EffectBase {
+  readonly type: 'opposed-roll';
+  /**
+   * How the opposing roller is picked. `'chosen-company-member'` — the playing
+   * player selects any *other* character in the challenger's company at play
+   * time (the card is unplayable when the company holds no other character).
+   */
+  readonly opponent: 'chosen-company-member';
+  /** Stat added to each side's 2d6 roll before the totals are compared. */
+  readonly addStat: 'prowess' | 'body' | 'mind';
+  /**
+   * How the challenger's total must compare to the opponent's to win.
+   * `'gt'` (default) — strictly greater, the "is greater than" wording;
+   * `'gte'` — ties go to the challenger.
+   */
+  readonly comparison?: 'gt' | 'gte';
+  /** Outcomes applied, in order, when the challenger wins the contest. */
+  readonly onWin?: readonly OpposedRollOutcome[];
+  /** Outcomes applied, in order, when the challenger does not win. */
+  readonly onLose?: readonly OpposedRollOutcome[];
+}
 
 /**
  * Grants extended ally-play permission from a permanent-event attached to a

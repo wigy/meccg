@@ -412,6 +412,33 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Opposed roll (No More Nonsense le-210): the card's play-target (the
+         * *challenger*) and a second character chosen at play time (the
+         * *opponent*) each make a 2d6 roll, `addStat` is added to each total,
+         * and the totals are compared. The rolls happen one at a time — the
+         * resolution stays queued after the challenger's roll (its total kept
+         * in {@link challengerRoll}) until the opponent has rolled too, at
+         * which point the source card's `opposed-roll` effect applies its
+         * `onWin` / `onLose` outcomes.
+         */
+        readonly type: 'opposed-roll';
+        /** The in-play card instance that ran the contest — the outcomes bind to it. */
+        readonly sourceInstanceId: CardInstanceId;
+        /** The card that ran the contest (its `opposed-roll` effect holds the outcomes). */
+        readonly sourceDefinitionId: CardDefinitionId;
+        /** The card's play-target — rolls first. */
+        readonly challengerId: CardInstanceId;
+        /** The other character chosen from the challenger's company — rolls second. */
+        readonly opponentId: CardInstanceId;
+        /** Stat added to each side's roll before the comparison. */
+        readonly addStat: 'prowess' | 'body' | 'mind';
+        /** `'gt'` — the challenger must strictly exceed the opponent; `'gte'` — ties win. */
+        readonly comparison: 'gt' | 'gte';
+        /** The challenger's 2d6 total, once rolled. Absent until the first roll is made. */
+        readonly challengerRoll?: number;
+      }
+    | {
+        /**
          * Gold-ring test (Rule 9.21): a gold-ring item must be tested. The
          * ring's owner rolls 2d6 (plus any modifiers). The ring is discarded
          * regardless. After the roll, a `ring-play-offer` resolution is
@@ -1484,6 +1511,16 @@ export interface ActiveConstraint {
          * leaves play. When absent, the bonus is unconditional (Vilya style).
          */
         readonly requiresCardInPlay?: string;
+        /**
+         * When true, the bonus applies only while the constraint's `source`
+         * card instance is still **attached to** {@link characterId} (in that
+         * character's `items` or `hazards`). Lets a permanent event that keeps
+         * sitting on its bearer carry a modifier whose value was fixed at play
+         * time — No More Nonsense (le-210) rolls once and then grants its
+         * leader ±2 direct influence for as long as the card stays on him.
+         * Without it an `until-cleared` constraint would outlive its source.
+         */
+        readonly requiresSourceBorne?: boolean;
       }
     | {
         /**
