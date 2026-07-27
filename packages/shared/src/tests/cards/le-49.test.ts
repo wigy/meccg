@@ -146,11 +146,12 @@ describe('Ulkaur the Tongueless (le-49)', () => {
       players: [
         {
           id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
           companies: [{ site: MINAS_MORGUL, characters: [{ defId: ULKAUR, items: [HIGH_HELM] }] }],
           hand: [TROLL_LOUT],
           siteDeck: [MORIA_MINION],
         },
-        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ORC_BRAWLER] }], hand: [], siteDeck: [BARAD_DUR] },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [ORC_BRAWLER] }], hand: [], siteDeck: [BARAD_DUR] },
       ],
     });
 
