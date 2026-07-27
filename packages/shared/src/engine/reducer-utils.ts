@@ -1576,6 +1576,57 @@ export function siteDeniesCompanyMove(
 }
 
 /**
+ * Whether an in-play `fw-site-alignment-restriction` bars the Fallen-wizard
+ * `player` from using `siteDef` — i.e. forces him to use the *other* alignment's
+ * version of that location.
+ *
+ * A Fallen-wizard's location deck may hold both the hero and the minion card for
+ * the same place (CoE rule 1.28), and the two play differently (hero Lórien is a
+ * Haven, minion Lórien is a Free-hold). Heart Grown Cold (wh-21) takes the choice
+ * away: while it is in play the Fallen-wizard must use the minion card for hero
+ * Havens, and — as his stage points grow — for Free-holds and Border-holds too.
+ *
+ * The restriction is game-wide (either player may have the card in play) and is
+ * evaluated per Fallen-wizard player: each effect's optional `when` is matched
+ * against `{ player: { alignment, stagePoints } }`, so stage-point clauses key
+ * off the restricted player, not the card's controller.
+ *
+ * A `fallen-wizard-site` (any Wizardhaven) counts as *both* a hero and a minion
+ * site (MEWH §10) and is therefore never barred; only `hero-site` and
+ * `minion-site` cards can be.
+ */
+export function fwSiteVersionForbidden(
+  state: GameState,
+  player: PlayerState,
+  siteDef: SiteCard,
+): boolean {
+  if (player.alignment !== 'fallen-wizard') return false;
+  if (siteDef.cardType !== 'hero-site' && siteDef.cardType !== 'minion-site') return false;
+
+  const ctx = { player: { alignment: player.alignment, stagePoints: player.stagePoints } };
+  for (const other of state.players) {
+    for (const card of other.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const eff of getCardEffects(def)) {
+        if (eff.type !== 'fw-site-alignment-restriction') continue;
+        // The barred version is the opposite of the one the card demands.
+        const barredCardType = eff.require === 'minion' ? 'hero-site' : 'minion-site';
+        if (siteDef.cardType !== barredCardType) continue;
+        if (!eff.siteTypes.includes(siteDef.siteType)) continue;
+        if (eff.when && !matchesCondition(eff.when, ctx)) {
+          logDetail(`${def.name}: ${siteDef.name} (${siteDef.siteType}) not locked for ${player.id as string} — condition not met (${player.stagePoints} stage points)`);
+          continue;
+        }
+        logDetail(`${def.name}: Fallen-wizard ${player.id as string} must use the ${eff.require} version of ${siteDef.name} — the ${siteDef.cardType} card (${siteDef.siteType}) is unusable`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * The result of a corruption check on a character, before any cards are moved.
  *
  * - `success` — the roll exceeded the corruption point total; nothing happens.

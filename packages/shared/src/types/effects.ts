@@ -6811,6 +6811,7 @@ export type CardEffect =
   | ExtraUnderDeepsMhPhaseEffect
   | GrantExtraMHPhaseEffect
   | RegionMovementLimitEffect
+  | FwSiteAlignmentRestrictionEffect
   | ProhibitCompanyEventsEffect
   | HazardLimitEnvironmentEffect
   | CancelHazardEventPlayEffect
@@ -7410,6 +7411,49 @@ export interface RegionMovementLimitEffect extends EffectBase {
   readonly reduceWithDoorsOfNight?: number;
   /** Floor below which the reduced max region distance may never drop. */
   readonly min: number;
+}
+
+/**
+ * Locks which *alignment* of a site card a Fallen-wizard player may use for a
+ * given location. A Fallen-wizard's location deck may hold both the hero and
+ * the minion version of the same place (CoE rule 1.28), and the two versions
+ * play very differently — hero Lórien (tw-408) is a Haven, minion Lórien
+ * (as-155) is a plain Free-hold with no haven benefits.
+ *
+ * While a card carrying this effect is in play, every Fallen-wizard player is
+ * barred from *using* the version named by the opposite of {@link require} for
+ * any location whose printed site type is in {@link siteTypes} — the other
+ * version must be used instead. If the player's location deck holds only the
+ * barred version, that location simply becomes unreachable.
+ *
+ * The effect applies game-wide to every Fallen-wizard player, and its optional
+ * `when` is matched per-player against
+ * `{ player: { alignment, stagePoints } }`, so a single card can escalate its
+ * reach with the Fallen-wizard's stage points.
+ *
+ * Only `hero-site` / `minion-site` cards are affected: a `fallen-wizard-site`
+ * (any Wizardhaven) counts as both hero and minion (MEWH §10) and is never
+ * barred.
+ *
+ * Consumed when movement is declared (`organization-companies.ts`
+ * `planMovementActions`, via `fwSiteVersionForbidden`), which is the only point
+ * at which a player chooses a site card from the location deck.
+ *
+ * Used by Heart Grown Cold (wh-21): "Fallen-wizard players must use minion site
+ * cards for hero Havens [{H}]. If a Fallen-wizard has more than 4 stage points,
+ * his player must also use minion site cards for Free-holds [{F}]. If a
+ * Fallen-wizard has more than 7 stage points, his player must also use minion
+ * site cards for Border-holds [{B}]."
+ */
+export interface FwSiteAlignmentRestrictionEffect extends EffectBase {
+  readonly type: 'fw-site-alignment-restriction';
+  /** The site-card alignment the Fallen-wizard is forced to use. */
+  readonly require: 'minion' | 'hero';
+  /**
+   * Printed site types the lock covers, read off the *barred* version's card
+   * (e.g. `["haven"]` with `require: "minion"` bars hero Haven cards).
+   */
+  readonly siteTypes: readonly SiteType[];
 }
 
 /**
