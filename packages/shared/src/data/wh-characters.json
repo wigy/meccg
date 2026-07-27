@@ -191,20 +191,7 @@
           }
         },
         "apply": {
-          "type": "sequence",
-          "apps": [
-            {
-              "type": "roll-check",
-              "check": "gold-ring-test",
-              "label": "Gold ring test"
-            },
-            {
-              "type": "move",
-              "select": "target",
-              "from": "in-play",
-              "to": "discard"
-            }
-          ]
+          "type": "enqueue-gold-ring-test"
         }
       }
     ],

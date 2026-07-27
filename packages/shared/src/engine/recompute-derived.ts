@@ -54,6 +54,7 @@ import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
 import { manifestIdOf } from './manifestations.js';
 import { ownerOf } from '../types/state.js';
+import { logDetail } from './legal-actions/log.js';
 
 /**
  * Returns the MP multiplier for a cross-alignment item (MELE Part IV).
@@ -305,6 +306,22 @@ function addPinnedCardMp(
 }
 
 /**
+ * True when this card gives **no** marshalling points at all to the player
+ * holding it because that player is a Fallen-wizard (`fw-mp-none`, e.g. the
+ * minion Palantír of Elostirion le-332: "This item does not give MPs to a
+ * Fallen-wizard regardless of other cards in play"). Checked ahead of every
+ * other MP rule — pins, overrides, the MEWH §4 clamp and its exemptions — so
+ * no other card in play can restore the points.
+ */
+function deniesFallenWizardMp(
+  def: CardDefinition | undefined,
+  playerAlignment: Alignment,
+): boolean {
+  if (playerAlignment !== 'fallen-wizard') return false;
+  return getCardEffects(def).some(e => e.type === 'fw-mp-none');
+}
+
+/**
  * Adds an item card's marshalling points to the running totals. For a
  * Fallen-wizard the item is worth a flat 1 MP (MEWH §4); otherwise the
  * cross-alignment half-MP rule applies (MELE Part IV) when the player's
@@ -320,6 +337,7 @@ function addItemMP(
   playerAlignment: Alignment,
   fwItemMpExempt = false,
 ): MarshallingPointTotals {
+  if (deniesFallenWizardMp(def, playerAlignment)) return totals;
   if (!hasMarshallingPoints(def)) return totals;
   const baseMp = def.marshallingPoints;
   if (baseMp === 0) return totals;
@@ -1537,6 +1555,14 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const item of char.items) {
       const itemDef = resolveDef(state, item.instanceId);
       if (!itemDef) continue;
+      // "Does not give MPs to a Fallen-wizard regardless of other cards in
+      // play" (minion Palantír of Elostirion le-332 and its siblings): score
+      // nothing, ahead of the Await-the-Onset pin, the wh-99 override, the §4
+      // clamp/exemption and the global item-MP bonus below.
+      if (deniesFallenWizardMp(itemDef, player.alignment)) {
+        logDetail(`Item ${(itemDef as { name?: string }).name ?? item.definitionId as string}: gives no marshalling points to a Fallen-wizard (card text)`);
+        continue;
+      }
       // agent-home-site-faction-lock (Faithless Steward as-83): the attached
       // card's own printed MP is conditional — "you receive this card's
       // marshalling points" only while the bearer is unwounded at one of his

@@ -14,6 +14,9 @@
  * Engine Support:
  * | # | Feature                                          | Status      | Notes                                                |
  * |---|--------------------------------------------------|-------------|------------------------------------------------------|
+ * | 0 | Playable only with a gold ring, after a test     | IMPLEMENTED | subtype "special" (never in a site's                 |
+ * |   | that indicates The One Ring                      |             | playableResources) + keyword "the-one-ring" matched  |
+ * |   |                                                  |             | against the gold ring's `ring-test-table` categories |
  * | 1 | +5 prowess (max = double base prowess)           | IMPLEMENTED | stat-modifier, max "bearer.baseProwess * 2"          |
  * | 2 | +5 body (max 10)                                 | IMPLEMENTED | stat-modifier, max 10                                |
  * | 3 | +5 direct influence                              | IMPLEMENTED | stat-modifier                                        |
@@ -24,22 +27,32 @@
  * The stat modifiers apply while the ring is borne. The prowess cap is *double
  * the bearer's starting prowess*, so a low-prowess bearer (Frodo) is capped
  * hard while a high-prowess bearer is not.
+ *
+ * The One Ring is a `special` item with 6 corruption points; the company-scoped
+ * +1 reaches the bearer too (7 in total for him), since "every character in the
+ * bearer's company" includes the bearer.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase, CardStatus,
+  buildTestState, buildSitePhaseState, resetMint, Phase, CardStatus,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   getCharacter, pool, makeMHState,
-  findCharInstanceId, handCardId, companyIdAt, resolveChain, dispatch, actionAs,
+  findCharInstanceId, findHandCardId, handCardId, companyIdAt, resolveChain, dispatch, actionAs,
+  attachItemToChar, addCardToHand, enqueueGoldRingTest, viableActions,
 } from '../test-helpers.js';
 import {
   ARAGORN, FRODO, LEGOLAS, THE_ONE_RING,
   ORC_LIEUTENANT, BARROW_WIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  computeLegalActions, SiteType,
+  computeLegalActions, RegionType, SiteType,
 } from '../../index.js';
 import type { CardDefinitionId, CharacterCard, GameState, CancelStrikeAction, CorruptionCheckAction } from '../../index.js';
+
+/** Precious Gold Ring (tw-306) — its test table indicates The One Ring on a total of 10+. */
+const PRECIOUS_GOLD_RING = 'tw-306' as CardDefinitionId;
+/** Ûvatha the Horseman (tw-107) — a Nazgûl (race `ringwraith`) hazard creature. */
+const UVATHA = 'tw-107' as CardDefinitionId;
 
 /** Build an org-phase state with `bearer` (+ optional companion) in P1's company. */
 function stateWithRing(bearer: CardDefinitionId, companion?: CardDefinitionId) {
@@ -59,6 +72,128 @@ function stateWithRing(bearer: CardDefinitionId, companion?: CardDefinitionId) {
 
 describe('The One Ring (tw-347)', () => {
   beforeEach(() => resetMint());
+
+  // ── Playability: only with a gold ring, after a test indicating The One Ring ──
+
+  test('cannot be played as an ordinary item at a site', () => {
+    // Moria allows minor, major, greater and gold-ring items — but The One Ring
+    // is a `special` item, which no site lists as a playable resource, so the
+    // only route into play is a gold-ring test.
+    const state = buildSitePhaseState({
+      site: MORIA,
+      characters: [ARAGORN],
+      hand: [THE_ONE_RING],
+    });
+    const ringId = findHandCardId(state, RESOURCE_PLAYER, THE_ONE_RING);
+    const plays = computeLegalActions(state, PLAYER_1).filter(
+      ea => ea.viable && ea.action.type === 'play-hero-resource'
+        && (ea.action as { cardInstanceId?: string }).cardInstanceId === (ringId as string),
+    );
+    expect(plays).toHaveLength(0);
+  });
+
+  test('offered after a gold-ring test whose total indicates The One Ring (10+ on Precious Gold Ring)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const withGoldRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
+    const goldRingId = withGoldRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
+    const withHand = addCardToHand(withGoldRing, RESOURCE_PLAYER, THE_ONE_RING);
+
+    const withPending = enqueueGoldRingTest(withHand, PLAYER_1, goldRingId, aragornId);
+    const afterRoll = dispatch(
+      { ...withPending, cheatRollTotal: 10 },
+      viableActions(withPending, PLAYER_1, 'gold-ring-test-roll')[0].action,
+    );
+
+    expect(viableActions(afterRoll, PLAYER_1, 'play-ring-after-test')).toHaveLength(1);
+  });
+
+  test('NOT offered when the test total indicates only a Dwarven-ring (8)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const withGoldRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
+    const goldRingId = withGoldRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
+    const withHand = addCardToHand(withGoldRing, RESOURCE_PLAYER, THE_ONE_RING);
+
+    const withPending = enqueueGoldRingTest(withHand, PLAYER_1, goldRingId, aragornId);
+    const afterRoll = dispatch(
+      { ...withPending, cheatRollTotal: 8 },
+      viableActions(withPending, PLAYER_1, 'gold-ring-test-roll')[0].action,
+    );
+
+    expect(viableActions(afterRoll, PLAYER_1, 'play-ring-after-test')).toHaveLength(0);
+  });
+
+  test('Unique: NOT offered while a One Ring is already in play (opponent bears one)', () => {
+    // "Unique." — the ring-test route may not put a second copy into play, even
+    // though both players may legally hold one in hand.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS, items: [THE_ONE_RING] }] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const withGoldRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
+    const goldRingId = withGoldRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
+    const withHand = addCardToHand(withGoldRing, RESOURCE_PLAYER, THE_ONE_RING);
+
+    const withPending = enqueueGoldRingTest(withHand, PLAYER_1, goldRingId, aragornId);
+    const afterRoll = dispatch(
+      { ...withPending, cheatRollTotal: 12 },
+      viableActions(withPending, PLAYER_1, 'gold-ring-test-roll')[0].action,
+    );
+
+    expect(viableActions(afterRoll, PLAYER_1, 'play-ring-after-test')).toHaveLength(0);
+  });
+
+  test('played via the test: moves from hand onto the gold ring bearer and grants its bonuses', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const aragornDef = pool[ARAGORN as string] as CharacterCard;
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const withGoldRing = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, PRECIOUS_GOLD_RING);
+    const goldRingId = withGoldRing.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
+    const withHand = addCardToHand(withGoldRing, RESOURCE_PLAYER, THE_ONE_RING);
+
+    const withPending = enqueueGoldRingTest(withHand, PLAYER_1, goldRingId, aragornId);
+    const afterRoll = dispatch(
+      { ...withPending, cheatRollTotal: 12 },
+      viableActions(withPending, PLAYER_1, 'gold-ring-test-roll')[0].action,
+    );
+    const afterPlay = dispatch(afterRoll, viableActions(afterRoll, PLAYER_1, 'play-ring-after-test')[0].action);
+
+    // The tested gold ring is gone (discarded by the test), The One Ring is borne.
+    expect(afterPlay.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === THE_ONE_RING)).toBeUndefined();
+    expect(
+      afterPlay.players[RESOURCE_PLAYER].characters[aragornId].items.find(i => i.definitionId === THE_ONE_RING),
+    ).toBeDefined();
+    expect(getCharacter(afterPlay, RESOURCE_PLAYER, ARAGORN).effectiveStats.prowess)
+      .toBe(aragornDef.prowess + 5);
+  });
 
   // ── Effect 1: +5 prowess (max = double the bearer's starting prowess) ──
 
@@ -119,6 +254,13 @@ describe('The One Ring (tw-347)', () => {
     expect(companionWith).toBe(companionWithout + 1);
   });
 
+  test('the bearer is also "a character in the bearer\'s company": 6 printed + 1 = 7', () => {
+    // The ring's own 6 corruption points are borne by its holder; the +1 the ring
+    // gives "every character in the bearer's company" reaches him as well.
+    const state = stateWithRing(ARAGORN);
+    expect(getCharacter(state, RESOURCE_PLAYER, ARAGORN).effectiveStats.corruptionPoints).toBe(7);
+  });
+
   // ── Effect 5: corruption-check cancel-strike (not vs Undead / Nazgûl) ──
 
   /**
@@ -126,8 +268,16 @@ describe('The One Ring (tw-347)', () => {
    * Aragorn (bearing The One Ring) facing the strike at Moria (a shadow-hold).
    * Aragorn has no innate corruption check-modifier, so the ring's -2 is the
    * whole modifier — unlike Frodo, whose printed +4 would mask it.
+   *
+   * A Nazgûl (`ringwraith`) creature keys to a Dark-hold in a Dark-domain path
+   * instead, so `keying` overrides the declared M/H destination for that case.
    */
-  function ringBearerFacingStrike(creature: CardDefinitionId): GameState {
+  function ringBearerFacingStrike(
+    creature: CardDefinitionId,
+    keying: { siteType: SiteType; siteName: string; regionTypes: RegionType[]; regionNames: string[] } = {
+      siteType: SiteType.ShadowHold, siteName: 'Moria', regionTypes: [], regionNames: [],
+    },
+  ): GameState {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -138,10 +288,10 @@ describe('The One Ring (tw-347)', () => {
       ],
     });
     const mh = makeMHState({
-      resolvedSitePath: [],
-      resolvedSitePathNames: [],
-      destinationSiteType: SiteType.ShadowHold,
-      destinationSiteName: 'Moria',
+      resolvedSitePath: keying.regionTypes,
+      resolvedSitePathNames: keying.regionNames,
+      destinationSiteType: keying.siteType,
+      destinationSiteName: keying.siteName,
     });
     const gameState = { ...base, phaseState: mh };
 
@@ -152,7 +302,7 @@ describe('The One Ring (tw-347)', () => {
       player: PLAYER_2,
       cardInstanceId: creatureId,
       targetCompanyId: companyId,
-      keyedBy: { method: 'site-type' as const, value: 'shadow-hold' },
+      keyedBy: { method: 'site-type' as const, value: keying.siteType as string },
     });
     const afterChain = resolveChain(afterPlay);
 
@@ -208,6 +358,23 @@ describe('The One Ring (tw-347)', () => {
     // (undead) strike against the ring bearer offers no corruption-check cancel.
     const r = ringBearerFacingStrike(BARROW_WIGHT);
     expect(r.combat?.phase).toBe('resolve-strike');
+
+    const cancelActions = computeLegalActions(r, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'cancel-strike');
+    expect(cancelActions).toHaveLength(0);
+  });
+
+  test('does NOT offer the cancel-strike against a Nazgûl strike (Ûvatha the Horseman)', () => {
+    // The other half of "does not work against Undead and Nazgûl strikes": a
+    // ringwraith creature keyed to a Dark-hold in a Dark-domain path.
+    const r = ringBearerFacingStrike(UVATHA, {
+      siteType: SiteType.DarkHold,
+      siteName: 'Barad-dûr',
+      regionTypes: [RegionType.Dark],
+      regionNames: ['Gorgoroth'],
+    });
+    expect(r.combat?.phase).toBe('resolve-strike');
+    expect(r.combat?.creatureRace).toBe('ringwraith');
 
     const cancelActions = computeLegalActions(r, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'cancel-strike');
