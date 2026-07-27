@@ -65,7 +65,23 @@ npm run fit-winprob -w @meccg/sim -- --games 400 [--holdout 0.25] [--out path]
 
 # Check a module's claimed probabilities against the real reducer
 npm run calibrate -w @meccg/sim -- [--module combat] [--rollouts 5000] [--scenario <id>]
+
+# How often do two agents actually choose differently, and where?
+npm run compare -w @meccg/sim -- --agents heuristic,h2 [--games 6]
+npm run compare -w @meccg/sim -- --scenarios --agents heuristic,h2
 ```
+
+Run `compare` **before** paying for a gate. It answers in seconds what a gate
+answers in hours: whether there is any behavioural difference to measure. One
+agent drives while the other is polled in its shadow at every decision, both
+read at their argmax — the sampling temperature belongs to the harness, not to
+the opinion. Forced decisions are reported separately because agreement is
+free where there is one legal action, and that is 53% of them.
+
+`heuristic` vs `h2` over six games: 96.7% agreement on contested decisions,
+87.2% inside combat, ~14 divergences per game — and exactly 100% agreement
+outside combat, which is the check that the Heuristics-1 fallback makes
+`h2:<module>` a clean ablation rather than a rewrite.
 
 `calibrate` is what makes an H2 module falsifiable. A module claims
 `P(wounded) = 2.31%`; the harness replays the same action thousands of times
