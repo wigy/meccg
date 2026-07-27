@@ -19,6 +19,7 @@ FEATS
 EPICS
 -----
 
+Watching
 Tournaments
 Super Good AI
 Tutorial
