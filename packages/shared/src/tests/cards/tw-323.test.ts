@@ -25,7 +25,7 @@ import {
   Phase, CardStatus,
   buildTestState, resetMint,
   viableActions,
-  getCharacter, dispatchResult, expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER,
+  getCharacter, dispatch, dispatchResult, expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction } from '../../index.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../../engine/effects/index.js';
@@ -117,14 +117,20 @@ describe('Scroll of Isildur (tw-323)', () => {
       ],
     });
 
-    const cheated = { ...state, cheatRollTotal: 7 };
-    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
     const action = actions[0].action as ActivateGrantedAction;
     expect(action.actionId).toBe('test-gold-ring');
 
-    const result = dispatchResult(cheated, action);
+    // Activating queues a `gold-ring-test` resolution (tw-306); the 2d6 roll
+    // happens when the player commits to it, so the cheat total belongs on
+    // the roll dispatch rather than the activation.
+    const afterActivate = dispatch(state, action);
+    const rolls = viableActions(afterActivate, PLAYER_1, 'gold-ring-test-roll');
+    expect(rolls.length).toBe(1);
+
+    const result = dispatchResult({ ...afterActivate, cheatRollTotal: 7 }, rolls[0].action);
     const nextState = result.state;
 
     // Gandalf tapped, gold ring discarded
@@ -164,11 +170,13 @@ describe('Scroll of Isildur (tw-323)', () => {
       ],
     });
 
-    const cheated = { ...state, cheatRollTotal: 7 };
-    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
-    const result = dispatchResult(cheated, actions[0].action);
+    const afterActivate = dispatch(state, actions[0].action);
+    const rolls = viableActions(afterActivate, PLAYER_1, 'gold-ring-test-roll');
+    expect(rolls.length).toBe(1);
+    const result = dispatchResult({ ...afterActivate, cheatRollTotal: 7 }, rolls[0].action);
 
     // Raw dice roll is 7, no modifier
     expect(result.state.players[0].lastDiceRoll).toBeDefined();
@@ -210,8 +218,10 @@ describe('Scroll of Isildur (tw-323)', () => {
     expect((actions[0].action as ActivateGrantedAction).actionId).toBe('test-gold-ring');
 
     // Execute the test — modifier comes from Aragorn's Scroll
-    const cheated = { ...state, cheatRollTotal: 5 };
-    const result = dispatchResult(cheated, actions[0].action);
+    const afterActivate = dispatch(state, actions[0].action);
+    const rolls = viableActions(afterActivate, PLAYER_1, 'gold-ring-test-roll');
+    expect(rolls.length).toBe(1);
+    const result = dispatchResult({ ...afterActivate, cheatRollTotal: 5 }, rolls[0].action);
     expectCharStatus(result.state, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
     expectInDiscardPile(result.state, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
   });
