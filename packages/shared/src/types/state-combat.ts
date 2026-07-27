@@ -111,6 +111,22 @@ export type AttackSource =
    */
   | { readonly type: 'tidings-attack'; readonly eventInstanceId: CardInstanceId; readonly attackIndex: number }
   /**
+   * Triggered by a `site-phase-start-attack` effect on a card besieging the
+   * company's current site (Siege tw-87): the company faces the attack at the
+   * beginning of its site phase, before it decides whether to enter the site.
+   * These are NOT automatic-attacks — auto-attack modifiers, the home-site
+   * tap-to-cancel option and the auto-attack duplicate constraints do not apply.
+   * The besieging card stays in play after the attack (it is discarded only when
+   * its bound site leaves play), so finalization disposes of nothing.
+   */
+  | {
+      readonly type: 'siege-attack';
+      /** The besieging card in play whose effect created this attack. */
+      readonly cardInstanceId: CardInstanceId;
+      /** The site instance the besieged company occupies. */
+      readonly siteInstanceId: CardInstanceId;
+    }
+  /**
    * Triggered by Cruel Caradhras (td-9) via the `company-strike` DSL effect: a
    * hazard short-event that makes each character in the active company face one
    * strike (not a creature attack — no race, uncancelable). `eventInstanceId`
