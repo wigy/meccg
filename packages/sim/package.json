@@ -19,7 +19,8 @@
     "explain": "npx tsx src/cli/explain.ts",
     "scenarios": "npx tsx src/cli/scenarios.ts",
     "fit-winprob": "npx tsx src/cli/fit-winprob.ts",
-    "calibrate": "npx tsx src/cli/calibrate.ts"
+    "calibrate": "npx tsx src/cli/calibrate.ts",
+    "compare": "npx tsx src/cli/compare.ts"
   },
   "dependencies": {
     "@meccg/shared": "*",
