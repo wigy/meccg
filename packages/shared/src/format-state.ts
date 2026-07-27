@@ -310,6 +310,8 @@ function formatCombat(combat: CombatState, defOf: CardLookup, instOf: InstanceLo
     attackerName = `Card-triggered: ${formatInstanceName(src.cardInstanceId, defOf, instOf)}`;
   } else if (src.type === 'tidings-attack') {
     attackerName = `Tidings attack #${src.attackIndex + 1}`;
+  } else if (src.type === 'siege-attack') {
+    attackerName = `Siege: ${formatInstanceName(src.cardInstanceId, defOf, instOf)}`;
   } else if (src.type === 'ahunt') {
     attackerName = `Ahunt: ${formatInstanceName(src.longEventInstanceId, defOf, instOf)}`;
   } else if (src.type === 'lucky-search-attack') {

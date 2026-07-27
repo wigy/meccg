@@ -1894,6 +1894,7 @@ export type TriggeredActionType =
   | 'roll-then-apply'
   | 'transform-site'
   | 'untap-site'
+  | 'lock-company-movement'
   | 'cancel-current-attack'
   | 'traitor-attack'
   | 'win-condition-roll'
@@ -2612,6 +2613,18 @@ export interface UntapSiteAction extends TriggeredActionBase {
 }
 
 /**
+ * `lock-company-movement` — the company named by the enclosing `dice-check`
+ * resolution's `targetCompanyId` may not move this turn: its planned
+ * destination (if any) is cancelled and returned to the location deck, and a
+ * turn-scoped `company-cannot-move` constraint is installed. Used as the
+ * `onFail` verb of the {@link CompanyMovementRollEffect} roll (Siege tw-87).
+ * Type-only marker.
+ */
+export interface LockCompanyMovementAction extends TriggeredActionBase {
+  readonly type: 'lock-company-movement';
+}
+
+/**
  * `cancel-current-attack` — cancel the combat currently in `state.combat`
  * (delegates to the shared `resolveCancelAttackEntry`). Used as the `onPass`
  * verb of a `dice-check` enqueued by a roll-to-cancel ability (Going Ever
@@ -2706,6 +2719,7 @@ export type TriggeredAction =
   | ModifyCurrentStrikeProwessAction
   | TransformSiteAction
   | UntapSiteAction
+  | LockCompanyMovementAction
   | CancelCurrentAttackAction
   | TraitorAttackAction;
 
@@ -6718,6 +6732,8 @@ export type CardEffect =
   | CreateSiteAutoAttackEffect
   | AutoAttackBoostEffect
   | SiteItemTrapEffect
+  | SitePhaseStartAttackEffect
+  | CompanyMovementRollEffect
   | HazardLimitSwapEffect
   | DiscardForHazardLimitEffect
   | RingTestTableEffect
@@ -7522,6 +7538,58 @@ export interface SiteItemTrapEffect extends EffectBase {
   readonly type: 'site-item-trap';
   /** Prowess added to each re-faced automatic-attack (Troll-purse: +3). */
   readonly prowessBonus: number;
+}
+
+/**
+ * A besieging card bound to a site (`CardInPlay.attachedToSite`) that forces
+ * every company at that site to face an extra attack **at the beginning of its
+ * site phase** — before the company decides whether to enter the site or do
+ * nothing. This is the distinguishing feature versus a site automatic-attack
+ * (which a company avoids entirely by doing nothing at the site) and versus
+ * {@link PermanentEventAutoAttackEffect} (which augments the printed
+ * automatic-attack list of a whole class of sites).
+ *
+ * The attack is sequenced through the `siege-attacks` site sub-step (mirroring
+ * `automatic-attacks`) with a `siege-attack` {@link import('./state-combat.js').AttackSource};
+ * it is not an automatic-attack, so auto-attack modifiers and the home-site
+ * tap-to-cancel option do not apply to it.
+ *
+ * Used by Siege (tw-87): "A company at this site must face an Orc attack of
+ * three strikes at 7 prowess at the beginning of its site phase."
+ */
+export interface SitePhaseStartAttackEffect extends EffectBase {
+  readonly type: 'site-phase-start-attack';
+  /** The attack every company at the bound site faces. */
+  readonly attack: {
+    readonly creatureType: string;
+    readonly strikes: number;
+    readonly prowess: number;
+    readonly body?: number;
+  };
+}
+
+/**
+ * A besieging card bound to a site (`CardInPlay.attachedToSite`) that makes a
+ * company at that site roll at the **end of its organization phase** to keep
+ * its movement. The roll is 2d6 modified by {@link penalty} for every character
+ * in the company that lacks {@link penaltyPerCharacterWithoutSkill}; a total
+ * below {@link threshold} locks the company stationary for the turn (its
+ * planned destination is cancelled and a turn-scoped `company-cannot-move`
+ * constraint is installed).
+ *
+ * Used by Siege (tw-87): "At the end of its organization phase, a company at a
+ * site with Siege on it must make a roll and subtract one from the result for
+ * every non-scout character it contains. If this result is less than 5, the
+ * company may not move this turn."
+ */
+export interface CompanyMovementRollEffect extends EffectBase {
+  readonly type: 'company-movement-roll';
+  /** The company may move when the modified 2d6 total is ≥ this value. */
+  readonly threshold: number;
+  /** Skill a character must have to avoid contributing {@link penalty}. */
+  readonly penaltyPerCharacterWithoutSkill: import('./common.js').Skill;
+  /** Roll penalty per character lacking the skill (default 1). */
+  readonly penalty?: number;
 }
 
 /**

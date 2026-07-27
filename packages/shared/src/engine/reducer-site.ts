@@ -24,7 +24,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, makeCombatState, siteStartOfPhaseAttacks, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, defById, diceRollEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, influenceModificationsNullified } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -59,6 +59,7 @@ type SiteHandler = (state: GameState, action: GameAction, siteState: SitePhaseSt
  */
 const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHandler>>> = {
   'select-company': handleSiteSelectCompany,
+  'siege-attacks': handleSiteSiegeAttacks,
   'enter-or-skip': handleSiteEnterOrSkip,
   'reveal-on-guard-attacks': handleRevealOnGuardAttacks,
   'forewarned-select-attack': handleForewarnedSelectAttack,
@@ -319,7 +320,122 @@ function handleSiteSelectCompany(
   // resolutions when conditions match (e.g. Stench of Mordor).
   nextState = fireSitePhaseCompanyBeginsEvents(nextState, state.activePlayer!, company);
 
-  return { state: nextState };
+  // Siege (tw-87): a besieging card bound to the company's current site makes
+  // it face an attack "at the beginning of its site phase" — before the
+  // enter-or-skip decision, so doing nothing at the site does not avoid it.
+  // The first attack is initiated here; the rest are sequenced by
+  // handleSiteSiegeAttacks. Any pending resolutions enqueued just above
+  // (gold-ring tests, Stench of Mordor taps) still resolve first — the legal
+  // action dispatcher gives queued resolutions priority over combat.
+  return { state: maybeInitiateSiegeAttacks(nextState, company) ?? nextState };
+}
+
+/**
+ * Siege (tw-87): if any card besieging `company`'s current site carries a
+ * `site-phase-start-attack` effect, enter the `siege-attacks` sub-step and
+ * initiate the first of those attacks. Returns null when no siege binds the
+ * site (the caller keeps its own `enter-or-skip` transition).
+ */
+function maybeInitiateSiegeAttacks(state: GameState, company: Company): GameState | null {
+  const sieges = siteStartOfPhaseAttacks(state, company.currentSite?.definitionId);
+  if (sieges.length === 0) return null;
+  const siteState = requirePhaseState(state, Phase.Site);
+  logDetail(`Siege: company ${company.id as string} must face ${sieges.length} siege attack(s) before deciding whether to enter ${cardName(state, company.currentSite!.definitionId, '?')}`);
+  return {
+    ...state,
+    combat: buildSiegeAttackCombat(state, company, sieges[0].cardInstanceId, sieges[0].effect),
+    phaseState: {
+      ...siteState,
+      step: 'siege-attacks' as const,
+      siegeAttacks: { sourceInstanceIds: sieges.map(s => s.cardInstanceId), resolved: 1 },
+    },
+  };
+}
+
+/**
+ * Build the combat state for one siege attack (Siege tw-87). Unlike a site
+ * automatic-attack this is a plain creature-race attack contributed by a card
+ * in play: it carries a `siege-attack` attack source, is never detainment (the
+ * card prints no detainment clause and the attack is not keyed to the site
+ * type), and no auto-attack modifier or duplicate constraint applies to it.
+ * Global attack modifiers keyed on the creature's race (e.g. environments that
+ * boost Orc attacks) still resolve through `resolveAttack*`.
+ */
+function buildSiegeAttackCombat(
+  state: GameState,
+  company: Company,
+  cardInstanceId: CardInstanceId,
+  effect: import('../types/effects.js').SitePhaseStartAttackEffect,
+): CombatState {
+  const inPlayNames = buildInPlayNames(state);
+  const creatureRace = normalizeCreatureRace(effect.attack.creatureType);
+  const boostCtx = { companyId: company.id };
+  const prowess = resolveAttackProwess(state, effect.attack.prowess, inPlayNames, creatureRace, true, undefined, boostCtx);
+  const strikes = resolveAttackStrikes(state, effect.attack.strikes, inPlayNames, creatureRace, true, boostCtx);
+  const body = resolveAttackBody(state, effect.attack.body ?? null, inPlayNames, creatureRace, boostCtx);
+  logDetail(`Siege: initiating ${effect.attack.creatureType} attack (${strikes} strikes, ${prowess} prowess) from "${cardName(state, resolveInstanceId(state, cardInstanceId) as import('../index.js').CardDefinitionId, '?')}" against company ${company.id as string}`);
+  return makeCombatState({
+    attackSource: { type: 'siege-attack', cardInstanceId, siteInstanceId: company.currentSite!.instanceId },
+    companyId: company.id,
+    defendingPlayerId: state.activePlayer!,
+    attackingPlayerId: hazardPlayer(state).id,
+    strikesTotal: strikes,
+    strikeProwess: prowess,
+    creatureBody: body,
+    creatureRace,
+    assignmentPhase: 'defender',
+    detainment: false,
+  });
+}
+
+/**
+ * Handle the 'siege-attacks' step (Siege tw-87): sequence the attacks every
+ * card besieging the company's site contributes. Each `pass` initiates the next
+ * siege attack; once all are faced the company proceeds to its normal
+ * 'enter-or-skip' decision (it may still do nothing at the site — but it has
+ * already faced the siege).
+ */
+function handleSiteSiegeAttacks(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during siege-attacks step` };
+  }
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+
+  // The company may have been wiped out by an earlier siege attack.
+  if (!company) {
+    logDetail('Siege: active company dissolved — finishing its site-phase slot');
+    return finishDissolvedCompanySlot(state, siteState);
+  }
+
+  const siege = siteState.siegeAttacks;
+  const sieges = siteStartOfPhaseAttacks(state, company.currentSite?.definitionId);
+  const remaining = siege
+    ? sieges.filter(s => siege.sourceInstanceIds.includes(s.cardInstanceId)).slice(siege.resolved)
+    : [];
+
+  if (remaining.length === 0) {
+    logDetail(`Siege: all siege attacks faced by company ${company.id as string} → enter-or-skip`);
+    return {
+      state: {
+        ...state,
+        phaseState: { ...siteState, step: 'enter-or-skip' as const, siegeAttacks: undefined },
+      },
+    };
+  }
+
+  const next = remaining[0];
+  return {
+    state: {
+      ...state,
+      combat: buildSiegeAttackCombat(state, company, next.cardInstanceId, next.effect),
+      phaseState: { ...siteState, siegeAttacks: { ...siege!, resolved: siege!.resolved + 1 } },
+    },
+  };
 }
 
 /**

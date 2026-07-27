@@ -3651,6 +3651,63 @@ export function siteFactionInfluenceModifier(
 }
 
 /**
+ * Every in-play card of either player besieging `siteDefId` (bound via
+ * `CardInPlay.attachedToSite`, not still `pendingTriggerAttack`) that carries a
+ * `site-phase-start-attack` effect — the attacks a company at that site must
+ * face at the beginning of its site phase, before deciding whether to enter
+ * (Siege tw-87). Returned in `cardsInPlay` order so the sequence a company
+ * faces is stable across recomputations.
+ */
+export function siteStartOfPhaseAttacks(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+): readonly { readonly cardInstanceId: CardInstanceId; readonly effect: import('../types/effects.js').SitePhaseStartAttackEffect }[] {
+  if (!siteDefId) return [];
+  const out: { cardInstanceId: CardInstanceId; effect: import('../types/effects.js').SitePhaseStartAttackEffect }[] = [];
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
+      for (const e of getCardEffects(defById(state, c.definitionId))) {
+        if (e.type === 'site-phase-start-attack') out.push({ cardInstanceId: c.instanceId, effect: e });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Every in-play card of either player besieging `siteDefId` that carries a
+ * `company-movement-roll` effect — the end-of-organization-phase rolls a
+ * company at that site must make to keep its movement (Siege tw-87).
+ */
+export function siteMovementRolls(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+): readonly {
+  readonly cardInstanceId: CardInstanceId;
+  readonly sourceDefinitionId: CardDefinitionId;
+  readonly effect: import('../types/effects.js').CompanyMovementRollEffect;
+}[] {
+  if (!siteDefId) return [];
+  const out: {
+    cardInstanceId: CardInstanceId;
+    sourceDefinitionId: CardDefinitionId;
+    effect: import('../types/effects.js').CompanyMovementRollEffect;
+  }[] = [];
+  for (const p of state.players) {
+    for (const c of p.cardsInPlay) {
+      if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
+      for (const e of getCardEffects(defById(state, c.definitionId))) {
+        if (e.type === 'company-movement-roll') {
+          out.push({ cardInstanceId: c.instanceId, sourceDefinitionId: c.definitionId, effect: e });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Aggregated anti-minion flags of every in-play `site-lock` card (of either
  * player) bound to the given site *definition* (and not still
  * `pendingTriggerAttack`). No Strangers at this Time (as-51) sets both flags:
@@ -3763,6 +3820,14 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
   for (const p of state.players) {
     for (const co of p.companies) {
       if (co.currentSite) occupied.add(co.currentSite.definitionId as string);
+      // A site-targeting hazard permanent-event (Troll-purse dm-95, Siege
+      // tw-87) is played during the M/H phase on the company's *destination*
+      // site, which only becomes its `currentSite` when the company arrives at
+      // M/H step 8. Without counting declared destinations the card would be
+      // swept as an orphan on the very action that played it. If the company is
+      // later returned to its site of origin the destination is cleared and the
+      // attached card is swept then, as its text requires ("Discard … when the
+      // site card is returned to the location deck").
       if (co.destinationSite) occupied.add(co.destinationSite.definitionId as string);
     }
   }

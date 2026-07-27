@@ -1626,7 +1626,40 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Siege.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-07-27",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "siteType": {
+            "$in": [
+              "border-hold",
+              "free-hold"
+            ]
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "site-phase-start-attack",
+        "attack": {
+          "creatureType": "Orcs",
+          "strikes": 3,
+          "prowess": 7
+        }
+      },
+      {
+        "type": "company-movement-roll",
+        "threshold": 5,
+        "penaltyPerCharacterWithoutSkill": "scout",
+        "penalty": 1
+      }
+    ],
     "text": "Playable on a Border-hold [{B}] or Free-hold [{F}] site. A company at this site must face an Orc attack of three strikes at 7 prowess at the beginning of its site phase.At the end of its organization phase, a company at a site with Siege on it must make a roll and subtract one from the result for every non-scout character it contains. If this result is less than 5, the company may not move this turn.Discard when the site card is discarded or when the site card is returned to the location deck.Cannot be duplicated on a given site."
   },
   {

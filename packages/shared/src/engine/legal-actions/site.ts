@@ -244,9 +244,11 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
 
   if (siteState.step === 'automatic-attacks'
     || siteState.step === 'troll-purse-attacks'
-    || siteState.step === 'rescue-attacks') {
-    // Repeated/sequenced attacks (Troll-purse re-face, prisoner-rescue): the
-    // active player passes to initiate the next attack (or to finish).
+    || siteState.step === 'rescue-attacks'
+    || siteState.step === 'siege-attacks') {
+    // Repeated/sequenced attacks (Troll-purse re-face, prisoner-rescue, Siege
+    // tw-87): the active player passes to initiate the next attack (or to
+    // finish).
     return viable(automaticAttacksActions(state, playerId, siteState));
   }
 
