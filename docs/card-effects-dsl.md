@@ -10796,9 +10796,44 @@ Which players are hit is chosen by the optional **`affects`** field:
   cancels any effect that causes a player to search through or look at any
   portion of a play deck or a discard pile outside of the normal sequence of
   play" is narrowed by its own "This card has no effect on a minion player".
+- `"all"` — every player, whatever his alignment. Flotsam and Jetsam (wh-18).
 
 ```json
 { "type": "cancel-deck-search", "affects": "non-minion" }
+```
+
+The standard `when` narrows the cancel further. It is evaluated once per
+*acting* player — the one whose search is about to happen — against
+
+- `player.alignment` — his alignment (`wizard` / `ringwraith` /
+  `fallen-wizard` / `balrog`)
+- `player.minion` — `true` for a Ringwraith or Balrog player
+- `player.playDeckSize` — the number of cards currently in his play deck
+
+Because the gate is re-read at every search, a player slides in and out of the
+cancel as his deck runs down. Flotsam and Jetsam (wh-18) — "If a player has 15
+or fewer cards in his play deck (20 or fewer if a Fallen-wizard), all effects
+are automatically canceled which allow him to search through or look at any
+portion of his play deck or discard pile outside of the normal sequence of
+play" — is `affects: "all"` plus the two-branch threshold:
+
+```json
+{
+  "type": "cancel-deck-search",
+  "affects": "all",
+  "when": {
+    "$or": [
+      { "$and": [
+        { "player.alignment": { "$ne": "fallen-wizard" } },
+        { "player.playDeckSize": { "$lte": 15 } }
+      ] },
+      { "$and": [
+        { "player.alignment": "fallen-wizard" },
+        { "player.playDeckSize": { "$lte": 20 } }
+      ] }
+    ]
+  }
+}
 ```
 
 The card's "Manifestation of Galadriel" line is the `manifestId` chain tag

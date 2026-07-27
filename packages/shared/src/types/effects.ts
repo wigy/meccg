@@ -6843,8 +6843,16 @@ export interface CreatureAltEventEffect extends EffectBase {
  *
  * {@link affects} selects which players are hit: `"minion"` (the default) hits
  * only Ringwraith/Balrog players — MEBA: the Balrog player is a minion player —
- * and `"non-minion"` hits everyone *but* those, i.e. Wizard and Fallen-wizard
- * players.
+ * `"non-minion"` hits everyone *but* those, i.e. Wizard and Fallen-wizard
+ * players, and `"all"` hits every player regardless of alignment.
+ *
+ * The inherited {@link EffectBase.when} narrows the cancel further, evaluated
+ * per *acting* player (the one whose search is about to happen) against the
+ * context `{ player: { alignment, minion, playDeckSize } }`. Flotsam and Jetsam
+ * (wh-18) uses it for "If a player has 15 or fewer cards in his play deck (20
+ * or fewer if a Fallen-wizard)": `affects: "all"` plus an `$or` over the two
+ * alignment/deck-size branches. Because the gate reads the *current* deck size,
+ * a player drops in and out of the cancel as his deck shrinks.
  *
  * Enforced at every point where a `fetch-to-deck` pending effect with a
  * `deck` or `discard-pile` source would be enqueued for such a player (the
@@ -6858,12 +6866,14 @@ export interface CreatureAltEventEffect extends EffectBase {
  * "Automatically cancels any effect that causes a player to search through or
  * look at any portion of a play deck or a discard pile outside of the normal
  * sequence of play" is narrowed by "This card has no effect on a minion
- * player" to `affects: "non-minion"`.
+ * player" to `affects: "non-minion"`. Flotsam and Jetsam (wh-18) hits every
+ * player (`affects: "all"`) but only while his play deck has run low, via the
+ * inherited `when` gate.
  */
 export interface CancelDeckSearchEffect extends EffectBase {
   readonly type: 'cancel-deck-search';
   /** Which players the cancel applies to (default `"minion"`). */
-  readonly affects?: 'minion' | 'non-minion';
+  readonly affects?: 'minion' | 'non-minion' | 'all';
 }
 
 /**
