@@ -20,7 +20,7 @@ import type { GameState, CombatState, GameAction, CompanyId } from '../index.js'
 import type { ReducerResult } from './reducer-utils.js';
 import type { StrikeModifierEffect, TriggerAttackOnPlayEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isCharacterCard } from '../types/cards.js';
+import { isCharacterCard, isSiteCard } from '../types/cards.js';
 import { CardStatus, Skill } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -167,6 +167,146 @@ export function handleCancelAttackByInPlayFaction(
     discardPile: [...p.discardPile, toCardInstance(factionEntry)],
   }));
   return { state: resolveCancelAttackEntry(discardedState) };
+}
+
+/**
+ * Handle a site-swap cancel-attack sourced from an in-play permanent-event
+ * carrying `cancel-attack` with a `siteSwap` payload — Farmer Maggot (as-48):
+ * "you may immediately replace its site card with another site card in The
+ * Shire, Arthedain, or Cardolan (from your location deck). If your company
+ * takes this option, the attack is canceled and this card is discarded."
+ *
+ * Order of operations:
+ * 1. the defending company's current site card is disposed exactly as a
+ *    departure site is (CoE 2.IV.viii — a tapped non-haven is discarded to the
+ *    site discard pile, anything else returns to the location deck), unless a
+ *    sibling company is still standing on that same site card;
+ * 2. the chosen replacement site is pulled out of the location deck and becomes
+ *    the company's current site, untapped;
+ * 3. the host card is discarded; and
+ * 4. the attack is canceled via {@link resolveCancelAttackEntry}.
+ *
+ * The company does not *move* to the replacement, so it does not face that
+ * site's automatic-attacks: during the site phase the remaining automatic-attack
+ * sequence for this company is abandoned (`autoAttacksSkipped`).
+ */
+export function handleCancelAttackBySiteSwap(
+  state: GameState,
+  action: GameAction,
+  combat: CombatState,
+): ReducerResult {
+  if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
+
+  const defPlayerIndex = getPlayerIndex(state, action.player);
+  const defPlayer = state.players[defPlayerIndex];
+  const hostEntry = defPlayer.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+  if (!hostEntry) return { state, error: 'Cancel-attack card not in play' };
+
+  const hostDef = defById(state, hostEntry.definitionId);
+  const hostName = cardName(state, hostEntry.definitionId);
+  const cancelEffect = getCardEffects(hostDef).find(
+    (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
+  );
+  const siteSwap = cancelEffect?.siteSwap;
+  if (!siteSwap) return { state, error: `${hostName} has no site-swap cancel-attack effect` };
+
+  const companyIndex = defPlayer.companies.findIndex(c => c.id === combat.companyId);
+  const company = companyIndex >= 0 ? defPlayer.companies[companyIndex] : undefined;
+  if (!company) return { state, error: 'Defending company not found' };
+  if (company.destinationSite) {
+    return { state, error: `${hostName} requires a company at a site, but the company is moving` };
+  }
+  const currentSite = company.currentSite;
+  if (!currentSite) return { state, error: 'Defending company has no current site' };
+
+  const currentDef = defById(state, currentSite.definitionId);
+  if (!currentDef || !isSiteCard(currentDef) || !siteSwap.regions.includes(currentDef.region)) {
+    return {
+      state,
+      error: `${hostName}: company is not at a site in ${siteSwap.regions.join(', ')}`,
+    };
+  }
+
+  const replacementId = action.replacementSiteInstanceId;
+  if (!replacementId) return { state, error: `${hostName} requires a replacement site` };
+  const replacement = findById(defPlayer.siteDeck, replacementId);
+  if (!replacement) return { state, error: `${hostName}: replacement site is not in the location deck` };
+  const replacementDef = defById(state, replacement.definitionId);
+  if (!replacementDef || !isSiteCard(replacementDef) || !siteSwap.regions.includes(replacementDef.region)) {
+    return {
+      state,
+      error: `${hostName}: replacement site is not in ${siteSwap.regions.join(', ')}`,
+    };
+  }
+
+  logDetail(
+    `Cancel-attack declared: discarding ${hostName} to replace ${currentDef.name} ` +
+    `with ${replacementDef.name} (${replacementDef.region}) and cancel the attack`,
+  );
+
+  // A sibling company standing on the same site card keeps it in play; only the
+  // card's owner disposes of it (mirrors the departure rules in M/H step 8).
+  const siblingAtCurrentSite = defPlayer.companies.some(
+    (c, i) => i !== companyIndex && c.currentSite?.instanceId === currentSite.instanceId,
+  );
+
+  const swapped = updatePlayer(state, defPlayerIndex, p => {
+    let siteDeck = p.siteDeck;
+    let siteDiscardPile = p.siteDiscardPile;
+
+    if (company.siteCardOwned && !siblingAtCurrentSite) {
+      const departureEntry = toCardInstance(currentSite);
+      const isHaven = currentDef.siteType === 'haven';
+      if (!isHaven && currentSite.status === CardStatus.Tapped) {
+        logDetail(`${hostName}: replaced site ${currentDef.name} is a tapped non-haven — discarding to site discard pile`);
+        siteDiscardPile = [...siteDiscardPile, departureEntry];
+      } else {
+        logDetail(`${hostName}: replaced site ${currentDef.name} is ${isHaven ? 'a haven' : 'untapped'} — returning to location deck`);
+        siteDeck = [...siteDeck, departureEntry];
+      }
+    } else if (siblingAtCurrentSite) {
+      logDetail(`${hostName}: replaced site ${currentDef.name} stays in play — a sibling company is still there`);
+    }
+
+    siteDeck = removeById(siteDeck, replacementId);
+
+    return {
+      ...p,
+      siteDeck,
+      siteDiscardPile,
+      cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== hostEntry.instanceId),
+      discardPile: [...p.discardPile, toCardInstance(hostEntry)],
+      companies: p.companies.map((c, i) =>
+        i === companyIndex
+          ? {
+              ...c,
+              currentSite: {
+                instanceId: replacement.instanceId,
+                definitionId: replacement.definitionId,
+                status: CardStatus.Untapped,
+              },
+              siteCardOwned: true,
+            }
+          : c,
+      ),
+    };
+  });
+
+  // The company was placed at the replacement rather than moving to it, so it
+  // never "enters" that site: any automatic-attacks still queued for this
+  // company's site-phase slot are abandoned.
+  let resultState: GameState = swapped;
+  if (resultState.phaseState.phase === Phase.Site
+    && resultState.phaseState.activeCompanyIndex === companyIndex
+    && resultState.activePlayer === action.player) {
+    logDetail(`${hostName}: company is placed at ${replacementDef.name} without entering it — remaining automatic-attacks abandoned`);
+    resultState = {
+      ...resultState,
+      phaseState: { ...resultState.phaseState, autoAttacksSkipped: true },
+    };
+  }
+
+  return { state: resolveCancelAttackEntry(resultState) };
 }
 
 /**
@@ -414,8 +554,16 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
     if (defPlayer.characters[action.cardInstanceId]) {
       return handleCancelAttackByInPlayCharacter(state, action, combat);
     }
-    // A controlled faction in play discarded to cancel (Wild Hounds wh-40).
-    if (defPlayer.cardsInPlay.some(c => c.instanceId === action.cardInstanceId)) {
+    // A card in play discarded/tapped to cancel: either a site-swap permanent
+    // event (Farmer Maggot as-48) or a controlled faction (Wild Hounds wh-40).
+    const inPlayEntry = defPlayer.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+    if (inPlayEntry) {
+      const inPlayCancel = getCardEffects(defById(state, inPlayEntry.definitionId)).find(
+        (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
+      );
+      if (inPlayCancel?.siteSwap) {
+        return handleCancelAttackBySiteSwap(state, action, combat);
+      }
       return handleCancelAttackByInPlayFaction(state, action, combat);
     }
     // Check items before falling through to ally handler.

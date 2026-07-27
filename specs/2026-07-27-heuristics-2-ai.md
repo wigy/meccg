@@ -136,7 +136,7 @@ interface Evaluation {
   readonly sigmaTsd: number;
   readonly utility: number;            // ΔP(win)
   readonly rationale: Rationale;
-  readonly assumptions: readonly string[];  // e.g. "no hand cards played by either side"
+  readonly assumptions: readonly string[];  // e.g. "opponent plays no cards into this combat"
 }
 ```
 
@@ -213,7 +213,7 @@ decision (are we banking kill MP this game?) while `combat` is a tactical one.
 
 | Module | Owns | Depends on | Why it is a good boundary |
 |---|---|---|---|
-| `combat` | `assign-strike`, `choose-strike-order`, `resolve-strike`, `support-strike`, `body-check-roll`, `cancel-*`, `halve-strikes` | — | Closed-form under "no hand cards": 2d6 vs prowess, then body check. Exactly calculable. |
+| `combat` | `assign-strike`, `choose-strike-order`, `resolve-strike`, `support-strike`, `body-check-roll`, `cancel-*`, `halve-strikes`, **and every card play available to us inside the combat** — `play-strike-event`, `play-short-event`, `cancel-attack`, `protect-from-assignment`, `cancel-weapon-effects`, `modify-attack`, `tap-item-for-strike`, `tap-ally-body-check-boost`, `flee-from-strike`, `convert-creature-to-ally` | `hand` (card shadow price) | Closed-form: 2d6 vs prowess, then body check. Our own hand is perfect information, so the card options are enumerable, not estimated — only the *opponent's* hand cards are a belief problem (§8). |
 | `travel` (travel agency) | `plan-movement`, `move-company`, site selection | `combat`, `exposure`, `corruption`, all acquisition modules | Destination value = what the acquisition modules say is playable there − expected combat loss − exposure − corruption |
 | `health` | heal/untap/transfer/store actions, haven trips, character replacement | `combat`, `travel`, `budget` | Wounded/tapped characters are a resource with a known restore cost; replacement has a mind/influence price |
 | `corruption` | corruption-bearing plays, item store/drop, `corruption-check` pending | `standing` | Pure probability: check modifiers vs. corruption points; expected MP loss on failure vs. MP gain from carrying |
@@ -223,15 +223,40 @@ decision (are we banking kill MP this game?) while `combat` is a tactical one.
 
 Notes on the three the request named first:
 
-- **`combat` under the stated assumption.** "No hand cards are used" makes the
-  calculation exact: enumerate assignment/order/tap-mode choices, apply the
-  modifier stack from `combat-strike.ts` (stay-untapped penalty, tapped −1,
-  wounded −2, excess strikes, support +1 each, creature race modifiers), read
-  the 2d6 tail, then the body check. Outcomes per character:
+- **`combat`.** The dice half is exact: enumerate assignment/order/tap-mode
+  choices, apply the modifier stack from `combat-strike.ts` (stay-untapped
+  penalty, tapped −1, wounded −2, excess strikes, support +1 each, creature race
+  modifiers), read the 2d6 tail, then the body check. Outcomes per character:
   `unharmed | tapped | wounded | eliminated`. Elimination converts to TSD via
   lost character MP, lost carried-item MP, *plus* the opponent's kill MP —
-  three terms H1 does not model at all. The assumption is recorded in
-  `assumptions` and later relaxed by a `hand-cards` refinement (§8).
+  three terms H1 does not model at all.
+
+  **Our own hand cards are in scope from v1, not deferred.** When we are the
+  *defending* side, the cards we can play into the combat are as much a part of
+  the decision as the tap-mode choice, and they are the main lever we have over
+  a bad attack: cancelling the attack outright, protecting a character from
+  assignment, halving strikes, a strike/short event, tapping an item or ally for
+  a strike or a body-check boost, `modify-attack`, fleeing. H1's blindness here
+  is precisely why it loses characters it did not have to lose. There is no
+  hidden information involved — our hand is fully visible to us — so the module
+  **enumerates the legal card plays alongside the non-card options and scores
+  them in the same units**. A card play is only chosen when its expected TSD
+  saving beats the card's shadow price from `hand` (§3.5); that is the entire
+  cost side, and it is why `combat` depends on `hand` rather than treating cards
+  as free.
+
+  Concretely, the combat decision is a small sequential search over *our*
+  options: at each decision point (assignment, pre-strike card window, tap mode,
+  body check) the module branches over the legal card plays plus "play nothing",
+  evaluates each branch's downstream distribution with the same closed-form
+  machinery, and commits to the first action of the best line. The branching
+  factor is bounded by the number of combat-relevant cards actually in hand,
+  which is small; enumeration is capped and the cap is reported in the rationale
+  (§9), same discipline as the hazard bundles.
+
+  What remains assumed is only the **opponent's** side: v1 assumes the attacker
+  plays no cards into our defence. That single assumption is recorded in
+  `assumptions` and later relaxed by the `hand-cards` belief refinement (§8).
 - **`travel` (travel agency).** Explicitly a *recommendation engine over the
   site deck*, not a single-step scorer: it must plan the round trip, because MP
   are frequently only banked at a haven (store item, heal, reset). Its
@@ -320,6 +345,10 @@ That inconsistency *is* how H1's weight soup came about. So:
 - Every other module subtracts that price when it proposes to spend a card.
   A resource play must beat *both* the opponent's denial value of the hazard it
   displaces and doing nothing.
+- The sharpest consumer is `combat` on defence: "spend this card or lose the
+  character" is exactly a price comparison, and it is the case where the price
+  must not be a private guess. The same number that tells `hazards` to hold a
+  creature back tells `combat` whether cancelling this attack is worth it.
 - The target hazard/resource mix is not a constant. It falls out of the risk
   posture: leading means denial is worth more than income (protect the lead);
   trailing means the reverse. This is the same sigmoid curvature from §2.1
@@ -487,8 +516,10 @@ Standing: TSD −7 (p1 22 / p2 29), turn 14/~30 → risk λ = +0.42 (trailing, f
 
 RANKED
   1. resolve-strike Gimli tap-to-fight        U = +2.4% win   E[Δtsd] +1.8  σ 3.1
-  2. resolve-strike Gimli stay untapped       U = +0.9% win   E[Δtsd] +0.4  σ 4.6
-  3. support-strike Legolas → Gimli           U = −0.3% win   E[Δtsd] −0.2  σ 2.2
+  2. play-short-event <attack canceller>      U = +1.6% win   E[Δtsd] +3.1  σ 1.4
+                                              (card price −1.2 tsd, from `hand`)
+  3. resolve-strike Gimli stay untapped       U = +0.9% win   E[Δtsd] +0.4  σ 4.6
+  4. support-strike Legolas → Gimli           U = −0.3% win   E[Δtsd] −0.2  σ 2.2
 
   #1 resolve-strike Gimli tap-to-fight
   ├─ need 8 vs strike prowess 11              [CoE 3.iv]
@@ -502,7 +533,8 @@ RANKED
   │     └─ opponent kill MP +3                    [CoE 10.3]
   ├─ E[Δtsd] = +1.8   σ = 3.1
   └─ utility = W(−5.2, t14) − W(−7.0, t14) = +2.4% win
-  assumptions: no hand cards played by either side; no on-guard reveal
+  our own hand cards were enumerated (3 combat-relevant, see #2); cap not hit
+  assumptions: opponent plays no cards into this combat; no on-guard reveal
 ```
 
 ### 5.2 `scenarios` — build and maintain the fixed sample set
@@ -583,8 +615,11 @@ probability maths against hand-computed values and the tunables' edge cases.
 
 A module claims `P(wounded) = 44.4%`. The harness takes the scenario's
 `GameState`, runs N seeded rollouts through the **real reducer** with a policy
-that respects the module's assumptions (no hand cards played), and asserts the
-empirical frequency lies inside the binomial CI of the claim.
+that respects the module's assumptions (the opponent plays no cards; our own
+card plays are replayed exactly as the module chose them), and asserts the
+empirical frequency lies inside the binomial CI of the claim. Card-play lines
+are calibrated the same way as dice lines — a claimed "cancelling this attack
+saves 3.1 tsd" must survive the reducer.
 
 This reuses infrastructure that already exists: seeded `RngState`, the pure
 reducer, and `search/determinize.ts` for sampling hidden information. A module
@@ -641,7 +676,7 @@ through to H1.
 | Phase | Content | Exit criterion |
 |---|---|---|
 | P0 | `core/` (types, tsd, dice, rationale, tunables, registry) + `standing` service, `W` fit, scenario store, `explain` + `scenarios` CLIs, calibration harness | `explain` runs on a captured scenario; `W` Brier reported on held-out games; `standing` reports correct marginal MP value per source on hand-built cases |
-| P1 | `combat`, then `kill` on top of it | Calibration within CI at 5000 rollouts; `gate h2:combat vs heuristic` lower bound > 0; `kill` gated separately on top |
+| P1 | `combat` — including enumeration of our own defensive card plays — then `kill` on top of it | Calibration within CI at 5000 rollouts, card-play lines included; `gate h2:combat vs heuristic` lower bound > 0; a defence-scenario subset where H1 loses a character it could have saved, on which H2 must not; `kill` gated separately on top |
 | P2 | `exposure` (both halves: limits **and** the hidden-card belief model) + `budget` services, then `travel` | Belief model scored by log-loss against actually-revealed on-guard cards in the replay corpus; horizon-3 correlation positive; gate vs `h2:combat,kill` |
 | P3 | `factions` + `items` (the two richest acquisition modules) | Faction P(success) calibrated against the reducer; gate |
 | P4 | `health` + `corruption` | as above |
@@ -649,6 +684,12 @@ through to H1.
 | P6 | `hazards` (bundle planner) + `hand` (shadow prices) — shipped together | Bundle beam search inside the perf budget; denial calibrated against the reducer; gate. `hand` cannot be validated before `hazards` exists, since the price depends on hazard demand |
 | P7 | `endgame`, `sweep`/`compare` polish, lobby exposure as a selectable opponent | Full `h2` clears the gate vs `heuristic` and vs the current RL champion |
 | P8 | Re-export BC training data with H2 as teacher | BC-on-H2 vs BC-on-H1 gate |
+
+`combat` in P1 needs a card shadow price before `hand` exists in P6. It uses a
+flat provisional price from `tunables.ts` (one number, sweepable, and named in
+the rationale so a P1 explanation never hides which price it used); P6 replaces
+that call with the real `hand` service and re-runs the P1 gate to confirm the
+substitution is an improvement rather than a silent behaviour change.
 
 `factions` is pulled forward to P3 rather than left in a generic "resources"
 phase: it has the cleanest closed-form probability of any acquisition module,
@@ -661,10 +702,13 @@ raises the ceiling of the entire learned stack.
 
 ## 8. Deferred / explicitly out of scope for v1
 
-- **Hand cards in combat.** v1 assumes neither side plays cards during a
-  strike. Refinement: a `hand-cards` layer that mixes in `P(opponent holds a
-  relevant card)` estimated from their discard pile, deck composition and the
-  hazard limit. Only after the base module is calibrated.
+- **The *opponent's* hand cards in combat.** *Our* card plays are in scope from
+  v1 (§3.3) — when we defend, `combat` enumerates and scores every card we can
+  legally play into the combat. What is deferred is the other side: v1 assumes
+  the attacker plays nothing into our defence. Refinement: a `hand-cards` layer
+  that mixes in `P(opponent holds a relevant card)` estimated from their discard
+  pile, deck composition and the hazard limit, feeding off the `exposure` belief
+  model. Only after the base module is calibrated.
 - **Bluffing / deception.** On-guard *inference* is in scope (`exposure`
   beliefs) and *placement* is in scope (`hazards` bundles); deliberately
   placing a worthless card to deter is not — see §3.6 for why the ordering is
@@ -686,6 +730,7 @@ raises the ceiling of the entire learned stack.
 | Module sprawl / hidden coupling | Ownership registry is the single source of truth; cross-module access only via declared services; a test asserts no module imports another module directly |
 | H2 regresses areas H1 handled acceptably | Hybrid fallback + per-module ablation gates + `compare` on the scenario set |
 | Tuning by vibes returns | Every constant lives in `tunables.ts`, appears in the rationale, and is sweepable via `sweep --over tunable:<name>` |
+| Combat card-play enumeration multiplies the branching factor at every decision point in a strike | Only combat-relevant cards in hand are candidates (a legality filter, not a heuristic one), the sequential search is depth- and width-capped by a tunable, and the cap is reported in the rationale so a truncated search is never mistaken for exhaustive. The perf budget in the row above is measured with card enumeration on. |
 | Hazard bundle enumeration is exponential in hand size | Beam search with a width tunable and a hard cap; plan committed once per company per M/H phase rather than per action; the cap is reported in the rationale so a truncated search is never mistaken for an exhaustive one |
 | The `hand` shadow price becomes a second weight soup | It is a single number in TSD units with one owner, consumed by everyone; §6.4 calibrates it against whether a high price actually predicted a valuable hazard turn |
 
