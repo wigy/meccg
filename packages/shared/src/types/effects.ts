@@ -950,6 +950,42 @@ export interface NonCharacterMpOverrideEffect extends EffectBase {
 }
 
 /**
+ * Re-values the controller's **characters** that match a per-card {@link when}
+ * condition, overriding their printed marshalling points and every other
+ * character-MP rule in play (the MEWH §4 flat-1-MP clamp, a Great Patron wh-72
+ * cap, a wh-4 full-MP exemption, an Await the Onset wh-96 pin) — the
+ * character-scoring sibling of {@link NonCharacterMpOverrideEffect}.
+ *
+ * Each of the player's in-play characters is matched against the context
+ * `{ card: { unique, normalMp, cardType, name, race } }`, where `normalMp` is
+ * the character's *printed* marshalling points; a match scores exactly
+ * {@link value}. Characters with no printed MP are unaffected either way.
+ *
+ * The carrying card may be a card in the player's `cardsInPlay`, an item on one
+ * of his characters, or a **hazard attached to one of his characters** — the
+ * last is how an opponent's hazard re-values the cards of the player it is
+ * played on.
+ *
+ * Used by Fool's Bane (wh-19): "his Elf characters … are each worth 0
+ * marshalling points in all cases."
+ *
+ * ```json
+ * { "type": "character-mp-override", "when": { "card.race": "elf" }, "value": 0 }
+ * ```
+ */
+export interface CharacterMpOverrideEffect extends EffectBase {
+  readonly type: 'character-mp-override';
+  /**
+   * Condition matched against the per-character context
+   * `{ card: { unique, normalMp, cardType, name, race } }`. Every matching
+   * character the player controls scores {@link value}.
+   */
+  readonly when: Condition;
+  /** MP each matching character is worth, overriding every other MP rule. */
+  readonly value: number;
+}
+
+/**
  * Pins every MP-scoring card **held by a company that is not at one of the
  * controller's Wizardhavens** to a flat {@link value} marshalling points,
  * overriding all other MP computation for those cards ("regardless of other
@@ -1229,11 +1265,26 @@ export interface HandSizeModifierEffect extends EffectBase {
  * Draw-modifiers are collected both from a moving company's characters and
  * from the active player's own in-play events/environments, so a long-event
  * (not carried by any character) can contribute.
+ *
+ * Example: Smaug at Home (td-71) — a hazard permanent-event: "each moving
+ * company draws one less card to a minimum of one", which needs
+ * `appliesTo: 'any-company'` so the opponent's copy reduces the moving
+ * player's draws.
  */
 export interface DrawModifierEffect extends EffectBase {
   readonly type: 'draw-modifier';
   /** Which draw pool to modify. */
   readonly draw: 'hazard' | 'resource';
+  /**
+   * Whose moving companies the modifier reaches. Defaults to
+   * `own-companies`: the effect is only collected from the *active* (moving)
+   * player's characters and `cardsInPlay`, so a lingering long-event never
+   * touches the opponent's draws. `any-company` opts the modifier into being
+   * collected from the opponent's `cardsInPlay` as well — for cards worded
+   * "each moving company …" (Smaug at Home td-71), where the hazard player
+   * holds the card but the moving player's draws shrink.
+   */
+  readonly appliesTo?: 'own-companies' | 'any-company';
   /**
    * The adjustment (negative = fewer draws). Accepts a value expression
    * evaluated against the resolver context, which exposes `sitePath`
@@ -3847,6 +3898,17 @@ export interface PlayWindowEffect extends EffectBase {
    * the phase restriction; both must be satisfied. Uses {@link SiteType} values.
    */
   readonly siteTypes?: readonly string[];
+  /**
+   * Optional attack filter for a `phase: "combat"` window. Evaluated against
+   * the just-faced attack's context — `{ enemy: { race }, attack: { source } }`
+   * — using the same discriminators as a `cancel-attack` `when` clause.
+   *
+   * Used with `step: "after-attack"` by resource permanent-events whose text
+   * reads "Playable … immediately after his company faces a <race> hazard
+   * creature" (No News of Our Riding le-211): the card is offered only while
+   * the ended attack matches.
+   */
+  readonly when?: Condition;
 }
 
 /**
@@ -5454,6 +5516,46 @@ export interface FactionInfluenceRestrictionEffect extends EffectBase {
 }
 
 /**
+ * Environment effect carried by a bare in-play hazard event that strips every
+ * **card-sourced modification** from every influence attempt in the game, for
+ * either player.
+ *
+ * Used by Webs of Fear & Treachery (le-150): "Except for unused general
+ * influence and unused normal direct influence (including influence
+ * modifications given in a character's card text), all modifications to each
+ * influence attempt are reduced to zero."
+ *
+ * While a card carrying this effect sits bare (unattached) in either player's
+ * `cardsInPlay`, {@link import('../engine/reducer-utils.js').influenceModificationsNullified}
+ * reports true and every influence-check computation collapses to:
+ *
+ * - the 2d6 roll(s) and the printed target value (faction influence #, target
+ *   mind, in-play influence #) — not modifications;
+ * - unused **general** influence (the defender's opposing GI in an
+ *   opponent-influence attempt, and a general-influence substitution that
+ *   yields unused GI — Prophet of Doom wh-106);
+ * - unused **normal** direct influence — the influencer's *printed* direct
+ *   influence plus the influence modifications given in **his own card text**,
+ *   minus his followers' mind cost
+ *   ({@link import('../engine/legal-actions/organization.js').normalUnusedDI});
+ * - rules-level (non-card) modifications: the cross-alignment influence
+ *   penalty (CoE 8.W1/8.R1/8.F1/8.B1) and the rule 10.14 agent home-site
+ *   bonuses. The defender's 2d6 roll is likewise untouched (Alfano, Worlds
+ *   2009: Webs does not remove the defensive roll).
+ *
+ * Everything else contributes zero: influence `check-modifier` and
+ * `direct-influence` `stat-modifier` effects from items, attached hazards,
+ * allies and other players' in-play events; the faction card's own printed
+ * "standard modifications"; one-shot influence constraints (Muster, Threats'
+ * prowess substitution, …) — which are still *consumed*, just worth 0;
+ * player-, site- and game-wide influence constraints; `faction-influence-
+ * restriction` environments; and paid `influence-modification` bonuses.
+ */
+export interface NullifyInfluenceModificationsEffect extends EffectBase {
+  readonly type: 'nullify-influence-modifications';
+}
+
+/**
  * Prone to Violence (ba-42): a minion permanent-event that grants an *extra*
  * Company-vs-Company-combat attack permission beyond the default alignment
  * matrix ({@link import('../engine/reducer-utils.js').canAttackAlignment}, CoE
@@ -6027,6 +6129,31 @@ export interface DiscardOnCardLeavesPlayEffect extends EffectBase {
    * available). A leaving card that matches triggers the self-discard.
    */
   readonly filter: Condition;
+}
+
+/**
+ * Suspends the normal end-of-long-event-phase discard of hazard long-events for
+ * as long as the carrying card stays in play, and discards every hazard
+ * long-event in play the moment the carrier leaves.
+ *
+ * Hazard long-events are normally swept from the hazard player's `cardsInPlay`
+ * when the resource player passes out of the long-event phase ([2.III.3]). While
+ * any card carrying this effect is in play — in *either* player's `cardsInPlay`,
+ * since the effect is game-wide — that sweep is skipped, so the long-events
+ * accumulate. When the last carrier leaves play (for any reason: its own
+ * `discard-self-when`, deck exhaustion, cancellation), the retained long-events
+ * are all discarded at once.
+ *
+ * Used by The Will of Sauron (tw-100): "All hazard long-events remain in play
+ * until this card is discarded. … When this card is discarded, all hazard long
+ * events are discarded."
+ *
+ * ```json
+ * { "type": "retain-hazard-long-events" }
+ * ```
+ */
+export interface RetainHazardLongEventsEffect extends EffectBase {
+  readonly type: 'retain-hazard-long-events';
 }
 
 /**
@@ -6607,6 +6734,7 @@ export type CardEffect =
   | FactionMpOverrideEffect
   | PermanentEventMpEffect
   | NonCharacterMpOverrideEffect
+  | CharacterMpOverrideEffect
   | NonHavenCompanyMpPinEffect
   | PlayedAfterFactionMpPinEffect
   | RecruitmentVehicleEffect
@@ -6639,7 +6767,9 @@ export type CardEffect =
   | GrantAllyPlayEffect
   | FactionMpBonusEffect
   | DiscardOnCardLeavesPlayEffect
-  | FactionInfluenceRestrictionEffect;
+  | RetainHazardLongEventsEffect
+  | FactionInfluenceRestrictionEffect
+  | NullifyInfluenceModificationsEffect;
 
 /**
  * Grants extended ally-play permission from a permanent-event attached to a
@@ -6769,8 +6899,16 @@ export interface CreatureAltEventEffect extends EffectBase {
  *
  * {@link affects} selects which players are hit: `"minion"` (the default) hits
  * only Ringwraith/Balrog players — MEBA: the Balrog player is a minion player —
- * and `"non-minion"` hits everyone *but* those, i.e. Wizard and Fallen-wizard
- * players.
+ * `"non-minion"` hits everyone *but* those, i.e. Wizard and Fallen-wizard
+ * players, and `"all"` hits every player regardless of alignment.
+ *
+ * The inherited {@link EffectBase.when} narrows the cancel further, evaluated
+ * per *acting* player (the one whose search is about to happen) against the
+ * context `{ player: { alignment, minion, playDeckSize } }`. Flotsam and Jetsam
+ * (wh-18) uses it for "If a player has 15 or fewer cards in his play deck (20
+ * or fewer if a Fallen-wizard)": `affects: "all"` plus an `$or` over the two
+ * alignment/deck-size branches. Because the gate reads the *current* deck size,
+ * a player drops in and out of the cancel as his deck shrinks.
  *
  * Enforced at every point where a `fetch-to-deck` pending effect with a
  * `deck` or `discard-pile` source would be enqueued for such a player (the
@@ -6784,12 +6922,14 @@ export interface CreatureAltEventEffect extends EffectBase {
  * "Automatically cancels any effect that causes a player to search through or
  * look at any portion of a play deck or a discard pile outside of the normal
  * sequence of play" is narrowed by "This card has no effect on a minion
- * player" to `affects: "non-minion"`.
+ * player" to `affects: "non-minion"`. Flotsam and Jetsam (wh-18) hits every
+ * player (`affects: "all"`) but only while his play deck has run low, via the
+ * inherited `when` gate.
  */
 export interface CancelDeckSearchEffect extends EffectBase {
   readonly type: 'cancel-deck-search';
   /** Which players the cancel applies to (default `"minion"`). */
-  readonly affects?: 'minion' | 'non-minion';
+  readonly affects?: 'minion' | 'non-minion' | 'all';
 }
 
 /**

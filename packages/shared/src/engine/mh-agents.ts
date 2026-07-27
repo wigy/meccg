@@ -26,10 +26,10 @@ import { logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { makeCombatState, characterEntries, defById, findById, getCardEffects, removeById, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames } from './reducer-utils.js';
+import { makeCombatState, characterEntries, defById, findById, getCardEffects, removeById, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames, influenceModificationsNullified } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
 import { allyEffectiveMind } from './ally-stats.js';
-import { availableDI } from './legal-actions/organization.js';
+import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 
 /**
@@ -396,6 +396,16 @@ export function handleAgentInfluenceAttempt(
   let controllerDI = 0;
   let rollBonus = 0;
 
+  // Webs of Fear & Treachery (le-150): card-sourced modifications are worth
+  // zero. The rule 10.14 home-site bonuses are rules-level, not card text, and
+  // the agent's own printed DI modifications are "influence modifications given
+  // in a character's card text" — both survive. What le-150 does change here is
+  // the defending controller's unused DI, which drops to his *normal* value.
+  const nullifyMods = influenceModificationsNullified(state);
+  const controllerUnusedDI = (id: CardInstanceId): number => nullifyMods
+    ? normalUnusedDI(state, id, resourcePlayer, [], { reason: 'influence-check' })
+    : availableDI(state, id, resourcePlayer);
+
   if (action.targetKind === 'character') {
     const targetChar = resourcePlayer.characters[action.targetInstanceId];
     if (!targetChar) return { state, error: 'Target character not found' };
@@ -420,7 +430,7 @@ export function handleAgentInfluenceAttempt(
     }
 
     if (targetChar.controlledBy !== 'general') {
-      controllerDI = availableDI(state, targetChar.controlledBy, resourcePlayer);
+      controllerDI = controllerUnusedDI(targetChar.controlledBy);
     }
   } else if (action.targetKind === 'ally') {
     let allyFound = false;
@@ -432,7 +442,7 @@ export function handleAgentInfluenceAttempt(
         // instance override; otherwise the target must be a real ally card.
         if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) return { state, error: 'Target is not an ally' };
         targetMind = allyEffectiveMind(state, allyInst);
-        controllerDI = availableDI(state, oppCharId, resourcePlayer);
+        controllerDI = controllerUnusedDI(oppCharId);
 
         // Rule 10.14: shared home site → mind = 0, +2 roll
         const allyHomesites = parseHomesiteNames((allyDef as { homesite?: string }).homesite ?? '');

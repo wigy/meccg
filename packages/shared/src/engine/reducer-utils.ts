@@ -17,7 +17,7 @@ import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCard, isHalfOrc, isResourceEventCard, isItemCard } from '../types/cards.js';
 import { CardStatus, Race, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
-import { resolveInstanceId } from '../types/state.js';
+import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
 import { resolveDef, normalizeCreatureRace, resolveCheckModifier } from './effects/index.js';
@@ -949,6 +949,43 @@ export function collectGlobalCheckModifier(
     }
   }
   return resolveCheckModifier(collected, check, ctxRecord);
+}
+
+/**
+ * True while a bare in-play event in **either** player's `cardsInPlay` carries
+ * a `nullify-influence-modifications` effect — Webs of Fear & Treachery
+ * (le-150): "Except for unused general influence and unused normal direct
+ * influence (including influence modifications given in a character's card
+ * text), all modifications to each influence attempt are reduced to zero."
+ *
+ * Only bare, unattached cards contribute, mirroring
+ * {@link collectGlobalCheckModifier} — a long-event resolves bare into the
+ * declaring player's play area via `in-play-general`, and the effect is
+ * game-wide, so both players' areas are scanned.
+ *
+ * Every influence-check computation consults this flag: the faction-influence
+ * display (`legal-actions/site.ts`), the paused faction-influence roll
+ * (`legal-actions/pending.ts`), the faction roll resolver (`reducer-site.ts`),
+ * the opponent-influence attempt (`reducer-site.ts`) and the agent influence
+ * attempt (`mh-agents.ts`). See {@link import('../types/effects.js').NullifyInfluenceModificationsEffect}
+ * for exactly what survives the nullification.
+ */
+export function influenceModificationsNullified(state: GameState): boolean {
+  for (const pl of state.players) {
+    for (const cip of pl.cardsInPlay) {
+      if (cip.attachedTo !== undefined || cip.attachedToItem !== undefined
+        || cip.attachedToSite !== undefined || cip.attachedToAgentId !== undefined
+        || cip.companyId !== undefined || cip.setAsideHost !== undefined
+        || cip.pendingTriggerAttack) continue;
+      const def = defById(state, cip.definitionId);
+      if (!def) continue;
+      if (getCardEffects(def).some(e => e.type === 'nullify-influence-modifications')) {
+        logDetail(`Influence modifications nullified by "${def.name}" (${cip.definitionId as string})`);
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /**
@@ -2815,9 +2852,13 @@ export function startDeckExhaust(state: GameState, playerIndex: 0 | 1): GameStat
  * Complete the deck exhaustion: shuffle the discard pile into a new play deck,
  * increment exhaustion count, and clear the pending flag.
  *
- * Fires `play-deck-exhausted` — discards any permanent event in either
- * player's `cardsInPlay` that declares `on-event: play-deck-exhausted` with a
- * self-discard `move` apply (e.g. Safe from the Shadow, Tokens to Show).
+ * Fires `play-deck-exhausted` — discards any permanent event that declares
+ * `on-event: play-deck-exhausted` with a self-discard `move` apply, whether it
+ * sits in either player's `cardsInPlay` (Safe from the Shadow, Tokens to Show)
+ * or is attached to a character as an item / hazard (Fool's Bane wh-19 and
+ * Cruel Claw Perceived wh-16, both hazard permanent-events played on the
+ * opponent's avatar). An attached card returns to *its owner's* discard pile,
+ * so an opponent-owned hazard goes back to the opponent's pile.
  */
 export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameState {
   const player = state.players[playerIndex];
@@ -2861,6 +2902,36 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
     result = { ...result, players: updatedPlayers as unknown as typeof result.players };
   }
 
+  // Same trigger for cards attached to a character (items and hazards). The
+  // card leaves its host and lands in its owner's discard pile.
+  for (let pi = 0; pi < 2; pi++) {
+    for (const [charId, char] of Object.entries(result.players[pi].characters)) {
+      for (const slot of ['items', 'hazards'] as const) {
+        for (const card of char[slot]) {
+          const def = defById(result, card.definitionId);
+          if (!getOnEventEffects(def, 'play-deck-exhausted').some(e => isSelfDiscardMove(e.apply))) continue;
+          const ownerIndex = getPlayerIndex(result, ownerOf(card.instanceId));
+          logDetail(`play-deck-exhausted: discarding ${cardName(result, card.definitionId)} from ${charId} to ${result.players[ownerIndex].name}'s discard pile`);
+          result = updatePlayer(result, pi, p => {
+            const host = p.characters[charId as CardInstanceId];
+            if (!host) return p;
+            return {
+              ...p,
+              characters: {
+                ...p.characters,
+                [charId]: { ...host, [slot]: host[slot].filter(c => c.instanceId !== card.instanceId) },
+              },
+            };
+          });
+          result = updatePlayer(result, ownerIndex, p => ({
+            ...p,
+            discardPile: [...p.discardPile, toCardInstance(card)],
+          }));
+        }
+      }
+    }
+  }
+
   return result;
 }
 
@@ -2876,20 +2947,39 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
  * play deck or discard pile outside of the normal sequence of play" (Lady of
  * the Golden Wood as-13) — while `"non-minion"` covers Wizard and
  * Fallen-wizard players (Bane of the Ithil-stone tw-13, which "has no effect on
- * a minion player").
+ * a minion player"), and `"all"` covers everyone.
+ *
+ * An optional `when` on the effect narrows it per acting player, evaluated
+ * against `{ player: { alignment, minion, playDeckSize } }`. Flotsam and Jetsam
+ * (wh-18) gates on the acting player's *current* play-deck size ("15 or fewer
+ * cards in his play deck, 20 or fewer if a Fallen-wizard"), so the same card in
+ * play cancels one player's searches and not the other's, and starts biting
+ * mid-game as a deck runs down.
  */
 export function deckSearchCancellerFor(state: GameState, actorId: PlayerId): string | null {
   const actor = state.players.find(p => p.id === actorId);
   if (!actor) return null;
   const actorIsMinion = isMinionOrBalrog(actor);
+  const actorCtx = {
+    player: {
+      alignment: actor.alignment,
+      minion: actorIsMinion,
+      playDeckSize: actor.playDeck.length,
+    },
+  };
   for (const p of state.players) {
     for (const card of p.cardsInPlay) {
       const def = defById(state, card.definitionId);
       if (!def) continue;
       for (const effect of getCardEffects(def)) {
         if (effect.type !== 'cancel-deck-search') continue;
-        const hitsMinion = (effect.affects ?? 'minion') === 'minion';
-        if (hitsMinion === actorIsMinion) return def.name;
+        const affects = effect.affects ?? 'minion';
+        if (affects !== 'all' && (affects === 'minion') !== actorIsMinion) continue;
+        if (effect.when && !matchesCondition(effect.when, actorCtx)) {
+          logDetail(`cancel-deck-search: "${def.name}" does not apply to player ${actorId as string} (alignment ${actor.alignment}, play deck ${actor.playDeck.length})`);
+          continue;
+        }
+        return def.name;
       }
     }
   }

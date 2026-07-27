@@ -603,7 +603,10 @@
       {
         "type": "check-modifier",
         "check": "influence",
-        "value": -1
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
       }
     ],
     "certified": "2026-04-07",
@@ -1017,7 +1020,10 @@
       {
         "type": "check-modifier",
         "check": "influence",
-        "value": -1
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
       }
     ],
     "text": "Unique. -1 to all of his corruption checks. -1 to influence checks against factions.",
@@ -1364,7 +1370,10 @@
       {
         "type": "check-modifier",
         "check": "influence",
-        "value": -1
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
       }
     ],
     "certified": "2026-05-10"
@@ -1670,7 +1679,10 @@
       {
         "type": "check-modifier",
         "check": "influence",
-        "value": -1
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
       }
     ],
     "certified": "2026-05-18"
@@ -1775,7 +1787,10 @@
       {
         "type": "check-modifier",
         "check": "influence",
-        "value": -1
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
       }
     ],
     "certified": "2026-04-24"

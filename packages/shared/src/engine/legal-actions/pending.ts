@@ -39,14 +39,15 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
+import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
-import { buildPlayOptionContext, availableDI, modifyCorruptionCheckGrantActions } from './organization.js';
+import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, siteRegionTypeOf } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
+import { afterAttackPlayTargets } from '../post-attack-play.js';
 import { asViable as viable } from './evaluated.js';
 
 
@@ -478,20 +479,21 @@ export function factionInfluenceRollActions(
   let modifier = 0;
   const parts: string[] = [];
 
-  if (charInPlay && charDef && isCharacterCard(charDef)) {
-    const freeDI = availableDI(state, influencingCharacterId, player);
-    modifier += freeDI;
-    parts.push(`DI ${freeDI}`);
+  // Webs of Fear & Treachery (le-150): every card-sourced modification to this
+  // attempt is reduced to zero (see `influenceModificationsNullified`).
+  const nullifyMods = influenceModificationsNullified(state);
 
+  if (charInPlay && charDef && isCharacterCard(charDef)) {
     const resolverCtx: ResolverContext = {
       reason: 'faction-influence-check',
-      bearer: buildBearerContext(charDef),
+      bearer: { ...buildBearerContext(charDef), stagePoints: player.stagePoints },
       faction: {
         name: def.name,
         race: def.race,
         playableAt: buildFactionPlayableAt(def),
         playableRegions: buildFactionPlayableRegions(state, def),
       },
+      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
       controller: {
         inPlay: buildControllerInPlayNames(state, playerId),
         factionRaces: buildControllerFactionRaces(state, playerId),
@@ -508,20 +510,30 @@ export function factionInfluenceRollActions(
       }
     }
 
-    const dslModifier = resolveCheckModifier(charEffects, 'influence');
+    // Under nullification only the influencer's own card text counts.
+    const ownEffects = charEffects.filter(e => e.sourceInstance === influencingCharacterId);
+
+    const freeDI = nullifyMods
+      ? normalUnusedDI(state, influencingCharacterId, player, ownEffects, resolverCtx)
+      : availableDI(state, influencingCharacterId, player);
+    modifier += freeDI;
+    parts.push(nullifyMods ? `normal DI ${freeDI}` : `DI ${freeDI}`);
+
+    const dslModifier = resolveCheckModifier(nullifyMods ? ownEffects : charEffects, 'influence');
     if (dslModifier !== 0) {
       modifier += dslModifier;
       parts.push(`check mod ${formatSignedNumber(dslModifier)}`);
     }
 
-    const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+    // Own-card DI modifications are already inside `freeDI` under nullification.
+    const dslDI = nullifyMods ? 0 : resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       modifier += dslDI;
       parts.push(`DI mod ${formatSignedNumber(dslDI)}`);
     }
 
     // One-shot check-modifier constraints for influence (e.g. Muster): must match the pending roll
-    for (const constraint of state.activeConstraints) {
+    for (const constraint of nullifyMods ? [] : state.activeConstraints) {
       if (constraint.kind.type !== 'check-modifier') continue;
       if (constraint.kind.check !== 'influence') continue;
       if (constraint.target.kind !== 'character') continue;
@@ -544,7 +556,7 @@ export function factionInfluenceRollActions(
     modifier += allyDI;
     parts.push(`DI ${allyDI}`);
 
-    for (const constraint of state.activeConstraints) {
+    for (const constraint of nullifyMods ? [] : state.activeConstraints) {
       if (constraint.kind.type !== 'check-modifier') continue;
       if (constraint.kind.check !== 'influence') continue;
       if (constraint.target.kind !== 'player') continue;
@@ -557,11 +569,14 @@ export function factionInfluenceRollActions(
   // Game-wide ongoing influence modifier from a bare in-play event owned by
   // either player (Times Are Evil td-76: "All … influence attempts are modified
   // by -3"). Applies to every influence attempt regardless of the influencer.
-  const globalInfluenceMod = collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
+  const globalInfluenceMod = nullifyMods
+    ? 0
+    : collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     parts.push(`game-wide ${formatSignedNumber(globalInfluenceMod)}`);
   }
+  if (nullifyMods) parts.push('all other modifications nullified');
 
   const influenceNumber = def.influenceNumber;
   const need = influenceNumber - modifier;
@@ -2626,4 +2641,52 @@ export function greatHuntDiscardAttackActions(
     { action: { type: 'great-hunt-attack-with-creature' as const, player: actor, creatureInstanceId }, viable: true },
     { action: { type: 'pass' as const, player: actor }, viable: true },
   ];
+}
+
+/**
+ * Legal actions while a `post-attack-play-offer` resolution is pending (No News
+ * of Our Riding le-211): the defending player may play one of the matched
+ * resource permanent-events from hand on an eligible character of the company
+ * that just faced the attack, or decline with `pass` ("Playable …" is optional).
+ *
+ * One `play-permanent-event` action per (matched card × legal bearer). The
+ * bearer set is recomputed live via {@link afterAttackPlayTargets}, so a
+ * character tapped between the attack ending and the choice is no longer
+ * offered.
+ */
+export function postAttackPlayOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'post-attack-play-offer') return [];
+  const { companyId, cardInstanceIds } = top.kind;
+  const actions: EvaluatedAction[] = [];
+
+  const player = playerById(state, actor);
+  const company = player ? companyById(player.companies, companyId) : undefined;
+  if (player && company) {
+    for (const cardInstanceId of cardInstanceIds) {
+      const handCard = player.hand.find(c => c.instanceId === cardInstanceId);
+      if (!handCard) continue;
+      const def = defById(state, handCard.definitionId);
+      if (!def) continue;
+      for (const charId of afterAttackPlayTargets(state, player, company, def)) {
+        logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable on ${cardName(state, player.characters[charId].definitionId, '?')}`);
+        actions.push({
+          action: {
+            type: 'play-permanent-event' as const,
+            player: actor,
+            cardInstanceId,
+            targetCharacterId: charId,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  // "Playable on …" — the window is optional and always declinable.
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  return actions;
 }

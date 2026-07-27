@@ -45,6 +45,7 @@ import {
   playCreatureHazardAndResolve,
   handCardId, companyIdAt,
   HAZARD_PLAYER, RESOURCE_PLAYER,
+  viableActionTypes,
 } from '../test-helpers.js';
 import type {
   CardDefinitionId, CardInstanceId, MovementHazardPhaseState, GameState, CombatState, CompanyId,
@@ -350,6 +351,30 @@ describe('Alatar (tw-117)', () => {
     // Defender cannot pass until the forced target has received a strike.
     const passes = viableActions(after, PLAYER_1, 'pass');
     expect(passes).toHaveLength(0);
+  });
+
+  test('a forced Alatar stays assignable when the attack excludes avatars', () => {
+    // Regression from random self-play (decks b/c, seed 424243): Alatar's
+    // haven-join forces a strike onto him, but a Neeker-breekers-style attack
+    // (tw-493) sets excludeAvatarStrikes, which skipped him — while
+    // forcedStrikeTargets blocked every other character and forbade passing.
+    // Both players were left with zero legal actions and the game deadlocked.
+    // A forced target must face its strike "regardless of any conflicting
+    // effects", exactly as it already bypasses the tapped-status gate.
+    const state = combatWithHavenJumpOffer(baseTwoCompanyState());
+    const havenComp = state.players[RESOURCE_PLAYER].companies[1];
+    const alatarId = havenComp.characters[0];
+    let after = dispatch(state, { type: 'haven-join-attack', player: PLAYER_1, characterId: alatarId });
+    after = dispatch(after, { type: 'pass', player: PLAYER_1 } as PassAction);
+    // The attack now excludes avatars from strike assignment.
+    after = { ...after, combat: { ...after.combat!, excludeAvatarStrikes: true } };
+
+    const targets = viableActions(after, PLAYER_1, 'assign-strike')
+      .map(a => (a.action as AssignStrikeAction).characterId);
+    expect(targets).toEqual([alatarId]);
+
+    // And the defender is never left with nothing to do.
+    expect(viableActionTypes(after, PLAYER_1).length).toBeGreaterThan(0);
   });
 
   // ── Post-combat: tap + corruption check + restore ──

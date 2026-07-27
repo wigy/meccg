@@ -46,7 +46,117 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/CruelClawPerceived.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-07-27",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": {
+            "$in": [
+              "wizard",
+              "fallen-wizard",
+              "ringwraith"
+            ]
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "value": -1,
+        "when": {
+          "bearer.race": {
+            "$in": [
+              "wizard",
+              "ringwraith"
+            ]
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "value": -9,
+        "when": {
+          "$and": [
+            { "bearer.race": "fallen-wizard" },
+            { "bearer.stagePoints": { "$gt": 20 } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "value": -7,
+        "when": {
+          "$and": [
+            { "bearer.race": "fallen-wizard" },
+            { "bearer.stagePoints": { "$gt": 15 } },
+            { "bearer.stagePoints": { "$lte": 20 } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "value": -5,
+        "when": {
+          "$and": [
+            { "bearer.race": "fallen-wizard" },
+            { "bearer.stagePoints": { "$gt": 10 } },
+            { "bearer.stagePoints": { "$lte": 15 } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "value": -3,
+        "when": {
+          "$and": [
+            { "bearer.race": "fallen-wizard" },
+            { "bearer.stagePoints": { "$gt": 5 } },
+            { "bearer.stagePoints": { "$lte": 10 } }
+          ]
+        }
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": -1,
+        "when": {
+          "$and": [
+            { "bearer.race": "fallen-wizard" },
+            { "bearer.stagePoints": { "$gt": 10 } }
+          ]
+        }
+      },
+      {
+        "type": "hand-size-modifier",
+        "value": -1,
+        "when": {
+          "$and": [
+            { "bearer.race": "fallen-wizard" },
+            { "bearer.stagePoints": { "$gt": 20 } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
     "text": "Playable on a Wizard, Fallen-wizard, or Ringwraith. His general influence is modified by -1. If he is a Fallen-wizard, this modifier is instead: -9 if his stage points (SPs) exceed 20, -7 if his SPs exceed 15, -5 if his SPs exceed 10, or -3 if his SPs exceed 5 (use the first modifier that applies). Additionally, the Fallen-wizard’s hand size is reduced by 1 if his SPs exceed 10, and by 1 more if his SPs exceed 20. Cannot be duplicated on a given character. Discard when any play deck is exhausted."
   },
   {
@@ -85,7 +195,44 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/FlotsamandJetsam.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      {
+        "type": "cancel-deck-search",
+        "affects": "all",
+        "when": {
+          "$or": [
+            {
+              "$and": [
+                { "player.alignment": { "$ne": "fallen-wizard" } },
+                { "player.playDeckSize": { "$lte": 15 } }
+              ]
+            },
+            {
+              "$and": [
+                { "player.alignment": "fallen-wizard" },
+                { "player.playDeckSize": { "$lte": 20 } }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "certified": "2026-07-27",
     "text": "If a player has 15 or fewer cards in his play deck (20 or fewer if a Fallen-wizard), all effects are automatically canceled which allow him to search through or look at any portion of his play deck or discard pile outside of the normal sequence of play. Discard when any play deck is exhausted. Cannot be duplicated."
   },
   {
@@ -95,7 +242,112 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/FoolsBane.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-07-27",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "fallen-wizard"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -9,
+        "when": {
+          "$and": [
+            { "influenceTarget.alignment": "hero" },
+            { "influenceTarget.kind": { "$ne": "character" } },
+            { "bearer.stagePoints": { "$gt": 18 } }
+          ]
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -7,
+        "when": {
+          "$and": [
+            { "influenceTarget.alignment": "hero" },
+            { "influenceTarget.kind": { "$ne": "character" } },
+            { "bearer.stagePoints": { "$gt": 12 } },
+            { "bearer.stagePoints": { "$lte": 18 } }
+          ]
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -5,
+        "when": {
+          "$and": [
+            { "influenceTarget.alignment": "hero" },
+            { "influenceTarget.kind": { "$ne": "character" } },
+            { "bearer.stagePoints": { "$gt": 7 } },
+            { "bearer.stagePoints": { "$lte": 12 } }
+          ]
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -3,
+        "when": {
+          "$and": [
+            { "influenceTarget.alignment": "hero" },
+            { "influenceTarget.kind": { "$ne": "character" } },
+            { "bearer.stagePoints": { "$gt": 3 } },
+            { "bearer.stagePoints": { "$lte": 7 } }
+          ]
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "$and": [
+            { "influenceTarget.alignment": "hero" },
+            { "influenceTarget.kind": { "$ne": "character" } },
+            { "bearer.stagePoints": { "$gt": 0 } },
+            { "bearer.stagePoints": { "$lte": 3 } }
+          ]
+        }
+      },
+      {
+        "type": "character-mp-override",
+        "when": {
+          "card.race": "elf"
+        },
+        "value": 0
+      },
+      {
+        "type": "noncharacter-mp-override",
+        "when": {
+          "card.race": "elf",
+          "card.cardType": {
+            "$in": ["hero-resource-faction", "minion-resource-faction"]
+          }
+        },
+        "value": 0
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
     "text": "Playable on a Fallen-wizard. Influence checks he makes against hero resources are modified by: -9 if his stage points (SPs) exceed 18, -7 if his SPs exceed 12, -5 if his SPs exceed 7, -3 if his SPs exceed 3, or -1 if his SPs exceed 0 (use the first modifier that applies). Additionally, his Elf characters and Elf factions are each worth 0 marshalling points in all cases. Cannot be duplicated on a given Fallen-wizard. Discard when any play deck is exhausted."
   },
   {

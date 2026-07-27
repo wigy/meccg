@@ -828,6 +828,25 @@ export interface PendingResolution {
         readonly opponentId: PlayerId;
         /** The controller's Alatar company that would be attacked. */
         readonly companyId: CompanyId;
+      }
+    | {
+        /**
+         * "Playable … immediately after his company faces …" resource
+         * permanent-events (No News of Our Riding le-211). Enqueued for the
+         * defending player the moment a combat their company faced ends (rule
+         * 8.03 — the attack counts as faced even if it was canceled), provided
+         * the ended attack satisfies the card's `play-window` `when` filter and
+         * at least one character of that company is a legal target.
+         *
+         * The player resolves it with a `play-permanent-event` naming one of
+         * {@link cardInstanceIds} and a `targetCharacterId`, or declines with
+         * `pass` — the window is optional and closes immediately either way.
+         */
+        readonly type: 'post-attack-play-offer';
+        /** The company that just faced the attack. */
+        readonly companyId: CompanyId;
+        /** Hand cards whose after-attack play-window matched the ended attack. */
+        readonly cardInstanceIds: readonly CardInstanceId[];
       };
 }
 
