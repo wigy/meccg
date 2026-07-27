@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
@@ -3301,6 +3301,22 @@ function playHazardsActions(
                   action: { ...action, targetSiteDefinitionId: destSiteDefId },
                   viable: false,
                   reason: `${siteDefName} has no Orc or Troll automatic-attack`,
+                });
+                continue;
+              }
+            }
+            // "Cannot be duplicated on a given site" (Siege tw-87): a
+            // `duplication-limit` scope `site` caps how many copies of this
+            // card may be bound to the target site location at once.
+            const siteDupLimit = findDuplicationLimitEffect(def, 'site');
+            if (siteDupLimit) {
+              const copiesAtSite = countPermanentEventCopiesAtSite(state, def.name, destSiteDefId);
+              if (copiesAtSite >= siteDupLimit.max) {
+                logDetail(`Hazard "${def.name}" already bound to ${siteDefName} (${copiesAtSite}/${siteDupLimit.max})`);
+                actions.push({
+                  action: { ...action, targetSiteDefinitionId: destSiteDefId },
+                  viable: false,
+                  reason: `${def.name} cannot be duplicated on ${siteDefName}`,
                 });
                 continue;
               }
