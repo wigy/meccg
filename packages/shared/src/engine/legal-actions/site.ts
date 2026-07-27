@@ -19,8 +19,8 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite } from '../reducer-utils.js';
-import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified } from '../reducer-utils.js';
+import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -1992,7 +1992,8 @@ function playResourcesActions(
               wizard: playerWizardName(state, player),
             },
           };
-          const charEffects = collectCharacterEffects(state, fullCharacter, resolverCtx);
+          const ownEffects = collectCharacterEffects(state, fullCharacter, resolverCtx);
+          const charEffects = [...ownEffects];
           charEffects.push(...collectCompanyAllyEffects(state, fullCharacter, resolverCtx));
           // Player-scoped ongoing influence bonuses from bare in-play
           // permanent-events (Great Army of the North ba-38).
@@ -2006,29 +2007,38 @@ function playResourcesActions(
           // Under nullification only the influencer's OWN card text survives;
           // items, attached hazards, allies, other in-play events and the
           // faction's own printed modifications all contribute zero.
-          const ownEffects = charEffects.filter(e => e.sourceInstance === ch.instanceId);
+          const ownCardEffects = charEffects.filter(e => e.sourceInstance === ch.instanceId);
 
           // Unused direct influence. Normally the effective value (DI granted
           // by rings and other cards included); under nullification the
           // *normal* one — printed DI plus his own card-text modifications.
           const freeDI = nullifyMods
-            ? normalUnusedDI(state, ch.instanceId, player, ownEffects, resolverCtx)
+            ? normalUnusedDI(state, ch.instanceId, player, ownCardEffects, resolverCtx)
             : availableDI(state, ch.instanceId, player);
           infModifier += freeDI;
           infParts.push(nullifyMods ? `normal DI ${freeDI}` : `DI ${freeDI}`);
 
-          const dslMod = resolveCheckModifier(nullifyMods ? ownEffects : charEffects, 'influence');
+          const dslMod = resolveCheckModifier(nullifyMods ? ownCardEffects : charEffects, 'influence');
           if (dslMod !== 0) {
             infModifier += dslMod;
             infParts.push(`check bonus ${formatSignedNumber(dslMod)}`);
           }
 
           // Resolve stat-modifier effects on direct-influence (e.g. Glorfindel
-          // +1 DI vs elf factions). Under nullification the influencer's own
-          // ones are already inside `freeDI` and everyone else's are zeroed.
+          // +1 DI vs elf factions). `freeDI` above already carries every
+          // modifier baked into the influencer's effective DI, so only the
+          // faction-conditional ones borne by the character are folded in here
+          // (see `checkConditionalEffects`); ally / player-scoped / faction-card
+          // effects are never in effective DI and pass through unfiltered.
+          // Under nullification the influencer's own ones are already inside
+          // `freeDI` and everyone else's are zeroed.
+          const diEffects = [
+            ...checkConditionalEffects(ownEffects),
+            ...charEffects.slice(ownEffects.length),
+          ];
           const dslDI = nullifyMods
             ? 0
-            : resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+            : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
           if (dslDI !== 0) {
             infModifier += dslDI;
             infParts.push(`DI bonus ${formatSignedNumber(dslDI)}`);
