@@ -53,11 +53,28 @@ describe('card vocabulary', () => {
 });
 
 describe('action-type vocabulary', () => {
-  test('is sorted and unique', () => {
-    expect([...ACTION_TYPES].sort()).toEqual([...ACTION_TYPES]);
+  test('is unique and keeps its existing indices', () => {
     expect(new Set(ACTION_TYPES).size).toBe(ACTION_TYPES.length);
     expect(actionTypeIndex(ACTION_TYPES[0])).toBe(1);
     expect(actionTypeIndex('no-such-action')).toBe(0);
+
+    // The list is a serialization format shared with every trained
+    // checkpoint: a type's index is baked into each model's action-type
+    // embedding. Inserting one mid-list shifts every index after it, which
+    // silently re-labels that many action types for every existing model —
+    // certifying tw-282 put `choose-peek-deck` at index 31, shifted 127 of
+    // 158 types, and dropped the champion from 10-9 against the heuristic
+    // to 0-18. Sortedness was the old assertion here and is exactly what
+    // caused it, so lock the prefix instead: appending is free, inserting
+    // fails. Extend LOCKED_PREFIX by hand only when models are retrained.
+    const LOCKED_PREFIX = 159;
+    const LOCKED_HASH = 0x8913f47c;
+    let hash = 0x811c9dc5;
+    for (const byte of Buffer.from(ACTION_TYPES.slice(0, LOCKED_PREFIX).join(','))) {
+      hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
+    }
+    expect(ACTION_TYPES.length).toBeGreaterThanOrEqual(LOCKED_PREFIX);
+    expect(hash).toBe(LOCKED_HASH);
   });
 
   test('covers every candidate offered in a real game', () => {
