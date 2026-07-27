@@ -63,7 +63,7 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   MORIA, LORIEN, MINAS_TIRITH, RIVENDELL,
 } from '../test-helpers.js';
-import { Alignment, CardStatus } from '../../index.js';
+import { Alignment, CardStatus, Race } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, GameState, CardInPlay } from '../../index.js';
 
 const DARKNESS_WIELDED = 'ba-55' as CardDefinitionId;
@@ -97,7 +97,7 @@ function defendingCombat(opts: {
   });
   const combat = makeCancelWindowCombat(base, {
     attackSourceType: 'automatic-attack',
-    creatureRace: 'orc',
+    creatureRace: Race.Orc,
     strikesTotal: opts.strikesTotal ?? 3,
     strikeProwess: opts.strikeProwess ?? 11,
   });

@@ -18,7 +18,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import type { TakePrisonerEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isSiteCard, isCharacterCard } from '../types/cards.js';
-import { CardStatus } from '../types/common.js';
+import { CardStatus, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -200,7 +200,7 @@ function handleLeftBehindPlay(
   if (!targetChar) return { state, error: 'Left Behind target not in defending player' };
   const targetDef = defById(state, targetChar.definitionId);
   if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Left Behind target is not a character' };
-  if (targetDef.race === 'wizard') return { state, error: 'Left Behind cannot target a Wizard' };
+  if (targetDef.race === Race.Wizard) return { state, error: 'Left Behind cannot target a Wizard' };
   // The target must belong to the company under attack.
   const defendingCompany = defenderPlayer.companies.find(c => c.id === combat.companyId);
   if (!defendingCompany || !defendingCompany.characters.includes(targetCharId)) {

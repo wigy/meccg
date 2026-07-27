@@ -33,7 +33,7 @@ import {
   makeShadowMHState,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { CardStatus } from '../../index.js';
+import { CardStatus, Race } from '../../index.js';
 import type { CombatState } from '../../types/state-combat.js';
 import type { CardDefinitionId, CardInstanceId } from '../../index.js';
 
@@ -74,7 +74,7 @@ function buildShieldCombatState(opts: { creatureProwess: number }) {
     strikesTotal: 1,
     strikeProwess: opts.creatureProwess,
     creatureBody: null,
-    creatureRace: 'orc',
+    creatureRace: Race.Orc,
     strikeAssignments: [{ characterId: gorbagId, excessStrikes: 0, resolved: false }],
     currentStrikeIndex: 0,
     phase: 'resolve-strike',

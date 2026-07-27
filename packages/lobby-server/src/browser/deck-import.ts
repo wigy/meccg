@@ -18,7 +18,7 @@
  * button — so an import never silently drops a card.
  */
 
-import { hasPlayFlag, type CardDefinition } from '@meccg/shared';
+import { hasPlayFlag, Race, type CardDefinition } from '@meccg/shared';
 import { cardPool, type DeckListEntry, type FullDeck } from './app-state.js';
 
 /** A parsed GCCG deck: all FullDeck sections plus unresolved card names. */
@@ -37,7 +37,7 @@ export interface ParsedGccgDeck {
 
 /** Extract loosely-typed traits from a card definition for matching. */
 const traits = (def: CardDefinition) => def as unknown as {
-  name: string; cardType: string; alignment?: string; race?: string; keywords?: string[];
+  name: string; cardType: string; alignment?: string; race?: Race; keywords?: string[];
 };
 
 /** GCCG set codes mapped to the card-id prefix used in the local pool. */
@@ -58,11 +58,11 @@ const TAG_ALIGNMENTS: Record<string, string[]> = {
 };
 
 /** Card races that mark a card as an avatar, mapped to the deck alignment. */
-const AVATAR_RACE_TO_ALIGNMENT: Record<string, string> = {
-  wizard: 'hero',
-  ringwraith: 'minion',
-  'fallen-wizard': 'fallen-wizard',
-  balrog: 'balrog',
+const AVATAR_RACE_TO_ALIGNMENT: Partial<Record<Race, string>> = {
+  [Race.Wizard]: 'hero',
+  [Race.Ringwraith]: 'minion',
+  [Race.FallenWizard]: 'fallen-wizard',
+  [Race.Balrog]: 'balrog',
 };
 
 /**

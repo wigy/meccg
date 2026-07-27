@@ -57,6 +57,7 @@ import {
   addP2CardsInPlay, findInPile,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CardInPlay, CombatState, GameState } from '../../index.js';
+import { Race } from '../../index.js';
 
 // ── Local card-ID constants ───────────────────────────────────────────────────
 
@@ -165,7 +166,7 @@ describe('Stabbing Tongue of Fire (ba-81)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'orc',
+        creatureRace: Race.Orc,
         strikeAssignments: [{ characterId: balrogId, excessStrikes: 0, resolved: false }],
         currentStrikeIndex: 0,
         phase: 'resolve-strike',
@@ -233,7 +234,7 @@ describe('Stabbing Tongue of Fire (ba-81)', () => {
         bodyCheckTarget: 'creature',
         result: 'success', // the Balrog parried this strike
         creatureBody: 8,
-        creatureRace: 'orc',
+        creatureRace: Race.Orc,
         attackSource: { type: 'creature', instanceId: creatureId },
       });
       return { state: { ...state, phaseState: makeShadowMHState(), combat }, creatureId };

@@ -843,6 +843,7 @@
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
     "unique": true,
+    "lairOf": "tw-90",
     "certified": "2026-06-04"
   },
   {

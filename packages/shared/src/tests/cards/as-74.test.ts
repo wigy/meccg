@@ -45,7 +45,7 @@ import {
   expectInDiscardPile, executeAction,
   type BuildTestStateOpts,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, CardStatus } from '../../index.js';
+import { computeLegalActions, Phase, CardStatus, Race } from '../../index.js';
 import type { CardDefinitionId, CancelAttackAction, ModifyAttackAction, PlayHeroResourceAction, GameState } from '../../index.js';
 
 const GREAT_BATS = 'as-74' as CardDefinitionId;
@@ -149,7 +149,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const combatState = makeCancelWindowCombat(withAlly, {
       creatureDefId: HOBGOBLINS,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 9,
     });
@@ -169,7 +169,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'man',
+      creatureRace: Race.Man,
       strikesTotal: 2,
       strikeProwess: 10,
     });
@@ -198,7 +198,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const combatState = makeCancelWindowCombat(withAlly, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elf',
+      creatureRace: Race.Elf,
       strikesTotal: 1,
       strikeProwess: 15,
     });
@@ -219,7 +219,7 @@ describe('Great Bats (as-74)', () => {
     const base = buildTestState(NSN_OPTS);
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elf',
+      creatureRace: Race.Elf,
       strikesTotal: 1,
       strikeProwess: 15,
     });
@@ -241,7 +241,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const combatState = makeCancelWindowCombat(withAlly, {
       creatureDefId: HOBGOBLINS,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 9,
     });
@@ -268,7 +268,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const combatState = makeCancelWindowCombat(withAlly, {
       creatureDefId: HOBGOBLINS,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 9,
     });
@@ -290,7 +290,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'man',
+      creatureRace: Race.Man,
       strikesTotal: 2,
       strikeProwess: 10,
     });
@@ -312,7 +312,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const combatState = makeCancelWindowCombat(withAlly, {
       creatureDefId: HOBGOBLINS,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 9,
     });
@@ -348,7 +348,7 @@ describe('Great Bats (as-74)', () => {
     };
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'man',
+      creatureRace: Race.Man,
       strikesTotal: 2,
       strikeProwess: 10,
     });
@@ -368,7 +368,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'man',
+      creatureRace: Race.Man,
       strikesTotal: 2,
       strikeProwess: 10,
     });
@@ -406,7 +406,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'man',
+      creatureRace: Race.Man,
       strikesTotal: 2,
       strikeProwess: 10,
     });
@@ -425,7 +425,7 @@ describe('Great Bats (as-74)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
     const cancelWindow = makeCancelWindowCombat(withAlly, {
       creatureDefId: AMBUSHER,
-      creatureRace: 'man',
+      creatureRace: Race.Man,
       strikesTotal: 2,
       strikeProwess: 10,
     });

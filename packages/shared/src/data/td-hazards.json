@@ -713,10 +713,18 @@
           "strikes": 2,
           "prowess": 18
         }
+      },
+      {
+        "type": "draw-modifier",
+        "draw": "resource",
+        "value": -1,
+        "min": 1,
+        "appliesTo": "any-company"
       }
     ],
     "text": "Unique. Unless Smaug Ahunt is in play, The Lonely Mountain has an additional automatic-attack: Dragon — 2 strikes at 18/8. In addition, each moving company draws one less card to a minimum of one at the start of its movement/hazard phase.",
-    "manifestId": "tw-90"
+    "manifestId": "tw-90",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hazard-event",

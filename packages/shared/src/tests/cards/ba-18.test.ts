@@ -37,7 +37,7 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   MORIA, LORIEN, MINAS_TIRITH, RIVENDELL,
 } from '../test-helpers.js';
-import { Alignment, CardStatus } from '../../index.js';
+import { Alignment, CardStatus, Race } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, GameState, CardInPlay } from '../../index.js';
 
 const FLED_INTO_DARKNESS = 'ba-18' as CardDefinitionId;
@@ -71,7 +71,7 @@ function balrogFacingStrike(opts: {
   });
   const withCombat = makeCancelWindowCombat(base, {
     attackSourceType: 'automatic-attack',
-    creatureRace: 'orc',
+    creatureRace: Race.Orc,
     strikesTotal: 1,
     strikeProwess: opts.strikeProwess ?? 12,
   });

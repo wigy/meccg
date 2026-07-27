@@ -434,6 +434,53 @@ long-event: "All offering attempts and influence attempts are modified by -3."
 { "type": "check-modifier", "check": ["influence", "offering"], "value": -3, "target": "all-in-play" }
 ```
 
+### `nullify-influence-modifications` — strip every card modifier from influence attempts
+
+`{ "type": "nullify-influence-modifications" }` is a game-wide environment
+effect carried by a bare in-play event. While one is in play in **either**
+player's `cardsInPlay`, `influenceModificationsNullified` (`reducer-utils.ts`)
+reports true and every influence-check computation in the engine collapses to
+the printed target value plus the two contributions the card spares. Used by
+Webs of Fear & Treachery (le-150), a hazard long-event: "Except for unused
+general influence and unused normal direct influence (including influence
+modifications given in a character's card text), all modifications to each
+influence attempt are reduced to zero."
+
+**Survives the nullification:** the 2d6 roll(s) and the printed target value (a
+faction's influence #, a target's mind, an in-play faction's influence #);
+unused **general** influence (including a `generalInfluenceSubstitution`
+override, which yields exactly that); unused **normal** direct influence —
+computed by `normalUnusedDI` (`legal-actions/organization.ts`) as the
+influencer's *printed* `directInfluence` plus the `direct-influence`
+`stat-modifier` effects on his **own card** (the `sourceInstance ===
+<influencer>` slice of `collectCharacterEffects`), minus his followers' mind
+cost, deliberately **not** read off `effectiveStats.directInfluence`; and
+rules-level modifications — the cross-alignment penalty and the rule 10.14
+agent home-site bonuses. The defender's roll in an opponent-influence attempt
+is untouched (Alfano, Worlds 2009).
+
+**Reduced to zero:** every other card-sourced modification — influence
+`check-modifier` and `direct-influence` `stat-modifier` effects from items,
+attached hazards, allies, `player-in-play` and `all-in-play` events; a faction
+card's own printed "Standard Modifications"; one-shot influence
+`check-modifier` constraints (Muster, `prowessSubstitution`, the
+opponent-influence boosters), which are still **consumed** by the attempt but
+worth 0; player-, site- and game-wide influence constraints
+(`influence-at-site-modifier`, `site-lock` faction modifiers);
+`faction-influence-restriction` environments; the Prophet of Doom region
+penalty; and paid `influence-modification` bonuses (which are also no longer
+offered, so no item is discarded for nothing).
+
+The flag is consulted at every influence site: `legal-actions/site.ts` (the
+faction-influence need and the opponent-influence display), `legal-actions/
+pending.ts` (paused faction-influence roll), `reducer-site.ts` (faction roll
+resolver and opponent-influence attempt) and `mh-agents.ts` (rule 10.14 agent
+attempt).
+
+```json
+{ "type": "nullify-influence-modifications" }
+```
+
 ### `auto-influence-faction` — no-check influence of a named faction
 
 `{ "type": "auto-influence-faction", "faction": "<Faction Name>" }` grants the
@@ -1488,10 +1535,23 @@ that player's moving companies. Collecting only from the *active* player's
 `cardsInPlay` means a long-event lingering across the opponent's turn never
 affects the opponent's draws.
 
+`appliesTo` (default `own-companies`) opts a modifier out of that scoping:
+with `any-company` the modifier is also collected from the **opponent's**
+`cardsInPlay`, for cards worded "each moving company …" where the hazard
+player holds the card but the moving player's draws shrink — Smaug at Home
+(td-71).
+
+`min` floors a *reduction*; it never grants a draw. A negative net
+adjustment is additionally clamped to the unmodified count, so "to a
+minimum of one" cannot raise a company's 0 resource draws (no character
+with mind ≥ 3, CoE 2.IV.v) to one.
+
 ```json
 { "type": "draw-modifier", "draw": "hazard", "value": -1, "min": 0 }
 { "type": "draw-modifier", "draw": "resource",
   "value": "sitePath.wildernessCount", "min": 0 }
+{ "type": "draw-modifier", "draw": "resource", "value": -1, "min": 1,
+  "appliesTo": "any-company" }
 ```
 
 A Short Rest (td-95) is a resource long-event: "Each moving company may
@@ -10830,9 +10890,44 @@ Which players are hit is chosen by the optional **`affects`** field:
   cancels any effect that causes a player to search through or look at any
   portion of a play deck or a discard pile outside of the normal sequence of
   play" is narrowed by its own "This card has no effect on a minion player".
+- `"all"` — every player, whatever his alignment. Flotsam and Jetsam (wh-18).
 
 ```json
 { "type": "cancel-deck-search", "affects": "non-minion" }
+```
+
+The standard `when` narrows the cancel further. It is evaluated once per
+*acting* player — the one whose search is about to happen — against
+
+- `player.alignment` — his alignment (`wizard` / `ringwraith` /
+  `fallen-wizard` / `balrog`)
+- `player.minion` — `true` for a Ringwraith or Balrog player
+- `player.playDeckSize` — the number of cards currently in his play deck
+
+Because the gate is re-read at every search, a player slides in and out of the
+cancel as his deck runs down. Flotsam and Jetsam (wh-18) — "If a player has 15
+or fewer cards in his play deck (20 or fewer if a Fallen-wizard), all effects
+are automatically canceled which allow him to search through or look at any
+portion of his play deck or discard pile outside of the normal sequence of
+play" — is `affects: "all"` plus the two-branch threshold:
+
+```json
+{
+  "type": "cancel-deck-search",
+  "affects": "all",
+  "when": {
+    "$or": [
+      { "$and": [
+        { "player.alignment": { "$ne": "fallen-wizard" } },
+        { "player.playDeckSize": { "$lte": 15 } }
+      ] },
+      { "$and": [
+        { "player.alignment": "fallen-wizard" },
+        { "player.playDeckSize": { "$lte": 20 } }
+      ] }
+    ]
+  }
+}
 ```
 
 The card's "Manifestation of Galadriel" line is the `manifestId` chain tag

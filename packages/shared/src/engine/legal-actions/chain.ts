@@ -655,7 +655,7 @@ function counterCancelRollChainActions(state: GameState, playerId: PlayerId): Ev
   if (!chain || !combat) return [];
   // Only the attacking player may counter a cancel of their own attack.
   if (combat.attackingPlayerId !== playerId) return [];
-  const attackRace = combat.creatureRace ?? '';
+  const attackRace = combat.creatureRace;
 
   const player = playerById(state, playerId);
   if (!player) return [];
@@ -692,8 +692,8 @@ function counterCancelRollChainActions(state: GameState, playerId: PlayerId): Ev
       (e): e is CounterCancelAttackRollEffect => e.type === 'counter-cancel-attack-roll',
     );
     if (!rollEffect) continue;
-    if (!rollEffect.race.includes(attackRace)) {
-      logDetail(`counter-cancel-roll: ${(def as { name?: string }).name ?? (c.definitionId as string)} cannot counter a "${attackRace}" attack`);
+    if (attackRace === undefined || !rollEffect.race.includes(attackRace)) {
+      logDetail(`counter-cancel-roll: ${(def as { name?: string }).name ?? (c.definitionId as string)} cannot counter a "${attackRace ?? 'raceless'}" attack`);
       continue;
     }
     for (const targetInstanceId of cancelEntries) {

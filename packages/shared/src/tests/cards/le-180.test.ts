@@ -33,6 +33,7 @@ import {
 } from '../test-helpers.js';
 import type { CancelAttackAction, PlayShortEventAction } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
+import { Race } from '../../index.js';
 
 const DIVERSION = 'le-180' as CardDefinitionId;
 
@@ -58,7 +59,7 @@ describe('Diversion (le-180)', () => {
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [DOL_GULDUR] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     // Two unwounded characters → two actions
@@ -89,7 +90,7 @@ describe('Diversion (le-180)', () => {
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [DOL_GULDUR] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     // Only Ciryaher is unwounded
@@ -114,7 +115,7 @@ describe('Diversion (le-180)', () => {
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [CIRYAHER] }], hand: [], siteDeck: [DOL_GULDUR] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(0);
@@ -131,7 +132,7 @@ describe('Diversion (le-180)', () => {
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [CIRYAHER] }], hand: [], siteDeck: [DOL_GULDUR] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(1);
@@ -167,7 +168,7 @@ describe('Diversion (le-180)', () => {
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [CIRYAHER] }], hand: [], siteDeck: [DOL_GULDUR] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     // Tapped is not wounded, so eligible
@@ -190,7 +191,7 @@ describe('Diversion (le-180)', () => {
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [CIRYAHER] }], hand: [], siteDeck: [DOL_GULDUR] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     const after = resolveChain(dispatch(state, actions[0].action));
@@ -241,7 +242,7 @@ describe('Diversion (le-180)', () => {
         { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }], hand: [], siteDeck: [DOL_GULDUR] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'troll' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Troll });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(2);

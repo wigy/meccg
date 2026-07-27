@@ -45,7 +45,7 @@ import {
   makeSitePhase, makeCancelWindowCombat, setCompanySiteStatus,
   viableActions, dispatch, expectInDiscardPile,
 } from '../test-helpers.js';
-import { reduce } from '../../index.js';
+import { reduce, Race } from '../../index.js';
 import type {
   CardDefinitionId, CardInPlay, CardInstanceId, GameState,
   CancelAttackAction, SitePhaseState,
@@ -142,7 +142,7 @@ describe('Farmer Maggot (as-48)', () => {
 
   test('offered once per eligible location-deck site while at a Cardolan site', () => {
     const base = maggotState({ site: BARROW_DOWNS, siteDeck: [BREE, BAG_END, MORIA, RIVENDELL] });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'undead', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Undead, attackSourceType: 'automatic-attack' });
 
     const cancels = maggotCancels(state);
     // Bree (Arthedain) and Bag End (The Shire) qualify; Moria (Redhorn Gate)
@@ -158,25 +158,25 @@ describe('Farmer Maggot (as-48)', () => {
 
   test('NOT offered while the company is at a site outside the three regions', () => {
     const base = maggotState({ site: MORIA, siteDeck: [BREE, BAG_END] });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'automatic-attack' });
     expect(maggotCancels(state)).toHaveLength(0);
   });
 
   test('NOT offered when the location deck holds no site in the three regions', () => {
     const base = maggotState({ site: BARROW_DOWNS, siteDeck: [MORIA, RIVENDELL] });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'undead', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Undead, attackSourceType: 'automatic-attack' });
     expect(maggotCancels(state)).toHaveLength(0);
   });
 
   test('NOT offered to a MOVING company (it is not "at" a site)', () => {
     const base = maggotState({ site: BARROW_DOWNS, siteDeck: [BREE, BAG_END], destination: WEATHERTOP });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'creature' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'creature' });
     expect(maggotCancels(state)).toHaveLength(0);
   });
 
   test('NOT offered while Farmer Maggot is only in hand (it must be in play)', () => {
     const base = maggotState({ site: BARROW_DOWNS, siteDeck: [BREE], inPlay: false, hand: [FARMER_MAGGOT] });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'undead', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Undead, attackSourceType: 'automatic-attack' });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
@@ -184,7 +184,7 @@ describe('Farmer Maggot (as-48)', () => {
 
   test('taking the option swaps the site, cancels the attack and discards Farmer Maggot', () => {
     const base = maggotState({ site: BARROW_DOWNS, siteDeck: [BREE, MORIA] });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'undead', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Undead, attackSourceType: 'automatic-attack' });
 
     const action = maggotCancels(state)[0];
     const after = dispatch(state, action);
@@ -207,7 +207,7 @@ describe('Farmer Maggot (as-48)', () => {
 
   test('the player chooses which eligible site to flee to', () => {
     const base = maggotState({ site: BARROW_DOWNS, siteDeck: [BREE, BAG_END] });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'undead', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Undead, attackSourceType: 'automatic-attack' });
 
     const bagEndInstance = state.players[RESOURCE_PLAYER].siteDeck
       .find(s => s.definitionId === BAG_END)!.instanceId;
@@ -220,7 +220,7 @@ describe('Farmer Maggot (as-48)', () => {
   test('a TAPPED replaced site is discarded to the site discard pile, not returned to the deck', () => {
     const base = maggotState({ site: BARROW_DOWNS, siteDeck: [BREE] });
     const tapped = setCompanySiteStatus(base, RESOURCE_PLAYER, 0, CardStatus.Tapped);
-    const state = makeCancelWindowCombat(tapped, { creatureRace: 'undead', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(tapped, { creatureRace: Race.Undead, attackSourceType: 'automatic-attack' });
 
     const after = dispatch(state, maggotCancels(state)[0]);
 
@@ -231,7 +231,7 @@ describe('Farmer Maggot (as-48)', () => {
 
   test('the reducer rejects a replacement site outside the three regions', () => {
     const base = maggotState({ site: BARROW_DOWNS, siteDeck: [BREE, MORIA] });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'undead', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Undead, attackSourceType: 'automatic-attack' });
 
     const moriaInstance = state.players[RESOURCE_PLAYER].siteDeck
       .find(s => s.definitionId === MORIA)!.instanceId;

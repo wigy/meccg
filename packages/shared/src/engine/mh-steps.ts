@@ -996,7 +996,7 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
     creatureRace: effect.race,
     assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
     detainment: isDetainmentAttack({
-      attackRace: effect.race as Race,
+      attackRace: effect.race,
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
     }),
@@ -1014,6 +1014,20 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
       },
     },
   };
+}
+
+/**
+ * Apply a resolved {@link resolveDrawModifier} result to a printed draw count.
+ *
+ * A `min` on a *reduction* floors how far the count can be pushed down; it is
+ * never a grant. "…draws one less card to a minimum of one" (Smaug at Home
+ * td-71) must not hand a draw to a company that had none to begin with — a
+ * resource pool of 0 because no character has mind ≥ 3 (CoE 2.IV.v) stays 0 —
+ * so a net negative adjustment is also clamped to the unmodified count.
+ */
+function applyDrawModifier(base: number, mod: { adjustment: number; min: number }): number {
+  const adjusted = Math.max(mod.min, base + mod.adjustment);
+  return mod.adjustment < 0 ? Math.min(base, adjusted) : adjusted;
 }
 
 /**
@@ -1126,18 +1140,32 @@ export function transitionToDrawCards(state: GameState, mhState: MovementHazardP
   const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
   if (activePlayerIndex >= 0) {
     allDrawEffects.push(...collectPlayerInPlayEffects(state, activePlayerIndex, drawContext));
+    // A draw-modifier that speaks of "each moving company" (Smaug at Home
+    // td-71: "each moving company draws one less card") reaches across the
+    // table: the hazard player holds the card, but it shrinks the *moving*
+    // player's draws. Only modifiers that opt in with
+    // `appliesTo: 'any-company'` are collected from the opponent — everything
+    // else (A Short Rest, Radagast, Alatar) stays scoped to its own player's
+    // companies.
+    const opponentIndex = activePlayerIndex === 0 ? 1 : 0;
+    const crossTable = collectPlayerInPlayEffects(state, opponentIndex, drawContext)
+      .filter(({ effect }) => effect.type === 'draw-modifier' && effect.appliesTo === 'any-company');
+    if (crossTable.length > 0) {
+      logDetail(`draw-modifier: ${crossTable.length} opponent-sourced modifier(s) apply to any moving company`);
+      allDrawEffects.push(...crossTable);
+    }
   }
   const exprContext = drawContext as unknown as Record<string, unknown>;
   const hazardMod = resolveDrawModifier(allDrawEffects, 'hazard', exprContext);
   if (hazardMod.adjustment !== 0) {
     const before = hazardDrawMax;
-    hazardDrawMax = Math.max(hazardMod.min, hazardDrawMax + hazardMod.adjustment);
+    hazardDrawMax = applyDrawModifier(hazardDrawMax, hazardMod);
     logDetail(`draw-modifier: hazard draws ${before} → ${hazardDrawMax} (adjustment ${hazardMod.adjustment}, min ${hazardMod.min})`);
   }
   const resourceMod = resolveDrawModifier(allDrawEffects, 'resource', exprContext);
   if (resourceMod.adjustment !== 0) {
     const before = resourceDrawMax;
-    resourceDrawMax = Math.max(resourceMod.min, resourceDrawMax + resourceMod.adjustment);
+    resourceDrawMax = applyDrawModifier(resourceDrawMax, resourceMod);
     logDetail(`draw-modifier: resource draws ${before} → ${resourceDrawMax} (adjustment ${resourceMod.adjustment}, min ${resourceMod.min})`);
   }
 
