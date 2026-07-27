@@ -4774,7 +4774,21 @@ export interface ModifyAttackEffect extends EffectBase {
    */
   readonly fromHand?: true;
   /**
-   * Which side plays the card when `fromHand` is true.
+   * When true, the source is an **in-play dual-mode creature permanent-event**
+   * ({@link CreatureAltEventEffect} mode `permanent-event`, non-persistent) that
+   * the hazard player converts to a short-event during the opponent's
+   * movement/hazard phase: the card leaves play, is discarded, counts one
+   * against the company's hazard limit, and applies its modifiers to the live
+   * attack. Offered in the same pre-assignment combat window as `fromHand`, so
+   * "any one attack" resolves to the attack actually being fought. Because the
+   * conversion happens here, `tap-alt-permanent-event` is neither offered nor
+   * accepted for such a card. Used by Hoarmûrath of Dír (tw-44): "When tapped,
+   * Hoarmûrath of Dír becomes a short-event and gives +1 strike to any one
+   * attack." Mutually exclusive with {@link fromHand}; requires {@link player}.
+   */
+  readonly fromAltPermanentEvent?: true;
+  /**
+   * Which side plays the card when `fromHand` / `fromAltPermanentEvent` is true.
    * `"attacker"` — the hazard player; `"defender"` — the resource player.
    */
   readonly player?: 'attacker' | 'defender';

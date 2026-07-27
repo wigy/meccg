@@ -2643,6 +2643,12 @@ function handleTapAltPermanentEvent(
   if (altEvent.persistent) {
     return { state, error: 'tap-alt-permanent-event: this permanent-event has no tap conversion — it stays in play' };
   }
+  // Hoarmûrath of Dír (tw-44): its on-tap short-event modifies "any one attack",
+  // so the conversion happens in the combat pre-assignment window via
+  // `modify-attack` (`fromAltPermanentEvent`), not here.
+  if (getCardEffects(def).some(e => e.type === 'modify-attack' && e.fromAltPermanentEvent)) {
+    return { state, error: 'tap-alt-permanent-event: this permanent-event converts during an attack — tap it in the combat window' };
+  }
 
   // CoE 2.1.2: a tap-character on-tap effect is a hazard directed at the opponent,
   // so it may never target the hazard player's own characters.

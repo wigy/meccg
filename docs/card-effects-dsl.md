@@ -3728,6 +3728,42 @@ Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`)
 and `engine/reducer-combat.ts` (`handleModifyAttack`), with cancel
 protection in `engine/combat-cancel.ts` (`resolveCancelAttackEntry`).
 
+### 10e-bis. `modify-attack` — tapped in play (`fromAltPermanentEvent: true`)
+
+A third source for the same modifier math: an **in-play dual-mode creature
+permanent-event** (`creature-alt-event` mode `permanent-event`, not
+`persistent`) that the hazard player converts to a short-event during the
+opponent's movement/hazard phase. Set `fromAltPermanentEvent: true` alongside
+`player` instead of `fromHand`.
+
+The conversion is offered in the same pre-assignment combat window as a
+from-hand `modify-attack` — that is where "any one attack" has an attack to
+name — and applying it:
+
+- removes the card from `cardsInPlay` and discards it ("becomes a short-event"),
+- charges **one hazard-limit slot** against the defending company (unless the
+  card carries `play-flag: no-hazard-limit`), and
+- applies `strikesModifier` / `prowessModifier` / `bodyModifier` to the live
+  attack exactly as the from-hand path does.
+
+Because the tap happens here, `tap-alt-permanent-event` is neither offered
+(`tapAltPermanentEventActions`) nor accepted (`handleTapAltPermanentEvent`) for
+such a card — the M/H play-hazards step has no attack to modify.
+
+```json
+{ "type": "modify-attack", "fromAltPermanentEvent": true,
+  "player": "attacker", "strikesModifier": 1 }
+```
+
+Example: Hoarmûrath of Dír (tw-44) — "If played as a permanent-event, it will
+remain in play until tapped during the opponent's movement/hazard phase
+(tapping counts against the hazard limit). When tapped, Hoarmûrath of Dír
+becomes a short-event and gives +1 strike to any one attack."
+
+Implemented in `engine/legal-actions/combat.ts`
+(`altPermanentEventModifyAttackActions`) and `engine/combat-actions.ts`
+(`handleModifyAttack`).
+
 ### 10f-bis. `counter-cancel-attack-roll`
 
 A hazard short-event the **attacking** (hazard) player plays during a combat
