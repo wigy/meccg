@@ -10,11 +10,23 @@
  * exactly as before, so each module can be enabled, gated and measured on its
  * own (`gate --challenger h2:combat --champion heuristic`).
  *
- * Dispatch is per **decision**, not per action. Scoring half the candidates in
- * win-probability deltas and the other half in H1's unitless weights would put
- * incomparable numbers in one distribution — the precise defect Heuristics 2
- * exists to remove. So a module claims a decision only if it can score every
- * action offered there, and otherwise the whole decision falls through.
+ * Coverage is **collective**. Every module is always in use, so the question is
+ * not whether one module owns a whole decision but whether the module set
+ * between them owns every candidate on it. Each action is routed to its owner
+ * and the resulting utilities are ranked together; they are comparable because
+ * they are all win-probability deltas.
+ *
+ * The one thing that must never happen is a ranking mixing an H2 utility with
+ * an H1 weight, which is unitless and comparable only inside one evaluator —
+ * the precise defect Heuristics 2 exists to remove. So coverage is all or
+ * nothing: if a single candidate has no owner, the whole decision falls
+ * through to Heuristics 1.
+ *
+ * An earlier version required *one* module to own the whole decision. That is
+ * satisfiable in combat, which is a closed sub-state, and unsatisfiable in the
+ * organization phase, which offers movement, transfers, influence changes and
+ * sideboard actions in one candidate list — so it made the entire phase
+ * unreachable no matter how many modules were built.
  */
 
 import type { GameAction } from '@meccg/shared';
@@ -48,33 +60,46 @@ export function resolveModules(spec: string | undefined, available: readonly H2M
 }
 
 /**
- * Default claim rule: the module owns the type of every action on offer.
+ * The module that owns one action here, or null when none does.
  *
- * An empty candidate list is never claimed — "owns every action" is
- * vacuously true of nothing, and a module that claimed it would report an
- * empty ranking as though it were an opinion.
+ * Ownership is the action type *and* the module's context gate: `pass` is
+ * listed by more than one module because it means something different in each
+ * place, and `claims()` is what tells them apart — combat's gate wants an
+ * active combat it is defending, travel's wants somewhere to move.
  */
-function ownsEveryAction(module: H2Module, legalActions: readonly GameAction[]): boolean {
-  if (legalActions.length === 0) return false;
-  const owned = new Set(module.ownedActionTypes);
-  return legalActions.every(a => owned.has(a.type));
-}
-
-/** The first enabled module that claims this decision, or `null` for H1. */
-export function moduleForDecision(modules: readonly H2Module[], context: ModuleContext): H2Module | null {
+export function ownerOf(
+  modules: readonly H2Module[],
+  action: GameAction,
+  context: ModuleContext,
+): H2Module | null {
   for (const module of modules) {
-    const claims = module.claims
-      ? module.claims(context)
-      : ownsEveryAction(module, context.legalActions);
-    if (claims) return module;
+    if (!module.ownedActionTypes.includes(action.type)) continue;
+    if (module.claims && !module.claims(context)) continue;
+    return module;
   }
   return null;
 }
 
+/**
+ * Whether the module set covers every candidate on this decision.
+ *
+ * An empty candidate list is never covered — "owns everything" is vacuously
+ * true of nothing, and reporting an empty ranking as an opinion would be
+ * worse than falling through.
+ */
+export function coversDecision(modules: readonly H2Module[], context: ModuleContext): boolean {
+  if (context.legalActions.length === 0) return false;
+  return context.legalActions.every(a => ownerOf(modules, a, context) !== null);
+}
+
 /** The result of asking H2 to handle one decision. */
 export interface DecisionEvaluation {
-  /** The module that claimed the decision, or `null` when H1 must handle it. */
-  readonly module: H2Module | null;
+  /**
+   * The modules that scored this decision, or empty when Heuristics 1 must
+   * handle it. More than one is normal: a phase that offers movement and
+   * transfers together is covered by `travel` and `items` between them.
+   */
+  readonly modules: readonly string[];
   /** One evaluation per legal action, ranked best first. Empty when H1 owns it. */
   readonly evaluations: readonly Evaluation[];
 }
@@ -90,16 +115,21 @@ export function evaluateDecision(
   modules: readonly H2Module[],
   context: ModuleContext,
 ): DecisionEvaluation {
-  const module = moduleForDecision(modules, context);
-  if (!module) return { module: null, evaluations: [] };
+  if (!coversDecision(modules, context)) return { modules: [], evaluations: [] };
 
   const evaluations: Evaluation[] = [];
+  const contributors = new Set<string>();
   for (const action of context.legalActions) {
-    const evaluation = module.evaluate(action, context);
-    if (!evaluation) return { module: null, evaluations: [] };
-    assertValidDistribution(evaluation.outcomes, module.name);
+    const owner = ownerOf(modules, action, context);
+    // Covered above, but a module that declines an action it owns withdraws
+    // the whole decision: a partially-scored candidate list cannot be ranked
+    // honestly, and falling back is always safe.
+    const evaluation = owner?.evaluate(action, context);
+    if (!owner || !evaluation) return { modules: [], evaluations: [] };
+    assertValidDistribution(evaluation.outcomes, owner.name);
+    contributors.add(owner.name);
     evaluations.push(evaluation);
   }
   evaluations.sort((a, b) => b.utility - a.utility);
-  return { module, evaluations };
+  return { modules: [...contributors].sort(), evaluations };
 }

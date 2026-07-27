@@ -85,8 +85,8 @@ for (const id of ids) {
   const legalActions = view.legalActions.filter(e => e.viable).map(e => e.action);
   const standing = computeStanding(view, model, DEFAULT_TUNABLES);
   const context = { view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing };
-  const { module } = evaluateDecision(modules, context);
-  if (!module) continue;
+  const { modules: contributors } = evaluateDecision(modules, context);
+  if (contributors.length === 0) continue;
 
   console.log(`\n${id}  (${scenario.description})`);
 

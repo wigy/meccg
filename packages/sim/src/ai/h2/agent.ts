@@ -81,9 +81,9 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         tunables,
         standing: computeStanding(context.view, model, tunables, options.riskOverride),
       };
-      const { module, evaluations } = evaluateDecision(modules, moduleContext);
+      const { modules: contributors, evaluations } = evaluateDecision(modules, moduleContext);
 
-      if (!module) {
+      if (contributors.length === 0) {
         // No H2 owner: Heuristics 1 handles the decision in its own units.
         const aiContext: AiContext = {
           view: context.view,
@@ -108,7 +108,7 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       return {
         action,
         considered,
-        note: `${module.name}: best ΔP(win) ${(best.utility * 100).toFixed(2)}% `
+        note: `${contributors.join('+')}: best ΔP(win) ${(best.utility * 100).toFixed(2)}% `
           + `(E[Δtsd] ${best.expectedTsd.toFixed(1)}, σ ${best.sigmaTsd.toFixed(1)}, ${best.method})`,
       };
     },

@@ -28,8 +28,8 @@ export interface ExplanationInput {
   readonly cardPool: Readonly<Record<string, CardDefinition>>;
   /** The standing at this decision. */
   readonly standing: Standing;
-  /** Name of the module that claimed the decision, or `null` for the H1 fallback. */
-  readonly module: string | null;
+  /** Modules that scored this decision; empty means the Heuristics-1 fallback. */
+  readonly modules: readonly string[];
   /** Ranked evaluations; empty when the H1 fallback owns the decision. */
   readonly evaluations: readonly Evaluation[];
   /** H1's weights, used when no module claimed the decision. */
@@ -140,7 +140,7 @@ export function renderExplanation(input: ExplanationInput): string[] {
     lines.push('');
   }
 
-  if (input.module === null) {
+  if (input.modules.length === 0) {
     lines.push(`RANKED (heuristics-1 fallback — no H2 module owns this decision)`);
     const ranked = [...(input.fallback ?? [])].sort((a, b) => b.weight - a.weight);
     const total = ranked.reduce((sum, c) => sum + c.weight, 0);
@@ -156,7 +156,7 @@ export function renderExplanation(input: ExplanationInput): string[] {
     return lines;
   }
 
-  lines.push(`RANKED (module ${input.module})`);
+  lines.push(`RANKED (${input.modules.length === 1 ? 'module' : 'modules'} ${input.modules.join(' + ')})`);
   input.evaluations.forEach((evaluation, i) => {
     lines.push(
       `  ${i + 1}. ${describe(evaluation.action)}`,

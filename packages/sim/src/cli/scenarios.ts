@@ -227,10 +227,10 @@ function commandVerify(): void {
       const view = scenarioView(scenario);
       const legalActions = view.legalActions.filter(e => e.viable).map(e => e.action);
       const standing = computeStanding(view, model, DEFAULT_TUNABLES);
-      const { module } = evaluateDecision(ALL_MODULES, {
+      const { modules: contributors } = evaluateDecision(ALL_MODULES, {
         view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing,
       });
-      const owner = module?.name ?? 'h1 fallback';
+      const owner = contributors.length > 0 ? contributors.join('+') : 'h1 fallback';
       console.log(`ok   ${id.padEnd(36)} ${legalActions.length} actions, TSD ${standing.tsd >= 0 ? '+' : ''}${standing.tsd}, ${owner}`);
     } catch (err) {
       failures++;

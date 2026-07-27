@@ -143,7 +143,7 @@ if (riskOverride !== undefined && !Number.isFinite(riskOverride)) {
 
 const standing = computeStanding(view, model, tunables, riskOverride);
 const modules = resolveModules(stringFlag(args, 'module'));
-const { module, evaluations } = evaluateDecision(modules, {
+const { modules: contributors, evaluations } = evaluateDecision(modules, {
   view,
   cardPool,
   legalActions,
@@ -151,7 +151,7 @@ const { module, evaluations } = evaluateDecision(modules, {
   standing,
 });
 
-const fallback = module === null
+const fallback = contributors.length === 0
   ? heuristicStrategy.weighActions({ view, cardPool, legalActions })
   : undefined;
 
@@ -193,7 +193,7 @@ if (asJson) {
       lambda: standing.risk.lambda,
       riskSource: standing.risk.source,
     },
-    module: module?.name ?? null,
+    modules: contributors,
     evaluations,
     fallback: fallback?.map(c => ({ type: c.action.type, weight: c.weight })),
   }, null, 2));
@@ -203,7 +203,7 @@ if (asJson) {
     view,
     cardPool,
     standing,
-    module: module?.name ?? null,
+    modules: contributors,
     evaluations,
     fallback,
     topN,

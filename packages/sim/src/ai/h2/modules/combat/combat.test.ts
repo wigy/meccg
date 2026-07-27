@@ -77,8 +77,8 @@ describe('claiming decisions', () => {
   test('scores every candidate it claims, so the ranking is in one currency', () => {
     for (const scenarioId of STRIKE_SCENARIOS) {
       const context = contextFor(scenarioId);
-      const { module, evaluations } = evaluateDecision([combatModule], context);
-      expect(module?.name).toBe('combat');
+      const { modules, evaluations } = evaluateDecision([combatModule], context);
+      expect(modules).toEqual(['combat']);
       expect(evaluations).toHaveLength(context.legalActions.length);
       for (const evaluation of evaluations) {
         expect(evaluation.outcomes.reduce((sum, o) => sum + o.p, 0)).toBeCloseTo(1, 9);

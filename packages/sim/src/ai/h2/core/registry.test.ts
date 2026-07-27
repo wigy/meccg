@@ -10,7 +10,7 @@
 import { describe, test, expect } from 'vitest';
 import type { GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext } from './types.js';
-import { evaluateDecision, moduleForDecision, resolveModules } from './registry.js';
+import { coversDecision, evaluateDecision, ownerOf, resolveModules } from './registry.js';
 import { leaf } from './rationale.js';
 
 const PASS = { type: 'pass' } as unknown as GameAction;
@@ -49,35 +49,39 @@ function context(legalActions: readonly GameAction[]): ModuleContext {
 
 describe('claiming a decision', () => {
   test('claims when it owns the type of every action offered', () => {
-    expect(moduleForDecision([stubModule()], context([PASS, DRAFT_STOP]))?.name).toBe('stub');
+    expect(coversDecision([stubModule()], context([PASS, DRAFT_STOP]))).toBe(true);
   });
 
   test('declines the whole decision when one action is not its own', () => {
     // Scoring two of three candidates and leaving the third to H1 would put a
-    // win-probability delta and a unitless weight in one ranking.
-    expect(moduleForDecision([stubModule()], context([PASS, RESOLVE_STRIKE]))).toBeNull();
+    // win-probability delta and a unitless weight in one ranking. Coverage is
+    // therefore all or nothing across the whole module set.
+    expect(coversDecision([stubModule()], context([PASS, RESOLVE_STRIKE]))).toBe(false);
   });
 
-  test('honours a claim predicate the module defines for itself', () => {
-    const greedy = stubModule({ claims: () => true });
-    expect(moduleForDecision([greedy], context([RESOLVE_STRIKE]))?.name).toBe('stub');
+  test('a context gate narrows ownership', () => {
+    // The gate can only narrow ownership, never widen it past the action types
+    // a module declares — so a permissive gate still does not cover a strike.
+    const gated = stubModule({ claims: () => false });
+    expect(ownerOf([gated], PASS, context([PASS]))).toBeNull();
+    expect(ownerOf([stubModule()], PASS, context([PASS]))?.name).toBe('stub');
   });
 
   test('falls through to Heuristics 1 when no module is enabled', () => {
-    expect(moduleForDecision([], context([PASS]))).toBeNull();
+    expect(coversDecision([], context([PASS]))).toBe(false);
   });
 
   test('does not claim a decision with nothing to decide', () => {
     // "Owns every action" is vacuously true of an empty list, and an empty
     // ranking is not an opinion.
-    expect(moduleForDecision([stubModule()], context([]))).toBeNull();
+    expect(coversDecision([stubModule()], context([]))).toBe(false);
   });
 });
 
 describe('evaluating a decision', () => {
   test('ranks every action best first', () => {
-    const { module, evaluations } = evaluateDecision([stubModule()], context([PASS, DRAFT_STOP]));
-    expect(module?.name).toBe('stub');
+    const { modules, evaluations } = evaluateDecision([stubModule()], context([PASS, DRAFT_STOP]));
+    expect(modules).toEqual(['stub']);
     expect(evaluations).toHaveLength(2);
     expect(evaluations[0].utility).toBeGreaterThan(evaluations[1].utility);
     expect(evaluations[0].action).toBe(DRAFT_STOP);
@@ -87,7 +91,7 @@ describe('evaluating a decision', () => {
     const partial = stubModule({
       evaluate: (action, ctx) => (action === PASS ? null : evaluation(action, 'stub', ctx.legalActions.length)),
     });
-    expect(evaluateDecision([partial], context([PASS, DRAFT_STOP])).module).toBeNull();
+    expect(evaluateDecision([partial], context([PASS, DRAFT_STOP])).modules).toEqual([]);
   });
 
   test('rejects a distribution that does not sum to 1, naming the module', () => {
