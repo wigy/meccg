@@ -23,12 +23,24 @@
 import { WebSocket } from 'ws';
 import type { ClientMessage, GameAction, EvaluatedAction, PlayerView } from '@meccg/shared';
 import type { AiContext, WeightedAction } from '@meccg/sim';
-import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers } from '@meccg/shared';
+import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers, setEngineConsoleLog } from '@meccg/shared';
 import { loadAiStrategy, sampleWeighted, createBcAgent, resolveAgent } from '@meccg/sim';
 import type { Agent } from '@meccg/sim';
 import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage } from './client-common.js';
 
 const clientArgs = parseSpawnedClientArgs('ai-client');
+
+// Silence engine console logging in this process.
+//
+// Anything the engine logs here describes a *hypothetical* computation the AI
+// ran on its own copy of the rules, never the authoritative game — the game
+// server logs that separately. Harmless for agents that only weigh the view,
+// but a search agent calls computeLegalActions/reduce thousands of times per
+// decision: one measured MC game emitted 425,173 engine lines into the lobby
+// log, drowning the 454 lines that actually said what the AI was thinking and
+// charging every rollout for the console I/O. The sim's runner does the same
+// thing for the same reason.
+setEngineConsoleLog(false);
 
 /**
  * Agent seam: a registry agent (`--agent`), a trained model (`--model`), or
@@ -108,12 +120,20 @@ function logCandidates(
   picked: GameAction,
 ): void {
   console.log(`AI [${view.phaseState.phase}] ${header}`);
-  const top = [...candidates].sort((a, b) => b.weight - a.weight).slice(0, LOG_TOP_N);
+  const ranked = [...candidates].sort((a, b) => b.weight - a.weight);
+  const top = ranked.slice(0, LOG_TOP_N);
+  // The pick is not always the highest-weighted candidate — the heuristic
+  // samples from its distribution — so it can fall outside the top N and
+  // leave a listing with no → at all. Append it rather than drop it: a log
+  // that shows the ranking but not the choice answers the wrong question.
+  const pickedRank = ranked.findIndex(c => c.action === picked);
+  if (pickedRank >= LOG_TOP_N) top.push(ranked[pickedRank]);
   for (const candidate of top) {
     console.log(`  ${candidate.action === picked ? '→' : ' '} ${describeWeighted(candidate, view)}`);
   }
-  if (candidates.length > LOG_TOP_N) {
-    console.log(`    … and ${candidates.length - LOG_TOP_N} more`);
+  const hidden = candidates.length - top.length;
+  if (hidden > 0) {
+    console.log(`    … and ${hidden} more`);
   }
 }
 
