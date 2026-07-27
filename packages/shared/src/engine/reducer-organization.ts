@@ -585,9 +585,13 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
     if (!controller) {
       return { state, error: 'Controlling character not found' };
     }
+    // A followers list is a set: the same character must never appear twice.
+    // Filtering first keeps this idempotent if the character is already listed
+    // (seen when a character in play is played again under the same
+    // controller), which otherwise corrupts every company built from the list.
     newCharacters[controllerId] = {
       ...controller,
-      followers: [...controller.followers, charInstId],
+      followers: [...controller.followers.filter(id => id !== charInstId), charInstId],
     };
   }
 
@@ -1138,10 +1142,15 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
       }
     }
 
-    // Add to new controller's followers
+    // Add to new controller's followers. Re-read the controller rather than
+    // reusing the copy captured above: when a character is re-assigned to the
+    // controller it already follows, the removal step just rewrote this same
+    // entry, and appending to the stale copy would both undo that removal and
+    // list the follower twice. Filtering keeps the append idempotent.
+    const updatedController = newCharacters[controllerId];
     newCharacters[controllerId] = {
-      ...controller,
-      followers: [...controller.followers, charInstId],
+      ...updatedController,
+      followers: [...updatedController.followers.filter(id => id !== charInstId), charInstId],
     };
 
     // Set character's controlledBy

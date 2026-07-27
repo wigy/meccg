@@ -10,7 +10,7 @@
  */
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, SiteCard, PlayableAtEntry, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, SiteType, RegionType, CardDefinition, CardDefinitionId, CardEffect } from '../../index.js';
-import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform } from '../effective.js';
+import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform, buildSiteFilterContext } from '../effective.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
@@ -996,24 +996,17 @@ function playResourcesActions(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
         );
         if (sitePlayTarget?.filter && siteDef) {
-          // Augment the matched object with the site's own region type so a
-          // filter can gate on it (e.g. Hidden Haven's "in a Wilderness,
-          // Border-land, or Shadow-land"). The region type lives on a separate
-          // region card, so it is not a field on the site definition itself.
-          const regionType = siteRegionTypeOf(state, siteDef);
-          // Expose the site's *effective* type (after any wizardhaven-conversion
-          // / site-type-override) as `effectiveSiteType` so a filter can gate on
-          // "your Wizardhaven [{H}]" and still match a haven the player converted
-          // dynamically (Guarded Haven wh-74 on a Hidden Haven site). The raw
-          // `siteType` field remains the printed type for filters that need it.
-          const effectiveSiteType = siteDefId && isSiteCard(siteDef)
-            ? getEffectiveSiteType(state, siteDefId, siteDef.siteType, siteInstanceId ?? undefined)
-            : undefined;
-          // Expose whether this site is the surface entrance of an Under-deeps
-          // site so a filter can exclude it (Tempest of Fire ba-77: "the site
-          // cannot be an Under-deeps site or surface site thereof").
+          // The shared site play-target context (`regionType`,
+          // `effectiveSiteType`, `isWizardhaven`, `isProtected` on top of the
+          // site definition), plus the one fact only this layer needs: whether
+          // the site is the surface entrance of an Under-deeps site, so a
+          // filter can exclude it (Tempest of Fire ba-77: "the site cannot be
+          // an Under-deeps site or surface site thereof").
           const isUnderDeepsSurface = isUnderDeepsSurfaceSite(state, siteDef);
-          const matchTarget = { ...(siteDef as unknown as Record<string, unknown>), regionType, effectiveSiteType, isUnderDeepsSurface };
+          const matchTarget = {
+            ...buildSiteFilterContext(state, siteDef, siteInstanceId ?? undefined),
+            isUnderDeepsSurface,
+          };
           if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
             logDetail(`Permanent event ${eventDef.name}: site filter excludes ${siteName}`);
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: site ${siteName} does not match play-target filter`));
