@@ -29,7 +29,45 @@ import { loadWinProbModel } from '../ai/h2/core/winprob.js';
 import { computeStanding } from '../ai/h2/services/standing.js';
 import { ALL_MODULES, evaluateDecision } from '../ai/h2/core/registry.js';
 
+/** Flag reference, printed by `--help`. */
+const USAGE = `scenarios — the fixed sample set of positions H2 modules are tested against
+
+Usage:
+  npm run scenarios -w @meccg/sim -- list [--module <name>]
+  npm run scenarios -w @meccg/sim -- capture --as <id> (--game <id> --seq <n> | --at <cond>)
+  npm run scenarios -w @meccg/sim -- verify
+
+Capturing from a recorded game:
+  --game <id|path>    a game log (~/.meccg/logs/games/<id>.jsonl)
+  --seq <n>           engine state sequence number within it
+
+Capturing from self-play (cheaper, and needs nobody to have played it):
+  --seed <n>          seed of the self-play game (default 1)
+  --decks <a,b>       deck IDs (default challenge-deck-a,challenge-deck-b)
+  --agents <a,b>      agent specs (default heuristic,heuristic)
+  --at <conditions>   comma-separated key=value pairs; the first decision
+                      matching all of them is captured. Keys:
+                        turn, phase, step, seq, stateSeq, player,
+                        combat (true|false), combatPhase, creatureBody,
+                        strikes, action (an action type that must be offered)
+                      e.g. --at 'combat=true,combatPhase=resolve-strike,strikes=2'
+
+Describing what was captured:
+  --as <id>           path-like scenario ID, e.g. combat/orc-ambush-3v1
+  --module <name>     the module the position exercises
+  --description <s>   what the position is and why it is interesting
+  --expectation <s>   what a good player should do here
+
+Other:
+  --engine-log        include the engine's own legal-action trace
+  --help              this message
+`;
+
 const args = parseCliArgs(process.argv.slice(2));
+if (args.flags['help'] === true || args.flags['h'] === true) {
+  console.log(USAGE);
+  process.exit(0);
+}
 setEngineConsoleLog(args.flags['engine-log'] === true);
 const command = args.positional[0] ?? 'list';
 

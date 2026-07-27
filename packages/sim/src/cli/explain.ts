@@ -4,26 +4,10 @@
  * The primary Heuristics-2 development tool: print why the AI would do what it
  * does at one decision, in win-probability units, with the derivation shown.
  *
- * Usage:
- *   npm run explain -w @meccg/sim -- --scenario combat/orc-ambush-3v1
- *   npm run explain -w @meccg/sim -- --game <gameId> --seq 412 [--player p1]
- *   npm run explain -w @meccg/sim -- --scenario travel/moria-detour --risk +0.6
- *
- * Flags:
- *   --scenario <id>    a checked-in scenario from the fixed sample set
- *   --game <id|path>   a recorded game log (`~/.meccg/logs/games/<id>.jsonl`)
- *   --seq <n>          engine state sequence number within that game
- *   --hash <h>         assert the position's content hash, so a stale
- *                      reference fails loudly instead of explaining a
- *                      different position
- *   --player <p1|p2>   whose decision to explain (default: whoever can act)
- *   --module <name>    restrict to one module's opinions
- *   --risk <λ>         override the fitted risk posture
- *   --top <n>          how many candidates to expand fully (default 5)
- *   --json             machine-readable output for tests and tooling
+ * Run with `--help` for the flag list.
  */
 
-import { loadCardPool, setEngineConsoleLog } from '@meccg/shared';
+import { formatGameState, formatPlayerView, loadCardPool, setEngineConsoleLog, stripCardMarkers } from '@meccg/shared';
 import type { GameState, PlayerId, PlayerView } from '@meccg/shared';
 import { projectPlayerView } from '@meccg/game-server';
 import { parseCliArgs, numberFlag, stringFlag } from './common.js';
@@ -36,7 +20,44 @@ import { hashState, loadScenario, withStandardCardPool } from '../ai/h2/scenario
 import { findGameLogRecord } from '../ai/h2/game-log.js';
 import { heuristicStrategy } from '../ai/heuristic.js';
 
+/** Flag reference, printed by `--help`. */
+const USAGE = `explain — why the Heuristics-2 AI would take one action over another
+
+Usage:
+  npm run explain -w @meccg/sim -- --scenario <id> [options]
+  npm run explain -w @meccg/sim -- --game <gameId|path> --seq <n> [options]
+
+Choosing the position (exactly one is required):
+  --scenario <id>     a checked-in scenario; list them with
+                      \`npm run scenarios -w @meccg/sim -- list\`
+  --game <id|path>    a recorded game log (~/.meccg/logs/games/<id>.jsonl)
+  --seq <n>           engine state sequence number within that game
+  --hash <hash>       assert the position's content hash, so a stale
+                      reference fails loudly instead of quietly explaining a
+                      different position
+
+Choosing what to explain:
+  --player <p1|p2>    whose decision to explain (default: whoever can act)
+  --module <name>     restrict to one module's opinions (default: all)
+  --risk <lambda>     override the fitted risk posture, -1 (risk-averse) to
+                      +1 (risk-seeking). Recentres the win-probability curve
+                      on the standing with that curvature, and says so.
+  --top <n>           how many candidates to expand in full (default 5)
+
+Output:
+  --state             also print the board as the acting player sees it
+  --state full        print the omniscient game state instead (debug: shows
+                      both hands, so never use it to judge the AI's choices)
+  --json              machine-readable Evaluation[] for tests and tooling
+  --engine-log        include the engine's own legal-action trace
+  --help              this message
+`;
+
 const args = parseCliArgs(process.argv.slice(2));
+if (args.flags['help'] === true || args.flags['h'] === true) {
+  console.log(USAGE);
+  process.exit(0);
+}
 // Projecting a view recomputes legal actions, and the engine narrates that at
 // length. The explanation is the output here, so the trace is off unless asked
 // for — a reader who wanted the engine's reasoning would pass --engine-log.
@@ -133,6 +154,26 @@ const fallback = module === null
   : undefined;
 
 // ---- Report ----
+
+// The board, rendered by the same `format-state` helpers the server logs and
+// the debug UI use. Two modes on purpose: the player view is what the agent
+// actually saw, so a decision can be judged against the same information it
+// had; the omniscient state is a debugging aid that shows both hands and must
+// never be mistaken for the agent's input.
+const stateFlag = args.flags['state'];
+if (stateFlag !== undefined && !asJson) {
+  if (stateFlag === 'full') {
+    console.log('GAME STATE (omniscient — not what the agent sees)');
+    console.log(formatGameState(state));
+  } else {
+    console.log(`BOARD as ${view.self.name} (${view.self.id}) sees it`);
+    // `formatPlayerView` keeps the STX card-ID markers the browser client uses
+    // for colouring; on a terminal they render as an ID glued to the name.
+    // `formatGameState` already strips them, so do the same here.
+    console.log(stripCardMarkers(formatPlayerView(view, cardPool)));
+  }
+  console.log('');
+}
 
 if (asJson) {
   console.log(JSON.stringify({

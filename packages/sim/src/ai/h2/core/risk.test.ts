@@ -52,6 +52,24 @@ describe('risk posture', () => {
     expect(posture.standing.winProbability).toBeLessThan(0.5);
   });
 
+  test('an override recentres the curve to the standing that has that curvature', () => {
+    // λ and W are the same quantity twice (λ = 1 − 2W), so a requested λ names
+    // a win probability and that names a point on the curve. Without this the
+    // override would have nowhere to enter the integrated path.
+    const posture = riskPosture(MODEL, DEFAULT_TUNABLES, 0, TURN, 0.5);
+    expect(posture.standing.effectiveWinProbability).toBeCloseTo(0.25, 6);
+    expect(posture.standing.effectiveTsd).toBeLessThan(0);
+    // The real standing is still reported unchanged beside it.
+    expect(posture.standing.tsd).toBe(0);
+    expect(posture.standing.winProbability).toBeCloseTo(0.5, 12);
+  });
+
+  test('the fitted posture evaluates at the real standing', () => {
+    const posture = riskPosture(MODEL, DEFAULT_TUNABLES, -7, TURN);
+    expect(posture.standing.effectiveTsd).toBe(posture.standing.tsd);
+    expect(posture.standing.effectiveWinProbability).toBe(posture.standing.winProbability);
+  });
+
   test('stays inside [-1, 1] however extreme the override', () => {
     expect(riskPosture(MODEL, DEFAULT_TUNABLES, 0, TURN, 5).lambda).toBe(1);
     expect(riskPosture(MODEL, DEFAULT_TUNABLES, 0, TURN, -5).lambda).toBe(-1);
@@ -76,6 +94,24 @@ describe('integrated utility', () => {
     const posture = riskPosture(MODEL, DEFAULT_TUNABLES, 12, TURN);
     expect(scoreOutcomes(MODEL, posture, GAMBLE).utility)
       .toBeLessThan(scoreOutcomes(MODEL, posture, SAFE).utility);
+  });
+
+  test('an operator override changes the choice, not just the numbers', () => {
+    // At an even standing the curve is symmetric and the two lines tie. Asking
+    // for a risk-seeking posture must then prefer the gamble and a risk-averse
+    // one the safe line — through the same integration, with no second formula.
+    const seeking = riskPosture(MODEL, DEFAULT_TUNABLES, 0, TURN, 0.8);
+    const averse = riskPosture(MODEL, DEFAULT_TUNABLES, 0, TURN, -0.8);
+    const prefersGamble = (posture: ReturnType<typeof riskPosture>): boolean =>
+      scoreOutcomes(MODEL, posture, GAMBLE).utility > scoreOutcomes(MODEL, posture, SAFE).utility;
+    expect(prefersGamble(seeking)).toBe(true);
+    expect(prefersGamble(averse)).toBe(false);
+  });
+
+  test('says so when the curve was moved, rather than hiding it in the total', () => {
+    const posture = riskPosture(MODEL, DEFAULT_TUNABLES, 0, TURN, 0.8);
+    const rationale = scoreOutcomes(MODEL, posture, GAMBLE).rationale;
+    expect(rationale.children?.some(c => c.label === 'curve recentred to')).toBe(true);
   });
 
   test('reports how it was computed and names the constant it used', () => {

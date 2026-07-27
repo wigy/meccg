@@ -76,6 +76,12 @@ export function renderExplanation(input: ExplanationInput): string[] {
     + `, W = ${(standing.risk.standing.winProbability * 100).toFixed(1)}%`
     + ` → risk λ = ${standing.risk.lambda >= 0 ? '+' : ''}${standing.risk.lambda.toFixed(2)} (${standing.risk.source})`,
   );
+  if (standing.risk.source === 'override') {
+    lines.push(
+      `          utilities evaluated at TSD ${tsdText(standing.risk.standing.effectiveTsd)}`
+      + ` — the standing whose curvature matches the requested λ`,
+    );
+  }
   lines.push('');
   lines.push('STANDING');
   lines.push(...renderRationale(standing.rationale(), '  '));

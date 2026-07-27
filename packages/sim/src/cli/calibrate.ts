@@ -26,7 +26,31 @@ import { binomialTolerance, rolloutStrike } from '../ai/h2/calibrate.js';
 import { claimedStrikeOutcomes } from '../ai/h2/modules/combat/combat.js';
 import type { StrikeOutcome } from '../ai/h2/modules/combat/strike-model.js';
 
+/** Flag reference, printed by `--help`. */
+const USAGE = `calibrate — check an H2 module's claimed probabilities against the real reducer
+
+A module claims P(wounded) = 2.31%. Every dice action it offers is replayed
+through the engine, the outcome is classified from the engine's own record,
+and the observed frequency is compared against the claim with a 99% binomial
+interval. Exits non-zero on any claim outside its interval, so it gates.
+
+Usage:
+  npm run calibrate -w @meccg/sim -- [options]
+
+Options:
+  --module <name>     module to check (default: combat — the only one with an
+                      outcome classifier so far)
+  --scenario <id>     check one scenario instead of the whole corpus
+  --rollouts <n>      rollouts per action (default 5000)
+  --seed <n>          RNG seed for the rollout stream, so a run is reproducible
+  --help              this message
+`;
+
 const args = parseCliArgs(process.argv.slice(2));
+if (args.flags['help'] === true || args.flags['h'] === true) {
+  console.log(USAGE);
+  process.exit(0);
+}
 setEngineConsoleLog(false);
 const rollouts = numberFlag(args, 'rollouts', 5000);
 const seed = numberFlag(args, 'seed', 20260727);

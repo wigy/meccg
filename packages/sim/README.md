@@ -46,9 +46,12 @@ view or a probability table lives in `core/tunables.ts` and must be named in
 the `Rationale` tree the module returns beside its number.
 
 ```sh
-# Why would the AI do that? — the primary development tool
+# Why would the AI do that? — the primary development tool (--help for flags)
 npm run explain -w @meccg/sim -- --scenario combat/orc-ambush-3v1 [--risk +0.6] [--json]
 npm run explain -w @meccg/sim -- --game <gameId> --seq 412 [--player p1] [--hash <h>]
+# --state prints the board with the same `format-state` renderer the debug UI
+# uses — as the acting player saw it, or `--state full` for the omniscient one
+npm run explain -w @meccg/sim -- --scenario combat/creature-with-body --state
 
 # The fixed sample set: named positions modules are tested and explained against
 npm run scenarios -w @meccg/sim -- list [--module combat]

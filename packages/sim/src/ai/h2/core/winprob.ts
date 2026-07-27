@@ -122,6 +122,30 @@ export function winProbabilitySlope(model: WinProbModel, tsd: number, turn: numb
   return (model.tsd + model.tsdTurn * t) * w * (1 - w);
 }
 
+/** How close to certainty an inverted win probability may get. */
+const WIN_PROBABILITY_EPSILON = 1e-6;
+
+/**
+ * The inverse of `W`: the tournament-score differential at which the model
+ * would predict a given win probability on a given turn.
+ *
+ * This is what lets an explicit risk posture act on the *integrated* utility
+ * path. Risk attitude in this design is the curvature of `W`, so overriding
+ * `lambda` means asking for a different curvature — and since `λ = 1 − 2W`,
+ * that is the same as asking to be evaluated at the standing where `W` takes
+ * the corresponding value. Recentring the curve there makes the override enter
+ * exactly where the fitted posture does, rather than through a second,
+ * differently-behaved formula.
+ *
+ * Returns null when the model has no slope to invert.
+ */
+export function tsdAtWinProbability(model: WinProbModel, probability: number, turn: number): number | null {
+  const slope = model.tsd + model.tsdTurn * turnFraction(model, turn);
+  if (!(slope > 0)) return null;
+  const w = Math.min(1 - WIN_PROBABILITY_EPSILON, Math.max(WIN_PROBABILITY_EPSILON, probability));
+  return Math.log(w / (1 - w)) / slope;
+}
+
 /** Location of the shipped coefficient file, checked in beside this module. */
 export const MODEL_PATH = path.join(__dirname, 'winprob-model.json');
 

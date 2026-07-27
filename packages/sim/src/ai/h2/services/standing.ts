@@ -112,13 +112,20 @@ export function computeStanding(
           note: `raw ${selfMp[source]} vs ${opponentMp[source]}, adjusted ${selfBreakdown[source]}`,
         },
       ));
-      return node('standing', differential, [
+      const children = [
         leaf('tournament score', `${selfScore} vs ${opponentScore}`),
         leaf('turn', view.turnNumber, { unit: 'turns' }),
         leaf('W(now)', risk.standing.winProbability, { unit: 'winprob' }),
         leaf('risk λ', risk.lambda, { note: risk.source, tunable: 'riskCurvatureScale' }),
-        node('marginal value of +1 MP by source', '', sources, { note: 'CoE 10.3' }),
-      ], { unit: 'tsd' });
+      ];
+      if (risk.source === 'override') {
+        children.push(leaf('utilities evaluated at', risk.standing.effectiveTsd, {
+          unit: 'tsd',
+          note: `the standing whose curvature matches λ ${risk.lambda.toFixed(2)}`,
+        }));
+      }
+      children.push(node('marginal value of +1 MP by source', '', sources, { note: 'CoE 10.3' }));
+      return node('standing', differential, children, { unit: 'tsd' });
     },
   };
 }

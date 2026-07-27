@@ -24,7 +24,7 @@
 import type { Outcome } from './types.js';
 import type { Tunables } from './tunables.js';
 import type { WinProbModel } from './winprob.js';
-import { winProbability, winProbabilitySlope } from './winprob.js';
+import { tsdAtWinProbability, winProbability, winProbabilitySlope } from './winprob.js';
 import { distributionStats } from './tsd.js';
 import { leaf, node } from './rationale.js';
 import type { Rationale } from './types.js';
@@ -35,10 +35,19 @@ export interface RiskStanding {
   readonly tsd: number;
   /** Current turn number. */
   readonly turnNumber: number;
-  /** `W(tsd, turn)` — the fitted win probability at this standing. */
+  /** `W(tsd, turn)` — the fitted win probability at the *real* standing. */
   readonly winProbability: number;
   /** `dW/d(tsd)` here: what one TSD point is worth in win probability. */
   readonly winProbabilitySlope: number;
+  /**
+   * The point on the curve utilities are integrated at. Equal to `tsd` under
+   * the fitted posture; under an override it is the standing whose curvature
+   * matches the requested `lambda`, so the override acts through the same
+   * mechanism the fitted posture does instead of a parallel formula.
+   */
+  readonly effectiveTsd: number;
+  /** `W(effectiveTsd, turn)` — the baseline every utility is measured from. */
+  readonly effectiveWinProbability: number;
 }
 
 /** How risk-seeking the player should be, and why. */
@@ -77,19 +86,37 @@ export function riskPosture(
   override?: number,
 ): RiskPosture {
   const w = winProbability(model, tsd, turnNumber);
-  const standing: RiskStanding = {
+  const base = {
     tsd,
     turnNumber,
     winProbability: w,
     winProbabilitySlope: winProbabilitySlope(model, tsd, turnNumber),
   };
-  if (override !== undefined) {
-    return { lambda: clamp(override, LAMBDA_MIN, LAMBDA_MAX), source: 'override', standing };
+
+  if (override === undefined) {
+    return {
+      lambda: clamp(tunables.riskCurvatureScale * (1 - 2 * w), LAMBDA_MIN, LAMBDA_MAX),
+      source: 'fitted',
+      standing: { ...base, effectiveTsd: tsd, effectiveWinProbability: w },
+    };
   }
+
+  // `λ = 1 − 2W`, so a requested lambda names a win probability, and that win
+  // probability names a point on the curve. Evaluating there is what gives the
+  // override teeth on the integrated path — without it, an operator could set
+  // any lambda and watch nothing happen.
+  const lambda = clamp(override, LAMBDA_MIN, LAMBDA_MAX);
+  const target = (1 - lambda / (tunables.riskCurvatureScale || 1)) / 2;
+  const shifted = tsdAtWinProbability(model, target, turnNumber);
+  const effectiveTsd = shifted ?? tsd;
   return {
-    lambda: clamp(tunables.riskCurvatureScale * (1 - 2 * w), LAMBDA_MIN, LAMBDA_MAX),
-    source: 'fitted',
-    standing,
+    lambda,
+    source: 'override',
+    standing: {
+      ...base,
+      effectiveTsd,
+      effectiveWinProbability: winProbability(model, effectiveTsd, turnNumber),
+    },
   };
 }
 
@@ -118,23 +145,33 @@ export function scoreOutcomes(
   outcomes: readonly Outcome[],
 ): ScoredOutcomes {
   const { mean, sigma } = distributionStats(outcomes);
-  const base = posture.standing.winProbability;
-  const turn = posture.standing.turnNumber;
+  const { effectiveTsd, effectiveWinProbability: base, turnNumber: turn } = posture.standing;
   let expected = 0;
-  for (const o of outcomes) expected += o.p * winProbability(model, posture.standing.tsd + o.dtsd, turn);
+  for (const o of outcomes) expected += o.p * winProbability(model, effectiveTsd + o.dtsd, turn);
   const utility = expected - base;
+
+  const children = [
+    leaf('W(now)', base, { unit: 'winprob' }),
+    leaf('E[W(after)]', expected, { unit: 'winprob', note: 'expectation over outcomes, not W of the mean' }),
+    leaf('E[Δtsd]', mean, { unit: 'tsd' }),
+    leaf('σ[Δtsd]', sigma, { unit: 'tsd' }),
+    leaf('risk λ', posture.lambda, { note: posture.source, tunable: 'riskCurvatureScale' }),
+  ];
+  if (posture.source === 'override') {
+    // Moving the curve is a large intervention, so it is stated rather than
+    // folded silently into the numbers above.
+    children.push(leaf('curve recentred to', effectiveTsd, {
+      unit: 'tsd',
+      note: `override λ ${posture.lambda.toFixed(2)}; the real standing is ${posture.standing.tsd.toFixed(1)}`,
+    }));
+  }
+
   return {
     expectedTsd: mean,
     sigmaTsd: sigma,
     utility,
     method: 'integrated',
-    rationale: node('utility', utility, [
-      leaf('W(now)', base, { unit: 'winprob' }),
-      leaf('E[W(after)]', expected, { unit: 'winprob', note: 'expectation over outcomes, not W of the mean' }),
-      leaf('E[Δtsd]', mean, { unit: 'tsd' }),
-      leaf('σ[Δtsd]', sigma, { unit: 'tsd' }),
-      leaf('risk λ', posture.lambda, { note: posture.source, tunable: 'riskCurvatureScale' }),
-    ], { unit: 'winprob' }),
+    rationale: node('utility', utility, children, { unit: 'winprob' }),
   };
 }
 
