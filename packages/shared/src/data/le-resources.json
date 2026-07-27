@@ -2796,7 +2796,22 @@
       {
         "site": "Lossadan Cairn"
       }
-    ]
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": { "controller.inPlay": "Ice-orcs" }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": { "controller.inPlay": "Misty Mountain Wargs" }
+      }
+    ],
+    "certified": "2026-07-27"
   },
   {
     "cardType": "minion-resource-faction",
