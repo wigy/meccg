@@ -393,7 +393,7 @@ function endOfTurnGrantActions(state: GameState, playerId: PlayerId): EvaluatedA
         const charDef = defById(state, char.definitionId);
         const charDefCard = charDef && isCharacterCard(charDef) ? charDef : undefined;
         const company = findCharacterCompany(player.companies, charId);
-        const ctx = buildGrantActionContext(state, char, charDefCard, company, player);
+        const ctx = buildGrantActionContext(state, char, charDefCard, company, player, sourceCardId);
         if (!matchesCondition(effect.when, ctx)) {
           logDetail(`Grant-action ${effect.action}: when condition failed on ${sourceDef?.name ?? sourceDefinitionId}`);
           continue;
