@@ -31,7 +31,7 @@ import {
   handCardId, charIdAt,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, reduce } from '../../index.js';
+import { computeLegalActions, Phase, reduce, Race } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
 
 const FLATTER_A_FOE = 'td-116' as CardDefinitionId;
@@ -50,7 +50,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'dragon' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const cancels = computeLegalActions(state, PLAYER_1).filter(
@@ -69,7 +69,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'man' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Man });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const cancels = computeLegalActions(state, PLAYER_1).filter(
@@ -88,7 +88,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'drake' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Drake });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const cancels = computeLegalActions(state, PLAYER_1).filter(
@@ -107,7 +107,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const cancels = computeLegalActions(state, PLAYER_1).filter(
@@ -126,7 +126,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'spider' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Spider });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const cancels = computeLegalActions(state, PLAYER_1).filter(
@@ -145,7 +145,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'undead' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Undead });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const cancels = computeLegalActions(state, PLAYER_1).filter(
@@ -165,7 +165,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'dragon' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const cancels = computeLegalActions(state, PLAYER_1).filter(
@@ -184,7 +184,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const withCombat = makeCancelWindowCombat(base, { creatureRace: 'dragon' });
+    const withCombat = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
     const state = { ...withCombat, combat: { ...withCombat.combat!, uncancelable: true } };
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
@@ -242,7 +242,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'dragon' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const aragornId = charIdAt(state, RESOURCE_PLAYER);
@@ -279,7 +279,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'dragon' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const aragornId = charIdAt(state, RESOURCE_PLAYER);
@@ -306,7 +306,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'dragon' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const gimliId = charIdAt(state, RESOURCE_PLAYER);
@@ -334,7 +334,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'dragon' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const aragornId = charIdAt(state, RESOURCE_PLAYER);
@@ -364,7 +364,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'dragon' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
 
     // The makeMHState / makeCancelWindowCombat sets hazardLimitAtReveal
     const initialLimit = (state.phaseState as { hazardLimitAtReveal?: number }).hazardLimitAtReveal ?? 0;
@@ -398,7 +398,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'dragon' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const aragornId = charIdAt(state, RESOURCE_PLAYER);
@@ -426,7 +426,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'dragon' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
     const initialLimit = (state.phaseState as { hazardLimitAtReveal?: number }).hazardLimitAtReveal ?? 0;
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
@@ -458,7 +458,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'troll' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Troll });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const aragornId = charIdAt(state, RESOURCE_PLAYER);
@@ -488,7 +488,7 @@ describe('Flatter a Foe (td-116)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'troll' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Troll });
 
     const flatCard = handCardId(state, RESOURCE_PLAYER);
     const aragornId = charIdAt(state, RESOURCE_PLAYER);

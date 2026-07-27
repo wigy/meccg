@@ -70,6 +70,16 @@ export interface Agent {
   readonly name: string;
   /** Choose one of the viable actions. */
   chooseAction(context: AgentContext): AgentDecision;
+  /**
+   * Called once at the start of every game, before the first decision.
+   *
+   * Agents that carry per-game memory must clear it here. Harnesses reuse
+   * one agent instance across a whole tournament, so state that is correct
+   * within a game silently leaks between games otherwise — which both
+   * corrupts play in later games and makes a failing game's seed
+   * unreproducible on its own.
+   */
+  startGame?(): void;
 }
 
 // ---- Replay records ----

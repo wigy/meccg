@@ -38,7 +38,7 @@ import {
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { CardStatus } from '../../index.js';
+import { CardStatus, Race } from '../../index.js';
 import type { CardDefinitionId, CancelAttackAction, ModifyAttackAction } from '../../index.js';
 
 const STAR_GLASS = 'tw-330' as CardDefinitionId;
@@ -61,7 +61,7 @@ describe('Star-glass (tw-330)', () => {
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
     const state = makeCancelWindowCombat(withItem, {
       creatureDefId: BARROW_WIGHT,
-      creatureRace: 'undead',
+      creatureRace: Race.Undead,
     });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
@@ -85,7 +85,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'undead' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Undead });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(0);
@@ -101,7 +101,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Orc });
 
     const cancelActions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
@@ -119,7 +119,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'undead' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Undead });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     const after = dispatch(state, actions[0].action);
@@ -138,7 +138,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'undead' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Undead });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     const after = dispatch(state, actions[0].action);
@@ -164,7 +164,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'undead' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Undead });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     const after = dispatch(state, actions[0].action);
@@ -190,7 +190,7 @@ describe('Star-glass (tw-330)', () => {
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
     const state = makeCancelWindowCombat(withItem, {
       creatureDefId: GIANT_SPIDERS,
-      creatureRace: 'spider',
+      creatureRace: Race.Spider,
     });
 
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
@@ -212,7 +212,7 @@ describe('Star-glass (tw-330)', () => {
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
 
-    for (const race of ['wolf', 'animal'] as const) {
+    for (const race of [Race.Wolf, Race.Animal]) {
       const state = makeCancelWindowCombat(withItem, { creatureRace: race });
       const actions = viableActions(state, PLAYER_1, 'modify-attack');
       expect(actions).toHaveLength(1);
@@ -234,7 +234,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'spider' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Spider });
 
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
     expect(actions).toHaveLength(0);
@@ -251,7 +251,7 @@ describe('Star-glass (tw-330)', () => {
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
 
-    for (const race of ['undead', 'orc'] as const) {
+    for (const race of [Race.Undead, Race.Orc]) {
       const state = makeCancelWindowCombat(withItem, { creatureRace: race });
       const actions = viableActions(state, PLAYER_1, 'modify-attack');
       expect(actions).toHaveLength(0);
@@ -271,7 +271,7 @@ describe('Star-glass (tw-330)', () => {
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
     const state = makeCancelWindowCombat(withItem, {
-      creatureRace: 'spider',
+      creatureRace: Race.Spider,
       strikeProwess: 9,
     });
 
@@ -297,7 +297,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'spider' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Spider });
 
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
     const after = dispatch(state, actions[0].action);
@@ -323,7 +323,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'spider' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Spider });
 
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
     const after = dispatch(state, actions[0].action);
@@ -347,7 +347,7 @@ describe('Star-glass (tw-330)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, STAR_GLASS);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'undead' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Undead });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(1);

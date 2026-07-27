@@ -40,7 +40,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
   companyIdAt, makeMHState,
 } from '../test-helpers.js';
-import { Alignment, CardStatus } from '../../index.js';
+import { Alignment, CardStatus, Race } from '../../index.js';
 import type {
   CardDefinitionId,
   ActivateGrantedAction,
@@ -84,7 +84,7 @@ const ORC_PATROL = 'tw-074' as CardDefinitionId;   // race "orc"
 function setupCombat(
   state: GameState,
   creatureDefId: CardDefinitionId,
-  creatureRace: string,
+  creatureRace: Race,
   keying: readonly RegionType[],
 ): GameState {
   const creatureInstanceId = `creature-${creatureDefId as string}-1` as CardInstanceId;
@@ -418,7 +418,7 @@ describe('Stinker (le-154)', () => {
       ],
     });
     const withStinker = attachAllyToChar(base, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT, STINKER);
-    const combatState = setupCombat(withStinker, ORC_PATROL, 'orc', ['wilderness' as RegionType]);
+    const combatState = setupCombat(withStinker, ORC_PATROL, Race.Orc, ['wilderness' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
@@ -440,7 +440,7 @@ describe('Stinker (le-154)', () => {
       ],
     });
     const withStinker = attachAllyToChar(base, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT, STINKER);
-    const combatState = setupCombat(withStinker, ORC_PATROL, 'orc', ['shadow' as RegionType]);
+    const combatState = setupCombat(withStinker, ORC_PATROL, Race.Orc, ['shadow' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
@@ -457,7 +457,7 @@ describe('Stinker (le-154)', () => {
       ],
     });
     const withStinker = attachAllyToChar(base, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT, STINKER);
-    const combatState = setupCombat(withStinker, ORC_PATROL, 'orc', ['dark' as RegionType]);
+    const combatState = setupCombat(withStinker, ORC_PATROL, Race.Orc, ['dark' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
@@ -476,7 +476,7 @@ describe('Stinker (le-154)', () => {
       ],
     });
     const withStinker = attachAllyToChar(base, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT, STINKER);
-    const combatState = setupCombat(withStinker, ORC_PATROL, 'orc', ['wilderness' as RegionType]);
+    const combatState = setupCombat(withStinker, ORC_PATROL, Race.Orc, ['wilderness' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
@@ -493,7 +493,7 @@ describe('Stinker (le-154)', () => {
       ],
     });
     const withStinker = attachAllyToChar(base, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT, STINKER);
-    const combatState = setupCombat(withStinker, ORC_PATROL, 'orc', ['wilderness' as RegionType]);
+    const combatState = setupCombat(withStinker, ORC_PATROL, Race.Orc, ['wilderness' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
@@ -527,7 +527,7 @@ describe('Stinker (le-154)', () => {
       ] as unknown as typeof base.players,
     };
 
-    const combatState = setupCombat(base, ORC_PATROL, 'orc', ['wilderness' as RegionType]);
+    const combatState = setupCombat(base, ORC_PATROL, Race.Orc, ['wilderness' as RegionType]);
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
   });
@@ -543,7 +543,7 @@ describe('Stinker (le-154)', () => {
       ],
     });
     const withStinker = attachAllyToChar(base, RESOURCE_PLAYER, HORSEMAN_IN_THE_NIGHT, STINKER);
-    const combatState = setupCombat(withStinker, ORC_PATROL, 'orc', ['wilderness' as RegionType]);
+    const combatState = setupCombat(withStinker, ORC_PATROL, Race.Orc, ['wilderness' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);

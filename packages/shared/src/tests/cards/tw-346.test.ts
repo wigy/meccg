@@ -35,6 +35,7 @@ import {
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId, ModifyAttackAction } from '../../index.js';
+import { Race } from '../../index.js';
 
 const THE_OLD_THRUSH = 'tw-346' as CardDefinitionId;
 /** Daelomin (tw-26): dragon, prowess 13, body 8 — non-nazgul with prowess ≥ 13. */
@@ -60,7 +61,7 @@ describe('The Old Thrush (tw-346)', () => {
 
     const state = makeCancelWindowCombat(base, {
       creatureDefId: TOM_TUMA,
-      creatureRace: 'troll',
+      creatureRace: Race.Troll,
       strikeProwess: 13,
     });
 
@@ -83,7 +84,7 @@ describe('The Old Thrush (tw-346)', () => {
     });
 
     // Default makeCancelWindowCombat uses Orc-patrol (tw-074, prowess 6).
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', strikeProwess: 6 });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, strikeProwess: 6 });
 
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
     expect(actions).toHaveLength(0);
@@ -102,7 +103,7 @@ describe('The Old Thrush (tw-346)', () => {
 
     // Use automatic-attack so prowess comes from strikeProwess directly.
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'ringwraith',
+      creatureRace: Race.Ringwraith,
       strikeProwess: 15,
       attackSourceType: 'automatic-attack',
     });
@@ -124,7 +125,7 @@ describe('The Old Thrush (tw-346)', () => {
 
     const state = makeCancelWindowCombat(base, {
       creatureDefId: TOM_TUMA,
-      creatureRace: 'troll',
+      creatureRace: Race.Troll,
       strikeProwess: 13,
     });
 
@@ -147,7 +148,7 @@ describe('The Old Thrush (tw-346)', () => {
 
     const state = makeCancelWindowCombat(base, {
       creatureDefId: TOM_TUMA,
-      creatureRace: 'troll',
+      creatureRace: Race.Troll,
       strikeProwess: 13,
     });
 
@@ -173,7 +174,7 @@ describe('The Old Thrush (tw-346)', () => {
     // Daelomin: dragon, prowess 13, body 8. Override creatureBody to be non-null.
     const stateRaw = makeCancelWindowCombat(base, {
       creatureDefId: DAELOMIN,
-      creatureRace: 'dragon',
+      creatureRace: Race.Dragon,
       strikeProwess: 13,
     });
     // Inject body manually (makeCancelWindowCombat sets creatureBody: null).
@@ -201,7 +202,7 @@ describe('The Old Thrush (tw-346)', () => {
 
     const state = makeCancelWindowCombat(base, {
       creatureDefId: TOM_TUMA,
-      creatureRace: 'troll',
+      creatureRace: Race.Troll,
       strikeProwess: 13,
     });
 
@@ -230,7 +231,7 @@ describe('The Old Thrush (tw-346)', () => {
 
     const state = makeCancelWindowCombat(base, {
       creatureDefId: TOM_TUMA,
-      creatureRace: 'troll',
+      creatureRace: Race.Troll,
       strikeProwess: 13,
     });
 

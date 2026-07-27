@@ -33,6 +33,7 @@ import {
   resolveStatModifiers,
   type ResolverContext,
 } from '../../engine/effects/index.js';
+import { Race } from '../../index.js';
 
 const ELROHIR = 'tw-144' as CardDefinitionId;
 
@@ -64,7 +65,7 @@ describe('Elrohir (tw-144)', () => {
         baseDirectInfluence: elrohirDef.directInfluence,
         name: elrohirDef.name,
       },
-      enemy: { race: 'orc', name: 'Orc Guard', prowess: 4, body: null },
+      enemy: { race: Race.Orc, name: 'Orc Guard', prowess: 4, body: null },
     };
 
     const effects = collectCharacterEffects(state, elrohirChar, ctx);
@@ -95,7 +96,7 @@ describe('Elrohir (tw-144)', () => {
         baseDirectInfluence: elrohirDef.directInfluence,
         name: elrohirDef.name,
       },
-      enemy: { race: 'troll', name: 'Bert Burat', prowess: 9, body: 9 },
+      enemy: { race: Race.Troll, name: 'Bert Burat', prowess: 9, body: 9 },
     };
 
     const effects = collectCharacterEffects(state, elrohirChar, ctx);

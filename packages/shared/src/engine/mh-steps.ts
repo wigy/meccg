@@ -996,7 +996,7 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
     creatureRace: effect.race,
     assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
     detainment: isDetainmentAttack({
-      attackRace: effect.race as Race,
+      attackRace: effect.race,
       defendingAlignment: state.players[activePlayerIndex].alignment,
       defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
     }),

@@ -254,7 +254,11 @@ export function createBcAgent(weightsPath: string, options?: BcAgentOptions): Ag
   // lobby game. Revisiting a signature, we skip actions already tried from
   // it and take the next-best instead, which breaks the loop while leaving
   // ordinary play untouched (real progress changes the signature).
-  const triedBySignature = new Map<string, Set<string>>();
+  //
+  // Strictly per-game: signatures are deliberately coarse, so keeping them
+  // across games would let an early game permanently block an action in a
+  // later one. `startGame` clears it.
+  let triedBySignature = new Map<string, Set<string>>();
   const temperature = options?.temperature;
   if (temperature !== undefined && !(temperature > 0)) {
     throw new Error(`bc temperature must be > 0, got ${temperature}`);
@@ -264,6 +268,9 @@ export function createBcAgent(weightsPath: string, options?: BcAgentOptions): Ag
 
   return {
     name: temperature === undefined ? 'bc' : `bc@${temperature}`,
+    startGame(): void {
+      triedBySignature = new Map<string, Set<string>>();
+    },
     chooseAction(context: AgentContext): AgentDecision {
       if (vocab === null || cachedPool !== context.cardPool) {
         vocab = buildCardVocab(context.cardPool);
