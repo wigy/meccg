@@ -20,11 +20,11 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter, isItemCard } from '../../types/cards.js';
-import { CardStatus, SiteType, Alignment } from '../../types/common.js';
+import { CardStatus, SiteType, Alignment, Race } from '../../types/common.js';
 import { isBalrogAvatarDef, stayUntappedPenalty, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, buildInPlayNames } from '../recompute-derived.js';
-import { resolveDef } from '../effects/index.js';
+import { resolveDef, enemyRaceContext } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect } from './organization.js';
@@ -1239,7 +1239,7 @@ function resolveStrikeActions(
       if (strikeEffect.filter) {
         if (!charDef) continue;
         const targetObj: Record<string, unknown> = {};
-        if ('race' in charDef) targetObj.race = (charDef as { race: string }).race;
+        if ('race' in charDef) targetObj.race = (charDef as { race: Race }).race;
         if ('skills' in charDef) targetObj.skills = (charDef as { skills: readonly string[] }).skills;
         if ('name' in charDef) targetObj.name = (charDef as { name: string }).name;
         if (!matchesCondition(strikeEffect.filter, { target: targetObj })) {
@@ -1352,7 +1352,7 @@ function resolveStrikeActions(
         // Check when condition (enemy filtering)
         if (csEff.when) {
           const ctx: Record<string, unknown> = {};
-          if (combat.creatureRace) ctx['enemy.race'] = combat.creatureRace;
+          if (combat.creatureRace) ctx.enemy = enemyRaceContext(combat);
           if (!matchesCondition(csEff.when, ctx)) continue;
         }
 
@@ -1360,7 +1360,7 @@ function resolveStrikeActions(
         if (csEff.filter) {
           if (!strikeTargetDef) continue;
           const targetObj: Record<string, unknown> = {};
-          if ('race' in strikeTargetDef) targetObj.race = (strikeTargetDef as { race: string }).race;
+          if ('race' in strikeTargetDef) targetObj.race = (strikeTargetDef as { race: Race }).race;
           if ('skills' in strikeTargetDef) targetObj.skills = (strikeTargetDef as { skills: readonly string[] }).skills;
           if ('name' in strikeTargetDef) targetObj.name = (strikeTargetDef as { name: string }).name;
           if (!matchesCondition(csEff.filter, { target: targetObj })) continue;
@@ -1396,7 +1396,7 @@ function resolveStrikeActions(
         bearer: { skills: bearerSkills, race: bearerRace, name: bearerName },
         attack: buildAttackKeyingCtx(combat),
       };
-      if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
+      if (combat.creatureRace) ctx.enemy = enemyRaceContext(combat);
       return ctx;
     };
 
@@ -1417,7 +1417,7 @@ function resolveStrikeActions(
       const ctx: Record<string, unknown> = {
         attack: buildAttackKeyingCtx(combat),
       };
-      if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
+      if (combat.creatureRace) ctx.enemy = enemyRaceContext(combat);
       return ctx;
     };
     actions.push(...selfCancelStrikeActions(
@@ -1656,7 +1656,7 @@ function tapItemForStrikeActions(
           name: charDef.name,
         },
       };
-      if (combat.creatureRace) ctx.enemy = { race: combat.creatureRace };
+      if (combat.creatureRace) ctx.enemy = enemyRaceContext(combat);
       if (!matchesCondition(effect.when, ctx)) {
         const itemName = itemDef?.name ?? (item.definitionId as string);
         logDetail(`Tap-item-for-strike ${itemName}: when condition not met for bearer ${charDef.name ?? ''}`);
@@ -1882,7 +1882,7 @@ function convertCreatureToAllyActions(
 
   const creatureDef = resolveDef(state, combat.attackSource.instanceId);
   if (!creatureDef || creatureDef.cardType !== 'hazard-creature') return [];
-  const creatureRace = (creatureDef as { race: string }).race.toLowerCase();
+  const creatureRace = (creatureDef as { race: Race }).race;
   const creatureStrikes = (creatureDef as { strikes: number }).strikes;
 
   const player = playerById(state, playerId);
@@ -2896,7 +2896,7 @@ function siteStormAtSiteActions(
     const ch = oppPlayer.characters[charId];
     if (!ch) return false;
     const chDef = defById(state, ch.definitionId);
-    return !!chDef && isCharacterCard(chDef) && chDef.race === 'wizard';
+    return !!chDef && isCharacterCard(chDef) && chDef.race === Race.Wizard;
   });
   if (!oppHasWizard) {
     logDetail('site-storm-devastation: opposing company contains no Wizard — not offered');
@@ -3204,7 +3204,7 @@ function companyCombatBoostActions(
         const charCardDef = defById(state, char.definitionId);
         if (!charCardDef || !('race' in charCardDef)) continue;
         const ctx = { target: {
-          race: (charCardDef as { race?: string }).race ?? '',
+          race: (charCardDef as { race?: Race }).race,
           name: (charCardDef as { name?: string }).name ?? '',
           skills: (charCardDef as { skills?: readonly string[] }).skills ?? [],
           keywords: (charCardDef as { keywords?: readonly string[] }).keywords ?? [],
@@ -3371,7 +3371,7 @@ function tapAllyCombatBoostActions(
           const memberDef = defById(state, member.definitionId);
           if (!memberDef || !('race' in memberDef)) continue;
           const ctx = { target: {
-            race: (memberDef as { race?: string }).race ?? '',
+            race: (memberDef as { race?: Race }).race,
             name: (memberDef as { name?: string }).name ?? '',
             skills: (memberDef as { skills?: readonly string[] }).skills ?? [],
           } };
@@ -3745,7 +3745,7 @@ function leftBehindActions(
       if (!charInPlay) continue;
       const charDef = defById(state, charInPlay.definitionId);
       if (!charDef || !isCharacterCard(charDef)) continue;
-      if (charDef.race === 'wizard') continue;
+      if (charDef.race === Race.Wizard) continue;
       if (playTarget?.target === 'character' && playTarget.filter) {
         const ctx = { target: { race: charDef.race, skills: charDef.skills, name: charDef.name, mind: charDef.mind } };
         if (!matchesCondition(playTarget.filter, ctx)) continue;

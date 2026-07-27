@@ -34,7 +34,7 @@ import {
   makeCancelWindowCombat,
   Phase,
 } from '../test-helpers.js';
-import { CardStatus, RegionType } from '../../index.js';
+import { CardStatus, RegionType, Race } from '../../index.js';
 import type {
   CardDefinitionId, CardInstance,
   CancelAttackAction, InfluenceAttemptAction, CharacterCard,
@@ -97,7 +97,7 @@ describe('Círdan (tw-137)', () => {
       ],
     });
     const withCombat = makeCancelWindowCombat(base, {
-      creatureRace: 'animal',
+      creatureRace: Race.Animal,
       attackKeying: [RegionType.Coastal],
     });
 
@@ -119,7 +119,7 @@ describe('Círdan (tw-137)', () => {
       ],
     });
     const withCombat = makeCancelWindowCombat(base, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [RegionType.Wilderness],
     });
 
@@ -141,7 +141,7 @@ describe('Círdan (tw-137)', () => {
       ],
     });
     const withCombat = makeCancelWindowCombat(base, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [],
     });
 
@@ -163,7 +163,7 @@ describe('Círdan (tw-137)', () => {
       ],
     });
     const withCombat = makeCancelWindowCombat(base, {
-      creatureRace: 'animal',
+      creatureRace: Race.Animal,
       attackKeying: [RegionType.Coastal],
     });
 

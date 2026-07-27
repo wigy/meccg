@@ -47,7 +47,7 @@ import {
   buildSitePhaseState, setupAutoAttackStep,
   expectInDiscardPile,
 } from '../test-helpers.js';
-import { Phase } from '../../index.js';
+import { Phase, Race } from '../../index.js';
 import type { CardDefinitionId, ModifyAttackAction } from '../../index.js';
 
 const NSN = 'le-212' as CardDefinitionId;
@@ -103,7 +103,7 @@ describe('Not Slay Needlessly (le-212)', () => {
   test('modify-attack is available against an Elf creature', () => {
     const state = makeCancelWindowCombat(buildBase(), {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elf',
+      creatureRace: Race.Elf,
       strikeProwess: 10,
     });
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
@@ -116,7 +116,7 @@ describe('Not Slay Needlessly (le-212)', () => {
   test('modify-attack is available against a Dúnedain creature', () => {
     const state = makeCancelWindowCombat(buildBase(), {
       creatureDefId: SONS_OF_KINGS,
-      creatureRace: 'dunadan',
+      creatureRace: Race.Dunadan,
       strikeProwess: 8,
     });
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
@@ -126,7 +126,7 @@ describe('Not Slay Needlessly (le-212)', () => {
   test('modify-attack is available against a Men creature', () => {
     const state = makeCancelWindowCombat(buildBase(), {
       creatureDefId: AMBUSHER,
-      creatureRace: 'man',
+      creatureRace: Race.Man,
       strikeProwess: 7,
     });
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
@@ -136,7 +136,7 @@ describe('Not Slay Needlessly (le-212)', () => {
   test('modify-attack is NOT available against a non-matching race (Orc)', () => {
     const state = makeCancelWindowCombat(buildBase(), {
       creatureDefId: HOBGOBLINS,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeProwess: 10,
     });
     const actions = viableActions(state, PLAYER_1, 'modify-attack');
@@ -148,7 +148,7 @@ describe('Not Slay Needlessly (le-212)', () => {
     const strikeProwess = 10;
     const state = makeCancelWindowCombat(buildBase(), {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elf',
+      creatureRace: Race.Elf,
       strikeProwess,
     });
     const [action] = viableActions(state, PLAYER_1, 'modify-attack');
@@ -160,7 +160,7 @@ describe('Not Slay Needlessly (le-212)', () => {
   test('NSN is discarded from hand after playing (short-event lifecycle)', () => {
     const state = makeCancelWindowCombat(buildBase(), {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elf',
+      creatureRace: Race.Elf,
       strikeProwess: 10,
     });
     const [action] = viableActions(state, PLAYER_1, 'modify-attack');
@@ -177,7 +177,7 @@ describe('Not Slay Needlessly (le-212)', () => {
     const base = buildBase({ nsnCopies: 2 });
     const state = makeCancelWindowCombat(base, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elf',
+      creatureRace: Race.Elf,
       strikeProwess: 10,
     });
 
@@ -202,7 +202,7 @@ describe('Not Slay Needlessly (le-212)', () => {
     // 8 prowess). The card must still be playable against it.
     const state = makeCancelWindowCombat(buildBase(), {
       attackSourceType: 'automatic-attack',
-      creatureRace: 'elf',
+      creatureRace: Race.Elf,
       strikesTotal: 4,
       strikeProwess: 8,
     });
@@ -218,7 +218,7 @@ describe('Not Slay Needlessly (le-212)', () => {
     // with 10 prowess", normalized to the race "dunadan" on the combat state.
     const state = makeCancelWindowCombat(buildBase(), {
       attackSourceType: 'automatic-attack',
-      creatureRace: 'dunadan',
+      creatureRace: Race.Dunadan,
       strikesTotal: 3,
       strikeProwess: 10,
     });
@@ -301,7 +301,7 @@ describe('Not Slay Needlessly (le-212)', () => {
     });
     const state = makeCancelWindowCombat(base, {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elf',
+      creatureRace: Race.Elf,
       strikeProwess: 10,
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
@@ -312,7 +312,7 @@ describe('Not Slay Needlessly (le-212)', () => {
     // GORBAG is Orc (overt race) → overt company gets modify-attack, not cancel.
     const overtState = makeCancelWindowCombat(buildBase(), {
       creatureDefId: ELF_LORD,
-      creatureRace: 'elf',
+      creatureRace: Race.Elf,
       strikeProwess: 10,
     });
     expect(viableActions(overtState, PLAYER_1, 'cancel-attack')).toHaveLength(0);

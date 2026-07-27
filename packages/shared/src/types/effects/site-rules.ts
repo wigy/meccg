@@ -8,7 +8,7 @@
  * the public `types/effects.js` import path is unchanged.
  */
 
-import type { Alignment, CardDefinitionId, RegionType, SiteType } from '../common.js';
+import type { Alignment, CardDefinitionId, Race, RegionType, SiteType } from '../common.js';
 import type { EffectBase, Condition } from '../effects.js';
 
 /**
@@ -230,7 +230,7 @@ export interface SageTapRingTestSiteRule extends EffectBase {
 export interface AttacksNotDetainmentSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'attacks-not-detainment';
-  /** Optional condition on the attacking creature (e.g. race ≠ nazgul). */
+  /** Optional condition on the attacking creature (e.g. race ≠ `ringwraith`). */
   readonly filter?: Condition;
 }
 
@@ -457,7 +457,7 @@ export interface HazardLimitSiteRule extends EffectBase {
  * at this site."
  *
  * ```json
- * { "type": "site-rule", "rule": "allow-creature-by-race", "race": "men" }
+ * { "type": "site-rule", "rule": "allow-creature-by-race", "race": "man" }
  * ```
  *
  * Example — The Iron-deeps (ba-91): "Any Drake creature (except Sea Serpent)
@@ -471,8 +471,8 @@ export interface HazardLimitSiteRule extends EffectBase {
 export interface AllowCreatureByRaceSiteRule extends EffectBase {
   readonly type: 'site-rule';
   readonly rule: 'allow-creature-by-race';
-  /** The creature race that bypasses keying at this site (e.g. "men"). */
-  readonly race: string;
+  /** The creature race that bypasses keying at this site (e.g. `"man"`). */
+  readonly race: Race;
   /**
    * Optional DSL condition on the creature card definition; a creature that
    * matches is excluded from the bypass (e.g. Sea Serpent for a Drake rule).

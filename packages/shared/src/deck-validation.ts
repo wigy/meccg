@@ -515,14 +515,14 @@ export function validateDeck(
     if (entry.card === null) continue;
     const def = cardPool[entry.card];
     if (!isCharacterCard(def) || !isAvatarCharacter(def)) continue;
-    if (deck.alignment === 'hero' && def.race !== 'wizard') {
+    if (deck.alignment === 'hero' && def.race !== Race.Wizard) {
       errors.push({
         section: 'characters',
         message: `hero deck: avatar "${def.name}" must be a Wizard (race is "${def.race}")`,
         card: entry.card,
       });
     }
-    if (deck.alignment === 'minion' && def.race !== 'ringwraith') {
+    if (deck.alignment === 'minion' && def.race !== Race.Ringwraith) {
       errors.push({
         section: 'characters',
         message: `minion deck: avatar "${def.name}" must be a Ringwraith (race is "${def.race}")`,
@@ -653,8 +653,8 @@ export function validateDeck(
         if (entry.card === null) continue;
         const def = cardPool[entry.card];
         if (!isCharacterCard(def) || isAvatarCharacter(def)) continue;
-        const race = def.race as string;
-        if (race !== 'orc' && race !== 'troll') {
+        const race = def.race;
+        if (race !== Race.Orc && race !== Race.Troll) {
           errors.push({
             section: sectionKey,
             message: `balrog deck: character "${def.name}" has race "${race}" — must be orc or troll`,

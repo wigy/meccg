@@ -16,7 +16,7 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { getPlayerIndex, requirePhaseState } from '../../state-utils.js';
 import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isAvatarCharacter } from '../../types/cards.js';
-import { CardStatus } from '../../types/common.js';
+import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite } from '../reducer-utils.js';
@@ -2590,7 +2590,7 @@ function opponentInfluenceActions(
   const unusedDIFor = (
     ownerPlayer: typeof player,
     charInstanceId: import('../../types/common.js').CardInstanceId,
-    target?: { readonly kind: string; readonly race: string; readonly name: string },
+    target?: { readonly kind: string; readonly race?: Race; readonly name: string },
   ): number => {
     if (!nullifyMods) return availableDI(state, charInstanceId, ownerPlayer);
     const fullChar = ownerPlayer.characters[charInstanceId];
@@ -2712,7 +2712,7 @@ function opponentInfluenceActions(
           const charDef = defById(state, ch.definitionId);
           if (!charDef || !isCharacterCard(charDef)) continue;
 
-          const influencerDI = unusedDIFor(player, ch.instanceId, { kind: 'ally', race: '', name: allyDef.name });
+          const influencerDI = unusedDIFor(player, ch.instanceId, { kind: 'ally', name: allyDef.name });
           const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${allyMind}, controller DI: ${allyControllerDI}${crossAlignmentSuffix}${nullifySuffix}`;
 
           logDetail(`Opponent influence: ${charDef.name} can target ally ${allyDef.name} (${explanation})`);
@@ -2784,7 +2784,7 @@ function opponentInfluenceActions(
         for (const ch of eligibleInfluencers) {
           const charDef = defById(state, ch.definitionId);
           if (!charDef || !isCharacterCard(charDef)) continue;
-          const influencerDI = unusedDIFor(player, ch.instanceId, { kind: 'item', race: '', name: itemDef.name });
+          const influencerDI = unusedDIFor(player, ch.instanceId, { kind: 'item', name: itemDef.name });
           const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind (controller): ${itemControllerMind}, controller DI: ${itemControllerDI}${crossAlignmentSuffix}${nullifySuffix} (reveal identical ${itemDef.name})`;
           logDetail(`Opponent influence: ${charDef.name} can target item ${itemDef.name} (${explanation})`);
           actions.push({

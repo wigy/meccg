@@ -52,7 +52,7 @@ import type {
   AssignStrikeAction, HavenJoinAttackAction, PassAction,
 } from '../../index.js';
 import {
-  Phase, Alignment, CardStatus, RegionType, SiteType, reduce,
+  Phase, Alignment, CardStatus, RegionType, SiteType, reduce, Race,
 } from '../../index.js';
 
 const ALATAR = 'tw-117' as CardDefinitionId;
@@ -182,7 +182,7 @@ function combatWithHavenJumpOffer(
     strikesTotal: opts.strikesTotal ?? 1,
     strikeProwess: opts.strikeProwess ?? 6,
     creatureBody: null,
-    creatureRace: 'orc',
+    creatureRace: Race.Orc,
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',
@@ -448,7 +448,7 @@ describe('Alatar (tw-117)', () => {
       strikesTotal: 1,
       strikeProwess: 6,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [],
       currentStrikeIndex: 0,
       phase: 'assign-strikes',
@@ -474,7 +474,7 @@ describe('Alatar (tw-117)', () => {
       strikesTotal: 1,
       strikeProwess: 6,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [],
       currentStrikeIndex: 0,
       phase: 'assign-strikes',

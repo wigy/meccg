@@ -44,7 +44,7 @@ import {
   companyIdAt, makeMHState,
   RIVENDELL, MORIA, MOUNT_DOOM,
 } from '../test-helpers.js';
-import { Alignment, CardStatus } from '../../index.js';
+import { Alignment, CardStatus, Race } from '../../index.js';
 import type {
   CardDefinitionId,
   ActivateGrantedAction,
@@ -70,7 +70,7 @@ const ORC_PATROL = 'tw-074' as CardDefinitionId;    // hazard creature for comba
 function setupCombat(
   state: GameState,
   creatureDefId: CardDefinitionId,
-  creatureRace: string,
+  creatureRace: Race,
   keying: readonly RegionType[],
 ): GameState {
   const creatureInstanceId = `creature-${creatureDefId as string}-1` as CardInstanceId;
@@ -384,7 +384,7 @@ describe('Gollum (tw-246)', () => {
       ],
     });
     const withGollum = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLLUM);
-    const combatState = setupCombat(withGollum, ORC_PATROL, 'orc', ['wilderness' as RegionType]);
+    const combatState = setupCombat(withGollum, ORC_PATROL, Race.Orc, ['wilderness' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
@@ -406,7 +406,7 @@ describe('Gollum (tw-246)', () => {
       ],
     });
     const withGollum = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLLUM);
-    const combatState = setupCombat(withGollum, ORC_PATROL, 'orc', ['shadow' as RegionType]);
+    const combatState = setupCombat(withGollum, ORC_PATROL, Race.Orc, ['shadow' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
@@ -423,7 +423,7 @@ describe('Gollum (tw-246)', () => {
       ],
     });
     const withGollum = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLLUM);
-    const combatState = setupCombat(withGollum, ORC_PATROL, 'orc', ['dark' as RegionType]);
+    const combatState = setupCombat(withGollum, ORC_PATROL, Race.Orc, ['dark' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
@@ -440,7 +440,7 @@ describe('Gollum (tw-246)', () => {
       ],
     });
     const withGollum = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLLUM);
-    const combatState = setupCombat(withGollum, ORC_PATROL, 'orc', ['wilderness' as RegionType]);
+    const combatState = setupCombat(withGollum, ORC_PATROL, Race.Orc, ['wilderness' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
@@ -457,7 +457,7 @@ describe('Gollum (tw-246)', () => {
       ],
     });
     const withGollum = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLLUM);
-    const combatState = setupCombat(withGollum, ORC_PATROL, 'orc', ['wilderness' as RegionType]);
+    const combatState = setupCombat(withGollum, ORC_PATROL, Race.Orc, ['wilderness' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
@@ -491,7 +491,7 @@ describe('Gollum (tw-246)', () => {
       ] as unknown as typeof base.players,
     };
 
-    const combatState = setupCombat(base, ORC_PATROL, 'orc', ['wilderness' as RegionType]);
+    const combatState = setupCombat(base, ORC_PATROL, Race.Orc, ['wilderness' as RegionType]);
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
   });
@@ -507,7 +507,7 @@ describe('Gollum (tw-246)', () => {
       ],
     });
     const withGollum = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLLUM);
-    const combatState = setupCombat(withGollum, ORC_PATROL, 'orc', ['wilderness' as RegionType]);
+    const combatState = setupCombat(withGollum, ORC_PATROL, Race.Orc, ['wilderness' as RegionType]);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);

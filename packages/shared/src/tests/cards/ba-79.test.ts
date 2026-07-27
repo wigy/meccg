@@ -65,7 +65,7 @@ import {
   PLAYER_1, PLAYER_2, Phase, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CombatState, CardInPlay } from '../../index.js';
-import { Alignment, CardStatus } from '../../index.js';
+import { Alignment, CardStatus, Race } from '../../index.js';
 
 const VANGUARD = 'ba-79' as CardDefinitionId;
 const THE_BALROG = 'ba-3' as CardDefinitionId;
@@ -153,7 +153,7 @@ function buildVanguardCombat(opts: VanguardOpts): {
     strikesTotal: opts.strikesTotal ?? 1,
     strikeProwess: opts.strikeProwess ?? 4,
     creatureBody: opts.creatureBody ?? null,
-    creatureRace: 'orc',
+    creatureRace: Race.Orc,
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',

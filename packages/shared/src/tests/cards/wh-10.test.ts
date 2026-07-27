@@ -49,7 +49,7 @@ import {
   makeBodyCheckCombat, makeShadowMHState, makeMHState, setCharStatus,
   RESOURCE_PLAYER, HAZARD_PLAYER, CardStatus,
 } from '../test-helpers.js';
-import { Phase, Alignment } from '../../index.js';
+import { Phase, Alignment, Race } from '../../index.js';
 import type {
   CardDefinitionId, CardInstanceId, GameState, CombatState, CancelAttackAction,
 } from '../../index.js';
@@ -101,7 +101,7 @@ describe('Sly Southerner (wh-10)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elf',
+        creatureRace: Race.Elf,
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -148,7 +148,7 @@ describe('Sly Southerner (wh-10)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elf',
+        creatureRace: Race.Elf,
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -197,7 +197,7 @@ describe('Sly Southerner (wh-10)', () => {
       strikesTotal: 1,
       strikeProwess: 8,
       creatureBody: 5,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: halfOrcId, excessStrikes: 0, resolved: true, result: 'success' }],
       currentStrikeIndex: 0,
       phase: 'body-check',
@@ -249,7 +249,7 @@ describe('Sly Southerner (wh-10)', () => {
       strikesTotal: 1,
       strikeProwess: 8,
       creatureBody: 5,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: orcId, excessStrikes: 0, resolved: true, result: 'success' }],
       currentStrikeIndex: 0,
       phase: 'body-check',

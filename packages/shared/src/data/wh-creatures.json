@@ -9,7 +9,8 @@
     "prowess": 7,
     "body": null,
     "killMarshallingPoints": 1,
-    "race": "orc,man",
+    "race": "orc",
+    "additionalRaces": ["man"],
     "keyedTo": [
       {
         "regionTypes": [

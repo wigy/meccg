@@ -45,7 +45,7 @@ import {
   viableActions, viableActionsForHandCard, makeShadowMHState, makeMHState,
   dispatch, Alignment, Phase, CardStatus,
 } from '../test-helpers.js';
-import { MovementType } from '../../types/common.js';
+import { MovementType, Race } from '../../types/common.js';
 import { isCovertCompany } from '../../engine/reducer-utils.js';
 import { endCompanyMH } from '../../engine/mh-hazard-play.js';
 import type { CardDefinitionId, CardInstanceId, GameState } from '../../index.js';
@@ -80,7 +80,7 @@ const troop = {
 };
 
 /** Build an M/H state where P1's company (Luitprand + the ally) faces `creatureRace`. */
-function buildCancelState(creatureRace: string): { state: GameState; allyInst: CardInstanceId } {
+function buildCancelState(creatureRace: Race): { state: GameState; allyInst: CardInstanceId } {
   const base = buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.MovementHazard,
@@ -145,14 +145,14 @@ describe('Nasty Slimy Thing (ba-47)', () => {
   // ─── Rule 3: tap the ally to cancel a Drake attack ────────────────────────
 
   test('the ally offers a cancel-attack action against a Drake attack', () => {
-    const { state, allyInst } = buildCancelState('drake');
+    const { state, allyInst } = buildCancelState(Race.Drake);
     const cancels = viableActions(state, PLAYER_1, 'cancel-attack')
       .filter(a => a.action.type === 'cancel-attack' && a.action.cardInstanceId === allyInst);
     expect(cancels).toHaveLength(1);
   });
 
   test('tapping the ally cancels the Drake attack and taps the ally', () => {
-    const { state, allyInst } = buildCancelState('drake');
+    const { state, allyInst } = buildCancelState(Race.Drake);
     const cancel = viableActions(state, PLAYER_1, 'cancel-attack')
       .find(a => a.action.type === 'cancel-attack' && a.action.cardInstanceId === allyInst);
     expect(cancel).toBeDefined();
@@ -163,14 +163,14 @@ describe('Nasty Slimy Thing (ba-47)', () => {
   });
 
   test('does NOT offer a cancel against a non-Drake (Orc) attack', () => {
-    const { state, allyInst } = buildCancelState('orc');
+    const { state, allyInst } = buildCancelState(Race.Orc);
     const cancels = viableActions(state, PLAYER_1, 'cancel-attack')
       .filter(a => a.action.type === 'cancel-attack' && a.action.cardInstanceId === allyInst);
     expect(cancels).toHaveLength(0);
   });
 
   test('an already-tapped ally cannot cancel a Drake attack', () => {
-    const { state, allyInst } = buildCancelState('drake');
+    const { state, allyInst } = buildCancelState(Race.Drake);
     // Tap the ally in place.
     const luitId = findCharInstanceId(state, RESOURCE_PLAYER, LUITPRAND);
     const p1 = state.players[RESOURCE_PLAYER];

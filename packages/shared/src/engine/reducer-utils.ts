@@ -614,7 +614,7 @@ export function siteRuleAllowsCreatureByRace(
   creatureDef: CardDefinition,
 ): boolean {
   if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return false;
-  const race = (creatureDef as unknown as { race?: string }).race;
+  const race = (creatureDef as unknown as { race?: Race }).race;
   if (!race) return false;
   return siteDef.effects.some(
     e => e.type === 'site-rule' && e.rule === 'allow-creature-by-race'
@@ -1658,7 +1658,7 @@ export function leaderControlEligibility(
 ): boolean {
   const effect = getLeaderControlEffect(factionDef);
   if (!effect || !charDef || !isCharacterCard(charDef)) return false;
-  const raceOk = effect.races.includes(charDef.race as unknown as string);
+  const raceOk = effect.races.includes(charDef.race);
   const keywordOk = (charDef.keywords ?? []).includes(effect.requiresKeyword as never);
   return raceOk && keywordOk;
 }
@@ -3390,7 +3390,7 @@ export function companyContainsRace(
   state: GameState,
   player: PlayerState,
   company: Company,
-  race: string,
+  race: Race,
 ): boolean {
   return company.characters.some(cId => {
     const ch = player.characters[cId];
@@ -3406,8 +3406,8 @@ export function companyContainsRace(
  * `cardsInPlay`. A card still resolving a `trigger-attack-on-play` keep is
  * skipped (its ongoing effects are suppressed until the keep is confirmed).
  */
-function collectProhibitedCompanyEventRaces(state: GameState): string[] {
-  const races: string[] = [];
+function collectProhibitedCompanyEventRaces(state: GameState): Race[] {
+  const races: Race[] = [];
   for (const p of state.players) {
     for (const c of p.cardsInPlay) {
       if (c.pendingTriggerAttack) continue;

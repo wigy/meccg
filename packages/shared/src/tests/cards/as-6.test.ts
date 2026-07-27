@@ -48,7 +48,7 @@ import type {
   ActivateGrantedAction,
   OrganizationPhaseState,
 } from '../../index.js';
-import { CardStatus } from '../../index.js';
+import { CardStatus, Race } from '../../index.js';
 
 // ── Card under test ──────────────────────────────────────────────────────────
 const WULUAG = 'as-6' as CardDefinitionId;  // prowess 5, mind 4, warrior+scout
@@ -249,11 +249,11 @@ describe('Wûluag (as-6)', () => {
     const wuluagDef = pool[WULUAG as string] as CharacterCard;
 
     // +1 prowess vs dwarf
-    expect(computeCombatProwess(state, wuluag, wuluagDef, 'dwarf')).toBe(wuluagDef.prowess + 1);
+    expect(computeCombatProwess(state, wuluag, wuluagDef, Race.Dwarf)).toBe(wuluagDef.prowess + 1);
     // No bonus vs other races
-    expect(computeCombatProwess(state, wuluag, wuluagDef, 'orc')).toBe(wuluagDef.prowess);
-    expect(computeCombatProwess(state, wuluag, wuluagDef, 'men')).toBe(wuluagDef.prowess);
-    expect(computeCombatProwess(state, wuluag, wuluagDef, 'troll')).toBe(wuluagDef.prowess);
+    expect(computeCombatProwess(state, wuluag, wuluagDef, Race.Orc)).toBe(wuluagDef.prowess);
+    expect(computeCombatProwess(state, wuluag, wuluagDef, Race.Man)).toBe(wuluagDef.prowess);
+    expect(computeCombatProwess(state, wuluag, wuluagDef, Race.Troll)).toBe(wuluagDef.prowess);
   });
 
   // ── Effect 4: Tap to untap Bûrat or Tûma at the same site ────────────────

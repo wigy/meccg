@@ -11,6 +11,7 @@ import {
   CardInstanceId,
   CardDefinitionId,
   CompanyId,
+  Race,
   RegionType,
   SiteType,
 } from './common.js';
@@ -296,8 +297,15 @@ export interface CombatState {
   readonly strikeProwess: number;
   /** The creature's body value for body checks. Null if no body check applies. */
   readonly creatureBody: number | null;
-  /** The lowercase singular race of the attacking creature (e.g. "orc", "wolf"). Used to evaluate combat-conditional weapon effects like Glamdring's "max 9 against Orcs". */
-  readonly creatureRace?: string;
+  /** The canonical {@link Race} of the attacking creature (e.g. `"orc"`, `"wolf"`). Used to evaluate combat-conditional weapon effects like Glamdring's "max 9 against Orcs". Absent for attacks that name no race. */
+  readonly creatureRace?: Race;
+  /**
+   * Every race the attacker counts as, when it prints more than one attack
+   * type (Goblin-faces wh-13 "Orcs. Men."). Includes {@link creatureRace} as
+   * its first entry and is omitted for the single-race majority. Exposed to
+   * the DSL as `enemy.races`; `enemy.race` remains the single primary race.
+   */
+  readonly creatureRaces?: readonly Race[];
   /**
    * The region types this attack is keyed to, flattened from the creature's
    * `keyedTo` restrictions. Used to evaluate cancel-attack conditions like

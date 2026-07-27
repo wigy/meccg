@@ -50,7 +50,7 @@ import {
   makeCancelWindowCombat, expectCharStatus,
 } from '../test-helpers.js';
 import { getItemGrantedSkills } from '../../engine/effects/index.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import type { ActivateGrantedAction, CardDefinitionId } from '../../index.js';
 
 // ── Local card-ID constants ───────────────────────────────────────────────────
@@ -374,7 +374,7 @@ describe('Great Shadow (ba-62)', () => {
         ],
       });
       const withFana = attachItemToChar(base, RESOURCE_PLAYER, THE_BALROG, GREAT_SHADOW);
-      return makeCancelWindowCombat(withFana, { creatureRace: 'orc' });
+      return makeCancelWindowCombat(withFana, { creatureRace: Race.Orc });
     }
 
     test('cancel-attack is offered against any attack (no race restriction) when untapped', () => {

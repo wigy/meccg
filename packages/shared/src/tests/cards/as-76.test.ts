@@ -44,7 +44,7 @@ import {
   viableActions, companyIdAt, dispatch,
   makeMHState, expectInDiscardPile, executeAction,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, CardStatus } from '../../index.js';
+import { computeLegalActions, Phase, CardStatus, Race } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, CardInstance, CombatState, CancelAttackAction, PlayHeroResourceAction, GameState } from '../../index.js';
 
 const REGIMENT = 'as-76' as CardDefinitionId;
@@ -80,7 +80,7 @@ const ELF_LORD = 'le-69' as CardDefinitionId;
 function setupCombat(
   state: GameState,
   creatureDefId: CardDefinitionId,
-  creatureRace: string,
+  creatureRace: Race,
 ): GameState {
   const creatureInstanceId = `creature-${creatureRace}-1` as CardInstanceId;
   const creatureCard: CardInstance = { instanceId: creatureInstanceId, definitionId: creatureDefId };
@@ -195,7 +195,7 @@ describe('Regiment of Black Crows (as-76)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, REGIMENT);
-    const combatState = setupCombat(withAlly, CAVE_DRAKE, 'drake');
+    const combatState = setupCombat(withAlly, CAVE_DRAKE, Race.Drake);
 
     // Only ASTERNAK should be offerable; the ally has no-attack flag.
     const assignActions = viableActions(combatState, PLAYER_1, 'assign-strike');
@@ -221,9 +221,9 @@ describe('Regiment of Black Crows (as-76)', () => {
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, REGIMENT);
     // Detainment-style (attacker chooses): ally still excluded.
     const combatState: GameState = {
-      ...setupCombat(withAlly, CAVE_DRAKE, 'drake'),
+      ...setupCombat(withAlly, CAVE_DRAKE, Race.Drake),
       combat: {
-        ...setupCombat(withAlly, CAVE_DRAKE, 'drake').combat!,
+        ...setupCombat(withAlly, CAVE_DRAKE, Race.Drake).combat!,
         assignmentPhase: 'attacker',
       },
     };
@@ -275,7 +275,7 @@ describe('Regiment of Black Crows (as-76)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elf',
+        creatureRace: Race.Elf,
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -327,7 +327,7 @@ describe('Regiment of Black Crows (as-76)', () => {
         strikesTotal: 1,
         strikeProwess: 15,
         creatureBody: null,
-        creatureRace: 'elf',
+        creatureRace: Race.Elf,
         strikeAssignments: [],
         currentStrikeIndex: 0,
         phase: 'assign-strikes',
@@ -361,7 +361,7 @@ describe('Regiment of Black Crows (as-76)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, REGIMENT);
-    const combatState = setupCombat(withAlly, CAVE_DRAKE, 'drake');
+    const combatState = setupCombat(withAlly, CAVE_DRAKE, Race.Drake);
 
     const asternakId = findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK);
     let s = dispatch(combatState, { type: 'assign-strike', player: PLAYER_1, characterId: asternakId });
@@ -391,7 +391,7 @@ describe('Regiment of Black Crows (as-76)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, REGIMENT);
-    const combatState = setupCombat(withAlly, CAVE_DRAKE, 'drake');
+    const combatState = setupCombat(withAlly, CAVE_DRAKE, Race.Drake);
 
     const asternakId = findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK);
     let s = dispatch(combatState, { type: 'assign-strike', player: PLAYER_1, characterId: asternakId });
@@ -418,7 +418,7 @@ describe('Regiment of Black Crows (as-76)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, REGIMENT);
-    const combatState = setupCombat(withAlly, CAVE_DRAKE, 'drake');
+    const combatState = setupCombat(withAlly, CAVE_DRAKE, Race.Drake);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
@@ -449,7 +449,7 @@ describe('Regiment of Black Crows (as-76)', () => {
       strikesTotal: 1,
       strikeProwess: 8,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [],
       currentStrikeIndex: 0,
       phase: 'assign-strikes',
@@ -482,7 +482,7 @@ describe('Regiment of Black Crows (as-76)', () => {
       ],
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, REGIMENT);
-    const combatState = setupCombat(withAlly, CAVE_DRAKE, 'drake');
+    const combatState = setupCombat(withAlly, CAVE_DRAKE, Race.Drake);
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions.length).toBe(1);
@@ -528,7 +528,7 @@ describe('Regiment of Black Crows (as-76)', () => {
       ] as unknown as typeof withAlly.players,
     };
 
-    const combatState = setupCombat(withAlly, CAVE_DRAKE, 'drake');
+    const combatState = setupCombat(withAlly, CAVE_DRAKE, Race.Drake);
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack').filter(a => {
       const ally = withAlly.players[RESOURCE_PLAYER].characters[charId].allies[0];
       return 'cardInstanceId' in a.action && (a.action as CancelAttackAction).cardInstanceId === ally.instanceId;
