@@ -26,6 +26,7 @@ import {
 } from '../../test-helpers.js';
 import type { CardDefinitionId, PlayShortEventAction } from '../../../index.js';
 import type { CombatState } from '../../../index.js';
+import { Race } from '../../../index.js';
 
 const VILYA = 'tw-358' as CardDefinitionId;
 
@@ -52,7 +53,7 @@ describe('Rule 8.16 — Strike Step 5: Defending Player Actions', () => {
       strikesTotal: 1,
       strikeProwess: 7,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: elrondId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
@@ -91,7 +92,7 @@ describe('Rule 8.16 — Strike Step 5: Defending Player Actions', () => {
       strikesTotal: 1,
       strikeProwess: 7,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: elrondId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'choose-strike-order',
@@ -124,7 +125,7 @@ describe('Rule 8.16 — Strike Step 5: Defending Player Actions', () => {
       strikesTotal: 1,
       strikeProwess: 7,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: elrondId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',

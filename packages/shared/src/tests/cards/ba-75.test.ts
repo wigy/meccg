@@ -55,6 +55,7 @@ import {
   dispatch,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CombatState, GameState } from '../../index.js';
+import { Race } from '../../index.js';
 
 // ── Local card-ID constants ───────────────────────────────────────────────────
 
@@ -152,7 +153,7 @@ function cvccState(opts: CvccOpts = {}): GameState {
     strikesTotal: 1,
     strikeProwess: 8,
     creatureBody: null,
-    ...(cvcc ? { isCvCC: true } : { creatureRace: 'orc' }),
+    ...(cvcc ? { isCvCC: true } : { creatureRace: Race.Orc }),
     strikeAssignments: [{ characterId: defenderCharId, attackingCharacterId: attackerCharId, excessStrikes: 0, resolved: false }],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',

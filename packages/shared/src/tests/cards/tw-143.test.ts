@@ -30,6 +30,7 @@ import {
 } from '../test-helpers.js';
 import { computeCombatProwess } from '../../engine/recompute-derived.js';
 import type { CardDefinitionId, CharacterCard } from '../../index.js';
+import { Race } from '../../index.js';
 
 const ELLADAN = 'tw-143' as CardDefinitionId;
 
@@ -56,7 +57,7 @@ describe('Elladan (tw-143)', () => {
     const elladan = state.players[RESOURCE_PLAYER].characters[elladanId];
     const elladanDef = pool[ELLADAN as string] as CharacterCard;
 
-    const prowessVsOrc = computeCombatProwess(state, elladan, elladanDef, 'orc');
+    const prowessVsOrc = computeCombatProwess(state, elladan, elladanDef, Race.Orc);
     // Base prowess 5 + 1 bonus = 6
     expect(prowessVsOrc).toBe(elladanDef.prowess + 1);
   });
@@ -67,8 +68,8 @@ describe('Elladan (tw-143)', () => {
     const elladan = state.players[RESOURCE_PLAYER].characters[elladanId];
     const elladanDef = pool[ELLADAN as string] as CharacterCard;
 
-    expect(computeCombatProwess(state, elladan, elladanDef, 'troll')).toBe(elladanDef.prowess);
-    expect(computeCombatProwess(state, elladan, elladanDef, 'undead')).toBe(elladanDef.prowess);
-    expect(computeCombatProwess(state, elladan, elladanDef, 'ringwraith')).toBe(elladanDef.prowess);
+    expect(computeCombatProwess(state, elladan, elladanDef, Race.Troll)).toBe(elladanDef.prowess);
+    expect(computeCombatProwess(state, elladan, elladanDef, Race.Undead)).toBe(elladanDef.prowess);
+    expect(computeCombatProwess(state, elladan, elladanDef, Race.Ringwraith)).toBe(elladanDef.prowess);
   });
 });

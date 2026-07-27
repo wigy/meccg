@@ -15,6 +15,7 @@
 
 import type { GameState } from '../index.js';
 import type { SiteFlag } from '../types/pending.js';
+import type { Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { activePlayerState } from './reducer-utils.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -198,7 +199,7 @@ export function buildConstraintKind(
     case 'auto-attack-duplicate':
       return { type: 'auto-attack-duplicate' };
     case 'auto-attack-race-duplicate': {
-      const race = (onEvent.apply as { race?: string }).race;
+      const race = (onEvent.apply as { race?: Race }).race;
       if (!race) return null;
       return { type: 'auto-attack-race-duplicate', race };
     }

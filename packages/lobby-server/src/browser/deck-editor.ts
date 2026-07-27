@@ -7,7 +7,7 @@
  */
 
 import {
-  getCardCss, validateDeck, CHARACTER_CARD_TYPES,
+  getCardCss, validateDeck, CHARACTER_CARD_TYPES, Race,
   type CardDefinition, type DeckList,
 } from '@meccg/shared';
 import {
@@ -198,7 +198,7 @@ interface BrowserToggle {
 
 /** Extract loosely-typed filter traits from any card definition. */
 const traits = (def: CardDefinition) => def as unknown as {
-  cardType: string; race?: string; alignment?: string; keywords?: readonly string[];
+  cardType: string; race?: Race; alignment?: string; keywords?: readonly string[];
   subtype?: string; marshallingPoints?: number; siteType?: string;
 };
 
@@ -263,8 +263,11 @@ function alignmentToggles(alignment: string): BrowserToggle[] {
 function typeToggles(preset: TogglePreset): BrowserToggle[] {
   const isAgent = (def: CardDefinition) => (traits(def).keywords ?? []).includes('agent');
   // Avatars are identified by their race; everyone else is an ordinary character.
-  const isAvatar = (def: CardDefinition) =>
-    ['wizard', 'ringwraith', 'fallen-wizard', 'balrog'].includes(traits(def).race ?? '');
+  const AVATAR_RACES: readonly Race[] = [Race.Wizard, Race.Ringwraith, Race.FallenWizard, Race.Balrog];
+  const isAvatar = (def: CardDefinition) => {
+    const race = traits(def).race;
+    return race !== undefined && AVATAR_RACES.includes(race);
+  };
   const isCharacter = (def: CardDefinition) => CHARACTER_CARD_TYPES.has(traits(def).cardType);
   const isItem = (def: CardDefinition) => traits(def).cardType.endsWith('-resource-item');
   const isEvent = (def: CardDefinition) => traits(def).cardType.endsWith('-resource-event');
@@ -682,7 +685,7 @@ function openCardBrowser(
   const matchesSearch = (def: CardDefinition, filter: string): boolean => {
     if (def.name.toLowerCase().includes(filter)) return true;
     const d = def as unknown as {
-      text?: string; keywords?: readonly string[]; race?: string; skills?: readonly string[];
+      text?: string; keywords?: readonly string[]; race?: Race; skills?: readonly string[];
     };
     if (d.text?.toLowerCase().includes(filter)) return true;
     return [...(d.keywords ?? []), d.race, ...(d.skills ?? [])]

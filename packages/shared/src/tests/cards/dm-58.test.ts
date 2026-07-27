@@ -20,7 +20,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { Phase, CardDefinitionId, CardInstanceId } from '../../index.js';
+import { Phase, CardDefinitionId, CardInstanceId, Race } from '../../index.js';
 import type { PlayerState, ConstraintId, ActiveConstraint, HazardHost, SitePhaseState, RescuePrisonerAction } from '../../index.js';
 import {
   ARAGORN, LEGOLAS, GIMLI, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BANDIT_LAIR,
@@ -55,7 +55,7 @@ describe('dm-58: Flies and Spiders', () => {
       strikesTotal: 1,
       strikeProwess: 5,
       creatureBody: null,
-      creatureRace: 'orc', // Not a Spider
+      creatureRace: Race.Orc, // Not a Spider
       strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike' as const,
@@ -97,7 +97,7 @@ describe('dm-58: Flies and Spiders', () => {
         strikesTotal: 1,
         strikeProwess: 5,
         creatureBody: null,
-        creatureRace: 'spider',
+        creatureRace: Race.Spider,
         strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
         currentStrikeIndex: 0,
         phase: 'resolve-strike' as const,
@@ -158,7 +158,7 @@ describe('dm-58: Flies and Spiders', () => {
       strikesTotal: 1,
       strikeProwess: 99, // Creature guaranteed to win
       creatureBody: null,
-      creatureRace: 'spider',
+      creatureRace: Race.Spider,
       strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike' as const,

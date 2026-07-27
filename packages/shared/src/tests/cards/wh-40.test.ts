@@ -39,7 +39,7 @@ import {
   firstFactionInfluenceAttempt, viableActions, dispatch, resolveChain,
   findCharInstanceId, expectInDiscardPile,
 } from '../test-helpers.js';
-import { Alignment, RegionType, SiteType } from '../../index.js';
+import { Alignment, RegionType, SiteType, Race } from '../../index.js';
 import type {
   CardDefinitionId, CardInPlay, CardInstanceId, GameState,
   InfluenceAttemptAction, CancelAttackAction,
@@ -198,14 +198,14 @@ describe('Wild Hounds (wh-40)', () => {
 
   test('offered against an automatic-attack at a Ruins & Lairs', () => {
     const base = factionInPlayState(LONELY_MOUNTAIN);
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'automatic-attack' });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
   });
 
   test('offered against an attack keyed to Wilderness (even at a non-R&L site)', () => {
     const base = factionInPlayState(MORIA); // shadow-hold, so only the wilderness-keying clause can fire
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'wolf', attackSourceType: 'creature', attackKeying: [RegionType.Wilderness],
+      creatureRace: Race.Wolf, attackSourceType: 'creature', attackKeying: [RegionType.Wilderness],
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
   });
@@ -213,28 +213,28 @@ describe('Wild Hounds (wh-40)', () => {
   test('offered against an attack keyed to Ruins & Lairs (site-type keying)', () => {
     const base = factionInPlayState(MORIA); // shadow-hold, so only the R&L-site-keying clause can fire
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'orc', attackSourceType: 'creature', attackSiteKeyingTypes: [SiteType.RuinsAndLairs],
+      creatureRace: Race.Orc, attackSourceType: 'creature', attackSiteKeyingTypes: [SiteType.RuinsAndLairs],
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
   });
 
   test('NOT offered against a non-qualifying attack (automatic-attack at a non-R&L site)', () => {
     const base = factionInPlayState(MORIA); // shadow-hold automatic attack
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'automatic-attack' });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('NOT offered against a creature keyed only to a Shadow-land', () => {
     const base = factionInPlayState(MORIA);
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'orc', attackSourceType: 'creature', attackKeying: [RegionType.Shadow],
+      creatureRace: Race.Orc, attackSourceType: 'creature', attackKeying: [RegionType.Shadow],
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('discarding the in-play faction cancels the attack immediately and moves it to the discard pile', () => {
     const base = factionInPlayState(LONELY_MOUNTAIN);
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'automatic-attack' });
 
     const action = viableActions(state, PLAYER_1, 'cancel-attack')[0].action as CancelAttackAction;
     const after = dispatch(state, action);
@@ -263,13 +263,13 @@ describe('Wild Hounds (wh-40)', () => {
 
   test('a minion covert company may play it from hand against a qualifying attack', () => {
     const base = minionHandState([HADOR]); // dunadan → covert
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'automatic-attack' });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
   });
 
   test('NOT playable from hand by an OVERT minion company (has an Orc)', () => {
     const base = minionHandState([HADOR, LAGDUF]); // orc present → overt
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'automatic-attack' });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
@@ -284,13 +284,13 @@ describe('Wild Hounds (wh-40)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'automatic-attack' });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('playing it from hand discards the card and cancels the attack via the chain', () => {
     const base = minionHandState([HADOR]);
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'automatic-attack' });
 
     const action = viableActions(state, PLAYER_1, 'cancel-attack')[0].action as CancelAttackAction;
     const declared = dispatch(state, action);

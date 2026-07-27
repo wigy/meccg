@@ -34,6 +34,7 @@ import {
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, PlayerState } from '../../index.js';
 import { isCovertCompany } from '../../engine/reducer-utils.js';
+import { Race } from '../../index.js';
 
 const GREAT_TROLL = 'ba-46' as CardDefinitionId;
 const CAVE_TROLL = 'ba-35' as CardDefinitionId;   // Under-deeps Troll ally WITHOUT assign-strike-when-tapped
@@ -53,7 +54,7 @@ const troop = {
   strikesTotal: 2,
   strikeProwess: 5,
   creatureBody: null,
-  creatureRace: 'orc',
+  creatureRace: Race.Orc,
   currentStrikeIndex: 0,
   phase: 'assign-strikes' as const,
   assignmentPhase: 'defender' as const,

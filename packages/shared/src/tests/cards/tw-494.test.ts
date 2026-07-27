@@ -34,7 +34,7 @@ import {
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { Alignment, CardStatus } from '../../index.js';
+import { Alignment, CardStatus, Race } from '../../index.js';
 import type { CardDefinitionId, ModifyAttackAction } from '../../index.js';
 
 const BLACK_ARROW = 'tw-494' as CardDefinitionId;
@@ -70,7 +70,7 @@ describe('Black Arrow (tw-494)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -110,7 +110,7 @@ describe('Black Arrow (tw-494)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -174,7 +174,7 @@ describe('Black Arrow (tw-494)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -223,7 +223,7 @@ describe('Black Arrow (tw-494)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -280,7 +280,7 @@ describe('Black Arrow (tw-494)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -340,7 +340,7 @@ describe('Black Arrow (tw-494)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -379,7 +379,7 @@ describe('Black Arrow (tw-494)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -432,7 +432,7 @@ describe('Black Arrow (tw-494)', () => {
     base = attachItemToChar(base, RESOURCE_PLAYER, THEODEN, BLACK_ARROW);
 
     const combatState = makeCancelWindowCombat(base, {
-      creatureRace: 'dragon',
+      creatureRace: Race.Dragon,
       attackSourceType: 'automatic-attack',
       strikesTotal: 1,
       strikeProwess: 14,

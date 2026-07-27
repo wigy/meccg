@@ -49,6 +49,7 @@ import {
 } from '../test-helpers.js';
 import { reduce } from '../../engine/reducer.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId, GameState } from '../../index.js';
+import { Race } from '../../index.js';
 
 const UNGOLIANTS_PROGENY = 'ba-27' as CardDefinitionId;
 const WIND_DEEPS = 'ba-104' as CardDefinitionId;    // The Wind-deeps (Orcs 3×7)
@@ -154,7 +155,7 @@ describe("Ungoliant's Progeny (ba-27)", () => {
   test('the hazard player may apply +1 prowess and detainment to a Spider attack while ba-27 is in play', () => {
     // Fabricated single-strike Spider attack (prowess 8) against a lone hero.
     const combat = addP2CardsInPlay(
-      makeSingleCharCombatState({ heroDefId: GIMLI, creatureRace: 'spider', creatureProwess: 8, creatureBody: null, preAssigned: true }),
+      makeSingleCharCombatState({ heroDefId: GIMLI, creatureRace: Race.Spider, creatureProwess: 8, creatureBody: null, preAssigned: true }),
       [spawnInPlay],
     );
     expect(combat.combat!.phase).toBe('resolve-strike');
@@ -176,7 +177,7 @@ describe("Ungoliant's Progeny (ba-27)", () => {
 
   test('a character wounded by the boosted Spider attack is tapped (detainment), not wounded or eliminated', () => {
     const combat = addP2CardsInPlay(
-      makeSingleCharCombatState({ heroDefId: GIMLI, creatureRace: 'spider', creatureProwess: 8, creatureBody: null, preAssigned: true }),
+      makeSingleCharCombatState({ heroDefId: GIMLI, creatureRace: Race.Spider, creatureProwess: 8, creatureBody: null, preAssigned: true }),
       [spawnInPlay],
     );
     const gimliId = findCharInstanceId(combat, RESOURCE_PLAYER, GIMLI);
@@ -194,14 +195,14 @@ describe("Ungoliant's Progeny (ba-27)", () => {
   });
 
   test('without ba-27 in play, a Spider attack offers no attacker-attack-option', () => {
-    const combat = makeSingleCharCombatState({ heroDefId: GIMLI, creatureRace: 'spider', creatureProwess: 8, creatureBody: null, preAssigned: true });
+    const combat = makeSingleCharCombatState({ heroDefId: GIMLI, creatureRace: Race.Spider, creatureProwess: 8, creatureBody: null, preAssigned: true });
     expect(viableActions(combat, PLAYER_2, 'apply-attacker-attack-option')).toHaveLength(0);
   });
 
   test('the option is not offered for a non-Spider attack even with ba-27 in play', () => {
     // Orc attack — creatureRace 'orc' ≠ 'spider', so the option does not apply.
     const combat = addP2CardsInPlay(
-      makeSingleCharCombatState({ heroDefId: LEGOLAS, creatureRace: 'orc', creatureProwess: 8, creatureBody: null, preAssigned: true }),
+      makeSingleCharCombatState({ heroDefId: LEGOLAS, creatureRace: Race.Orc, creatureProwess: 8, creatureBody: null, preAssigned: true }),
       [spawnInPlay],
     );
     expect(viableActions(combat, PLAYER_2, 'apply-attacker-attack-option')).toHaveLength(0);
@@ -209,7 +210,7 @@ describe("Ungoliant's Progeny (ba-27)", () => {
 
   test('the defending player cannot apply the attacker option', () => {
     const combat = addP2CardsInPlay(
-      makeSingleCharCombatState({ heroDefId: GIMLI, creatureRace: 'spider', creatureProwess: 8, creatureBody: null, preAssigned: true }),
+      makeSingleCharCombatState({ heroDefId: GIMLI, creatureRace: Race.Spider, creatureProwess: 8, creatureBody: null, preAssigned: true }),
       [spawnInPlay],
     );
     const attempt = reduce(combat, { type: 'apply-attacker-attack-option', player: PLAYER_1, cardInstanceId: spawnInPlay.instanceId });

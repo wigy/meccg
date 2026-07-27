@@ -14,25 +14,29 @@
  * of which silently matched nothing.
  *
  * These assertions close the vocabulary: {@link Race} is the only race
- * namespace, every race-typed value in the card data must be one of its
- * members, and every printed automatic-attack label must normalize into it.
- * Adding a race therefore means adding it to the enum first.
+ * namespace, every race-typed value in the card data must be exactly one of
+ * its members (never a comma-joined list — a creature with several races puts
+ * the extras in `additionalRaces`), and every printed automatic-attack label
+ * must normalize into it or into `undefined`. Adding a race therefore means
+ * adding it to the enum first.
  */
 
 import { describe, test, expect } from 'vitest';
 import { Race } from '../../../index.js';
 import { normalizeCreatureRace } from '../../../engine/effects/index.js';
 import { collectRaceValuesFromCardData, collectCreatureTypesFromCardData } from '../../test-helpers.js';
+import { loadCardPool } from '../../../data/index.js';
 
 /**
  * Automatic-attack labels that name no race at all: Vile Fumes' "Gas" attack
  * and the empty label carried by runtime-injected attacks. They normalize to
- * themselves and match no race condition, which is the intended behaviour.
+ * `undefined` and match no race condition, which is the intended behaviour.
  */
 const NON_RACE_ATTACK_LABELS: readonly string[] = ['gas', ''];
 
 describe('race vocabulary', () => {
   const canonical = new Set<string>(Object.values(Race));
+  const pool = loadCardPool();
 
   test('every race value in the card data is a canonical Race', () => {
     const offenders = collectRaceValuesFromCardData()
@@ -51,12 +55,48 @@ describe('race vocabulary', () => {
     expect([...new Set(offenders)]).toEqual([]);
   });
 
+  test('a race-typed value is a single race — none packs several into one string', () => {
+    // Beorning Skin-changers (ba-10) "Animals. Men. Bears.", Goblin-faces
+    // (wh-13) "Orcs. Men." and Durin's Bane (dm-107) each used to store
+    // `"animal,man,bear"`-style values that equalled no race and so matched
+    // nothing; the extra races belong in `additionalRaces`.
+    const offenders = collectRaceValuesFromCardData()
+      .filter(entry => entry.value.includes(','))
+      .map(entry => `${entry.cardId} ${entry.key}: "${entry.value}"`);
+    expect([...new Set(offenders)]).toEqual([]);
+  });
+
+  test('multi-race creatures name their primary race first and the rest separately', () => {
+    const multi = Object.values(pool)
+      .filter((def): def is typeof def & { additionalRaces: readonly Race[] } =>
+        Array.isArray((def as { additionalRaces?: unknown }).additionalRaces));
+    expect(multi.map(def => def.id as string).sort())
+      .toEqual(['ba-10', 'dm-107', 'wh-13']);
+    for (const def of multi) {
+      const primary = (def as unknown as { race: Race }).race;
+      expect(canonical.has(primary)).toBe(true);
+      for (const extra of def.additionalRaces) {
+        expect(canonical.has(extra)).toBe(true);
+        // The extras genuinely add to the primary rather than repeating it.
+        expect(extra).not.toBe(primary);
+      }
+    }
+  });
+
   test('every printed automatic-attack label normalizes to a canonical Race', () => {
     const offenders = collectCreatureTypesFromCardData()
       .filter(entry => !NON_RACE_ATTACK_LABELS.includes(entry.value.toLowerCase()))
-      .filter(entry => !canonical.has(normalizeCreatureRace(entry.value)))
+      .filter(entry => normalizeCreatureRace(entry.value) === undefined)
       .map(entry => `${entry.cardId} ${entry.key}: "${entry.value}"`);
     expect([...new Set(offenders)]).toEqual([]);
+  });
+
+  test('a label that names no race normalizes to undefined, not to itself', () => {
+    // Keeps "gas" (Vile Fumes wh-54) and the empty injected-attack label out of
+    // every Race-typed slot instead of letting them pose as a race.
+    for (const label of NON_RACE_ATTACK_LABELS) {
+      expect(normalizeCreatureRace(label)).toBeUndefined();
+    }
   });
 
   test('the plural labels the cards print normalize onto the singular races', () => {

@@ -88,7 +88,7 @@ function companyHasOrcOrTroll(
     if (!ch) return false;
     const def = defById(state, ch.definitionId);
     return !!def && 'race' in def
-      && ((def as { race: string }).race === Race.Orc || (def as { race: string }).race === Race.Troll);
+      && ((def as { race: Race }).race === Race.Orc || (def as { race: Race }).race === Race.Troll);
   });
 }
 
@@ -497,7 +497,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
               const ch = player.characters[cId];
               if (!ch) return false;
               const cDef = defById(state, ch.definitionId);
-              return cDef && 'race' in cDef && (cDef as { race?: string }).race === requiredRace;
+              return cDef && 'race' in cDef && (cDef as { race?: Race }).race === requiredRace;
             });
           });
           if (!racePresent) {
@@ -525,7 +525,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           if (!ch) return false;
           const cDef = defById(state, ch.definitionId);
           if (!cDef || !isCharacterCard(cDef)) return false;
-          if ((cDef as { race?: string }).race === 'ringwraith') return true;
+          if ((cDef as { race?: Race }).race === Race.Ringwraith) return true;
           return getEffectiveSkills(state, ch, cDef as { skills?: readonly string[] }).includes('shadow-magic');
         });
         for (const charId of company.characters) {
@@ -628,7 +628,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             const ch = player.characters[cId];
             if (!ch) return n;
             const cDef = defById(state, ch.definitionId);
-            return n + (cDef && 'race' in cDef && (cDef as { race: string }).race === Race.Orc ? 1 : 0);
+            return n + (cDef && 'race' in cDef && (cDef as { race: Race }).race === Race.Orc ? 1 : 0);
           }, 0);
           const ctx = { target: { siteType, memberCount, overt, orcCount } };
           if (!matchesCondition(playTarget.filter, ctx)) {
