@@ -2250,6 +2250,37 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     }
   }
 
+  // opposed-roll (No More Nonsense le-210): "Make a roll for the leader. Choose
+  // another character in the company and do the same." Enqueue the two-roll
+  // contest between the play-target (challenger) and the second character
+  // chosen at play time; the resolution surfaces one `opposed-roll` action per
+  // roll and applies the effect's onWin/onLose outcomes after the second.
+  const opposedEffect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').OpposedRollEffect => e.type === 'opposed-roll',
+  );
+  const opposedCharId = entry.payload.type === 'permanent-event' ? entry.payload.opposedCharacterId : undefined;
+  if (opposedEffect) {
+    if (targetCharId && opposedCharId && opposedCharId !== targetCharId) {
+      logDetail(`"${def?.name ?? '?'}" opposed-roll: enqueuing 2d6 + ${opposedEffect.addStat} contest — ${targetCharId as string} vs ${opposedCharId as string}`);
+      newState = enqueueResolution(newState, {
+        source: card.instanceId,
+        actor: entry.declaredBy,
+        scope: { kind: 'phase', phase: newState.phaseState.phase },
+        kind: {
+          type: 'opposed-roll',
+          sourceInstanceId: card.instanceId,
+          sourceDefinitionId: card.definitionId,
+          challengerId: targetCharId,
+          opponentId: opposedCharId,
+          addStat: opposedEffect.addStat,
+          comparison: opposedEffect.comparison ?? 'gt',
+        },
+      });
+    } else {
+      logDetail(`"${def?.name ?? '?'}" opposed-roll: no distinct opposing character chosen — contest fizzles`);
+    }
+  }
+
   // skip-next-untap-on-play (Fireworks dm-130): "The next time the sage would
   // otherwise become untapped make him tapped instead and discard this card."
   // Install the one-shot skip-next-untap constraint on the target character;
