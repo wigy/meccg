@@ -819,6 +819,16 @@ function collectCharacterStatModifierEffects(
       const owner = findPlayerAndCompany(state, char.instanceId)?.player;
       if (!owner || !isCardNameInPlayForPlayer(state, owner, requiresCardInPlay)) continue;
     }
+    // "while the source card stays attached to him" gate (No More Nonsense
+    // le-210): the modifier was fixed by a roll when the permanent event was
+    // played on this character, so it lapses the moment the card leaves him
+    // (discarded, stored, returned to hand). Without this an `until-cleared`
+    // constraint would outlive its own source card.
+    if (constraint.kind.requiresSourceBorne) {
+      const borne = char.items.some(i => i.instanceId === constraint.source)
+        || char.hazards.some(h => h.instanceId === constraint.source);
+      if (!borne) continue;
+    }
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];
     if (!sourceDef) continue;
     const synthesized: StatModifierEffect = {

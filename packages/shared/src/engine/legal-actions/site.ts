@@ -928,6 +928,15 @@ function playResourcesActions(
             continue;
           }
         }
+        // play-condition: phase — a permanent event whose text names the phase
+        // it may be played in ("during the organization phase" — No More
+        // Nonsense le-210) is not offered here. Left unevaluated so it falls
+        // through to the shared "not playable" tail rather than being listed.
+        const phaseCond = findPlayConditionEffect(eventDef, 'phase');
+        if (phaseCond?.phases && !phaseCond.phases.includes(Phase.Site)) {
+          logDetail(`Permanent event ${eventDef.name}: playable only during [${phaseCond.phases.join(', ')}] — not in the site phase`);
+          continue;
+        }
         evaluatedInstances.add(cardInstanceId as string);
 
         // Check uniqueness
@@ -1226,6 +1235,11 @@ function playResourcesActions(
                 status: ch.status,
                 name: charDef.name,
                 itemNames,
+                // Structural keywords ("leader", "uruk-hai", "agent", …) —
+                // exposed here as well as in the organization-phase emitter so
+                // a `target.keywords` filter behaves the same in both play
+                // windows.
+                keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
                 isAvatar: isAvatarCharacter(charDef),
               },
               company: { covert: isCovertCompany(company, player, state) },

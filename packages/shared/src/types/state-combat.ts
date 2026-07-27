@@ -893,6 +893,13 @@ export type ChainEntryPayload =
       /** For a `storage-site-transfer` event: the character bearing `storeItemInstanceId`. */
       readonly storeCharacterId?: CardInstanceId;
       /**
+       * For an `opposed-roll` permanent-event (No More Nonsense le-210), the
+       * second character — "another character in the company" — chosen at play
+       * time to roll against {@link targetCharacterId}. On resolution the chain
+       * reducer enqueues the `opposed-roll` pending resolution for the pair.
+       */
+      readonly opposedCharacterId?: CardInstanceId;
+      /**
        * True when this event entered the chain by being revealed from an
        * on-guard slot rather than played from hand. See the `short-event`
        * variant's field of the same name.

@@ -51,7 +51,7 @@ import {
 import { autoResolve } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
-import { eligibleRingCategories } from './legal-actions/pending.js';
+import { eligibleRingCategories, opposedRollStat } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -1940,6 +1940,149 @@ export function applyCompanyTapRollResolution(
     e => e.payload.type === 'short-event' && e.card?.instanceId === top.source,
     [rolled.rollEffect],
   );
+}
+
+/**
+ * Apply one {@link OpposedRollOutcome} of a resolved opposed-roll contest.
+ *
+ * `discard-attached` routes every matching hazard permanent-event on the named
+ * roller to its **owner's** discard pile, reusing the shared `move` primitive's
+ * `hazards-on-target` locator (the same path The Sun Unveiled as-56 takes).
+ *
+ * `stat-modifier` installs an `until-cleared` `character-stat-modifier`
+ * constraint on the named roller, flagged `requiresSourceBorne` so the bonus
+ * lasts exactly as long as the source card stays attached to that character.
+ */
+function applyOpposedRollOutcome(
+  state: GameState,
+  outcome: import('../types/effects.js').OpposedRollOutcome,
+  ctx: {
+    readonly sourceInstanceId: CardInstanceId;
+    readonly sourceDefinitionId: import('../types/common.js').CardDefinitionId;
+    readonly sourcePlayerIndex: number;
+    readonly challengerId: CardInstanceId;
+    readonly opponentId: CardInstanceId;
+    readonly label: string;
+  },
+): GameState {
+  const targetId = outcome.on === 'challenger' ? ctx.challengerId : ctx.opponentId;
+  if (outcome.type === 'discard-attached') {
+    const moveEffect: import('../types/effects.js').MoveEffect = {
+      type: 'move',
+      select: 'filter-all',
+      from: 'hazards-on-target',
+      to: 'discard',
+      toOwner: 'source-owner',
+      ...(outcome.filter ? { filter: outcome.filter } : {}),
+    };
+    const moveCtx: MoveContext = {
+      sourceCardId: ctx.sourceInstanceId,
+      sourcePlayerIndex: ctx.sourcePlayerIndex,
+      targetCharacterId: targetId,
+    };
+    logDetail(`${ctx.label}: discarding matching attached hazards on ${resolveDef(state, targetId)?.name ?? (targetId as string)}`);
+    const r = applyMove(state, moveEffect, moveCtx);
+    if ('error' in r) {
+      logDetail(`${ctx.label}: discard-attached failed (${r.error}) — no cards removed`);
+      return state;
+    }
+    return r.state;
+  }
+  logDetail(
+    `${ctx.label}: ${resolveDef(state, targetId)?.name ?? (targetId as string)} receives `
+    + `${formatSignedNumber(outcome.value)} ${outcome.stat} while the card stays attached`,
+  );
+  return addConstraint(state, {
+    source: ctx.sourceInstanceId,
+    sourceDefinitionId: ctx.sourceDefinitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'character', characterId: targetId },
+    kind: {
+      type: 'character-stat-modifier',
+      stat: outcome.stat,
+      value: outcome.value,
+      characterId: targetId,
+      requiresSourceBorne: true,
+    },
+  });
+}
+
+/**
+ * Resolve one roll of a queued `opposed-roll` resolution (No More Nonsense
+ * le-210). The challenger rolls first — their total is stored on the requeued
+ * resolution. On the opponent's roll both totals get their `addStat` added and
+ * are compared; the source card's `onWin` (challenger's total beats the
+ * opponent's) or `onLose` outcomes are then applied and the resolution is
+ * dequeued.
+ *
+ * A roller who has left play since the card was played forfeits: the contest is
+ * dropped with no outcome rather than resolving against a missing character.
+ */
+export function applyOpposedRollResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardRollResolution(state, action, top, 'opposed-roll', 'opposed-roll');
+  if (!g.ok) return g.result;
+  const { actorIndex, player, kind } = g;
+  const rolling = kind.challengerRoll === undefined ? kind.challengerId : kind.opponentId;
+  if (action.type !== 'opposed-roll' || action.characterId !== rolling) {
+    return { state, error: 'opposed-roll: action does not match the character due to roll' };
+  }
+  const sourceName = defById(state, kind.sourceDefinitionId)?.name ?? '?';
+  if (!player.characters[kind.challengerId] || !player.characters[kind.opponentId]) {
+    logDetail(`${sourceName}: a roller has left play — opposed roll abandoned`);
+    return { state: dequeueResolution(state, top.id) };
+  }
+
+  const rollerName = resolveDef(state, rolling)?.name ?? (rolling as string);
+  const rolled = rollForResolution(state, actorIndex, `${sourceName}: ${rollerName}`);
+  let next = rolled.state;
+
+  // First roll — record the challenger's total and requeue for the opponent.
+  if (kind.challengerRoll === undefined) {
+    logDetail(`${sourceName}: ${rollerName} (challenger) rolled ${rolled.total}`);
+    next = dequeueResolution(next, top.id);
+    return {
+      state: enqueueResolution(next, {
+        source: top.source,
+        actor: top.actor,
+        scope: top.scope,
+        kind: { ...kind, challengerRoll: rolled.total },
+      }),
+      effects: [rolled.rollEffect],
+    };
+  }
+
+  // Second roll — compare and apply the outcome branch.
+  const challengerStat = opposedRollStat(next, next.players[actorIndex], kind.challengerId, kind.addStat);
+  const opponentStat = opposedRollStat(next, next.players[actorIndex], kind.opponentId, kind.addStat);
+  const challengerTotal = kind.challengerRoll + challengerStat;
+  const opponentTotal = rolled.total + opponentStat;
+  const won = kind.comparison === 'gte' ? challengerTotal >= opponentTotal : challengerTotal > opponentTotal;
+  logDetail(
+    `${sourceName}: ${resolveDef(next, kind.challengerId)?.name ?? '?'} ${kind.challengerRoll}+${challengerStat}=${challengerTotal} `
+    + `vs ${rollerName} ${rolled.total}+${opponentStat}=${opponentTotal} → challenger ${won ? 'WINS' : 'LOSES'}`,
+  );
+
+  const sourceDef = defById(next, kind.sourceDefinitionId);
+  const effect = getCardEffects(sourceDef).find(
+    (e): e is import('../types/effects.js').OpposedRollEffect => e.type === 'opposed-roll',
+  );
+  const outcomes = (won ? effect?.onWin : effect?.onLose) ?? [];
+  for (const outcome of outcomes) {
+    next = applyOpposedRollOutcome(next, outcome, {
+      sourceInstanceId: kind.sourceInstanceId,
+      sourceDefinitionId: kind.sourceDefinitionId,
+      sourcePlayerIndex: actorIndex,
+      challengerId: kind.challengerId,
+      opponentId: kind.opponentId,
+      label: sourceName,
+    });
+  }
+
+  return { state: dequeueResolution(next, top.id), effects: [rolled.rollEffect] };
 }
 
 /**

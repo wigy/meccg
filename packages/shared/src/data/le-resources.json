@@ -3707,8 +3707,57 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a leader during the organization phase. Make a roll for the leader. Choose another character in the company and do the same. If the leader’s result plus his prowess is greater than the other character’s result plus his prowess, discard any hazard permanent-events on the other character and the leader receives +2 direct influence. Otherwise, the leader receives -2 direct influence. Cannot be duplicated on a given leader."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.keywords": { "$includes": "leader" } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "opposed-roll",
+        "opponent": "chosen-company-member",
+        "addStat": "prowess",
+        "comparison": "gt",
+        "onWin": [
+          {
+            "type": "discard-attached",
+            "on": "opponent",
+            "filter": {
+              "$and": [
+                { "cardType": "hazard-event" },
+                { "eventType": "permanent" }
+              ]
+            }
+          },
+          {
+            "type": "stat-modifier",
+            "on": "challenger",
+            "stat": "direct-influence",
+            "value": 2
+          }
+        ],
+        "onLose": [
+          {
+            "type": "stat-modifier",
+            "on": "challenger",
+            "stat": "direct-influence",
+            "value": -2
+          }
+        ]
+      }
+    ],
+    "text": "Playable on a leader during the organization phase. Make a roll for the leader. Choose another character in the company and do the same. If the leader’s result plus his prowess is greater than the other character’s result plus his prowess, discard any hazard permanent-events on the other character and the leader receives +2 direct influence. Otherwise, the leader receives -2 direct influence. Cannot be duplicated on a given leader.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "minion-resource-event",

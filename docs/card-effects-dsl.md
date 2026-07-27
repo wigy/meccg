@@ -11442,3 +11442,79 @@ at least one Wilderness [{w}] in their site path)":
   carries `{ "target.cardType": "minion-character" }` for its "by minions"
   clause; Shifter of Hues omits it, aiding "the characters in one company"
   wholesale.
+
+### 68. `opposed-roll` (No More Nonsense)
+
+An **opposed roll**: two characters each make a 2d6 roll, a stat is added to
+each total, and the totals are compared. The *challenger* is the card's
+`play-target`; the *opponent* is a second character chosen when the card is
+played. The two rolls are made one at a time through an `opposed-roll`
+{@link PendingResolution}, so each is a distinct, modifiable game event rather
+than a hidden pair of RNG draws — and so a test can pin each roll separately.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `opponent` | yes | How the second roller is picked. `"chosen-company-member"` — the playing player selects any **other** character in the challenger's company at play time. |
+| `addStat` | yes | `"prowess" \| "body" \| "mind"` — added to each side's 2d6 total (effective, not printed). |
+| `comparison` | no | `"gt"` (default, "is greater than") or `"gte"` (ties go to the challenger). |
+| `onWin` | no | Ordered list of {@link OpposedRollOutcome}s applied when the challenger wins. |
+| `onLose` | no | Ordered list applied when the challenger does not win. |
+
+**Outcomes** (`OpposedRollOutcome`) each name the roller they act on via
+`on: "challenger" | "opponent"`:
+
+| `type` | Fields | Effect |
+|--------|--------|--------|
+| `discard-attached` | `on`, `filter?` | Routes every attached hazard matching `filter` to its **owner's** discard pile (reuses the `move` primitive's `hazards-on-target` locator, so ownership routing matches *The Sun Unveiled* as-56). |
+| `stat-modifier` | `on`, `stat`, `value` | Installs an `until-cleared` `character-stat-modifier` constraint flagged `requiresSourceBorne`, so the modifier lasts exactly as long as the source card stays attached to that character. |
+
+```json
+{ "type": "opposed-roll",
+  "opponent": "chosen-company-member",
+  "addStat": "prowess",
+  "comparison": "gt",
+  "onWin": [
+    { "type": "discard-attached", "on": "opponent",
+      "filter": { "$and": [ { "cardType": "hazard-event" }, { "eventType": "permanent" } ] } },
+    { "type": "stat-modifier", "on": "challenger", "stat": "direct-influence", "value": 2 }
+  ],
+  "onLose": [
+    { "type": "stat-modifier", "on": "challenger", "stat": "direct-influence", "value": -2 }
+  ] }
+```
+
+**Playability**: the organization-phase permanent-event emitter
+(`legal-actions/organization-events.ts`) crosses each `play-target` candidate
+with every *other* character in its company, emitting one `play-permanent-event`
+action per pair with the second roller in `opposedCharacterId`. A leader with no
+company mate offers no play at all.
+
+**Resolution**: `chain-reducer.ts` enqueues the `opposed-roll` resolution when
+the card enters play. The controller dispatches one `opposed-roll` action for
+the challenger (its total is stored on the requeued resolution), then one for the
+opponent; the second roll compares the totals and applies the branch
+(`pending-reducers.ts`). A roller who has left play in the meantime forfeits the
+contest — it is dropped with no outcome.
+
+Used by: *No More Nonsense* (le-210).
+
+### 69. `play-condition` `requires: "phase"`
+
+Restricts a card to the phase(s) its text names. A permanent resource-event is
+otherwise offered in the organization phase, the movement/hazard phase (rule
+2.1.1) **and** the site phase; a card reading "Playable … during the
+organization phase" declares the window explicitly.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `phases` | yes | Phase strings the card may be played in (e.g. `["organization"]`). |
+
+```json
+{ "type": "play-condition", "requires": "phase", "phases": ["organization"] }
+```
+
+Checked by `playPermanentEventActions` (`legal-actions/organization-events.ts`,
+which also serves the M/H phase) against `state.phaseState.phase`, and by the
+site-phase permanent-event branch in `legal-actions/site.ts`.
+
+Used by: *No More Nonsense* (le-210).

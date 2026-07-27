@@ -1746,6 +1746,7 @@ export function playPermanentEventAndResolve(
     companionCardInstanceId?: CardInstanceId;
     storeItemInstanceId?: CardInstanceId;
     storeCharacterId?: CardInstanceId;
+    opposedCharacterId?: CardInstanceId;
   },
 ): GameState {
   return playAndResolve(state, {
