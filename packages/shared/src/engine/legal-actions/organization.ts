@@ -35,13 +35,13 @@ import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, resolveStatModifiers, getEffectiveSkills, normalizeCreatureRace } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, checkConditionalEffects, resolveStatModifiers, getEffectiveSkills, normalizeCreatureRace } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames } from '../recompute-derived.js';
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { isUniqueCharacterInPlay } from '../reducer-utils.js';
-import { manifestationOfEntityInPlay } from '../manifestations.js';
+import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -238,7 +238,10 @@ export function availableDI(
           prowess: targetDef.prowess,
         },
       };
-      const charEffects = collectCharacterEffects(state, controller, resolverCtx);
+      // Only target-conditional modifiers: anything gated on the bearer alone
+      // (or ungated) is already inside `effectiveStats.directInfluence` above,
+      // so folding it in again would double it (see `checkConditionalEffects`).
+      const charEffects = checkConditionalEffects(collectCharacterEffects(state, controller, resolverCtx));
       const conditionalDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
       if (conditionalDI !== 0) {
         logDetail(`  DI bonus from influence-check effects: ${formatSignedNumber(conditionalDI)} against ${targetDef.name} (${targetDef.race})`);
@@ -2494,6 +2497,12 @@ export function buildActiveCompanyContext(
  *   that key off a card being on the table regardless of who put it there —
  *   e.g. The Will of Sauron (tw-100) "Discard this card if Doors of Night is
  *   not in play": `{ "$not": { "inPlayAnywhere": "Doors of Night" } }`.
+ * - `charactersInPlayAnywhere` — the names of every **character** either player
+ *   has in play. `inPlay`/`inPlayAnywhere` cover `cardsInPlay` only, so this is
+ *   the list a rule about a person entering play must consult. Matched by name,
+ *   so every printing of a character counts (Gandalf is tw-156 and wh-4). Used
+ *   by Gandalf the White Rider (as-11): "Discard this card if Gandalf comes
+ *   into play" → `{ "charactersInPlayAnywhere": "Gandalf" }`.
  */
 export function buildPlayerStateContext(
   state: GameState,
@@ -2551,6 +2560,7 @@ export function buildPlayerStateContext(
     opponent: { alignment: opponent?.alignment },
     inPlay: buildControllerInPlayNames(state, playerId),
     inPlayAnywhere: buildInPlayNames(state),
+    charactersInPlayAnywhere: charactersInPlayNames(state),
   };
 }
 

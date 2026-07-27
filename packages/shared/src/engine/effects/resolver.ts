@@ -33,7 +33,7 @@ import type {
 } from '../../index.js';
 import { Race } from '../../types/common.js';
 import { HAND_SIZE } from '../../constants.js';
-import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
+import { matchesCondition, matchesContext, conditionPaths } from '../../effects/condition-matcher.js';
 import { isCharacterCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { evaluateExpr } from './expression-eval.js';
@@ -278,6 +278,53 @@ export function buildBearerContext(charDef: CharacterCard): NonNullable<Resolver
     name: charDef.name,
     keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
   };
+}
+
+/**
+ * Context roots that only exist while a specific influence check is being
+ * resolved: the check kind itself and the thing being influenced. A
+ * `direct-influence` modifier whose `when` reads one of these cannot have been
+ * evaluated when the bearer's effective stats were computed (there was no
+ * target then), so it is the influence code's job to fold it in.
+ */
+const CHECK_CONTEXT_PATHS = ['reason', 'target.', 'faction.', 'influenceTarget.'];
+
+/**
+ * Keeps only those collected effects that are conditional on the *check*
+ * context rather than on their bearer alone.
+ *
+ * A character's `direct-influence` modifiers are resolved twice: once by
+ * `recompute-derived` into `effectiveStats.directInfluence` (no target in
+ * context), and again by each influence path — organization follower control,
+ * faction influence, opponent influence — which adds the target-specific
+ * bonuses on top of that effective value. Anything the first pass already
+ * counted must therefore be excluded from the second, or it applies twice.
+ *
+ * The discriminator is what the effect's `when` reads. Target-conditional
+ * bonuses name the check context explicitly (Glorfindel II tw-161:
+ * `{ "reason": "faction-influence-check", "faction.race": "elf" }`; The
+ * Arkenstone le-418: `{ "$or": [{ "target.race": "dwarf" }, …] }`; anything
+ * reading the `influenceTarget` root built by {@link buildInfluenceTargetContext},
+ * which likewise exists only once a target is known) and are
+ * kept. Modifiers with no `when` at all (Narsil tw-289: `+1 direct
+ * influence`), or gated only on the bearer (Power Relinquished to Artifice
+ * wh-28: `-1` scaled by `bearer.race` / `bearer.stagePoints`; Dragon-helm
+ * dm-167: `+3` for a warrior bearer), are already inside the effective stat
+ * and are dropped here.
+ *
+ * Only effects collected by {@link collectCharacterEffects} need this
+ * treatment — that is the same set `recompute-derived` feeds into the
+ * effective-stats pass. Ally/faction/player-scoped influence effects gathered
+ * separately by the influence paths are never in effective DI and must be
+ * passed through unfiltered.
+ */
+export function checkConditionalEffects(effects: readonly CollectedEffect[]): CollectedEffect[] {
+  return effects.filter(e => {
+    if (!e.effect.when) return false;
+    return conditionPaths(e.effect.when).some(
+      path => CHECK_CONTEXT_PATHS.some(root => path === root || path.startsWith(root)),
+    );
+  });
 }
 
 /**
@@ -828,6 +875,16 @@ function collectCharacterStatModifierEffects(
     if (requiresCardInPlay) {
       const owner = findPlayerAndCompany(state, char.instanceId)?.player;
       if (!owner || !isCardNameInPlayForPlayer(state, owner, requiresCardInPlay)) continue;
+    }
+    // "while the source card stays attached to him" gate (No More Nonsense
+    // le-210): the modifier was fixed by a roll when the permanent event was
+    // played on this character, so it lapses the moment the card leaves him
+    // (discarded, stored, returned to hand). Without this an `until-cleared`
+    // constraint would outlive its own source card.
+    if (constraint.kind.requiresSourceBorne) {
+      const borne = char.items.some(i => i.instanceId === constraint.source)
+        || char.hazards.some(h => h.instanceId === constraint.source);
+      if (!borne) continue;
     }
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];
     if (!sourceDef) continue;

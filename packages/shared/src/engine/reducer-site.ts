@@ -14,7 +14,7 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isR
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
+import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -3142,7 +3142,8 @@ export function resolveInfluenceAttemptRoll(
       },
     };
 
-    const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const ownEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const charEffects = [...ownEffects];
     charEffects.push(...collectCompanyAllyEffects(state, charInPlay, resolverCtx));
     // Player-scoped ongoing influence bonuses from bare in-play permanent-events
     // (Great Army of the North ba-38: +1 vs Orc/Troll factions while in play).
@@ -3156,23 +3157,31 @@ export function resolveInfluenceAttemptRoll(
     }
 
     // Under nullification only the influencer's OWN card text contributes.
-    const ownEffects = charEffects.filter(e => e.sourceInstance === charId);
+    const ownCardEffects = charEffects.filter(e => e.sourceInstance === charId);
 
     // Use free DI (total DI minus mind cost of followers), not the raw card
     // stat — or, under nullification, his *normal* unused DI (printed value
     // plus his own card-text modifications, without rings and other grants).
     const freeDI = nullifyMods
-      ? normalUnusedDI(state, charId, player, ownEffects, resolverCtx)
+      ? normalUnusedDI(state, charId, player, ownCardEffects, resolverCtx)
       : availableDI(state, charId, player);
     modifier += freeDI;
 
-    const dslModifier = resolveCheckModifier(nullifyMods ? ownEffects : charEffects, 'influence');
+    const dslModifier = resolveCheckModifier(nullifyMods ? ownCardEffects : charEffects, 'influence');
     if (dslModifier !== 0) {
       logDetail(`DSL influence check-modifiers: ${formatSignedNumber(dslModifier)}`);
     }
     modifier += dslModifier;
 
-    const dslDI = nullifyMods ? 0 : resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+    // `freeDI` already carries every DI modifier baked into the influencer's
+    // effective stats, so only the faction-conditional ones borne by the
+    // character are folded in here (see `checkConditionalEffects`). Under a
+    // le-150 nullification all card-sourced modifications are stripped.
+    const diEffects = [
+      ...checkConditionalEffects(ownEffects),
+      ...charEffects.slice(ownEffects.length),
+    ];
+    const dslDI = nullifyMods ? 0 : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       logDetail(`DSL direct-influence modifiers: ${formatSignedNumber(dslDI)}`);
     }
@@ -3294,9 +3303,22 @@ export function resolveInfluenceAttemptRoll(
   // Game-wide ongoing influence modifier from a bare in-play event owned by
   // either player (Times Are Evil td-76: "All … influence attempts are modified
   // by -3"). Applies to every influence attempt regardless of the influencer.
+  // The context carries the faction being influenced so a game-wide modifier
+  // can be race-gated (Lord of the Carrock as-14: "all influence attempts
+  // against Man factions are modified by -2"). Webs of Fear & Treachery
+  // (le-150) nullifies every card-sourced modification, so the gate wins.
   const globalInfluenceMod = nullifyMods
     ? 0
-    : collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
+    : collectGlobalCheckModifier(state, 'influence', {
+      reason: 'faction-influence-check',
+      faction: {
+        name: def.name,
+        race: def.race,
+        playableAt: buildFactionPlayableAt(def),
+        playableRegions: buildFactionPlayableRegions(state, def),
+      },
+      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
+    });
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     logDetail(`Game-wide influence check-modifier: ${formatSignedNumber(globalInfluenceMod)}`);
@@ -3747,19 +3769,36 @@ function handleOpponentInfluenceAttempt(
     logDetail(`Opponent influence: ongoing influence check-modifiers ${formatSignedNumber(ongoingCheckModifier)}`);
   }
 
+  // Game-wide ongoing influence modifier from a bare in-play event owned by
+  // either player (`check-modifier` `target: "all-in-play"`). The glossary
+  // defines an influence attempt as "trying to influence a faction **or** an
+  // opponent's card", so a card whose text modifies "all influence attempts"
+  // reaches this path too — Lord of the Carrock (as-14): "all influence
+  // attempts against Man factions are modified by -2" applies both to playing
+  // a Man faction and to influencing an opponent's Man faction away. The
+  // effect's `when` (evaluated against `oppInfluenceCtx`, which exposes
+  // `target.kind` / `target.race`) is what keeps faction-play-only modifiers out.
+  const globalOppInfluenceMod = collectGlobalCheckModifier(state, 'influence', oppInfluenceCtx);
+  if (globalOppInfluenceMod !== 0) {
+    boostModifier += globalOppInfluenceMod;
+    logDetail(`Opponent influence: game-wide influence check-modifier ${formatSignedNumber(globalOppInfluenceMod)}`);
+  }
+
   // Fold in conditional direct-influence stat-modifiers borne by the influencer
   // that gate on the opponent-influence target context — e.g. Trifling Ring
   // (le-346): "+3 to direct influence against characters" applies only when the
-  // target is a character, not a faction/ally/item. Only `when`-gated modifiers
-  // are considered here: unconditional DI is already baked into effective stats
-  // and folded into `influencerContribution` via availableDI above, so including
-  // it again would double-count. Conditional modifiers are excluded from
-  // effective DI (no target context at effective-stats time) and applied here.
-  // Under a le-150 nullification the influencer's own conditional DI is already
-  // inside `influencerDI` (normal unused DI) and no other card's counts.
+  // target is a character, not a faction/ally/item. Only target-conditional
+  // modifiers are considered here: DI that is unconditional, or gated on the
+  // bearer alone (Power Relinquished to Artifice wh-28), is already baked into
+  // effective stats and folded into `influencerContribution` via availableDI
+  // above, so including it again would double-count. See
+  // `checkConditionalEffects`, which supersedes the older `when !== undefined`
+  // heuristic. Under a le-150 nullification the influencer's own conditional DI
+  // is already inside `influencerDI` (normal unused DI) and no other card's
+  // counts.
   const conditionalInfluencerEffects = nullifyMods
     ? []
-    : influencerEffects.filter(e => e.effect.when !== undefined);
+    : checkConditionalEffects(collectCharacterEffects(state, charInPlay, oppInfluenceCtx));
   const conditionalInfluencerDI = resolveStatModifiers(conditionalInfluencerEffects, 'direct-influence', 0, oppInfluenceCtx);
   if (conditionalInfluencerDI !== 0) {
     influencerContribution += conditionalInfluencerDI;

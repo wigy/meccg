@@ -39,7 +39,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
+import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -519,7 +519,8 @@ export function factionInfluenceRollActions(
       },
     };
 
-    const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const ownEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const charEffects = [...ownEffects];
     charEffects.push(...collectCompanyAllyEffects(state, charInPlay, resolverCtx));
 
     if (def.effects) {
@@ -529,23 +530,32 @@ export function factionInfluenceRollActions(
       }
     }
 
-    // Under nullification only the influencer's own card text counts.
-    const ownEffects = charEffects.filter(e => e.sourceInstance === influencingCharacterId);
+    // Under nullification only the influencer's own card text counts
+    // (distinct from `ownEffects`, which is every effect collected for him).
+    const ownCardEffects = charEffects.filter(e => e.sourceInstance === influencingCharacterId);
 
     const freeDI = nullifyMods
-      ? normalUnusedDI(state, influencingCharacterId, player, ownEffects, resolverCtx)
+      ? normalUnusedDI(state, influencingCharacterId, player, ownCardEffects, resolverCtx)
       : availableDI(state, influencingCharacterId, player);
     modifier += freeDI;
     parts.push(nullifyMods ? `normal DI ${freeDI}` : `DI ${freeDI}`);
 
-    const dslModifier = resolveCheckModifier(nullifyMods ? ownEffects : charEffects, 'influence');
+    const dslModifier = resolveCheckModifier(nullifyMods ? ownCardEffects : charEffects, 'influence');
     if (dslModifier !== 0) {
       modifier += dslModifier;
       parts.push(`check mod ${formatSignedNumber(dslModifier)}`);
     }
 
-    // Own-card DI modifications are already inside `freeDI` under nullification.
-    const dslDI = nullifyMods ? 0 : resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+    // `freeDI` already carries the influencer's effective DI, so only the
+    // faction-conditional modifiers borne by the character are added here
+    // (see `checkConditionalEffects`). Under a le-150 nullification every
+    // card-sourced modification is stripped — the influencer's own ones are
+    // already inside `freeDI`.
+    const diEffects = [
+      ...checkConditionalEffects(ownEffects),
+      ...charEffects.slice(ownEffects.length),
+    ];
+    const dslDI = nullifyMods ? 0 : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       modifier += dslDI;
       parts.push(`DI mod ${formatSignedNumber(dslDI)}`);
@@ -588,9 +598,21 @@ export function factionInfluenceRollActions(
   // Game-wide ongoing influence modifier from a bare in-play event owned by
   // either player (Times Are Evil td-76: "All … influence attempts are modified
   // by -3"). Applies to every influence attempt regardless of the influencer.
+  // The context carries the faction being influenced so a game-wide modifier
+  // can be race-gated (Lord of the Carrock as-14). Webs of Fear & Treachery
+  // (le-150) nullifies every card-sourced modification, so the gate wins.
   const globalInfluenceMod = nullifyMods
     ? 0
-    : collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
+    : collectGlobalCheckModifier(state, 'influence', {
+      reason: 'faction-influence-check',
+      faction: {
+        name: def.name,
+        race: def.race,
+        playableAt: buildFactionPlayableAt(def),
+        playableRegions: buildFactionPlayableRegions(state, def),
+      },
+      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
+    });
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     parts.push(`game-wide ${formatSignedNumber(globalInfluenceMod)}`);
@@ -785,6 +807,67 @@ export function companyTapRollActions(
     },
     viable: true,
   }];
+}
+
+/**
+ * Compute the single `opposed-roll` action that resolves the next roll of a
+ * queued `opposed-roll` resolution (No More Nonsense le-210). The challenger
+ * (the card's play-target) rolls first; once their total is recorded on the
+ * resolution the opposing character rolls. Both characters belong to the same
+ * company, so the same player rolls twice.
+ */
+export function opposedRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'opposed-roll') return [];
+  const kind = top.kind;
+  const rolling = kind.challengerRoll === undefined ? kind.challengerId : kind.opponentId;
+
+  const player = playerById(state, playerId);
+  const charInPlay = player?.characters[rolling];
+  if (!player || !charInPlay) {
+    logDetail(`Pending opposed-roll: roller ${rolling as string} is no longer in play — no action`);
+    return [];
+  }
+
+  const sourceName = defById(state, kind.sourceDefinitionId)?.name ?? '?';
+  const rollerName = resolveDef(state, rolling)?.name ?? (rolling as string);
+  const stat = opposedRollStat(state, player, rolling, kind.addStat);
+  const explanation = kind.challengerRoll === undefined
+    ? `${sourceName}: roll for ${rollerName} (roll + ${kind.addStat} ${stat})`
+    : `${sourceName}: roll for ${rollerName} (roll + ${kind.addStat} ${stat}) vs `
+      + `${resolveDef(state, kind.challengerId)?.name ?? '?'}'s ${kind.challengerRoll} + `
+      + `${opposedRollStat(state, player, kind.challengerId, kind.addStat)}`;
+
+  logDetail(`Pending opposed-roll (${sourceName}): ${rollerName} rolls 2d6 + ${kind.addStat} ${stat}`);
+
+  return [{
+    action: { type: 'opposed-roll' as const, player: playerId, characterId: rolling, explanation },
+    viable: true,
+  }];
+}
+
+/**
+ * The stat an `opposed-roll` adds to a roller's 2d6 total. Reads the
+ * character's *effective* stats (so items, attached hazards, and constraints
+ * all count), falling back to the printed value when a derived stat is absent.
+ */
+export function opposedRollStat(
+  state: GameState,
+  player: PlayerState,
+  characterId: CardInstanceId,
+  stat: 'prowess' | 'body' | 'mind',
+): number {
+  const char = player.characters[characterId];
+  if (!char) return 0;
+  const def = defById(state, char.definitionId);
+  if (stat === 'mind') {
+    const printed = def && isCharacterCard(def) && def.mind !== null ? def.mind : 0;
+    return char.effectiveStats.mind ?? printed;
+  }
+  return char.effectiveStats[stat];
 }
 
 /**

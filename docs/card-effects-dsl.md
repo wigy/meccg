@@ -617,6 +617,19 @@ with a target `CharacterCard`) only ever describes a character, so an unqualifie
 faction-influence roll uses `reason: "faction-influence-check"`, which matches
 neither condition, so the bonus is correctly excluded against factions.
 
+**Where a `direct-influence` modifier is counted.** Every influence path starts
+from the influencer's `effectiveStats.directInfluence` (computed with no target
+in context) and then folds in the *target-conditional* modifiers on top. The
+split is decided by what the effect's `when` reads: a condition mentioning
+`reason`, `target.*` or `faction.*` is a per-check bonus and is folded in by the
+influence path; a modifier with no `when`, or one gated only on its bearer, is
+already inside the effective stat and is **not** folded again
+(`checkConditionalEffects`, `engine/effects/resolver.ts`). So write a
+target-specific bonus with an explicit `reason` (as above), and write a flat or
+bearer-scaled modifier without one — e.g. Power Relinquished to Artifice
+(wh-28), whose `-1` scales off `bearer.race` / `bearer.stagePoints` and applies
+once, everywhere direct influence is used.
+
 Both influence contexts also expose target and bearer stats for stat-gated
 bonuses: `target.mind` (omitted for avatars, so `{ "target.mind": { "$gt": 0 } }`
 is a "has a mind" gate), `target.prowess`, and `bearer.prowess` (the bearer's
@@ -2477,6 +2490,13 @@ Events:
 - `untap-phase-end` -- fires once per applicable card during the Untap → Organization transition. The reducer (`reducer-untap.ts`) scans every character of the active player for attached cards (items / hazards / allies) carrying this on-event. An optional `when` condition is evaluated against the bearer context `{ bearer: { siteType, atHaven } }`. `atHaven` follows the bearer's controller's {H} semantics (`isHavenForPlayer`): any haven-class site for hero/minion players (Haven/Darkhaven), but for a Fallen-wizard player his Wizardhavens — an FW-alignment haven site or a `wizardhaven-conversion` site. Supported apply types:
   - `force-check` (with `check: "corruption"`) — enqueues a `corruption-check` pending resolution per match. Used by *Lure of the Senses* (at-haven only, `"bearer.atHaven": true`), *Longing for the West* wh-25 (away from Haven/Wizardhaven only, `"bearer.atHaven": false`) and *The Least of Gold Rings* (any site).
   - a self-discard `move` (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) — removes the card from the bearer's items/hazards/allies and places it in the owner's discard pile. The optional `when` condition gates the discard (e.g. `"when": { "bearer.atHaven": true }` to discard at Darkhavens). Used by *Well-preserved* (as-108).
+- `play-deck-exhausted` -- fires when a play deck is exhausted and the exhaustion completes (the discard pile is reshuffled into a new play deck; `completeDeckExhaust` in `reducer-utils.ts`). Models "Discard when any play deck is exhausted". The only supported apply is a self-discard `move` (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`); no `when` is evaluated. Both placements are swept: **bare** permanent events in either player's `cardsInPlay` (Safe from the Shadow as-54, Stormcrow td-73, The Will of Sauron tw-100), and permanent events **attached to a character** — `discardAttachedOnDeckExhaust` scans every character's `hazards` and `items`, routing an attached hazard to the *opposing* player's discard pile and an attached item/event to the holder's, matching the `move` zone conventions. Used in the attached form by *Power Relinquished to Artifice* (wh-28).
+
+  ```json
+  { "type": "on-event", "event": "play-deck-exhausted",
+    "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+  ```
+
 - `stage-card-played` -- fires every time a player brings a **stage card** (any definition with `alignment: "stage"` — the Fallen-wizard progress track, MEWH §1) into play. `fireStageCardPlayedTriggers` (`stage-card-played.ts`) scans that player's own characters for attached items/hazards carrying this on-event; an optional `when` is evaluated against the bearer context `{ bearer: { race, skills, name, keywords, … } }`. The only supported apply is `force-check` with `check: "corruption"` (optional `modifier`), which enqueues a phase-scoped `corruption-check` on the bearer, made by the bearer's *controlling* player even when the card is an opponent's hazard. Fired from every seam a stage card can enter play through: the permanent-event chain resolution (`chain-reducer.ts`, covering the 56 stage permanent-events) and the site-phase item/ally attach and successful faction-influence paths (`reducer-site.ts`, covering wh-88/89/114 and wh-86/87). "Plays a stage card" is read as "a stage card of his enters play", so a faction whose influence attempt fails never triggers it. Used by *Inner Rot* (wh-23): "The target makes a corruption check whenever his controlling player plays a stage card."
 - `play-deck-exhausted` -- fires when **any** player completes a play-deck exhaustion (`completeDeckExhaust`, `reducer-utils.ts`): the discard pile is shuffled into a new play deck and the exhaustion count ticks up. The only supported apply is a self-discard `move` (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`); no `when` is evaluated. Both players' `cardsInPlay` are scanned (Safe from the Shadow as-54, Tokens to Show as-101, Bane of the Ithil-stone tw-13), **and** every character's attached `items` / `hazards` (`discardAttachmentsOnDeckExhaust`), so a card played on a character leaves play too — Cruel Claw Perceived (wh-16): "Discard when any play deck is exhausted." Each discarded attachment routes to its own owner's pile: an item to the character's controller, a hazard to the opponent.
 
@@ -10042,6 +10062,49 @@ floor. Consumed both at movement-plan time (`organization-companies.ts`
 using region movement is reduced by one (by two if Doors of Night is in play) to
 a minimum of two."
 
+### 52-1. `fw-site-alignment-restriction`
+
+Locks which **alignment of a site card** a Fallen-wizard player may use for a
+location. A Fallen-wizard's location deck may hold both the hero and the minion
+card for the same place (CoE rule 1.28), and the two play very differently —
+hero Lórien (tw-408) is a Haven, minion Lórien (as-155) a plain Free-hold with
+no haven benefits.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `require` | yes | The alignment the Fallen-wizard is forced to use — `"minion"` or `"hero"`. The *opposite* version is the one barred. |
+| `siteTypes` | yes | Printed site types the lock covers, read off the barred card (e.g. `["haven"]` with `require: "minion"` bars hero Haven cards). |
+| `when` | no | Matched per Fallen-wizard player against `{ player: { alignment, stagePoints } }`, so one card can escalate with stage points. |
+
+```json
+{ "type": "fw-site-alignment-restriction", "require": "minion", "siteTypes": ["free-hold"],
+  "when": { "player.stagePoints": { "$gt": 4 } } }
+```
+
+Behaviour (`fwSiteVersionForbidden` in `reducer-utils.ts`): while a card carrying
+this effect is in play, **every** Fallen-wizard player (both players' `cardsInPlay`
+are scanned, and the `when` is evaluated against the *restricted* player, not the
+controller) is barred from using the opposite version of any location whose
+printed site type is listed. Only `hero-site` / `minion-site` cards can be barred:
+a `fallen-wizard-site` — any Wizardhaven — counts as both hero and minion
+(MEWH §10) and is never locked.
+
+The lock is consumed where a player picks a site card, i.e. when movement is
+declared (`organization-companies.ts` `planMovementActions`). A barred card is
+dropped while the candidate list is built, *before* it can claim the location's
+name → instance slot, so the surviving version of the same location becomes the
+destination actually used; when the deck holds only the barred version the
+location becomes unreachable. The same check drops a sibling company's in-play
+site (rule 2.II.7.2), so a Fallen-wizard cannot join a company standing on a
+barred card either. Agent movement is untouched — CoE 4.F1 already pins a
+Fallen-wizard's agents to hero site cards regardless of the player's own lock.
+
+Used by Heart Grown Cold (wh-21): "Fallen-wizard players must use minion site
+cards for hero Havens [{H}]. If a Fallen-wizard has more than 4 stage points, his
+player must also use minion site cards for Free-holds [{F}]. If a Fallen-wizard
+has more than 7 stage points, his player must also use minion site cards for
+Border-holds [{B}]."
+
 ### 52a. `prohibit-company-events`
 
 Carried by an in-play hazard permanent-event; suppresses **resource
@@ -10633,6 +10696,11 @@ The `when` condition is evaluated against a per-company context exposing:
 - `company.hasWizard` — `true` if a Wizard avatar is in the company.
 - `company.maxNonRangerMind` — the highest mind among the company's characters
   that are **not** rangers (`0` if none; Wizards have no mind and never count here).
+- `company.alignment` — the owning player's alignment (`"wizard"`,
+  `"ringwraith"`, `"fallen-wizard"`, `"balrog"`), for rules that name one side's
+  companies.
+- `company.covert` — MELE covert/overt status (`isCovertCompany`); an **overt**
+  company is `false`.
 
 ```json
 {
@@ -10660,7 +10728,17 @@ increased by two for each moving company with a size of less than four that also
 contains a Wizard or a non-ranger character with a mind of 6 or more." Also used
 by The Great Eye (as-85): "The hazard limit against all companies is decreased
 by one (to a minimum of two)" — `value: -1, floor: 2, appliesTo: "all"`, no
-`when`.
+`when`. And by Gandalf the White Rider (as-11): "the hazard limit against all
+overt minion companies is increased by one" —
+
+```json
+{
+  "type": "hazard-limit-environment",
+  "value": 1,
+  "appliesTo": "all",
+  "when": { "company.alignment": "ringwraith", "company.covert": false }
+}
+```
 
 ### 54b. `cancel-hazard-event-play`
 
@@ -11352,6 +11430,26 @@ named card on the table — The Will of Sauron (tw-100):
   "condition": { "$not": { "inPlayAnywhere": "Doors of Night" } } }
 ```
 
+`inPlay` / `inPlayAnywhere` list `cardsInPlay` only and never see **characters**,
+so a rule about a *person* arriving reads `charactersInPlayAnywhere` — the names
+of every character either player has in play (`charactersInPlayNames` in
+`manifestations.ts`). Matched by name, so every printing counts (Gandalf is the
+hero Wizard tw-156 and the Fallen-wizard wh-4). Gandalf the White Rider (as-11),
+"Discard this card if Gandalf comes into play":
+
+```json
+{ "type": "discard-self-when",
+  "condition": { "charactersInPlayAnywhere": "Gandalf" } }
+```
+
+A `discard-self-when` on a **manifestation** sister also satisfies glossary
+g.man.1's "unless the current manifestation would leave play when the new
+manifestation is played" clause: `blockingManifestationForCharacterPlay`
+(`manifestations.ts`) re-evaluates each in-play sister's condition against a
+hypothetical `charactersInPlayAnywhere` that already includes the character
+being played, and a sister that would yield stops blocking. So the in-play White
+Rider never bars playing Gandalf — the post-action sweep discards it instead.
+
 ### 62a. `retain-hazard-long-events`
 
 Suspends the normal end-of-long-event-phase discard of hazard long-events
@@ -11937,3 +12035,79 @@ company size. If the result is greater than 6, the company may enter the site as
 normal. Otherwise, the company must face an attack to be resolved before any
 automatic-attacks: Orcs — 4 strikes at 9 prowess. Discard when the site card is
 discarded or returned to its location deck. Can be revealed on-guard."
+
+### 68. `opposed-roll` (No More Nonsense)
+
+An **opposed roll**: two characters each make a 2d6 roll, a stat is added to
+each total, and the totals are compared. The *challenger* is the card's
+`play-target`; the *opponent* is a second character chosen when the card is
+played. The two rolls are made one at a time through an `opposed-roll`
+{@link PendingResolution}, so each is a distinct, modifiable game event rather
+than a hidden pair of RNG draws — and so a test can pin each roll separately.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `opponent` | yes | How the second roller is picked. `"chosen-company-member"` — the playing player selects any **other** character in the challenger's company at play time. |
+| `addStat` | yes | `"prowess" \| "body" \| "mind"` — added to each side's 2d6 total (effective, not printed). |
+| `comparison` | no | `"gt"` (default, "is greater than") or `"gte"` (ties go to the challenger). |
+| `onWin` | no | Ordered list of {@link OpposedRollOutcome}s applied when the challenger wins. |
+| `onLose` | no | Ordered list applied when the challenger does not win. |
+
+**Outcomes** (`OpposedRollOutcome`) each name the roller they act on via
+`on: "challenger" | "opponent"`:
+
+| `type` | Fields | Effect |
+|--------|--------|--------|
+| `discard-attached` | `on`, `filter?` | Routes every attached hazard matching `filter` to its **owner's** discard pile (reuses the `move` primitive's `hazards-on-target` locator, so ownership routing matches *The Sun Unveiled* as-56). |
+| `stat-modifier` | `on`, `stat`, `value` | Installs an `until-cleared` `character-stat-modifier` constraint flagged `requiresSourceBorne`, so the modifier lasts exactly as long as the source card stays attached to that character. |
+
+```json
+{ "type": "opposed-roll",
+  "opponent": "chosen-company-member",
+  "addStat": "prowess",
+  "comparison": "gt",
+  "onWin": [
+    { "type": "discard-attached", "on": "opponent",
+      "filter": { "$and": [ { "cardType": "hazard-event" }, { "eventType": "permanent" } ] } },
+    { "type": "stat-modifier", "on": "challenger", "stat": "direct-influence", "value": 2 }
+  ],
+  "onLose": [
+    { "type": "stat-modifier", "on": "challenger", "stat": "direct-influence", "value": -2 }
+  ] }
+```
+
+**Playability**: the organization-phase permanent-event emitter
+(`legal-actions/organization-events.ts`) crosses each `play-target` candidate
+with every *other* character in its company, emitting one `play-permanent-event`
+action per pair with the second roller in `opposedCharacterId`. A leader with no
+company mate offers no play at all.
+
+**Resolution**: `chain-reducer.ts` enqueues the `opposed-roll` resolution when
+the card enters play. The controller dispatches one `opposed-roll` action for
+the challenger (its total is stored on the requeued resolution), then one for the
+opponent; the second roll compares the totals and applies the branch
+(`pending-reducers.ts`). A roller who has left play in the meantime forfeits the
+contest — it is dropped with no outcome.
+
+Used by: *No More Nonsense* (le-210).
+
+### 69. `play-condition` `requires: "phase"`
+
+Restricts a card to the phase(s) its text names. A permanent resource-event is
+otherwise offered in the organization phase, the movement/hazard phase (rule
+2.1.1) **and** the site phase; a card reading "Playable … during the
+organization phase" declares the window explicitly.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `phases` | yes | Phase strings the card may be played in (e.g. `["organization"]`). |
+
+```json
+{ "type": "play-condition", "requires": "phase", "phases": ["organization"] }
+```
+
+Checked by `playPermanentEventActions` (`legal-actions/organization-events.ts`,
+which also serves the M/H phase) against `state.phaseState.phase`, and by the
+site-phase permanent-event branch in `legal-actions/site.ts`.
+
+Used by: *No More Nonsense* (le-210).
