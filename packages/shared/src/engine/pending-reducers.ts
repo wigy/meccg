@@ -61,6 +61,8 @@ import { matchesCondition } from '../effects/condition-matcher.js';
 import { revealInstances } from './visibility.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
 import { startGreatHuntReveal, buildGreatHuntCombat } from './great-hunt.js';
+import { afterAttackPlayTargets } from './post-attack-play.js';
+import { handlePlayPermanentEvent } from './reducer-events.js';
 
 /**
  * Shared tail of the roll-resolution handlers: mark every unresolved chain
@@ -3751,4 +3753,58 @@ export function applyGreatHuntDiscardAttackResolution(
     return { state: cleared };
   }
   return { state: { ...cleared, combat } };
+}
+
+/**
+ * Resolve a `post-attack-play-offer` pending resolution (No News of Our Riding
+ * le-211): the defending player either plays one of the matched resource
+ * permanent-events on a character of the company that just faced the attack, or
+ * declines. Either way the window closes — the offer is dequeued.
+ *
+ * The play itself is delegated to {@link handlePlayPermanentEvent}, so it routes
+ * through the ordinary chain: the opponent keeps their response window, and the
+ * chain resolution applies the card's `play-target` tap cost and attaches it to
+ * the chosen character.
+ */
+export function applyPostAttackPlayOfferResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'post-attack-play-offer') return null;
+
+  if (action.type === 'pass') {
+    logDetail('post-attack-play-offer: declined — after-attack window closes');
+    return { state: dequeueResolution(state, top.id) };
+  }
+  if (action.type !== 'play-permanent-event') {
+    return { state, error: `Pending post-attack-play-offer requires play-permanent-event or pass, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) return { state, error: 'Wrong player for post-attack-play-offer' };
+
+  const { companyId, cardInstanceIds } = top.kind;
+  if (!cardInstanceIds.includes(action.cardInstanceId)) {
+    return { state, error: 'Card was not offered by this after-attack window' };
+  }
+  const playerIdx = getPlayerIndex(state, action.player);
+  const player = state.players[playerIdx];
+  const company = player.companies.find(co => co.id === companyId);
+  if (!company) return { state, error: `Company ${companyId as string} not found` };
+  if (!action.targetCharacterId || !company.characters.some(id => id === action.targetCharacterId)) {
+    return { state, error: 'After-attack play requires a target character in the company that faced the attack' };
+  }
+
+  const handCard = findById(player.hand, action.cardInstanceId);
+  if (!handCard) return { state, error: 'After-attack play card not in hand' };
+  const def = defById(state, handCard.definitionId);
+  if (!def) return { state, error: 'After-attack play card definition not found' };
+  if (afterAttackPlayTargets(state, player, company, def).every(id => id !== action.targetCharacterId)) {
+    return { state, error: 'Target character is not a legal bearer for this card' };
+  }
+
+  logDetail(`post-attack-play-offer: playing ${def.name ?? action.cardInstanceId as string} on ${action.targetCharacterId as string}`);
+  // Dequeue first: the play opens a chain, and the closed window must not be
+  // re-offered while that chain resolves.
+  const dequeued = dequeueResolution(state, top.id);
+  return handlePlayPermanentEvent(dequeued, action);
 }
