@@ -39,7 +39,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { isCharacterRemovalProtected } from './removal-protection.js';
@@ -3485,67 +3485,6 @@ export function applyRevealChooseToHandResolution(
 }
 
 /**
- * Resolve a `peek-deck-top` pending resolution (Mirror of Galadriel, tw-282).
- *
- * The actor names a play deck via `choose-peek-deck`; the top
- * `min(count, deckSize)` cards of that deck are recorded as seen by him
- * ({@link GameState.revealedInstances}), then shuffled among themselves and
- * written back to the top of the same deck — "Shuffle those 5 cards and return
- * them to the top of their play deck". No card leaves the deck, so its size is
- * unchanged and the cards beneath the peeked slice keep their order.
- *
- * A `pass` is accepted only as the escape hatch the legal-action layer offers
- * when no deck is available to look at.
- */
-export function applyPeekDeckTopResolution(
-  state: GameState,
-  action: GameAction,
-  top: PendingResolution,
-): ReducerResult | null {
-  if (top.kind.type !== 'peek-deck-top') return null;
-  if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for peek-deck-top' };
-  }
-  const { count, deckOwnerIds } = top.kind;
-  const cleared = dequeueResolution(state, top.id);
-
-  if (action.type === 'pass') {
-    logDetail('peek-deck-top: no play deck to look at — passing');
-    return { state: cleared };
-  }
-  if (action.type !== 'choose-peek-deck') {
-    return { state, error: `Pending peek-deck-top requires choose-peek-deck, got '${action.type}'` };
-  }
-  if (!deckOwnerIds.includes(action.deckOwner)) {
-    return { state, error: `Play deck of ${action.deckOwner as string} was not offered to look at` };
-  }
-
-  const ownerIdx = getPlayerIndex(cleared, action.deckOwner);
-  const owner = cleared.players[ownerIdx];
-  const peekCount = Math.min(count, owner.playDeck.length);
-  if (peekCount === 0) {
-    logDetail(`peek-deck-top: ${owner.name}'s play deck is empty — nothing to look at`);
-    return { state: cleared };
-  }
-
-  const peeked = owner.playDeck.slice(0, peekCount);
-  const rest = owner.playDeck.slice(peekCount);
-  const [shuffledTop, nextRng] = shuffle(peeked, cleared.rng);
-  logDetail(
-    `peek-deck-top: ${action.player as string} looks at the top ${peekCount} card(s) of ` +
-    `${owner.name}'s play deck (${peeked.map(c => cardName(cleared, c.definitionId)).join(', ')}), ` +
-    'then shuffles them and returns them to the top',
-  );
-  const revealed = revealInstances({ ...cleared, rng: nextRng }, peeked);
-  return {
-    state: updatePlayer(revealed, ownerIdx, p => ({
-      ...p,
-      playDeck: [...shuffledTop, ...rest],
-    })),
-  };
-}
-
-/**
  * Resolve a `reveal-remove-from-discard` pending resolution (Aware of their
  * Ways, dm-46).
  *
@@ -3915,6 +3854,69 @@ export function applyStayHerAppetiteRollResolution(
     state: continued.state,
     effects: [roll1Effect, roll2Effect, ...(continued.effects ?? [])],
   };
+}
+
+/**
+ * Resolve a `choose-peek-deck` pending resolution (Mirror of Galadriel tw-282).
+ *
+ * The card-player names the play deck they look at (`'self'` / `'opponent'`) or
+ * declines with `pass`. On a choice the top `count` cards of that deck are
+ * shuffled among themselves and returned to the top — the same modelling the
+ * certified Palantír of Minas Tirith (tw-299 / le-333) uses. The look itself is
+ * intentionally not recorded in `revealedInstances`: that map is public to both
+ * players, so recording it would show the cards to the wrong player.
+ */
+export function applyChoosePeekDeckResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'choose-peek-deck') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for choose-peek-deck' };
+  }
+  const { count, deckChoice, sourceDefinitionId } = top.kind;
+  const sourceName = cardName(state, sourceDefinitionId);
+  const cleared = dequeueResolution(state, top.id);
+
+  if (action.type === 'pass') {
+    logDetail(`${sourceName}: ${action.player as string} declines to look at any play deck`);
+    return { state: cleared };
+  }
+  if (action.type !== 'choose-peek-deck') {
+    return { state, error: `Pending choose-peek-deck requires choose-peek-deck, got '${action.type}'` };
+  }
+  if (deckChoice !== 'any' && deckChoice !== action.deckOwner) {
+    return { state, error: `${sourceName}: deck choice '${action.deckOwner}' not allowed (deckChoice '${deckChoice}')` };
+  }
+  // An in-play `cancel-deck-search` (Bane of the Ithil-stone tw-13 / Lady of
+  // the Golden Wood as-13) cancels looking at the actor's own play deck; the
+  // opponent's deck is not covered by those cards.
+  if (action.deckOwner === 'self') {
+    const canceller = deckSearchCancellerFor(state, action.player);
+    if (canceller) {
+      return { state, error: `${sourceName}: "${canceller}" cancels looking at your own play deck` };
+    }
+  }
+
+  const actorIndex = getPlayerIndex(state, action.player);
+  const targetIndex = action.deckOwner === 'self' ? actorIndex : 1 - actorIndex;
+  const targetPlayer = cleared.players[targetIndex];
+  const sliceSize = Math.min(count, targetPlayer.playDeck.length);
+  if (sliceSize === 0) {
+    logDetail(`${sourceName}: chosen play deck is empty — nothing to look at`);
+    return { state: cleared };
+  }
+  const [shuffledTop, nextRng] = shuffle(targetPlayer.playDeck.slice(0, sliceSize), cleared.rng);
+  logDetail(
+    `${sourceName}: ${action.player as string} looks at the top ${sliceSize} card(s) of ` +
+    `${targetPlayer.id as string}'s play deck, shuffles them and returns them to the top`,
+  );
+  const newState = updatePlayer({ ...cleared, rng: nextRng }, targetIndex, p => ({
+    ...p,
+    playDeck: [...shuffledTop, ...p.playDeck.slice(sliceSize)],
+  }));
+  return { state: newState };
 }
 
 /**

@@ -1543,61 +1543,47 @@ export interface RevealChooseShuffleEffect extends EffectBase {
 }
 
 /**
- * Reveals the **opponent's entire hand** to the playing player ("you may look
- * at your opponent's hand"). Carried by a resource short-event and applied
- * when the event is played: every card currently in the opponent's hand is
- * recorded in {@link GameState.revealedInstances}, which is what the
- * projection layer consults when deciding whether an opponent hand card keeps
- * its identity in a player's view. Cards the opponent draws afterwards stay
- * hidden — only the hand as it stood at play time is seen.
+ * Lets the playing player look at the opponent's hand and then pick **one**
+ * play deck whose top `count` cards they look at and shuffle back on top.
  *
- * No fields: the whole hand is always revealed. For a partial, random peek see
- * the `peek-opponent-hand` grant-action apply (The Lidless Eye le-203).
+ * Carried by a resource short-event and resolved when the event is played. The
+ * flow is:
  *
- * Used by *Mirror of Galadriel* (tw-282): "You may look at your opponent's
- * hand…".
+ * 1. If `revealOpponentHand` is set, every card in the opponent's hand is
+ *    recorded as revealed ({@link GameState.revealedInstances}) — the cards
+ *    stay in the opponent's hand, exactly as `peek-opponent-hand` does for The
+ *    Lidless Eye (le-203). This is a "may" with no cost or downside for the
+ *    playing player, so the engine always takes it.
+ * 2. A {@link PendingResolution} of kind `choose-peek-deck` is enqueued (actor
+ *    = the playing player), so the deck is chosen **after** the hand has been
+ *    seen — the ordering the card text prescribes. The player answers with a
+ *    `choose-peek-deck` action naming `'self'` or `'opponent'`, or declines
+ *    with `pass` ("You **may** … choose to look at …"). Only decks with at
+ *    least one card are offered; when neither deck has any, no resolution is
+ *    enqueued at all.
+ * 3. On resolution the top `min(count, deckSize)` cards of the chosen deck are
+ *    shuffled in place and stay on top of that deck — the same modelling the
+ *    certified Palantír of Minas Tirith (tw-299 / le-333) uses for "look at the
+ *    top five cards …; shuffle these 5 cards and return them to the top". The
+ *    look itself is deliberately **not** recorded in `revealedInstances`:
+ *    that map is public to both players, so recording it would leak the cards
+ *    to the player who is not allowed to see them.
+ *
+ * Used by *Mirror of Galadriel* (tw-282): "You may look at your opponent's hand
+ * and then choose to look at the top five cards of any one play deck. Shuffle
+ * those 5 cards and return them to the top of their play deck."
  */
-export interface RevealOpponentHandEffect extends EffectBase {
-  readonly type: 'reveal-opponent-hand';
-}
-
-/**
- * Lets the playing player look at the top `count` cards of **one play deck of
- * his choice**, then shuffles exactly those cards and returns them to the top
- * of that same deck.
- *
- * Carried by a resource short-event and applied when the event is played. A
- * {@link PendingResolution} of kind `peek-deck-top` is enqueued (actor = the
- * playing player) offering one `choose-peek-deck` action per selectable deck;
- * on resolution the top `min(count, deckSize)` cards of the chosen deck are
- * recorded in {@link GameState.revealedInstances}, shuffled among themselves
- * with the seeded RNG, and written back to the top of that deck. No instance
- * ever leaves the deck, so the deck's size is unchanged and the cards below
- * the peeked slice keep their order.
- *
- * Which decks may be chosen comes from `decks` (default: both). A deck is only
- * offered when it holds at least one card, and the player's **own** deck is
- * withheld while an in-play `cancel-deck-search` effect (Lady of the Golden
- * Wood as-13, Bane of the Ithil-stone tw-13, Flotsam and Jetsam wh-18) cancels
- * his own-deck searches — looking at the top of your own play deck outside the
- * normal sequence of play is exactly what those cards forbid. The opponent's
- * deck is never affected by them. If no deck qualifies the resolution offers a
- * `pass` so it can clear.
- *
- * Used by *Mirror of Galadriel* (tw-282): "…and then choose to look at the top
- * five cards of any one play deck. Shuffle those 5 cards and return them to
- * the top of their play deck."
- */
-export interface PeekDeckTopEffect extends EffectBase {
-  readonly type: 'peek-deck-top';
-  /** How many cards are looked at from the top of the chosen play deck. */
-  readonly count: number;
+export interface PeekShuffleDeckTopEffect extends EffectBase {
+  readonly type: 'peek-shuffle-deck-top';
+  /** How many top cards of the chosen deck are looked at and shuffled (default 5). */
+  readonly count?: number;
+  /** When true, the opponent's whole hand is revealed to the playing player first. */
+  readonly revealOpponentHand?: boolean;
   /**
-   * Which play decks the player may choose between. `'self'` is the playing
-   * player's own deck, `'opponent'` the other player's. Defaults to both
-   * ("any one play deck").
+   * Which play decks may be chosen: `'any'` (default — either player's, "any
+   * one play deck"), `'self'`, or `'opponent'`.
    */
-  readonly decks?: readonly ('self' | 'opponent')[];
+  readonly deckChoice?: 'any' | 'self' | 'opponent';
 }
 
 /**
@@ -6763,8 +6749,7 @@ export type CardEffect =
   | ForceOpponentDiscardEffect
   | CycleHandEffect
   | RevealChooseShuffleEffect
-  | RevealOpponentHandEffect
-  | PeekDeckTopEffect
+  | PeekShuffleDeckTopEffect
   | RevealRemoveFromDiscardEffect
   | RevealDeckChoosePenaltyEffect
   | WithdrawAgentEffect

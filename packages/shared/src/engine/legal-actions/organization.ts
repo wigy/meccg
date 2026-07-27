@@ -2541,16 +2541,17 @@ export function buildPlayerStateContext(
   // Deeper dm-156): `findPlayerAvatar` returns the in-play avatar character or
   // undefined, so `false` means no avatar has been brought into play yet.
   const avatarInPlay = findPlayerAvatar(state, player) !== undefined;
-  // Names of the sites the player currently has characters at — one entry per
-  // company holding at least one character. Backs "Only playable if any of your
-  // characters are at <site>" gates (Mirror of Galadriel tw-282) without a
-  // per-card keyword: `{ "player.characterSiteNames": { "$includes": "Lórien" } }`.
-  const characterSiteNames = [...new Set(
+  // Names of every site the player currently has characters at — a company's
+  // characters are all at its `currentSite`. Backs "playable if any of your
+  // characters are at <site>" (Mirror of Galadriel tw-282, "at Lórien"), which
+  // is about *any* company, not the phase's active one. Matched by name so all
+  // versions of a site (hero / minion / Under-deeps reprints) count.
+  const characterSiteNames = Array.from(new Set(
     player.companies
-      .filter(c => c.characters.length > 0 && c.currentSite !== null)
-      .map(c => defById(state, c.currentSite!.definitionId)?.name)
+      .filter(c => c.characters.length > 0)
+      .map(c => (c.currentSite ? defById(state, c.currentSite.definitionId)?.name : undefined))
       .filter((n): n is string => n !== undefined),
-  )];
+  ));
   return {
     player: {
       alignment: player.alignment,

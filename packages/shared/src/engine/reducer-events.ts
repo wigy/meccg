@@ -20,7 +20,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, companySiteName, companySubphaseScope, deckSearchCancellerFor, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
@@ -1430,75 +1430,63 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: working };
   }
 
-  // Mirror of Galadriel (tw-282): "You may look at your opponent's hand and
-  // then choose to look at the top five cards of any one play deck. Shuffle
-  // those 5 cards and return them to the top of their play deck."
-  //
-  // `reveal-opponent-hand` is applied immediately (the hand is seen as it
-  // stands when the event resolves); `peek-deck-top` then enqueues the choice
-  // of *which* deck to dig into. Both are independent effects so either can be
-  // reused alone by a later card.
-  const revealOpponentHandEffect = def.effects?.find(
-    (e): e is import('../types/effects.js').RevealOpponentHandEffect =>
-      e.type === 'reveal-opponent-hand',
+  // peek-shuffle-deck-top (Mirror of Galadriel tw-282): look at the opponent's
+  // whole hand, then choose any one play deck whose top `count` cards are
+  // looked at, shuffled, and returned to the top. The hand look is a "may" with
+  // no cost or downside, so it happens on play; the deck choice comes after it
+  // (the card's own ordering) via a `choose-peek-deck` pending resolution, which
+  // also carries the optional "you may … choose" pass. The event card goes to
+  // the discard pile immediately, before the choice resolves.
+  const peekShuffleEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').PeekShuffleDeckTopEffect =>
+      e.type === 'peek-shuffle-deck-top',
   );
-  const peekDeckTopEffect = def.effects?.find(
-    (e): e is import('../types/effects.js').PeekDeckTopEffect => e.type === 'peek-deck-top',
-  );
-  if (revealOpponentHandEffect || peekDeckTopEffect) {
-    // The spent event card goes to the discard pile first — the look is a
-    // separate, later action (same disposal order as reveal-choose-shuffle).
+  if (peekShuffleEffect) {
     let working = updatePlayer(newState, playerIndex, p => ({
       ...p,
       discardPile: [...p.discardPile, handCard],
     }));
     const opponentIndex = 1 - playerIndex;
-    if (revealOpponentHandEffect) {
-      const oppHand = working.players[opponentIndex].hand;
-      working = revealInstances(working, oppHand);
+    if (peekShuffleEffect.revealOpponentHand) {
+      const opponentHand = working.players[opponentIndex].hand;
+      working = revealInstances(working, opponentHand);
       logDetail(
-        `${def.name}: ${working.players[playerIndex].name} looks at ` +
-        `${working.players[opponentIndex].name}'s hand (${oppHand.length} card(s): ` +
-        `${oppHand.map(c => defById(working, c.definitionId)?.name ?? '?').join(', ') || 'empty'})`,
+        `${def.name}: ${action.player as string} looks at the opponent's hand ` +
+        `(${opponentHand.length} card(s))`,
       );
     }
-    if (peekDeckTopEffect) {
-      const which = peekDeckTopEffect.decks ?? (['self', 'opponent'] as const);
-      // cancel-deck-search (Lady of the Golden Wood as-13 / Bane of the
-      // Ithil-stone tw-13 / Flotsam and Jetsam wh-18) cancels effects that let
-      // a player look at any portion of his OWN play deck outside the normal
-      // sequence of play — so only the own-deck arm is gated here.
-      const canceller = deckSearchCancellerFor(working, action.player);
-      const deckOwnerIds = which
-        .map(w => working.players[w === 'self' ? playerIndex : opponentIndex])
-        .filter(p => {
-          if (p.playDeck.length === 0) {
-            logDetail(`${def.name}: ${p.name}'s play deck is empty — not offered`);
-            return false;
-          }
-          if (p.id === action.player && canceller) {
-            logDetail(`${def.name}: "${canceller}" cancels looking at your own play deck — not offered`);
-            return false;
-          }
-          return true;
-        })
-        .map(p => p.id);
-      logDetail(
-        `${def.name}: awaiting choice of which play deck to look at ` +
-        `(top ${peekDeckTopEffect.count}; candidates: ${deckOwnerIds.join(', ') || 'none'})`,
-      );
-      working = enqueueResolution(working, {
-        source: handCard.instanceId,
-        actor: action.player,
-        scope: { kind: 'phase', phase: working.phaseState.phase },
-        kind: {
-          type: 'peek-deck-top',
-          count: peekDeckTopEffect.count,
-          deckOwnerIds,
-          sourceDefinitionId: handCard.definitionId,
-        },
-      });
+    const count = peekShuffleEffect.count ?? 5;
+    const deckChoice = peekShuffleEffect.deckChoice ?? 'any';
+    const ownDeckSize = working.players[playerIndex].playDeck.length;
+    const opponentDeckSize = working.players[opponentIndex].playDeck.length;
+    // An in-play `cancel-deck-search` (Bane of the Ithil-stone tw-13 against a
+    // non-minion, Lady of the Golden Wood as-13 against a minion) cancels
+    // looking at the player's OWN play deck; the opponent's deck is outside
+    // what those cards cover ("any portion of *his* play deck").
+    const ownDeckCanceller = deckSearchCancellerFor(working, action.player);
+    if (ownDeckCanceller) {
+      logDetail(`${def.name}: "${ownDeckCanceller}" cancels looking at ${action.player as string}'s own play deck`);
     }
+    const selfEligible = deckChoice !== 'opponent' && !ownDeckCanceller && ownDeckSize > 0;
+    const opponentEligible = deckChoice !== 'self' && opponentDeckSize > 0;
+    if (!selfEligible && !opponentEligible) {
+      logDetail(`${def.name}: no play deck with cards to look at — deck step fizzles`);
+      return { state: working };
+    }
+    logDetail(
+      `${def.name}: awaiting deck choice (own deck ${ownDeckSize}, opponent deck ${opponentDeckSize}, top ${count})`,
+    );
+    working = enqueueResolution(working, {
+      source: handCard.instanceId,
+      actor: action.player,
+      scope: { kind: 'phase', phase: working.phaseState.phase },
+      kind: {
+        type: 'choose-peek-deck',
+        count,
+        deckChoice,
+        sourceDefinitionId: handCard.definitionId,
+      },
+    });
     return { state: working };
   }
 

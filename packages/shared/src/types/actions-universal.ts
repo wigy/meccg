@@ -436,20 +436,6 @@ export interface ChooseRevealedCardAction {
 }
 
 /**
- * Choose which play deck to look at the top of (Mirror of Galadriel, tw-282).
- * Resolves a `peek-deck-top` pending resolution: the chosen deck's top cards
- * are revealed to the acting player, shuffled among themselves, and returned
- * to the top of that deck.
- */
-export interface ChoosePeekDeckAction {
-  readonly type: 'choose-peek-deck';
-  /** The player looking at a deck top. */
-  readonly player: PlayerId;
-  /** Owner of the play deck to look at (may be the acting player himself). */
-  readonly deckOwner: PlayerId;
-}
-
-/**
  * Choose one of the opponent's revealed discard-pile cards to remove from the
  * game (Aware of their Ways, dm-46). Resolves a `reveal-remove-from-discard`
  * pending resolution: the chosen non-unique card moves from the opponent's
@@ -488,6 +474,20 @@ export interface DesireChoosePenaltyAction {
   readonly player: PlayerId;
   /** Which penalty the opponent accepts. */
   readonly penalty: 'remove-from-game' | 'reduce-hand-size';
+}
+
+/**
+ * Choose which play deck to look at and shuffle the top of (Mirror of
+ * Galadriel, tw-282: "choose to look at the top five cards of any one play
+ * deck"). Resolves a `choose-peek-deck` pending resolution; declining the
+ * optional look is a `pass`.
+ */
+export interface ChoosePeekDeckAction {
+  readonly type: 'choose-peek-deck';
+  /** The player who played the peek effect. */
+  readonly player: PlayerId;
+  /** Whose play deck to look at and shuffle the top of. */
+  readonly deckOwner: 'self' | 'opponent';
 }
 
 /**

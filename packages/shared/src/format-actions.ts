@@ -576,8 +576,6 @@ export function describeAction(
       return `Place ${instName(action.cardInstanceId)} next on top of your play deck`;
     case 'choose-revealed-card':
       return `Take revealed card ${instName(action.cardInstanceId)} into hand (shuffle the rest back into the play deck)`;
-    case 'choose-peek-deck':
-      return `Look at the top cards of ${playerName(action.deckOwner)}'s play deck (then shuffle them back on top)`;
     case 'remove-revealed-card':
       return `${playerName(action.player)} removes revealed card ${instName(action.cardInstanceId)} from play (opponent's discard → out of play)`;
     case 'desire-choose-shown-card':
@@ -586,6 +584,8 @@ export function describeAction(
       return action.penalty === 'remove-from-game'
         ? `${playerName(action.player)} removes the shown card from the game (Desire All for Thy Belly)`
         : `${playerName(action.player)} reduces his hand size by one for the rest of the game (Desire All for Thy Belly)`;
+    case 'choose-peek-deck':
+      return `${playerName(action.player)} looks at the top cards of ${action.deckOwner === 'self' ? 'their own' : "the opponent's"} play deck and shuffles them back on top (Mirror of Galadriel)`;
     case 'choose-great-hunt-source':
       return `${playerName(action.player)} has the opponent reveal from their ${action.source === 'deck' ? 'play deck' : 'discard pile'} (The Great Hunt)`;
     case 'great-hunt-attack-with-creature':

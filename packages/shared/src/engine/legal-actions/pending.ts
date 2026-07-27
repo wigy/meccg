@@ -45,7 +45,7 @@ import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCh
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf, deckSearchCancellerFor } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
 import { asViable as viable } from './evaluated.js';
@@ -2588,43 +2588,6 @@ export function revealChooseToHandActions(
 }
 
 /**
- * Legal actions while a `peek-deck-top` resolution is pending (Mirror of
- * Galadriel, tw-282): the player chooses which play deck he looks at the top
- * of ("any one play deck"). One `choose-peek-deck` action per candidate deck.
- *
- * The candidates were filtered when the resolution was enqueued (empty decks
- * and, for the player's own deck, an active `cancel-deck-search` drop out), but
- * a deck can still have emptied since; re-check it here. When nothing is left
- * to look at, a `pass` clears the resolution.
- */
-export function peekDeckTopActions(
-  state: GameState,
-  actor: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  if (top.kind.type !== 'peek-deck-top') return [];
-  const { deckOwnerIds, count } = top.kind;
-  const actions: EvaluatedAction[] = [];
-  for (const ownerId of deckOwnerIds) {
-    const owner = playerById(state, ownerId);
-    if (!owner || owner.playDeck.length === 0) continue;
-    logDetail(
-      `peek-deck-top: offering to look at the top ${Math.min(count, owner.playDeck.length)} ` +
-      `card(s) of ${owner.name}'s play deck`,
-    );
-    actions.push({
-      action: { type: 'choose-peek-deck' as const, player: actor, deckOwner: ownerId },
-      viable: true,
-    });
-  }
-  if (actions.length === 0) {
-    logDetail('peek-deck-top: no play deck available to look at — offering pass');
-    actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
-  }
-  return actions;
-}
-
-/**
  * Legal actions while a `reveal-remove-from-discard` resolution is pending
  * (Aware of their Ways, dm-46): the card-player may choose one of the revealed
  * non-unique cards in the opponent's discard pile to remove from the game, or
@@ -2753,6 +2716,48 @@ export function agentPlayManifestationActions(
       }
     }
   }
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  return actions;
+}
+
+/**
+ * Legal actions while a `choose-peek-deck` resolution is pending (Mirror of
+ * Galadriel tw-282): the card-player chooses which play deck's top cards they
+ * look at and shuffle back on top, or passes ("You may … choose to look at the
+ * top five cards of any one play deck"). Only decks that are allowed by the
+ * effect's `deckChoice` **and** actually hold cards are offered.
+ *
+ * An in-play `cancel-deck-search` (Bane of the Ithil-stone tw-13 against a
+ * non-minion, Lady of the Golden Wood as-13 against a minion) withholds the
+ * actor's **own** deck — "any effect that causes a player to … look at any
+ * portion of *his* play deck … outside the normal sequence of play". It never
+ * touches the opponent's deck, which those cards do not cover.
+ */
+export function choosePeekDeckActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'choose-peek-deck') return [];
+  const { deckChoice } = top.kind;
+  const player = playerById(state, actor);
+  const opponent = state.players.find(p => p.id !== actor);
+  if (!player || !opponent) return [];
+  const actions: EvaluatedAction[] = [];
+  const ownDeckCanceller = deckSearchCancellerFor(state, actor);
+  if (ownDeckCanceller && deckChoice !== 'opponent') {
+    logDetail(`choose-peek-deck: "${ownDeckCanceller}" cancels ${actor as string}'s look at his own play deck`);
+  }
+  if (deckChoice !== 'opponent' && !ownDeckCanceller && player.playDeck.length > 0) {
+    logDetail(`choose-peek-deck: offering ${actor as string}'s own play deck (${player.playDeck.length} card(s))`);
+    actions.push({ action: { type: 'choose-peek-deck' as const, player: actor, deckOwner: 'self' }, viable: true });
+  }
+  if (deckChoice !== 'self' && opponent.playDeck.length > 0) {
+    logDetail(`choose-peek-deck: offering ${opponent.id as string}'s play deck (${opponent.playDeck.length} card(s))`);
+    actions.push({ action: { type: 'choose-peek-deck' as const, player: actor, deckOwner: 'opponent' }, viable: true });
+  }
+  // The look is optional ("You may …"), and passing is also the escape hatch
+  // if both decks emptied between the play and the choice.
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
   return actions;
 }
