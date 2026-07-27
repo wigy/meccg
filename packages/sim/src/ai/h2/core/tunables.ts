@@ -86,6 +86,17 @@ export interface Tunables {
    * fivefold per strike, and the per-decision budget is a millisecond.
    */
   readonly attackStateCap: number;
+  /**
+   * Cost in TSD of crossing one region on the way to a site.
+   *
+   * A stand-in for a hazard model, and labelled as one. What a region actually
+   * costs is what the opponent can play into it, which needs the belief half
+   * of `exposure` (§3.6); until that exists, distance is charged by length
+   * rather than by danger. H1 spent a hand-tuned table here (wilderness 2,
+   * shadow-land 4, dark-domain 5) buried inside a destination score — this is
+   * one number, named, and visible in every rationale that uses it.
+   */
+  readonly regionCrossingCost: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -99,6 +110,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   eliminationTempoCost: 3,
   provisionalCardPrice: 1,
   attackStateCap: 192,
+  regionCrossingCost: 0.4,
 };
 
 /**

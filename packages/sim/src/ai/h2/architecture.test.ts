@@ -72,10 +72,18 @@ describe('module boundaries', () => {
     const names = ALL_MODULES.map(m => m.name);
     expect(new Set(names).size).toBe(names.length);
 
+    // `pass` means something different in every context — decline to cancel an
+    // attack, decline to move — so more than one module legitimately lists it.
+    // What must not overlap is the *claim*, and `claims()` is what separates
+    // them; the registry resolves any residual tie by module order, which is a
+    // silent priority and the reason this exemption is narrow and explicit
+    // rather than a blanket relaxation.
+    const contextFree = new Set(['pass']);
     const owner = new Map<string, string>();
     const contested: string[] = [];
     for (const module of ALL_MODULES) {
       for (const type of module.ownedActionTypes) {
+        if (contextFree.has(type)) continue;
         const existing = owner.get(type);
         if (existing) contested.push(`${type}: ${existing} and ${module.name}`);
         else owner.set(type, module.name);

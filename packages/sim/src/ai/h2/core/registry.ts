@@ -21,6 +21,7 @@ import type { GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext } from './types.js';
 import { assertValidDistribution } from './tsd.js';
 import { combatModule } from '../modules/combat/combat.js';
+import { travelModule } from '../modules/travel/travel.js';
 
 /**
  * Every module that exists, in dependency order.
@@ -30,7 +31,7 @@ import { combatModule } from '../modules/combat/combat.js';
  * corpus and a calibration harness already waiting for it, rather than being
  * validated by eye.
  */
-export const ALL_MODULES: readonly H2Module[] = [combatModule];
+export const ALL_MODULES: readonly H2Module[] = [combatModule, travelModule];
 
 /** Look up modules by name, throwing on an unknown one. */
 export function resolveModules(spec: string | undefined, available: readonly H2Module[] = ALL_MODULES): H2Module[] {
