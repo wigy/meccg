@@ -149,11 +149,21 @@ export function hasStartingCompanyPlacementInDeck(
     readonly sideboard: readonly { readonly definitionId: CardDefinitionId }[];
   },
 ): boolean {
-  const hasPlacement = (card: { readonly definitionId: CardDefinitionId }): boolean => {
-    const effects = (defById(state, card.definitionId) as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [];
-    return effects.some(e => e.type === 'starting-company-placement');
-  };
+  const hasPlacement = (card: { readonly definitionId: CardDefinitionId }): boolean =>
+    hasStartingCompanyPlacementEffect(defById(state, card.definitionId));
   return player.playDeck.some(hasPlacement) || player.sideboard.some(hasPlacement);
+}
+
+/**
+ * True if `def` carries a `starting-company-placement` effect — a card "played
+ * with a starting company in lieu of a minor item" (Thrall of the Voice wh-82,
+ * Open to the Summons wh-46, Orders from Lugbúrz as-94…). Such a card is placed
+ * during the item-draft step rather than entering play on its own at draft
+ * finalize, so {@link applyDraftResults} keeps it in hand until then.
+ */
+export function hasStartingCompanyPlacementEffect(def: CardDefinition | undefined): boolean {
+  const effects = (def as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [];
+  return effects.some(e => e.type === 'starting-company-placement');
 }
 
 /**
@@ -1654,6 +1664,25 @@ export function findDuplicationLimitEffect(
   return getCardEffects(def).find(
     (e): e is DuplicationLimitEffect => e.type === 'duplication-limit' && e.scope === scope,
   );
+}
+
+/**
+ * True if the player has already drafted as many copies of Stage resource
+ * `defId` as its player-scoped `duplication-limit` allows ("Cannot be duplicated
+ * by a given player" — Bad Company wh-63, Open to the Summons wh-46). Every
+ * drafted Stage resource ends up in that player's play area (CoE 1.9.F4), so the
+ * in-play duplication cap must already hold at draft time. Cards with no
+ * player-scoped limit are never blocked.
+ */
+export function stageResourceDuplicationLimitReached(
+  state: GameState,
+  draft: { readonly draftedStageResources: readonly { readonly definitionId: CardDefinitionId }[] },
+  defId: CardDefinitionId,
+): boolean {
+  const limit = findDuplicationLimitEffect(defById(state, defId), 'player');
+  if (!limit) return false;
+  const drafted = draft.draftedStageResources.filter(c => c.definitionId === defId).length;
+  return drafted >= limit.max;
 }
 
 /**
