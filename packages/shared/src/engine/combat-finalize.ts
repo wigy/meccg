@@ -37,6 +37,7 @@ import { getActiveAutoAttacks } from './manifestations.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
+import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
 import { makeCombatState, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, nextCompanyId, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -1295,6 +1296,11 @@ function buildOnEventContext(state: GameState): Record<string, unknown> {
  * `move { select: 'filter-all', from: 'items-on-wounded', to: 'discard',
  * toOwner: 'defender', filter }` shape used by creatures like Balrog
  * of Moria to strip non-special items from their victims.
+ *
+ * A `discard-substitute` item borne anywhere in the wounded characters'
+ * company (Leaf Brooch dm-171) intercepts the whole batch: the discard is
+ * handed to a `discard-substitute-offer` resolution so its owner may save one
+ * of the doomed items by throwing the brooch away instead.
  */
 function discardWoundedItems(
   state: GameState,
@@ -1304,6 +1310,29 @@ function discardWoundedItems(
   filter: import('../types/effects.js').Condition | undefined,
 ): GameState {
   const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
+
+  const doomed: CardInstanceId[] = [];
+  for (const charId of woundedCharIds) {
+    const charData = state.players[defIdx]?.characters[charId];
+    if (!charData) continue;
+    for (const item of charData.items) {
+      const def = defById(state, item.definitionId);
+      if (!def) continue;
+      if (!filter || matchesDefinition(def, filter)) doomed.push(item.instanceId);
+    }
+  }
+  const offered = doomed.length > 0
+    ? enqueueDiscardSubstituteOffer(state, {
+      source: combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : null,
+      owner: combat.defendingPlayerId,
+      scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+      companyId: combat.companyId,
+      requiredInstanceIds: doomed,
+      sourceName,
+    })
+    : null;
+  if (offered) return offered;
+
   const cloned = clonePlayers(state);
   const newCharacters = { ...cloned[defIdx].characters };
   const discarded: { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] = [];

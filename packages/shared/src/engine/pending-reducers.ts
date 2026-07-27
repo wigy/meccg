@@ -42,6 +42,7 @@ import { hasPlayFlag } from '../effects/index.js';
 import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
+import { findDiscardSubstitutes, substituteCovers, discardCardsFromCompany, enqueueDiscardSubstituteOffer } from './discard-substitute.js';
 import { isCharacterRemovalProtected } from './removal-protection.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
@@ -2239,6 +2240,9 @@ export function applyGoldRingTestResolution(
   // True when the ring came from killPile — it was stored at a Darkhaven
   // (Rule 9.22), so the replacement enters play stored rather than attached.
   let storedPlacement: boolean;
+  // Character bearing the ring on the site-phase path (undefined when stored):
+  // only a ring still borne in a company can be saved by a `discard-substitute`.
+  let ringBearerId: CardInstanceId | undefined;
 
   if (ringInKillPile !== -1) {
     ringCard = player.killPile[ringInKillPile];
@@ -2278,6 +2282,7 @@ export function applyGoldRingTestResolution(
       discardPile: [...p.discardPile, ringCard],
     }));
     storedPlacement = false;
+    ringBearerId = foundCharId as CardInstanceId;
   }
 
   const ringDef = defById(state, ringCard.definitionId);
@@ -2339,8 +2344,25 @@ export function applyGoldRingTestResolution(
     logDetail(`Gold-ring test: ring-test-search active — player may search deck/discard for ${searchCategories.join(', ')}`);
   }
 
+  // Leaf Brooch (dm-171), per CRF 22: the tested ring's discard may be replaced
+  // by discarding a `discard-substitute` item borne in the ring-bearer's
+  // company — "the bearer of the gold ring item gets the special ring item, not
+  // the bearer of the Leaf Brooch", so the ring-play offer is unaffected. Only
+  // a ring still borne in a company qualifies (a ring stored at a Darkhaven is
+  // not "in the company"), and the substitution offer is queued *behind* the
+  // ring-play offer so the owner decides knowing what the test produced. Until
+  // then the ring stays where it was: `stateAfterRing` (which already moved it
+  // to the discard pile, deliberately, so it cannot modify its own test) is
+  // used for the check-modifier sweep only.
+  const ringCompanyId = ringBearerId !== undefined
+    ? findCharacterCompany(player.companies, ringBearerId)?.id
+    : undefined;
+  const ringSubstitutable = ringCompanyId !== undefined
+    && findDiscardSubstitutes(state, actorIndex, ringCompanyId, new Set([goldRingInstanceId]))
+      .some(s => substituteCovers(s, ringDef));
+
   const postRoll = dequeueResolution(
-    { ...updatePlayer(stateAfterRing, actorIndex, p => ({ ...p, lastDiceRoll: roll })), rng, cheatRollTotal },
+    { ...updatePlayer(ringSubstitutable ? state : stateAfterRing, actorIndex, p => ({ ...p, lastDiceRoll: roll })), rng, cheatRollTotal },
     top.id,
   );
 
@@ -2359,6 +2381,18 @@ export function applyGoldRingTestResolution(
       ...(searchCategories ? { searchCategories } : {}),
     },
   });
+
+  if (ringSubstitutable && ringCompanyId) {
+    const offered = enqueueDiscardSubstituteOffer(postOffer, {
+      source: goldRingInstanceId,
+      owner: action.player,
+      scope: top.scope,
+      companyId: ringCompanyId,
+      requiredInstanceIds: [goldRingInstanceId],
+      sourceName: `Gold-ring test (${ringName})`,
+    });
+    if (offered) return { state: offered, effects: [rollEffect] };
+  }
 
   return { state: postOffer, effects: [rollEffect] };
 }
@@ -2969,6 +3003,21 @@ export function applyDiscardOneCompanyItemResolution(
 
   const itemDef = defById(state, removedItem.definitionId);
   const itemName = itemDef?.name ?? (itemInstanceId as string);
+
+  // Leaf Brooch (dm-171) and friends: a `discard-substitute` borne in the same
+  // company may be thrown away in place of the chosen item. Hand the discard
+  // over to the offer resolution — it owns the card movement either way.
+  const dequeued = dequeueResolution(state, top.id);
+  const offered = enqueueDiscardSubstituteOffer(dequeued, {
+    source: top.source,
+    owner: defPlayer.id,
+    scope: top.scope,
+    companyId,
+    requiredInstanceIds: [itemInstanceId],
+    sourceName: `discard-one-company-item ("${itemName}")`,
+  });
+  if (offered) return { state: offered };
+
   logDetail(`discard-one-company-item: defender discards "${itemName}"`);
 
   const newPlayers = clonePlayers(state);
@@ -2979,6 +3028,84 @@ export function applyDiscardOneCompanyItemResolution(
   };
 
   return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
+}
+
+/**
+ * Resolve a `discard-substitute-offer` pending resolution (Leaf Brooch dm-171).
+ *
+ * This resolution owns the forced discard that queued it. Two outcomes:
+ *
+ * - **Use** (`itemInstanceId` present) — the named card is struck off the
+ *   doomed list and the substitute is discarded in its place. If another
+ *   substitute is still borne in the company *and* doomed cards remain, the
+ *   resolution stays queued (with the next substitute) so a company holding
+ *   two Leaf Brooches can save two items from the same requirement.
+ * - **Decline** (`itemInstanceId` omitted) — every remaining doomed card is
+ *   discarded, exactly as if no substitute had been in play.
+ */
+export function applyDiscardSubstituteOfferResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'discard-substitute-offer') return null;
+  if (action.type !== 'use-discard-substitute') {
+    return { state, error: `Pending discard-substitute-offer requires use-discard-substitute, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for discard-substitute-offer' };
+  }
+  const kind = top.kind;
+  const ownerIndex = getPlayerIndex(state, top.actor);
+  if (ownerIndex < 0) return { state, error: `Player ${top.actor as string} not found` };
+
+  // Decline: the requirement is fulfilled the ordinary way.
+  if (!action.itemInstanceId) {
+    logDetail(`${kind.sourceName}: substitution declined — discarding ${kind.requiredInstanceIds.length} card(s) as required`);
+    const discarded = discardCardsFromCompany(state, ownerIndex, kind.requiredInstanceIds, kind.sourceName);
+    return { state: dequeueResolution(discarded, top.id) };
+  }
+
+  const saved = action.itemInstanceId;
+  if (!kind.requiredInstanceIds.includes(saved)) {
+    return { state, error: `Card ${saved as string} is not among the cards being discarded` };
+  }
+
+  const substitute = findDiscardSubstitutes(state, ownerIndex, kind.companyId)
+    .find(s => s.instanceId === kind.substituteInstanceId);
+  if (!substitute) {
+    return { state, error: `Substitute ${kind.substituteInstanceId as string} is no longer in the company` };
+  }
+  const savedDef = defById(state, resolveInstanceId(state, saved) ?? ('' as CardDefinitionId));
+  if (!substituteCovers(substitute, savedDef)) {
+    return { state, error: `${substitute.name} cannot be discarded in place of ${savedDef?.name ?? (saved as string)}` };
+  }
+
+  logDetail(`${kind.sourceName}: ${substitute.name} discarded instead of ${savedDef?.name ?? (saved as string)}`);
+  let working = discardCardsFromCompany(state, ownerIndex, [substitute.instanceId], `${kind.sourceName} (substitution)`);
+
+  const remaining = kind.requiredInstanceIds.filter(id => id !== saved);
+  if (remaining.length > 0) {
+    // Another substitute in the company may still save one more card.
+    const next = findDiscardSubstitutes(working, ownerIndex, kind.companyId, new Set(remaining))
+      .find(s => remaining.some(id => substituteCovers(s, defById(working, resolveInstanceId(working, id) ?? ('' as CardDefinitionId)))));
+    if (next) {
+      logDetail(`${kind.sourceName}: ${next.name} may still be discarded instead of one of ${remaining.length} remaining card(s)`);
+      return {
+        state: {
+          ...working,
+          pendingResolutions: working.pendingResolutions.map(r =>
+            r.id === top.id
+              ? { ...r, kind: { ...kind, substituteInstanceId: next.instanceId, requiredInstanceIds: remaining } }
+              : r,
+          ),
+        },
+      };
+    }
+    working = discardCardsFromCompany(working, ownerIndex, remaining, kind.sourceName);
+  }
+
+  return { state: dequeueResolution(working, top.id) };
 }
 
 /**
