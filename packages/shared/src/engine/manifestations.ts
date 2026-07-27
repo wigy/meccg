@@ -32,6 +32,7 @@ import type {
 import type { CardInstanceId } from '../types/common.js';
 import { Race } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 import { ownerOf } from '../types/state.js';
 import { isBalrogAvatarDef } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
@@ -146,12 +147,18 @@ export function manifestationInCardsInPlay(
  * permanent-event blocks playing the character Galadriel tw-153).
  *
  * The rule's "unless the current manifestation would leave play … when the new
- * manifestation is played" clause is honoured for `cardsInPlay` sisters: a
- * sister is NOT blocking when the character being played carries an
- * `on-event: self-enters-play` discard `move` whose filter matches that sister
- * (The Balrog ba-3 discards Balrog of Moria tw-12 on entering play, so tw-12
- * in play does not bar playing ba-3). Returns the blocking card's name, or
- * `null` when nothing blocks.
+ * manifestation is played" clause is honoured for `cardsInPlay` sisters in two
+ * directions:
+ *
+ * - the character being played carries an `on-event: self-enters-play` discard
+ *   `move` whose filter matches that sister (The Balrog ba-3 discards Balrog of
+ *   Moria tw-12 on entering play, so tw-12 in play does not bar playing ba-3);
+ * - the *sister itself* carries a `discard-self-when` whose condition becomes
+ *   true once this character is in play (Gandalf the White Rider as-11:
+ *   "Discard this card if Gandalf comes into play" — so the in-play White Rider
+ *   never bars playing Gandalf; the post-action sweep discards it instead).
+ *
+ * Returns the blocking card's name, or `null` when nothing blocks.
  */
 export function blockingManifestationForCharacterPlay(
   state: GameState,
@@ -173,7 +180,18 @@ export function blockingManifestationForCharacterPlay(
         && e.apply.to === 'discard'
         && e.apply.filter !== undefined
         && matchesDefinition(sisterDef, e.apply.filter));
-      if (!sisterLeavesOnPlay) return nameOf(sisterDef);
+      if (sisterLeavesOnPlay) continue;
+      // …or the sister's own `discard-self-when` fires once this character is
+      // in play. Evaluated against a hypothetical context in which the played
+      // character has already joined the in-play characters; a condition over
+      // any other context path simply fails to match, so the sister keeps
+      // blocking (the conservative default).
+      const hypothetical = {
+        charactersInPlayAnywhere: [...charactersInPlayNames(state), nameOf(def)],
+      };
+      const sisterYields = getCardEffects(sisterDef).some(e =>
+        e.type === 'discard-self-when' && matchesCondition(e.condition, hypothetical));
+      if (!sisterYields) return nameOf(sisterDef);
     }
   }
   return null;
@@ -437,12 +455,29 @@ export function getActiveAutoAttacks(
  * Backs the `cancel-attacks-if-character-in-play` site rule (Rhosgobel as-159).
  */
 function isNamedCharacterInPlay(state: GameState, name: string): boolean {
+  return charactersInPlayNames(state).includes(name);
+}
+
+/**
+ * The card names of every character in play, for either player.
+ *
+ * Names rather than definition ids, so all printings of one character count as
+ * the same person (Gandalf is hero Wizard tw-156 and Fallen-wizard wh-4;
+ * Radagast is tw-178 / wh-8). Exposed to the DSL as `charactersInPlayAnywhere`
+ * in the player-state context, which is what lets a card say "discard this card
+ * if <character> comes into play" (Gandalf the White Rider as-11) — the
+ * `inPlay` / `inPlayAnywhere` name lists cover `cardsInPlay` only and never see
+ * characters.
+ */
+export function charactersInPlayNames(state: GameState): readonly string[] {
+  const names: string[] = [];
   for (const player of state.players) {
     for (const char of Object.values(player.characters)) {
-      if (defById(state, char.definitionId)?.name === name) return true;
+      const name = defById(state, char.definitionId)?.name;
+      if (name !== undefined) names.push(name);
     }
   }
-  return false;
+  return names;
 }
 
 /**
