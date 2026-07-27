@@ -1763,9 +1763,41 @@
       {
         "type": "stage-points",
         "value": 3
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Join the Hunt"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Alatar"
+        }
+      },
+      {
+        "type": "fw-item-mp-full",
+        "filter": {
+          "$or": [
+            { "keywords": { "$includes": "weapon" } },
+            { "keywords": { "$includes": "armor" } },
+            { "keywords": { "$includes": "shield" } },
+            { "keywords": { "$includes": "helmet" } }
+          ]
+        }
+      },
+      {
+        "type": "fw-ally-mp-full",
+        "filter": { "prowess": { "$exists": true } }
+      },
+      {
+        "type": "faction-mp-override",
+        "rules": [{ "when": { "faction.race": "elf" }, "value": 2 }]
       }
     ],
-    "text": "Unique. Alatar specific. Playable on Alatar if Join the Hunt is in play. Your weapon/shield/ armor/helmet items are each worth full marshalling points. Your allies with a prowess attribute are each worth full marshalling points. Your Elf factions are each worth 2 marshalling points."
+    "text": "Unique. Alatar specific. Playable on Alatar if Join the Hunt is in play. Your weapon/shield/ armor/helmet items are each worth full marshalling points. Your allies with a prowess attribute are each worth full marshalling points. Your Elf factions are each worth 2 marshalling points.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "minion-resource-event",
