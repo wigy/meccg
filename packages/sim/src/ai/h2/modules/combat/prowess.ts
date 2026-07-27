@@ -28,6 +28,12 @@ export interface StrikeTarget {
   readonly instanceId: CardInstanceId;
   /** Its definition, for the stay-untapped penalty and body. */
   readonly definitionId: string;
+  /**
+   * The card's printed name. Carried on the target because every label a
+   * reader sees is built from it — an explanation that says `p1-107 parries`
+   * is not an explanation.
+   */
+  readonly name: string;
   /** Effective prowess including item modifiers. */
   readonly prowess: number;
   /** Current status. */
@@ -54,7 +60,6 @@ export function strikeTargets(
   cardPool: Readonly<Record<string, CardDefinition>>,
   combat: CombatState,
 ): StrikeTarget[] {
-  void cardPool;
   const company = view.self.companies.find(c => c.id === combat.companyId);
   if (!company) return [];
   const targets: StrikeTarget[] = [];
@@ -64,6 +69,7 @@ export function strikeTargets(
     targets.push({
       instanceId: character.instanceId,
       definitionId: character.definitionId,
+      name: nameOf(cardPool, character.definitionId, character.instanceId),
       prowess: character.effectiveStats.prowess,
       status: character.status,
       isAlly: false,
@@ -72,6 +78,7 @@ export function strikeTargets(
       targets.push({
         instanceId: ally.instanceId,
         definitionId: ally.definitionId,
+        name: nameOf(cardPool, ally.definitionId, ally.instanceId),
         // An ally's effective prowess is not published on the view, so its
         // printed value is used; an instance override (a creature converted by
         // Ready to His Will) is not visible here.
@@ -82,6 +89,16 @@ export function strikeTargets(
     }
   }
   return targets;
+}
+
+/** A card's printed name, falling back to its instance ID if unknown. */
+export function nameOf(
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  definitionId: string,
+  instanceId: CardInstanceId,
+): string {
+  const name = (cardPool[definitionId] as unknown as { name?: string } | undefined)?.name;
+  return name ?? (instanceId as string);
 }
 
 /** The strike prowess a defender must beat, agent rolls included. */

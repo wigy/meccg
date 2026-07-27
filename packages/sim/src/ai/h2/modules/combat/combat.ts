@@ -519,7 +519,7 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
         note: 'each strike lands on the company the previous one left behind',
       }),
       ...opening.map((strike, i) => leaf(
-        `strike ${i + 1} → ${strike.target.instanceId as string}`,
+        `strike ${i + 1} → ${strike.target.name}`,
         strike.need,
         { note: 'projected need on 2d6 along the likeliest line' },
       )),
@@ -587,7 +587,7 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
       const target = targetOfAction(context, action);
       if (!target) return null;
       const { outcomes, detail } = facing(remaining, 'face the attack', target);
-      return evaluationFrom(context, action, `give this strike to ${target.instanceId as string}`,
+      return evaluationFrom(context, action, `give this strike to ${target.name}`,
         outcomes, detail, [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS]);
     }
 
@@ -604,14 +604,14 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
         { need, tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 },
         situationFor(context, target),
       );
-      return evaluationFrom(context, action, `resolve ${target.instanceId as string}'s strike next`,
+      return evaluationFrom(context, action, `resolve ${target.name}'s strike next`,
         raw.map(outcome => ({
           p: outcome.p,
-          label: `${target.instanceId as string}: ${outcome.strike} / ${outcome.character}`,
+          label: `${target.name}: ${outcome.strike} / ${outcome.character}`,
           dtsd: priceProjectedOutcome(context, outcome, target),
         })),
         [
-          leaf('facing', target.instanceId as string),
+          leaf('facing', target.name),
           leaf('projected need on 2d6', need, { note: 'the engine publishes the exact target once the strike is reached' }),
         ],
         [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS,
@@ -621,6 +621,12 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
     default:
       return null;
   }
+}
+
+/** The printed name of a character or ally in the defending company. */
+function nameOfInstance(context: StrikeContext, instanceId: CardInstanceId): string {
+  return strikeTargets(context.view, context.cardPool, context.combat)
+    .find(t => t.instanceId === instanceId)?.name ?? (instanceId as string);
 }
 
 /** The strike target an action names, if it is one of ours. */
@@ -737,7 +743,9 @@ export const combatModule: H2Module = {
           ctx.tunables.tapTempoCost,
           [
             leaf('support bonus', 1, { note: 'CoE 3.iv.4 — +1 prowess, one lower on the die' }),
-            leaf('supporter tapped', supporterId ? (supporterId as string) : 'unknown', { note: 'cannot tap again this site phase' }),
+            leaf('supporter tapped', supporterId ? nameOfInstance(ctx, supporterId) : 'unknown', {
+              note: 'cannot tap again this site phase',
+            }),
           ],
           ['the supported strike is then faced by tapping to fight'],
         );

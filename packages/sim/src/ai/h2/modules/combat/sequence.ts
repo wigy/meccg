@@ -241,7 +241,7 @@ export function resolveSequentially(
 
 /** Short description of one strike's result, for the composite label. */
 function describe(entry: RosterEntry, outcome: StrikeOutcome): string {
-  const who = entry.target.instanceId as string;
+  const who = entry.target.name;
   switch (outcome.character) {
     case 'eliminated': return `${who} eliminated`;
     case 'wounded': return `${who} wounded`;
