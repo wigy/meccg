@@ -1501,10 +1501,23 @@ that player's moving companies. Collecting only from the *active* player's
 `cardsInPlay` means a long-event lingering across the opponent's turn never
 affects the opponent's draws.
 
+`appliesTo` (default `own-companies`) opts a modifier out of that scoping:
+with `any-company` the modifier is also collected from the **opponent's**
+`cardsInPlay`, for cards worded "each moving company …" where the hazard
+player holds the card but the moving player's draws shrink — Smaug at Home
+(td-71).
+
+`min` floors a *reduction*; it never grants a draw. A negative net
+adjustment is additionally clamped to the unmodified count, so "to a
+minimum of one" cannot raise a company's 0 resource draws (no character
+with mind ≥ 3, CoE 2.IV.v) to one.
+
 ```json
 { "type": "draw-modifier", "draw": "hazard", "value": -1, "min": 0 }
 { "type": "draw-modifier", "draw": "resource",
   "value": "sitePath.wildernessCount", "min": 0 }
+{ "type": "draw-modifier", "draw": "resource", "value": -1, "min": 1,
+  "appliesTo": "any-company" }
 ```
 
 A Short Rest (td-95) is a resource long-event: "Each moving company may
@@ -10816,9 +10829,44 @@ Which players are hit is chosen by the optional **`affects`** field:
   cancels any effect that causes a player to search through or look at any
   portion of a play deck or a discard pile outside of the normal sequence of
   play" is narrowed by its own "This card has no effect on a minion player".
+- `"all"` — every player, whatever his alignment. Flotsam and Jetsam (wh-18).
 
 ```json
 { "type": "cancel-deck-search", "affects": "non-minion" }
+```
+
+The standard `when` narrows the cancel further. It is evaluated once per
+*acting* player — the one whose search is about to happen — against
+
+- `player.alignment` — his alignment (`wizard` / `ringwraith` /
+  `fallen-wizard` / `balrog`)
+- `player.minion` — `true` for a Ringwraith or Balrog player
+- `player.playDeckSize` — the number of cards currently in his play deck
+
+Because the gate is re-read at every search, a player slides in and out of the
+cancel as his deck runs down. Flotsam and Jetsam (wh-18) — "If a player has 15
+or fewer cards in his play deck (20 or fewer if a Fallen-wizard), all effects
+are automatically canceled which allow him to search through or look at any
+portion of his play deck or discard pile outside of the normal sequence of
+play" — is `affects: "all"` plus the two-branch threshold:
+
+```json
+{
+  "type": "cancel-deck-search",
+  "affects": "all",
+  "when": {
+    "$or": [
+      { "$and": [
+        { "player.alignment": { "$ne": "fallen-wizard" } },
+        { "player.playDeckSize": { "$lte": 15 } }
+      ] },
+      { "$and": [
+        { "player.alignment": "fallen-wizard" },
+        { "player.playDeckSize": { "$lte": 20 } }
+      ] }
+    ]
+  }
+}
 ```
 
 The card's "Manifestation of Galadriel" line is the `manifestId` chain tag
