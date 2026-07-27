@@ -15,13 +15,14 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildSitePhaseState, resetMint, viableActions,
+  buildSitePhaseState, resetMint, viableActions, dispatch, resolveChain,
   PLAYER_1, RESOURCE_PLAYER,
-  ARAGORN, RANGERS_OF_THE_NORTH,
+  ARAGORN, GANDALF, RANGERS_OF_THE_NORTH,
   BREE,
   CardStatus,
   handCardId, charIdAt,
 } from '../../test-helpers.js';
+import type { GameState } from '../../../types/state.js';
 import type { InfluenceAttemptAction } from '../../../types/actions-site.js';
 
 describe('Rule 6.11 — Playing a Faction', () => {
@@ -58,5 +59,56 @@ describe('Rule 6.11 — Playing a Faction', () => {
 
     const tappedAttempts = viableActions(tappedState, PLAYER_1, 'influence-attempt');
     expect(tappedAttempts).toHaveLength(0);
+  });
+
+  test('losing the influencer before the roll fails the attempt and discards the faction', () => {
+    // The chain deliberately leaves an influence-attempt entry unresolved
+    // while the pending faction-influence-roll awaits the player's commit.
+    // If the influencing character leaves play in that window, the roll can
+    // no longer be made. The attempt must fail and discard the faction —
+    // offering nothing instead strands the chain in `resolving` mode, where
+    // no actions are generated at all, and the game deadlocks with neither
+    // player able to move (seed 90260).
+    const state = buildSitePhaseState({
+      site: BREE,
+      characters: [ARAGORN, GANDALF],
+      hand: [RANGERS_OF_THE_NORTH],
+    });
+
+    const factionInstId = handCardId(state, RESOURCE_PLAYER);
+    const aragornInstId = charIdAt(state, RESOURCE_PLAYER, 0);
+    const attempt = (viableActions(state, PLAYER_1, 'influence-attempt') as { action: InfluenceAttemptAction }[])
+      .find(a => a.action.influencingCharacterId === aragornInstId);
+    expect(attempt).toBeDefined();
+
+    const afterChain = resolveChain(dispatch(state, attempt!.action));
+    expect(viableActions(afterChain, PLAYER_1, 'faction-influence-roll')).toHaveLength(1);
+
+    // Aragorn leaves play before the roll is committed; Gandalf keeps the
+    // company alive so this is purely about the missing influencer.
+    const remaining = { ...afterChain.players[0].characters };
+    delete remaining[aragornInstId];
+    const lostInfluencer: GameState = {
+      ...afterChain,
+      players: [
+        {
+          ...afterChain.players[0],
+          characters: remaining,
+          companies: afterChain.players[0].companies.map(c => ({
+            ...c,
+            characters: c.characters.filter(id => id !== aragornInstId),
+          })),
+        },
+        afterChain.players[1],
+      ],
+    };
+
+    // The game must still offer a way forward rather than deadlocking.
+    const rolls = viableActions(lostInfluencer, PLAYER_1, 'faction-influence-roll');
+    expect(rolls).toHaveLength(1);
+
+    const resolved = dispatch(lostInfluencer, rolls[0].action);
+    expect(resolved.players[0].discardPile.some(c => c.instanceId === factionInstId)).toBe(true);
+    expect(resolved.players[0].cardsInPlay.some(c => c.instanceId === factionInstId)).toBe(false);
   });
 });

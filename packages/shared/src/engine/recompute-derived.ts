@@ -466,6 +466,26 @@ export function buildInPlayNames(state: GameState): readonly string[] {
 }
 
 /**
+ * Build the condition context for a `play-target` `target: "site"` filter.
+ *
+ * The site's own definition fields are exposed at the top level (so existing
+ * filters like `{ "siteType": { "$in": [...] } }` keep working verbatim), plus
+ * an `environment.doorsOfNightInPlay` flag for the very common "…or on X if
+ * Doors of Night is in play" alternative (Doubled Vigilance dm-51). Shared by
+ * the M/H hazard-play emitter and the site-phase on-guard reveal check so both
+ * judge playability on a site identically.
+ */
+export function sitePlayTargetContext(
+  state: GameState,
+  siteDef: CardDefinition,
+): Record<string, unknown> {
+  return {
+    ...(siteDef as unknown as Record<string, unknown>),
+    environment: { doorsOfNightInPlay: buildInPlayNames(state).includes('Doors of Night') },
+  };
+}
+
+/**
  * Applies every in-play `environment-override` effect to a raw in-play-names
  * list. Collects all `considerNotInPlay` / `considerInPlay` names across both
  * players' `cardsInPlay`, removes the former, then adds the latter (additions
