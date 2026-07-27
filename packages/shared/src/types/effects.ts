@@ -1265,11 +1265,26 @@ export interface HandSizeModifierEffect extends EffectBase {
  * Draw-modifiers are collected both from a moving company's characters and
  * from the active player's own in-play events/environments, so a long-event
  * (not carried by any character) can contribute.
+ *
+ * Example: Smaug at Home (td-71) — a hazard permanent-event: "each moving
+ * company draws one less card to a minimum of one", which needs
+ * `appliesTo: 'any-company'` so the opponent's copy reduces the moving
+ * player's draws.
  */
 export interface DrawModifierEffect extends EffectBase {
   readonly type: 'draw-modifier';
   /** Which draw pool to modify. */
   readonly draw: 'hazard' | 'resource';
+  /**
+   * Whose moving companies the modifier reaches. Defaults to
+   * `own-companies`: the effect is only collected from the *active* (moving)
+   * player's characters and `cardsInPlay`, so a lingering long-event never
+   * touches the opponent's draws. `any-company` opts the modifier into being
+   * collected from the opponent's `cardsInPlay` as well — for cards worded
+   * "each moving company …" (Smaug at Home td-71), where the hazard player
+   * holds the card but the moving player's draws shrink.
+   */
+  readonly appliesTo?: 'own-companies' | 'any-company';
   /**
    * The adjustment (negative = fewer draws). Accepts a value expression
    * evaluated against the resolver context, which exposes `sitePath`
