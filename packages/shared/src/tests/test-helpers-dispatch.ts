@@ -5,7 +5,9 @@
  * (dispatch, dispatchResult, actionAs, executeAction), multi-action drivers
  * (runActions, resolveChain), pending-resolution enqueue helpers
  * (enqueueCorruptionCheck, enqueueTransferCorruptionCheck, enqueueGoldRingTest),
- * and setupAutoAttackStep. Split out of test-helpers.ts (re-exported from the
+ * gold-ring test drivers (testGoldRingViaWizard, ringPlayOffer,
+ * offeredRingInstanceIds), and setupAutoAttackStep.
+ * Split out of test-helpers.ts (re-exported from the
  * barrel); imports only engine modules and the base layers, so nothing imports
  * it back (no cycle).
  */
@@ -14,7 +16,7 @@ import { expect } from 'vitest';
 import { reduce } from '../engine/reducer.js';
 import type { ReducerResult } from '../engine/reducer.js';
 import { Phase, computeLegalActions } from '../index.js';
-import type { PlayerId, GameState, CardInstanceId, GameAction, SitePhaseState } from '../index.js';
+import type { PlayerId, GameState, CardInstanceId, GameAction, SitePhaseState, PendingResolution, PlayRingAfterTestAction } from '../index.js';
 import { enqueueResolution } from '../engine/pending.js';
 import { viableActions } from './test-helpers-queries.js';
 
@@ -123,6 +125,59 @@ export function enqueueGoldRingTest(
       rollModifier,
     },
   });
+}
+
+/**
+ * Drive the Rule 9.21 Wizard gold-ring test end to end: activate the player's
+ * single granted action (a Wizard's `test-gold-ring`, which applies
+ * `enqueue-gold-ring-test`), then roll the queued `gold-ring-test` with `total`
+ * cheated in. Returns the state after the roll — by then the gold ring is
+ * discarded and a `ring-play-offer` is queued for the player.
+ *
+ * Asserts the state offers exactly one granted action and one roll, so the
+ * fixture must contain a single Wizard and a single gold ring in his company.
+ */
+export function testGoldRingViaWizard(
+  state: GameState,
+  playerId: PlayerId,
+  total: number,
+): GameState {
+  const grants = viableActions(state, playerId, 'activate-granted-action');
+  expect(grants.length).toBe(1);
+  const afterActivate = dispatch(state, grants[0].action);
+
+  const rolls = viableActions(afterActivate, playerId, 'gold-ring-test-roll');
+  expect(rolls.length).toBe(1);
+  return dispatch({ ...afterActivate, cheatRollTotal: total }, rolls[0].action);
+}
+
+/**
+ * The single `ring-play-offer` pending resolution queued for the player, so
+ * ring-test tests can assert on `eligibleCategories` / `searchCategories`.
+ * Throws if the player's only pending resolution is something else.
+ */
+export function ringPlayOffer(
+  state: GameState,
+  playerId: PlayerId,
+): Extract<PendingResolution['kind'], { type: 'ring-play-offer' }> {
+  const pending = state.pendingResolutions.filter(r => r.actor === playerId);
+  expect(pending.length).toBe(1);
+  if (pending[0].kind.type !== 'ring-play-offer') {
+    throw new Error(`expected ring-play-offer, got ${pending[0].kind.type}`);
+  }
+  return pending[0].kind;
+}
+
+/**
+ * Instance ids of the rings the player may currently play via
+ * `play-ring-after-test` (the rings the gold-ring test actually offered).
+ */
+export function offeredRingInstanceIds(
+  state: GameState,
+  playerId: PlayerId,
+): readonly CardInstanceId[] {
+  return viableActions(state, playerId, 'play-ring-after-test')
+    .map(a => (a.action as PlayRingAfterTestAction).ringInstanceId);
 }
 
 /**

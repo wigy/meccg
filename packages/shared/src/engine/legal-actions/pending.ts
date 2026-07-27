@@ -45,7 +45,7 @@ import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCh
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
 import { asViable as viable } from './evaluated.js';
@@ -1363,6 +1363,11 @@ function applyOneConstraint(
     case 'hand-size-modifier':
       // Consumed directly by `resolveHandSize` — no legal-action filtering needed.
       return base;
+    case 'can-use-palantir':
+      // Consumed directly by `buildGrantActionContext` (Palantír of Elostirion
+      // le-332) when gating the source Palantír's own granted ability — no
+      // broad legal-action filtering needed here.
+      return base;
     case 'creature-attack-boost':
       // Consumed directly by `resolveAttackProwess`/`resolveAttackStrikes` —
       // no legal-action filtering needed here.
@@ -2158,6 +2163,24 @@ export function hazardEventMaintenanceActions(
 }
 
 /**
+ * True when `def` is a unique ring and a card of the same name is already in
+ * play (borne by any character of either player, or in either player's
+ * `cardsInPlay`).
+ *
+ * A ring entering play through a gold-ring test bypasses the site item-play
+ * path, so the uniqueness rule that path enforces has to be repeated here.
+ * Matters for "Unique." rings such as The One Ring (tw-347 / le-326) and the
+ * Dwarven Rings of the tribes: both players may hold a copy, but only one may
+ * ever be in play.
+ */
+function isUniqueRingAlreadyInPlay(state: GameState, def: { readonly name?: string; readonly unique?: boolean }): boolean {
+  if (def.unique !== true || def.name === undefined) return false;
+  if (countCopiesInPlay(state, def.name) === 0) return false;
+  logDetail(`ring-play-offer: ${def.name} is unique and already in play — not offered`);
+  return true;
+}
+
+/**
  * Compute the legal actions for a queued `ring-play-offer` resolution
  * (Rule 9.21). The player may play one special ring card from hand whose
  * category keyword matches an entry in `eligibleCategories`, or pass.
@@ -2191,6 +2214,10 @@ export function ringPlayOfferActions(
     // Find the ring's category from its keywords
     const category = (eligibleCategories as readonly string[]).find(cat => keywords.includes(cat)) as RingCategory | undefined;
     if (!category) continue;
+    // "Unique." (The One Ring tw-347/le-326, the Dwarven rings): a unique ring
+    // cannot enter play while a card of the same name is already in play — the
+    // same rule the site item-play path enforces, applied to the ring-test route.
+    if (isUniqueRingAlreadyInPlay(state, def)) continue;
     // Duplication-limit scope "character": skip if the target character already
     // holds the maximum number of copies of this ring (Rule text "Cannot be
     // duplicated on a given character").
@@ -2237,6 +2264,7 @@ export function ringPlayOfferActions(
         if (!keywords.includes('ring')) continue;
         const category = (searchCategories as readonly string[]).find(cat => keywords.includes(cat)) as RingCategory | undefined;
         if (!category) continue;
+        if (isUniqueRingAlreadyInPlay(state, def)) continue;
         const charDupLimit = findDuplicationLimitEffect(def, 'character');
         if (charDupLimit) {
           const { characterInstanceId } = top.kind as { characterInstanceId: CardInstanceId };

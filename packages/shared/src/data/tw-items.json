@@ -147,7 +147,8 @@
     "keywords": [
       "ring",
       "the-one-ring"
-    ]
+    ],
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-resource-item",
@@ -333,6 +334,9 @@
           "fetchShuffle": true,
           "postCorruptionCheck": true
         }
+      },
+      {
+        "type": "fw-mp-none"
       }
     ],
     "text": "Unique. Palantír. Playable only at Isengard. With its bearer able to use a Palantír and with at least 5 cards in your play deck, tap Palantír of Orthanc to choose one card from your discard pile to place in your play deck (reshuffle the play deck). Bearer makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play.",
@@ -444,6 +448,7 @@
         ]
       }
     ],
+    "certified": "2026-07-27",
     "text": "Discard Precious Gold Ring when tested. If tested, make a roll to determine which ring card may be immediately played: The One Ring (10,11,12+); a Dwarven ring (8,9,10,11,12+); a Magic Ring (1,2,3,4,5); a Lesser Ring (any result)."
   },
   {
@@ -1093,7 +1098,8 @@
     "unique": true,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "dwarven-ring"
     ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
@@ -1113,7 +1119,8 @@
     "unique": true,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "dwarven-ring"
     ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
@@ -1133,7 +1140,8 @@
     "unique": true,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "dwarven-ring"
     ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
@@ -1153,7 +1161,8 @@
     "unique": true,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "dwarven-ring"
     ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
@@ -1173,7 +1182,8 @@
     "unique": true,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "dwarven-ring"
     ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
@@ -1193,7 +1203,8 @@
     "unique": true,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "dwarven-ring"
     ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
@@ -1213,7 +1224,8 @@
     "unique": true,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "dwarven-ring"
     ],
     "marshallingPoints": 4,
     "marshallingCategory": "item",
@@ -1295,7 +1307,34 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "ring-test-table",
+        "table": [
+          {
+            "category": "lesser-ring",
+            "min": null,
+            "max": null
+          },
+          {
+            "category": "magic-ring",
+            "min": 1,
+            "max": 6
+          },
+          {
+            "category": "dwarven-ring",
+            "min": 9,
+            "max": null
+          },
+          {
+            "category": "the-one-ring",
+            "min": 11,
+            "max": null
+          }
+        ]
+      }
+    ],
+    "certified": "2026-07-27",
     "text": "Discard Fair Gold Ring when tested. If tested, make a roll to determine which ring card may be immediately played:• The One Ring (11,12+);• a Dwarven Ring (9,10,11,12+);• a Magic Ring (1,2,3,4,5,6);• a Lesser Ring (any result)."
   },
   {

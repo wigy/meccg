@@ -493,6 +493,30 @@ export interface FallenWizardItemMpEffect extends EffectBase {
 }
 
 /**
+ * Fallen-wizard marshalling-point denial — the mirror of
+ * {@link FallenWizardItemMpEffect}.
+ *
+ * A card carrying this effect gives its controller **no** marshalling points at
+ * all while that controller is a Fallen-wizard, and no other card can change
+ * that: the denial is checked before the MEWH §4 clamp, before any
+ * `fw-item-mp-full` exemption, and before every MP override/pin
+ * (`noncharacter-mp-override`, `nonhaven-company-mp-pin`, the global
+ * `in-play-item-modifier` MP delta). Players of any other alignment score the
+ * card normally.
+ *
+ * Used by the minion Palantír of Elostirion (le-332) and its siblings
+ * (Palantír of Orthanc tw-300 / le-334): "This item does not give MPs to a
+ * Fallen-wizard regardless of other cards in play."
+ *
+ * ```json
+ * { "type": "fw-mp-none" }
+ * ```
+ */
+export interface FallenWizardNoMpEffect extends EffectBase {
+  readonly type: 'fw-mp-none';
+}
+
+/**
  * Fallen-wizard ally marshalling-point exemption (MEWH §4 exception).
  *
  * MEWH §4 clamps every non-stage card a Fallen-wizard controls to a flat **1**
@@ -1307,6 +1331,12 @@ export interface DrawModifierEffect extends EffectBase {
  * from the game." The `removeFromGame` flag routes the spent event card
  * to the player's out-of-play pile instead of the discard pile, so it
  * can never be recurred.
+ *
+ * Doubles as a {@link TriggeredAction} verb, so a `grant-action` `apply`
+ * can draw as well (Palantír of Elostirion le-332: "tap Palantír of
+ * Elostirion to draw a card"). In that role there is no spent event card,
+ * so `removeFromGame` is meaningless and ignored; drawing still stops at
+ * deck exhaustion.
  */
 export interface DrawCardsEffect extends EffectBase {
   readonly type: 'draw-cards';
@@ -1888,6 +1918,7 @@ export type TriggeredActionType =
   | 'place-item-on-character'
   | 'discard-named-in-play'
   | 'discard-target-in-play'
+  | 'draw-cards'
   | 'sauron-sideboard-fetch'
   | 'peek-opponent-hand'
   | 'roll-check'
@@ -2716,6 +2747,7 @@ export type TriggeredAction =
   | PlaceItemOnCharacterAction
   | DiscardNamedInPlayAction
   | DiscardTargetInPlayAction
+  | DrawCardsEffect
   | SauronSideboardFetchAction
   | PeekOpponentHandAction
   | RollDiscardOpponentNonUniqueAllyAction
@@ -6648,6 +6680,7 @@ export type CardEffect =
   | InPlayItemModifierEffect
   | CorruptionSourceMultiplierEffect
   | FallenWizardItemMpEffect
+  | FallenWizardNoMpEffect
   | FallenWizardAllyMpFullEffect
   | FallenWizardCharacterMpFullEffect
   | FallenWizardCharacterAllyMpEffect
