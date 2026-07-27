@@ -3715,11 +3715,16 @@ export function siteEddyLock(
  * `attachedToSite` set models a permanent event that transforms a specific
  * site (Hold Rebuilt and Repaired, as-88 — "Discard this card when the site
  * is discarded or returned to its location deck"). The site is considered
- * gone once no company on either side has a `currentSite` of that definition
- * id (M/H step 8 returns an untapped non-haven origin to the location deck or
- * discards a tapped one). When a bound card is discarded, every active
- * constraint it sourced (the site-type override and the auto-attacks-detainment
- * flag) is cleared so the transformation does not outlive the card.
+ * gone once no company on either side has that definition id as its
+ * `currentSite` **or** its declared `destinationSite` (M/H step 8 returns an
+ * untapped non-haven origin to the location deck or discards a tapped one).
+ * The destination counts because a revealed destination site card is already
+ * on the table during the movement/hazard phase — that is exactly when a
+ * site-targeting *hazard* binds to it (Nature's Revenge wh-27), well before
+ * the company arrives and it becomes the current site. When a bound card is
+ * discarded, every active constraint it sourced (the site-type override and
+ * the auto-attacks-detainment flag) is cleared so the transformation does not
+ * outlive the card.
  *
  * Runs as a post-action sweep alongside {@link discardOrphanedControlledFactions}.
  */
@@ -3758,6 +3763,7 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
   for (const p of state.players) {
     for (const co of p.companies) {
       if (co.currentSite) occupied.add(co.currentSite.definitionId as string);
+      if (co.destinationSite) occupied.add(co.destinationSite.definitionId as string);
     }
   }
 

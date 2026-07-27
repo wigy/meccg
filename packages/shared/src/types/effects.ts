@@ -2176,6 +2176,16 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * as-88, The White Tree tw-348).
    */
   readonly purpose?: string;
+  /**
+   * For a `site-type-override` add-constraint: apply the override to **all
+   * versions** of the bound site — every printing of the same named location
+   * (hero / minion / Fallen-wizard / Balrog), which are distinct definitions
+   * sharing one name — instead of only the definition the card was played on.
+   * Nature's Revenge (wh-27): "All versions of the site become Ruins & Lairs
+   * [{R}]." Emits a `site.name`-scoped constraint filter (see
+   * {@link import('../engine/effective.js').siteConstraintFilterMatches}).
+   */
+  readonly allVersions?: boolean;
   /** Region name for region-type-override (token `"destination"` = active company's destination region). */
   readonly regionName?: string;
   /**
@@ -5904,6 +5914,17 @@ export interface PermanentEventAutoAttackEffect extends EffectBase {
    * automatic-attack"), in addition to any explicit {@link siteIds}.
    */
   readonly siteType?: SiteType;
+  /**
+   * When true, the attack is added to the site this card is **bound to** —
+   * the site chosen when it was played (`CardInPlay.attachedToSite`) — and to
+   * every other printing of that same named location (hero / minion /
+   * Fallen-wizard / Balrog versions are distinct definitions sharing one
+   * name), matching the `allVersions` site-type override. Nature's Revenge
+   * (wh-27): "All versions of the site … each gains an additional
+   * automatic-attack: Animals." Mutually exclusive with a fixed
+   * {@link siteIds} list, which names sites at card-definition time.
+   */
+  readonly boundSite?: boolean;
   /** The attack stats contributed to those sites. */
   readonly attack: {
     readonly creatureType: string;

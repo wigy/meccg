@@ -562,18 +562,30 @@ export function buildSitePhaseState(opts: {
  * by hold-targeting hazard short-event card tests (FEAR! FIRE! FOES! as-29,
  * Arouse Defenders le-101) that must be offered against a moving company whose
  * destination site type matches the card's gate.
+ *
+ * `opts` covers the cases where the moving side is not a plain Wizard company:
+ * `resourceAlignment` sets PLAYER_1's alignment and `origin` its starting site
+ * (e.g. a Fallen-wizard company moving out of Isengard, for hazards that target
+ * a Wizardhaven — Nature's Revenge wh-27).
  */
 export function buildHazardMovingState(
   destination: CardDefinitionId,
   destinationSiteName: string,
   hazardHand: CardDefinitionId[],
   characters: CharacterEntry[] = [ARAGORN],
+  opts?: { resourceAlignment?: Alignment; origin?: CardDefinitionId },
 ): GameState {
   const state = buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.MovementHazard,
     players: [
-      { id: PLAYER_1, companies: [{ site: RIVENDELL, characters, destinationSite: destination }], hand: [], siteDeck: [MORIA] },
+      {
+        id: PLAYER_1,
+        ...(opts?.resourceAlignment ? { alignment: opts.resourceAlignment } : {}),
+        companies: [{ site: opts?.origin ?? RIVENDELL, characters, destinationSite: destination }],
+        hand: [],
+        siteDeck: [MORIA],
+      },
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: hazardHand, siteDeck: [MINAS_TIRITH] },
     ],
   });
