@@ -6882,6 +6882,59 @@ evaluates `siteTypes` against the active company's current site type
 (via `company.siteType` in the `play-target` filter context). Used by
 Lucky Search (tw-269).
 
+#### 32a. After-attack resource window (`step: "after-attack"`)
+
+A **resource permanent-event** may declare
+
+```json
+{ "type": "play-window", "phase": "combat", "step": "after-attack",
+  "when": { "$and": [
+    { "attack.source": { "$in": ["creature", "on-guard-creature"] } },
+    { "enemy.race": { "$in": ["elf", "dunadan", "man"] } } ] } }
+```
+
+for card text of the form "Playable … **immediately after** his company faces a
+&lt;race&gt; hazard creature". Per CoE rule 8.03 a company has "faced" an attack
+once combat is initiated — even if the attack is then canceled — so the window
+opens on **every** way an attack can end.
+
+The trigger lives in `engine/post-attack-play.ts` as a prev/next diff
+(`enqueuePostAttackPlayOffers`, called from `postReduce` in `reducer.ts`), the
+same reactive pattern as `evil-hour` / `discard-on-card-leaves`; hooking the
+`prev.combat → next.combat` transition covers strikes-resolved, canceled-on-the-
+chain, and canceled-by-tap teardowns alike. The optional `when` is matched
+against the ended attack's context — `{ enemy: { race }, attack: { source } }`,
+the same discriminators a `cancel-attack` `when` sees, so one expression can gate
+both a card's play window and the ability it grants.
+
+The window itself is a `post-attack-play-offer` pending resolution owned by the
+defending player: `play-permanent-event` (naming one offered card and a legal
+bearer) plays it, `pass` declines. The play is delegated to the ordinary
+`handlePlayPermanentEvent`, so it routes through the chain — the opponent keeps
+their response window, the `play-target` `cost: { tap: "character" }` is paid on
+resolution, and the card attaches to the chosen character. Bearer eligibility
+(`play-target` character `filter`, plus untapped when a tap cost is declared) is
+recomputed live by `afterAttackPlayTargets`, and a `duplication-limit` scope
+`"company"` closes the window while a copy is already borne in that company.
+
+A permanent-event carrying **any** `play-window` is now offered only in that
+window: both the organization-phase emitter (`legal-actions/organization-events.ts`)
+and the site-phase one (`legal-actions/site.ts`) skip permanent-events whose
+`play-window.phase` is not the current phase.
+
+Used by No News of Our Riding (le-211): "Playable on an untapped character
+immediately after his company faces an Elf, Dúnadan, or Man hazard creature. Tap
+the character. The character can later tap to cancel an Elf, Dúnadan, or Man
+hazard creature attack against his company. Cannot be duplicated in a given
+company." — the window above, a `play-target` character (`target.status:
+"untapped"`, `cost: { tap: "character" }`), `duplication-limit` scope `company`
+max 1, and a `cancel-attack` `cost: { tap: "bearer" }` under the identical attack
+filter. A resource permanent-event played on a character attaches into that
+character's `items`, so the existing in-play-item `cancel-attack` path
+(`legal-actions/combat.ts` → `handleCancelAttackByInPlayItem`) provides the
+"later tap to cancel" with no further engine work: the bearer must be untapped
+and taps, while the card itself stays untapped and in play for later turns.
+
 ### 33. `combat-protection`
 
 Protects the bearing card (typically an ally) from being assigned

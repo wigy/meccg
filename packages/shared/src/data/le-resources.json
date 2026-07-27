@@ -3718,10 +3718,40 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/NoNewsofOurRiding.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on an untapped character immediately after his company faces an Elf, Dúnadan, or Man hazard creature. Tap the character. The character can later tap to cancel an Elf, Dúnadan, or Man hazard creature attack against his company. Cannot be duplicated in a given company."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "combat",
+        "step": "after-attack",
+        "when": {
+          "$and": [
+            { "attack.source": { "$in": ["creature", "on-guard-creature"] } },
+            { "enemy.race": { "$in": ["elf", "dunadan", "man"] } }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.status": "untapped" },
+        "cost": { "tap": "character" }
+      },
+      { "type": "duplication-limit", "scope": "company", "max": 1 },
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "bearer" },
+        "when": {
+          "$and": [
+            { "attack.source": { "$in": ["creature", "on-guard-creature"] } },
+            { "enemy.race": { "$in": ["elf", "dunadan", "man"] } }
+          ]
+        }
+      }
+    ],
+    "text": "Playable on an untapped character immediately after his company faces an Elf, Dúnadan, or Man hazard creature. Tap the character. The character can later tap to cancel an Elf, Dúnadan, or Man hazard creature attack against his company. Cannot be duplicated in a given company.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "minion-resource-event",

@@ -114,6 +114,19 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // (e.g. Wizard's Myrmidon wh-84) must not be offered during the
     // movement/hazard phase, where this function is also consulted under the
     // general "any phase" allowance of rule 2.1.1.
+    // A permanent-event that declares its own `play-window` is offered only in
+    // that window. No News of Our Riding (le-211) declares the after-attack
+    // combat window (`phase: "combat"`, `step: "after-attack"`) and is offered
+    // solely by the `post-attack-play-offer` resolution — never here, in any
+    // phase this emitter is consulted for.
+    const playWindow = getCardEffects(def).find(
+      (e): e is import('../../types/effects.js').PlayWindowEffect => e.type === 'play-window',
+    );
+    if (playWindow && playWindow.phase !== state.phaseState.phase) {
+      logDetail(`Permanent event ${def.name}: play-window restricts it to the ${playWindow.phase} phase (current ${state.phaseState.phase})`);
+      continue;
+    }
+
     const isStageResource = (def as { alignment?: string }).alignment === 'stage';
     if (isStageResource && state.phaseState.phase !== Phase.Organization) {
       logDetail(`Stage permanent-event ${def.name}: only playable during the organization phase (current phase ${state.phaseState.phase})`);
