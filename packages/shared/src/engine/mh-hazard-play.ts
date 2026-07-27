@@ -29,7 +29,7 @@ import { buildMovementMap, getReachableSites } from '../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard } from '../types/cards.js';
-import { CardStatus, RegionType, Skill, Alignment } from '../types/common.js';
+import { CardStatus, RegionType, Skill, Alignment, Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveHandSize } from './effects/index.js';
@@ -2882,7 +2882,7 @@ export function handleReserveCreature(
 
   const creatureDef = def;
   const race = creatureDef.race.toLowerCase();
-  if (race !== 'dragon' && race !== 'drake') {
+  if (race !== Race.Dragon && race !== Race.Drake) {
     return { state, error: `reserve-creature: only Dragon or Drake can be reserved (got ${race})` };
   }
 
@@ -3202,7 +3202,7 @@ export function isCreatureRaceExempt(state: GameState, action: GameAction, def: 
 export function consumeCreatureKeyingBypass(
   state: GameState,
   companyId: CompanyId,
-  race: string,
+  race: Race,
 ): GameState {
   const idx = state.activeConstraints.findIndex(
     c => c.target.kind === 'company'

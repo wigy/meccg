@@ -36,7 +36,7 @@ import {
   makeCancelWindowCombat,
   ARAGORN, FRODO, MORIA, MINAS_TIRITH,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import type { CancelAttackAction, GameState } from '../../index.js';
 
 const DRAGON_HELM = 'dm-167' as CardDefinitionId;
@@ -146,7 +146,7 @@ describe('Dragon-helm (dm-167)', () => {
     });
   }
 
-  function combatVs(creatureDefId: CardDefinitionId, race: string, sourceType: 'creature' | 'automatic-attack' = 'creature'): GameState {
+  function combatVs(creatureDefId: CardDefinitionId, race: Race, sourceType: 'creature' | 'automatic-attack' = 'creature'): GameState {
     const withItem = attachItemToChar(combatBase(), RESOURCE_PLAYER, ARAGORN, DRAGON_HELM);
     return makeCancelWindowCombat(withItem, {
       creatureDefId,
@@ -158,29 +158,29 @@ describe('Dragon-helm (dm-167)', () => {
   }
 
   test('cancel-attack is offered against a Dragon attack (Daelomin)', () => {
-    const state = combatVs(DAELOMIN, 'dragon');
+    const state = combatVs(DAELOMIN, Race.Dragon);
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(1);
     expect((actions[0].action as CancelAttackAction).cardInstanceId).toBe(helmOnChar(state, ARAGORN)!.instanceId);
   });
 
   test('cancel-attack is offered against a Drake attack (Nameless Thing)', () => {
-    const state = combatVs(NAMELESS_THING, 'drake');
+    const state = combatVs(NAMELESS_THING, Race.Drake);
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
   });
 
   test('cancel-attack is offered against a Dragon automatic-attack (e.g. at a Dragon\'s lair)', () => {
-    const state = combatVs(DAELOMIN, 'dragon', 'automatic-attack');
+    const state = combatVs(DAELOMIN, Race.Dragon, 'automatic-attack');
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
   });
 
   test('cancel-attack is NOT offered against a non-Dragon/Drake attack (Orcs)', () => {
-    const state = combatVs(ORC_PATROL_DEF, 'orc');
+    const state = combatVs(ORC_PATROL_DEF, Race.Orc);
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('activating cancels the attack, taps the Helm but NOT the bearer', () => {
-    const state = combatVs(DAELOMIN, 'dragon');
+    const state = combatVs(DAELOMIN, Race.Dragon);
     const [cancel] = viableActions(state, PLAYER_1, 'cancel-attack');
     const after = dispatch(state, cancel.action);
 
@@ -197,13 +197,13 @@ describe('Dragon-helm (dm-167)', () => {
   });
 
   test('cancel-attack is offered even when the bearer is tapped (cost taps the item only)', () => {
-    const base = combatVs(DAELOMIN, 'dragon');
+    const base = combatVs(DAELOMIN, Race.Dragon);
     const state = setCharStatus(base, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
   });
 
   test('cancel-attack is NOT offered when the Helm is already tapped', () => {
-    const base = combatVs(DAELOMIN, 'dragon');
+    const base = combatVs(DAELOMIN, Race.Dragon);
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const char = base.players[RESOURCE_PLAYER].characters[aragornId];
     const tapped: GameState = {

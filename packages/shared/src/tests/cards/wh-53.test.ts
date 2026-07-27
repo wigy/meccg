@@ -46,6 +46,7 @@ import {
   findCharInstanceId, companyIdAt, executeAction, makeShadowMHState,
 } from '../test-helpers.js';
 import type { CombatState, GameState } from '../../index.js';
+import { Race } from '../../index.js';
 
 const MECHANICAL_BOW = 'wh-53' as CardDefinitionId;
 
@@ -111,7 +112,7 @@ function bowCreatureCombat(bearerDefId: CardDefinitionId): GameState {
     strikesTotal: 1,
     strikeProwess: 3,
     creatureBody: 9,
-    creatureRace: 'orc',
+    creatureRace: Race.Orc,
     strikeAssignments: [{ characterId: bearerId, excessStrikes: 0, resolved: false }],
     currentStrikeIndex: 0,
     phase: 'resolve-strike',

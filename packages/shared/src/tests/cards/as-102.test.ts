@@ -40,7 +40,7 @@ import {
   dispatch, expectInDiscardPile,
   resolveChain, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { Alignment } from '../../index.js';
+import { Alignment, Race } from '../../index.js';
 import type { CancelAttackAction, CardDefinitionId } from '../../index.js';
 
 const TORMENTED_EARTH = 'as-102' as CardDefinitionId;
@@ -73,7 +73,7 @@ describe('The Tormented Earth (as-102)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     // One sorcery character → exactly two modes.
@@ -97,7 +97,7 @@ describe('The Tormented Earth (as-102)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
@@ -112,7 +112,7 @@ describe('The Tormented Earth (as-102)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'automatic-attack' });
 
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
@@ -127,7 +127,7 @@ describe('The Tormented Earth (as-102)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'on-guard-creature' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'on-guard-creature' });
 
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(2);
   });
@@ -144,7 +144,7 @@ describe('The Tormented Earth (as-102)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const cancelAction = viableActions(state, PLAYER_1, 'cancel-attack')
       .map(ea => ea.action as CancelAttackAction)
@@ -177,7 +177,7 @@ describe('The Tormented Earth (as-102)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', strikeProwess: 9 });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, strikeProwess: 9 });
 
     const reduceAction = viableActions(state, PLAYER_1, 'cancel-attack')
       .map(ea => ea.action as CancelAttackAction)
@@ -208,7 +208,7 @@ describe('The Tormented Earth (as-102)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const cancelAction = viableActions(state, PLAYER_1, 'cancel-attack')
       .map(ea => ea.action as CancelAttackAction)
@@ -234,7 +234,7 @@ describe('The Tormented Earth (as-102)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', strikeProwess: 8 });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, strikeProwess: 8 });
 
     const reduceAction = viableActions(state, PLAYER_1, 'cancel-attack')
       .map(ea => ea.action as CancelAttackAction)
@@ -259,7 +259,7 @@ describe('The Tormented Earth (as-102)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     // Two copies × two modes = four actions before any is played.
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(4);

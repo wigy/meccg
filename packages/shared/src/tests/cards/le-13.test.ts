@@ -29,6 +29,7 @@ import {
 } from '../test-helpers.js';
 import { computeCombatProwess } from '../../engine/recompute-derived.js';
 import type { CardDefinitionId, CharacterCard } from '../../index.js';
+import { Race } from '../../index.js';
 
 const GULLA = 'le-13' as CardDefinitionId;
 
@@ -61,7 +62,7 @@ describe('Gulla (le-13)', () => {
     const gullaDef = pool[GULLA as string] as CharacterCard;
 
     // Base prowess 5 + 1 bonus = 6
-    expect(computeCombatProwess(state, gulla, gullaDef, 'orc')).toBe(gullaDef.prowess + 1);
+    expect(computeCombatProwess(state, gulla, gullaDef, Race.Orc)).toBe(gullaDef.prowess + 1);
   });
 
   // ── Effect 2: +1 prowess in combat vs Elves ──
@@ -73,7 +74,7 @@ describe('Gulla (le-13)', () => {
     const gullaDef = pool[GULLA as string] as CharacterCard;
 
     // Base prowess 5 + 1 bonus = 6
-    expect(computeCombatProwess(state, gulla, gullaDef, 'elf')).toBe(gullaDef.prowess + 1);
+    expect(computeCombatProwess(state, gulla, gullaDef, Race.Elf)).toBe(gullaDef.prowess + 1);
   });
 
   // ── No bonus against other races ──
@@ -84,9 +85,9 @@ describe('Gulla (le-13)', () => {
     const gulla = state.players[RESOURCE_PLAYER].characters[gullaId];
     const gullaDef = pool[GULLA as string] as CharacterCard;
 
-    expect(computeCombatProwess(state, gulla, gullaDef, 'troll')).toBe(gullaDef.prowess);
-    expect(computeCombatProwess(state, gulla, gullaDef, 'undead')).toBe(gullaDef.prowess);
-    expect(computeCombatProwess(state, gulla, gullaDef, 'dwarf')).toBe(gullaDef.prowess);
-    expect(computeCombatProwess(state, gulla, gullaDef, 'man')).toBe(gullaDef.prowess);
+    expect(computeCombatProwess(state, gulla, gullaDef, Race.Troll)).toBe(gullaDef.prowess);
+    expect(computeCombatProwess(state, gulla, gullaDef, Race.Undead)).toBe(gullaDef.prowess);
+    expect(computeCombatProwess(state, gulla, gullaDef, Race.Dwarf)).toBe(gullaDef.prowess);
+    expect(computeCombatProwess(state, gulla, gullaDef, Race.Man)).toBe(gullaDef.prowess);
   });
 });

@@ -25,7 +25,7 @@
  * `pending*` field; everything cross-cutting routes through this module.
  */
 
-import type { CardInstanceId, CompanyId, PlayerId, CardDefinitionId } from './common.js';
+import type { CardInstanceId, CompanyId, PlayerId, CardDefinitionId, Race } from './common.js';
 import type { GameAction } from './actions.js';
 import type { Phase } from './state-phases.js';
 import type { ActionCost, Condition, TriggeredAction } from './effects.js';
@@ -362,7 +362,7 @@ export interface PendingResolution {
         /** The character making the flattery check. */
         readonly characterInstanceId: CardInstanceId;
         /** Race of the attacking creature. */
-        readonly creatureRace: string;
+        readonly creatureRace: Race;
         /** Roll + modifiers must exceed this for success. */
         readonly threshold: number;
         /** Bonus added when the character has the diplomat skill. */
@@ -1110,8 +1110,8 @@ export interface ActiveConstraint {
          * source the boost is skipped (so the card never boosts itself).
          */
         readonly type: 'creature-attack-boost';
-        /** Creature race that receives the boost (e.g. "undead"). */
-        readonly race: string;
+        /** Creature race that receives the boost (e.g. `"undead"`). */
+        readonly race: Race;
         /** Strike bonus applied to matching creature attacks. */
         readonly strikes: number;
         /** Prowess bonus applied to matching creature attacks. */
@@ -1251,7 +1251,7 @@ export interface ActiveConstraint {
          */
         readonly type: 'creature-type-no-hazard-limit';
         /** The creature race exempted from the hazard limit. */
-        readonly exemptRace: string;
+        readonly exemptRace: Race;
       }
     | {
         /**
@@ -1266,7 +1266,7 @@ export interface ActiveConstraint {
          */
         readonly type: 'creature-keying-bypass';
         /** The creature race whose keying is bypassed. */
-        readonly race: string;
+        readonly race: Race;
         /** How many more creature plays this constraint permits. */
         readonly remainingPlays: number;
       }
@@ -1306,8 +1306,8 @@ export interface ActiveConstraint {
          * `until-cleared`. Removed when the source card leaves play.
          */
         readonly type: 'auto-attack-race-duplicate';
-        /** Creature race whose auto-attacks are duplicated (lowercase, e.g. "undead"). */
-        readonly race: string;
+        /** Creature race whose auto-attacks are duplicated (e.g. `"undead"`). */
+        readonly race: Race;
       }
     | {
         /**
@@ -1719,8 +1719,8 @@ export interface ActiveConstraint {
         readonly strikes: number;
         /** Modifier applied to any character body check the attack produces. */
         readonly bodyCheckModifier: number;
-        /** Lowercase race of the traitor (the attack has the traitor's race per CRF). */
-        readonly race?: string;
+        /** Race of the traitor (the attack has the traitor's race per CRF). */
+        readonly race?: Race;
         /** Definition of the character who became the traitor (name/race for display). */
         readonly traitorDefinitionId: CardDefinitionId;
         /** Controller of the traitor's company (the defending player). */

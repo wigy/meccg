@@ -11,7 +11,7 @@ import { parseConstraintScope } from './constraint-kind.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { CardStatus, cardStatusFromName } from '../types/common.js';
+import { CardStatus, cardStatusFromName, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
@@ -890,7 +890,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       if (company) {
         const charCtx = (charCardDef: CardDefinition) => ({
           target: {
-            race: ('race' in charCardDef ? (charCardDef as { race?: string }).race : undefined) ?? '',
+            race: 'race' in charCardDef ? (charCardDef as { race?: Race }).race : undefined,
             name: (charCardDef?.name) ?? '',
             skills: ('skills' in charCardDef ? (charCardDef as { skills?: readonly string[] }).skills : undefined) ?? [],
             keywords: ('keywords' in charCardDef ? (charCardDef as { keywords?: readonly string[] }).keywords : undefined) ?? [],
@@ -1846,7 +1846,7 @@ function applyShortEventOnEntersPlay(
           if (!ch) continue;
           const cDef = defById(state, ch.definitionId);
           if (!cDef || !isCharacterCard(cDef)) continue;
-          const isRingwraith = cDef.race === 'ringwraith';
+          const isRingwraith = cDef.race === Race.Ringwraith;
           const usesShadowMagic = isRingwraith
             || getEffectiveSkills(state, ch, cDef).includes('shadow-magic');
           if (usesShadowMagic) enablers.push({ id: cid, isRingwraith });

@@ -53,6 +53,7 @@ import type { CardDefinitionId, CardInPlay } from '../../index.js';
 import { reduce } from '../../engine/reducer.js';
 import { resolveAttackBody } from '../../engine/effects/index.js';
 import { buildInPlayNames } from '../../engine/recompute-derived.js';
+import { Race } from '../../index.js';
 
 const SWARM_OF_BATS = 'le-237' as CardDefinitionId;
 
@@ -317,8 +318,8 @@ describe('Swarm of Bats (le-237)', () => {
 
     // Verify that resolveAttackBody subtracts 1 for the bound company
     const inPlayNames = buildInPlayNames(withSwarm);
-    const bodyWithSwarm = resolveAttackBody(withSwarm, 8, inPlayNames, 'orc', { companyId: compId });
-    const bodyWithout = resolveAttackBody(base, 8, inPlayNames, 'orc', { companyId: compId });
+    const bodyWithSwarm = resolveAttackBody(withSwarm, 8, inPlayNames, Race.Orc, { companyId: compId });
+    const bodyWithout = resolveAttackBody(base, 8, inPlayNames, Race.Orc, { companyId: compId });
 
     expect(bodyWithout).toBe(8);    // baseline
     expect(bodyWithSwarm).toBe(7);  // reduced by 1
@@ -335,7 +336,7 @@ describe('Swarm of Bats (le-237)', () => {
     const withSwarm = addSwarmToP1Company(base);
 
     const inPlayNames = buildInPlayNames(withSwarm);
-    const body = resolveAttackBody(withSwarm, 8, inPlayNames, 'orc', { companyId: p2CompId });
+    const body = resolveAttackBody(withSwarm, 8, inPlayNames, Race.Orc, { companyId: p2CompId });
     expect(body).toBe(8); // Swarm is on P1's company, not P2's
   });
 

@@ -35,7 +35,7 @@ import {
   getCharacter, RESOURCE_PLAYER,
   pool,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import type { InfluenceAttemptAction, CorruptionCheckAction, CardDefinitionId, CharacterCard } from '../../index.js';
 import {
   collectCharacterEffects,
@@ -73,7 +73,7 @@ describe('Dori (tw-141)', () => {
         baseDirectInfluence: doriDef.directInfluence,
         name: doriDef.name,
       },
-      enemy: { race: 'orc', name: 'Orc Guard', prowess: 4, body: null },
+      enemy: { race: Race.Orc, name: 'Orc Guard', prowess: 4, body: null },
     };
 
     const effects = collectCharacterEffects(state, doriChar, ctx);
@@ -94,7 +94,7 @@ describe('Dori (tw-141)', () => {
 
     const doriChar = getCharacter(state, RESOURCE_PLAYER, DORI);
     const doriDef = pool[DORI as string] as CharacterCard;
-    const makeCtx = (race: string): ResolverContext => ({
+    const makeCtx = (race: Race): ResolverContext => ({
       reason: 'combat',
       bearer: {
         race: doriDef.race,
@@ -107,7 +107,7 @@ describe('Dori (tw-141)', () => {
       enemy: { race, name: 'Creature', prowess: 4, body: null },
     });
 
-    for (const race of ['troll', 'undead', 'wolf']) {
+    for (const race of [Race.Troll, Race.Undead, Race.Wolf]) {
       const ctx = makeCtx(race);
       const effects = collectCharacterEffects(state, doriChar, ctx);
       const bonus = resolveStatModifiers(effects, 'prowess', 0, ctx);

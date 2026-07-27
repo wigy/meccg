@@ -35,7 +35,7 @@ import {
   dispatch, expectInDiscardPile,
   resolveChain, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { Alignment, CardStatus } from '../../index.js';
+import { Alignment, CardStatus, Race } from '../../index.js';
 import type { CancelAttackAction, CardDefinitionId, GameState } from '../../index.js';
 
 const EYE_NEVER_SLEEPING = 'as-82' as CardDefinitionId;
@@ -81,7 +81,7 @@ describe('Eye Never Sleeping (as-82)', () => {
 
   test('offered while playing as Sauron against a hazard creature attack', () => {
     const base = asSauron(minionBase(Phase.MovementHazard));
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(1);
@@ -93,21 +93,21 @@ describe('Eye Never Sleeping (as-82)', () => {
 
   test('NOT offered when the player is not Sauron', () => {
     const base = minionBase(Phase.MovementHazard);
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('NOT offered against an automatic-attack even as Sauron', () => {
     const base = asSauron(minionBase(Phase.MovementHazard));
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'automatic-attack' });
 
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('offered against an on-guard creature (still a hazard creature attack)', () => {
     const base = asSauron(minionBase(Phase.MovementHazard));
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'on-guard-creature' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'on-guard-creature' });
 
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
   });
@@ -116,7 +116,7 @@ describe('Eye Never Sleeping (as-82)', () => {
 
   test('cancel discards the card and cancels the attack via the chain, at no cost', () => {
     const base = asSauron(minionBase(Phase.MovementHazard));
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const action = viableActions(state, PLAYER_1, 'cancel-attack')[0].action as CancelAttackAction;
     const declared = dispatch(state, action);

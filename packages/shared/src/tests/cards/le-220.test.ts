@@ -37,7 +37,7 @@ import {
   viableActions, findAction, dispatch,
   charIdAt, companyIdAt,
 } from '../test-helpers.js';
-import { CardStatus, computeLegalActions } from '../../index.js';
+import { CardStatus, computeLegalActions, Race } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, CombatState, ConvertCreatureToAllyAction } from '../../index.js';
 
 const READY_TO_HIS_WILL = 'le-220' as CardDefinitionId;
@@ -54,7 +54,7 @@ describe('Ready to His Will (le-220)', () => {
 
   test('offered against an eligible 1-strike Orc/Troll/Giant/Slayer/Man creature', () => {
     const { state } = buildRingwraithCreatureCombat({
-      creatureDefId: GIANT, creatureRace: 'giant', characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
+      creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
     });
     const actions = viableActions(state, PLAYER_1, 'convert-creature-to-ally');
     expect(actions).toHaveLength(1);
@@ -64,7 +64,7 @@ describe('Ready to His Will (le-220)', () => {
 
   test('one action per untapped character; tapped characters are excluded', () => {
     const { state } = buildRingwraithCreatureCombat({
-      creatureDefId: GIANT, creatureRace: 'giant', characters: [ORC_BRAWLER, MUZGASH], hand: [READY_TO_HIS_WILL],
+      creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER, MUZGASH], hand: [READY_TO_HIS_WILL],
     });
     // Both untapped → two controller choices.
     expect(viableActions(state, PLAYER_1, 'convert-creature-to-ally')).toHaveLength(2);
@@ -85,21 +85,21 @@ describe('Ready to His Will (le-220)', () => {
 
   test('NOT offered against a creature with more than one strike', () => {
     const { state } = buildRingwraithCreatureCombat({
-      creatureDefId: ORC_PATROL, creatureRace: 'orc', characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
+      creatureDefId: ORC_PATROL, creatureRace: Race.Orc, characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
     });
     expect(viableActions(state, PLAYER_1, 'convert-creature-to-ally')).toHaveLength(0);
   });
 
   test('NOT offered against an ineligible race (undead)', () => {
     const { state } = buildRingwraithCreatureCombat({
-      creatureDefId: BARROW_WIGHT, creatureRace: 'undead', characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
+      creatureDefId: BARROW_WIGHT, creatureRace: Race.Undead, characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
     });
     expect(viableActions(state, PLAYER_1, 'convert-creature-to-ally')).toHaveLength(0);
   });
 
   test('NOT offered to the attacking (hazard) player', () => {
     const { state } = buildRingwraithCreatureCombat({
-      creatureDefId: GIANT, creatureRace: 'giant', characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
+      creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
     });
     expect(viableActions(state, PLAYER_2, 'convert-creature-to-ally')).toHaveLength(0);
   });
@@ -108,7 +108,7 @@ describe('Ready to His Will (le-220)', () => {
 
   test('converts the creature into a controlled ally, taps the controller, ends combat', () => {
     const { state, creatureInstanceId } = buildRingwraithCreatureCombat({
-      creatureDefId: GIANT, creatureRace: 'giant', characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
+      creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
     });
     const controllerId = charIdAt(state, RESOURCE_PLAYER);
 
@@ -140,7 +140,7 @@ describe('Ready to His Will (le-220)', () => {
 
   test('places the event card with the creature and scores 1 ally marshalling point', () => {
     const { state, creatureInstanceId } = buildRingwraithCreatureCombat({
-      creatureDefId: GIANT, creatureRace: 'giant', characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
+      creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
     });
     const action = findAction<ConvertCreatureToAllyAction>(state, PLAYER_1, 'convert-creature-to-ally');
     const after = dispatch(state, action!);
@@ -161,7 +161,7 @@ describe('Ready to His Will (le-220)', () => {
 
   test('converted ally fights at its overridden prowess (creature prowess − 7)', () => {
     const { state, creatureInstanceId } = buildRingwraithCreatureCombat({
-      creatureDefId: GIANT, creatureRace: 'giant', characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
+      creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER], hand: [READY_TO_HIS_WILL],
     });
     const action = findAction<ConvertCreatureToAllyAction>(state, PLAYER_1, 'convert-creature-to-ally');
     const converted = dispatch(state, action!);
@@ -178,7 +178,7 @@ describe('Ready to His Will (le-220)', () => {
       strikesTotal: 1,
       strikeProwess: 9,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: creatureInstanceId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',

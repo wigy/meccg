@@ -69,7 +69,7 @@ import {
   makeCancelWindowCombat, LORIEN, MINAS_TIRITH,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, Phase,
 } from '../test-helpers.js';
-import { Alignment } from '../../index.js';
+import { Alignment, Race } from '../../index.js';
 import type { CardDefinitionId, CancelAttackAction, PlayShortEventAction, GameState } from '../../index.js';
 
 const AKHORAHIL = 'le-51' as CardDefinitionId;
@@ -128,7 +128,7 @@ function cancelWindow(hand: CardDefinitionId[]): GameState {
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
     ],
   });
-  return makeCancelWindowCombat(base, { creatureRace: 'orc' });
+  return makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 }
 
 describe('Akhôrahil the Ringwraith (le-51)', () => {

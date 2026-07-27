@@ -25,7 +25,7 @@ import {
   handCardId, companyIdAt, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
   buildSitePhaseTwoPlayer, placeOnGuard,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, SiteType } from '../../index.js';
+import { computeLegalActions, Phase, SiteType, Race } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
 
 const ESCAPE = 'tw-229' as CardDefinitionId;
@@ -193,7 +193,7 @@ describe('Orc-lieutenant (tw-073)', () => {
     // The company faces a Hobgoblins (Orc) attack, paused in the cancel window.
     const cancelWindow = makeCancelWindowCombat(base, {
       creatureDefId: HOBGOBLINS,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
     });
     const inCombat = {
       ...cancelWindow,

@@ -123,6 +123,9 @@ export function playGame(options: PlayGameOptions): GameRunResult {
   const describeTopN = options.describeTopN ?? 8;
   const observers = options.observers ?? [];
   setEngineConsoleLog(options.engineLog ?? false);
+  // Agents are reused across games by the tournament and gate harnesses;
+  // give each one the chance to drop per-game memory before we start.
+  for (const agent of options.agents) agent.startGame?.();
 
   const playerIds: [PlayerId, PlayerId] = ['p1' as PlayerId, 'p2' as PlayerId];
   const names: [string, string] = [
