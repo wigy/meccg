@@ -2796,7 +2796,22 @@
       {
         "site": "Lossadan Cairn"
       }
-    ]
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": { "controller.inPlay": "Ice-orcs" }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": { "controller.inPlay": "Misty Mountain Wargs" }
+      }
+    ],
+    "certified": "2026-07-27"
   },
   {
     "cardType": "minion-resource-faction",
@@ -3718,10 +3733,40 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/NoNewsofOurRiding.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on an untapped character immediately after his company faces an Elf, Dúnadan, or Man hazard creature. Tap the character. The character can later tap to cancel an Elf, Dúnadan, or Man hazard creature attack against his company. Cannot be duplicated in a given company."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "combat",
+        "step": "after-attack",
+        "when": {
+          "$and": [
+            { "attack.source": { "$in": ["creature", "on-guard-creature"] } },
+            { "enemy.race": { "$in": ["elf", "dunadan", "man"] } }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.status": "untapped" },
+        "cost": { "tap": "character" }
+      },
+      { "type": "duplication-limit", "scope": "company", "max": 1 },
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "bearer" },
+        "when": {
+          "$and": [
+            { "attack.source": { "$in": ["creature", "on-guard-creature"] } },
+            { "enemy.race": { "$in": ["elf", "dunadan", "man"] } }
+          ]
+        }
+      }
+    ],
+    "text": "Playable on an untapped character immediately after his company faces an Elf, Dúnadan, or Man hazard creature. Tap the character. The character can later tap to cancel an Elf, Dúnadan, or Man hazard creature attack against his company. Cannot be duplicated in a given company.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "minion-resource-event",
@@ -4568,13 +4613,36 @@
     "marshallingCategory": "faction",
     "influenceNumber": 12,
     "race": "dragon",
+    "manifestId": "td-63",
     "playableAt": [
       {
-        "site": "Zarak"
+        "site": "Zarak Dûm"
       }
     ],
-    "effects": [],
-    "text": "Unique. Manifestation of Scorba. Playable at Zarak Dûm if the influence check is greater than 11. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Scorba against any of your companies are canceled. Any company moving in Angmar, Gundabad, and/or Forochel faces one attack: Dragon — 3 strikes at 12/8 (attacker chooses defending characters)."
+    "effects": [
+      {
+        "type": "influence-modification",
+        "options": [
+          { "discardItemSubtype": "major", "value": 3 },
+          { "discardItemSubtype": "greater", "value": 6 }
+        ]
+      },
+      {
+        "type": "cancel-manifestation-attacks",
+        "manifestId": "td-63"
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": ["Angmar", "Gundabad", "Forochel"],
+        "strikes": 3,
+        "prowess": 12,
+        "body": 8,
+        "race": "dragon",
+        "combatRules": ["attacker-chooses-defenders"]
+      }
+    ],
+    "text": "Unique. Manifestation of Scorba. Playable at Zarak Dûm if the influence check is greater than 11. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Scorba against any of your companies are canceled. Any company moving in Angmar, Gundabad, and/or Forochel faces one attack: Dragon — 3 strikes at 12/8 (attacker chooses defending characters).",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "minion-resource-faction",
