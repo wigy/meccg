@@ -2855,10 +2855,10 @@ export function startDeckExhaust(state: GameState, playerIndex: 0 | 1): GameStat
  * Fires `play-deck-exhausted` — discards any permanent event that declares
  * `on-event: play-deck-exhausted` with a self-discard `move` apply, whether it
  * sits in either player's `cardsInPlay` (Safe from the Shadow, Tokens to Show)
- * or is attached to a character as an item / hazard (Fool's Bane wh-19, a
- * hazard permanent-event played on the opponent's Fallen-wizard). An attached
- * card returns to *its owner's* discard pile, so an opponent-owned hazard goes
- * back to the opponent's pile.
+ * or is attached to a character as an item / hazard (Fool's Bane wh-19 and
+ * Cruel Claw Perceived wh-16, both hazard permanent-events played on the
+ * opponent's avatar). An attached card returns to *its owner's* discard pile,
+ * so an opponent-owned hazard goes back to the opponent's pile.
  */
 export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameState {
   const player = state.players[playerIndex];

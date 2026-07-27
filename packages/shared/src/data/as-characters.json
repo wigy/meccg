@@ -335,6 +335,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/Mauhur.jpg",
     "unique": true,
     "race": "orc",
+    "keywords": [
+      "leader"
+    ],
     "skills": [
       "warrior"
     ],
@@ -342,10 +345,33 @@
     "body": 9,
     "mind": 5,
     "directInfluence": 0,
+    "discardBodyCheck": [
+      9
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "character",
     "homesite": "Dol Guldur",
-    "effects": [],
-    "text": "Unique. Leader. Discard on a body check result of 9. +2 direct influence against Orcs and Orc factions."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      }
+    ],
+    "text": "Unique. Leader. Discard on a body check result of 9. +2 direct influence against Orcs and Orc factions.",
+    "certified": "2026-07-27"
   }
 ]

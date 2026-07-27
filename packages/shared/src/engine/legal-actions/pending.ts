@@ -47,6 +47,7 @@ import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, defById, findHazardMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, siteRegionTypeOf } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
+import { afterAttackPlayTargets } from '../post-attack-play.js';
 import { asViable as viable } from './evaluated.js';
 
 
@@ -2640,4 +2641,52 @@ export function greatHuntDiscardAttackActions(
     { action: { type: 'great-hunt-attack-with-creature' as const, player: actor, creatureInstanceId }, viable: true },
     { action: { type: 'pass' as const, player: actor }, viable: true },
   ];
+}
+
+/**
+ * Legal actions while a `post-attack-play-offer` resolution is pending (No News
+ * of Our Riding le-211): the defending player may play one of the matched
+ * resource permanent-events from hand on an eligible character of the company
+ * that just faced the attack, or decline with `pass` ("Playable …" is optional).
+ *
+ * One `play-permanent-event` action per (matched card × legal bearer). The
+ * bearer set is recomputed live via {@link afterAttackPlayTargets}, so a
+ * character tapped between the attack ending and the choice is no longer
+ * offered.
+ */
+export function postAttackPlayOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'post-attack-play-offer') return [];
+  const { companyId, cardInstanceIds } = top.kind;
+  const actions: EvaluatedAction[] = [];
+
+  const player = playerById(state, actor);
+  const company = player ? companyById(player.companies, companyId) : undefined;
+  if (player && company) {
+    for (const cardInstanceId of cardInstanceIds) {
+      const handCard = player.hand.find(c => c.instanceId === cardInstanceId);
+      if (!handCard) continue;
+      const def = defById(state, handCard.definitionId);
+      if (!def) continue;
+      for (const charId of afterAttackPlayTargets(state, player, company, def)) {
+        logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable on ${cardName(state, player.characters[charId].definitionId, '?')}`);
+        actions.push({
+          action: {
+            type: 'play-permanent-event' as const,
+            player: actor,
+            cardInstanceId,
+            targetCharacterId: charId,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+
+  // "Playable on …" — the window is optional and always declinable.
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+  return actions;
 }

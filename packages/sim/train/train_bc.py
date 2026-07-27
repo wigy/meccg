@@ -55,6 +55,12 @@ MAX_ZONE_ROWS = 16  # zone ids are small integers; leave headroom
 
 DIM_PRESETS = {
     # d_card, d_type, d_zone, d_entity, d_global, d_state, d_cand, d_score
+    # "full" is the historical default at ~47k parameters. More than half of
+    # that is the card embedding table alone (1684 x d_card), so the parts
+    # that actually reason — torso, scorer, value head — are very small for a
+    # game with 1683 distinct cards. "large" roughly quadruples the reasoning
+    # capacity while keeping card embeddings affordable.
+    "large": (24, 24, 12, 64, 64, 128, 64, 128),
     "full": (16, 16, 8, 32, 32, 64, 32, 64),
     "mini": (4, 4, 2, 8, 8, 16, 8, 16),
 }
