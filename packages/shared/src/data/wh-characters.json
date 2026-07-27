@@ -499,7 +499,34 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Isengard",
-    "effects": [],
-    "text": "Unique. Uruk-hai. Leader. Discard on a body check result of 9. +3 direct influence against Orcs and Orc factions."
+    "keywords": [
+      "leader",
+      "uruk-hai"
+    ],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "orc"
+        }
+      }
+    ],
+    "text": "Unique. Uruk-hai. Leader. Discard on a body check result of 9. +3 direct influence against Orcs and Orc factions.",
+    "discardBodyCheck": [
+      9
+    ],
+    "certified": "2026-07-27"
   }
 ]
