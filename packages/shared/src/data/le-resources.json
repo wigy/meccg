@@ -4613,13 +4613,36 @@
     "marshallingCategory": "faction",
     "influenceNumber": 12,
     "race": "dragon",
+    "manifestId": "td-63",
     "playableAt": [
       {
-        "site": "Zarak"
+        "site": "Zarak Dûm"
       }
     ],
-    "effects": [],
-    "text": "Unique. Manifestation of Scorba. Playable at Zarak Dûm if the influence check is greater than 11. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Scorba against any of your companies are canceled. Any company moving in Angmar, Gundabad, and/or Forochel faces one attack: Dragon — 3 strikes at 12/8 (attacker chooses defending characters)."
+    "effects": [
+      {
+        "type": "influence-modification",
+        "options": [
+          { "discardItemSubtype": "major", "value": 3 },
+          { "discardItemSubtype": "greater", "value": 6 }
+        ]
+      },
+      {
+        "type": "cancel-manifestation-attacks",
+        "manifestId": "td-63"
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": ["Angmar", "Gundabad", "Forochel"],
+        "strikes": 3,
+        "prowess": 12,
+        "body": 8,
+        "race": "dragon",
+        "combatRules": ["attacker-chooses-defenders"]
+      }
+    ],
+    "text": "Unique. Manifestation of Scorba. Playable at Zarak Dûm if the influence check is greater than 11. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Scorba against any of your companies are canceled. Any company moving in Angmar, Gundabad, and/or Forochel faces one attack: Dragon — 3 strikes at 12/8 (attacker chooses defending characters).",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "minion-resource-faction",
