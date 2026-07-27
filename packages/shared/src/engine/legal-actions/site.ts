@@ -19,12 +19,12 @@ import { isSiteCard, isItemCard, isAllyCard, isFactionCard, isCharacterCard, isA
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite } from '../reducer-utils.js';
 import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { availableDI, grantedActionActivations, inPlayFactionGrantActions, playResourceShortEventActions, buildPlayerStateContext, buildActiveCompanyContext } from './organization.js';
+import { availableDI, normalUnusedDI, grantedActionActivations, inPlayFactionGrantActions, playResourceShortEventActions, buildPlayerStateContext, buildActiveCompanyContext } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -1919,6 +1919,12 @@ function playResourcesActions(
         continue;
       }
 
+      // Webs of Fear & Treachery (le-150): while a nullifying event is in play,
+      // every card-sourced modification to an influence attempt is worth zero —
+      // only unused general influence and unused *normal* direct influence
+      // (printed DI plus the influencer's own card-text modifications) count.
+      const nullifyMods = influenceModificationsNullified(state);
+
       // One action per influencer (character or influencing ally)
       for (const ch of factionInfluencers) {
         const charDef = defById(state, ch.definitionId);
@@ -1931,11 +1937,6 @@ function playResourcesActions(
         const infParts: string[] = [`influence # ${factionDef.influenceNumber}`];
         const fullCharacter = player.characters[ch.instanceId];
         if (fullCharacter && charDef && isCharacterCard(charDef)) {
-          // Use free DI (total DI minus mind cost of followers), not the raw card stat
-          const freeDI = availableDI(state, ch.instanceId, player);
-          infModifier += freeDI;
-          infParts.push(`DI ${freeDI}`);
-
           // DSL effects
           const resolverCtx: ResolverContext = {
             reason: 'faction-influence-check',
@@ -1975,14 +1976,32 @@ function playResourcesActions(
               charEffects.push({ effect, sourceDef: factionDef, sourceInstance: cardInstanceId });
             }
           }
-          const dslMod = resolveCheckModifier(charEffects, 'influence');
+          // Under nullification only the influencer's OWN card text survives;
+          // items, attached hazards, allies, other in-play events and the
+          // faction's own printed modifications all contribute zero.
+          const ownEffects = charEffects.filter(e => e.sourceInstance === ch.instanceId);
+
+          // Unused direct influence. Normally the effective value (DI granted
+          // by rings and other cards included); under nullification the
+          // *normal* one — printed DI plus his own card-text modifications.
+          const freeDI = nullifyMods
+            ? normalUnusedDI(state, ch.instanceId, player, ownEffects, resolverCtx)
+            : availableDI(state, ch.instanceId, player);
+          infModifier += freeDI;
+          infParts.push(nullifyMods ? `normal DI ${freeDI}` : `DI ${freeDI}`);
+
+          const dslMod = resolveCheckModifier(nullifyMods ? ownEffects : charEffects, 'influence');
           if (dslMod !== 0) {
             infModifier += dslMod;
             infParts.push(`check bonus ${formatSignedNumber(dslMod)}`);
           }
 
-          // Resolve stat-modifier effects on direct-influence (e.g. Glorfindel +1 DI vs elf factions)
-          const dslDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+          // Resolve stat-modifier effects on direct-influence (e.g. Glorfindel
+          // +1 DI vs elf factions). Under nullification the influencer's own
+          // ones are already inside `freeDI` and everyone else's are zeroed.
+          const dslDI = nullifyMods
+            ? 0
+            : resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
           if (dslDI !== 0) {
             infModifier += dslDI;
             infParts.push(`DI bonus ${formatSignedNumber(dslDI)}`);
@@ -2001,13 +2020,15 @@ function playResourcesActions(
           const influencerIsMinion = player.alignment === 'ringwraith';
           const { modifier: restrictionMod, blockedCardNames: blockedBoosts } =
             collectFactionInfluenceRestriction(state, siteDefForFaction.region, influencerIsMinion);
-          if (restrictionMod !== 0) {
+          if (restrictionMod !== 0 && !nullifyMods) {
             infModifier += restrictionMod;
             infParts.push(`region restriction ${formatSignedNumber(restrictionMod)}`);
           }
 
-          // One-shot check-modifier constraints for influence (e.g. Muster)
-          for (const constraint of state.activeConstraints) {
+          // One-shot check-modifier constraints for influence (e.g. Muster).
+          // Nullified ones are still listed as "will be consumed" by the roll,
+          // but change the need by nothing.
+          for (const constraint of nullifyMods ? [] : state.activeConstraints) {
             if (constraint.kind.type !== 'check-modifier') continue;
             if (constraint.kind.check !== 'influence') continue;
             if (constraint.target.kind !== 'character') continue;
@@ -2030,7 +2051,7 @@ function playResourcesActions(
           // "+2 to all influence attempts this turn by any of your characters").
           // Applies to every influence check by any character of the targeted
           // player; not consumed.
-          for (const constraint of state.activeConstraints) {
+          for (const constraint of nullifyMods ? [] : state.activeConstraints) {
             if (constraint.kind.type !== 'check-modifier') continue;
             if (constraint.kind.check !== 'influence') continue;
             if (constraint.target.kind !== 'player') continue;
@@ -2042,7 +2063,7 @@ function playResourcesActions(
           // Site-wide influence modifiers (Blasting Fire wh-51): every
           // influence attempt against a faction at the company's current
           // site is modified for the rest of the turn.
-          const currentSiteDefId = company.currentSite?.definitionId;
+          const currentSiteDefId = nullifyMods ? undefined : company.currentSite?.definitionId;
           if (currentSiteDefId) {
             for (const constraint of state.activeConstraints) {
               if (constraint.kind.type !== 'influence-at-site-modifier') continue;
@@ -2064,11 +2085,13 @@ function playResourcesActions(
           // its printed direct influence, plus the player-/site-scoped influence
           // modifiers that apply to any influencer (not per-character DSL bonuses,
           // which an ally does not carry).
+          // Its printed DI is its "normal" direct influence, so it survives
+          // nullification; the surrounding modifiers do not.
           const allyDI = charDef.directInfluence ?? 0;
           infModifier += allyDI;
           infParts.push(`DI ${allyDI}`);
 
-          for (const constraint of state.activeConstraints) {
+          for (const constraint of nullifyMods ? [] : state.activeConstraints) {
             if (constraint.kind.type !== 'check-modifier') continue;
             if (constraint.kind.check !== 'influence') continue;
             if (constraint.target.kind !== 'player') continue;
@@ -2077,7 +2100,7 @@ function playResourcesActions(
             infParts.push(`player-wide bonus ${formatSignedNumber(constraint.kind.value)}`);
           }
 
-          const allySiteDefId = company.currentSite?.definitionId;
+          const allySiteDefId = nullifyMods ? undefined : company.currentSite?.definitionId;
           if (allySiteDefId) {
             for (const constraint of state.activeConstraints) {
               if (constraint.kind.type !== 'influence-at-site-modifier') continue;
@@ -2096,11 +2119,14 @@ function playResourcesActions(
         // Game-wide ongoing influence modifier from a bare in-play event owned
         // by either player (Times Are Evil td-76: "All … influence attempts are
         // modified by -3"). Applies to every influence attempt.
-        const globalInfMod = collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
+        const globalInfMod = nullifyMods
+          ? 0
+          : collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
         if (globalInfMod !== 0) {
           infModifier += globalInfMod;
           infParts.push(`game-wide ${formatSignedNumber(globalInfMod)}`);
         }
+        if (nullifyMods) infParts.push('all other modifications nullified');
 
         const infNeed = autoInf ? 0 : factionDef.influenceNumber - infModifier;
 
@@ -2123,7 +2149,10 @@ function playResourcesActions(
         // influencer discards a major item (+3) or a greater item (+6)." Offer
         // one extra influence-attempt per eligible carried item — the influencer
         // may pay the discard to lower the (very high) need.
-        const infMod = factionDef.effects?.find(
+        // Not offered while modifications are nullified (le-150): the paid
+        // bonus would be reduced to zero, so the item would be discarded for
+        // nothing.
+        const infMod = nullifyMods ? undefined : factionDef.effects?.find(
           (e): e is Extract<CardEffect, { type: 'influence-modification' }> => e.type === 'influence-modification',
         );
         if (infMod) {
@@ -2552,6 +2581,27 @@ function opponentInfluenceActions(
     })
     : undefined;
 
+  // Webs of Fear & Treachery (le-150): while a nullifying event is in play the
+  // displayed contributions collapse to the *normal* unused direct influence on
+  // both sides — the same values `reducer-site.ts` will use when the attempt is
+  // actually resolved. `target` identifies the card being influenced so the
+  // influencer's own card-text modifications (which survive) can be gated.
+  const nullifyMods = influenceModificationsNullified(state);
+  const unusedDIFor = (
+    ownerPlayer: typeof player,
+    charInstanceId: import('../../types/common.js').CardInstanceId,
+    target?: { readonly kind: string; readonly race: string; readonly name: string },
+  ): number => {
+    if (!nullifyMods) return availableDI(state, charInstanceId, ownerPlayer);
+    const fullChar = ownerPlayer.characters[charInstanceId];
+    if (!fullChar) return 0;
+    const ctx: ResolverContext = { reason: 'opponent-influence-check', ...(target ? { target } : {}) };
+    const own = collectCharacterEffects(state, fullChar, ctx)
+      .filter(e => e.sourceInstance === charInstanceId);
+    return normalUnusedDI(state, charInstanceId, ownerPlayer, own, ctx);
+  };
+  const nullifySuffix = nullifyMods ? ', all other modifications nullified' : '';
+
   // Find opponent companies (same site normally; any site for the override
   // influencer).
   for (const oppCompany of opponent.companies) {
@@ -2598,7 +2648,7 @@ function opponentInfluenceActions(
       // Only applies when the target is under direct influence (not GI)
       let controllerDI = 0;
       if (oppChar.controlledBy !== 'general') {
-        controllerDI = availableDI(state, oppChar.controlledBy, opponent);
+        controllerDI = unusedDIFor(opponent, oppChar.controlledBy);
       }
 
       // Generate action per eligible influencer
@@ -2606,8 +2656,8 @@ function opponentInfluenceActions(
         const charDef = defById(state, ch.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
 
-        const influencerDI = availableDI(state, ch.instanceId, player);
-        const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${oppCharDef.mind}, controller DI: ${controllerDI}${crossAlignmentSuffix}`;
+        const influencerDI = unusedDIFor(player, ch.instanceId, { kind: 'character', race: oppCharDef.race, name: oppCharDef.name });
+        const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${oppCharDef.mind}, controller DI: ${controllerDI}${crossAlignmentSuffix}${nullifySuffix}`;
 
         logDetail(`Opponent influence: ${charDef.name} can target ${oppCharDef.name} (${explanation})`);
         // Base action (no reveal)
@@ -2656,14 +2706,14 @@ function opponentInfluenceActions(
         const allyMind = allyDef.mind;
 
         // Controller DI for ally = DI of the character controlling it
-        const allyControllerDI = availableDI(state, oppCharId, opponent);
+        const allyControllerDI = unusedDIFor(opponent, oppCharId);
 
         for (const ch of eligibleInfluencers) {
           const charDef = defById(state, ch.definitionId);
           if (!charDef || !isCharacterCard(charDef)) continue;
 
-          const influencerDI = availableDI(state, ch.instanceId, player);
-          const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${allyMind}, controller DI: ${allyControllerDI}${crossAlignmentSuffix}`;
+          const influencerDI = unusedDIFor(player, ch.instanceId, { kind: 'ally', race: '', name: allyDef.name });
+          const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind: ${allyMind}, controller DI: ${allyControllerDI}${crossAlignmentSuffix}${nullifySuffix}`;
 
           logDetail(`Opponent influence: ${charDef.name} can target ally ${allyDef.name} (${explanation})`);
           // Base action (no reveal)
@@ -2713,7 +2763,7 @@ function opponentInfluenceActions(
       // hand. The comparison value (rule 8.3) is the controlling character's
       // mind; its unused DI is subtracted as controller DI.
       const itemControllerMind = oppCharDef.mind;
-      const itemControllerDI = availableDI(state, oppCharId, opponent);
+      const itemControllerDI = unusedDIFor(opponent, oppCharId);
       for (const itemInst of oppChar.items) {
         const itemDef = defById(state, itemInst.definitionId);
         if (!itemDef || !isItemCard(itemDef)) continue;
@@ -2734,8 +2784,8 @@ function opponentInfluenceActions(
         for (const ch of eligibleInfluencers) {
           const charDef = defById(state, ch.definitionId);
           if (!charDef || !isCharacterCard(charDef)) continue;
-          const influencerDI = availableDI(state, ch.instanceId, player);
-          const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind (controller): ${itemControllerMind}, controller DI: ${itemControllerDI}${crossAlignmentSuffix} (reveal identical ${itemDef.name})`;
+          const influencerDI = unusedDIFor(player, ch.instanceId, { kind: 'item', race: '', name: itemDef.name });
+          const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, target mind (controller): ${itemControllerMind}, controller DI: ${itemControllerDI}${crossAlignmentSuffix}${nullifySuffix} (reveal identical ${itemDef.name})`;
           logDetail(`Opponent influence: ${charDef.name} can target item ${itemDef.name} (${explanation})`);
           actions.push({
             action: {
@@ -2783,8 +2833,8 @@ function opponentInfluenceActions(
       const charDef = defById(state, ch.definitionId);
       if (!charDef || !isCharacterCard(charDef)) continue;
 
-      const influencerDI = availableDI(state, ch.instanceId, player);
-      const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, faction in-play influence #: ${targetValue}${crossAlignmentSuffix}`;
+      const influencerDI = unusedDIFor(player, ch.instanceId, { kind: 'faction', race: factionDef.race, name: factionDef.name });
+      const explanation = `Influencer DI: ${influencerDI}, opponent GI: ${opponentGI}, faction in-play influence #: ${targetValue}${crossAlignmentSuffix}${nullifySuffix}`;
 
       logDetail(`Opponent influence: ${charDef.name} can re-influence faction ${factionDef.name} (${explanation})`);
       actions.push({
