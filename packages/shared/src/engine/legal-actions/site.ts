@@ -2085,7 +2085,18 @@ function playResourcesActions(
         // Game-wide ongoing influence modifier from a bare in-play event owned
         // by either player (Times Are Evil td-76: "All … influence attempts are
         // modified by -3"). Applies to every influence attempt.
-        const globalInfMod = collectGlobalCheckModifier(state, 'influence', { reason: 'faction-influence-check' });
+        // The context carries the faction being influenced so a game-wide
+        // modifier can be race-gated (Lord of the Carrock as-14).
+        const globalInfMod = collectGlobalCheckModifier(state, 'influence', {
+          reason: 'faction-influence-check',
+          faction: {
+            name: factionDef.name,
+            race: factionDef.race,
+            playableAt: buildFactionPlayableAt(factionDef),
+            playableRegions: buildFactionPlayableRegions(state, factionDef),
+          },
+          influenceTarget: buildInfluenceTargetContext(factionDef, 'faction'),
+        });
         if (globalInfMod !== 0) {
           infModifier += globalInfMod;
           infParts.push(`game-wide ${formatSignedNumber(globalInfMod)}`);
