@@ -4,12 +4,28 @@
 (`packages/sim/src/ai/`) stays in place and remains the fallback until each
 H2 module has independently cleared a gate.*
 
-*Implementation: **P0 shipped** (`packages/sim/src/ai/h2/`) — core, the
+*Implementation (`packages/sim/src/ai/h2/`): **P0 shipped** — core, the
 `standing` service, the fitted `W`, the scenario store, and the `explain` /
-`scenarios` / `fit-winprob` CLIs. No evaluation module exists yet, so the `h2`
-agent currently routes every decision to the H1 fallback; `combat` is P1. The
-calibration harness (§6.2) is deferred to P1, since it validates a module's
-claimed probabilities against the reducer and there are none to validate yet.*
+`scenarios` / `fit-winprob` CLIs. **P1 in progress** — the `combat` module's
+strike window (tap mode, support, strike events from hand) plus the
+calibration harness of §6.2, which validates its claims against the reducer.
+Still outstanding in P1: the attack-level window before assignment
+(`cancel-attack`, `cancel-by-tap`, `halve-strikes`, `assign-strike`,
+`choose-strike-order`), the `kill` module on top of it, and the strength gate.*
+
+*Two corrections to this document, found by reading the engine:*
+
+- *§3.3 says an eliminated character converts to TSD via lost character MP,
+  lost item MP, "plus the opponent's kill MP". The engine sends an eliminated
+  character to its **owner's** out-of-play pile
+  (`eliminateCombatantFromStrike`); kill MP exists only for defeating
+  creatures. Crediting the attacker would systematically overrate defence, so
+  the module does not.*
+- *Kill MP is all-or-nothing per attack: the creature reaches the kill pile
+  only when **every** strike is defeated (`combat-finalize.ts`), and never
+  from a detainment attack (CoE 3.II.3) or a site's automatic attack. A single
+  parried strike is therefore potential, not income — which is exactly what
+  §2.3's `potential` term is for.*
 
 ## 1. Motivation
 

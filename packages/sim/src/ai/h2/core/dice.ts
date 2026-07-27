@@ -75,3 +75,22 @@ export function pBodyCheckFailed(body: number, modifier = 0): number {
 export function pStrikeDefeated(need: number): number {
   return pAtLeast(need);
 }
+
+/**
+ * Probability the better of two 2d6 rolls is at least `need`.
+ *
+ * Reroll cards (`strike-modifier` with `reroll`) make two rolls and keep the
+ * better total, so their outcome is the maximum of two independent draws
+ * rather than a shifted single one — the difference is large enough near the
+ * middle of the curve that treating a reroll as a flat bonus would misprice
+ * every card that grants one.
+ */
+export function pBestOfTwoAtLeast(need: number): number {
+  const single = pAtLeast(need);
+  return 1 - (1 - single) ** 2;
+}
+
+/** Probability the better of two 2d6 rolls is exactly `total`. */
+export function pBestOfTwoExactly(total: number): number {
+  return pBestOfTwoAtLeast(total) - pBestOfTwoAtLeast(total + 1);
+}

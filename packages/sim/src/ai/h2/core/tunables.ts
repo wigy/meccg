@@ -45,6 +45,38 @@ export interface Tunables {
    * point at an even standing.
    */
   readonly meanVarianceWinProbSlope: number;
+  /**
+   * Cost in TSD of tapping a character or ally that was untapped.
+   *
+   * A tapped character cannot tap again to play a resource at the site, which
+   * is the whole reason hazards are worth playing: the denial is the damage.
+   * Small but never zero — an AI that taps freely arrives at its site unable
+   * to score.
+   */
+  readonly tapTempoCost: number;
+  /**
+   * Cost in TSD of wounding a healthy character, beyond any MP it carries: it
+   * is out of action until healed, fights at −2 meanwhile, and usually costs
+   * the company a trip to a haven.
+   */
+  readonly woundTempoCost: number;
+  /**
+   * Cost in TSD of losing a character *beyond* the marshalling points that
+   * leave with it — the influence it supplied, the items it can no longer
+   * carry, and the tempo of replacing it. The MP loss itself is computed from
+   * card data, so this covers only what MP cannot express.
+   */
+  readonly eliminationTempoCost: number;
+  /**
+   * Provisional price of spending a card from hand, in TSD, until the `hand`
+   * module computes a real per-card shadow price (plan §3.5, P6).
+   *
+   * Explicitly a placeholder: it is one number where there should be a
+   * function of the standing, the deck remaining, and what the hazard side
+   * expects to need. It is named in every rationale that uses it so a P1
+   * explanation can never hide which price produced the decision.
+   */
+  readonly provisionalCardPrice: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -53,6 +85,10 @@ export const DEFAULT_TUNABLES: Tunables = {
   softmaxTemperature: 0.02,
   riskCurvatureScale: 1,
   meanVarianceWinProbSlope: 0.02,
+  tapTempoCost: 0.3,
+  woundTempoCost: 1.5,
+  eliminationTempoCost: 3,
+  provisionalCardPrice: 1,
 };
 
 /**

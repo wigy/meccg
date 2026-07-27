@@ -59,7 +59,19 @@ npm run scenarios -w @meccg/sim -- verify
 # Refit W(tsd, turn) from self-play; reports Brier and a reliability diagram
 # on held-out *games* (never held-out decisions — see ai-training-system §9)
 npm run fit-winprob -w @meccg/sim -- --games 400 [--holdout 0.25] [--out path]
+
+# Check a module's claimed probabilities against the real reducer
+npm run calibrate -w @meccg/sim -- [--module combat] [--rollouts 5000] [--scenario <id>]
 ```
+
+`calibrate` is what makes an H2 module falsifiable. A module claims
+`P(wounded) = 2.31%`; the harness replays the same action thousands of times
+through the engine, classifies the outcome from the engine's own record, and
+fails if the observed frequency falls outside a 99% binomial interval. It
+drives the continuation the module *assumes* — the character taps to fight
+after a support tap, the attacker plays nothing into the defence — so the
+assumption is measured rather than merely declared, and a rollout it cannot
+drive is reported as unmeasured rather than bucketed.
 
 The agent takes a module selector, which is what makes per-module ablation
 gates possible — decisions no enabled module claims fall through to
@@ -70,11 +82,15 @@ npm run gate -w @meccg/sim -- --challenger h2:combat --champion heuristic --game
 npm run gate -w @meccg/sim -- --challenger h2:combat,kill --champion h2:combat --games 400
 ```
 
-Status: **P0 shipped** — core (TSD, dice, rationale, tunables, risk oracle,
-registry), the `standing` service, the fitted `W`, the scenario store and the
-`explain` / `scenarios` / `fit-winprob` CLIs. No evaluation module has shipped
-yet, so `h2` currently plays every decision through the Heuristics-1 fallback;
-`combat` is P1.
+Status: **P0 shipped**, **P1 in progress**. P0 is the core (TSD, dice,
+rationale, tunables, risk oracle, registry), the `standing` service, the fitted
+`W`, the scenario store and the `explain` / `scenarios` / `fit-winprob` CLIs.
+P1 has landed the first half of `combat` — the strike window: tap to fight or
+stay untapped, tap a companion to support, and play a strike event from hand,
+all calibrated against the reducer. The attack-level decisions before
+assignment (cancel the attack, cancel-by-tap, halve strikes) and the `kill`
+module on top of it are still to come, and until then every decision outside a
+strike falls through to Heuristics 1.
 
 ## Replay format
 

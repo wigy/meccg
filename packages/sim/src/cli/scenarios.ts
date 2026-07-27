@@ -17,6 +17,7 @@
 
 import { loadCardPool, setEngineConsoleLog } from '@meccg/shared';
 import type { GameState, PlayerId } from '@meccg/shared';
+import { projectPlayerView } from '@meccg/game-server';
 import { playGame } from '../runner.js';
 import { parseCliArgs, numberFlag, stringFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
 import type { GameObserver } from '../types.js';
@@ -32,13 +33,19 @@ const args = parseCliArgs(process.argv.slice(2));
 setEngineConsoleLog(args.flags['engine-log'] === true);
 const command = args.positional[0] ?? 'list';
 
-/** Parse `--at 'turn=14,phase=movement-hazard'` into a predicate over snapshots. */
+/**
+ * Parse `--at 'turn=14,phase=movement-hazard'` into a predicate over snapshots.
+ *
+ * The `action` clause is sorted last because it has to project a view to
+ * answer, and `every` short-circuits: a cheap `combat=true` in front of it
+ * keeps a whole-game scan from computing legal actions at every decision.
+ */
 function parseAtCondition(spec: string): (state: GameState, decisionSeq: number, player: PlayerId) => boolean {
   const clauses = spec.split(',').map(c => c.trim()).filter(c => c.length > 0).map(clause => {
     const eq = clause.indexOf('=');
     if (eq === -1) throw new Error(`--at expects key=value pairs, got "${clause}"`);
     return [clause.slice(0, eq).trim(), clause.slice(eq + 1).trim()] as const;
-  });
+  }).sort(([a], [b]) => Number(a === 'action') - Number(b === 'action'));
   return (state, decisionSeq, player) => clauses.every(([key, value]) => {
     switch (key) {
       case 'turn': return state.turnNumber === Number(value);
@@ -51,7 +58,18 @@ function parseAtCondition(spec: string): (state: GameState, decisionSeq: number,
       // phase alone — and it is where the first H2 module lives.
       case 'combat': return (state.combat !== null) === (value === 'true' || value === 'yes');
       case 'combatPhase': return state.combat?.phase === value;
-      default: throw new Error(`--at: unknown key "${key}" (turn, phase, step, seq, stateSeq, player, combat, combatPhase)`);
+      // Whether the attack has a body at all decides whether a parry defeats
+      // the strike outright or has to survive the creature's own body check —
+      // two different branches of the model, both worth a scenario.
+      case 'creatureBody': return (state.combat?.creatureBody !== null && state.combat?.creatureBody !== undefined)
+        === (value === 'true' || value === 'yes');
+      case 'strikes': return state.combat?.strikesTotal === Number(value);
+      // An action type that must be on offer — the way to mine positions where
+      // a specific option (a strike event, the stay-untapped choice) exists.
+      case 'action': return projectPlayerView(state, player).legalActions
+        .some(e => e.viable && e.action.type === value);
+      default: throw new Error(`--at: unknown key "${key}" `
+        + '(turn, phase, step, seq, stateSeq, player, combat, combatPhase, creatureBody, strikes, action)');
     }
   });
 }

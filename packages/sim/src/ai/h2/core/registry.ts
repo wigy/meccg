@@ -20,16 +20,17 @@
 import type { GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext } from './types.js';
 import { assertValidDistribution } from './tsd.js';
+import { combatModule } from '../modules/combat/combat.js';
 
 /**
  * Every module that exists, in dependency order.
  *
- * Empty at P0: the core, the `standing` service and the tooling ship first so
- * that the first real module (`combat`, P1) arrives with an explanation
- * renderer, a scenario corpus and a calibration harness already waiting for
- * it, rather than being validated by eye.
+ * The core, the `standing` service and the tooling shipped first (P0) so that
+ * the first real module arrived with an explanation renderer, a scenario
+ * corpus and a calibration harness already waiting for it, rather than being
+ * validated by eye.
  */
-export const ALL_MODULES: readonly H2Module[] = [];
+export const ALL_MODULES: readonly H2Module[] = [combatModule];
 
 /** Look up modules by name, throwing on an unknown one. */
 export function resolveModules(spec: string | undefined, available: readonly H2Module[] = ALL_MODULES): H2Module[] {
