@@ -62,7 +62,7 @@ import {
   viableActions, dispatch, executeAction,
   findCharInstanceId, companyIdAt, handCardId,
 } from '../test-helpers.js';
-import { Phase, Alignment } from '../../index.js';
+import { Phase, Alignment, Race } from '../../index.js';
 import type {
   GameState, CombatState, CardDefinitionId, CardInstanceId,
   MovementHazardPhaseState, PlayHazardAction, PendingResolution,
@@ -86,7 +86,7 @@ function combatState(state: GameState, struckId: CardInstanceId, strikesTotal: n
     strikesTotal,
     strikeProwess: 4,
     creatureBody: null,
-    creatureRace: 'orc',
+    creatureRace: Race.Orc,
     strikeAssignments: [{ characterId: struckId, excessStrikes: 0, resolved: false }],
     currentStrikeIndex: 0,
     phase: 'resolve-strike',

@@ -47,7 +47,7 @@ import {
   playerConvertsDetainmentToNormal, makeCombatState,
 } from './reducer-utils.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace } from './effects/resolver.js';
+import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody } from './effects/resolver.js';
 import { isDetainmentAttack } from './detainment.js';
 import { addConstraint, removeConstraint, enqueueResolution } from './pending.js';
 import { revealInstances } from './visibility.js';
@@ -116,12 +116,12 @@ export function buildGreatHuntCombat(
   if (!company) return null;
 
   const cDef = creatureDef as unknown as {
-    prowess: number; strikes: number; body: number | null; race: string;
+    prowess: number; strikes: number; body: number | null; race: Race;
     keyedTo: readonly import('../types/cards.js').CreatureKeyRestriction[];
     effects?: readonly import('../types/effects.js').CardEffect[];
   };
   const inPlayNames = buildInPlayNames(state);
-  const creatureRace = normalizeCreatureRace(cDef.race);
+  const creatureRace = cDef.race;
   const attackBoostCtx = { companyId, creatureInstanceId };
   const effectiveProwess = resolveAttackProwess(state, cDef.prowess, inPlayNames, creatureRace, false, undefined, attackBoostCtx);
   const effectiveStrikes = resolveAttackStrikes(state, cDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx);
@@ -149,7 +149,7 @@ export function buildGreatHuntCombat(
     assignmentPhase: 'defender',
     detainment: isDetainmentAttack({
       attackEffects: cDef.effects,
-      attackRace: creatureRace as Race,
+      attackRace: creatureRace,
       attackKeyedTo: cDef.keyedTo,
       inPlayNames,
       defendingAlignment: state.players[controllerIndex].alignment,

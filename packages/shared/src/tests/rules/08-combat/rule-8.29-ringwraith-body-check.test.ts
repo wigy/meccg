@@ -14,7 +14,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { Phase, CardDefinitionId, Alignment, computeLegalActions } from '../../../index.js';
+import { Phase, CardDefinitionId, Alignment, computeLegalActions, Race } from '../../../index.js';
 import {
   buildTestState, PLAYER_1, PLAYER_2, resetMint,
   dispatch, viableActions, findCharInstanceId, companyIdAt, makeShadowMHState,
@@ -69,7 +69,7 @@ function makeRingwraithBodyCheckState(ringwraithDefId: CardDefinitionId, roll: n
     strikesTotal: 1,
     strikeProwess: 5,
     creatureBody: 8,
-    creatureRace: 'orc',
+    creatureRace: Race.Orc,
     strikeAssignments: [{
       characterId: rwId,
       excessStrikes: 0,

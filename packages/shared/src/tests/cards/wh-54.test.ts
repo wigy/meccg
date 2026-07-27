@@ -244,7 +244,10 @@ describe('Vile Fumes (wh-54)', () => {
     expect(inCombat.combat).not.toBeNull();
     // Gas: 7 prowess, each character (2) faces 1 strike, and uncancelable.
     expect(inCombat.combat!.strikeProwess).toBe(7);
-    expect(inCombat.combat!.creatureRace).toBe('gas');
+    // "Gas" names no race, so the attack carries no `creatureRace` at all —
+    // keeping non-race text out of the Race-typed slot means no race-gated
+    // condition (e.g. a weapon's "+2 against Orcs") can ever match it.
+    expect(inCombat.combat!.creatureRace).toBeUndefined();
     expect(inCombat.combat!.strikesTotal).toBe(2);
     expect(inCombat.combat!.eachCharacterFacesOneStrike).toBe(true);
     expect(inCombat.combat!.uncancelable).toBe(true);

@@ -46,7 +46,7 @@ import {
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { Alignment } from '../../index.js';
+import { Alignment, Race } from '../../index.js';
 import { resolveCancelAttackEntry } from '../../engine/combat-cancel.js';
 import type { CardDefinitionId, GameState, ModifyAttackAction } from '../../index.js';
 
@@ -87,7 +87,7 @@ describe('Unabated in Malice (ba-26)', () => {
     const base = baseWithHazardHand([UNABATED_IN_MALICE]);
     const combat = makeCancelWindowCombat(base, {
       attackSourceType: 'automatic-attack',
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 12,
     });
@@ -108,7 +108,7 @@ describe('Unabated in Malice (ba-26)', () => {
     const base = baseWithHazardHand([]); // ba-26 not in hand — it is on-guard
     const combat0 = makeCancelWindowCombat(base, {
       attackSourceType: 'automatic-attack',
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 12,
     });
@@ -143,7 +143,7 @@ describe('Unabated in Malice (ba-26)', () => {
     const base = baseWithHazardHand([UNABATED_IN_MALICE]);
     const combat = makeCancelWindowCombat(base, {
       creatureDefId: SHELOB,
-      creatureRace: 'spider',
+      creatureRace: Race.Spider,
       attackSourceType: 'creature',
       strikesTotal: 1,
       strikeProwess: 18,
@@ -157,7 +157,7 @@ describe('Unabated in Malice (ba-26)', () => {
     const base = baseWithHazardHand([UNABATED_IN_MALICE]);
     const combat = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -172,7 +172,7 @@ describe('Unabated in Malice (ba-26)', () => {
     const base = baseWithHazardHand([], [UNABATED_IN_MALICE]);
     const combat = makeCancelWindowCombat(base, {
       attackSourceType: 'automatic-attack',
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 12,
     });
@@ -185,7 +185,7 @@ describe('Unabated in Malice (ba-26)', () => {
     const base = baseWithHazardHand([UNABATED_IN_MALICE]);
     const combat = makeCancelWindowCombat(base, {
       attackSourceType: 'automatic-attack',
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 12,
     });
@@ -207,7 +207,7 @@ describe('Unabated in Malice (ba-26)', () => {
     const base = baseWithHazardHand([UNABATED_IN_MALICE]);
     const combat0 = makeCancelWindowCombat(base, {
       attackSourceType: 'automatic-attack',
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 12,
     });
@@ -242,7 +242,7 @@ describe('Unabated in Malice (ba-26)', () => {
     const base = baseWithHazardHand([UNABATED_IN_MALICE, UNABATED_IN_MALICE]);
     const combat = makeCancelWindowCombat(base, {
       attackSourceType: 'automatic-attack',
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 12,
     });
@@ -265,7 +265,7 @@ describe('Unabated in Malice (ba-26)', () => {
     const base = baseWithHazardHand([UNABATED_IN_MALICE]);
     const combat0 = makeCancelWindowCombat(base, {
       attackSourceType: 'automatic-attack',
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 12,
     });
@@ -297,7 +297,7 @@ describe('Unabated in Malice (ba-26)', () => {
     const base = baseWithHazardHand([]);
     const combat = makeCancelWindowCombat(base, {
       attackSourceType: 'automatic-attack',
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 1,
       strikeProwess: 12,
     });

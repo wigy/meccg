@@ -46,7 +46,7 @@ import {
   ARAGORN, FRODO, GLORFINDEL_II, LEGOLAS, GIMLI, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, THRANDUILS_HALLS, BREE,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import type {
   CardDefinitionId, CardInPlay, CardInstanceId,
   InfluenceAttemptAction, PlayCharacterAction,
@@ -250,7 +250,7 @@ describe('Aiglos (dm-166)', () => {
       bodyCheckTarget: 'creature',
       result: 'success', // Aragorn parried this strike
       creatureBody: 8,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSource: { type: 'creature', instanceId: creatureId },
     });
     // Roll 8 > effective body 6 (8 - 2) → creature defeated, kill MP awarded.
@@ -278,7 +278,7 @@ describe('Aiglos (dm-166)', () => {
       bodyCheckTarget: 'creature',
       result: 'success',
       creatureBody: 8,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSource: { type: 'creature', instanceId: creatureId },
     });
     // Roll 8 = body 8 → not > body → creature survives, discarded.

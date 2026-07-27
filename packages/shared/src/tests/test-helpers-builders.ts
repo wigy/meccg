@@ -18,7 +18,7 @@ import type { GameConfig, QuickStartGameConfig } from '../engine/init.js';
 import { reduce } from '../engine/reducer.js';
 import type { ReducerResult } from '../engine/reducer.js';
 import { Phase, Alignment, RegionType, SiteType, computeLegalActions } from '../index.js';
-import { MovementType } from '../types/common.js';
+import { MovementType, Race } from '../types/common.js';
 import type { PlayerId, GameState, GameAction, CardDefinitionId, CardInstanceId, SitePhaseState, MovementHazardPhaseState, InfluenceAttemptAction, OpponentInfluenceAttemptAction, CreatureKeyingMatch, CombatState, ActiveConstraint, CheckKind } from '../index.js';
 import { addConstraint } from '../engine/pending.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -948,7 +948,7 @@ export function makeBodyCheckCombat(opts: {
     strikesTotal: opts.strikesTotal ?? 1,
     strikeProwess: opts.strikeProwess ?? 10,
     creatureBody: opts.creatureBody ?? null,
-    creatureRace: opts.creatureRace ?? 'orc',
+    creatureRace: opts.creatureRace ?? Race.Orc,
     ...(opts.isCvCC ? { isCvCC: true } : {}),
     strikeAssignments: [
       {
@@ -985,7 +985,7 @@ export function makeCancelWindowCombat(
   state: GameState,
   opts: {
     creatureDefId?: CardDefinitionId;
-    creatureRace?: string;
+    creatureRace?: Race;
     attackKeying?: readonly RegionType[];
     attackSiteKeyingTypes?: readonly SiteType[];
     attackKeyingRegionNames?: readonly string[];
@@ -996,7 +996,7 @@ export function makeCancelWindowCombat(
 ): GameState {
   const sourceType = opts.attackSourceType ?? 'creature';
   const creatureDefId = opts.creatureDefId ?? ('tw-074' as CardDefinitionId);
-  const creatureRace = opts.creatureRace ?? 'orc';
+  const creatureRace = opts.creatureRace ?? Race.Orc;
 
   let players = state.players;
   let attackSource: CombatState['attackSource'];
@@ -2341,7 +2341,7 @@ export function addRaceDuplicateConstraint<T extends GameState>(
   state: T,
   source: CardInstanceId,
   sourceDefinitionId: CardDefinitionId,
-  race: string,
+  race: Race,
   playerId: PlayerId,
 ): T {
   return addConstraint(state, {
@@ -2349,7 +2349,7 @@ export function addRaceDuplicateConstraint<T extends GameState>(
     sourceDefinitionId,
     scope: { kind: 'until-cleared' },
     target: { kind: 'player', playerId },
-    kind: { type: 'auto-attack-race-duplicate', race: race.toLowerCase() },
+    kind: { type: 'auto-attack-race-duplicate', race },
   }) as T;
 }
 
@@ -2363,7 +2363,7 @@ export function addRaceDuplicateConstraint<T extends GameState>(
  */
 export interface SingleCharCombatOpts {
   heroDefId: CardDefinitionId;
-  creatureRace: string;
+  creatureRace: Race;
   creatureProwess: number;
   creatureBody: number | null;
   /** If true, the test skips strike assignment (phase starts at `resolve-strike`). */
@@ -2489,7 +2489,7 @@ export function makeDetainmentStrikeState(opts: DetainmentStrikeOpts): {
     strikesTotal: 1,
     strikeProwess: opts.strikeProwess,
     creatureBody: opts.creatureBody ?? null,
-    creatureRace: 'orc',
+    creatureRace: Race.Orc,
     strikeAssignments: [{ characterId, excessStrikes: 0, resolved: false }],
     currentStrikeIndex: 0,
     phase: 'resolve-strike',
@@ -2610,15 +2610,15 @@ export function runAhuntSequence(
   roll: number,
   resourcePlayer: PlayerId = PLAYER_1,
   hazardPlayer: PlayerId = PLAYER_2,
-): { end: GameState; combats: Array<{ strikes: number; prowess: number; race: string; body: number | null }> } {
+): { end: GameState; combats: Array<{ strikes: number; prowess: number; race?: Race; body: number | null }> } {
   let cur = start;
-  const combats: Array<{ strikes: number; prowess: number; race: string; body: number | null }> = [];
+  const combats: Array<{ strikes: number; prowess: number; race?: Race; body: number | null }> = [];
   let lastKey = '';
   for (let i = 0; i < 400 && cur.combat !== null; i++) {
     const c = cur.combat;
     const key = `${c.strikesTotal}/${c.strikeProwess}/${c.creatureRace ?? ''}`;
     if (key !== lastKey) {
-      combats.push({ strikes: c.strikesTotal, prowess: c.strikeProwess, race: c.creatureRace ?? '', body: c.creatureBody });
+      combats.push({ strikes: c.strikesTotal, prowess: c.strikeProwess, race: c.creatureRace, body: c.creatureBody });
       lastKey = key;
     }
     cur = { ...cur, cheatRollTotal: roll };
@@ -2802,7 +2802,7 @@ export function assignBothStrikesTo(
  */
 export function buildRingwraithCreatureCombat(opts: {
   creatureDefId: CardDefinitionId;
-  creatureRace: string;
+  creatureRace: Race;
   characters: readonly CardDefinitionId[];
   hand: readonly CardDefinitionId[];
   strikeProwess?: number;
@@ -2921,7 +2921,7 @@ export function makeMidStrikeHazardPlayState(opts: {
     strikesTotal: 1,
     strikeProwess: 8,
     creatureBody: null,
-    creatureRace: 'dragon',
+    creatureRace: Race.Dragon,
     strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
     currentStrikeIndex: 0,
     phase: 'resolve-strike',

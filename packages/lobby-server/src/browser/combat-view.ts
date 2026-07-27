@@ -213,7 +213,8 @@ function renderPhaseBanner(
   const banner = document.createElement('div');
   banner.className = 'situation-banner';
 
-  // Resolve attacker race from card definition or auto-attack creature type
+  // Resolve the attacker's display label — a creature's race, a site
+  // automatic-attack's printed creature type, or an agent's card name.
   let attackerRace = '';
   if (
     combat.attackSource.type === 'creature'
@@ -255,7 +256,7 @@ function renderPhaseBanner(
       }
     }
   }
-  const raceLabel = attackerRace ? formatRace(attackerRace) : '';
+  const raceLabel = attackerRace ? formatAttackerLabel(attackerRace) : '';
   const racePrefix = raceLabel ? `${raceLabel} \u2014 ` : '';
 
   let phaseText: string;
@@ -1372,7 +1373,16 @@ const RACE_LABELS: Record<string, string> = {
   'pukel-creature': 'Pûkel-creature',
 };
 
-/** Format a race enum value into a display name. */
-function formatRace(race: string): string {
-  return RACE_LABELS[race] ?? race.charAt(0).toUpperCase() + race.slice(1);
+/**
+ * Format an attacker label for the situation banner.
+ *
+ * The banner names whatever identifies the attacker, which is not always a
+ * race: a hazard creature contributes its canonical {@link Race}, a site
+ * automatic-attack its printed `creatureType` label ("Orcs", "Gas"), and an
+ * agent its card name. Only the canonical races get a lookup in
+ * {@link RACE_LABELS}; anything else is simply capitalized. Hence `string`
+ * rather than `Race` — this is display text, not a race identifier.
+ */
+function formatAttackerLabel(label: string): string {
+  return RACE_LABELS[label] ?? label.charAt(0).toUpperCase() + label.slice(1);
 }

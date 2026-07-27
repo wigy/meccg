@@ -33,7 +33,7 @@ import {
 import type {
   CardDefinitionId, CharacterCard, StoreItemAction,
 } from '../../index.js';
-import { computeLegalActions, BAG_END } from '../../index.js';
+import { computeLegalActions, BAG_END, Race } from '../../index.js';
 import { availableDI } from '../../engine/legal-actions/organization.js';
 import {
   collectCharacterEffects,
@@ -213,7 +213,7 @@ describe('Red Book of Westmarch (tw-313)', () => {
         baseDirectInfluence: aragornDef.directInfluence,
         name: aragornDef.name,
       },
-      faction: { name: 'Hobbits', race: 'hobbit', playableAt: ['Bag End'] },
+      faction: { name: 'Hobbits', race: Race.Hobbit, playableAt: ['Bag End'] },
     };
 
     const effects = collectCharacterEffects(state, aragornChar, ctx);
@@ -246,7 +246,7 @@ describe('Red Book of Westmarch (tw-313)', () => {
         baseDirectInfluence: aragornDef.directInfluence,
         name: aragornDef.name,
       },
-      faction: { name: 'Riders of Rohan', race: 'man', playableAt: ['Edoras'] },
+      faction: { name: 'Riders of Rohan', race: Race.Man, playableAt: ['Edoras'] },
     };
 
     const effects = collectCharacterEffects(state, aragornChar, ctx);

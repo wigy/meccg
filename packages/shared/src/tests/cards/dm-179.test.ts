@@ -19,7 +19,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { Phase, CardStatus, CardDefinitionId, CardInstanceId } from '../../index.js';
+import { Phase, CardStatus, CardDefinitionId, CardInstanceId, Race } from '../../index.js';
 import type { PlayerState } from '../../index.js';
 import {
   ARAGORN, LEGOLAS, RIVENDELL, LORIEN, MORIA, BREE,
@@ -62,7 +62,7 @@ describe('dm-179: Noble Hound', () => {
       strikesTotal: 2,
       strikeProwess: 5,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [],
       currentStrikeIndex: 0,
       phase: 'assign-strikes' as const,
@@ -130,7 +130,7 @@ describe('dm-179: Noble Hound', () => {
       strikesTotal: 2,
       strikeProwess: 5,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [],
       currentStrikeIndex: 0,
       phase: 'assign-strikes' as const,
@@ -195,7 +195,7 @@ describe('dm-179: Noble Hound', () => {
       strikesTotal: 2,
       strikeProwess: 5,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [],
       currentStrikeIndex: 0,
       phase: 'assign-strikes' as const,
@@ -270,7 +270,7 @@ describe('dm-179: Noble Hound', () => {
       strikesTotal: 2,
       strikeProwess: 5,
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       // Noble Hound already assigned — Aragorn should now be assignable.
       strikeAssignments: [{ characterId: houndId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,

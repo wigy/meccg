@@ -1430,7 +1430,7 @@ function summonsFromLongSleepActions(
         const hDef = defById(state, handCard.definitionId);
         if (!hDef || hDef.cardType !== 'hazard-creature') continue;
         const race = (hDef).race.toLowerCase();
-        if (race !== 'dragon' && race !== 'drake') continue;
+        if (race !== Race.Dragon && race !== Race.Drake) continue;
         const hName = (hDef as { name?: string })?.name ?? (handCard.definitionId as string);
         logDetail(`${defName}: offering reserve-creature for "${hName}" (slot empty, free action)`);
         actions.push({
@@ -2352,7 +2352,7 @@ function playHazardsActions(
             if (raceChoice.fixedRace) {
               logDetail(`Hazard short-event "${def.name}": playable with fixed race "${raceChoice.fixedRace}"`);
               actions.push({
-                action: { ...action, chosenCreatureRace: raceChoice.fixedRace as Race },
+                action: { ...action, chosenCreatureRace: raceChoice.fixedRace },
                 viable: true,
               });
             } else {
@@ -2558,7 +2558,7 @@ function playHazardsActions(
           const hasRingwraith = targetCompany.characters.some(cId => {
             const ch = resourcePlayer.characters[cId];
             const cDef = ch ? defById(state, ch.definitionId) : undefined;
-            return !!cDef && isCharacterCard(cDef) && cDef.race === 'ringwraith';
+            return !!cDef && isCharacterCard(cDef) && cDef.race === Race.Ringwraith;
           });
           const companyCtx = {
             target: {
@@ -3286,7 +3286,7 @@ function playHazardsActions(
               const orcTrollAutoAttack = siteDef && isSiteCard(siteDef)
                 && getActiveAutoAttacks(state, siteDef, destSiteInstanceId).some(aa => {
                   const race = normalizeCreatureRace(aa.creatureType);
-                  return race === 'orc' || race === 'troll';
+                  return race === Race.Orc || race === Race.Troll;
                 });
               if (!orcTrollAutoAttack) {
                 logDetail(`Hazard "${def.name}" requires a site with an Orc or Troll automatic-attack — ${siteDefName} has none`);
@@ -4138,7 +4138,7 @@ export function deckExhaustExchangeActions(
 function isCreatureRaceExemptFromLimit(
   state: GameState,
   companyId: CompanyId,
-  race: string,
+  race: Race,
 ): boolean {
   if (!state.activeConstraints) return false;
   return state.activeConstraints.some(
@@ -4158,7 +4158,7 @@ function isCreatureRaceExemptFromLimit(
 function hasCreatureKeyingBypass(
   state: GameState,
   companyId: CompanyId,
-  race: string,
+  race: Race,
 ): boolean {
   if (!state.activeConstraints) return false;
   return state.activeConstraints.some(

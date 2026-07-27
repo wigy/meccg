@@ -41,7 +41,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CharacterCard, PlayHeroResourceAction } from '../../index.js';
-import { Phase } from '../../index.js';
+import { Phase, Race } from '../../index.js';
 
 const ADAMANT_HELMET = 'td-96' as CardDefinitionId;
 const DRAGONS_CURSE = 'td-16' as CardDefinitionId; // dark-enchantment hazard
@@ -260,7 +260,7 @@ describe('Adamant Helmet (td-96)', () => {
       strikesTotal: 1,
       strikeProwess: 8,
       creatureBody: null,
-      creatureRace: 'dragon',
+      creatureRace: Race.Dragon,
       strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',
