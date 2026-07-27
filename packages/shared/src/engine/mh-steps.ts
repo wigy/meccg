@@ -643,6 +643,11 @@ export function handleUnderDeepsRoll(state: GameState, action: GameAction, mhSta
  * - `company.hasWizard` — whether a Wizard avatar is in the company.
  * - `company.maxNonRangerMind` — the highest mind among the company's
  *   characters that are not rangers (0 if none).
+ * - `company.alignment` — the owning player's {@link Alignment}, so an
+ *   environment can single out one side's companies ("against all overt
+ *   *minion* companies", Gandalf the White Rider as-11).
+ * - `company.covert` — MELE covert/overt status ({@link isCovertCompany});
+ *   an *overt* company is `false`.
  *
  * The company belongs to the active (moving) player, so its characters are
  * resolved from `state.players[activeIndex].characters`.
@@ -651,7 +656,15 @@ export function buildCompanyHazardContext(
   state: GameState,
   company: Company,
   activeIndex: number,
-): { company: { size: number; hasWizard: boolean; maxNonRangerMind: number } } {
+): {
+    company: {
+      size: number;
+      hasWizard: boolean;
+      maxNonRangerMind: number;
+      alignment: Alignment;
+      covert: boolean;
+    };
+  } {
   const player = state.players[activeIndex];
   const size = companyEffectiveSize(state, company);
   let hasWizard = false;
@@ -667,7 +680,15 @@ export function buildCompanyHazardContext(
       maxNonRangerMind = def.mind;
     }
   }
-  return { company: { size, hasWizard, maxNonRangerMind } };
+  return {
+    company: {
+      size,
+      hasWizard,
+      maxNonRangerMind,
+      alignment: player.alignment,
+      covert: isCovertCompany(company, player, state),
+    },
+  };
 }
 
 export function snapshotHazardLimit(
