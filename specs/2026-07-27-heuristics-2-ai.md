@@ -16,6 +16,21 @@ strikes, so the degradation §3.4 relies on is modelled rather than assumed
 away. Still outstanding in P1: the `kill` module on top of it, and the
 strength gate.*
 
+*A known coarseness in the shipped `combat` module, recorded here so the fix
+lands with its owner rather than as a private guess: tapping and losing a
+character are priced by flat tunables (`tapTempoCost`, `eliminationTempoCost`),
+but a character's real opportunity cost depends on what he was for. An
+influence attempt requires an **untapped** character with enough free direct
+influence (`reducer-site.ts`), so tapping the one character who could have
+attempted a reachable faction forfeits the whole attempt — several TSD against
+a constant of 0.3. This is the `hand` shadow-price pattern of §3.5 generalised
+to characters: one number, one owner, subtracted by every consumer. It must be
+a **service** on `ModuleContext` per §4, never a call from `combat` into
+`factions`, and the price must be a reservation value computed from the
+standing and the roster so the two modules do not form a cycle. Deferred
+deliberately until `factions` (P3) exists as its first real consumer, rather
+than designing the interface against a guess about what it will carry.*
+
 *Two corrections to this document, found by reading the engine:*
 
 - *§3.3 says an eliminated character converts to TSD via lost character MP,

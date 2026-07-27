@@ -371,6 +371,11 @@ function strikeRationale(
 /** Assumptions every evaluation from this module rests on. */
 const ASSUMPTIONS: readonly string[] = [
   'the attacker plays no cards into this combat',
+  'a tap costs a flat tunable rather than what the character was needed for: an influence '
+  + 'attempt requires an *untapped* character (reducer-site.ts), so tapping the only one with '
+  + 'enough free direct influence for a reachable faction forfeits that attempt entirely and is '
+  + 'badly under-priced here. The price belongs to a character-value service owned by `factions` '
+  + '(P3), not to a constant in this module',
   'marshalling-point loss is computed from printed card values, without the engine\'s alignment clamps',
   'item and global body-check modifiers are not modelled',
 ];
