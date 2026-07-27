@@ -2702,6 +2702,23 @@ Apply types:
     "apply": { "type": "enqueue-gold-ring-test", "rollModifier": 0 } }
   ```
 
+  The same apply also works as a `grant-action` apply, where the tested ring is
+  the action's `targetCardId` rather than `targetGoldRingInstanceId`. This is the
+  Wizard tap-test of Rule 9.21: *Gandalf* (tw-156) and *Gandalf* FW (wh-4) pair
+  `cost: { "tap": "self" }` with `targets: { "scope": "company-items", "filter":
+  { "subtype": "gold-ring" } }`, so activating the grant taps the Wizard and
+  enqueues the shared `gold-ring-test` resolution for the chosen ring. Routing
+  the Wizard test through that resolution — rather than rolling inline — is what
+  makes the ring's own `ring-test-table` (and the MEWH §10 Fallen-wizard −1)
+  apply on the hero path. Implemented in `grant-action-apply.ts`.
+
+  ```json
+  { "type": "grant-action", "action": "test-gold-ring",
+    "cost": { "tap": "self" },
+    "targets": { "scope": "company-items", "filter": { "subtype": "gold-ring" } },
+    "apply": { "type": "enqueue-gold-ring-test" } }
+  ```
+
 - `cancel-chain-entry` -- negate an unresolved chain entry or discard a
   card in play / remove active constraints sourced from a given card.
   Selectors:
