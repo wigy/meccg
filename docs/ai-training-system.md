@@ -267,6 +267,32 @@ Recorded because they cost real time and are easy to repeat.
   Maximising immediate score spread is greedy in a game where
   marshalling points are bought with corruption risk and capped by the
   doubling rule.
+- **The fitted win-probability model as a search leaf value: no measurable
+  effect at n=32.** The Heuristics-2 model `W(tsd, turn)`
+  (`packages/sim/src/ai/h2/core/winprob.ts`, Brier 0.2084 on held-out games,
+  sign accuracy 69.6%) was wired in as the PUCT leaf evaluator, keeping the
+  net's move priors — the `search-h2` agent. It is the same idea as the
+  `mpWeight` blend above with that experiment's three defects removed: the raw
+  differential is an unfitted `tanh(spread / 6)` with a guessed scale, no turn
+  term, and no notion that a point means less once a game is decided.
+
+  Gate against plain `search` at the same 192 simulations and the same
+  weights: **17W-15L (53.1%), Elo +22 [-101, +151]** over 32 paired,
+  side-swapped games; 0 failures. Reproduce with
+  `gate --challenger search-h2:<weights>@192 --champion search:<weights>@192
+  --pairs 8 --rounds 2 --seed 8080`.
+
+  This is inconclusive, not positive: at 32 games the interval is ±126 wide,
+  and the Elo and Glicko-2 estimators disagree in sign (+22 vs -34). What it
+  does show is that the fitted, turn-aware version is *not* harmful where the
+  raw differential was catastrophic at weight 0.5 — a weak result, but the one
+  the prior negative result predicted would go the other way. Resolving it to
+  ±40 Elo needs roughly ten times the games (~15 hours at this cost), and
+  before buying that, measure how often the two agents actually choose
+  differently: search falls back to the policy at forced decisions, chain
+  windows and combat, so if agreement is high the effective sample is far
+  smaller than the game count and no affordable gate can separate them.
+
 - **More imitation data does not beat RL.** A 1520-game, multi-deck BC
   model lost to the RL champion (−81 Elo). Imitation is bounded by the
   teacher.
@@ -286,8 +312,10 @@ Recorded because they cost real time and are easy to repeat.
   9 of 12 deck pairs are currently free of engine errors. Generalisation
   across decks is measured but not optimised.
 - Minion, Fallen-wizard, and Balrog play are untested by training.
-- Search is unproven; the rebuilt value head has not yet been paired with
-  the RL policy, and that combination is the immediate next experiment.
+- Search is unproven. The rebuilt value head has not yet been paired with
+  the RL policy, and that combination remains the open experiment; swapping
+  in the fitted Heuristics-2 win-probability model instead was tried and
+  came out inconclusive at 32 games (§10).
 - PIMC-style determinization cannot represent bluffing over on-guard
   cards or hidden agent identities. This ceiling is accepted for now.
 - All ratings are relative to a small pool (heuristic, BC, prior
