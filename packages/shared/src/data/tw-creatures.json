@@ -1168,14 +1168,46 @@
         "siteTypes": [
           "dark-hold"
         ]
+      },
+      {
+        "regionNames": [
+          "Dagorlad",
+          "Ithilien",
+          "Gorgoroth",
+          "Khand"
+        ]
       }
     ],
     "effects": [
       {
+        "type": "permanent-event-auto-attack",
+        "siteIds": [
+          "dm-36"
+        ],
+        "attack": {
+          "creatureType": "Nazgûl",
+          "strikes": 1,
+          "prowess": 15,
+          "body": 9
+        },
+        "discardAfterUse": true
+      },
+      {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event"
+      },
+      {
+        "type": "modify-attack",
+        "fromAltPermanentEvent": true,
+        "player": "attacker",
+        "strikesModifier": 1
       }
     ],
+    "certified": "2026-07-27",
     "text": "Unique.Nazgûl (6th). May be played as a hazard creature (with one strike) or as a permanent-event.As a creature, may also be played keyed to Dagorlad, Ithilien, Gorgoroth, and Khand; and may also be played at sites in these regions.If played as a permanent-event, it will remain in play until tapped during the opponent’s movement/hazard phase (tapping counts against the hazard limit). When tapped, Hoarmûrath of Dír becomes a short-event and gives +1 strike to any one attack."
   },
   {

@@ -3580,6 +3580,10 @@ function tapAltPermanentEventActions(
     // Persistent permanent-events (Lady of the Golden Wood as-13) have no
     // tap-to-short-event conversion — they simply stay in play.
     if (altEvent.persistent) continue;
+    // A conversion whose short-event modifies "any one attack" (Hoarmûrath of
+    // Dír tw-44) needs a live attack to name, so it is offered in the combat
+    // pre-assignment window instead (`modify-attack` / `fromAltPermanentEvent`).
+    if (getCardEffects(def).some(e => e.type === 'modify-attack' && e.fromAltPermanentEvent)) continue;
 
     const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
     if (limitReached && !bypassesLimit) {

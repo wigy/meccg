@@ -27,6 +27,9 @@ import { isCharacterCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
+import { hasPlayFlag } from '../effects/play-flags.js';
+import { Phase } from '../types/state-phases.js';
+import { currentHazardLimit } from './hazard-limit.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveBody } from './ally-stats.js';
@@ -1584,6 +1587,13 @@ export function handleTapAllyBodyCheckBoost(state: GameState, action: GameAction
  * check is enqueued on the bearer after the modification.
  *
  * Used by Black Arrow (tw-494) and Star-glass (tw-330).
+ *
+ * The no-`characterInstanceId` branch covers three *played* sources sharing the
+ * same modifier math: a hand card (`fromHand`), an unrevealed on-guard card the
+ * attacker placed, and — for `fromAltPermanentEvent` — an in-play dual-mode
+ * creature permanent-event the hazard player converts to a short-event during
+ * the opponent's M/H phase (Hoarmûrath of Dír tw-44), which additionally leaves
+ * play and charges one hazard-limit slot.
  */
 export function handleModifyAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'modify-attack') return wrongActionType(state, action, 'modify-attack');
@@ -1619,14 +1629,45 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         }
       }
     }
+    // In-play fallback: a dual-mode creature permanent-event (tw-44) the hazard
+    // player taps during the opponent's M/H phase. It "becomes a short-event" —
+    // same modifier math as a hand card, but it leaves `cardsInPlay` and costs
+    // one hazard-limit slot (charged below).
+    let altPermanentEvent = false;
+    if (!sourceCard) {
+      const inPlayCard = findById(player.cardsInPlay, action.cardInstanceId);
+      if (inPlayCard) {
+        sourceCard = { instanceId: inPlayCard.instanceId, definitionId: inPlayCard.definitionId };
+        altPermanentEvent = true;
+        if (inPlayCard.status !== CardStatus.Untapped) return { state, error: 'modify-attack: permanent-event is already tapped' };
+      }
+    }
     if (!sourceCard) return { state, error: 'Card not in hand' };
     const handCard = sourceCard;
     const cardDef = defById(state, handCard.definitionId);
     if (!cardDef) return { state, error: 'Card definition not found' };
     const effect = getCardEffects(cardDef).find(
-      (e): e is import('../types/effects.js').ModifyAttackEffect => e.type === 'modify-attack' && !!(e).fromHand,
+      (e): e is import('../types/effects.js').ModifyAttackEffect =>
+        e.type === 'modify-attack' && (altPermanentEvent ? !!(e).fromAltPermanentEvent : !!(e).fromHand),
     );
-    if (!effect) return { state, error: 'Card has no modify-attack (fromHand) effect' };
+    if (!effect) return { state, error: `Card has no modify-attack (${altPermanentEvent ? 'fromAltPermanentEvent' : 'fromHand'}) effect` };
+
+    if (altPermanentEvent) {
+      const altEvent = getCardEffects(cardDef).find(e => e.type === 'creature-alt-event');
+      if (altEvent?.type !== 'creature-alt-event' || altEvent.mode !== 'permanent-event' || altEvent.persistent) {
+        return { state, error: 'modify-attack: card in play is not a convertible creature-permanent-event' };
+      }
+      // Printed timing: "tapped during the opponent's movement/hazard phase".
+      if (state.phaseState.phase !== Phase.MovementHazard) {
+        return { state, error: 'modify-attack: a creature-permanent-event may only be tapped during the opponent\'s movement/hazard phase' };
+      }
+      if (!('effects' in cardDef && hasPlayFlag(cardDef, 'no-hazard-limit'))) {
+        const limit = currentHazardLimit(state, state.phaseState, combat.companyId);
+        if ((state.phaseState.hazardsPlayedThisCompany ?? 0) >= limit) {
+          return { state, error: `modify-attack: hazard limit reached (${limit})` };
+        }
+      }
+    }
 
     const expectedPlayerId = effect.player === 'attacker'
       ? combat.attackingPlayerId
@@ -1655,7 +1696,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     const removesDetainment = effect.removeDetainment === true && combat.detainment;
     const newDetainment = removesDetainment ? false : combat.detainment;
     const cardLabel = cardDef.name;
-    logDetail(`Modify-attack (${onGuard ? 'on-guard reveal' : 'from hand'}): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}${removesDetainment ? ', detainment → normal' : ''}`);
+    logDetail(`Modify-attack (${altPermanentEvent ? 'permanent-event tap' : onGuard ? 'on-guard reveal' : 'from hand'}): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}${removesDetainment ? ', detainment → normal' : ''}`);
 
     // Cancel protection: the first attempt to cancel the attack instead
     // strips these modifiers (Unabated in Malice ba-26). Record the exact
@@ -1676,7 +1717,22 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     // on-guard), so it always lands in the attacker's discard pile.
     const discarded = toCardInstance(handCard);
     let baseState: GameState;
-    if (onGuard) {
+    if (altPermanentEvent) {
+      // "Becomes a short-event": leaves play and is discarded.
+      baseState = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== handCard.instanceId),
+        discardPile: [...p.discardPile, discarded],
+      }));
+      // Tapping counts one against the company's hazard limit (printed rule;
+      // CoE 8.12 for combat-window hazard actions).
+      if (baseState.phaseState.phase === Phase.MovementHazard && !('effects' in cardDef && hasPlayFlag(cardDef, 'no-hazard-limit'))) {
+        const mhState = baseState.phaseState;
+        const played = (mhState.hazardsPlayedThisCompany ?? 0) + 1;
+        logDetail(`${cardDef.name}: permanent-event tapped in combat — counts against hazard limit (${played})`);
+        baseState = { ...baseState, phaseState: { ...mhState, hazardsPlayedThisCompany: played } };
+      }
+    } else if (onGuard) {
       const og = onGuard;
       const withoutOnGuard = updatePlayer(state, og.defenderIndex, p => {
         const companies = [...p.companies];
