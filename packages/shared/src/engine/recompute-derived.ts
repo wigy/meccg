@@ -403,16 +403,29 @@ function playerCardsInPlayDefs(state: GameState, player: PlayerState): CardDefin
 
 /**
  * Resolves the card definitions of every source a player-wide, in-play effect
- * can live on: the player's `cardsInPlay` (permanent-events, factions, stage
- * cards, …) plus their in-play characters. Character-carried player-wide effects
- * (e.g. Pallando wh-7's `faction-mp-override`, Saruman wh-9's `fw-item-mp-full`)
- * are collected the same way as ones carried by a stage permanent-event.
+ * can live on:
+ *
+ * - the player's `cardsInPlay` (permanent-events, factions, stage cards, …),
+ * - their in-play characters — character-carried player-wide effects (e.g.
+ *   Pallando wh-7's `faction-mp-override`, Saruman wh-9's `fw-item-mp-full`)
+ *   are collected the same way as ones carried by a stage permanent-event,
+ * - the cards **attached to those characters** (`items`): a stage
+ *   permanent-event played "on the avatar" lives in the avatar's `items`
+ *   rather than in `cardsInPlay`, so its player-wide effects must be picked up
+ *   from there too (Oromë's Warders wh-94, placed on Alatar, carries
+ *   `fw-item-mp-full` / `fw-ally-mp-full` / `faction-mp-override`) — the same
+ *   place {@link mpOverrideRules} already scans for Give Welcome to the
+ *   Unexpected (wh-99).
  */
 function playerInPlayAndCharacterDefs(state: GameState, player: PlayerState): CardDefinition[] {
   const defs = [...playerCardsInPlayDefs(state, player)];
   for (const char of Object.values(player.characters)) {
     const def = resolveDef(state, char.instanceId);
     if (def) defs.push(def);
+    for (const item of char.items) {
+      const itemDef = resolveDef(state, item.instanceId);
+      if (itemDef) defs.push(itemDef);
+    }
   }
   return defs;
 }
@@ -1025,9 +1038,10 @@ type FwMpFullEntry = { readonly filter: Condition | null; readonly inAvatarCompa
 /**
  * Resolves the card definitions of every source a Fallen-wizard's MP-exemption
  * effects can live on: the player's in-play characters (Saruman wh-9 carries
- * `fw-item-mp-full` as a character) plus their `cardsInPlay` permanent-events
- * (Join the Hunt wh-93 / Oromë's Warders wh-94 carry the effects as stage
- * permanent-events).
+ * `fw-item-mp-full` as a character), their `cardsInPlay` permanent-events (Join
+ * the Hunt wh-93 carries the effects as a bare stage permanent-event), and the
+ * cards attached to their characters (Oromë's Warders wh-94 is placed *on
+ * Alatar*, so it lives in his `items`).
  */
 function fwExemptionSourceDefs(state: GameState, player: PlayerState): CardDefinition[] {
   return playerInPlayAndCharacterDefs(state, player);
@@ -1156,41 +1170,52 @@ function permanentEventMpOverride(
 type NonCharacterMpOverrideRule = { readonly when: Condition; readonly value: number };
 
 /**
- * Collects the `noncharacter-mp-override` rules a player currently has in play
- * (e.g. Give Welcome to the Unexpected wh-99). The carrying stage
- * permanent-event is placed "on the avatar", so it lives in the avatar's
- * `items` rather than `cardsInPlay`; both locations are scanned so the override
- * counts while the card is attached ("if on Gandalf"). Empty when no such card
- * is in play, so non-Fallen-wizards and unaffected games pay nothing.
+ * Collects the MP-override rules of one kind that a player currently has in
+ * play, scanning every place a card that re-values his cards can sit:
+ *
+ * - his `cardsInPlay` (a stage permanent-event, …),
+ * - the items on his characters — a stage permanent-event placed "on the
+ *   avatar" lives in the avatar's `items` rather than `cardsInPlay`, so Give
+ *   Welcome to the Unexpected (wh-99) counts while attached ("if on Gandalf"),
+ * - the **hazards attached to his characters** — this is how an opponent's
+ *   hazard re-values the cards of the player it was played on (Fool's Bane
+ *   wh-19: "his Elf characters and Elf factions are each worth 0 marshalling
+ *   points").
+ *
+ * Returns an empty array when no such card is in play, so unaffected games pay
+ * nothing.
  */
-function nonCharacterMpOverrideRules(
+function mpOverrideRules(
   state: GameState,
   player: PlayerState,
+  type: 'noncharacter-mp-override' | 'character-mp-override',
 ): NonCharacterMpOverrideRule[] {
   const rules: NonCharacterMpOverrideRule[] = [];
   const collect = (def: CardDefinition | undefined): void => {
     if (!def) return;
     for (const effect of getCardEffects(def)) {
-      if (effect.type === 'noncharacter-mp-override') rules.push({ when: effect.when, value: effect.value });
+      if (effect.type === type) rules.push({ when: effect.when, value: effect.value });
     }
   };
   for (const card of player.cardsInPlay) collect(resolveDef(state, card.instanceId));
   for (const char of Object.values(player.characters)) {
     for (const item of char.items) collect(resolveDef(state, item.instanceId));
+    for (const hazard of char.hazards) collect(resolveDef(state, hazard.instanceId));
   }
   return rules;
 }
 
 /**
  * Resolves the overridden marshalling-point value for one of the player's
- * **non-character** MP-scoring cards (an item, ally, faction, or misc
- * permanent-event) under the active `noncharacter-mp-override` rules, or
- * `undefined` when no rule matches (so the card scores normally). Each rule is
- * evaluated against `{ card: { unique, normalMp, cardType, name, race } }`,
- * where `normalMp` is the card's *printed* marshalling points; the last matching
- * rule wins. Cards with no printed MP are never overridden.
+ * MP-scoring cards under a set of override rules (the `noncharacter-mp-override`
+ * rules for an item, ally, faction, or misc permanent-event; the
+ * `character-mp-override` rules for a character), or `undefined` when no rule
+ * matches (so the card scores normally). Each rule is evaluated against
+ * `{ card: { unique, normalMp, cardType, name, race } }`, where `normalMp` is
+ * the card's *printed* marshalling points; the last matching rule wins. Cards
+ * with no printed MP are never overridden.
  */
-function nonCharacterMpOverride(
+function mpOverrideValue(
   def: CardDefinition,
   rules: readonly NonCharacterMpOverrideRule[],
 ): number | undefined {
@@ -1297,7 +1322,12 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // player's non-character cards (items, allies, factions, misc permanent-events)
   // that match a per-card condition. Collected from `cardsInPlay` and the
   // avatar's `items` (the carrier is placed "on Gandalf"); empty otherwise.
-  const ncMpOverrides = nonCharacterMpOverrideRules(state, player);
+  const ncMpOverrides = mpOverrideRules(state, player, 'noncharacter-mp-override');
+  // Fool's Bane (wh-19): in-play overrides re-valuing the player's *characters*
+  // that match a per-card condition ("his Elf characters … are each worth 0
+  // marshalling points in all cases"). Collected from the same three places as
+  // the non-character rules, including hazards attached to his characters.
+  const charMpOverrides = mpOverrideRules(state, player, 'character-mp-override');
   // Await the Onset (wh-96): pin every company-held MP card outside one of the
   // player's Wizardhavens to this value, overriding all other MP rules.
   // Undefined when the card is not in play (the common case).
@@ -1455,12 +1485,19 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // and allies it bears still score normally below.
     const ownMpNotCounted = characterBearsAttachedEffect(state, char, 'own-mp-not-counted');
 
+    // Fool's Bane (wh-19): a matching character is worth exactly this many MPs
+    // "in all cases" — ahead of the wh-96 pin, the §4 clamp and every exemption.
+    const charOverride = mpOverrideValue(charDef, charMpOverrides);
+
     // Character MPs: prisoners contribute negative MPs
     if (isPrisoner) {
       const charMp = charDef.marshallingPoints ?? 0;
       const cat = (charDef.marshallingCategory ?? 'character') as import('../index.js').MarshallingCategory;
       mp = { ...mp, [cat]: mp[cat] - charMp };
       if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] - charMp };
+    } else if (charOverride !== undefined) {
+      mp = addPinnedCardMp(mp, charDef, charOverride);
+      if (atUnderDeeps) underDeepsMp = addPinnedCardMp(underDeepsMp, charDef, charOverride);
     } else if (ownMpNotCounted) {
       // Character's own MP contributes nothing; items/allies handled below.
     } else if (pinValue !== undefined) {
@@ -1506,7 +1543,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       }
       // Give Welcome to the Unexpected (wh-99): a matching unique non-character
       // item scores the override value instead of its printed / §4-clamped MP.
-      const ncOverride = nonCharacterMpOverride(itemDef, ncMpOverrides);
+      const ncOverride = mpOverrideValue(itemDef, ncMpOverrides);
       if (ncOverride !== undefined && hasMarshallingPoints(itemDef)) {
         const cat = itemDef.marshallingCategory;
         if (ncOverride !== 0) {
@@ -1561,7 +1598,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         }
         // Give Welcome to the Unexpected (wh-99): a matching unique ally scores
         // the override value instead of its printed / §4-clamped MP.
-        const allyNcOverride = nonCharacterMpOverride(allyDef, ncMpOverrides);
+        const allyNcOverride = mpOverrideValue(allyDef, ncMpOverrides);
         if (allyNcOverride !== undefined && hasMarshallingPoints(allyDef)) {
           const cat = allyDef.marshallingCategory;
           if (allyNcOverride !== 0) {
@@ -1581,23 +1618,34 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   }
 
   // General-influence bonus: sum stat-modifier general-influence effects. These
-  // ride two kinds of source: an item / attached permanent-event on a character
-  // (Bade to Rule le-167 on the Ringwraith, Great Shadow ba-62 on the Balrog),
-  // and a bare stage permanent-event sitting in `cardsInPlay` (Truths of Doom
-  // wh-108, which is not placed on any character). An optional `controlLimit`
-  // caps how many of the added points may control characters; the excess is
-  // accumulated as `generalInfluenceControlPenalty` (still part of the pool for
-  // defensive unused-GI purposes, but never usable to control characters).
+  // ride three kinds of source: an item / attached permanent-event on a
+  // character (Bade to Rule le-167 on the Ringwraith, Great Shadow ba-62 on the
+  // Balrog), an attached *hazard* (Cruel Claw Perceived wh-16, the opponent's
+  // permanent-event played on a Wizard / Fallen-wizard / Ringwraith to shrink
+  // his pool), and a bare stage permanent-event sitting in `cardsInPlay`
+  // (Truths of Doom wh-108, which is not placed on any character). An optional
+  // `controlLimit` caps how many of the added points may control characters;
+  // the excess is accumulated as `generalInfluenceControlPenalty` (still part
+  // of the pool for defensive unused-GI purposes, but never usable to control
+  // characters).
   // `op: "set"` is the exception: it does not add to the pool, it *replaces*
   // the avatar's printed general influence (Radagast's Shapeshifter forms
   // adopt a whole attribute line, e.g. Shifter of Hues wh-115's GI 27 in place
   // of Radagast's printed 22). Recorded separately so `effectiveGeneralInfluence`
   // can substitute it for the printed number and still add ordinary bonuses on
   // top. Last override collected wins.
-  const applyGeneralInfluenceEffect = (effect: CardEffect): void => {
+  //
+  // A `when` condition on the effect is honored against the carrier's context:
+  // for a character-borne card that is the bearer context (race, plus the
+  // player's `stagePoints` total, computed above) so a single card can tier its
+  // modifier by who carries it and how far along the Fallen-wizard is — Cruel
+  // Claw Perceived's -1 / -3 / -5 / -7 / -9 ladder. Bare `cardsInPlay` cards
+  // have no bearer, so a bearer-gated `when` never matches there.
+  const applyGeneralInfluenceEffect = (effect: CardEffect, context: ResolverContext): void => {
     if (effect.type !== 'stat-modifier') return;
     const e = effect as { stat?: string; value?: number; controlLimit?: number; op?: string };
     if (e.stat !== 'general-influence') return;
+    if (effect.when && !matchesContext(effect.when, context)) return;
     const val = typeof e.value === 'number' ? e.value : 0;
     if (e.op === 'set') {
       generalInfluenceOverride = val;
@@ -1609,12 +1657,16 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   };
   for (const char of Object.values(player.characters)) {
-    for (const item of char.items) {
-      const itemDef = resolveDef(state, item.instanceId);
-      const effects = itemDef && 'effects' in itemDef
-        ? (itemDef as { effects?: readonly CardEffect[] }).effects ?? []
+    const charDef = resolveDef(state, char.instanceId);
+    const bearerCtx: ResolverContext = isCharacterCard(charDef)
+      ? { reason: 'general-influence', bearer: { ...buildBearerContext(charDef), stagePoints } }
+      : { reason: 'general-influence' };
+    for (const attachment of [...char.items, ...char.hazards]) {
+      const attDef = resolveDef(state, attachment.instanceId);
+      const effects = attDef && 'effects' in attDef
+        ? (attDef as { effects?: readonly CardEffect[] }).effects ?? []
         : [];
-      for (const effect of effects) applyGeneralInfluenceEffect(effect);
+      for (const effect of effects) applyGeneralInfluenceEffect(effect, bearerCtx);
     }
   }
   for (const card of player.cardsInPlay) {
@@ -1623,7 +1675,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const effects = def && 'effects' in def
       ? (def as { effects?: readonly CardEffect[] }).effects ?? []
       : [];
-    for (const effect of effects) applyGeneralInfluenceEffect(effect);
+    for (const effect of effects) applyGeneralInfluenceEffect(effect, { reason: 'general-influence' });
   }
 
   // Cards in play: factions, permanent events, etc. Set-aside cards (MEAS §1)
@@ -1655,7 +1707,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // Give Welcome to the Unexpected (wh-99): a matching unique non-character
     // card in play (faction / misc permanent-event) scores the override value,
     // taking precedence over its printed / §4-clamped MP.
-    const ncOverride = nonCharacterMpOverride(def, ncMpOverrides);
+    const ncOverride = mpOverrideValue(def, ncMpOverrides);
     if (ncOverride !== undefined) {
       const cat = hasMarshallingPoints(def) ? def.marshallingCategory : ('misc' as MarshallingCategory);
       if (ncOverride !== 0) mp = { ...mp, [cat]: mp[cat] + ncOverride };

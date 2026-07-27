@@ -20,7 +20,7 @@ import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite } from '../reducer-utils.js';
-import { collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
+import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -913,6 +913,17 @@ function playResourcesActions(
         // wh-65: "Playable during the site phase if one of your companies enters
         // the Deep Mines site."). Such a card is evaluated here against the
         // active company and is NOT offered during the organization phase.
+        // A permanent-event declaring its own `play-window` belongs to that
+        // window only (No News of Our Riding le-211: the after-attack combat
+        // window, offered by the `post-attack-play-offer` resolution).
+        const eventPlayWindow = getCardEffects(eventDef).find(
+          (e): e is import('../../types/effects.js').PlayWindowEffect => e.type === 'play-window',
+        );
+        if (eventPlayWindow && eventPlayWindow.phase !== Phase.Site) {
+          logDetail(`Permanent event ${eventDef.name}: play-window restricts it to the ${eventPlayWindow.phase} phase — not playable during the site phase`);
+          continue;
+        }
+
         const stageActiveCompanyCond = (eventDef as { alignment?: string }).alignment === 'stage'
           ? findPlayConditionEffect(eventDef, 'active-company')
           : undefined;
@@ -1936,6 +1947,9 @@ function playResourcesActions(
               // printed modification can target the influencing character by
               // keyword — A Few Recruits (ba-80): "leader (+2)".
               keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
+              // The controller's MEWH §1 stage-point total, for modifiers that
+              // scale with a Fallen-wizard's progress (Fool's Bane wh-19).
+              stagePoints: player.stagePoints,
             },
             faction: {
               name: factionDef.name,
@@ -1943,6 +1957,7 @@ function playResourcesActions(
               playableAt: buildFactionPlayableAt(factionDef),
               playableRegions: buildFactionPlayableRegions(state, factionDef),
             },
+            influenceTarget: buildInfluenceTargetContext(factionDef, 'faction'),
             controller: {
               inPlay: buildControllerInPlayNames(state, playerId),
               factionRaces: buildControllerFactionRaces(state, playerId),
