@@ -81,6 +81,9 @@ export function showScreen(id: ScreenId): void {
     if (heuristicBtn) { heuristicBtn.textContent = 'Play vs Heuristic-AI'; heuristicBtn.disabled = false; }
     const realBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement | null;
     if (realBtn) { realBtn.textContent = 'Play vs Real-AI'; realBtn.disabled = false; }
+    // TEMPORARY: MC-AI button.
+    const mcBtn = document.getElementById('play-mc-ai-btn') as HTMLButtonElement | null;
+    if (mcBtn) { mcBtn.textContent = 'Play vs MC-AI (experimental)'; mcBtn.disabled = false; }
     const pseudoBtn = document.getElementById('play-pseudo-ai-btn') as HTMLButtonElement | null;
     if (pseudoBtn) { pseudoBtn.textContent = 'Play vs Pseudo-AI'; pseudoBtn.disabled = false; }
     void loadDeckEditorBundle().then(() => window.__meccg?.loadDecks?.());

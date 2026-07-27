@@ -58,6 +58,13 @@ export interface LaunchOptions {
    * heuristic strategy.
    */
   aiModelPath?: string;
+  /**
+   * Sim agent registry spec for the AI opponent (e.g. `mc:ms=2000/turns=2`),
+   * forwarded as `--agent <spec>`. Falls back to the `MECCG_AI_AGENT`
+   * environment variable, which is how a non-default agent is selected
+   * server-wide without a lobby protocol change.
+   */
+  aiAgentSpec?: string;
 }
 
 /**
@@ -160,7 +167,12 @@ export async function launchGame(player1: string, player2: string, options?: Lau
       throw new Error('aiDeckId is required to start an AI game');
     }
     const aiArgs = ['tsx', aiScript, String(port), player2, tokens[1], '--deck', options.aiDeckId];
-    if (options.aiModelPath) aiArgs.push('--model', options.aiModelPath);
+    // A sim agent spec wins over a trained model: it is the more general
+    // seam (`bc:weights.json` is itself a valid spec), and it is how a
+    // non-model agent such as the flat Monte-Carlo searcher is selected.
+    const agentSpec = options.aiAgentSpec ?? process.env.MECCG_AI_AGENT;
+    if (agentSpec) aiArgs.push('--agent', agentSpec);
+    else if (options.aiModelPath) aiArgs.push('--model', options.aiModelPath);
     const aiChild = spawn('npx', aiArgs, {
       env: process.env,
       stdio: isPseudo ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],

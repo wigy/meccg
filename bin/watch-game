@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Follow a running game: actions, AI reasoning, or engine decisions.
+set -eo pipefail
+
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage: bin/watch-game [--actions | --ai | --engine] [--new]
+
+Follows a live game. Game IDs are generated per game, so this finds the
+right log rather than making you paste an ID.
+
+Streams (pick one, default --actions):
+  --actions   One line per action from the game log: sequence, turn,
+              phase/step, player and action type. The move list.
+  --ai        What the AI is thinking, from the lobby log. For a search
+              agent this is the ranked candidate list per decision; for
+              the heuristic it is the weighted actions.
+  --engine    The game server's own rule-by-rule reasoning (why an action
+              was or was not legal). Verbose.
+
+Options:
+  --new       Wait for the NEXT game to start instead of following the
+              most recent one. Run this first, then start the game.
+  -h, --help  Show this help message.
+
+Logs live under ~/.meccg/logs (games/<gameId>.jsonl, lobby/<date>.jsonl).
+
+Examples:
+  bin/watch-game --new                 # start watching, then click Play
+  bin/watch-game --ai                  # what the AI is considering
+  bin/watch-game --engine | grep -i corruption
+EOF
+  exit 0
+fi
+
+LOG_ROOT="${LOG_DIR:-$HOME/.meccg/logs}"
+GAMES_DIR="$LOG_ROOT/games"
+LOBBY_DIR="$LOG_ROOT/lobby"
+MODE=actions
+WAIT_NEW=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --actions) MODE=actions ;;
+    --ai)      MODE=ai ;;
+    --engine)  MODE=engine ;;
+    --new)     WAIT_NEW=1 ;;
+    *) echo "watch-game: unknown option '$arg' (try --help)" >&2; exit 2 ;;
+  esac
+done
+
+command -v jq >/dev/null || { echo "watch-game: jq is required" >&2; exit 3; }
+
+# The AI and engine streams are both the lobby's forwarded child output, so
+# they follow today's lobby log rather than a per-game file.
+if [ "$MODE" != actions ]; then
+  event=$([ "$MODE" = ai ] && echo ai-stdout || echo game-stdout)
+  lobby_log="$LOBBY_DIR/$(date +%F).jsonl"
+  if [ ! -f "$lobby_log" ]; then
+    echo "watch-game: no lobby log at $lobby_log — is the lobby server running?" >&2
+    exit 4
+  fi
+  echo "watch-game: following $event in $(basename "$lobby_log")" >&2
+  # --unbuffered: jq block-buffers stdout when it is not a terminal, so a
+  # piped watcher would sit silent until 4KB accumulated.
+  exec tail -n 0 -f "$lobby_log" \
+    | jq -r --unbuffered --arg e "$event" 'select(.event == $e) | .line'
+fi
+
+newest() { ls -t "$GAMES_DIR"/*.jsonl 2>/dev/null | head -1; }
+
+# --new (or an empty log dir) waits for a game log that did not exist when
+# we started, so the watcher can be launched before the game.
+before=$(newest || true)
+if [ "$WAIT_NEW" = 1 ] || [ -z "$before" ]; then
+  [ "$WAIT_NEW" = 1 ] && echo "watch-game: waiting for the next game to start..." >&2
+  while :; do
+    current=$(newest || true)
+    [ -n "$current" ] && [ "$current" != "$before" ] && break
+    sleep 1
+  done
+else
+  current=$before
+fi
+
+echo "watch-game: following $(basename "$current")" >&2
+# `--follow=name --retry` so a game server that recreates its log on restore
+# does not silently strand the watcher on a deleted inode.
+exec tail -n 0 --follow=name --retry "$current" \
+  | jq -r --unbuffered 'select(.event == "state")
+      | "#\(.stateSeq)  T\(.turn)  \(.phase)/\(.step // "-")  \(.action.player // "-") \(.action.type // .reason // "?")"'
