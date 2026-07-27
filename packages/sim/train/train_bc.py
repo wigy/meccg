@@ -396,10 +396,27 @@ def main():
         value_skip = True
     net = BcNet(header["vocabSize"], header["actionTypeCount"], global_width, dims, value_skip)
     if args.init:
-        net.load_state_dict({
+        warm = {
             name: torch.tensor(tensor["data"]).reshape(tensor["shape"])
             for name, tensor in init_payload["weights"].items()
-        })
+        }
+        # Certifying a card can add an action type, so a checkpoint trained
+        # before it has a shorter type-embedding table than the current
+        # feature spec needs. Refusing to load would strand the whole
+        # training lineage on a vocabulary change that says nothing about
+        # the policy, so grow the table instead: existing rows carry over
+        # unchanged and the new types start from the same initialisation
+        # they would have had, i.e. as types the model has never seen.
+        for name, current in net.state_dict().items():
+            saved = warm.get(name)
+            if saved is None or saved.shape == current.shape:
+                continue
+            if saved.dim() == 2 and saved.shape[1] == current.shape[1] and saved.shape[0] < current.shape[0]:
+                grown = current.clone()
+                grown[: saved.shape[0]] = saved
+                warm[name] = grown
+                print(f"warm start: grew {name} {tuple(saved.shape)} -> {tuple(current.shape)}")
+        net.load_state_dict(warm)
         print(f"warm start: loaded {args.init}")
     params = sum(p.numel() for p in net.parameters())
     print(f"model: mode={args.mode}, dims={dims_label} {dims}, {params} parameters")
