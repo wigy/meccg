@@ -13,7 +13,7 @@
 # member.
 #
 # Each iteration:
-#   1) rollouts: GAMES self-play games (learner@1 both seats) plus, per
+#   1) rollouts: GAMES self-play games (learner@TEMP both seats) plus, per
 #      LEAGUE member, GAMES_OPP games in each seat against it;
 #   2) update: PPO (EPOCHS clipped-ratio passes) or REINFORCE on the
 #      learner's decisions only;
@@ -42,7 +42,8 @@
 # (self-play games/iter, default 60), GAMES_OPP (games per league member
 # per seat, default 30), MODE (ppo|reinforce, default ppo), EPOCHS
 # (default 4 for ppo, 1 for reinforce), CLIP (default 0.2), LR (default
-# 3e-5), ENTROPY (default 0.01), GATE_PAIRS (default 15), GATE_ROUNDS
+# 3e-5), ENTROPY (default 0.01), TEMP (rollout sampling temperature,
+# default 1), GATE_PAIRS (default 15), GATE_ROUNDS
 # (default 2), GATE_MIN_ELO (default 0), GATE_LEAGUE_MIN_ELO (default
 # -25), SEED0 (default 50000).
 set -euo pipefail
@@ -61,6 +62,14 @@ GAMES_OPP=${GAMES_OPP:-30}
 # from -141 to +47 Elo, including repeated draw-spike collapses.
 LR=${LR:-3e-5}
 ENTROPY=${ENTROPY:-0.01}
+# Rollout sampling temperature. Exploration is strictly on-policy here, so a
+# peaked policy keeps re-sampling the lines it already plays: strategies that
+# need several coordinated low-probability choices in a row (travel to a
+# faction's home site, then influence it) are effectively unreachable, and the
+# measured models never score a single faction point. Raising this widens the
+# rollout distribution; PPO stays correct because the ratio is taken against
+# the recorded behaviour probabilities.
+TEMP=${TEMP:-1}
 GATE_PAIRS=${GATE_PAIRS:-15}
 GATE_ROUNDS=${GATE_ROUNDS:-2}
 GATE_MIN_ELO=${GATE_MIN_ELO:-0}
@@ -84,7 +93,7 @@ for ((i = 1; i <= ITERS; i++)); do
   echo "=== iteration $i/$ITERS: self-play rollout $GAMES games (seeds $seed..) from $(basename "$CURRENT") ==="
   rollout="$WORKDIR/rollout-$i-self.jsonl"
   npm run --silent export-training -- \
-    --agents "bc:$CURRENT@1,bc:$CURRENT@1" --games "$GAMES" --seed "$seed" --out "$rollout"
+    --agents "bc:$CURRENT@$TEMP,bc:$CURRENT@$TEMP" --games "$GAMES" --seed "$seed" --out "$rollout"
   data_specs+=("$rollout")
   seed=$((seed + GAMES))
 
@@ -94,12 +103,12 @@ for ((i = 1; i <= ITERS; i++)); do
     echo "=== iteration $i: league rollout vs $member ($GAMES_OPP games per seat) ==="
     rollout="$WORKDIR/rollout-$i-league$m-s0.jsonl"
     npm run --silent export-training -- \
-      --agents "bc:$CURRENT@1,$member" --games "$GAMES_OPP" --seed "$seed" --out "$rollout"
+      --agents "bc:$CURRENT@$TEMP,$member" --games "$GAMES_OPP" --seed "$seed" --out "$rollout"
     data_specs+=("$rollout@0")
     seed=$((seed + GAMES_OPP))
     rollout="$WORKDIR/rollout-$i-league$m-s1.jsonl"
     npm run --silent export-training -- \
-      --agents "$member,bc:$CURRENT@1" --games "$GAMES_OPP" --seed "$seed" --out "$rollout"
+      --agents "$member,bc:$CURRENT@$TEMP" --games "$GAMES_OPP" --seed "$seed" --out "$rollout"
     data_specs+=("$rollout@1")
     seed=$((seed + GAMES_OPP))
   done
