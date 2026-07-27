@@ -2947,20 +2947,39 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
  * play deck or discard pile outside of the normal sequence of play" (Lady of
  * the Golden Wood as-13) — while `"non-minion"` covers Wizard and
  * Fallen-wizard players (Bane of the Ithil-stone tw-13, which "has no effect on
- * a minion player").
+ * a minion player"), and `"all"` covers everyone.
+ *
+ * An optional `when` on the effect narrows it per acting player, evaluated
+ * against `{ player: { alignment, minion, playDeckSize } }`. Flotsam and Jetsam
+ * (wh-18) gates on the acting player's *current* play-deck size ("15 or fewer
+ * cards in his play deck, 20 or fewer if a Fallen-wizard"), so the same card in
+ * play cancels one player's searches and not the other's, and starts biting
+ * mid-game as a deck runs down.
  */
 export function deckSearchCancellerFor(state: GameState, actorId: PlayerId): string | null {
   const actor = state.players.find(p => p.id === actorId);
   if (!actor) return null;
   const actorIsMinion = isMinionOrBalrog(actor);
+  const actorCtx = {
+    player: {
+      alignment: actor.alignment,
+      minion: actorIsMinion,
+      playDeckSize: actor.playDeck.length,
+    },
+  };
   for (const p of state.players) {
     for (const card of p.cardsInPlay) {
       const def = defById(state, card.definitionId);
       if (!def) continue;
       for (const effect of getCardEffects(def)) {
         if (effect.type !== 'cancel-deck-search') continue;
-        const hitsMinion = (effect.affects ?? 'minion') === 'minion';
-        if (hitsMinion === actorIsMinion) return def.name;
+        const affects = effect.affects ?? 'minion';
+        if (affects !== 'all' && (affects === 'minion') !== actorIsMinion) continue;
+        if (effect.when && !matchesCondition(effect.when, actorCtx)) {
+          logDetail(`cancel-deck-search: "${def.name}" does not apply to player ${actorId as string} (alignment ${actor.alignment}, play deck ${actor.playDeck.length})`);
+          continue;
+        }
+        return def.name;
       }
     }
   }
