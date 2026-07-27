@@ -39,7 +39,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findDiscardSubstitutes, substituteCovers, discardCardsFromCompany, enqueueDiscardSubstituteOffer } from './discard-substitute.js';
@@ -3981,6 +3981,69 @@ export function applyStayHerAppetiteRollResolution(
     state: continued.state,
     effects: [roll1Effect, roll2Effect, ...(continued.effects ?? [])],
   };
+}
+
+/**
+ * Resolve a `choose-peek-deck` pending resolution (Mirror of Galadriel tw-282).
+ *
+ * The card-player names the play deck they look at (`'self'` / `'opponent'`) or
+ * declines with `pass`. On a choice the top `count` cards of that deck are
+ * shuffled among themselves and returned to the top — the same modelling the
+ * certified Palantír of Minas Tirith (tw-299 / le-333) uses. The look itself is
+ * intentionally not recorded in `revealedInstances`: that map is public to both
+ * players, so recording it would show the cards to the wrong player.
+ */
+export function applyChoosePeekDeckResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'choose-peek-deck') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for choose-peek-deck' };
+  }
+  const { count, deckChoice, sourceDefinitionId } = top.kind;
+  const sourceName = cardName(state, sourceDefinitionId);
+  const cleared = dequeueResolution(state, top.id);
+
+  if (action.type === 'pass') {
+    logDetail(`${sourceName}: ${action.player as string} declines to look at any play deck`);
+    return { state: cleared };
+  }
+  if (action.type !== 'choose-peek-deck') {
+    return { state, error: `Pending choose-peek-deck requires choose-peek-deck, got '${action.type}'` };
+  }
+  if (deckChoice !== 'any' && deckChoice !== action.deckOwner) {
+    return { state, error: `${sourceName}: deck choice '${action.deckOwner}' not allowed (deckChoice '${deckChoice}')` };
+  }
+  // An in-play `cancel-deck-search` (Bane of the Ithil-stone tw-13 / Lady of
+  // the Golden Wood as-13) cancels looking at the actor's own play deck; the
+  // opponent's deck is not covered by those cards.
+  if (action.deckOwner === 'self') {
+    const canceller = deckSearchCancellerFor(state, action.player);
+    if (canceller) {
+      return { state, error: `${sourceName}: "${canceller}" cancels looking at your own play deck` };
+    }
+  }
+
+  const actorIndex = getPlayerIndex(state, action.player);
+  const targetIndex = action.deckOwner === 'self' ? actorIndex : 1 - actorIndex;
+  const targetPlayer = cleared.players[targetIndex];
+  const sliceSize = Math.min(count, targetPlayer.playDeck.length);
+  if (sliceSize === 0) {
+    logDetail(`${sourceName}: chosen play deck is empty — nothing to look at`);
+    return { state: cleared };
+  }
+  const [shuffledTop, nextRng] = shuffle(targetPlayer.playDeck.slice(0, sliceSize), cleared.rng);
+  logDetail(
+    `${sourceName}: ${action.player as string} looks at the top ${sliceSize} card(s) of ` +
+    `${targetPlayer.id as string}'s play deck, shuffles them and returns them to the top`,
+  );
+  const newState = updatePlayer({ ...cleared, rng: nextRng }, targetIndex, p => ({
+    ...p,
+    playDeck: [...shuffledTop, ...p.playDeck.slice(sliceSize)],
+  }));
+  return { state: newState };
 }
 
 /**

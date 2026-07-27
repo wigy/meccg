@@ -20,7 +20,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
@@ -1424,6 +1424,66 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       kind: {
         type: 'reveal-choose-to-hand',
         revealedInstanceIds: revealedCards.map(c => c.instanceId),
+        sourceDefinitionId: handCard.definitionId,
+      },
+    });
+    return { state: working };
+  }
+
+  // peek-shuffle-deck-top (Mirror of Galadriel tw-282): look at the opponent's
+  // whole hand, then choose any one play deck whose top `count` cards are
+  // looked at, shuffled, and returned to the top. The hand look is a "may" with
+  // no cost or downside, so it happens on play; the deck choice comes after it
+  // (the card's own ordering) via a `choose-peek-deck` pending resolution, which
+  // also carries the optional "you may … choose" pass. The event card goes to
+  // the discard pile immediately, before the choice resolves.
+  const peekShuffleEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').PeekShuffleDeckTopEffect =>
+      e.type === 'peek-shuffle-deck-top',
+  );
+  if (peekShuffleEffect) {
+    let working = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    }));
+    const opponentIndex = 1 - playerIndex;
+    if (peekShuffleEffect.revealOpponentHand) {
+      const opponentHand = working.players[opponentIndex].hand;
+      working = revealInstances(working, opponentHand);
+      logDetail(
+        `${def.name}: ${action.player as string} looks at the opponent's hand ` +
+        `(${opponentHand.length} card(s))`,
+      );
+    }
+    const count = peekShuffleEffect.count ?? 5;
+    const deckChoice = peekShuffleEffect.deckChoice ?? 'any';
+    const ownDeckSize = working.players[playerIndex].playDeck.length;
+    const opponentDeckSize = working.players[opponentIndex].playDeck.length;
+    // An in-play `cancel-deck-search` (Bane of the Ithil-stone tw-13 against a
+    // non-minion, Lady of the Golden Wood as-13 against a minion) cancels
+    // looking at the player's OWN play deck; the opponent's deck is outside
+    // what those cards cover ("any portion of *his* play deck").
+    const ownDeckCanceller = deckSearchCancellerFor(working, action.player);
+    if (ownDeckCanceller) {
+      logDetail(`${def.name}: "${ownDeckCanceller}" cancels looking at ${action.player as string}'s own play deck`);
+    }
+    const selfEligible = deckChoice !== 'opponent' && !ownDeckCanceller && ownDeckSize > 0;
+    const opponentEligible = deckChoice !== 'self' && opponentDeckSize > 0;
+    if (!selfEligible && !opponentEligible) {
+      logDetail(`${def.name}: no play deck with cards to look at — deck step fizzles`);
+      return { state: working };
+    }
+    logDetail(
+      `${def.name}: awaiting deck choice (own deck ${ownDeckSize}, opponent deck ${opponentDeckSize}, top ${count})`,
+    );
+    working = enqueueResolution(working, {
+      source: handCard.instanceId,
+      actor: action.player,
+      scope: { kind: 'phase', phase: working.phaseState.phase },
+      kind: {
+        type: 'choose-peek-deck',
+        count,
+        deckChoice,
         sourceDefinitionId: handCard.definitionId,
       },
     });

@@ -588,6 +588,8 @@ export function describeAction(
       return action.penalty === 'remove-from-game'
         ? `${playerName(action.player)} removes the shown card from the game (Desire All for Thy Belly)`
         : `${playerName(action.player)} reduces his hand size by one for the rest of the game (Desire All for Thy Belly)`;
+    case 'choose-peek-deck':
+      return `${playerName(action.player)} looks at the top cards of ${action.deckOwner === 'self' ? 'their own' : "the opponent's"} play deck and shuffles them back on top (Mirror of Galadriel)`;
     case 'choose-great-hunt-source':
       return `${playerName(action.player)} has the opponent reveal from their ${action.source === 'deck' ? 'play deck' : 'discard pile'} (The Great Hunt)`;
     case 'great-hunt-attack-with-creature':
