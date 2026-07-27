@@ -16,6 +16,7 @@ import type { Evaluation } from './core/types.js';
 import { renderRationale } from './core/rationale.js';
 import type { Standing } from './services/standing.js';
 import type { Budget } from './services/budget.js';
+import type { Exposure } from './services/exposure.js';
 
 /** Everything the renderer needs about one decision. */
 export interface ExplanationInput {
@@ -37,6 +38,8 @@ export interface ExplanationInput {
   readonly topN: number;
   /** The hard constraints the position is played inside. */
   readonly budget?: Budget;
+  /** How much hazard the companies are opening themselves to. */
+  readonly exposure?: Exposure;
 }
 
 /** Build a describer for the acting player's view. */
@@ -106,6 +109,33 @@ export function renderExplanation(input: ExplanationInput): string[] {
         + (best
           ? `, best influence ${best.freeDirectInfluence} free (${best.name})`
           : ', no untapped character — no influence attempt possible'));
+    }
+    lines.push('');
+  }
+
+  if (input.exposure) {
+    // Facts only: the regions crossed are reported, what crossing them costs
+    // is `travel`'s to say in TSD. H1 hid that valuation in a REGION_DANGER
+    // lookup nobody reading a destination score could see.
+    const exposure = input.exposure;
+    lines.push('EXPOSURE');
+    lines.push(`  opponent hand      ${exposure.opponentHandSize} cards`
+      + ` (${exposure.opponentDiscardSize} discarded) — the ceiling on what they can spend`);
+    for (const company of view.self.companies) {
+      const limit = exposure.hazardLimit(company.id);
+      const here = exposure.currentSite(company.id);
+      const going = exposure.destination(company.id);
+      const where = going
+        ? `${here?.name ?? '?'} → ${going.name} (${going.siteType})`
+        : `at ${here?.name ?? '?'}${here ? ` (${here.siteType})` : ''}`;
+      const path = going && going.pathLength > 0 ? `, crossing ${going.sitePath.join(' → ')}` : '';
+      lines.push(`  ${company.id as string}: ${where}${path}`);
+      // Stated as what it is. The snapshot is taken when the company reveals
+      // its movement, so before that it reads 0 — which means "not yet fixed",
+      // not "the opponent may spend nothing".
+      if (limit !== null) {
+        lines.push(`      hazard limit ${limit} (snapshot taken at movement reveal)`);
+      }
     }
     lines.push('');
   }

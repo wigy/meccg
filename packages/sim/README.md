@@ -84,8 +84,9 @@ Modules never call each other — a number one module owns reaches another as a
 typed service on `ModuleContext` (plan §4), so there is one answer per position
 instead of two private guesses that disagree. `standing` (TSD now, the marginal
 value of +1 MP in each source, the risk posture) and `budget` (free general
-influence, per-character free direct influence, mind costs, taps available) are
-built; both print in `explain` above the ranking, because a constraint is as
+influence, per-character free direct influence, mind costs, taps available) and `exposure` (site path, regions
+crossed, hazard limit, opponent hand size) are built; all three print in
+`explain` above the ranking, because a constraint is as
 much a part of "why" as the score is:
 
 ```text
@@ -96,7 +97,20 @@ BUDGET
   company-p1-1: 0 untapped, no untapped character — no influence attempt possible
 ```
 
-That last line is the one to watch: `reducer-site.ts` requires the influencing
+```text
+EXPOSURE
+  opponent hand      8 cards (17 discarded) — the ceiling on what they can spend
+  company-p2-0: Rivendell → Carn Dûm (dark-hold), crossing wilderness → shadow
+      hazard limit 0 (snapshot taken at movement reveal)
+```
+
+`exposure` reports facts and stops there. H1 carries a `REGION_DANGER` table —
+wilderness 2, shadow-land 4, dark-domain 5 — which is a valuation dressed as a
+lookup, tuned by hand and invisible to anyone reading a destination score.
+Here the regions crossed are reported; what crossing them is worth belongs to
+`travel`, in TSD, in a rationale you can read.
+
+That budget line about influence is the one to watch: `reducer-site.ts` requires the influencing
 character to be **untapped**, so a company with none cannot attempt a faction
 at all however much influence it holds — and free direct influence subtracts
 what is already committed to followers, so a 5-DI character holding a mind-3
