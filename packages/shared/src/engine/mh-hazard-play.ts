@@ -41,7 +41,7 @@ import { currentHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, playerById, playerHasExtraUnderDeepsMH, removeById, siteNeverUntapsForOwner, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -267,14 +267,14 @@ function handleSideboardWithNazgul(
   if (!card) return { state, error: 'Nazgûl permanent-event not found in play' };
   if (card.status === CardStatus.Tapped) return { state, error: 'Nazgûl is already tapped' };
   const def = defById(state, card.definitionId);
-  if (!def || def.cardType !== 'hazard-event' || !(def.keywords ?? []).includes('Nazgûl')) {
+  if (!isNazgulPermanentEvent(def)) {
     return { state, error: 'Target is not a Nazgûl permanent-event' };
   }
   if (action.destination === 'deck' && player.playDeck.length < MIN_DECK_SIZE_FOR_NAZGUL_TO_DECK) {
     return { state, error: 'Play deck must have at least 5 cards to fetch a hazard to it' };
   }
 
-  logDetail(`Rule 5.24: ${player.name} taps and discards Nazgûl "${def.name}" to access sideboard (${action.destination})`);
+  logDetail(`Rule 5.24: ${player.name} taps and discards Nazgûl "${def?.name ?? (card.definitionId as string)}" to access sideboard (${action.destination})`);
   const afterDiscard = updatePlayer(state, playerIndex, p => ({
     ...p,
     cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
@@ -2527,7 +2527,7 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
     if (!destSiteCard) continue;
-    if (!siteConstraintFilterMatches(c.kind.filter, destSiteCard.id, destSiteCard.name)) continue;
+    if (!siteConstraintFilterMatches(c.kind.filter, destSiteCard.id, destSiteCard.name, destSiteCard.siteType)) continue;
     const overrideType = c.kind.value as import('../types/common.js').SiteType;
     if (!effectiveSiteTypes.includes(overrideType)) effectiveSiteTypes.push(overrideType);
   }
