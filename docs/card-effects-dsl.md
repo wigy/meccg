@@ -1456,10 +1456,23 @@ that player's moving companies. Collecting only from the *active* player's
 `cardsInPlay` means a long-event lingering across the opponent's turn never
 affects the opponent's draws.
 
+`appliesTo` (default `own-companies`) opts a modifier out of that scoping:
+with `any-company` the modifier is also collected from the **opponent's**
+`cardsInPlay`, for cards worded "each moving company …" where the hazard
+player holds the card but the moving player's draws shrink — Smaug at Home
+(td-71).
+
+`min` floors a *reduction*; it never grants a draw. A negative net
+adjustment is additionally clamped to the unmodified count, so "to a
+minimum of one" cannot raise a company's 0 resource draws (no character
+with mind ≥ 3, CoE 2.IV.v) to one.
+
 ```json
 { "type": "draw-modifier", "draw": "hazard", "value": -1, "min": 0 }
 { "type": "draw-modifier", "draw": "resource",
   "value": "sitePath.wildernessCount", "min": 0 }
+{ "type": "draw-modifier", "draw": "resource", "value": -1, "min": 1,
+  "appliesTo": "any-company" }
 ```
 
 A Short Rest (td-95) is a resource long-event: "Each moving company may
