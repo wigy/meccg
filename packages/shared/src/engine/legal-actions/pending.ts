@@ -788,6 +788,67 @@ export function companyTapRollActions(
 }
 
 /**
+ * Compute the single `opposed-roll` action that resolves the next roll of a
+ * queued `opposed-roll` resolution (No More Nonsense le-210). The challenger
+ * (the card's play-target) rolls first; once their total is recorded on the
+ * resolution the opposing character rolls. Both characters belong to the same
+ * company, so the same player rolls twice.
+ */
+export function opposedRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'opposed-roll') return [];
+  const kind = top.kind;
+  const rolling = kind.challengerRoll === undefined ? kind.challengerId : kind.opponentId;
+
+  const player = playerById(state, playerId);
+  const charInPlay = player?.characters[rolling];
+  if (!player || !charInPlay) {
+    logDetail(`Pending opposed-roll: roller ${rolling as string} is no longer in play — no action`);
+    return [];
+  }
+
+  const sourceName = defById(state, kind.sourceDefinitionId)?.name ?? '?';
+  const rollerName = resolveDef(state, rolling)?.name ?? (rolling as string);
+  const stat = opposedRollStat(state, player, rolling, kind.addStat);
+  const explanation = kind.challengerRoll === undefined
+    ? `${sourceName}: roll for ${rollerName} (roll + ${kind.addStat} ${stat})`
+    : `${sourceName}: roll for ${rollerName} (roll + ${kind.addStat} ${stat}) vs `
+      + `${resolveDef(state, kind.challengerId)?.name ?? '?'}'s ${kind.challengerRoll} + `
+      + `${opposedRollStat(state, player, kind.challengerId, kind.addStat)}`;
+
+  logDetail(`Pending opposed-roll (${sourceName}): ${rollerName} rolls 2d6 + ${kind.addStat} ${stat}`);
+
+  return [{
+    action: { type: 'opposed-roll' as const, player: playerId, characterId: rolling, explanation },
+    viable: true,
+  }];
+}
+
+/**
+ * The stat an `opposed-roll` adds to a roller's 2d6 total. Reads the
+ * character's *effective* stats (so items, attached hazards, and constraints
+ * all count), falling back to the printed value when a derived stat is absent.
+ */
+export function opposedRollStat(
+  state: GameState,
+  player: PlayerState,
+  characterId: CardInstanceId,
+  stat: 'prowess' | 'body' | 'mind',
+): number {
+  const char = player.characters[characterId];
+  if (!char) return 0;
+  const def = defById(state, char.definitionId);
+  if (stat === 'mind') {
+    const printed = def && isCharacterCard(def) && def.mind !== null ? def.mind : 0;
+    return char.effectiveStats.mind ?? printed;
+  }
+  return char.effectiveStats[stat];
+}
+
+/**
  * Compute the single gold-ring-test-roll action that resolves a queued
  * `gold-ring-test` resolution (auto-test triggered by the
  * `auto-test-gold-ring` site-rule when a gold ring is stored at a
