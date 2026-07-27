@@ -28,7 +28,7 @@ import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
 import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
-import { buildInPlayNames } from '../recompute-derived.js';
+import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
@@ -3272,9 +3272,16 @@ function playHazardsActions(
             // `regionType`, `effectiveSiteType`, `isWizardhaven`, `isProtected`
             // (Nature's Revenge wh-27: "a site in a Wilderness that normally is
             // a Border-hold or a Shadow-hold, or a non-protected Wizardhaven
-            // in a Wilderness").
+            // in a Wilderness"). The `environment` block is layered on top for
+            // hazards that gate on it instead — Doubled Vigilance (dm-51):
+            // "Shadow-hold, or Ruins & Lairs / Border-hold while Doors of
+            // Night is in play". Both builders spread the same site definition,
+            // so the overlap is identical and only the derived keys differ.
             if (playTarget.filter && siteDef && isSiteCard(siteDef)) {
-              const siteCtx = buildSiteFilterContext(state, siteDef, destSiteInstanceId);
+              const siteCtx = {
+                ...buildSiteFilterContext(state, siteDef, destSiteInstanceId),
+                ...sitePlayTargetContext(state, siteDef),
+              };
               if (!matchesCondition(playTarget.filter, siteCtx)) {
                 logDetail(`Hazard "${def.name}" site filter excludes ${siteDefName}`);
                 actions.push({

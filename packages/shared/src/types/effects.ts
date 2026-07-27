@@ -1897,6 +1897,7 @@ export type TriggeredActionType =
   | 'lock-company-movement'
   | 'cancel-current-attack'
   | 'traitor-attack'
+  | 'site-entry-attack'
   | 'win-condition-roll'
   | 'win-game';
 
@@ -2568,6 +2569,21 @@ export interface CounterCancelAttackTriggeredAction extends TriggeredActionBase 
   readonly prowessBonus?: number;
 }
 
+/**
+ * `site-entry-attack` — dice-check onFail verb for a
+ * {@link SiteEntryRollAttackEffect} (Doubled Vigilance dm-51). Initiates the
+ * effect's attack against the company currently resolving its site phase,
+ * while the site step sits at `site-entry-attack` — i.e. before any of the
+ * site's automatic-attacks. The attack is not an automatic-attack: it carries
+ * no site keying, so automatic-attack modifiers and the §3.II site-type
+ * detainment branch do not apply to it.
+ */
+export interface SiteEntryAttackAction extends TriggeredActionBase {
+  readonly type: 'site-entry-attack';
+  /** The attack to initiate. */
+  readonly attack: SiteEntryAttackSpec;
+}
+
 /** `set-company-special-movement` — flag a special-movement mode (Gwaihir flight) on the bearer's company. */
 export interface SetCompanySpecialMovementAction extends TriggeredActionBase {
   readonly type: 'set-company-special-movement';
@@ -2713,6 +2729,7 @@ export type TriggeredAction =
   | CancelChainEntryAction
   | CompanyTapCharactersTriggeredAction
   | CounterCancelAttackTriggeredAction
+  | SiteEntryAttackAction
   | SetCompanySpecialMovementAction
   | ShuffleDeckTopAction
   | IncrementCompanyExtraRegionDistanceAction
@@ -6763,6 +6780,7 @@ export type CardEffect =
   | CreateSiteAutoAttackEffect
   | AutoAttackBoostEffect
   | SiteItemTrapEffect
+  | SiteEntryRollAttackEffect
   | SitePhaseStartAttackEffect
   | CompanyMovementRollEffect
   | HazardLimitSwapEffect
@@ -7569,6 +7587,59 @@ export interface SiteItemTrapEffect extends EffectBase {
   readonly type: 'site-item-trap';
   /** Prowess added to each re-faced automatic-attack (Troll-purse: +3). */
   readonly prowessBonus: number;
+}
+
+/**
+ * The attack a {@link SiteEntryRollAttackEffect} inflicts when its entry roll
+ * fails. Mirrors an {@link import('./cards-sites.js').AutomaticAttack}'s core
+ * fields, but the attack is **not** an automatic-attack: it is created by the
+ * hazard event, so automatic-attack modifiers do not apply to it and it carries
+ * no site keying.
+ */
+export interface SiteEntryAttackSpec {
+  /** Creature race of the attack, e.g. `"Orcs"`. */
+  readonly creatureType: string;
+  /** Number of strikes. */
+  readonly strikes: number;
+  /** Prowess of each strike. */
+  readonly prowess: number;
+  /** Body of the attacking creature (absent → strikes are auto-defeated on a win). */
+  readonly body?: number;
+}
+
+/**
+ * Doubled Vigilance (dm-51): a hazard permanent-event attached to a site that
+ * gates **entering** the site behind a dice roll. When a company chooses to
+ * enter the bound site, its controller rolls 2d6 and subtracts the company's
+ * effective size (CoE 3.24 half-character rule) when
+ * {@link subtractCompanySize} is set. If the modified total beats
+ * {@link threshold} (per {@link comparison}) the company enters as normal;
+ * otherwise it must face {@link attack} **before** any of the site's
+ * automatic-attacks.
+ *
+ * Engine wiring (`reducer-site.ts`): the gate is evaluated when the company
+ * commits to entering (`enter-or-skip` → `enter-site`) and again after the
+ * `reveal-on-guard-attacks` step, so a copy revealed from an on-guard slot
+ * still fires before the automatic-attacks. Each host card fires at most once
+ * per company site phase (tracked by `SitePhaseState.siteEntryGatesFaced`). The
+ * roll runs as a generic `dice-check` pending resolution whose `onFail` is a
+ * {@link SiteEntryAttackAction}; the resulting combat is sequenced through the
+ * `site-entry-attack` site sub-step.
+ *
+ * The "Discard when the site card is discarded or returned to its location
+ * deck" clause needs no effect: every `attachedToSite` card is swept by
+ * `discardOrphanedSiteAttachedEvents` once no company occupies the bound site.
+ */
+export interface SiteEntryRollAttackEffect extends EffectBase {
+  readonly type: 'site-entry-roll-attack';
+  /** Subtract the entering company's effective size from the 2d6 roll. */
+  readonly subtractCompanySize?: boolean;
+  /** The number the modified roll must beat (Doubled Vigilance: 6). */
+  readonly threshold: number;
+  /** How the modified roll is compared to `threshold` (default `"gt"`). */
+  readonly comparison?: 'gt' | 'gte';
+  /** The attack faced when the roll fails, before any automatic-attacks. */
+  readonly attack: SiteEntryAttackSpec;
 }
 
 /**

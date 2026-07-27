@@ -600,8 +600,32 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/DoubledVigilance.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable on a Shadow-hold [{S}] (or on a Ruins & Lairs [{R}] or Border-hold [{B}] if Doors of Night is in play). If the company chooses to enter the site, its player must make a roll and subtract its company size. If the result is greater than 6, the company may enter the site as normal. Otherwise, the company must face an attack to be resolved before any automatic-attacks: Orcs — 4 strikes at 9 prowess. Discard when the site card is discarded or returned to its location deck. Can be revealed on-guard."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$or": [
+            { "siteType": "shadow-hold" },
+            {
+              "$and": [
+                { "environment.doorsOfNightInPlay": true },
+                { "siteType": { "$in": ["ruins-and-lairs", "border-hold"] } }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "site-entry-roll-attack",
+        "subtractCompanySize": true,
+        "threshold": 6,
+        "comparison": "gt",
+        "attack": { "creatureType": "Orcs", "strikes": 4, "prowess": 9 }
+      }
+    ],
+    "text": "Playable on a Shadow-hold [{S}] (or on a Ruins & Lairs [{R}] or Border-hold [{B}] if Doors of Night is in play). If the company chooses to enter the site, its player must make a roll and subtract its company size. If the result is greater than 6, the company may enter the site as normal. Otherwise, the company must face an attack to be resolved before any automatic-attacks: Orcs — 4 strikes at 9 prowess. Discard when the site card is discarded or returned to its location deck. Can be revealed on-guard.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hazard-event",
