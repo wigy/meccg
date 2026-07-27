@@ -1543,6 +1543,50 @@ export interface RevealChooseShuffleEffect extends EffectBase {
 }
 
 /**
+ * Lets the playing player look at the opponent's hand and then pick **one**
+ * play deck whose top `count` cards they look at and shuffle back on top.
+ *
+ * Carried by a resource short-event and resolved when the event is played. The
+ * flow is:
+ *
+ * 1. If `revealOpponentHand` is set, every card in the opponent's hand is
+ *    recorded as revealed ({@link GameState.revealedInstances}) — the cards
+ *    stay in the opponent's hand, exactly as `peek-opponent-hand` does for The
+ *    Lidless Eye (le-203). This is a "may" with no cost or downside for the
+ *    playing player, so the engine always takes it.
+ * 2. A {@link PendingResolution} of kind `choose-peek-deck` is enqueued (actor
+ *    = the playing player), so the deck is chosen **after** the hand has been
+ *    seen — the ordering the card text prescribes. The player answers with a
+ *    `choose-peek-deck` action naming `'self'` or `'opponent'`, or declines
+ *    with `pass` ("You **may** … choose to look at …"). Only decks with at
+ *    least one card are offered; when neither deck has any, no resolution is
+ *    enqueued at all.
+ * 3. On resolution the top `min(count, deckSize)` cards of the chosen deck are
+ *    shuffled in place and stay on top of that deck — the same modelling the
+ *    certified Palantír of Minas Tirith (tw-299 / le-333) uses for "look at the
+ *    top five cards …; shuffle these 5 cards and return them to the top". The
+ *    look itself is deliberately **not** recorded in `revealedInstances`:
+ *    that map is public to both players, so recording it would leak the cards
+ *    to the player who is not allowed to see them.
+ *
+ * Used by *Mirror of Galadriel* (tw-282): "You may look at your opponent's hand
+ * and then choose to look at the top five cards of any one play deck. Shuffle
+ * those 5 cards and return them to the top of their play deck."
+ */
+export interface PeekShuffleDeckTopEffect extends EffectBase {
+  readonly type: 'peek-shuffle-deck-top';
+  /** How many top cards of the chosen deck are looked at and shuffled (default 5). */
+  readonly count?: number;
+  /** When true, the opponent's whole hand is revealed to the playing player first. */
+  readonly revealOpponentHand?: boolean;
+  /**
+   * Which play decks may be chosen: `'any'` (default — either player's, "any
+   * one play deck"), `'self'`, or `'opponent'`.
+   */
+  readonly deckChoice?: 'any' | 'self' | 'opponent';
+}
+
+/**
  * Reveals `count` cards chosen **at random** from the opponent's discard pile,
  * then lets the card-player pick at most one **non-unique** revealed card and
  * remove it from the game (to the owner's out-of-play pile). The remaining
@@ -6789,6 +6833,7 @@ export type CardEffect =
   | ForceOpponentDiscardEffect
   | CycleHandEffect
   | RevealChooseShuffleEffect
+  | PeekShuffleDeckTopEffect
   | RevealRemoveFromDiscardEffect
   | RevealDeckChoosePenaltyEffect
   | WithdrawAgentEffect
@@ -6970,6 +7015,10 @@ export type CardEffect =
   | AgentTapReturnCharacterEffect
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
+  | DiscardSelfWhenCompanyEffect
+  | CompanySizeUnlimitedEffect
+  | CompanyInfluenceExemptEffect
+  | CompanyCharacterPlayExemptEffect
   | SurfaceRegionAdjacencyEffect
   | SurfaceSiteRollZeroEffect
   | EddyLockEffect
@@ -8666,5 +8715,98 @@ export interface OpponentInfluenceOverrideEffect extends EffectBase {
 export interface DiscardSelfWhenEffect extends EffectBase {
   readonly type: 'discard-self-when';
   /** Condition (against the player-state context) that forces the discard. */
+  readonly condition: Condition;
+}
+
+/**
+ * Lifts the company-size maximum of CoE rule 2.II.3.1 (seven effective
+ * characters outside a haven) for the company this permanent-event is bound to
+ * (`CardInPlay.companyId`, i.e. a `play-target` `target: "company"` card).
+ *
+ * Unlike `extra-leader-slot` (ba-70), which merely exempts one Leader from the
+ * headcount, this removes the cap outright: the bound company may grow without
+ * limit through `move-to-company` and `merge-companies`.
+ *
+ * Used by *An Unexpected Party* (dm-114): "There is no limit to the size of
+ * this company."
+ */
+export interface CompanySizeUnlimitedEffect extends EffectBase {
+  readonly type: 'company-size-unlimited';
+}
+
+/**
+ * Characters in the company this permanent-event is bound to that match
+ * {@link filter} cost **no influence** to control: their mind is not subtracted
+ * from the controller's general influence pool, and they may be brought into
+ * play into that company for free.
+ *
+ * The filter is evaluated against a per-character context
+ * (`{ character: { name, race, mind, unique, isAvatar, keywords } }`, see
+ * `buildCompanyCharacterContext` in `engine/company-composition.ts`), so the
+ * exemption class is expressed entirely in card data rather than as an engine
+ * branch.
+ *
+ * Used by *An Unexpected Party* (dm-114): "Dwarves with a mind of 2 or less in
+ * this company do not require influence to be controlled."
+ */
+export interface CompanyInfluenceExemptEffect extends EffectBase {
+  readonly type: 'company-influence-exempt';
+  /** Condition on the per-character context selecting the exempt characters. */
+  readonly filter: Condition;
+}
+
+/**
+ * Characters matching {@link filter} may be brought into play into the company
+ * this permanent-event is bound to without regard for the
+ * one-character-per-turn limit of CoE rule 2.II.2.1 — and without consuming
+ * that turn's single slot, so a normal character may still be played.
+ *
+ * Uses the same per-character filter context as
+ * {@link CompanyInfluenceExemptEffect}.
+ *
+ * Used by *An Unexpected Party* (dm-114): "there is no limit to how many
+ * Dwarves may be brought into play on a given turn with the company" (CRF 22:
+ * "It allows the player to play one non-Dwarf character and any number of
+ * Dwarves all in the same organization phase").
+ */
+export interface CompanyCharacterPlayExemptEffect extends EffectBase {
+  readonly type: 'company-character-play-exempt';
+  /** Condition on the per-character context selecting the exempt characters. */
+  readonly filter: Condition;
+}
+
+/**
+ * One named headcount over the characters of a company: how many of them match
+ * {@link filter}. Declared on {@link DiscardSelfWhenCompanyEffect} and exposed
+ * to that effect's condition as `count.<as>`.
+ */
+export interface CompanyCharacterCount {
+  /** Name the count is published under (`count.<as>` in the condition). */
+  readonly as: string;
+  /** Condition on the per-character context selecting the counted characters. */
+  readonly filter: Condition;
+}
+
+/**
+ * The company-scoped sibling of {@link DiscardSelfWhenEffect}: discards the
+ * carrying permanent-event the moment a condition over the **bound company's
+ * composition** holds. Evaluated as post-action housekeeping, so every path
+ * that changes a company (character play, split/merge, elimination, influencing
+ * a character away) is covered by one chokepoint.
+ *
+ * The condition sees `company.characterCount` / `company.atHaven` /
+ * `company.siteType` plus one `count.<as>` entry per {@link counts} declaration,
+ * which is how "more than two non-Dwarf characters" style clauses stay in card
+ * data instead of becoming engine branches.
+ *
+ * Used by *An Unexpected Party* (dm-114): "Discard this card if the company has
+ * more than one non-Wizard character with a mind greater than 5 or more than
+ * two non-Dwarf characters or no Dwarf with a mind greater than 5."
+ */
+export interface DiscardSelfWhenCompanyEffect extends EffectBase {
+  readonly type: 'discard-self-when-company';
+  /** Named filtered headcounts published to the condition as `count.<as>`. */
+  readonly counts?: readonly CompanyCharacterCount[];
+  /** Condition (against the company-composition context) that forces the discard. */
   readonly condition: Condition;
 }

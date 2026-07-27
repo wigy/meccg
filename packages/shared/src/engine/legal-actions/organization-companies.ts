@@ -30,6 +30,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
 import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, fwSiteVersionForbidden } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
+import { companyHasUnlimitedSize } from '../company-composition.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
 import { companyMovementRestrictions, companyMovementTax, isMovementTaxSatisfied } from '../effects/company-restrictions.js';
@@ -1257,7 +1258,8 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
         if (!atHaven) {
           const extraLeaderSlots = countCompanyCardEffect(state, targetCompany.id, 'extra-leader-slot');
           const resultingSize = companyEffectiveSizeExemptingLeaders(state, resultingCharIds, extraLeaderSlots);
-          if (resultingSize > 7) {
+          // An Unexpected Party (dm-114) on the *target* company: no size limit.
+          if (resultingSize > 7 && !companyHasUnlimitedSize(state, targetCompany.id)) {
             logDetail(`  → skip: move ${charDef.name} to ${targetCompany.id as string} — would exceed size limit (${resultingSize} > 7)`);
             continue;
           }
@@ -1451,7 +1453,9 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
         const extraLeaderSlots = countCompanyCardEffect(state, targetCompany.id, 'extra-leader-slot')
           + countCompanyCardEffect(state, company.id, 'extra-leader-slot');
         const mergedSize = companyEffectiveSizeExemptingLeaders(state, mergedCharIds, extraLeaderSlots);
-        if (mergedSize > 7) {
+        // An Unexpected Party (dm-114): the surviving company is the *target*,
+        // so only its `company-size-unlimited` marker can lift the cap.
+        if (mergedSize > 7 && !companyHasUnlimitedSize(state, targetCompany.id)) {
           logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — would exceed size limit (${mergedSize} > 7)`);
           continue;
         }

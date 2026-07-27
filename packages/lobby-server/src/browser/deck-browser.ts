@@ -37,6 +37,9 @@ export function updatePlayControls(): void {
   if (playHeuristicAiBtn) playHeuristicAiBtn.disabled = !hasDeck;
   const playRealAiBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement | null;
   if (playRealAiBtn) playRealAiBtn.disabled = !hasDeck;
+  // TEMPORARY: MC-AI button.
+  const playMcAiBtn = document.getElementById('play-mc-ai-btn') as HTMLButtonElement | null;
+  if (playMcAiBtn) playMcAiBtn.disabled = !hasDeck;
   const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
   if (aiDeckSelect) aiDeckSelect.disabled = !hasDeck;
   // Disable challenge buttons on online player list

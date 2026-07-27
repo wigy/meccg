@@ -849,6 +849,22 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Mirror of Galadriel (tw-282): the card-player has already looked at
+         * the opponent's hand and must now choose **one** play deck whose top
+         * {@link count} cards they look at and shuffle back on top
+         * (`choose-peek-deck` action), or decline with `pass` ("You may …").
+         * Enqueued only when at least one eligible deck has cards.
+         */
+        readonly type: 'choose-peek-deck';
+        /** How many top cards of the chosen deck are looked at and shuffled. */
+        readonly count: number;
+        /** Which decks may be chosen (mirrors the effect's `deckChoice`). */
+        readonly deckChoice: 'any' | 'self' | 'opponent';
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * The Great Hunt (wh-91): after the card enters play, the controller
          * chooses whether the opponent reveals from their play deck or their
          * discard pile (`choose-great-hunt-source` action). The choice kicks off

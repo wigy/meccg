@@ -188,6 +188,33 @@ document.addEventListener('DOMContentLoaded', () => {
       launchHeuristicAiGame();
     })(); });
 
+    // ---- MC-AI (flat Monte-Carlo search) — TEMPORARY ----
+    const playMcAiBtn = document.getElementById('play-mc-ai-btn') as HTMLButtonElement | null;
+
+    /** Send the play-mc-ai message and disable the UI. */
+    function launchMcAiGame(): void {
+      if (playMcAiBtn && appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
+        const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
+        appState.lobbyWs.send(JSON.stringify({ type: 'play-mc-ai', deckId: aiDeckSelect.value }));
+        playMcAiBtn.textContent = 'Starting...';
+        setLobbyPlayButtonsDisabled(true);
+      }
+    }
+
+    playMcAiBtn?.addEventListener('click', () => { void (async () => {
+      const r = await apiGet<{ hasSave: boolean }>('/api/saves/check?opponent=AI-MC');
+      if (r.ok && r.data?.hasSave) {
+        const cont = await showConfirm(
+          'A saved game exists against MC-AI. Continue the saved game or start a new one?',
+          { okLabel: 'Continue', cancelLabel: 'Start New' },
+        );
+        if (!cont) {
+          await apiSend('/api/saves/delete', 'POST', { opponent: 'AI-MC' });
+        }
+      }
+      launchMcAiGame();
+    })(); });
+
     // ---- Real-AI (trained model) ----
     const playRealAiBtn = document.getElementById('play-real-ai-btn') as HTMLButtonElement;
     const aiModelSelect = document.getElementById('ai-model-select') as HTMLSelectElement;

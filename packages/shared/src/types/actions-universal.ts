@@ -477,6 +477,20 @@ export interface DesireChoosePenaltyAction {
 }
 
 /**
+ * Choose which play deck to look at and shuffle the top of (Mirror of
+ * Galadriel, tw-282: "choose to look at the top five cards of any one play
+ * deck"). Resolves a `choose-peek-deck` pending resolution; declining the
+ * optional look is a `pass`.
+ */
+export interface ChoosePeekDeckAction {
+  readonly type: 'choose-peek-deck';
+  /** The player who played the peek effect. */
+  readonly player: PlayerId;
+  /** Whose play deck to look at and shuffle the top of. */
+  readonly deckOwner: 'self' | 'opponent';
+}
+
+/**
  * Choose which of the opponent's piles is revealed by The Great Hunt (wh-91).
  * Resolves a `great-hunt-source` pending resolution and kicks off the
  * reveal-and-attack sequence against the controller's Alatar company.
