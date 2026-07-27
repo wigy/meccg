@@ -38,6 +38,7 @@ import {
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
+import { Race } from '../../index.js';
 
 const TORQUE_OF_HUES = 'tw-351' as CardDefinitionId;
 
@@ -56,7 +57,7 @@ describe('Torque of Hues (tw-351)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, TORQUE_OF_HUES);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(1);
@@ -98,7 +99,7 @@ describe('Torque of Hues (tw-351)', () => {
       ),
     } as unknown as typeof withItem;
 
-    const state = makeCancelWindowCombat(tappedItem, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(tappedItem, { creatureRace: Race.Orc });
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(0);
   });
@@ -118,7 +119,7 @@ describe('Torque of Hues (tw-351)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, TORQUE_OF_HUES);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(0);
@@ -134,7 +135,7 @@ describe('Torque of Hues (tw-351)', () => {
       ],
     });
     // Item is in hand, not attached to any character.
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(0);
@@ -166,7 +167,7 @@ describe('Torque of Hues (tw-351)', () => {
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, TORQUE_OF_HUES);
     // Create combat already in assign-strikes state WITH a strike already assigned.
-    const combatState = makeCancelWindowCombat(withItem, { creatureRace: 'orc' });
+    const combatState = makeCancelWindowCombat(withItem, { creatureRace: Race.Orc });
     // Place a strike assignment to move past the cancel window.
     const aragornId = (Object.keys(combatState.players[RESOURCE_PLAYER].characters) as CardInstanceId[]).find(
       id => combatState.players[RESOURCE_PLAYER].characters[id].definitionId === ARAGORN,
@@ -194,7 +195,7 @@ describe('Torque of Hues (tw-351)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, TORQUE_OF_HUES);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(1);
@@ -216,7 +217,7 @@ describe('Torque of Hues (tw-351)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, TORQUE_OF_HUES);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     const after = dispatch(state, actions[0].action);
@@ -245,7 +246,7 @@ describe('Torque of Hues (tw-351)', () => {
       ],
     });
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, TORQUE_OF_HUES);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     const after = dispatch(state, actions[0].action);
@@ -269,7 +270,7 @@ describe('Torque of Hues (tw-351)', () => {
     });
     // Attach the item only to Aragorn.
     const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, TORQUE_OF_HUES);
-    const state = makeCancelWindowCombat(withItem, { creatureRace: 'orc' });
+    const state = makeCancelWindowCombat(withItem, { creatureRace: Race.Orc });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     // Only one action (for the one bearer), not two.

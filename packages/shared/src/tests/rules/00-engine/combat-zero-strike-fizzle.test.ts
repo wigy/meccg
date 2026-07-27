@@ -23,7 +23,7 @@ import {
   viableActions, dispatch, companyIdAt,
   RESOURCE_PLAYER,
 } from '../../test-helpers.js';
-import { Phase, CardStatus } from '../../../index.js';
+import { Phase, CardStatus, Race } from '../../../index.js';
 import type { CombatState, GameState, CardInstanceId, CardDefinitionId } from '../../../index.js';
 
 const WOLVES = 'tw-114' as CardDefinitionId;
@@ -60,7 +60,7 @@ describe('combat: a zero-strike attack always has an exit (assign-strikes)', () 
       strikesTotal: 0,
       strikeProwess: 9,
       creatureBody: null,
-      creatureRace: 'animal',
+      creatureRace: Race.Animal,
       strikeAssignments: [],
       currentStrikeIndex: 0,
       phase: 'assign-strikes',

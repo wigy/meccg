@@ -40,7 +40,7 @@ import {
   makeMHState, findCharInstanceId, companyIdAt,
   Phase,
 } from '../test-helpers.js';
-import { CardStatus } from '../../index.js';
+import { CardStatus, Race } from '../../index.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
 import type {
@@ -169,7 +169,7 @@ describe('Troll-purse (dm-95)', () => {
       strikesTotal: 1,
       strikeProwess: 99, // creature guaranteed to win
       creatureBody: null,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
       currentStrikeIndex: 0,
       phase: 'resolve-strike',

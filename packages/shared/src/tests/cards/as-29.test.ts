@@ -41,7 +41,7 @@ import {
   viableActions, playHazardAndResolve, dispatch,
   HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { Alignment } from '../../index.js';
+import { Alignment, Race } from '../../index.js';
 import { addConstraint } from '../../engine/pending.js';
 import type { CardDefinitionId, GameState, CardInstanceId, ModifyAttackAction } from '../../index.js';
 
@@ -192,7 +192,7 @@ describe('FEAR! FIRE! FOES! (as-29)', () => {
   function detainmentAutoAttack(base: GameState, opts: { detainment: boolean }): GameState {
     const combat = makeCancelWindowCombat(base, {
       attackSourceType: 'automatic-attack',
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 2,
       strikeProwess: 8,
     });
@@ -246,7 +246,7 @@ describe('FEAR! FIRE! FOES! (as-29)', () => {
     const base = minionBase([FEAR_FIRE_FOES]);
     const combat0 = makeCancelWindowCombat(base, {
       attackSourceType: 'creature',
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       strikesTotal: 2,
       strikeProwess: 8,
     });

@@ -589,8 +589,8 @@ function handleCounterCancelRoll(
   if (!rollEffect) return { state, error: 'counter-cancel-roll: card has no counter-cancel-attack-roll effect' };
 
   // The attack being defended must be of a race this card can counter.
-  const attackRace = combat.creatureRace ?? '';
-  if (!rollEffect.race.includes(attackRace)) {
+  const attackRace = combat.creatureRace;
+  if (attackRace === undefined || !rollEffect.race.includes(attackRace)) {
     return { state, error: `counter-cancel-roll: attack race "${attackRace}" not counterable by this card` };
   }
 
@@ -2228,7 +2228,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       const bearerDef = bearer ? defById(newState, bearer.definitionId) : undefined;
       const printedMind = bearerDef && isCharacterCard(bearerDef) && bearerDef.mind !== null ? bearerDef.mind : 0;
       const effectiveMind = bearer?.effectiveStats.mind ?? printedMind;
-      const isWizard = bearerDef && isCharacterCard(bearerDef) && bearerDef.race === 'wizard';
+      const isWizard = bearerDef && isCharacterCard(bearerDef) && bearerDef.race === Race.Wizard;
       const rollBonus = effectiveMind + (isWizard ? rollUntapEffect.wizardBonus : 0);
       logDetail(`"${def?.name ?? '?'}" roll-untap-site: enqueuing dice-check (roll + mind ${effectiveMind}${isWizard ? ` + wizard ${rollUntapEffect.wizardBonus}` : ''} = +${rollBonus} > ${rollUntapEffect.threshold}) on ${targetCharId as string}`);
       newState = enqueueResolution(newState, {
@@ -2774,13 +2774,13 @@ function applyTapSitesInPlayOnResolve(
  * creature self-effects (e.g. Orc-lieutenant +4 prowess if an Orc attack
  * was already faced).
  */
-function deriveFacedRaces(state: GameState, hazardNames: readonly string[]): string[] {
-  const races = new Set<string>();
+function deriveFacedRaces(state: GameState, hazardNames: readonly string[]): Race[] {
+  const races = new Set<Race>();
   for (const name of hazardNames) {
     for (const def of Object.values(state.cardPool)) {
       if ((def as { cardType?: string }).cardType !== 'hazard-creature') continue;
       if ((def as { name?: string }).name !== name) continue;
-      const race = (def as { race?: string }).race;
+      const race = (def as { race?: Race }).race;
       if (race) races.add(race);
       break;
     }
@@ -2795,7 +2795,7 @@ function deriveFacedRaces(state: GameState, hazardNames: readonly string[]): str
  * creature self-effects (e.g. Orc-lieutenant +4 prowess if an Orc attack
  * was already faced this turn).
  */
-function deriveSiteFacedRaces(state: GameState): string[] {
+function deriveSiteFacedRaces(state: GameState): Race[] {
   if (state.phaseState.phase !== 'site') return [];
   const siteState = state.phaseState;
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
@@ -2805,7 +2805,7 @@ function deriveSiteFacedRaces(state: GameState): string[] {
   if (!siteDef || !isSiteCard(siteDef)) return [];
   const autoAttacks = getActiveAutoAttacks(state, siteDef, company.currentSite.instanceId);
   const resolved = Math.min(siteState.automaticAttacksResolved, autoAttacks.length);
-  const races = new Set<string>();
+  const races = new Set<Race>();
   for (let i = 0; i < resolved; i++) {
     const race = normalizeCreatureRace(autoAttacks[i].creatureType);
     if (race) races.add(race);
@@ -3046,7 +3046,12 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       };
 
   const inPlayNames = buildInPlayNames(state);
-  const creatureRace = normalizeCreatureRace(creatureDef.race);
+  // A creature card already stores canonical races, so it is read directly —
+  // `normalizeCreatureRace` is only for the printed labels on site attacks.
+  const creatureRace = creatureDef.race;
+  const creatureRaces = creatureDef.additionalRaces?.length
+    ? [creatureRace, ...creatureDef.additionalRaces]
+    : undefined;
   const companyFacedRaces = state.phaseState.phase === 'movement-hazard'
     ? deriveFacedRaces(state, state.phaseState.hazardsEncountered)
     : deriveSiteFacedRaces(state);
@@ -3147,6 +3152,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     strikeProwess: effectiveProwess,
     creatureBody: effectiveBody,
     creatureRace,
+    creatureRaces,
     attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
     attackSiteKeyingTypes: attackSiteKeyingTypes.length > 0 ? attackSiteKeyingTypes : undefined,
     attackKeyingRegionNames: attackKeyingRegionNames.length > 0 ? attackKeyingRegionNames : undefined,
@@ -3155,7 +3161,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     attackerChoosesDefenders: attackerChooses ? true : undefined,
     detainment: isDetainmentAttack({
       attackEffects: creatureDef.effects,
-      attackRace: creatureRace as Race,
+      attackRace: creatureRace,
       attackKeyedTo: creatureDef.keyedTo,
       inPlayNames,
       defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -3764,9 +3770,11 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
     );
     if (flatEffect) {
-      const creatureRace = current.combat.creatureRace ?? '';
-      const matchedEntry = flatEffect.thresholds.find(t => t.races.includes(creatureRace));
-      if (matchedEntry) {
+      const creatureRace = current.combat.creatureRace;
+      const matchedEntry = creatureRace === undefined
+        ? undefined
+        : flatEffect.thresholds.find(t => t.races.includes(creatureRace));
+      if (matchedEntry && creatureRace !== undefined) {
         const defPlayerId = current.combat.defendingPlayerId;
         const scope = companySubphaseScope(current.phaseState.phase, current.combat.companyId);
         logDetail(`Flattery-cancel-attack: enqueuing flattery-attempt for character ${entry.payload.targetCharacterId as string} (race "${creatureRace}", threshold ${matchedEntry.threshold})`);
@@ -4073,7 +4081,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             assignmentPhase: aaAttackerChooses0 ? 'cancel-window' : 'defender',
             detainment: isDetainmentAttack({
               attackEffects: destSiteDef.effects,
-              attackRace: race0 as import('../index.js').Race | null,
+              attackRace: race0 ?? null,
               defendingAlignment: current.players[activeIndex].alignment,
               defendingSiteEffects: destSiteDef.effects,
               defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(current, current.players[activeIndex]),

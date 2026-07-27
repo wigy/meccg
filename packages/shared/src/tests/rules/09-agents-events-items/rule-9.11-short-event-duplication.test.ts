@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import type { CardDefinitionId } from '../../../index.js';
-import { Phase } from '../../../index.js';
+import { Phase, Race } from '../../../index.js';
 import {
   buildTestState, PLAYER_1, PLAYER_2, resetMint,
   ARAGORN, LEGOLAS, MORIA, MINAS_TIRITH, LORIEN, RIVENDELL,
@@ -42,7 +42,7 @@ describe('Rule 9.11 — Short-Event Cannot Be Duplicated', () => {
     });
     const state = makeCancelWindowCombat(base, {
       creatureDefId: TOM_TUMA,
-      creatureRace: 'troll',
+      creatureRace: Race.Troll,
       strikeProwess: 13,
     });
 

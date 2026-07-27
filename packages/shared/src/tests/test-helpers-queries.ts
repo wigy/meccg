@@ -372,9 +372,11 @@ export interface RaceDataValue {
  * Walk every card definition and collect the values of all race-typed keys —
  * `race`, `enemy.race`, `target.race`, `races`, and every other key whose name
  * mentions a race — no matter how deeply nested inside effects, conditions or
- * `$in`/`$ne` operator objects. Comma-separated multi-race strings (a few
- * hazard creatures belong to several races at once) are split into their
- * members. Used by the race-vocabulary integrity test.
+ * `$in`/`$ne` operator objects. Values are returned verbatim and are never
+ * split: a race-typed slot holds exactly one canonical {@link Race}, and the
+ * few creatures that belong to several races list the extras in
+ * `additionalRaces` (itself a race-typed key, so its members are collected
+ * too). Used by the race-vocabulary integrity test.
  */
 export function collectRaceValuesFromCardData(): RaceDataValue[] {
   const found: RaceDataValue[] = [];
@@ -385,7 +387,7 @@ export function collectRaceValuesFromCardData(): RaceDataValue[] {
     }
     if (node === null || typeof node !== 'object') {
       if (typeof node === 'string' && key !== null && /race/i.test(key)) {
-        for (const part of node.split(',')) found.push({ cardId, key, value: part });
+        found.push({ cardId, key, value: node });
       }
       return;
     }

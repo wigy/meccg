@@ -40,7 +40,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
   makeCancelWindowCombat,
 } from '../test-helpers.js';
-import { CardStatus, RegionType } from '../../index.js';
+import { CardStatus, RegionType, Race } from '../../index.js';
 import type {
   CardDefinitionId,
   CardInstanceId,
@@ -110,7 +110,7 @@ describe('Goldberry (tw-245)', () => {
     });
     const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
     const withCombat = makeCancelWindowCombat(withGoldberry, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [RegionType.Wilderness],
       strikesTotal: 2,
     });
@@ -139,7 +139,7 @@ describe('Goldberry (tw-245)', () => {
     });
     const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
     const withDefenderCombat = makeCancelWindowCombat(withGoldberry, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [RegionType.Wilderness],
       strikesTotal: 2,
     });
@@ -176,7 +176,7 @@ describe('Goldberry (tw-245)', () => {
       ],
     });
     const withCombat = makeCancelWindowCombat(base, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [RegionType.Wilderness],
       strikesTotal: 1,
     });
@@ -198,7 +198,7 @@ describe('Goldberry (tw-245)', () => {
       ],
     });
     const withCombat = makeCancelWindowCombat(base, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [RegionType.Wilderness],
     });
 
@@ -222,7 +222,7 @@ describe('Goldberry (tw-245)', () => {
     });
     const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
     const withCombat = makeCancelWindowCombat(withGoldberry, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [RegionType.Wilderness],
     });
 
@@ -248,7 +248,7 @@ describe('Goldberry (tw-245)', () => {
     });
     const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
     const withCombat = makeCancelWindowCombat(withGoldberry, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [RegionType.Shadow],
     });
 
@@ -274,7 +274,7 @@ describe('Goldberry (tw-245)', () => {
     });
     const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
     const withCombat = makeCancelWindowCombat(withGoldberry, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [],
     });
 
@@ -300,7 +300,7 @@ describe('Goldberry (tw-245)', () => {
     });
     const withGoldberry = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLDBERRY);
     const withCombat = makeCancelWindowCombat(withGoldberry, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [RegionType.Wilderness],
     });
 

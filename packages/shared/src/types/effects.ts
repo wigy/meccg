@@ -19,7 +19,7 @@
  * See `docs/card-effects-dsl.md` for the full design document with examples.
  */
 
-import type { CardDefinitionId, Keyword, MarshallingCategory, PlayerId, RegionType, SiteType } from './common.js';
+import type { CardDefinitionId, Keyword, MarshallingCategory, PlayerId, Race, RegionType, SiteType } from './common.js';
 import type { SiteRuleEffect } from './effects/site-rules.js';
 
 // ---- Value Expressions ----
@@ -2138,7 +2138,7 @@ export interface AddConstraintAction extends TriggeredActionBase {
   /** Which stat a company/character-stat-modifier applies to. */
   readonly stat?: 'prowess' | 'body' | 'direct-influence';
   /** Creature race filter for creature-attack-boost. */
-  readonly race?: string;
+  readonly race?: Race;
   /** Prowess bonus for creature-attack-boost. */
   readonly prowess?: number;
   /** Strike bonus for creature-attack-boost. */
@@ -3153,7 +3153,7 @@ export interface PlayFlagEffect extends EffectBase {
 export interface LeaderControlEffect extends EffectBase {
   readonly type: 'leader-control';
   /** Races of character eligible to take control (e.g. `["orc", "troll"]`). */
-  readonly races: readonly string[];
+  readonly races: readonly Race[];
   /** Keyword the controlling character must carry (e.g. `"leader"`). */
   readonly requiresKeyword: string;
   /** Group marshalling-point bonus for a leader controlling `count`+ factions. */
@@ -4201,7 +4201,7 @@ export interface CancelAttackEffect extends EffectBase {
   /** The skill required on the character who pays the cost. Absent when no skill is required. */
   readonly requiredSkill?: string;
   /** The race required on the character who pays the cost (e.g. "wizard" for Vanishment). */
-  readonly requiredRace?: string;
+  readonly requiredRace?: Race;
   /**
    * When true, a corruption check is enqueued on the bearer immediately after
    * the attack is cancelled. Used by in-play items like Torque of Hues
@@ -4223,7 +4223,7 @@ export interface CancelAttackEffect extends EffectBase {
    * Ringwraith, character makes a corruption check…" on The Tormented Earth
    * (as-102, `"ringwraith"`).
    */
-  readonly costExemptRace?: string;
+  readonly costExemptRace?: Race;
   /**
    * Dual-mode faction cancel (Wild Hounds wh-40). Set on a `cancel-attack`
    * effect carrying `cost: { discard: "self" }` on a dual-alignment faction.
@@ -4294,7 +4294,7 @@ export interface ConvertCreatureToAllyEffect extends EffectBase {
    * Canonical {@link Race} values eligible for conversion (matched against the
    * combat's `creatureRace`, e.g. `["orc", "troll"]`).
    */
-  readonly races: readonly string[];
+  readonly races: readonly Race[];
   /** Maximum printed strikes the creature may have (1 for "one strike for each of its attacks"). */
   readonly maxStrikes: number;
   /** Whether the controlling character taps when taking control (le-220: yes; ba-67: no). */
@@ -4327,7 +4327,7 @@ export interface FlatteryCancelAttackEffect extends EffectBase {
    * race is looked up at play time. Success requires roll > threshold.
    */
   readonly thresholds: ReadonlyArray<{
-    readonly races: ReadonlyArray<string>;
+    readonly races: ReadonlyArray<Race>;
     readonly threshold: number;
   }>;
   /** Bonus added to the roll when the making character has the diplomat skill. */
@@ -4357,8 +4357,8 @@ export interface FlatteryCancelAttackEffect extends EffectBase {
  */
 export interface CounterCancelAttackRollEffect extends EffectBase {
   readonly type: 'counter-cancel-attack-roll';
-  /** Creature races whose cancellation this card may counter (e.g. Spider). */
-  readonly race: ReadonlyArray<string>;
+  /** Creature races whose cancellation this card may counter (e.g. `"spider"`). */
+  readonly race: ReadonlyArray<Race>;
   /** The modified roll total must exceed this for the counter to succeed. */
   readonly threshold: number;
   /** Prowess added to the surviving attack on a successful counter. */
@@ -4398,7 +4398,7 @@ export interface CancelInfluenceEffect extends EffectBase {
   /** The cost to cancel the influence check (typically a corruption check). */
   readonly cost?: ActionCost;
   /** The race required on the character who pays the cost (e.g. "wizard"). */
-  readonly requiredRace?: string;
+  readonly requiredRace?: Race;
   /**
    * A skill required on the character who pays the cost (e.g. "shadow-magic").
    * Checked against the character's skills array plus any item-granted skills.
@@ -4602,7 +4602,7 @@ export interface ModifyAttackEffect extends EffectBase {
    * race is NOT in `race`. The modifier still applies (whole-attack scope only).
    */
   readonly discardIfBearerNot?: {
-    readonly race: readonly string[];
+    readonly race: readonly Race[];
   };
 }
 
@@ -5058,7 +5058,7 @@ export interface PlayConditionEffect extends EffectBase {
    * (e.g. `"ringwraith"`) that must appear in at least one of the
    * controller's companies at the same site as the target's company.
    */
-  readonly race?: string;
+  readonly race?: Race;
   /**
    * For `requires: 'site-type'`: the site types at which the event may be
    * played. Only offered when the active company's current site type is in
@@ -5107,9 +5107,9 @@ export interface PlayConditionEffect extends EffectBase {
 export interface CreatureRaceChoiceEffect extends EffectBase {
   readonly type: 'creature-race-choice';
   /** Races the player may NOT choose. */
-  readonly exclude: readonly string[];
+  readonly exclude: readonly Race[];
   /** Fixed race used when no choice is offered (e.g. Dragon's Desolation). */
-  readonly fixedRace?: string;
+  readonly fixedRace?: Race;
   /** Constraint applied with the chosen race. */
   readonly apply: {
     readonly type: 'add-constraint';
@@ -5409,7 +5409,7 @@ export interface AhuntAttackEffect extends EffectBase {
    */
   readonly body?: number;
   /** Race of the attacking creature (e.g. "dragon"). */
-  readonly race: string;
+  readonly race: Race;
   /** Combat rules that apply to the attack (e.g. "attacker-chooses-defenders"). */
   readonly combatRules?: readonly string[];
   /**
@@ -5513,6 +5513,46 @@ export interface FactionInfluenceRestrictionEffect extends EffectBase {
   readonly blockCards?: readonly string[];
   /** When true, the restriction has no effect on a minion (Ringwraith) influencer. */
   readonly noEffectOnMinion?: boolean;
+}
+
+/**
+ * Environment effect carried by a bare in-play hazard event that strips every
+ * **card-sourced modification** from every influence attempt in the game, for
+ * either player.
+ *
+ * Used by Webs of Fear & Treachery (le-150): "Except for unused general
+ * influence and unused normal direct influence (including influence
+ * modifications given in a character's card text), all modifications to each
+ * influence attempt are reduced to zero."
+ *
+ * While a card carrying this effect sits bare (unattached) in either player's
+ * `cardsInPlay`, {@link import('../engine/reducer-utils.js').influenceModificationsNullified}
+ * reports true and every influence-check computation collapses to:
+ *
+ * - the 2d6 roll(s) and the printed target value (faction influence #, target
+ *   mind, in-play influence #) — not modifications;
+ * - unused **general** influence (the defender's opposing GI in an
+ *   opponent-influence attempt, and a general-influence substitution that
+ *   yields unused GI — Prophet of Doom wh-106);
+ * - unused **normal** direct influence — the influencer's *printed* direct
+ *   influence plus the influence modifications given in **his own card text**,
+ *   minus his followers' mind cost
+ *   ({@link import('../engine/legal-actions/organization.js').normalUnusedDI});
+ * - rules-level (non-card) modifications: the cross-alignment influence
+ *   penalty (CoE 8.W1/8.R1/8.F1/8.B1) and the rule 10.14 agent home-site
+ *   bonuses. The defender's 2d6 roll is likewise untouched (Alfano, Worlds
+ *   2009: Webs does not remove the defensive roll).
+ *
+ * Everything else contributes zero: influence `check-modifier` and
+ * `direct-influence` `stat-modifier` effects from items, attached hazards,
+ * allies and other players' in-play events; the faction card's own printed
+ * "standard modifications"; one-shot influence constraints (Muster, Threats'
+ * prowess substitution, …) — which are still *consumed*, just worth 0;
+ * player-, site- and game-wide influence constraints; `faction-influence-
+ * restriction` environments; and paid `influence-modification` bonuses.
+ */
+export interface NullifyInfluenceModificationsEffect extends EffectBase {
+  readonly type: 'nullify-influence-modifications';
 }
 
 /**
@@ -5919,7 +5959,7 @@ export interface AttackerAttackOptionEffect extends EffectBase {
    * have for the option to be offered (e.g. `"spider"`). Matched against
    * {@link import('./state-combat.js').CombatState.creatureRace}.
    */
-  readonly creatureRace: string;
+  readonly creatureRace: Race;
   /** Prowess added to every strike of the attack when the option is applied. */
   readonly prowessModifier?: number;
   /** When true, applying the option makes the attack a detainment attack. */
@@ -5960,7 +6000,7 @@ export interface SiteInstanceTransformEffect extends EffectBase {
      * creature race (matched against the attack's `creatureType`). Lord and
      * Usurper (ba-65): "lose all Dwarf automatic-attacks".
      */
-    readonly removeAutoAttacksByRace?: string;
+    readonly removeAutoAttacksByRace?: Race;
   };
   /** How every other in-play copy of the same site definition is transformed. */
   readonly others: {
@@ -5974,7 +6014,7 @@ export interface SiteInstanceTransformEffect extends EffectBase {
      * (ba-65): the other versions lose their Dwarf auto-attacks and gain an
      * Orcs auto-attack.
      */
-    readonly removeAutoAttacksByRace?: string;
+    readonly removeAutoAttacksByRace?: Race;
   };
   /**
    * When true, no faction may be played at any version of the transformed site
@@ -6015,7 +6055,7 @@ export interface ConditionalMpEffect extends EffectBase {
     /** Minimum number of qualifying in-play factions required. */
     readonly min: number;
     /** Faction races that qualify (e.g. `["orc","troll"]`). */
-    readonly races: readonly string[];
+    readonly races: readonly Race[];
     /** When true, only unique factions count. */
     readonly unique?: boolean;
     /**
@@ -6057,9 +6097,9 @@ export interface FactionMpBonusEffect extends EffectBase {
    * Gate: the controller must have at least one in-play faction of **each** race
    * listed here for the bonus to apply at all. Empty/omitted means "no gate".
    */
-  readonly requireEachRace?: readonly string[];
+  readonly requireEachRace?: readonly Race[];
   /** A controlled faction receives `bonus` MP iff its race is in this list. */
-  readonly races: readonly string[];
+  readonly races: readonly Race[];
 }
 
 /**
@@ -6729,7 +6769,8 @@ export type CardEffect =
   | FactionMpBonusEffect
   | DiscardOnCardLeavesPlayEffect
   | RetainHazardLongEventsEffect
-  | FactionInfluenceRestrictionEffect;
+  | FactionInfluenceRestrictionEffect
+  | NullifyInfluenceModificationsEffect;
 
 /**
  * Grants extended ally-play permission from a permanent-event attached to a
@@ -7219,7 +7260,7 @@ export interface ProhibitCompanyEventsEffect extends EffectBase {
    * Only companies containing a character of this race (e.g. `"wizard"`) are
    * affected — matched against each company member's printed `race`.
    */
-  readonly companyHasRace: string;
+  readonly companyHasRace: Race;
 }
 
 /**
@@ -7297,8 +7338,8 @@ export interface CancelHazardEventPlayEffect extends EffectBase {
  * against the hazard limit.
  */
 export interface RescueAttack {
-  /** Race of the rescuing creature (e.g. "Spider"). */
-  readonly race: string;
+  /** Race of the rescuing creature (e.g. `"spider"`). */
+  readonly race: Race;
   /** Number of strikes in the rescue-attack. */
   readonly strikes: number;
   /** Prowess of the rescue-attack. */

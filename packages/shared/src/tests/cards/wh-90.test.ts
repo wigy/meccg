@@ -51,7 +51,7 @@ import {
   dispatch, executeAction,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, GameState } from '../../index.js';
-import { Phase, Alignment, CardStatus } from '../../index.js';
+import { Phase, Alignment, CardStatus, Race } from '../../index.js';
 
 // ── Local card-ID constants (single-use — not promoted to card-ids.ts) ──
 
@@ -101,7 +101,7 @@ function bowCombat(opts: { alatarStatus?: CardStatus; bowStatus?: CardStatus; cr
 } {
   let state = makeSingleCharCombatState({
     heroDefId: ALATAR,
-    creatureRace: 'orc',
+    creatureRace: Race.Orc,
     creatureProwess: 4,
     creatureBody: opts.creatureBody ?? 9,
   });

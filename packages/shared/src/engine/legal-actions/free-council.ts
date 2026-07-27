@@ -16,7 +16,7 @@ import type { GameState, PlayerId, GameAction, CardInstanceId, FreeCouncilPhaseS
 import { formatSignedNumber } from '../../format-helpers.js';
 import { requirePhaseState, isBalrogAvatarDef } from '../../state-utils.js';
 import { isCharacterCard } from '../../types/cards.js';
-import { CardStatus } from '../../types/common.js';
+import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.js';
 import { logDetail } from './log.js';
@@ -73,7 +73,7 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
       const compChar = player.characters[cid];
       if (!compChar) return false;
       const compDef = defById(state, compChar.definitionId);
-      return isCharacterCard(compDef) && (compDef.race === 'ringwraith' || isBalrogAvatarDef(compDef));
+      return isCharacterCard(compDef) && (compDef.race === Race.Ringwraith || isBalrogAvatarDef(compDef));
     }) ?? false;
     if (hasCorruptingAvatar) {
       modifier += 2;

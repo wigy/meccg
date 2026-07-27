@@ -47,6 +47,7 @@ import {
   addRaceDuplicateConstraint,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, SitePhaseState, CardDefinitionId } from '../../index.js';
+import { Race } from '../../index.js';
 
 const THE_MOON_IS_DEAD = 'dm-71' as CardDefinitionId;
 // Gladden Fields (tw-396): Undead auto-attack — 1 strike, 8 prowess, no site effects
@@ -113,7 +114,7 @@ describe('The Moon Is Dead (dm-71)', () => {
     // duplicate combat (also Undead race) instead of advancing to declare-agent-attack.
     const base = addRaceDuplicateConstraint(
       setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: GLADDEN_FIELDS }), [moonInPlay])),
-      moonInPlay.instanceId, THE_MOON_IS_DEAD, 'undead', PLAYER_2,
+      moonInPlay.instanceId, THE_MOON_IS_DEAD, Race.Undead, PLAYER_2,
     );
     // Simulate that the first auto-attack has been initiated (index 0) and
     // resolved — counter is now 1, same as the site's total.
@@ -137,7 +138,7 @@ describe('The Moon Is Dead (dm-71)', () => {
     // duplicatesRun = 2 - 1 = 1 >= 1 (one Undead attack) — all done.
     const base = addRaceDuplicateConstraint(
       setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: GLADDEN_FIELDS }), [moonInPlay])),
-      moonInPlay.instanceId, THE_MOON_IS_DEAD, 'undead', PLAYER_2,
+      moonInPlay.instanceId, THE_MOON_IS_DEAD, Race.Undead, PLAYER_2,
     );
     const stateAfterBoth: typeof base = {
       ...base,
@@ -215,7 +216,7 @@ describe('The Moon Is Dead (dm-71)', () => {
     // AFTER a second combat initiation, it means it was not discarded by combat.
     const base = addRaceDuplicateConstraint(
       setupAutoAttackStep(addP2CardsInPlay(buildSitePhaseState({ site: GLADDEN_FIELDS }), [moonInPlay])),
-      moonInPlay.instanceId, THE_MOON_IS_DEAD, 'undead', PLAYER_2,
+      moonInPlay.instanceId, THE_MOON_IS_DEAD, Race.Undead, PLAYER_2,
     );
     const stateAfterFirst: typeof base = {
       ...base,
