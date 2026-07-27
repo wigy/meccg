@@ -383,6 +383,13 @@ export interface CancelAttackAction {
    * immediately.
    */
   readonly mode?: 'cancel' | 'reduce-prowess' | 'free-later-cancel';
+  /**
+   * The replacement site chosen from the canceling player's location deck, set
+   * only for a `cancel-attack` effect carrying a `siteSwap` payload (Farmer
+   * Maggot as-48). Resolving the action swaps the defending company's current
+   * site card for this one before the attack is canceled.
+   */
+  readonly replacementSiteInstanceId?: CardInstanceId;
 }
 
 /**

@@ -304,6 +304,10 @@ function handleSiteSelectCompany(
       // item does not tap the site each turn", refresh the free-minor-item
       // allowance for this site phase.
       firstMinorItemNoTapAvailable: siteFirstMinorItemNoTap(state, company.currentSite),
+      // Farmer Maggot (as-48) may have abandoned the previous company's
+      // automatic-attack sequence — each company starts its slot facing its
+      // site's attacks normally.
+      autoAttacksSkipped: undefined,
       declaredAgentAttack: null,
       awaitingOnGuardReveal: false,
       pendingResourceAction: null,
@@ -724,9 +728,17 @@ function handleSiteAutomaticAttacks(
 
   // When Forewarned Is Forearmed selected a single attack, only that attack
   // is resolved; consider done after 1 attack (not after all autoAttacks.length).
-  const allAttacksDone = forewarnedIdx !== undefined
-    ? attackIndex >= 1
-    : resolveIdx >= autoAttacks.length;
+  // Farmer Maggot (as-48) swapped the site card out from under the company
+  // mid-sequence: the company was placed at the replacement rather than
+  // entering it, so no further automatic-attack is faced at all.
+  const allAttacksDone = siteState.autoAttacksSkipped === true
+    ? true
+    : forewarnedIdx !== undefined
+      ? attackIndex >= 1
+      : resolveIdx >= autoAttacks.length;
+  if (siteState.autoAttacksSkipped === true) {
+    logDetail(`Site: automatic-attack sequence abandoned (site card replaced mid-attack) — no further attacks at ${siteDef.name}`);
+  }
 
   // In the done-branch, treat skipped trailing attacks as resolved so the
   // duplicate-counting math (`effectiveResolved - autoAttacks.length`) holds.
@@ -743,7 +755,9 @@ function handleSiteAutomaticAttacks(
         raceDupRaces.add(c.kind.race.toLowerCase());
       }
     }
-    if (raceDupRaces.size > 0) {
+    // An abandoned sequence (Farmer Maggot as-48) faces nothing further at all —
+    // not even a duplicated attack at the replacement site.
+    if (raceDupRaces.size > 0 && siteState.autoAttacksSkipped !== true) {
       const duplicatableAttacks = autoAttacks.filter(aa =>
         raceDupRaces.has(normalizeCreatureRace(aa.creatureType)),
       );
@@ -4245,6 +4259,7 @@ function finishDissolvedCompanySlot(state: GameState, siteState: SitePhaseState)
         ...siteState,
         step: 'select-company' as const,
         automaticAttacksResolved: 0,
+        autoAttacksSkipped: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
@@ -4308,6 +4323,7 @@ function advanceSiteToNextCompany(
         step: 'select-company' as const,
         handledCompanyIds: updatedHandled,
         automaticAttacksResolved: 0,
+        autoAttacksSkipped: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,

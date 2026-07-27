@@ -970,8 +970,17 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Unique. If one of your companies faces an attack while at a site in The Shire, Arthedain, or Cardolan, you may immediately replace its site card with another site card in The Shire, Arthedain, or Cardolan (from your location deck). If your company takes this option, the attack is canceled and this card is discarded."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "cost": { "discard": "self" },
+        "siteSwap": {
+          "regions": ["The Shire", "Arthedain", "Cardolan"]
+        }
+      }
+    ],
+    "text": "Unique. If one of your companies faces an attack while at a site in The Shire, Arthedain, or Cardolan, you may immediately replace its site card with another site card in The Shire, Arthedain, or Cardolan (from your location deck). If your company takes this option, the attack is canceled and this card is discarded.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-resource-event",

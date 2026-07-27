@@ -772,6 +772,16 @@ export interface SitePhaseState {
    * Undefined means all attacks are processed normally.
    */
   readonly selectedAutoAttackIndex?: number;
+  /**
+   * Set when the active company's remaining automatic-attacks are abandoned
+   * rather than faced. Farmer Maggot (as-48) replaces the company's site card
+   * mid-attack: the company is *placed* at the replacement site instead of
+   * moving to it, so it never enters that site and faces none of its automatic
+   * attacks. The `automatic-attacks` step treats the sequence as finished while
+   * this is set. Absent (undefined → treated as false) for a normal site entry;
+   * reset to absent when a new company's site phase begins.
+   */
+  readonly autoAttacksSkipped?: boolean;
   /** Whether the company has successfully entered the site (past all auto-attacks). */
   readonly siteEntered: boolean;
   /** Whether a resource that taps the site has been played by the current company. */
