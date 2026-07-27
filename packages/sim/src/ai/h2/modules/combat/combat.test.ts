@@ -134,11 +134,15 @@ describe('spending a card', () => {
 
   test('charges the card against every outcome, not only the good ones', () => {
     const card = find(evaluations, a => a.type === 'play-strike-event');
-    const tap = find(evaluations, isResolve(true))!;
     if (!card) return;
-    // The card is paid for whether or not the dice cooperate, so its expected
-    // TSD must sit below an equivalent free option by the full price.
-    expect(card.expectedTsd).toBeLessThan(tap.expectedTsd + DEFAULT_TUNABLES.provisionalCardPrice);
+    // Comparing the card option against a *different* option would conflate
+    // the price with everything else that differs. Re-evaluating the same
+    // option with the price set to zero isolates it exactly: the card is paid
+    // for whether or not the dice cooperate, so the whole expectation moves by
+    // the full price.
+    const free = { ...contextFor('combat/strike-event-in-hand'), tunables: { ...DEFAULT_TUNABLES, provisionalCardPrice: 0 } };
+    const unpriced = combatModule.evaluate(card.action, free)!;
+    expect(unpriced.expectedTsd - card.expectedTsd).toBeCloseTo(DEFAULT_TUNABLES.provisionalCardPrice, 9);
     expect(collectTunables(card.rationale).has('provisionalCardPrice')).toBe(true);
   });
 });

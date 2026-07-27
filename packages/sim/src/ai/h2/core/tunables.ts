@@ -97,6 +97,21 @@ export interface Tunables {
    * one number, named, and visible in every rationale that uses it.
    */
   readonly regionCrossingCost: number;
+  /**
+   * How much of a faction point's value is forfeited by tapping the character
+   * who could have attempted the check, per point of marginal value.
+   *
+   * Multiplied by `standing.marginal.faction`, so it is correctly zero when the
+   * faction source is capped: tapping that character then costs nothing beyond
+   * the flat tempo, because there was no attempt worth making.
+   */
+  readonly influenceTapCost: number;
+  /**
+   * Cost in TSD per point of follower mind that reverts to the general
+   * influence pool when its holder is eliminated. The reversion is a hard
+   * consequence (CoE 2.II.2.2.3); this prices it.
+   */
+  readonly revertedMindCost: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -111,6 +126,8 @@ export const DEFAULT_TUNABLES: Tunables = {
   provisionalCardPrice: 1,
   attackStateCap: 192,
   regionCrossingCost: 0.4,
+  influenceTapCost: 0.6,
+  revertedMindCost: 0.15,
 };
 
 /**

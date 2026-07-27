@@ -39,6 +39,8 @@ import { attackStillDefeatable, eliminationCost, killMpOnOffer, strikeCompletesT
 import type { StrikeTarget } from './prowess.js';
 import { DEFAULT_BODY, bodyOf as bodyOfTarget, predictedNeed, strikeTargets } from './prowess.js';
 import { resolveSequentially } from './sequence.js';
+import type { CharacterValue } from '../../services/character-value.js';
+import { computeCharacterValue } from '../../services/character-value.js';
 
 /**
  * Action types this module scores.
@@ -92,6 +94,8 @@ interface StrikeContext {
   readonly alreadyTappedOrWounded: boolean;
   /** False before assignment, when there is no strike to be about yet. */
   readonly hasCurrentStrike: boolean;
+  /** What tapping or losing each character forgoes, beyond its MP. */
+  readonly characterValue: CharacterValue;
 }
 
 /** Find a character or ally in the acting player's company by instance ID. */
@@ -137,6 +141,7 @@ function buildContext(context: ModuleContext): StrikeContext | null {
     killTsd: killMp > 0 ? standing.tsdAfter({ kill: killMp }) - standing.tsd : 0,
     killMp,
     stillDefeatable: attackStillDefeatable(combat),
+    characterValue: computeCharacterValue(view, cardPool, standing, tunables),
   };
 
   // Before assignment there is no strike to be about. The attack-level
@@ -190,16 +195,17 @@ function outcomeValue(context: StrikeContext, outcome: StrikeOutcome, extraTempo
     case 'untapped':
       break;
     case 'tapped':
-      // Tapping a character that was already tapped or wounded costs nothing
-      // more — the capability was gone before the strike.
-      if (!context.alreadyTappedOrWounded) tempo += tunables.tapTempoCost;
+      // What this particular character's tap forgoes — the service knows that
+      // an already-tapped one forgoes nothing, and that the company's best
+      // influencer forgoes an influence attempt.
+      tempo += context.characterValue.tapCost(context.targetId).tsd;
       break;
     case 'wounded':
       if (!context.situation.alreadyWounded) tempo += tunables.woundTempoCost;
       break;
     case 'eliminated':
       realized += context.standing.tsdAfter(context.elimination.delta) - context.standing.tsd;
-      tempo += tunables.eliminationTempoCost;
+      tempo += context.characterValue.lossCost(context.targetId).tsd;
       break;
   }
 
@@ -235,7 +241,7 @@ function priceProjectedOutcome(
     case 'untapped':
       break;
     case 'tapped':
-      if (target.status === CardStatus.Untapped) tempo += tunables.tapTempoCost;
+      if (target.status === CardStatus.Untapped) tempo += context.characterValue.tapCost(target.instanceId).tsd;
       break;
     case 'wounded':
       if (target.status !== CardStatus.Inverted) tempo += tunables.woundTempoCost;
@@ -243,7 +249,7 @@ function priceProjectedOutcome(
     case 'eliminated': {
       const cost = eliminationCost(context.view, context.cardPool, target.instanceId, companyCharacters(context.view, context.combat));
       realized += context.standing.tsdAfter(cost.delta) - context.standing.tsd;
-      tempo += tunables.eliminationTempoCost;
+      tempo += context.characterValue.lossCost(target.instanceId).tsd;
       break;
     }
   }
@@ -349,7 +355,11 @@ function strikeRationale(
       note: `character ${context.elimination.characterMp}, items ${context.elimination.lostItemMp} of ${context.elimination.carriedItems}`
         + ` (${context.elimination.salvageableItems} salvageable, CoE 3.I.2)`,
     }),
-    leaf('elimination tempo', context.tunables.eliminationTempoCost, { unit: 'tsd', tunable: 'eliminationTempoCost' }),
+    leaf('elimination cost', context.characterValue.lossCost(context.targetId).tsd, {
+      unit: 'tsd',
+      tunable: 'eliminationTempoCost',
+      note: context.characterValue.lossCost(context.targetId).reason,
+    }),
   ], { unit: 'p' }));
 
   if (context.killMp > 0) {
@@ -361,7 +371,10 @@ function strikeRationale(
       tunable: context.completesAttack ? undefined : 'potentialDiscount',
     }));
   }
-  children.push(leaf('tap tempo', context.tunables.tapTempoCost, { unit: 'tsd', tunable: 'tapTempoCost' }));
+  const tapPrice = context.characterValue.tapCost(context.targetId);
+  children.push(leaf('tap cost', tapPrice.tsd, {
+    unit: 'tsd', tunable: 'tapTempoCost', note: tapPrice.reason,
+  }));
   children.push(leaf('wound tempo', context.tunables.woundTempoCost, { unit: 'tsd', tunable: 'woundTempoCost' }));
   children.push(...extra);
 
@@ -371,11 +384,9 @@ function strikeRationale(
 /** Assumptions every evaluation from this module rests on. */
 const ASSUMPTIONS: readonly string[] = [
   'the attacker plays no cards into this combat',
-  'a tap costs a flat tunable rather than what the character was needed for: an influence '
-  + 'attempt requires an *untapped* character (reducer-site.ts), so tapping the only one with '
-  + 'enough free direct influence for a reachable faction forfeits that attempt entirely and is '
-  + 'badly under-priced here. The price belongs to a character-value service owned by `factions` '
-  + '(P3), not to a constant in this module',
+  'a tap is priced by the character-value service, which charges the influence attempt a tap '
+  + 'forfeits — but only for the company\'s best influencer, and it does not yet know whether a '
+  + 'faction is actually reachable at the destination',
   'marshalling-point loss is computed from printed card values, without the engine\'s alignment clamps',
   'item and global body-check modifiers are not modelled',
 ];
