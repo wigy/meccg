@@ -46,6 +46,7 @@ import {
   resolveInfluenceAttemptRoll,
   resolveOpponentInfluenceDefend,
   applyOnGuardRevealAtResource,
+  buildSiteEntryAttackCombat,
   executeDeferredSiteAction,
 } from './reducer-site.js';
 import { autoResolve } from './chain-reducer.js';
@@ -1333,6 +1334,27 @@ function applyDiceCheckBranch(
             : c),
       })),
     };
+  }
+  if (branch.type === 'site-entry-attack') {
+    // Doubled Vigilance (dm-51): the entry roll failed, so the company facing
+    // the gate must face the effect's attack now — the site step is parked at
+    // `site-entry-attack`, i.e. ahead of every automatic-attack.
+    if (state.phaseState.phase !== Phase.Site) {
+      logDetail('site-entry-attack: not in the site phase — no-op');
+      return { state };
+    }
+    if (!ctx.source) {
+      logDetail('site-entry-attack: no source card in context — no-op');
+      return { state };
+    }
+    const combat = buildSiteEntryAttackCombat(
+      state, ctx.rollerIndex, state.phaseState, branch.attack, ctx.source,
+    );
+    if (!combat) {
+      logDetail('site-entry-attack: company has no characters left — no attack');
+      return { state };
+    }
+    return { state: { ...state, combat } };
   }
   logDetail(`dice-check: branch verb "${branch.type}" not handled in resolution context — no-op`);
   return { state };

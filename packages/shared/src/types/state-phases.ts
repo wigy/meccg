@@ -655,6 +655,17 @@ export type SiteStep =
    */
   | 'play-site-auto-attack'
   /**
+   * Site-entry gate window (`site-entry-roll-attack`, Doubled Vigilance
+   * dm-51). Entered when the company commits to entering a site carrying such
+   * a hazard permanent-event (and again after `reveal-on-guard-attacks`, for a
+   * copy revealed from an on-guard slot). A `dice-check` pending resolution
+   * holds the entry roll; if it fails, the effect's attack is initiated and
+   * resolved here — before any automatic-attack. Passing checks for a further
+   * unfired gate and otherwise returns to
+   * {@link SitePhaseState.siteEntryReturnStep}.
+   */
+  | 'site-entry-attack'
+  /**
    * Step 2 (CoE line 350): Automatic-attacks are initiated and resolved
    * one at a time in the order listed on the site card. Each triggers the
    * combat sub-state. Once all are faced (regardless of outcome), the
@@ -765,6 +776,22 @@ export interface SitePhaseState {
     readonly hostInstanceId: CardInstanceId;
     readonly resolved: number;
   };
+  /**
+   * Site step to return to once the `site-entry-attack` window closes — the
+   * step the company would have advanced to had no `site-entry-roll-attack`
+   * gate (Doubled Vigilance dm-51) been bound to its site. Absent while no
+   * gate window is open.
+   */
+  readonly siteEntryReturnStep?: SiteStep;
+  /**
+   * Instance IDs of the `site-entry-roll-attack` host cards whose entry roll
+   * the active company has already made this site phase. Each host fires at
+   * most once per company site phase, so a second pass through the gate check
+   * (after `reveal-on-guard-attacks`, or after the gate's own attack) only
+   * picks up hosts that have not yet rolled. Reset when a new company's site
+   * phase begins (a fresh {@link SitePhaseState} is built).
+   */
+  readonly siteEntryGatesFaced?: readonly CardInstanceId[];
   /**
    * When *Forewarned Is Forearmed* is in play and the site has multiple
    * automatic attacks, this holds the zero-based index of the single

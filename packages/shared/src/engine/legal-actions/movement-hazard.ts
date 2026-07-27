@@ -28,7 +28,7 @@ import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
 import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
-import { buildInPlayNames } from '../recompute-derived.js';
+import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
@@ -3266,9 +3266,11 @@ function playHazardsActions(
           if (destSiteDefId) {
             const siteDef = defById(state, destSiteDefId);
             const siteDefName = siteDef?.name ?? (destSiteDefId as string);
-            // Apply play-target filter (e.g. Incite Defenders: border-hold or free-hold)
+            // Apply play-target filter (e.g. Incite Defenders: border-hold or
+            // free-hold; Doubled Vigilance: Shadow-hold, or Ruins & Lairs /
+            // Border-hold while Doors of Night is in play).
             if (playTarget.filter && siteDef && isSiteCard(siteDef)) {
-              if (!matchesDefinition(siteDef, playTarget.filter)) {
+              if (!matchesContext(playTarget.filter, sitePlayTargetContext(state, siteDef))) {
                 logDetail(`Hazard "${def.name}" site filter excludes ${siteDefName}`);
                 actions.push({
                   action: { ...action, targetSiteDefinitionId: destSiteDefId },

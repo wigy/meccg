@@ -117,6 +117,15 @@ export type AttackSource =
    */
   | { readonly type: 'company-strike-event'; readonly eventInstanceId: CardInstanceId }
   /**
+   * Triggered by Doubled Vigilance (dm-51) via the `site-entry-roll-attack`
+   * DSL effect: the company failed the entry roll for the site the hazard
+   * permanent-event is attached to, so it faces the effect's attack before any
+   * of the site's automatic-attacks. `eventInstanceId` is the in-play hazard
+   * card; it stays in play after the combat (it is discarded only when the
+   * bound site leaves play), so finalization disposes of nothing.
+   */
+  | { readonly type: 'site-entry-attack'; readonly eventInstanceId: CardInstanceId }
+  /**
    * Triggered by The Great Hunt (wh-91) via the `reveal-and-attack` effect. A
    * revealed / discarded hazard-creature attacks the controller's Alatar
    * company. The creature card is never moved out of its pile (deck or discard)

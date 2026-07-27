@@ -11442,3 +11442,98 @@ at least one Wilderness [{w}] in their site path)":
   carries `{ "target.cardType": "minion-character" }` for its "by minions"
   clause; Shifter of Hues omits it, aiding "the characters in one company"
   wholesale.
+
+### 68. `site-entry-roll-attack` (Doubled Vigilance)
+
+Carried by a hazard **permanent-event** attached to a site (via
+`play-target: { target: "site" }`). It gates *entering* the bound site behind a
+dice roll: when a company chooses to enter, its controller rolls 2d6 and — with
+`subtractCompanySize` — subtracts the company's effective size (CoE 3.24, so
+Hobbits and Orc scouts count as half). If the modified total beats `threshold`
+(per `comparison`) the company enters as normal; otherwise it faces `attack`
+**before** any of the site's automatic-attacks.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `threshold` | yes | The number the modified roll must beat. |
+| `comparison` | no | `"gt"` (default) or `"gte"`. |
+| `subtractCompanySize` | no | Subtract the entering company's effective size from the roll. |
+| `attack` | yes | `{ creatureType, strikes, prowess, body? }` — the attack faced on a failed roll. |
+
+```json
+{
+  "type": "site-entry-roll-attack",
+  "subtractCompanySize": true,
+  "threshold": 6,
+  "comparison": "gt",
+  "attack": { "creatureType": "Orcs", "strikes": 4, "prowess": 9 }
+}
+```
+
+Behaviour:
+
+- **The gate** (`reducer-site.ts` `advanceThroughSiteEntryGates`): every step
+  that would hand the company on to the site's attack sequence — the
+  `enter-or-skip` → `enter-site` transition and the close of
+  `reveal-on-guard-attacks` — first looks for a host bound to the company's
+  current site (`attachedToSite`, either player's `cardsInPlay`) that this
+  company has not yet rolled against. When one is found, the site step parks at
+  the new `site-entry-attack` sub-step, the step it was heading for is recorded
+  in `SitePhaseState.siteEntryReturnStep`, and the host is appended to
+  `SitePhaseState.siteEntryGatesFaced` so each copy fires exactly once per
+  company site phase (both fields are cleared when a new company is selected).
+- **The roll** is a generic `dice-check` pending resolution owned by the
+  company's controller, with the company size as a negative `constant` modifier.
+  Its `onFail` is the `site-entry-attack` triggered action.
+- **The attack** (`pending-reducers.ts` `applyDiceCheckBranch` →
+  `buildSiteEntryAttackCombat`): a combat with `attackSource`
+  `{ type: "site-entry-attack", eventInstanceId }`. It is *not* an
+  automatic-attack — it carries no site keying, so automatic-attack modifiers
+  and the §3.II site-type detainment branch do not apply; detainment is still
+  derived from the attacking race, the defender's alignment/covert status, and
+  the site's own `combat-detainment` rules. Because the site step is parked at
+  `site-entry-attack`, the combat resolves ahead of every automatic-attack.
+- **Continuing**: once neither the roll nor its combat is outstanding, the
+  active player passes; a further unfired gate at the site opens next, otherwise
+  the company continues to `siteEntryReturnStep`.
+- **On-guard reveal** (`legal-actions/site.ts`): an event carrying this effect
+  is revealable in the `reveal-on-guard-attacks` window (CoE 2.V.i.1 — adding an
+  attack counts as affecting the site's automatic-attacks; the CRF confirms
+  Doubled Vigilance "can be revealed on-guard"). The reveal is only offered when
+  the card's `play-target` site filter matches the company's site, and the
+  revealed permanent event enters play with `attachedToSite` set, exactly as a
+  hand-played copy would.
+- **Discard when the site leaves play** needs no effect: the generic
+  `discardOrphanedSiteAttachedEvents` sweep discards every `attachedToSite` card
+  once no company occupies the bound site.
+
+A `play-target` `target: "site"` filter is evaluated against
+`sitePlayTargetContext` (`recompute-derived.ts`): the site definition's own
+fields at the top level plus `environment.doorsOfNightInPlay`, so the common
+"…or on X if Doors of Night is in play" alternative is expressible directly:
+
+```json
+{
+  "type": "play-target",
+  "target": "site",
+  "filter": {
+    "$or": [
+      { "siteType": "shadow-hold" },
+      {
+        "$and": [
+          { "environment.doorsOfNightInPlay": true },
+          { "siteType": { "$in": ["ruins-and-lairs", "border-hold"] } }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Used by Doubled Vigilance (dm-51): "Playable on a Shadow-hold [{S}] (or on a
+Ruins & Lairs [{R}] or Border-hold [{B}] if Doors of Night is in play). If the
+company chooses to enter the site, its player must make a roll and subtract its
+company size. If the result is greater than 6, the company may enter the site as
+normal. Otherwise, the company must face an attack to be resolved before any
+automatic-attacks: Orcs — 4 strikes at 9 prowess. Discard when the site card is
+discarded or returned to its location deck. Can be revealed on-guard."
