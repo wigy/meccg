@@ -129,19 +129,29 @@ export function resolveEffective<T extends number | string>(
  *   add-constraint (Nature's Revenge wh-27: "All versions of the site become
  *   Ruins & Lairs"), mirroring the name matching Long Grievous Siege (ba-40)
  *   already uses for its site-bound automatic-attack.
+ * - `{ 'site.printedType': … }` — **every site of one printed type**, bound to
+ *   no definition at all. Emitted by a `printedSiteType` add-constraint
+ *   (Witch-king of Angmar tw-113: "causes all Shadow-holds [{S}] to become
+ *   Dark-holds [{D}]"). Callers that hold only a definition id must pass the
+ *   site's printed type for this shape to match; those that cannot (they never
+ *   see a class-wide retype) simply omit it.
  */
 export function siteConstraintFilterMatches(
   filter: unknown,
   siteDefinitionId: CardDefinitionId | undefined,
   siteName: string | undefined,
+  printedType?: SiteType,
 ): boolean {
-  const f = filter as { 'site.definitionId'?: string; 'site.name'?: string } | undefined;
+  const f = filter as { 'site.definitionId'?: string; 'site.name'?: string; 'site.printedType'?: string } | undefined;
   if (!f) return false;
   if (f['site.definitionId'] !== undefined) {
     return f['site.definitionId'] === (siteDefinitionId as string | undefined);
   }
   if (f['site.name'] !== undefined) {
     return siteName !== undefined && f['site.name'] === siteName;
+  }
+  if (f['site.printedType'] !== undefined) {
+    return printedType !== undefined && f['site.printedType'] === (printedType as string);
   }
   return false;
 }
@@ -166,7 +176,9 @@ export function siteNameOf(state: GameState, siteDefinitionId: CardDefinitionId 
  * `legal-actions/movement-hazard.ts` and `reducer-untap.ts`. This lets a
  * site-transforming card (e.g. Hold Rebuilt and Repaired, as-88) change the
  * type of every in-play copy of the bound site — or, for a name-scoped
- * override, of every printed version of it. The last matching override wins.
+ * override, of every printed version of it, or, for a printed-type-scoped
+ * override, every site of one printed type at once (Witch-king of Angmar
+ * tw-113). The last matching override wins.
  */
 export function getEffectiveSiteType(
   state: GameState,
@@ -203,7 +215,7 @@ export function getEffectiveSiteType(
     // The general effective type is unchanged, so hazard keying, movement,
     // bring-into-play, and item/faction/ally playability all see the printed type.
     if (c.kind.healingOnly) continue;
-    if (!siteConstraintFilterMatches(c.kind.filter, siteDefinitionId, siteNameOf(state, siteDefinitionId))) continue;
+    if (!siteConstraintFilterMatches(c.kind.filter, siteDefinitionId, siteNameOf(state, siteDefinitionId), printedType)) continue;
     value = c.kind.value as SiteType;
   }
   return value;

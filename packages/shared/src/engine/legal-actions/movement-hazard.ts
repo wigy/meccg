@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
@@ -3625,8 +3625,7 @@ function sideboardWithNazgulActions(
 
   const nazguls = player.cardsInPlay.filter(card => {
     if (card.status === CardStatus.Tapped) return false;
-    const def = defById(state, card.definitionId);
-    return !!def && def.cardType === 'hazard-event' && (def.keywords ?? []).includes('Nazgûl');
+    return isNazgulPermanentEvent(defById(state, card.definitionId));
   });
   if (nazguls.length === 0) return [];
 
@@ -3821,11 +3820,15 @@ function findCreatureKeyingMatches(
     : null;
   const effectiveSiteTypes: import('../../types/common.js').SiteType[] = [];
   if (mhState.destinationSiteType) effectiveSiteTypes.push(mhState.destinationSiteType);
-  const destSiteDefName = destSiteDefId ? defById(state, destSiteDefId)?.name : undefined;
+  const destSiteDefForOverride = destSiteDefId ? defById(state, destSiteDefId) : undefined;
+  const destSiteDefName = destSiteDefForOverride?.name;
+  const destSitePrintedType = destSiteDefForOverride && isSiteCard(destSiteDefForOverride)
+    ? destSiteDefForOverride.siteType
+    : undefined;
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
     if (destSiteDefId === null) continue;
-    if (!siteConstraintFilterMatches(c.kind.filter, destSiteDefId, destSiteDefName)) continue;
+    if (!siteConstraintFilterMatches(c.kind.filter, destSiteDefId, destSiteDefName, destSitePrintedType)) continue;
     const overrideType = c.kind.value as import('../../types/common.js').SiteType;
     if (!effectiveSiteTypes.includes(overrideType)) {
       effectiveSiteTypes.push(overrideType);

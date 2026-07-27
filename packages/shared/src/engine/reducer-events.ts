@@ -23,7 +23,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
-import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
 import { applyMove, findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
 import { shuffle } from '../rng.js';
@@ -220,6 +220,17 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       cardsInPlay: remainingCards,
       discardPile: [...p.discardPile, ...discardedEvents],
     }));
+
+    // [2.III.3] boundary: a long-event whose *effect* outlives its card
+    // (Witch-king of Angmar tw-113 — discarded the moment his long-event
+    // resolves, so the card sweep above can never reach it) records its
+    // duration as a `next-long-event-phase` constraint instead. Sweep it here,
+    // at the same moment the hazard player's long-event cards would go.
+    afterPass = sweepExpired(afterPass, {
+      kind: 'long-event-phase-end',
+      hazardPlayerId: hazardPlayer.id,
+      turnNumber: state.turnNumber,
+    });
 
     // Check for hazard-maintenance effects in remaining cardsInPlay.
     // Fire once per permanent hazard event that has a hazard-maintenance effect

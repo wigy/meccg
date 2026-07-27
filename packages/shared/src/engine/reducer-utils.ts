@@ -773,6 +773,28 @@ export function getCardEffects(
 }
 
 /**
+ * True when the given definition, sitting in a player's `cardsInPlay`, is a
+ * **Nazgûl permanent-event** for rule 5.24 (Sideboarding with a Nazgûl).
+ *
+ * The Nine are printed as dual creature/permanent-event cards (Witch-king of
+ * Angmar tw-113, Khamûl tw-47, Adûnaphel tw-2, …): modelled as
+ * `hazard-creature` definitions carrying a `creature-alt-event` of mode
+ * `permanent-event`. A creature can only be in `cardsInPlay` at all by having
+ * been played in that mode, so the effect is the whole test. A plain
+ * `hazard-event` with the keyword also qualifies, covering any Nazgûl printed
+ * as a pure permanent-event.
+ */
+export function isNazgulPermanentEvent(def: CardDefinition | null | undefined): boolean {
+  if (!def) return false;
+  const keywords = (def as { keywords?: readonly string[] }).keywords ?? [];
+  if (!keywords.includes('Nazgûl')) return false;
+  if (def.cardType === 'hazard-event') return true;
+  return getCardEffects(def).some(
+    e => e.type === 'creature-alt-event' && e.mode === 'permanent-event',
+  );
+}
+
+/**
  * True when the given character bears an attached card (stored in its `items` —
  * where a resource permanent-event played "on a character" is kept) whose
  * effects include one of the given `effectType`. Used to detect the continuous
