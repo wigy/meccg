@@ -141,6 +141,8 @@ describe('Ulkaur the Tongueless (le-49)', () => {
   test('+2 DI vs Trolls lets a High-Helmed Ulkaur (DI 2) control Troll Lout (mind 3)', () => {
     // High Helm grants +2 DI unconditionally → base DI 2. The troll bonus adds
     // another +2 against a troll target: 4 >= mind 3 → controllable.
+    // The bearer's player must be Ringwraith-aligned: rule 9.20 nulls a minion
+    // item's effects on a Wizard player's character (the fixture default).
     const state = buildTestState({
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
