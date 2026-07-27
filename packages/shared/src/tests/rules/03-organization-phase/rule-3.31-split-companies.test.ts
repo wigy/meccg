@@ -21,9 +21,9 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI, FRODO,
   MORIA, MINAS_TIRITH, RIVENDELL,
-  viableActions,
+  viableActions, charIdAt, RESOURCE_PLAYER,
 } from '../../test-helpers.js';
-import type { SplitCompanyAction } from '../../../index.js';
+import type { GameState, SplitCompanyAction } from '../../../index.js';
 
 describe('Rule 3.31 — Split Companies', () => {
   beforeEach(() => resetMint());
@@ -84,6 +84,50 @@ describe('Rule 3.31 — Split Companies', () => {
     // Legal-action computer suppresses the split entirely.
     const splits = viableActions(state, PLAYER_1, 'split-company');
     expect(splits).toHaveLength(0);
+  });
+
+  test('cannot split when the splitter would take every other character with it', () => {
+    // A character whose control has reverted to general influence can still be
+    // listed in its former controller's followers. The company then holds two
+    // general-influence characters — enough for the old "at least two" guard —
+    // but splitting the controller takes the follower along and empties the
+    // source. The legal-action computer must apply the reducer's own rule
+    // rather than a proxy for it; offering the split aborted two of 400 games
+    // in a gate run (seeds 4255 and 4418).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN, FRODO] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [GIMLI] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const aragorn = charIdAt(state, RESOURCE_PLAYER, 0, 0);
+    const frodo = charIdAt(state, RESOURCE_PLAYER, 0, 1);
+    const withFollower: GameState = {
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          characters: {
+            ...state.players[0].characters,
+            [aragorn as string]: { ...state.players[0].characters[aragorn], followers: [frodo] },
+          },
+        },
+        state.players[1],
+      ],
+    };
+
+    const splits = viableActions(withFollower, PLAYER_1, 'split-company');
+    // Splitting Frodo alone still leaves Aragorn behind, so exactly one option
+    // survives — the guard must remove the emptying split, not every split.
+    expect(splits).toHaveLength(1);
+    expect((splits[0].action as SplitCompanyAction).characterId).toBe(frodo);
   });
 
   test('splitting at a haven takes an additional untapped haven copy from the location deck for the new company', () => {
