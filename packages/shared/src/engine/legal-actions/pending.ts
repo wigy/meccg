@@ -39,7 +39,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
+import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -519,7 +519,8 @@ export function factionInfluenceRollActions(
       },
     };
 
-    const charEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const ownEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
+    const charEffects = [...ownEffects];
     charEffects.push(...collectCompanyAllyEffects(state, charInPlay, resolverCtx));
 
     if (def.effects) {
@@ -529,23 +530,32 @@ export function factionInfluenceRollActions(
       }
     }
 
-    // Under nullification only the influencer's own card text counts.
-    const ownEffects = charEffects.filter(e => e.sourceInstance === influencingCharacterId);
+    // Under nullification only the influencer's own card text counts
+    // (distinct from `ownEffects`, which is every effect collected for him).
+    const ownCardEffects = charEffects.filter(e => e.sourceInstance === influencingCharacterId);
 
     const freeDI = nullifyMods
-      ? normalUnusedDI(state, influencingCharacterId, player, ownEffects, resolverCtx)
+      ? normalUnusedDI(state, influencingCharacterId, player, ownCardEffects, resolverCtx)
       : availableDI(state, influencingCharacterId, player);
     modifier += freeDI;
     parts.push(nullifyMods ? `normal DI ${freeDI}` : `DI ${freeDI}`);
 
-    const dslModifier = resolveCheckModifier(nullifyMods ? ownEffects : charEffects, 'influence');
+    const dslModifier = resolveCheckModifier(nullifyMods ? ownCardEffects : charEffects, 'influence');
     if (dslModifier !== 0) {
       modifier += dslModifier;
       parts.push(`check mod ${formatSignedNumber(dslModifier)}`);
     }
 
-    // Own-card DI modifications are already inside `freeDI` under nullification.
-    const dslDI = nullifyMods ? 0 : resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
+    // `freeDI` already carries the influencer's effective DI, so only the
+    // faction-conditional modifiers borne by the character are added here
+    // (see `checkConditionalEffects`). Under a le-150 nullification every
+    // card-sourced modification is stripped — the influencer's own ones are
+    // already inside `freeDI`.
+    const diEffects = [
+      ...checkConditionalEffects(ownEffects),
+      ...charEffects.slice(ownEffects.length),
+    ];
+    const dslDI = nullifyMods ? 0 : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
     if (dslDI !== 0) {
       modifier += dslDI;
       parts.push(`DI mod ${formatSignedNumber(dslDI)}`);
