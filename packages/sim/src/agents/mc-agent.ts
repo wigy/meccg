@@ -215,8 +215,11 @@ export function createMcAgent(options: McAgentOptions = {}): Agent {
       return {
         action: actions[best],
         considered: buildConsidered(actions, tallies),
+        // The reported weights are TSD *above the worst candidate* (see
+        // buildConsidered), not absolute TSD — say so, or a watcher reads
+        // the ranking as a score differential it is not.
         note: `mc ${played} playouts over ${actions.length}/${context.legalActions.length} candidates, `
-          + `${horizonTurns}t horizon, best mean TSD ${bestMean.toFixed(2)}`,
+          + `${horizonTurns}t horizon, best mean TSD ${bestMean.toFixed(2)} (w = TSD above worst)`,
       };
     },
   };

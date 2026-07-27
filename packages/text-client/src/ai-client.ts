@@ -93,6 +93,31 @@ function describeWeighted(weighted: WeightedAction, view: PlayerView): string {
 }
 
 /**
+ * Print the ranked candidates the decision was made from, marking the pick.
+ *
+ * Every agent gets this, not just the heuristic strategy: a one-line "the
+ * agent picked X" is not enough to follow a search agent's reasoning while
+ * playing against it, and the candidate ranking is exactly what makes a
+ * surprising move explicable. Agents that report no candidates (a forced
+ * action, or a fallback that does not weigh) print only the header.
+ */
+function logCandidates(
+  view: PlayerView,
+  header: string,
+  candidates: readonly WeightedAction[],
+  picked: GameAction,
+): void {
+  console.log(`AI [${view.phaseState.phase}] ${header}`);
+  const top = [...candidates].sort((a, b) => b.weight - a.weight).slice(0, LOG_TOP_N);
+  for (const candidate of top) {
+    console.log(`  ${candidate.action === picked ? '→' : ' '} ${describeWeighted(candidate, view)}`);
+  }
+  if (candidates.length > LOG_TOP_N) {
+    console.log(`    … and ${candidates.length - LOG_TOP_N} more`);
+  }
+}
+
+/**
  * Pick the next action by delegating to the active strategy and emit a
  * decision summary to stdout. The summary lists the top weighted candidates
  * with their score so a tail of the lobby log shows what the AI is thinking.
@@ -109,7 +134,10 @@ function pickAction(view: PlayerView, actions: readonly GameAction[]): GameActio
       evaluated: view.legalActions,
       random: Math.random,
     });
-    console.log(`AI [${view.phaseState.phase}] agent pick${decision.note ? ` (${decision.note})` : ''} of ${actions.length} actions`);
+    const header = decision.note
+      ? `${decision.note} — of ${actions.length} actions:`
+      : `agent pick of ${actions.length} actions:`;
+    logCandidates(view, header, decision.considered ?? [], decision.action);
     return decision.action;
   }
   const context: AiContext = { view, cardPool, legalActions: actions };
@@ -121,18 +149,7 @@ function pickAction(view: PlayerView, actions: readonly GameAction[]): GameActio
 
   const picked = sampleWeighted(weighted);
   const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
-  const top = [...weighted]
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, LOG_TOP_N);
-
-  console.log(`AI [${view.phaseState.phase}] weighing ${weighted.length} actions (total weight ${totalWeight}):`);
-  for (const cand of top) {
-    const marker = cand.action === picked ? '→' : ' ';
-    console.log(`  ${marker} ${describeWeighted(cand, view)}`);
-  }
-  if (weighted.length > LOG_TOP_N) {
-    console.log(`    … and ${weighted.length - LOG_TOP_N} more`);
-  }
+  logCandidates(view, `weighing ${weighted.length} actions (total weight ${totalWeight}):`, weighted, picked);
   return picked;
 }
 
