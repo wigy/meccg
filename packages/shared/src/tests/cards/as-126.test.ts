@@ -36,7 +36,7 @@ import {
   makeCancelWindowCombat, makeBodyCheckCombat, makeShadowMHState,
   pool,
 } from '../test-helpers.js';
-import { computeLegalActions, validateDeck } from '../../index.js';
+import { computeLegalActions, validateDeck, Race } from '../../index.js';
 import type { CancelAttackAction, CombatState, DeckList, GameState } from '../../index.js';
 
 const HELM_OF_FEAR = 'as-126' as CardDefinitionId;
@@ -183,7 +183,7 @@ describe('Helm of Fear (as-126)', () => {
 
   test('cancel-attack is offered when the Helm is on the Ringwraith and a creature attacks', () => {
     const withItem = attachItemToChar(combatBase(), RESOURCE_PLAYER, REN_RW, HELM_OF_FEAR);
-    const state = makeCancelWindowCombat(withItem, { creatureDefId: ORC_PATROL, creatureRace: 'orc', attackSourceType: 'creature' });
+    const state = makeCancelWindowCombat(withItem, { creatureDefId: ORC_PATROL, creatureRace: Race.Orc, attackSourceType: 'creature' });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(1);
@@ -193,7 +193,7 @@ describe('Helm of Fear (as-126)', () => {
 
   test('activating the Helm cancels the attack, taps the item but NOT the bearer', () => {
     const withItem = attachItemToChar(combatBase(), RESOURCE_PLAYER, REN_RW, HELM_OF_FEAR);
-    const state = makeCancelWindowCombat(withItem, { creatureDefId: ORC_PATROL, creatureRace: 'orc', attackSourceType: 'creature' });
+    const state = makeCancelWindowCombat(withItem, { creatureDefId: ORC_PATROL, creatureRace: Race.Orc, attackSourceType: 'creature' });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     const after = dispatch(state, actions[0].action);
@@ -226,14 +226,14 @@ describe('Helm of Fear (as-126)', () => {
         },
       }) as unknown as typeof withItem.players,
     };
-    const state = makeCancelWindowCombat(withItem, { creatureDefId: ORC_PATROL, creatureRace: 'orc', attackSourceType: 'creature' });
+    const state = makeCancelWindowCombat(withItem, { creatureDefId: ORC_PATROL, creatureRace: Race.Orc, attackSourceType: 'creature' });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('cancel-attack IS still offered when the bearer is tapped (cost taps only the item)', () => {
     let withItem = attachItemToChar(combatBase(), RESOURCE_PLAYER, REN_RW, HELM_OF_FEAR);
     withItem = setCharStatus(withItem, RESOURCE_PLAYER, REN_RW, CardStatus.Tapped);
-    const state = makeCancelWindowCombat(withItem, { creatureDefId: ORC_PATROL, creatureRace: 'orc', attackSourceType: 'creature' });
+    const state = makeCancelWindowCombat(withItem, { creatureDefId: ORC_PATROL, creatureRace: Race.Orc, attackSourceType: 'creature' });
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(1);
@@ -254,7 +254,7 @@ describe('Helm of Fear (as-126)', () => {
         { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [], siteDeck: [] },
       ],
     });
-    const state = makeCancelWindowCombat(base, { creatureDefId: ORC_PATROL, creatureRace: 'orc', attackSourceType: 'creature' });
+    const state = makeCancelWindowCombat(base, { creatureDefId: ORC_PATROL, creatureRace: Race.Orc, attackSourceType: 'creature' });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
@@ -262,7 +262,7 @@ describe('Helm of Fear (as-126)', () => {
 
   test('cancel-attack is NOT offered against a hero company in character-vs-character combat', () => {
     const withItem = attachItemToChar(combatBase(), RESOURCE_PLAYER, REN_RW, HELM_OF_FEAR);
-    const base = makeCancelWindowCombat(withItem, { creatureDefId: ORC_PATROL, creatureRace: 'orc', attackSourceType: 'creature' });
+    const base = makeCancelWindowCombat(withItem, { creatureDefId: ORC_PATROL, creatureRace: Race.Orc, attackSourceType: 'creature' });
     // Reframe the combat as a CvCC attack by the Wizard (hero) company.
     const cvccCombat: CombatState = {
       ...(base.combat as CombatState),

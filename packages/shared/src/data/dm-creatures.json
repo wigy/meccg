@@ -219,7 +219,8 @@
     "prowess": 18,
     "body": 9,
     "killMarshallingPoints": 5,
-    "race": "balrog,spawn",
+    "race": "balrog",
+    "additionalRaces": ["spawn"],
     "keyedTo": [],
     "effects": [
       {

@@ -43,7 +43,7 @@ import {
   firstFactionInfluenceAttempt, viableActions, dispatch, resolveChain,
   findCharInstanceId, expectInDiscardPile,
 } from '../test-helpers.js';
-import { Alignment } from '../../index.js';
+import { Alignment, Race } from '../../index.js';
 import type {
   CardDefinitionId, CardInPlay, CardInstanceId, GameState,
   InfluenceAttemptAction, CancelAttackAction,
@@ -239,7 +239,7 @@ describe('Beasts of the Wood (wh-38)', () => {
   test('offered against an attack keyed by name to one of the six regions', () => {
     const base = factionInPlayState();
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'wolf', attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
+      creatureRace: Race.Wolf, attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
   });
@@ -247,21 +247,21 @@ describe('Beasts of the Wood (wh-38)', () => {
   test('NOT offered against an attack keyed by name to a region NOT on the card', () => {
     const base = factionInPlayState();
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'orc', attackSourceType: 'creature', attackKeyingRegionNames: [NOT_IN_LIST],
+      creatureRace: Race.Orc, attackSourceType: 'creature', attackKeyingRegionNames: [NOT_IN_LIST],
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('NOT offered against an automatic-attack (no region-name keying)', () => {
     const base = factionInPlayState();
-    const state = makeCancelWindowCombat(base, { creatureRace: 'orc', attackSourceType: 'automatic-attack' });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Orc, attackSourceType: 'automatic-attack' });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   test('NOT offered when the in-play faction is already tapped', () => {
     const base = factionInPlayState(CardStatus.Tapped);
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'wolf', attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
+      creatureRace: Race.Wolf, attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
@@ -269,7 +269,7 @@ describe('Beasts of the Wood (wh-38)', () => {
   test('tapping the in-play faction cancels the attack immediately and leaves it TAPPED in play (not discarded)', () => {
     const base = factionInPlayState();
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'wolf', attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
+      creatureRace: Race.Wolf, attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
     });
 
     const action = viableActions(state, PLAYER_1, 'cancel-attack')[0].action as CancelAttackAction;
@@ -302,7 +302,7 @@ describe('Beasts of the Wood (wh-38)', () => {
   test('a minion covert company may play it from hand against a region-name-keyed attack', () => {
     const base = minionHandState([HADOR]); // dunadan → covert
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'wolf', attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
+      creatureRace: Race.Wolf, attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(1);
   });
@@ -310,7 +310,7 @@ describe('Beasts of the Wood (wh-38)', () => {
   test('NOT playable from hand by an OVERT minion company (has an Orc)', () => {
     const base = minionHandState([HADOR, LAGDUF]); // orc present → overt
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'wolf', attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
+      creatureRace: Race.Wolf, attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
@@ -327,7 +327,7 @@ describe('Beasts of the Wood (wh-38)', () => {
       ],
     });
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'wolf', attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
+      creatureRace: Race.Wolf, attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
     });
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
@@ -335,7 +335,7 @@ describe('Beasts of the Wood (wh-38)', () => {
   test('playing it from hand discards the card and cancels the attack via the chain', () => {
     const base = minionHandState([HADOR]);
     const state = makeCancelWindowCombat(base, {
-      creatureRace: 'wolf', attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
+      creatureRace: Race.Wolf, attackSourceType: 'creature', attackKeyingRegionNames: [IN_LIST],
     });
 
     const action = viableActions(state, PLAYER_1, 'cancel-attack')[0].action as CancelAttackAction;

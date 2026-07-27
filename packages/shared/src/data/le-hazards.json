@@ -1743,8 +1743,13 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WebsofFearTreachery.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
-    "text": "Except for unused general influence and unused normal direct influence (including influence modifications given in a character’s card text), all modifications to each influence attempt are reduced to zero."
+    "effects": [
+      {
+        "type": "nullify-influence-modifications"
+      }
+    ],
+    "text": "Except for unused general influence and unused normal direct influence (including influence modifications given in a character’s card text), all modifications to each influence attempt are reduced to zero.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hazard-event",

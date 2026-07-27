@@ -614,7 +614,7 @@ export function siteRuleAllowsCreatureByRace(
   creatureDef: CardDefinition,
 ): boolean {
   if (!siteDef || !isSiteCard(siteDef) || !siteDef.effects) return false;
-  const race = (creatureDef as unknown as { race?: string }).race;
+  const race = (creatureDef as unknown as { race?: Race }).race;
   if (!race) return false;
   return siteDef.effects.some(
     e => e.type === 'site-rule' && e.rule === 'allow-creature-by-race'
@@ -949,6 +949,43 @@ export function collectGlobalCheckModifier(
     }
   }
   return resolveCheckModifier(collected, check, ctxRecord);
+}
+
+/**
+ * True while a bare in-play event in **either** player's `cardsInPlay` carries
+ * a `nullify-influence-modifications` effect — Webs of Fear & Treachery
+ * (le-150): "Except for unused general influence and unused normal direct
+ * influence (including influence modifications given in a character's card
+ * text), all modifications to each influence attempt are reduced to zero."
+ *
+ * Only bare, unattached cards contribute, mirroring
+ * {@link collectGlobalCheckModifier} — a long-event resolves bare into the
+ * declaring player's play area via `in-play-general`, and the effect is
+ * game-wide, so both players' areas are scanned.
+ *
+ * Every influence-check computation consults this flag: the faction-influence
+ * display (`legal-actions/site.ts`), the paused faction-influence roll
+ * (`legal-actions/pending.ts`), the faction roll resolver (`reducer-site.ts`),
+ * the opponent-influence attempt (`reducer-site.ts`) and the agent influence
+ * attempt (`mh-agents.ts`). See {@link import('../types/effects.js').NullifyInfluenceModificationsEffect}
+ * for exactly what survives the nullification.
+ */
+export function influenceModificationsNullified(state: GameState): boolean {
+  for (const pl of state.players) {
+    for (const cip of pl.cardsInPlay) {
+      if (cip.attachedTo !== undefined || cip.attachedToItem !== undefined
+        || cip.attachedToSite !== undefined || cip.attachedToAgentId !== undefined
+        || cip.companyId !== undefined || cip.setAsideHost !== undefined
+        || cip.pendingTriggerAttack) continue;
+      const def = defById(state, cip.definitionId);
+      if (!def) continue;
+      if (getCardEffects(def).some(e => e.type === 'nullify-influence-modifications')) {
+        logDetail(`Influence modifications nullified by "${def.name}" (${cip.definitionId as string})`);
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /**
@@ -1621,7 +1658,7 @@ export function leaderControlEligibility(
 ): boolean {
   const effect = getLeaderControlEffect(factionDef);
   if (!effect || !charDef || !isCharacterCard(charDef)) return false;
-  const raceOk = effect.races.includes(charDef.race as unknown as string);
+  const raceOk = effect.races.includes(charDef.race);
   const keywordOk = (charDef.keywords ?? []).includes(effect.requiresKeyword as never);
   return raceOk && keywordOk;
 }
@@ -2910,20 +2947,39 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
  * play deck or discard pile outside of the normal sequence of play" (Lady of
  * the Golden Wood as-13) — while `"non-minion"` covers Wizard and
  * Fallen-wizard players (Bane of the Ithil-stone tw-13, which "has no effect on
- * a minion player").
+ * a minion player"), and `"all"` covers everyone.
+ *
+ * An optional `when` on the effect narrows it per acting player, evaluated
+ * against `{ player: { alignment, minion, playDeckSize } }`. Flotsam and Jetsam
+ * (wh-18) gates on the acting player's *current* play-deck size ("15 or fewer
+ * cards in his play deck, 20 or fewer if a Fallen-wizard"), so the same card in
+ * play cancels one player's searches and not the other's, and starts biting
+ * mid-game as a deck runs down.
  */
 export function deckSearchCancellerFor(state: GameState, actorId: PlayerId): string | null {
   const actor = state.players.find(p => p.id === actorId);
   if (!actor) return null;
   const actorIsMinion = isMinionOrBalrog(actor);
+  const actorCtx = {
+    player: {
+      alignment: actor.alignment,
+      minion: actorIsMinion,
+      playDeckSize: actor.playDeck.length,
+    },
+  };
   for (const p of state.players) {
     for (const card of p.cardsInPlay) {
       const def = defById(state, card.definitionId);
       if (!def) continue;
       for (const effect of getCardEffects(def)) {
         if (effect.type !== 'cancel-deck-search') continue;
-        const hitsMinion = (effect.affects ?? 'minion') === 'minion';
-        if (hitsMinion === actorIsMinion) return def.name;
+        const affects = effect.affects ?? 'minion';
+        if (affects !== 'all' && (affects === 'minion') !== actorIsMinion) continue;
+        if (effect.when && !matchesCondition(effect.when, actorCtx)) {
+          logDetail(`cancel-deck-search: "${def.name}" does not apply to player ${actorId as string} (alignment ${actor.alignment}, play deck ${actor.playDeck.length})`);
+          continue;
+        }
+        return def.name;
       }
     }
   }
@@ -3334,7 +3390,7 @@ export function companyContainsRace(
   state: GameState,
   player: PlayerState,
   company: Company,
-  race: string,
+  race: Race,
 ): boolean {
   return company.characters.some(cId => {
     const ch = player.characters[cId];
@@ -3350,8 +3406,8 @@ export function companyContainsRace(
  * `cardsInPlay`. A card still resolving a `trigger-attack-on-play` keep is
  * skipped (its ongoing effects are suppressed until the keep is confirmed).
  */
-function collectProhibitedCompanyEventRaces(state: GameState): string[] {
-  const races: string[] = [];
+function collectProhibitedCompanyEventRaces(state: GameState): Race[] {
+  const races: Race[] = [];
   for (const p of state.players) {
     for (const c of p.cardsInPlay) {
       if (c.pendingTriggerAttack) continue;

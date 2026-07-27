@@ -34,7 +34,7 @@ import {
   findCharInstanceId, pool, RESOURCE_PLAYER,
   getCharacter,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, Race } from '../../index.js';
 import { computeCombatProwess } from '../../engine/recompute-derived.js';
 import { availableDI } from '../../engine/legal-actions/organization.js';
 import type { CardDefinitionId, CharacterCard, InfluenceAttemptAction } from '../../index.js';
@@ -111,7 +111,7 @@ describe('Gimli (tw-159)', () => {
     const gimli = state.players[RESOURCE_PLAYER].characters[gimliId];
     const gimliDef = pool[GIMLI as string] as CharacterCard;
 
-    const prowessVsOrc = computeCombatProwess(state, gimli, gimliDef, 'orc');
+    const prowessVsOrc = computeCombatProwess(state, gimli, gimliDef, Race.Orc);
     // Base prowess 5 + 2 bonus = 7
     expect(prowessVsOrc).toBe(gimliDef.prowess + 2);
   });
@@ -122,9 +122,9 @@ describe('Gimli (tw-159)', () => {
     const gimli = state.players[RESOURCE_PLAYER].characters[gimliId];
     const gimliDef = pool[GIMLI as string] as CharacterCard;
 
-    expect(computeCombatProwess(state, gimli, gimliDef, 'troll')).toBe(gimliDef.prowess);
-    expect(computeCombatProwess(state, gimli, gimliDef, 'undead')).toBe(gimliDef.prowess);
-    expect(computeCombatProwess(state, gimli, gimliDef, 'wolf')).toBe(gimliDef.prowess);
+    expect(computeCombatProwess(state, gimli, gimliDef, Race.Troll)).toBe(gimliDef.prowess);
+    expect(computeCombatProwess(state, gimli, gimliDef, Race.Undead)).toBe(gimliDef.prowess);
+    expect(computeCombatProwess(state, gimli, gimliDef, Race.Wolf)).toBe(gimliDef.prowess);
   });
 
   // ── Effect 3: +1 DI vs Elves (character influence-check) ───────────────────

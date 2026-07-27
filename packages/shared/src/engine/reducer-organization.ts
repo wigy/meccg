@@ -12,7 +12,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isResourceEventCard, isCharacterCard, isAvatarCharacter, isItemCard } from '../types/cards.js';
-import { CardStatus, SiteType } from '../types/common.js';
+import { CardStatus, SiteType, Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
@@ -710,7 +710,7 @@ function handleReanimateFromDiscard(state: GameState, action: GameAction): Reduc
   if (!ringwraith) return { state, error: 'reanimate-from-discard: Ringwraith not found' };
   if (ringwraith.status !== CardStatus.Untapped) return { state, error: 'reanimate-from-discard: Ringwraith is not untapped' };
   const rwDef = defById(state, ringwraith.definitionId);
-  if (!rwDef || !isCharacterCard(rwDef) || !isAvatarCharacter(rwDef) || (rwDef as { race?: string }).race !== 'ringwraith') {
+  if (!rwDef || !isCharacterCard(rwDef) || !isAvatarCharacter(rwDef) || (rwDef as { race?: Race }).race !== Race.Ringwraith) {
     return { state, error: 'reanimate-from-discard: character is not a Ringwraith' };
   }
   const rwCompany = findCharacterCompany(player.companies, action.ringwraithInstanceId);

@@ -34,7 +34,7 @@ import {
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { Alignment, CardStatus, SiteType } from '../../index.js';
+import { Alignment, CardStatus, SiteType, Race } from '../../index.js';
 import type { CardDefinitionId, ModifyAttackAction } from '../../index.js';
 
 const BOW_OF_DRAGON_HORN = 'td-102' as CardDefinitionId;
@@ -70,7 +70,7 @@ describe('Bow of Dragon-horn (td-102)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 3,
       strikeProwess: 6,
@@ -110,7 +110,7 @@ describe('Bow of Dragon-horn (td-102)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 3,
       strikeProwess: 6,
@@ -165,7 +165,7 @@ describe('Bow of Dragon-horn (td-102)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 1,
       strikeProwess: 6,
@@ -207,7 +207,7 @@ describe('Bow of Dragon-horn (td-102)', () => {
     base = attachItemToChar(base, RESOURCE_PLAYER, THEODEN, BOW_OF_DRAGON_HORN);
 
     const combatState = makeCancelWindowCombat(base, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'automatic-attack',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -244,7 +244,7 @@ describe('Bow of Dragon-horn (td-102)', () => {
     base = attachItemToChar(base, RESOURCE_PLAYER, THEODEN, BOW_OF_DRAGON_HORN);
 
     const combatState = makeCancelWindowCombat(base, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'on-guard-creature',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -283,7 +283,7 @@ describe('Bow of Dragon-horn (td-102)', () => {
     // Creature with site-type keying only (no regional keying) → keyed to a site
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       attackSiteKeyingTypes: [SiteType.ShadowHold],
       strikesTotal: 2,
@@ -322,7 +322,7 @@ describe('Bow of Dragon-horn (td-102)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 6,
@@ -381,7 +381,7 @@ describe('Bow of Dragon-horn (td-102)', () => {
 
     const combatState = makeCancelWindowCombat(base, {
       creatureDefId: ORC_PATROL,
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackSourceType: 'creature',
       strikesTotal: 2,
       strikeProwess: 6,

@@ -41,7 +41,7 @@ import type {
   ActivateGrantedAction, AssignStrikeAction, CombatState,
   CardDefinitionId, GameState,
 } from '../../index.js';
-import { computeLegalActions, RegionType } from '../../index.js';
+import { computeLegalActions, RegionType, Race } from '../../index.js';
 
 const NENSELDE = 'td-142' as CardDefinitionId;
 const STARS = 'tw-331' as CardDefinitionId;   // environment short-event
@@ -85,7 +85,7 @@ describe('Nenseldë the Wingild (td-142)', () => {
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, NENSELDE);
     const withCombat = makeCancelWindowCombat(withAlly, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [RegionType.Wilderness],
       strikesTotal: 2,
     });
@@ -114,7 +114,7 @@ describe('Nenseldë the Wingild (td-142)', () => {
     });
     const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, NENSELDE);
     const withDefenderCombat = makeCancelWindowCombat(withAlly, {
-      creatureRace: 'orc',
+      creatureRace: Race.Orc,
       attackKeying: [RegionType.Wilderness],
       strikesTotal: 2,
     });

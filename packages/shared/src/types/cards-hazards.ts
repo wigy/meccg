@@ -119,8 +119,24 @@ export interface CreatureCard {
    * (CoE rule 8.22)
    */
   readonly starredKillMarshallingPoints?: boolean;
-  /** The creature's race (e.g. Orc, Troll, Undead), used for race-specific card interactions. */
+  /**
+   * The creature's primary race — the first attack type its card text names
+   * (e.g. Orc, Troll, Undead) — used for race-specific card interactions.
+   * Always exactly one {@link Race}; a creature that counts as several races
+   * lists the rest in {@link additionalRaces} rather than packing them into
+   * this field.
+   */
   readonly race: Race;
+  /**
+   * The further races this creature also counts as, beyond {@link race}.
+   * A handful of creatures print more than one attack type — Beorning
+   * Skin-changers (ba-10) "Animals. Men. Bears.", Goblin-faces (wh-13)
+   * "Orcs. Men.", Durin's Bane (dm-107) Balrog/Spawn — and each entry here is
+   * a single canonical {@link Race}, never a comma-joined list. Exposed to the
+   * DSL as `enemy.races` (the full set including {@link race}) so a condition
+   * can match any of them; `enemy.race` stays the single primary race.
+   */
+  readonly additionalRaces?: readonly Race[];
   /** Terrain and site restrictions determining where this creature can legally attack. */
   readonly keyedTo: readonly CreatureKeyRestriction[];
   /** Game keywords (e.g. "environment", "weapon", "armor") that affect card interactions. */

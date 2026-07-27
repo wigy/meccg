@@ -33,6 +33,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isFactionCard } from '../types/cards.js';
 import { CardStatus, Skill } from '../types/common.js';
+import type { Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
@@ -282,7 +283,7 @@ function applyTraitorTrigger(
   const prowess = (traitorDef.prowess ?? 0) + (apply.prowessBonus ?? 10);
   const strikes = apply.strikes ?? 1;
   const bodyCheckModifier = apply.bodyCheckModifier ?? 0;
-  const race = traitorDef.race ? (traitorDef.race as string).toLowerCase() : undefined;
+  const race: Race | undefined = traitorDef.race;
   const defendingPlayerId = defendingPlayer.id;
   const attackingPlayerId = newState.players[1 - traitorOwnerIndex].id;
 
