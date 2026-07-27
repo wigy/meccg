@@ -244,23 +244,62 @@ describe('Gandalf (wh-4)', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
       ],
     });
-    const cheated = { ...base, cheatRollTotal: 10 };
 
-    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action')
+    const actions = viableActions(base, PLAYER_1, 'activate-granted-action')
       .map(a => a.action as ActivateGrantedAction)
       .filter(a => a.actionId === 'test-gold-ring');
     expect(actions.length).toBe(1);
 
-    const result = dispatchResult(cheated, actions[0]);
+    // Tapping enqueues the shared gold-ring test; the roll resolves it.
+    const afterActivate = dispatch(base, actions[0]);
+    expectCharStatus(afterActivate, RESOURCE_PLAYER, GANDALF_FW, CardStatus.Tapped);
+
+    const cheated = { ...afterActivate, cheatRollTotal: 10 };
+    const rolls = viableActions(cheated, PLAYER_1, 'gold-ring-test-roll');
+    expect(rolls.length).toBe(1);
+
+    const result = dispatchResult(cheated, rolls[0].action);
     const next = result.state;
 
-    expectCharStatus(next, RESOURCE_PLAYER, GANDALF_FW, CardStatus.Tapped);
     expectCharItemCount(next, RESOURCE_PLAYER, GANDALF_FW, 0);
     expectInDiscardPile(next, RESOURCE_PLAYER, PRECIOUS_GOLD_RING);
     expect(next.players[0].lastDiceRoll).toBeDefined();
     expect(next.players[0].lastDiceRoll!.die1 + next.players[0].lastDiceRoll!.die2).toBe(10);
     expect(result.effects).toBeDefined();
     expect(result.effects!.some(e => e.effect === 'dice-roll')).toBe(true);
+  });
+
+  test('MEWH §10: a Fallen-wizard testing a hero gold ring rolls at -1', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [{ defId: GANDALF_FW, items: [PRECIOUS_GOLD_RING] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const actions = viableActions(base, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as ActivateGrantedAction)
+      .filter(a => a.actionId === 'test-gold-ring');
+    const afterActivate = dispatch(base, actions[0]);
+    const rolls = viableActions(afterActivate, PLAYER_1, 'gold-ring-test-roll');
+    // Precious Gold Ring makes The One Ring eligible on a 10+. Rolling a raw 10
+    // as a Fallen-wizard yields a modified 9, which falls short.
+    const afterRoll = dispatch({ ...afterActivate, cheatRollTotal: 10 }, rolls[0].action);
+
+    const pending = afterRoll.pendingResolutions.filter(r => r.actor === PLAYER_1);
+    expect(pending).toHaveLength(1);
+    if (pending[0].kind.type !== 'ring-play-offer') throw new Error('expected ring-play-offer');
+    expect(pending[0].kind.rollTotal).toBe(9);
+    expect(pending[0].kind.eligibleCategories).not.toContain('the-one-ring');
+    expect(pending[0].kind.eligibleCategories).toContain('dwarven-ring');
   });
 
   test('sanity: computeLegalActions runs for a Gandalf FW company (no crash)', () => {

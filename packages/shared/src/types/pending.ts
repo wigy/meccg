@@ -1535,6 +1535,20 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * The targeted character is able to use the Palantír that added this
+         * constraint — i.e. the constraint's `source` card instance, and only
+         * that one. Palantír of Elostirion (le-332): "If the bearer is a sage
+         * … the bearer is able to use this Palantír this turn if he taps." The
+         * sage taps himself (the grant-action's `{ tap: "bearer" }` cost) to
+         * add this turn-scoped constraint; the item's own tap-to-draw ability
+         * then sees `bearer.canUsePalantir` as true (see
+         * `buildGrantActionContext`, which matches the constraint's `source`
+         * against the card whose ability is being gated).
+         */
+        readonly type: 'can-use-palantir';
+      }
+    | {
+        /**
          * Rescue Prisoners style: the bearer character may not untap
          * during the normal untap phase while this constraint is active.
          * Placed when a permanent event with `trigger-attack-on-play`

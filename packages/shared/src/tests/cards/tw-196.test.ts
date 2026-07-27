@@ -14,13 +14,14 @@
  * | # | Feature                                 | Status      | Notes                                         |
  * |---|-----------------------------------------|-------------|-----------------------------------------------|
  * | 1 | Discard when tested (gold-ring-test)    | IMPLEMENTED | global for all gold-ring items                |
- * | 2 | Roll to determine which ring to play    | INFO ONLY   | informational; player plays ring manually;    |
- * |   |                                         |             | same precedent as certified le-315            |
+ * | 2 | Roll to determine which ring to play    | IMPLEMENTED | ring-test-table → ring-play-offer             |
  *
  * The ring-replacement table (12+ One Ring, 10–12+ Dwarven, 1–7 Magic,
- * any Lesser) is informational — the engine returns the dice roll total
- * and the player manually plays the appropriate special ring from hand.
- * No engine enforcement needed (same as le-315, certified 2026-04-19).
+ * any Lesser) is the `ring-test-table` effect: the `gold-ring-test` pending
+ * resolution maps the roll total to eligible ring categories and enqueues a
+ * `ring-play-offer` listing the special rings the player may play immediately.
+ * Gandalf's `test-gold-ring` grant routes through that resolution, so the
+ * table applies on the Wizard-tap path as well as the site auto-test paths.
  *
  * Fixture alignment: hero (wizard), using Gandalf (tw-156) and Frodo at Rivendell.
  */
@@ -33,7 +34,7 @@ import {
   Phase, CardStatus,
   buildTestState, resetMint,
   findCharInstanceId, viableActions,
-  attachItemToChar, getCharacter, dispatchResult,
+  attachItemToChar, getCharacter, dispatch, dispatchResult,
   expectCharStatus, expectCharItemCount, expectInDiscardPile,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
@@ -104,15 +105,19 @@ describe('Beautiful Gold Ring (tw-196)', () => {
       ],
     });
 
-    const cheated = { ...state, cheatRollTotal: 12 };
-
-    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action');
     expect(actions.length).toBe(1);
 
-    const result = dispatchResult(cheated, actions[0].action);
+    const afterActivate = dispatch(state, actions[0].action);
+    expectCharStatus(afterActivate, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
+
+    const cheated = { ...afterActivate, cheatRollTotal: 12 };
+    const rolls = viableActions(cheated, PLAYER_1, 'gold-ring-test-roll');
+    expect(rolls.length).toBe(1);
+
+    const result = dispatchResult(cheated, rolls[0].action);
     const nextState = result.state;
 
-    expectCharStatus(nextState, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
     expectCharItemCount(nextState, RESOURCE_PLAYER, FRODO, 0);
     expectInDiscardPile(nextState, RESOURCE_PLAYER, BEAUTIFUL_GOLD_RING);
 
@@ -124,5 +129,37 @@ describe('Beautiful Gold Ring (tw-196)', () => {
 
     expect(result.effects).toBeDefined();
     expect(result.effects!.some(e => e.effect === 'dice-roll')).toBe(true);
+  });
+
+  test('the roll consults this ring’s own table: 12 makes The One Ring eligible, 11 does not', () => {
+    const build: Parameters<typeof buildTestState>[0] = {
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [GANDALF, { defId: FRODO, items: [BEAUTIFUL_GOLD_RING] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    };
+
+    for (const [total, expected] of [[12, true], [11, false]] as const) {
+      resetMint();
+      const state = buildTestState(build);
+      const grants = viableActions(state, PLAYER_1, 'activate-granted-action');
+      const afterActivate = dispatch(state, grants[0].action);
+      const rolls = viableActions(afterActivate, PLAYER_1, 'gold-ring-test-roll');
+      const afterRoll = dispatch({ ...afterActivate, cheatRollTotal: total }, rolls[0].action);
+
+      const pending = afterRoll.pendingResolutions.filter(r => r.actor === PLAYER_1);
+      expect(pending).toHaveLength(1);
+      if (pending[0].kind.type !== 'ring-play-offer') throw new Error('expected ring-play-offer');
+      expect(pending[0].kind.eligibleCategories.includes('the-one-ring')).toBe(expected);
+      // Dwarven rings need a 10+ on this ring; both totals clear that.
+      expect(pending[0].kind.eligibleCategories).toContain('dwarven-ring');
+    }
   });
 });
