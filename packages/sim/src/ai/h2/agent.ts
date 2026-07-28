@@ -9,8 +9,25 @@
  * agent converts them with a softmax rather than playing the argmax, because
  * the behavioural-cloning pipeline consumes the weight distribution as soft
  * targets and the noisy-heuristic variants sample from it. Second, decisions
- * no module claims are delegated to Heuristics 1 unchanged, so `h2:<module>`
- * is a genuine ablation: only the named module's decisions differ.
+ * H2 cannot speak to are delegated to Heuristics 1 unchanged.
+ *
+ * The interesting case is a decision H2 can speak to only *partly*. Measured
+ * over four self-play games, a dozen action types still have no owner, so
+ * demanding complete coverage means nothing outside combat ever runs. But
+ * ranking a covered candidate against an uncovered one is impossible: the two
+ * numbers are a win-probability delta and a unitless H1 weight.
+ *
+ * The way out is that a utility is a change in win probability *relative to
+ * doing nothing*. So "this action improves the position by 2%" is a claim
+ * that stands on its own, without reference to the candidates H2 could not
+ * score. On partial coverage the agent therefore acts only when the best
+ * covered utility clears `partialCoverageMargin` — a claim strong enough to
+ * be worth making blind — and otherwise hands the whole decision to
+ * Heuristics 1. The two scales are never compared.
+ *
+ * What that concedes is real and bounded: an unowned candidate might have
+ * been better still, and H2 will sometimes take a good action instead of the
+ * best one. The margin is what buys that risk down.
  */
 
 import type { Agent, AgentContext, AgentDecision, ConsideredAction } from '../../types.js';
@@ -81,9 +98,14 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         tunables,
         standing: computeStanding(context.view, model, tunables, options.riskOverride),
       };
-      const { modules: contributors, evaluations } = evaluateDecision(modules, moduleContext);
+      const { modules: contributors, evaluations, complete } = evaluateDecision(modules, moduleContext);
+      const best = evaluations[0];
+      // Speak on a complete view, or on a partial one when the covered opinion
+      // is strong enough to stand without seeing the rest.
+      const speaks = evaluations.length > 0
+        && (complete || best.utility > tunables.partialCoverageMargin);
 
-      if (contributors.length === 0) {
+      if (!speaks) {
         // No H2 owner: Heuristics 1 handles the decision in its own units.
         const aiContext: AiContext = {
           view: context.view,
@@ -98,13 +120,24 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         return { action: sampleWeighted(weighted, context.random), considered: weighted, note: 'h1 fallback' };
       }
 
+      // On a partial view the candidate list is not the whole decision, so it
+      // is not a distribution the behavioural-cloning pipeline should learn
+      // from as though it were. Take the best action and report no weights.
+      if (!complete) {
+        return {
+          action: best.action,
+          note: `${contributors.join('+')} (partial coverage): ΔP(win) ${(best.utility * 100).toFixed(2)}% `
+            + `clears the ${(tunables.partialCoverageMargin * 100).toFixed(1)}% margin; `
+            + `${context.legalActions.length - evaluations.length} candidate(s) unscored`,
+        };
+      }
+
       const probabilities = softmax(evaluations.map(e => e.utility), temperature);
       const considered: ConsideredAction[] = evaluations.map((e, i) => ({
         action: e.action,
         weight: probabilities[i],
       }));
       const action = sampleWeighted(considered, context.random);
-      const best = evaluations[0];
       return {
         action,
         considered,

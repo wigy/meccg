@@ -106,6 +106,42 @@ describe('unowned decisions', () => {
   });
 });
 
+describe('partial coverage', () => {
+  const model = testWinProbModel();
+  /** An action type no module owns. */
+  const UNOWNED = { type: 'transfer-item', id: 'x' } as unknown as GameAction;
+
+  test('acts on a partial view when the covered opinion clears the margin', () => {
+    // PASS_B is worth +6 tsd to the stub, comfortably above the margin, so the
+    // agent speaks even though it cannot score the third candidate.
+    const agent = createHeuristic2Agent({ available: [REWARDS], model, temperature: 0.0001 });
+    const decision = agent.chooseAction(decisionContext([PASS_A, PASS_B, UNOWNED]));
+    expect(decision.action).toBe(PASS_B);
+    expect(decision.note).toContain('partial coverage');
+    // A partial candidate list is not a distribution over the decision, so no
+    // weights are reported — the training pipeline must not learn from it.
+    expect(decision.considered).toBeUndefined();
+  });
+
+  test('falls back when the covered opinion is too weak to stand alone', () => {
+    const weak: H2Module = {
+      name: 'weak',
+      ownedActionTypes: ['pass'],
+      evaluate: action => ({
+        action, module: 'weak',
+        outcomes: [{ p: 1, label: 'negligible', dtsd: 0.001 }],
+        expectedTsd: 0.001, sigmaTsd: 0, utility: 0.00001,
+        method: 'integrated', rationale: leaf('weak', 0), assumptions: [],
+      }),
+    };
+    const agent = createHeuristic2Agent({ available: [weak], model });
+    // No H1 opinion is consulted for comparison — the fallback replaces the
+    // whole decision rather than mixing the two scales.
+    const decision = agent.chooseAction(decisionContext([PASS_A, UNOWNED]));
+    expect(decision.note).toContain('h1 fallback');
+  });
+});
+
 describe('agent identity', () => {
   test('records the enabled module set in its name, so replays say what played', () => {
     expect(createHeuristic2Agent({ available: [REWARDS], model: testWinProbModel() }).name).toBe('h2');

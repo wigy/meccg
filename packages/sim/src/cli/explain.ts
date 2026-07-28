@@ -143,7 +143,7 @@ if (riskOverride !== undefined && !Number.isFinite(riskOverride)) {
 
 const standing = computeStanding(view, model, tunables, riskOverride);
 const modules = resolveModules(stringFlag(args, 'module'));
-const { modules: contributors, evaluations } = evaluateDecision(modules, {
+const { modules: contributors, evaluations, uncovered } = evaluateDecision(modules, {
   view,
   cardPool,
   legalActions,
@@ -204,6 +204,7 @@ if (asJson) {
     cardPool,
     standing,
     modules: contributors,
+    uncovered,
     evaluations,
     fallback,
     topN,

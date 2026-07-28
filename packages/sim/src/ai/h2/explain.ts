@@ -30,6 +30,8 @@ export interface ExplanationInput {
   readonly standing: Standing;
   /** Modules that scored this decision; empty means the Heuristics-1 fallback. */
   readonly modules: readonly string[];
+  /** Action types no module could score, when coverage was incomplete. */
+  readonly uncovered?: readonly string[];
   /** Ranked evaluations; empty when the H1 fallback owns the decision. */
   readonly evaluations: readonly Evaluation[];
   /** H1's weights, used when no module claimed the decision. */
@@ -156,7 +158,9 @@ export function renderExplanation(input: ExplanationInput): string[] {
     return lines;
   }
 
-  lines.push(`RANKED (${input.modules.length === 1 ? 'module' : 'modules'} ${input.modules.join(' + ')})`);
+  const partial = (input.uncovered ?? []).length > 0;
+  lines.push(`RANKED (${input.modules.length === 1 ? 'module' : 'modules'} ${input.modules.join(' + ')}`
+    + `${partial ? `, partial — ${(input.uncovered ?? []).join(', ')} unscored` : ''})`);
   input.evaluations.forEach((evaluation, i) => {
     lines.push(
       `  ${i + 1}. ${describe(evaluation.action)}`,

@@ -87,11 +87,28 @@ describe('evaluating a decision', () => {
     expect(evaluations[0].action).toBe(DRAFT_STOP);
   });
 
-  test('withdraws the claim when the module cannot score one of the actions', () => {
+  test('an action a module declines is left uncovered, not silently scored', () => {
     const partial = stubModule({
       evaluate: (action, ctx) => (action === PASS ? null : evaluation(action, 'stub', ctx.legalActions.length)),
     });
-    expect(evaluateDecision([partial], context([PASS, DRAFT_STOP])).modules).toEqual([]);
+    const result = evaluateDecision([partial], context([PASS, DRAFT_STOP]));
+    expect(result.complete).toBe(false);
+    expect(result.uncovered).toEqual(['pass']);
+    // The scored candidate is still returned — whether a partial opinion is
+    // worth acting on is the agent's call, not the registry's.
+    expect(result.evaluations).toHaveLength(1);
+  });
+
+  test('reports complete coverage when every candidate was scored', () => {
+    const result = evaluateDecision([stubModule()], context([PASS, DRAFT_STOP]));
+    expect(result.complete).toBe(true);
+    expect(result.uncovered).toEqual([]);
+  });
+
+  test('names the types it could not cover', () => {
+    const result = evaluateDecision([stubModule()], context([PASS, RESOLVE_STRIKE]));
+    expect(result.complete).toBe(false);
+    expect(result.uncovered).toEqual(['resolve-strike']);
   });
 
   test('rejects a distribution that does not sum to 1, naming the module', () => {

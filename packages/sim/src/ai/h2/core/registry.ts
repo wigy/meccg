@@ -18,9 +18,15 @@
  *
  * The one thing that must never happen is a ranking mixing an H2 utility with
  * an H1 weight, which is unitless and comparable only inside one evaluator —
- * the precise defect Heuristics 2 exists to remove. So coverage is all or
- * nothing: if a single candidate has no owner, the whole decision falls
- * through to Heuristics 1.
+ * the precise defect Heuristics 2 exists to remove.
+ *
+ * Coverage is reported rather than enforced here. When it is incomplete the
+ * evaluations returned cover the owned candidates only, and it is the agent
+ * that decides whether a partial opinion is worth acting on — see
+ * `agent.ts`. Measured over four self-play games, a dozen action types are
+ * still unowned, so requiring complete coverage means nothing outside combat
+ * ever runs; the rule that protects the units should not also be the rule
+ * that decides when to speak.
  *
  * An earlier version required *one* module to own the whole decision. That is
  * satisfiable in combat, which is a closed sub-state, and unsatisfiable in the
@@ -106,8 +112,12 @@ export interface DecisionEvaluation {
    * transfers together is covered by `travel` and `items` between them.
    */
   readonly modules: readonly string[];
-  /** One evaluation per legal action, ranked best first. Empty when H1 owns it. */
+  /** Evaluations for the *owned* candidates, ranked best first. */
   readonly evaluations: readonly Evaluation[];
+  /** Whether every candidate on the decision had an owner. */
+  readonly complete: boolean;
+  /** Candidates no module owns — the reason `complete` is false. */
+  readonly uncovered: readonly string[];
 }
 
 /**
@@ -121,21 +131,29 @@ export function evaluateDecision(
   modules: readonly H2Module[],
   context: ModuleContext,
 ): DecisionEvaluation {
-  if (!coversDecision(modules, context)) return { modules: [], evaluations: [] };
-
   const evaluations: Evaluation[] = [];
   const contributors = new Set<string>();
+  const uncovered: string[] = [];
+
   for (const action of context.legalActions) {
     const owner = ownerOf(modules, action, context);
-    // Covered above, but a module that declines an action it owns withdraws
-    // the whole decision: a partially-scored candidate list cannot be ranked
-    // honestly, and falling back is always safe.
     const evaluation = owner?.evaluate(action, context);
-    if (!owner || !evaluation) return { modules: [], evaluations: [] };
+    if (!owner || !evaluation) {
+      // A module that declines an action it nominally owns leaves it
+      // uncovered, exactly as if no module had claimed it.
+      uncovered.push(action.type);
+      continue;
+    }
     assertValidDistribution(evaluation.outcomes, owner.name);
     contributors.add(owner.name);
     evaluations.push(evaluation);
   }
+
   evaluations.sort((a, b) => b.utility - a.utility);
-  return { modules: [...contributors].sort(), evaluations };
+  return {
+    modules: [...contributors].sort(),
+    evaluations,
+    complete: uncovered.length === 0 && evaluations.length > 0,
+    uncovered: [...new Set(uncovered)].sort(),
+  };
 }

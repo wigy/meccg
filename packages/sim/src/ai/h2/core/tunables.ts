@@ -112,6 +112,18 @@ export interface Tunables {
    * consequence (CoE 2.II.2.2.3); this prices it.
    */
   readonly revertedMindCost: number;
+  /**
+   * How good a covered action must look, in win probability, before H2 acts on
+   * an *incomplete* view of a decision.
+   *
+   * Utilities are changes in win probability relative to doing nothing, so a
+   * positive one is a claim that the action improves the position — a claim
+   * that needs no reference to the candidates H2 could not score. Requiring a
+   * clear margin rather than any positive number is the concession to what is
+   * unknown: an unowned candidate might have been better still, and the cost
+   * of that is bounded by only speaking when the covered opinion is strong.
+   */
+  readonly partialCoverageMargin: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -128,6 +140,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   regionCrossingCost: 0.4,
   influenceTapCost: 0.6,
   revertedMindCost: 0.15,
+  partialCoverageMargin: 0.005,
 };
 
 /**

@@ -60,8 +60,11 @@ export function testStandingView(
   turnNumber: number,
 ): PlayerView {
   return {
-    self: { marshallingPoints: testMarshallingPoints(self) },
+    self: { marshallingPoints: testMarshallingPoints(self), companies: [], characters: {} },
     opponent: { marshallingPoints: testMarshallingPoints(opponent) },
     turnNumber,
+    // The Heuristics-1 fallback reads the phase, so a view used to exercise
+    // that path needs one; standing itself never looks.
+    phaseState: { phase: 'organization' },
   } as unknown as PlayerView;
 }
