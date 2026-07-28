@@ -412,6 +412,33 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Opposed roll (No More Nonsense le-210): the card's play-target (the
+         * *challenger*) and a second character chosen at play time (the
+         * *opponent*) each make a 2d6 roll, `addStat` is added to each total,
+         * and the totals are compared. The rolls happen one at a time — the
+         * resolution stays queued after the challenger's roll (its total kept
+         * in {@link challengerRoll}) until the opponent has rolled too, at
+         * which point the source card's `opposed-roll` effect applies its
+         * `onWin` / `onLose` outcomes.
+         */
+        readonly type: 'opposed-roll';
+        /** The in-play card instance that ran the contest — the outcomes bind to it. */
+        readonly sourceInstanceId: CardInstanceId;
+        /** The card that ran the contest (its `opposed-roll` effect holds the outcomes). */
+        readonly sourceDefinitionId: CardDefinitionId;
+        /** The card's play-target — rolls first. */
+        readonly challengerId: CardInstanceId;
+        /** The other character chosen from the challenger's company — rolls second. */
+        readonly opponentId: CardInstanceId;
+        /** Stat added to each side's roll before the comparison. */
+        readonly addStat: 'prowess' | 'body' | 'mind';
+        /** `'gt'` — the challenger must strictly exceed the opponent; `'gte'` — ties win. */
+        readonly comparison: 'gt' | 'gte';
+        /** The challenger's 2d6 total, once rolled. Absent until the first roll is made. */
+        readonly challengerRoll?: number;
+      }
+    | {
+        /**
          * Gold-ring test (Rule 9.21): a gold-ring item must be tested. The
          * ring's owner rolls 2d6 (plus any modifiers). The ring is discarded
          * regardless. After the roll, a `ring-play-offer` resolution is
@@ -523,6 +550,41 @@ export interface PendingResolution {
         readonly type: 'discard-one-company-item';
         /** The company whose items are candidates for discard. */
         readonly companyId: CompanyId;
+        /**
+         * Narrows the candidates to the items borne by this one character
+         * (Indûr Dawndeath tw-46: "makes any wounded character discard an item
+         * of his choice" — the card-player picked the character, its controller
+         * picks the item). Absent = any item in the company (Brigands).
+         */
+        readonly characterId?: CardInstanceId;
+        /**
+         * DSL condition every candidate item's card definition must match
+         * (tw-46: "but not a ring"). Absent = every item qualifies.
+         */
+        readonly itemFilter?: Condition;
+      }
+    | {
+        /**
+         * A `discard-substitute` item (Leaf Brooch dm-171) stands between a
+         * hazard/resource effect and the cards it would discard. The owner of
+         * the doomed cards either names one to save — discarding the substitute
+         * in its place — or declines, in which case every card still listed in
+         * {@link requiredInstanceIds} is discarded.
+         *
+         * The engine enqueues this *instead of* performing the forced discard,
+         * so this resolution owns the discard itself. It re-queues while both
+         * another substitute and another doomed card remain, letting a company
+         * carrying two Leaf Brooches save two items from one requirement.
+         */
+        readonly type: 'discard-substitute-offer';
+        /** The company holding both the substitute and the doomed cards. */
+        readonly companyId: CompanyId;
+        /** The substitute item that would be discarded in place of a saved card. */
+        readonly substituteInstanceId: CardInstanceId;
+        /** Cards the triggering effect requires to be discarded, still in play. */
+        readonly requiredInstanceIds: readonly CardInstanceId[];
+        /** Name of the card that forced the discard, for logging. */
+        readonly sourceName: string;
       }
     | {
         /**
@@ -566,23 +628,44 @@ export interface PendingResolution {
       }
     | {
         /**
-         * Hazard permanent-event maintenance cost: fired at the end of the
-         * resource player's long-event phase for each in-play hazard permanent
-         * event that carries a `hazard-maintenance` effect.
+         * Upkeep decision for an in-play event carrying an `event-maintenance`
+         * effect, fired at the moment named by that effect's `trigger`.
          *
-         * The hazard player must choose one of:
-         * - `discard-self` — discard the permanent event from cardsInPlay.
-         * - `discard-from-hand` — discard a matching hand card (see
-         *   {@link HazardMaintenanceEffect.handCardFilter}).
+         * One resolution covers a single *stage* of the payment. The
+         * controller's `upkeep` stage always comes first; when the effect also
+         * declares a `counterChain`, the outcome is then contested by
+         * alternating `challenge` (opponent) and `counter` (controller)
+         * stages until a side declines or can no longer pay.
          *
-         * Resolved by a `pay-hazard-event-maintenance` action.
+         * The actor pays with one action per card, so `remainingToPay` counts
+         * down within a stage; the opt-out (`discard-self` at `upkeep`,
+         * `decline` at `challenge`/`counter`) is only offered while nothing
+         * has been paid yet — i.e. `remainingToPay === stageCount`. A stage is
+         * only ever enqueued when its actor holds enough matching cards to
+         * finish it, so a part-paid stage can always be completed.
          *
-         * Used by *Thrice Outnumbered* (le-142).
+         * Resolved by a `pay-event-maintenance` action.
+         *
+         * Used by *Thrice Outnumbered* (le-142, upkeep only) and *Balance
+         * Between Powers* (dm-118, upkeep + counter chain).
          */
-        readonly type: 'hazard-event-maintenance';
-        /** The permanent event card requiring maintenance payment. */
+        readonly type: 'event-maintenance';
+        /** The in-play event card requiring maintenance payment. */
         readonly sourceInstanceId: CardInstanceId;
         readonly sourceDefinitionId: CardDefinitionId;
+        /**
+         * Which side of the bidding war this resolution belongs to:
+         * - `upkeep` — the controller keeps the card or discards it.
+         * - `challenge` — the opponent pays to discard the card.
+         * - `counter` — the controller pays to save it.
+         */
+        readonly stage: 'upkeep' | 'challenge' | 'counter';
+        /** Matching hand cards the actor must still discard to finish this stage. */
+        readonly remainingToPay: number;
+        /** Full cost of this stage, so the opt-out can be offered only up front. */
+        readonly stageCount: number;
+        /** The player who controls the source card (holds it in `cardsInPlay`). */
+        readonly controllerId: PlayerId;
       }
     | {
         /**
@@ -799,6 +882,22 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Mirror of Galadriel (tw-282): the card-player has already looked at
+         * the opponent's hand and must now choose **one** play deck whose top
+         * {@link count} cards they look at and shuffle back on top
+         * (`choose-peek-deck` action), or decline with `pass` ("You may …").
+         * Enqueued only when at least one eligible deck has cards.
+         */
+        readonly type: 'choose-peek-deck';
+        /** How many top cards of the chosen deck are looked at and shuffled. */
+        readonly count: number;
+        /** Which decks may be chosen (mirrors the effect's `deckChoice`). */
+        readonly deckChoice: 'any' | 'self' | 'opponent';
+        /** Definition ID of the source card (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * The Great Hunt (wh-91): after the card enters play, the controller
          * chooses whether the opponent reveals from their play deck or their
          * discard pile (`choose-great-hunt-source` action). The choice kicks off
@@ -876,6 +975,21 @@ export type ConstraintScope =
    * player's next one (necessarily a later turn) does.
    */
   | { readonly kind: 'next-organization-phase'; readonly playerId: PlayerId; readonly afterTurn: number }
+  /**
+   * Lives exactly as long as a hazard long-event owned by {@link playerId}
+   * would — "the long-event effect will remain until the appropriate time"
+   * (CRF 22 on Witch-king of Angmar tw-113). Hazard long-events are discarded
+   * at the end of the long-event phase in which their owner is the *hazard*
+   * player ([2.III.3]), so the `long-event-phase-end` boundary drops this
+   * constraint the first time it is raised for {@link playerId} on a strictly
+   * later turn than {@link afterTurn} (the turn the effect was created in).
+   *
+   * Used for a long-event whose *effect* outlives the card: Witch-king of
+   * Angmar is discarded the moment his long-event resolves, so there is no
+   * card in play for the ordinary [2.III.3] sweep to remove — the constraint
+   * has to carry the duration itself.
+   */
+  | { readonly kind: 'next-long-event-phase'; readonly playerId: PlayerId; readonly afterTurn: number }
   /** Cleared explicitly by another effect; never auto-swept. */
   | { readonly kind: 'until-cleared' };
 
@@ -1083,10 +1197,19 @@ export interface ActiveConstraint {
          * The constraint source is the Chill Douser instance; when resolving
          * a creature's attack, if the creature's instance ID matches the
          * source the boost is skipped (so the card never boosts itself).
+         *
+         * The `target` decides how wide the boost reaches: a `company` target
+         * boosts attacks against that one company (Chill Douser), a `player`
+         * target boosts attacks against **every** company that player controls
+         * — "all Wolf, Spider, and Animal attacks" (Dwar of Waw tw-31, via the
+         * `attack-race-boost` effect).
          */
         readonly type: 'creature-attack-boost';
-        /** Creature race that receives the boost (e.g. `"undead"`). */
-        readonly race: Race;
+        /**
+         * Creature race — or races — that receive the boost (e.g. `"undead"`,
+         * or `["wolf", "spider", "animal"]`).
+         */
+        readonly race: Race | readonly Race[];
         /** Strike bonus applied to matching creature attacks. */
         readonly strikes: number;
         /** Prowess bonus applied to matching creature attacks. */
@@ -1484,6 +1607,16 @@ export interface ActiveConstraint {
          * leaves play. When absent, the bonus is unconditional (Vilya style).
          */
         readonly requiresCardInPlay?: string;
+        /**
+         * When true, the bonus applies only while the constraint's `source`
+         * card instance is still **attached to** {@link characterId} (in that
+         * character's `items` or `hazards`). Lets a permanent event that keeps
+         * sitting on its bearer carry a modifier whose value was fixed at play
+         * time — No More Nonsense (le-210) rolls once and then grants its
+         * leader ±2 direct influence for as long as the card stays on him.
+         * Without it an `until-cleared` constraint would outlive its source.
+         */
+        readonly requiresSourceBorne?: boolean;
       }
     | {
         /**
@@ -1796,4 +1929,11 @@ export type ScopeBoundary =
    * `next-organization-phase`-scoped constraints created on an earlier turn.
    */
   | { readonly kind: 'organization-phase-end'; readonly playerId: PlayerId; readonly turnNumber: number }
+  /**
+   * Raised when the long-event phase ends ([2.III.3] — the moment the hazard
+   * player's hazard long-events are discarded), carrying that hazard player's
+   * id and the turn number. Clears `next-long-event-phase`-scoped constraints
+   * owned by {@link hazardPlayerId} that were created on an earlier turn.
+   */
+  | { readonly kind: 'long-event-phase-end'; readonly hazardPlayerId: PlayerId; readonly turnNumber: number }
   | { readonly kind: 'turn-end' };

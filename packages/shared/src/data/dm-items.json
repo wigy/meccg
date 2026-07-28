@@ -303,8 +303,12 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Only playable at Lórien. If a non-special item must be discarded from the company of Leaf Brooch’s bearer (according to any hazard or resource effect), you may discard Leaf Brooch instead to fulfill this requirement."
+    "effects": [
+      { "type": "item-play-site", "sites": ["Lórien"] },
+      { "type": "discard-substitute", "scope": "company", "filter": { "subtype": { "$ne": "special" } } }
+    ],
+    "text": "Only playable at Lórien. If a non-special item must be discarded from the company of Leaf Brooch’s bearer (according to any hazard or resource effect), you may discard Leaf Brooch instead to fulfill this requirement.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-resource-item",

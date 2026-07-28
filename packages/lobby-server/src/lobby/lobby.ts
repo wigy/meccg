@@ -14,6 +14,20 @@ import { resolveModelFile } from '../games/models.js';
 import { lobbyLog } from '../lobby-log.js';
 import { getDisplayName, getCredits } from '../players/store.js';
 
+/**
+ * TEMPORARY — sim agent spec for the "Play vs MC-AI" button.
+ *
+ * A server-side constant rather than a protocol field on purpose: the spec
+ * becomes argv of a spawned process, and a client-supplied one could name an
+ * arbitrary weights file via `bc:<path>`. The `ms` budget bounds wall-clock
+ * per decision so a search cannot stall a human's game; `turns=3` is the
+ * shortest horizon measured to separate candidates at all (a 1-turn horizon
+ * leaves almost every decision tied at 0). Remove with the button once the
+ * agent is promoted or dropped — see
+ * `specs/2026-07-27-monte-carlo-rollout-agent.md`.
+ */
+const MC_AGENT_SPEC = 'mc:ms=2000/turns=3/candidates=6';
+
 /** Connection info for an active game that a player can rejoin. */
 interface ActiveGameInfo {
   readonly port: number;
@@ -173,6 +187,16 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       break;
     }
 
+    // TEMPORARY — see MC_AGENT_SPEC.
+    case 'play-mc-ai': {
+      if (from.inGame) {
+        send(from.ws, { type: 'error', message: 'You are already in a game' });
+        return;
+      }
+      void startAiGame(from, msg.deckId, undefined, MC_AGENT_SPEC);
+      break;
+    }
+
     case 'play-real-ai': {
       if (from.inGame) {
         send(from.ws, { type: 'error', message: 'You are already in a game' });
@@ -213,7 +237,10 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       if (opponentName === 'AI-Pseudo') {
         void startPseudoAiGame(from);
       } else if (isAi) {
-        void startAiGame(from, storedAiDeckId);
+        // Preserve which AI it was: relaunching 'AI-MC' without the spec
+        // would silently seat the heuristic instead, so a reconnect would
+        // change opponents mid-match.
+        void startAiGame(from, storedAiDeckId, undefined, opponentName === 'AI-MC' ? MC_AGENT_SPEC : undefined);
       } else {
         const opponent = onlinePlayers.get(opponentName);
         if (!opponent) {
@@ -280,12 +307,18 @@ async function startGame(player1: OnlinePlayer, player2: OnlinePlayer): Promise<
 
 /**
  * Launch a game against an AI opponent: the Heuristic-AI (rule-based
- * strategy) by default, or a Real-AI when `modelFile` names a trained
- * model from the server's models directory. The model argument is a bare
- * file name validated against the directory listing — never a client
- * supplied path.
+ * strategy) by default, a Real-AI when `modelFile` names a trained model
+ * from the server's models directory, or any sim registry agent when
+ * `agentSpec` is given. The model argument is a bare file name validated
+ * against the directory listing — never a client supplied path; `agentSpec`
+ * is likewise only ever a server-side constant.
  */
-async function startAiGame(player: OnlinePlayer, deckId?: string, modelFile?: string): Promise<void> {
+async function startAiGame(
+  player: OnlinePlayer,
+  deckId?: string,
+  modelFile?: string,
+  agentSpec?: string,
+): Promise<void> {
   if (!deckId) {
     send(player.ws, { type: 'error', message: 'Select a deck for the AI before starting' });
     return;
@@ -300,10 +333,14 @@ async function startAiGame(player: OnlinePlayer, deckId?: string, modelFile?: st
     aiModelPath = resolved;
   }
   player.inGame = true;
-  const aiName = modelFile !== undefined ? 'AI-Real' : 'AI-Heuristic';
+  const aiName = agentSpec !== undefined ? 'AI-MC'
+    : modelFile !== undefined ? 'AI-Real'
+      : 'AI-Heuristic';
 
   try {
-    const result = await launchGame(player.name, aiName, { ai: true, aiDeckId: deckId, aiModelPath });
+    const result = await launchGame(player.name, aiName, {
+      ai: true, aiDeckId: deckId, aiModelPath, aiAgentSpec: agentSpec,
+    });
     lobbyLog.log('game-start', { player1: player.name, player2: aiName, ai: true, port: result.port });
 
     player.activeGame = {

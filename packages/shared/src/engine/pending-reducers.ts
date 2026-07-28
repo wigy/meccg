@@ -28,6 +28,7 @@ import type { CardInPlay } from '../types/state-cards.js';
 import type { ChainEntry } from '../types/state-combat.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
+import { advanceMaintenanceChain, discardMaintainedEvent } from './event-maintenance.js';
 import { shuffle } from '../rng.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -39,9 +40,10 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findHazardMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findEventMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
+import { findDiscardSubstitutes, substituteCovers, discardCardsFromCompany, enqueueDiscardSubstituteOffer } from './discard-substitute.js';
 import { isCharacterRemovalProtected } from './removal-protection.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
@@ -55,8 +57,8 @@ import {
 import { autoResolve } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
+import { eligibleRingCategories, opposedRollStat } from './legal-actions/pending.js';
 import { clearPlannedMovement } from './reducer-organization.js';
-import { eligibleRingCategories } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -2001,6 +2003,149 @@ export function applyCompanyTapRollResolution(
 }
 
 /**
+ * Apply one {@link OpposedRollOutcome} of a resolved opposed-roll contest.
+ *
+ * `discard-attached` routes every matching hazard permanent-event on the named
+ * roller to its **owner's** discard pile, reusing the shared `move` primitive's
+ * `hazards-on-target` locator (the same path The Sun Unveiled as-56 takes).
+ *
+ * `stat-modifier` installs an `until-cleared` `character-stat-modifier`
+ * constraint on the named roller, flagged `requiresSourceBorne` so the bonus
+ * lasts exactly as long as the source card stays attached to that character.
+ */
+function applyOpposedRollOutcome(
+  state: GameState,
+  outcome: import('../types/effects.js').OpposedRollOutcome,
+  ctx: {
+    readonly sourceInstanceId: CardInstanceId;
+    readonly sourceDefinitionId: import('../types/common.js').CardDefinitionId;
+    readonly sourcePlayerIndex: number;
+    readonly challengerId: CardInstanceId;
+    readonly opponentId: CardInstanceId;
+    readonly label: string;
+  },
+): GameState {
+  const targetId = outcome.on === 'challenger' ? ctx.challengerId : ctx.opponentId;
+  if (outcome.type === 'discard-attached') {
+    const moveEffect: import('../types/effects.js').MoveEffect = {
+      type: 'move',
+      select: 'filter-all',
+      from: 'hazards-on-target',
+      to: 'discard',
+      toOwner: 'source-owner',
+      ...(outcome.filter ? { filter: outcome.filter } : {}),
+    };
+    const moveCtx: MoveContext = {
+      sourceCardId: ctx.sourceInstanceId,
+      sourcePlayerIndex: ctx.sourcePlayerIndex,
+      targetCharacterId: targetId,
+    };
+    logDetail(`${ctx.label}: discarding matching attached hazards on ${resolveDef(state, targetId)?.name ?? (targetId as string)}`);
+    const r = applyMove(state, moveEffect, moveCtx);
+    if ('error' in r) {
+      logDetail(`${ctx.label}: discard-attached failed (${r.error}) — no cards removed`);
+      return state;
+    }
+    return r.state;
+  }
+  logDetail(
+    `${ctx.label}: ${resolveDef(state, targetId)?.name ?? (targetId as string)} receives `
+    + `${formatSignedNumber(outcome.value)} ${outcome.stat} while the card stays attached`,
+  );
+  return addConstraint(state, {
+    source: ctx.sourceInstanceId,
+    sourceDefinitionId: ctx.sourceDefinitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'character', characterId: targetId },
+    kind: {
+      type: 'character-stat-modifier',
+      stat: outcome.stat,
+      value: outcome.value,
+      characterId: targetId,
+      requiresSourceBorne: true,
+    },
+  });
+}
+
+/**
+ * Resolve one roll of a queued `opposed-roll` resolution (No More Nonsense
+ * le-210). The challenger rolls first — their total is stored on the requeued
+ * resolution. On the opponent's roll both totals get their `addStat` added and
+ * are compared; the source card's `onWin` (challenger's total beats the
+ * opponent's) or `onLose` outcomes are then applied and the resolution is
+ * dequeued.
+ *
+ * A roller who has left play since the card was played forfeits: the contest is
+ * dropped with no outcome rather than resolving against a missing character.
+ */
+export function applyOpposedRollResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardRollResolution(state, action, top, 'opposed-roll', 'opposed-roll');
+  if (!g.ok) return g.result;
+  const { actorIndex, player, kind } = g;
+  const rolling = kind.challengerRoll === undefined ? kind.challengerId : kind.opponentId;
+  if (action.type !== 'opposed-roll' || action.characterId !== rolling) {
+    return { state, error: 'opposed-roll: action does not match the character due to roll' };
+  }
+  const sourceName = defById(state, kind.sourceDefinitionId)?.name ?? '?';
+  if (!player.characters[kind.challengerId] || !player.characters[kind.opponentId]) {
+    logDetail(`${sourceName}: a roller has left play — opposed roll abandoned`);
+    return { state: dequeueResolution(state, top.id) };
+  }
+
+  const rollerName = resolveDef(state, rolling)?.name ?? (rolling as string);
+  const rolled = rollForResolution(state, actorIndex, `${sourceName}: ${rollerName}`);
+  let next = rolled.state;
+
+  // First roll — record the challenger's total and requeue for the opponent.
+  if (kind.challengerRoll === undefined) {
+    logDetail(`${sourceName}: ${rollerName} (challenger) rolled ${rolled.total}`);
+    next = dequeueResolution(next, top.id);
+    return {
+      state: enqueueResolution(next, {
+        source: top.source,
+        actor: top.actor,
+        scope: top.scope,
+        kind: { ...kind, challengerRoll: rolled.total },
+      }),
+      effects: [rolled.rollEffect],
+    };
+  }
+
+  // Second roll — compare and apply the outcome branch.
+  const challengerStat = opposedRollStat(next, next.players[actorIndex], kind.challengerId, kind.addStat);
+  const opponentStat = opposedRollStat(next, next.players[actorIndex], kind.opponentId, kind.addStat);
+  const challengerTotal = kind.challengerRoll + challengerStat;
+  const opponentTotal = rolled.total + opponentStat;
+  const won = kind.comparison === 'gte' ? challengerTotal >= opponentTotal : challengerTotal > opponentTotal;
+  logDetail(
+    `${sourceName}: ${resolveDef(next, kind.challengerId)?.name ?? '?'} ${kind.challengerRoll}+${challengerStat}=${challengerTotal} `
+    + `vs ${rollerName} ${rolled.total}+${opponentStat}=${opponentTotal} → challenger ${won ? 'WINS' : 'LOSES'}`,
+  );
+
+  const sourceDef = defById(next, kind.sourceDefinitionId);
+  const effect = getCardEffects(sourceDef).find(
+    (e): e is import('../types/effects.js').OpposedRollEffect => e.type === 'opposed-roll',
+  );
+  const outcomes = (won ? effect?.onWin : effect?.onLose) ?? [];
+  for (const outcome of outcomes) {
+    next = applyOpposedRollOutcome(next, outcome, {
+      sourceInstanceId: kind.sourceInstanceId,
+      sourceDefinitionId: kind.sourceDefinitionId,
+      sourcePlayerIndex: actorIndex,
+      challengerId: kind.challengerId,
+      opponentId: kind.opponentId,
+      label: sourceName,
+    });
+  }
+
+  return { state: dequeueResolution(next, top.id), effects: [rolled.rollEffect] };
+}
+
+/**
  * Split a character off from their current company into a new solo company
  * at the site of origin. If the character is the only one in their company,
  * the company stays at origin instead (destinationSite is cleared).
@@ -2096,6 +2241,9 @@ export function applyGoldRingTestResolution(
   // True when the ring came from killPile — it was stored at a Darkhaven
   // (Rule 9.22), so the replacement enters play stored rather than attached.
   let storedPlacement: boolean;
+  // Character bearing the ring on the site-phase path (undefined when stored):
+  // only a ring still borne in a company can be saved by a `discard-substitute`.
+  let ringBearerId: CardInstanceId | undefined;
 
   if (ringInKillPile !== -1) {
     ringCard = player.killPile[ringInKillPile];
@@ -2135,6 +2283,7 @@ export function applyGoldRingTestResolution(
       discardPile: [...p.discardPile, ringCard],
     }));
     storedPlacement = false;
+    ringBearerId = foundCharId as CardInstanceId;
   }
 
   const ringDef = defById(state, ringCard.definitionId);
@@ -2196,8 +2345,25 @@ export function applyGoldRingTestResolution(
     logDetail(`Gold-ring test: ring-test-search active — player may search deck/discard for ${searchCategories.join(', ')}`);
   }
 
+  // Leaf Brooch (dm-171), per CRF 22: the tested ring's discard may be replaced
+  // by discarding a `discard-substitute` item borne in the ring-bearer's
+  // company — "the bearer of the gold ring item gets the special ring item, not
+  // the bearer of the Leaf Brooch", so the ring-play offer is unaffected. Only
+  // a ring still borne in a company qualifies (a ring stored at a Darkhaven is
+  // not "in the company"), and the substitution offer is queued *behind* the
+  // ring-play offer so the owner decides knowing what the test produced. Until
+  // then the ring stays where it was: `stateAfterRing` (which already moved it
+  // to the discard pile, deliberately, so it cannot modify its own test) is
+  // used for the check-modifier sweep only.
+  const ringCompanyId = ringBearerId !== undefined
+    ? findCharacterCompany(player.companies, ringBearerId)?.id
+    : undefined;
+  const ringSubstitutable = ringCompanyId !== undefined
+    && findDiscardSubstitutes(state, actorIndex, ringCompanyId, new Set([goldRingInstanceId]))
+      .some(s => substituteCovers(s, ringDef));
+
   const postRoll = dequeueResolution(
-    { ...updatePlayer(stateAfterRing, actorIndex, p => ({ ...p, lastDiceRoll: roll })), rng, cheatRollTotal },
+    { ...updatePlayer(ringSubstitutable ? state : stateAfterRing, actorIndex, p => ({ ...p, lastDiceRoll: roll })), rng, cheatRollTotal },
     top.id,
   );
 
@@ -2216,6 +2382,18 @@ export function applyGoldRingTestResolution(
       ...(searchCategories ? { searchCategories } : {}),
     },
   });
+
+  if (ringSubstitutable && ringCompanyId) {
+    const offered = enqueueDiscardSubstituteOffer(postOffer, {
+      source: goldRingInstanceId,
+      owner: action.player,
+      scope: top.scope,
+      companyId: ringCompanyId,
+      requiredInstanceIds: [goldRingInstanceId],
+      sourceName: `Gold-ring test (${ringName})`,
+    });
+    if (offered) return { state: offered, effects: [rollEffect] };
+  }
 
   return { state: postOffer, effects: [rollEffect] };
 }
@@ -2801,7 +2979,7 @@ export function applyDiscardOneCompanyItemResolution(
   }
 
   const { itemInstanceId } = action;
-  const { companyId } = top.kind;
+  const { companyId, characterId, itemFilter } = top.kind;
 
   const defIdx = state.players.findIndex(p => p.companies.some(co => co.id === companyId));
   if (defIdx < 0) return { state, error: `Company ${companyId as string} not found` };
@@ -2811,8 +2989,14 @@ export function applyDiscardOneCompanyItemResolution(
   let itemRemoved = false;
   let removedItem: { instanceId: import('../types/common.js').CardInstanceId; definitionId: import('../types/common.js').CardDefinitionId } | null = null;
   for (const [charId, charData] of Object.entries(newCharacters)) {
+    // Narrowed resolutions (tw-46) may only give up the named character's items.
+    if (characterId && charId !== (characterId as string)) continue;
     const idx = charData.items.findIndex(it => it.instanceId === itemInstanceId);
     if (idx >= 0) {
+      const chosenDef = defById(state, charData.items[idx].definitionId);
+      if (itemFilter && (!chosenDef || !matchesDefinition(chosenDef, itemFilter))) {
+        return { state, error: `Item ${itemInstanceId as string} is excluded by the source card's item filter` };
+      }
       const item = charData.items[idx];
       removedItem = toCardInstance(item);
       newCharacters[charId as CardInstanceId] = { ...charData, items: charData.items.filter((_, i) => i !== idx) };
@@ -2826,6 +3010,21 @@ export function applyDiscardOneCompanyItemResolution(
 
   const itemDef = defById(state, removedItem.definitionId);
   const itemName = itemDef?.name ?? (itemInstanceId as string);
+
+  // Leaf Brooch (dm-171) and friends: a `discard-substitute` borne in the same
+  // company may be thrown away in place of the chosen item. Hand the discard
+  // over to the offer resolution — it owns the card movement either way.
+  const dequeued = dequeueResolution(state, top.id);
+  const offered = enqueueDiscardSubstituteOffer(dequeued, {
+    source: top.source,
+    owner: defPlayer.id,
+    scope: top.scope,
+    companyId,
+    requiredInstanceIds: [itemInstanceId],
+    sourceName: `discard-one-company-item ("${itemName}")`,
+  });
+  if (offered) return { state: offered };
+
   logDetail(`discard-one-company-item: defender discards "${itemName}"`);
 
   const newPlayers = clonePlayers(state);
@@ -2836,6 +3035,84 @@ export function applyDiscardOneCompanyItemResolution(
   };
 
   return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
+}
+
+/**
+ * Resolve a `discard-substitute-offer` pending resolution (Leaf Brooch dm-171).
+ *
+ * This resolution owns the forced discard that queued it. Two outcomes:
+ *
+ * - **Use** (`itemInstanceId` present) — the named card is struck off the
+ *   doomed list and the substitute is discarded in its place. If another
+ *   substitute is still borne in the company *and* doomed cards remain, the
+ *   resolution stays queued (with the next substitute) so a company holding
+ *   two Leaf Brooches can save two items from the same requirement.
+ * - **Decline** (`itemInstanceId` omitted) — every remaining doomed card is
+ *   discarded, exactly as if no substitute had been in play.
+ */
+export function applyDiscardSubstituteOfferResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'discard-substitute-offer') return null;
+  if (action.type !== 'use-discard-substitute') {
+    return { state, error: `Pending discard-substitute-offer requires use-discard-substitute, got '${action.type}'` };
+  }
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for discard-substitute-offer' };
+  }
+  const kind = top.kind;
+  const ownerIndex = getPlayerIndex(state, top.actor);
+  if (ownerIndex < 0) return { state, error: `Player ${top.actor as string} not found` };
+
+  // Decline: the requirement is fulfilled the ordinary way.
+  if (!action.itemInstanceId) {
+    logDetail(`${kind.sourceName}: substitution declined — discarding ${kind.requiredInstanceIds.length} card(s) as required`);
+    const discarded = discardCardsFromCompany(state, ownerIndex, kind.requiredInstanceIds, kind.sourceName);
+    return { state: dequeueResolution(discarded, top.id) };
+  }
+
+  const saved = action.itemInstanceId;
+  if (!kind.requiredInstanceIds.includes(saved)) {
+    return { state, error: `Card ${saved as string} is not among the cards being discarded` };
+  }
+
+  const substitute = findDiscardSubstitutes(state, ownerIndex, kind.companyId)
+    .find(s => s.instanceId === kind.substituteInstanceId);
+  if (!substitute) {
+    return { state, error: `Substitute ${kind.substituteInstanceId as string} is no longer in the company` };
+  }
+  const savedDef = defById(state, resolveInstanceId(state, saved) ?? ('' as CardDefinitionId));
+  if (!substituteCovers(substitute, savedDef)) {
+    return { state, error: `${substitute.name} cannot be discarded in place of ${savedDef?.name ?? (saved as string)}` };
+  }
+
+  logDetail(`${kind.sourceName}: ${substitute.name} discarded instead of ${savedDef?.name ?? (saved as string)}`);
+  let working = discardCardsFromCompany(state, ownerIndex, [substitute.instanceId], `${kind.sourceName} (substitution)`);
+
+  const remaining = kind.requiredInstanceIds.filter(id => id !== saved);
+  if (remaining.length > 0) {
+    // Another substitute in the company may still save one more card.
+    const next = findDiscardSubstitutes(working, ownerIndex, kind.companyId, new Set(remaining))
+      .find(s => remaining.some(id => substituteCovers(s, defById(working, resolveInstanceId(working, id) ?? ('' as CardDefinitionId)))));
+    if (next) {
+      logDetail(`${kind.sourceName}: ${next.name} may still be discarded instead of one of ${remaining.length} remaining card(s)`);
+      return {
+        state: {
+          ...working,
+          pendingResolutions: working.pendingResolutions.map(r =>
+            r.id === top.id
+              ? { ...r, kind: { ...kind, substituteInstanceId: next.instanceId, requiredInstanceIds: remaining } }
+              : r,
+          ),
+        },
+      };
+    }
+    working = discardCardsFromCompany(working, ownerIndex, remaining, kind.sourceName);
+  }
+
+  return { state: dequeueResolution(working, top.id) };
 }
 
 /**
@@ -2953,86 +3230,112 @@ export function applyForceDiscardCardResolution(
 }
 
 /**
- * Resolve a `hazard-event-maintenance` pending resolution.
+ * Resolve one step of an `event-maintenance` pending resolution — the upkeep
+ * exchange over an in-play event carrying an `event-maintenance` effect
+ * (*Thrice Outnumbered* le-142, *Balance Between Powers* dm-118).
  *
- * The hazard player pays the maintenance cost for a permanent event with a
- * `hazard-maintenance` effect by dispatching a `pay-hazard-event-maintenance`
- * action. Two payment options are possible:
+ * Three payment types, dispatched as `pay-event-maintenance`:
  *
- * - `discard-self`: the permanent event is removed from cardsInPlay and moved
- *   to the hazard player's discard pile.
- * - `discard-from-hand`: the chosen hand card is moved to the hazard player's
- *   discard pile; the permanent event remains in play.
- *
- * Used by *Thrice Outnumbered* (le-142).
+ * - `discard-self` (`upkeep` stage only) — the controller gives the event up:
+ *   it leaves `cardsInPlay` for their discard pile and the exchange ends.
+ * - `discard-from-hand` — one qualifying hand card is discarded towards the
+ *   current stage's cost. While cards are still due the resolution stays
+ *   queued with `remainingToPay` decremented; when the last one is paid, the
+ *   bidding war passes to the other side (see `advanceMaintenanceChain`).
+ * - `decline` (`challenge` / `counter` stages) — bid nothing. Declining a
+ *   challenge leaves the event in play; declining to counter one discards it.
  */
-export function applyHazardEventMaintenanceResolution(
+export function applyEventMaintenanceResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  if (top.kind.type !== 'hazard-event-maintenance') return null;
-  if (action.type !== 'pay-hazard-event-maintenance') {
-    return { state, error: `Pending hazard-event-maintenance requires pay-hazard-event-maintenance, got '${action.type}'` };
+  if (top.kind.type !== 'event-maintenance') return null;
+  if (action.type !== 'pay-event-maintenance') {
+    return { state, error: `Pending event-maintenance requires pay-event-maintenance, got '${action.type}'` };
   }
   if (action.player !== top.actor) {
-    return { state, error: 'Wrong player for hazard-event-maintenance' };
+    return { state, error: 'Wrong player for event-maintenance' };
   }
   if (action.sourceInstanceId !== top.kind.sourceInstanceId) {
-    return { state, error: 'Wrong source instance for hazard-event-maintenance' };
+    return { state, error: 'Wrong source instance for event-maintenance' };
   }
+  const { stage, remainingToPay, stageCount, controllerId, sourceInstanceId } = top.kind;
 
   const actorIdx = state.players.findIndex(p => p.id === action.player);
-  if (actorIdx < 0) return { state, error: 'Player not found for hazard-event-maintenance' };
+  if (actorIdx < 0) return { state, error: 'Player not found for event-maintenance' };
   const actorPlayer = state.players[actorIdx];
 
-  const newPlayers = clonePlayers(state);
+  // The opt-out is only on the table before any card of this stage is paid.
+  if (action.paymentType !== 'discard-from-hand' && remainingToPay !== stageCount) {
+    return { state, error: `event-maintenance: ${action.paymentType} unavailable after paying part of the ${stage} cost` };
+  }
 
   if (action.paymentType === 'discard-self') {
-    // Remove permanent event from cardsInPlay, add to discard pile
-    const cardIdx = actorPlayer.cardsInPlay.findIndex(c => c.instanceId === action.cardInstanceId);
-    if (cardIdx < 0) {
+    if (stage !== 'upkeep') {
+      return { state, error: `event-maintenance: discard-self is only available at the upkeep stage (got '${stage}')` };
+    }
+    if (!actorPlayer.cardsInPlay.some(c => c.instanceId === action.cardInstanceId)) {
       return { state, error: `Permanent event ${action.cardInstanceId as string} not found in cardsInPlay` };
     }
-    const card = actorPlayer.cardsInPlay[cardIdx];
-    const cardLabel = cardName(state, card.definitionId);
-    logDetail(`hazard-event-maintenance: hazard player discards "${cardLabel}" (discard-self)`);
+    logDetail(`event-maintenance (upkeep): ${actorPlayer.name} declines to pay`);
+    const discarded = discardMaintainedEvent(state, controllerId, sourceInstanceId);
+    return { state: dequeueResolution(discarded, top.id) };
+  }
 
-    const newCardsInPlay = actorPlayer.cardsInPlay.filter((_, i) => i !== cardIdx);
-    newPlayers[actorIdx] = {
-      ...actorPlayer,
-      cardsInPlay: newCardsInPlay,
-      discardPile: [...actorPlayer.discardPile, toCardInstance(card)],
-    };
-  } else {
-    // discard-from-hand: validate and verify the hand card matches the filter
-    const handIdx = actorPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
-    if (handIdx < 0) {
-      return { state, error: `Hand card ${action.cardInstanceId as string} not found in hand` };
+  if (action.paymentType === 'decline') {
+    if (stage === 'counter') {
+      logDetail(`event-maintenance (counter): ${actorPlayer.name} declines to counter — the card is discarded`);
+      const discarded = discardMaintainedEvent(state, controllerId, sourceInstanceId);
+      return { state: dequeueResolution(discarded, top.id) };
     }
-    const handCard = actorPlayer.hand[handIdx];
+    logDetail(`event-maintenance (challenge): ${actorPlayer.name} declines to bid — the card stays in play`);
+    return { state: dequeueResolution(state, top.id) };
+  }
 
-    // Verify the card matches the handCardFilter from the source effect
-    const maintenanceEff = findHazardMaintenanceEffect(defById(state, top.kind.sourceDefinitionId));
-    if (maintenanceEff) {
-      const handDef = defById(state, handCard.definitionId);
-      if (!handDef || !matchesDefinition(handDef, maintenanceEff.handCardFilter)) {
-        return { state, error: `Hand card ${handCard.definitionId as string} does not match hazard-maintenance filter` };
-      }
+  // discard-from-hand: validate and verify the hand card matches the filter
+  const handIdx = actorPlayer.hand.findIndex(c => c.instanceId === action.cardInstanceId);
+  if (handIdx < 0) {
+    return { state, error: `Hand card ${action.cardInstanceId as string} not found in hand` };
+  }
+  const handCard = actorPlayer.hand[handIdx];
+
+  // Verify the card matches the handCardFilter from the source effect
+  const maintenanceEff = findEventMaintenanceEffect(defById(state, top.kind.sourceDefinitionId));
+  if (maintenanceEff) {
+    const handDef = defById(state, handCard.definitionId);
+    if (!handDef || !matchesDefinition(handDef, maintenanceEff.handCardFilter)) {
+      return { state, error: `Hand card ${handCard.definitionId as string} does not match event-maintenance filter` };
     }
+  }
 
-    const cardLabel = cardName(state, handCard.definitionId);
-    logDetail(`hazard-event-maintenance: hazard player discards "${cardLabel}" from hand (discard-from-hand)`);
+  const stillDue = remainingToPay - 1;
+  logDetail(
+    `event-maintenance (${stage}): ${actorPlayer.name} discards "${cardName(state, handCard.definitionId)}" `
+    + `from hand (${stillDue} of ${stageCount} still due)`,
+  );
 
-    const newHand = actorPlayer.hand.filter((_, i) => i !== handIdx);
-    newPlayers[actorIdx] = {
-      ...actorPlayer,
-      hand: newHand,
-      discardPile: [...actorPlayer.discardPile, toCardInstance(handCard)],
+  const newPlayers = clonePlayers(state);
+  newPlayers[actorIdx] = {
+    ...actorPlayer,
+    hand: actorPlayer.hand.filter((_, i) => i !== handIdx),
+    discardPile: [...actorPlayer.discardPile, toCardInstance(handCard)],
+  };
+  const paid: GameState = { ...state, players: newPlayers };
+
+  // Part-paid: keep the same resolution queued for the rest of the cost.
+  if (stillDue > 0) {
+    return {
+      state: {
+        ...paid,
+        pendingResolutions: paid.pendingResolutions.map(r =>
+          r.id === top.id ? { ...r, kind: { ...top.kind, remainingToPay: stillDue } } : r,
+        ),
+      },
     };
   }
 
-  return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
+  return { state: advanceMaintenanceChain(dequeueResolution(paid, top.id), top, stage) };
 }
 
 /**
@@ -3711,6 +4014,69 @@ export function applyStayHerAppetiteRollResolution(
     state: continued.state,
     effects: [roll1Effect, roll2Effect, ...(continued.effects ?? [])],
   };
+}
+
+/**
+ * Resolve a `choose-peek-deck` pending resolution (Mirror of Galadriel tw-282).
+ *
+ * The card-player names the play deck they look at (`'self'` / `'opponent'`) or
+ * declines with `pass`. On a choice the top `count` cards of that deck are
+ * shuffled among themselves and returned to the top — the same modelling the
+ * certified Palantír of Minas Tirith (tw-299 / le-333) uses. The look itself is
+ * intentionally not recorded in `revealedInstances`: that map is public to both
+ * players, so recording it would show the cards to the wrong player.
+ */
+export function applyChoosePeekDeckResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'choose-peek-deck') return null;
+  if (action.player !== top.actor) {
+    return { state, error: 'Wrong player for choose-peek-deck' };
+  }
+  const { count, deckChoice, sourceDefinitionId } = top.kind;
+  const sourceName = cardName(state, sourceDefinitionId);
+  const cleared = dequeueResolution(state, top.id);
+
+  if (action.type === 'pass') {
+    logDetail(`${sourceName}: ${action.player as string} declines to look at any play deck`);
+    return { state: cleared };
+  }
+  if (action.type !== 'choose-peek-deck') {
+    return { state, error: `Pending choose-peek-deck requires choose-peek-deck, got '${action.type}'` };
+  }
+  if (deckChoice !== 'any' && deckChoice !== action.deckOwner) {
+    return { state, error: `${sourceName}: deck choice '${action.deckOwner}' not allowed (deckChoice '${deckChoice}')` };
+  }
+  // An in-play `cancel-deck-search` (Bane of the Ithil-stone tw-13 / Lady of
+  // the Golden Wood as-13) cancels looking at the actor's own play deck; the
+  // opponent's deck is not covered by those cards.
+  if (action.deckOwner === 'self') {
+    const canceller = deckSearchCancellerFor(state, action.player);
+    if (canceller) {
+      return { state, error: `${sourceName}: "${canceller}" cancels looking at your own play deck` };
+    }
+  }
+
+  const actorIndex = getPlayerIndex(state, action.player);
+  const targetIndex = action.deckOwner === 'self' ? actorIndex : 1 - actorIndex;
+  const targetPlayer = cleared.players[targetIndex];
+  const sliceSize = Math.min(count, targetPlayer.playDeck.length);
+  if (sliceSize === 0) {
+    logDetail(`${sourceName}: chosen play deck is empty — nothing to look at`);
+    return { state: cleared };
+  }
+  const [shuffledTop, nextRng] = shuffle(targetPlayer.playDeck.slice(0, sliceSize), cleared.rng);
+  logDetail(
+    `${sourceName}: ${action.player as string} looks at the top ${sliceSize} card(s) of ` +
+    `${targetPlayer.id as string}'s play deck, shuffles them and returns them to the top`,
+  );
+  const newState = updatePlayer({ ...cleared, rng: nextRng }, targetIndex, p => ({
+    ...p,
+    playDeck: [...shuffledTop, ...p.playDeck.slice(sliceSize)],
+  }));
+  return { state: newState };
 }
 
 /**

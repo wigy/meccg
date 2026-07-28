@@ -50,6 +50,7 @@ import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
 import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
 import type { Condition, AgentHomeSiteFactionLockEffect } from '../types/effects.js';
+import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
 import { manifestIdOf } from './manifestations.js';
@@ -1485,7 +1486,13 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // Await the Advent of Allies (dm-117): a character bearing this attached
     // event "does not count against general influence" — its mind is not
     // subtracted from the pool while the card is attached.
-    const giExempt = characterBearsAttachedEffect(state, char, 'general-influence-exempt');
+    // An Unexpected Party (dm-114): a company-bound `company-influence-exempt`
+    // waives influence for the characters in that company matching its filter
+    // ("Dwarves with a mind of 2 or less … do not require influence to be
+    // controlled"). Judged on the character's effective mind, the same value
+    // the pool would otherwise be charged.
+    const giExempt = characterBearsAttachedEffect(state, char, 'general-influence-exempt')
+      || companyExemptsCharacterFromInfluence(state, charCompany?.id, charDef, newStats.mind);
     if (!isPrisoner && char.controlledBy === 'general' && !char.influenceUnsubtracted && charDef.mind !== null && !giExempt) {
       // A `control-restriction` (e.g. Wizard's Myrmidon) overrides the GI cost
       // to keep the character; otherwise the effective/printed mind is used.
@@ -2073,9 +2080,21 @@ export function computeCombatProwess(
 ): number {
   const inPlayNames = buildInPlayNames(state);
   const charInfo = buildBearerContext(charDef);
+  // The player whose `characters` dict holds this character. Needed twice: to
+  // scope `own-characters` effects (e.g. Descent through Fire ba-56: "+1
+  // prowess to all your characters") to that player's company members, and for
+  // their running stage-point total.
+  const ownerPlayer = state.players.find(
+    p => Object.prototype.hasOwnProperty.call(p.characters, char.instanceId as string),
+  );
   const context: ResolverContext = {
     reason: 'combat',
-    bearer: charInfo,
+    // `stagePoints` is exposed exactly as in the effective-stats context: a
+    // prowess penalty that scales with a Fallen-wizard's progress (Power
+    // Relinquished to Artifice wh-28) must still apply when the character faces
+    // a strike, and this function re-resolves prowess from the printed value
+    // rather than adjusting the effective stat.
+    bearer: { ...charInfo, stagePoints: ownerPlayer?.stagePoints ?? 0 },
     target: charInfo,
     inPlay: inPlayNames,
     enemy: { race: creatureRace, name: '', prowess: 0, body: null },
@@ -2084,13 +2103,6 @@ export function computeCombatProwess(
 
   const charEffects = collectCharacterEffects(state, char, context);
   const globalEffects = collectGlobalEffects(state, 'all-characters', context);
-  // `own-characters`-scoped effects (e.g. Descent through Fire ba-56: "+1
-  // prowess to all your characters") apply only to characters controlled by
-  // the source card's owner. Find the player whose `characters` dict holds this
-  // character so the bonus is scoped to that player's own company members.
-  const ownerPlayer = state.players.find(
-    p => Object.prototype.hasOwnProperty.call(p.characters, char.instanceId as string),
-  );
   const ownEffects = ownerPlayer
     ? collectGlobalEffects(state, 'own-characters', context, undefined, ownerPlayer.id)
     : [];

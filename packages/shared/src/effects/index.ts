@@ -5,5 +5,5 @@
  * Provides the condition matcher used by the server-side resolver.
  */
 
-export { matchesCondition, matchesContext } from './condition-matcher.js';
+export { matchesCondition, matchesContext, conditionPaths } from './condition-matcher.js';
 export { hasPlayFlag, hasNoDirectInfluenceRestriction } from './play-flags.js';

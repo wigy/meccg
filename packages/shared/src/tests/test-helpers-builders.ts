@@ -1758,12 +1758,53 @@ export function playPermanentEventAndResolve(
     companionCardInstanceId?: CardInstanceId;
     storeItemInstanceId?: CardInstanceId;
     storeCharacterId?: CardInstanceId;
+    opposedCharacterId?: CardInstanceId;
   },
 ): GameState {
   return playAndResolve(state, {
     type: 'play-permanent-event', player, cardInstanceId, targetCharacterId,
     ...opts,
   });
+}
+
+/**
+ * Play a dual-mode hazard creature (`creature-alt-event`, mode
+ * `permanent-event` — the Nine: Witch-king tw-113, Khamûl tw-47, Adûnaphel
+ * tw-2, Ûvatha tw-107, Ren tw-83) from the hazard player's hand in its
+ * permanent-event mode against the target company, and resolve the chain. The
+ * card ends up untapped in the hazard player's `cardsInPlay`.
+ */
+export function playAltPermanentEventAndResolve(
+  state: GameState,
+  player: PlayerId,
+  cardInstanceId: CardInstanceId,
+  targetCompanyId: CompanyId,
+): GameState {
+  return playAndResolve(state, {
+    type: 'play-hazard', player, cardInstanceId, targetCompanyId, altEventMode: 'permanent-event',
+  });
+}
+
+/**
+ * Tap an in-play dual-mode creature-permanent-event during the opponent's
+ * movement/hazard phase ("becomes a short-event") and resolve the resulting
+ * chain. Picks the offered `tap-alt-permanent-event` action for the given card,
+ * optionally the one naming `targetCharacterId` (Adûnaphel tw-2's on-tap
+ * character tap). Asserts the tap is actually offered.
+ */
+export function tapAltPermanentEventAndResolve(
+  state: GameState,
+  player: PlayerId,
+  cardInstanceId: CardInstanceId,
+  targetCharacterId?: CardInstanceId,
+): GameState {
+  const tap = viableActions(state, player, 'tap-alt-permanent-event').find(a => {
+    const action = a.action as { cardInstanceId?: CardInstanceId; targetCharacterId?: CardInstanceId };
+    if (action.cardInstanceId !== cardInstanceId) return false;
+    return targetCharacterId === undefined || action.targetCharacterId === targetCharacterId;
+  });
+  expect(tap).toBeDefined();
+  return playAndResolve(state, tap!.action);
 }
 
 /** Play a long event and resolve the chain (both players pass). */

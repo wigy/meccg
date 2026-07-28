@@ -156,8 +156,16 @@ export function bcForward(model: BcWeightsFile, state: StateFeatures, actions: A
   const candWidth = dType + dCard + CAND_NUMERIC_COLS.length;
   const candInput = new Array<number>(candWidth);
   const refEmbed = new Array<number>(dCard);
+  const typeTable = w['emb_type.weight'];
   const logits = actions.candidates.map(candidate => {
-    embedInto(w['emb_type.weight'], candidate[CAND_TYPE_COL], candInput, 0);
+    // Certifying a card can add an action type, which grows the type
+    // vocabulary under models trained before it. Index 0 is the reserved
+    // "unknown type" row, so send anything past the end of this model's
+    // table there: letting `embedInto` clamp would silently encode the new
+    // type as whichever type happens to sit last in the list, which reads
+    // as a confident wrong answer rather than an unfamiliar one.
+    const typeIndex = candidate[CAND_TYPE_COL] < typeTable.shape[0] ? candidate[CAND_TYPE_COL] : 0;
+    embedInto(typeTable, typeIndex, candInput, 0);
     candInput.fill(0, dType, dType + dCard);
     for (const col of CAND_REF_COLS) {
       embedInto(w['emb_card.weight'], candidate[col], refEmbed, 0);

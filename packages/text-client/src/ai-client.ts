@@ -7,27 +7,50 @@
  * actions against the static card pool.
  *
  * Usage: npx tsx ai-client.ts <port> <playerName> <token> --deck <deckId>
- *          [--model <weights.json>]
+ *          [--model <weights.json>] [--agent <spec>]
  *
  * With `--model`, decisions come from a trained policy net (the sim's
  * `bc` agent: argmax over the masked softmax, with the same load-time
  * runtime-parity self-test the training pipeline uses) instead of the
  * heuristic strategy.
+ *
+ * With `--agent`, decisions come from any agent in the sim registry, named
+ * by the same spec the sim CLIs take — for example
+ * `--agent 'mc:ms=2000/turns=2'` to play the flat Monte-Carlo searcher with
+ * a two-second budget per decision. `--agent` wins over `--model`.
  */
 
 import { WebSocket } from 'ws';
 import type { ClientMessage, GameAction, EvaluatedAction, PlayerView } from '@meccg/shared';
 import type { AiContext, WeightedAction } from '@meccg/sim';
-import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers } from '@meccg/shared';
-import { loadAiStrategy, sampleWeighted, createBcAgent } from '@meccg/sim';
+import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers, setEngineConsoleLog } from '@meccg/shared';
+import { loadAiStrategy, sampleWeighted, createBcAgent, resolveAgent } from '@meccg/sim';
 import type { Agent } from '@meccg/sim';
 import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage } from './client-common.js';
 
 const clientArgs = parseSpawnedClientArgs('ai-client');
 
-/** Trained-model agent (Real-AI mode), or null for the heuristic strategy. */
+// Silence engine console logging in this process.
+//
+// Anything the engine logs here describes a *hypothetical* computation the AI
+// ran on its own copy of the rules, never the authoritative game — the game
+// server logs that separately. Harmless for agents that only weigh the view,
+// but a search agent calls computeLegalActions/reduce thousands of times per
+// decision: one measured MC game emitted 425,173 engine lines into the lobby
+// log, drowning the 454 lines that actually said what the AI was thinking and
+// charging every rollout for the console I/O. The sim's runner does the same
+// thing for the same reason.
+setEngineConsoleLog(false);
+
+/**
+ * Agent seam: a registry agent (`--agent`), a trained model (`--model`), or
+ * null to fall through to the heuristic strategy below.
+ */
 let modelAgent: Agent | null = null;
-if (clientArgs.modelPath) {
+if (clientArgs.agentSpec) {
+  modelAgent = resolveAgent(clientArgs.agentSpec);
+  console.log(`AI using agent: ${clientArgs.agentSpec}`);
+} else if (clientArgs.modelPath) {
   modelAgent = createBcAgent(clientArgs.modelPath);
   console.log(`AI using trained model: ${clientArgs.modelPath}`);
 }
@@ -82,6 +105,39 @@ function describeWeighted(weighted: WeightedAction, view: PlayerView): string {
 }
 
 /**
+ * Print the ranked candidates the decision was made from, marking the pick.
+ *
+ * Every agent gets this, not just the heuristic strategy: a one-line "the
+ * agent picked X" is not enough to follow a search agent's reasoning while
+ * playing against it, and the candidate ranking is exactly what makes a
+ * surprising move explicable. Agents that report no candidates (a forced
+ * action, or a fallback that does not weigh) print only the header.
+ */
+function logCandidates(
+  view: PlayerView,
+  header: string,
+  candidates: readonly WeightedAction[],
+  picked: GameAction,
+): void {
+  console.log(`AI [${view.phaseState.phase}] ${header}`);
+  const ranked = [...candidates].sort((a, b) => b.weight - a.weight);
+  const top = ranked.slice(0, LOG_TOP_N);
+  // The pick is not always the highest-weighted candidate — the heuristic
+  // samples from its distribution — so it can fall outside the top N and
+  // leave a listing with no → at all. Append it rather than drop it: a log
+  // that shows the ranking but not the choice answers the wrong question.
+  const pickedRank = ranked.findIndex(c => c.action === picked);
+  if (pickedRank >= LOG_TOP_N) top.push(ranked[pickedRank]);
+  for (const candidate of top) {
+    console.log(`  ${candidate.action === picked ? '→' : ' '} ${describeWeighted(candidate, view)}`);
+  }
+  const hidden = candidates.length - top.length;
+  if (hidden > 0) {
+    console.log(`    … and ${hidden} more`);
+  }
+}
+
+/**
  * Pick the next action by delegating to the active strategy and emit a
  * decision summary to stdout. The summary lists the top weighted candidates
  * with their score so a tail of the lobby log shows what the AI is thinking.
@@ -98,7 +154,10 @@ function pickAction(view: PlayerView, actions: readonly GameAction[]): GameActio
       evaluated: view.legalActions,
       random: Math.random,
     });
-    console.log(`AI [${view.phaseState.phase}] model pick${decision.note ? ` (${decision.note})` : ''} of ${actions.length} actions`);
+    const header = decision.note
+      ? `${decision.note} — of ${actions.length} actions:`
+      : `agent pick of ${actions.length} actions:`;
+    logCandidates(view, header, decision.considered ?? [], decision.action);
     return decision.action;
   }
   const context: AiContext = { view, cardPool, legalActions: actions };
@@ -110,18 +169,7 @@ function pickAction(view: PlayerView, actions: readonly GameAction[]): GameActio
 
   const picked = sampleWeighted(weighted);
   const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
-  const top = [...weighted]
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, LOG_TOP_N);
-
-  console.log(`AI [${view.phaseState.phase}] weighing ${weighted.length} actions (total weight ${totalWeight}):`);
-  for (const cand of top) {
-    const marker = cand.action === picked ? '→' : ' ';
-    console.log(`  ${marker} ${describeWeighted(cand, view)}`);
-  }
-  if (weighted.length > LOG_TOP_N) {
-    console.log(`    … and ${weighted.length - LOG_TOP_N} more`);
-  }
+  logCandidates(view, `weighing ${weighted.length} actions (total weight ${totalWeight}):`, weighted, picked);
   return picked;
 }
 

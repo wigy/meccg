@@ -32,13 +32,13 @@
  * Certified: 2026-04-22
  */
 
-import { describe, test, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   LORIEN, MORIA, MINAS_TIRITH,
   ARAGORN, BILBO, LEGOLAS, IORETH, HALFLING_STRENGTH,
   resetMint, buildTestState, Phase, CardStatus,
-  findCharInstanceId, handCardId, dispatch,
+  findCharInstanceId, handCardId, dispatch, dispatchResult,
   expectCharStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
@@ -198,5 +198,40 @@ describe('Rhosgobel (tw-420)', () => {
     expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     // Aragorn is still wounded — untapping a tapped character is not healing.
     expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
+  });
+
+  test('a reactive short event is playable during the Free Council phase', () => {
+    // Corruption checks happen in the Free Council phase too (CoE 7.1.1), and
+    // a pending corruption-check resolution offers reactive short events from
+    // the actor's hand. That reducer had no route for `play-short-event` and
+    // rejected its own offer with "Unexpected action ... in Free Council
+    // phase" — seen twice in self-play fuzzing.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RHOSGOBEL,
+            characters: [{ defId: BILBO, status: CardStatus.Inverted }],
+          }],
+          hand: [HALFLING_STRENGTH],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
+    const result = dispatchResult(base, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: handCardId(base, RESOURCE_PLAYER),
+      targetCharacterId: bilboId,
+      optionId: 'heal',
+    });
+
+    expect(result.error).toBeUndefined();
   });
 });

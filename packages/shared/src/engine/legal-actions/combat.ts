@@ -3010,6 +3010,12 @@ function siteStormAtSiteActions(
  * 2. **Hand cards** (`fromHand: true`): either the attacker or defender may
  *    play, controlled by the effect's `player` field. The card is discarded
  *    after use. Used by Dragon's Desolation (tw-29) and Forewarned (tw-346).
+ *
+ * 3. **In-play dual-mode creature permanent-events**
+ *    (`fromAltPermanentEvent: true`): the hazard player taps one during the
+ *    opponent's M/H phase; it "becomes a short-event", leaves play, and its
+ *    modifiers hit the live attack. Costs one hazard-limit slot. Used by
+ *    Hoarmûrath of Dír (tw-44).
  */
 function modifyAttackActions(
   state: GameState,
@@ -3160,47 +3166,7 @@ function modifyAttackActions(
     }
 
     if (effect.when) {
-      let baseProwess = combat.strikeProwess;
-      let creatureName: string | undefined;
-      if (combat.attackSource.type === 'creature') {
-        const atkPlayer = playerById(state, combat.attackingPlayerId);
-        if (atkPlayer) {
-          const creatureCard = atkPlayer.cardsInPlay.find(
-            c => combat.attackSource.type === 'creature' && c.instanceId === (combat.attackSource as { type: 'creature'; instanceId: import('../../types/common.js').CardInstanceId }).instanceId,
-          );
-          if (creatureCard) {
-            const cDef = defById(state, creatureCard.definitionId);
-            if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
-            if (cDef) creatureName = cDef.name;
-          }
-        }
-      }
-      // An automatic-attack is either a site's built-in attack or a played
-      // auto-attack; exposed so cards can gate on "playable on an
-      // automatic-attack" (e.g. Unabated in Malice ba-26).
-      const isAutomatic = combat.attackSource.type === 'automatic-attack'
-        || combat.attackSource.type === 'played-auto-attack';
-      const enemyCtx: Record<string, unknown> = { prowess: baseProwess };
-      if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
-      if (creatureName) enemyCtx['name'] = creatureName;
-      const attackCtx: Record<string, unknown> = { source: combat.attackSource.type, automatic: isAutomatic, detainment: combat.detainment };
-      if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
-      const defendingPlayer = playerById(state, combat.defendingPlayerId);
-      const defendingCompany = defendingPlayer ? companyById(defendingPlayer.companies, combat.companyId) : undefined;
-      const defenderCovert = defendingPlayer && defendingCompany ? isCovertCompany(defendingCompany, defendingPlayer, state) : false;
-      // `defender.companyContainsBalrog` gates "playable on an attack against
-      // The Balrog's company"; `defender.inPlay` is attachment-aware so a gate
-      // on a character-attached permanent event (e.g. Great Shadow on The
-      // Balrog) resolves — the plain global `inPlay` list misses it. Both back
-      // Darkness Wielded (ba-55).
-      const defenderContainsBalrog = defendingPlayer && defendingCompany
-        ? companyContainsBalrogAvatar(state, defendingPlayer, defendingCompany) : false;
-      const defenderInPlay = defendingPlayer ? inPlayNamesForPlayerDeep(state, defendingPlayer) : [];
-      // `defender.minionCompany` gates "against a minion company" (FEAR! FIRE!
-      // FOES! as-29 Mode B): true when the defending (resource) player is a
-      // Ringwraith (minion) player.
-      const defenderMinionCompany = defendingPlayer?.alignment === Alignment.Ringwraith;
-      const ctx: Record<string, unknown> = { inPlay: inPlayNames, enemy: enemyCtx, attack: attackCtx, defender: { covert: defenderCovert, companyContainsBalrog: defenderContainsBalrog, inPlay: defenderInPlay, minionCompany: defenderMinionCompany } };
+      const ctx = buildPlayedModifyAttackContext(state, combat, inPlayNames);
       if (!matchesCondition(effect.when, ctx)) {
         logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: when condition not met`);
         continue;
@@ -3214,6 +3180,149 @@ function modifyAttackActions(
     });
   }
 
+  // --- In-play dual-mode creature permanent-events (`fromAltPermanentEvent`) ---
+  actions.push(...altPermanentEventModifyAttackActions(state, playerId, combat, inPlayNames));
+
+  return actions;
+}
+
+/**
+ * Build the `when` context for a *played* `modify-attack` — a hand card
+ * (`fromHand`), an on-guard reveal, or an in-play dual-mode creature
+ * permanent-event tapped in the same window (`fromAltPermanentEvent`).
+ *
+ * Exposes `inPlay`, `enemy.*` (prowess/race/name of the attacking creature),
+ * `attack.*` (source discriminator, `automatic`, `detainment`, `keying`) and
+ * `defender.*` (`covert`, `companyContainsBalrog`, `inPlay`, `minionCompany`).
+ */
+function buildPlayedModifyAttackContext(
+  state: GameState,
+  combat: CombatState,
+  inPlayNames: readonly string[],
+): Record<string, unknown> {
+  let baseProwess = combat.strikeProwess;
+  let creatureName: string | undefined;
+  if (combat.attackSource.type === 'creature') {
+    const atkPlayer = playerById(state, combat.attackingPlayerId);
+    if (atkPlayer) {
+      const creatureCard = atkPlayer.cardsInPlay.find(
+        c => combat.attackSource.type === 'creature' && c.instanceId === (combat.attackSource as { type: 'creature'; instanceId: CardInstanceId }).instanceId,
+      );
+      if (creatureCard) {
+        const cDef = defById(state, creatureCard.definitionId);
+        if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
+        if (cDef) creatureName = cDef.name;
+      }
+    }
+  }
+  // An automatic-attack is either a site's built-in attack or a played
+  // auto-attack; exposed so cards can gate on "playable on an
+  // automatic-attack" (e.g. Unabated in Malice ba-26).
+  const isAutomatic = combat.attackSource.type === 'automatic-attack'
+    || combat.attackSource.type === 'played-auto-attack';
+  const enemyCtx: Record<string, unknown> = { prowess: baseProwess };
+  if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
+  if (creatureName) enemyCtx['name'] = creatureName;
+  const attackCtx: Record<string, unknown> = { source: combat.attackSource.type, automatic: isAutomatic, detainment: combat.detainment };
+  if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
+  const defendingPlayer = playerById(state, combat.defendingPlayerId);
+  const defendingCompany = defendingPlayer ? companyById(defendingPlayer.companies, combat.companyId) : undefined;
+  const defenderCovert = defendingPlayer && defendingCompany ? isCovertCompany(defendingCompany, defendingPlayer, state) : false;
+  // `defender.companyContainsBalrog` gates "playable on an attack against
+  // The Balrog's company"; `defender.inPlay` is attachment-aware so a gate
+  // on a character-attached permanent event (e.g. Great Shadow on The
+  // Balrog) resolves — the plain global `inPlay` list misses it. Both back
+  // Darkness Wielded (ba-55).
+  const defenderContainsBalrog = defendingPlayer && defendingCompany
+    ? companyContainsBalrogAvatar(state, defendingPlayer, defendingCompany) : false;
+  const defenderInPlay = defendingPlayer ? inPlayNamesForPlayerDeep(state, defendingPlayer) : [];
+  // `defender.minionCompany` gates "against a minion company" (FEAR! FIRE!
+  // FOES! as-29 Mode B): true when the defending (resource) player is a
+  // Ringwraith (minion) player.
+  const defenderMinionCompany = defendingPlayer?.alignment === Alignment.Ringwraith;
+  return {
+    inPlay: inPlayNames,
+    enemy: enemyCtx,
+    attack: attackCtx,
+    defender: {
+      covert: defenderCovert,
+      companyContainsBalrog: defenderContainsBalrog,
+      inPlay: defenderInPlay,
+      minionCompany: defenderMinionCompany,
+    },
+  };
+}
+
+/**
+ * Offer converting an in-play dual-mode creature permanent-event to a
+ * short-event that modifies the live attack (`modify-attack` with
+ * `fromAltPermanentEvent`) — the Hoarmûrath of Dír (tw-44) mechanism:
+ * "it will remain in play until tapped during the opponent's movement/hazard
+ * phase (tapping counts against the hazard limit). When tapped, Hoarmûrath of
+ * Dír becomes a short-event and gives +1 strike to any one attack."
+ *
+ * Offered in the same pre-assignment window as a from-hand `modify-attack`, so
+ * "any one attack" is the attack actually being fought. Restricted to the
+ * opponent's M/H phase (the card's printed timing) and gated on the company's
+ * hazard limit, which the conversion consumes one slot of.
+ */
+function altPermanentEventModifyAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+  inPlayNames: readonly string[],
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+  // Printed timing: "tapped during the opponent's movement/hazard phase".
+  if (state.phaseState.phase !== Phase.MovementHazard) return actions;
+  const mhState = state.phaseState;
+
+  for (const card of player.cardsInPlay) {
+    if (card.status !== CardStatus.Untapped) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const effects = getCardEffects(def);
+    const altEvent = effects.find(e => e.type === 'creature-alt-event');
+    if (altEvent?.type !== 'creature-alt-event' || altEvent.mode !== 'permanent-event' || altEvent.persistent) continue;
+    const effect = effects.find(
+      (e): e is ModifyAttackEffect => e.type === 'modify-attack' && !!e.fromAltPermanentEvent,
+    );
+    if (!effect) continue;
+
+    const expectedPlayerId = effect.player === 'defender'
+      ? combat.defendingPlayerId
+      : combat.attackingPlayerId;
+    if (playerId !== expectedPlayerId) continue;
+
+    if (effect.when && !matchesCondition(effect.when, buildPlayedModifyAttackContext(state, combat, inPlayNames))) {
+      logDetail(`Modify-attack (permanent-event tap) ${def.name}: when condition not met`);
+      continue;
+    }
+
+    // The conversion is a hazard action and counts one against the company's
+    // hazard limit (printed on the card, and CoE 8.12 for combat-window plays).
+    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+    if (!bypassesLimit) {
+      const limit = currentHazardLimit(state, mhState, combat.companyId);
+      if ((mhState.hazardsPlayedThisCompany ?? 0) >= limit) {
+        logDetail(`Modify-attack (permanent-event tap) ${def.name}: hazard limit reached (${mhState.hazardsPlayedThisCompany}/${limit})`);
+        actions.push({
+          action: { type: 'modify-attack', player: playerId, cardInstanceId: card.instanceId },
+          viable: false,
+          reason: 'Hazard limit reached',
+        });
+        continue;
+      }
+    }
+
+    logDetail(`Modify-attack (permanent-event tap) available: ${def.name} (strikes ${formatSignedNumber(effect.strikesModifier ?? 0)}, prowess ${formatSignedNumber(effect.prowessModifier ?? 0)})`);
+    actions.push({
+      action: { type: 'modify-attack', player: playerId, cardInstanceId: card.instanceId },
+      viable: true,
+    });
+  }
   return actions;
 }
 

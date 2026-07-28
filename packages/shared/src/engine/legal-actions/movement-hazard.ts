@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect } from '../../types/effects.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -26,13 +26,14 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsInPlay } from '../reducer-utils.js';
+import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { logDetail, logHeading } from './log.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
-import { grantedActionActivations } from './organization.js';
+import { grantedActionActivations, buildPlayOptionContext } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -60,23 +61,6 @@ function countUnresolvedChainHazards(state: GameState): number {
     if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) n++;
   }
   return n;
-}
-
-/**
- * True if a card named {@link name} is prohibited from being played by any
- * card currently in play carrying a `prohibit-card-play` effect that lists it.
- * Implements "prohibits the subsequent play of X" (The Under-roads, as-106).
- */
-function isCardPlayProhibited(state: GameState, name: string): boolean {
-  for (const player of state.players) {
-    for (const card of player.cardsInPlay) {
-      const def = defById(state, card.definitionId);
-      for (const eff of getCardEffects(def)) {
-        if (eff.type === 'prohibit-card-play' && eff.cardNames.includes(name)) return true;
-      }
-    }
-  }
-  return false;
 }
 
 /**
@@ -1956,7 +1940,7 @@ function playHazardsActions(
       // prohibit-card-play (The Under-roads, as-106 prohibits The Way is Shut):
       // a card named by any in-play `prohibit-card-play` effect may not be
       // played while that source remains in play.
-      if (isCardPlayProhibited(state, def.name)) {
+      if (isCardPlayProhibited(state, def)) {
         logDetail(`Hazard "${def.name}" is prohibited from play by a card in play`);
         actions.push({ action, viable: false, reason: `${def.name} may not be played (prohibited by a card in play)` });
         continue;
@@ -3553,8 +3537,11 @@ const MIN_DECK_SIZE_FOR_NAZGUL_TO_DECK = 5;
  * mode `permanent-event`, e.g. Ûvatha tw-107 / Adûnaphel tw-2) during the
  * opponent's movement/hazard phase. Tapping "becomes a short-event" (counts one
  * against the hazard limit). For a `tap-character` on-tap effect (tw-2), one
- * action is emitted per eligible untapped target character; otherwise a single
- * action (the fetch target, tw-107, is chosen in the follow-up pending flow).
+ * action is emitted per eligible untapped target character; for a
+ * `force-discard-target-item` on-tap effect (tw-46), one per character matching
+ * the effect's `targetFilter` that actually bears a discardable item; otherwise
+ * a single action (the fetch target, tw-107, is chosen in the follow-up pending
+ * flow).
  */
 function tapAltPermanentEventActions(
   state: GameState,
@@ -3580,6 +3567,10 @@ function tapAltPermanentEventActions(
     // Persistent permanent-events (Lady of the Golden Wood as-13) have no
     // tap-to-short-event conversion — they simply stay in play.
     if (altEvent.persistent) continue;
+    // A conversion whose short-event modifies "any one attack" (Hoarmûrath of
+    // Dír tw-44) needs a live attack to name, so it is offered in the combat
+    // pre-assignment window instead (`modify-attack` / `fromAltPermanentEvent`).
+    if (getCardEffects(def).some(e => e.type === 'modify-attack' && e.fromAltPermanentEvent)) continue;
 
     const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
     if (limitReached && !bypassesLimit) {
@@ -3604,9 +3595,47 @@ function tapAltPermanentEventActions(
       if (!offered) {
         actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character to tap' });
       }
-    } else {
-      actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
+      continue;
     }
+
+    // Indûr Dawndeath (tw-46): the on-tap short-event "makes any wounded
+    // character discard an item of his choice (but not a ring)". As a hazard
+    // (CoE 2.1.2) it may only aim at the resource (active) player's characters.
+    // A character is only a legal target when it matches the effect's
+    // `targetFilter` (wounded) AND bears at least one item the `itemFilter`
+    // allows — otherwise tapping would be a play without effect (CoE 9.6).
+    const discardItemEffect = getCardEffects(def).find(
+      (e): e is ForceDiscardTargetItemEffect => e.type === 'force-discard-target-item',
+    );
+    if (discardItemEffect) {
+      const resourcePlayer = state.players[activeIdx];
+      let offered = false;
+      for (const [charId, ch] of Object.entries(resourcePlayer.characters)) {
+        const charDef = defById(state, ch.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (discardItemEffect.targetFilter) {
+          const ctx = buildPlayOptionContext(state, ch, resourcePlayer);
+          if (!matchesCondition(discardItemEffect.targetFilter, ctx)) continue;
+        }
+        const hasDiscardableItem = ch.items.some(item => {
+          const itemDef = defById(state, item.definitionId);
+          if (!itemDef || !isItemCard(itemDef)) return false;
+          return !discardItemEffect.itemFilter || matchesDefinition(itemDef, discardItemEffect.itemFilter);
+        });
+        if (!hasDiscardableItem) {
+          logDetail(`${def.name}: ${cardName(state, ch.definitionId)} matches the target filter but bears no discardable item — not offered`);
+          continue;
+        }
+        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
+        offered = true;
+      }
+      if (!offered) {
+        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character with a discardable item' });
+      }
+      continue;
+    }
+
+    actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
   }
   return actions;
 }
@@ -3621,8 +3650,7 @@ function sideboardWithNazgulActions(
 
   const nazguls = player.cardsInPlay.filter(card => {
     if (card.status === CardStatus.Tapped) return false;
-    const def = defById(state, card.definitionId);
-    return !!def && def.cardType === 'hazard-event' && (def.keywords ?? []).includes('Nazgûl');
+    return isNazgulPermanentEvent(defById(state, card.definitionId));
   });
   if (nazguls.length === 0) return [];
 
@@ -3817,11 +3845,15 @@ function findCreatureKeyingMatches(
     : null;
   const effectiveSiteTypes: import('../../types/common.js').SiteType[] = [];
   if (mhState.destinationSiteType) effectiveSiteTypes.push(mhState.destinationSiteType);
-  const destSiteDefName = destSiteDefId ? defById(state, destSiteDefId)?.name : undefined;
+  const destSiteDefForOverride = destSiteDefId ? defById(state, destSiteDefId) : undefined;
+  const destSiteDefName = destSiteDefForOverride?.name;
+  const destSitePrintedType = destSiteDefForOverride && isSiteCard(destSiteDefForOverride)
+    ? destSiteDefForOverride.siteType
+    : undefined;
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'attribute-modifier' || c.kind.attribute !== 'site.type' || c.kind.op !== 'override') continue;
     if (destSiteDefId === null) continue;
-    if (!siteConstraintFilterMatches(c.kind.filter, destSiteDefId, destSiteDefName)) continue;
+    if (!siteConstraintFilterMatches(c.kind.filter, destSiteDefId, destSiteDefName, destSitePrintedType)) continue;
     const overrideType = c.kind.value as import('../../types/common.js').SiteType;
     if (!effectiveSiteTypes.includes(overrideType)) {
       effectiveSiteTypes.push(overrideType);

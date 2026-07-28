@@ -659,10 +659,17 @@
           "strikes": 3,
           "prowess": 16
         }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "target": "all-in-play"
       }
     ],
     "text": "Unique. Unless Scatha Ahunt is in play, Gondmaeglom has an additional automatic-attack: Dragon — 3 strikes at 16/9. In addition, -1 to all influence attempts.",
-    "manifestId": "td-60"
+    "manifestId": "td-60",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hazard-event",

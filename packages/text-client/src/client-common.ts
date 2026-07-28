@@ -52,6 +52,12 @@ export interface SpawnedClientArgs {
   deckId?: string;
   /** Trained-model weights path (Real-AI games): passed as `--model <path>`. */
   modelPath?: string;
+  /**
+   * Sim agent spec (e.g. `mc:ms=2000/turns=2`), passed as `--agent <spec>`.
+   * Takes precedence over `--model`; without either the client plays the
+   * heuristic strategy.
+   */
+  agentSpec?: string;
 }
 
 /**
@@ -67,11 +73,13 @@ export function parseSpawnedClientArgs(usageName: string): SpawnedClientArgs {
   const deckId = deckIdx >= 0 ? process.argv[deckIdx + 1] : undefined;
   const modelIdx = process.argv.indexOf('--model');
   const modelPath = modelIdx >= 0 ? process.argv[modelIdx + 1] : undefined;
+  const agentIdx = process.argv.indexOf('--agent');
+  const agentSpec = agentIdx >= 0 ? process.argv[agentIdx + 1] : undefined;
   if (!port || !playerName || !token) {
-    console.error(`Usage: ${usageName} <port> <playerName> <token> [--deck <deckId>]`);
+    console.error(`Usage: ${usageName} <port> <playerName> <token> [--deck <deckId>] [--agent <spec>]`);
     process.exit(1);
   }
-  return { port, playerName, token, deckId, modelPath };
+  return { port, playerName, token, deckId, modelPath, agentSpec };
 }
 
 /**

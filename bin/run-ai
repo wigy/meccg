@@ -150,7 +150,38 @@ gh() { timeout "$GH_TIMEOUT" "$GH_BIN" "$@"; }
 
 # Same reasoning for the lobby: bound every curl so an unresponsive (as opposed
 # to down) lobby can't wedge the loop.
-curl() { command curl --max-time 30 "$@"; }
+#
+# On top of the timeout, retry connection-class failures. The lobby runs under
+# nodemon in dev mode watching packages/lobby-server/src and packages/shared/src
+# — paths this very worker rewrites on every checkout — so it restarts mid-run
+# and calls landing in that window get ECONNREFUSED. Without a retry the sweep
+# simply logged "failed to set message X -> failed" and moved on, leaving the
+# message in whatever state it was in. Only connection-class codes are retried;
+# an HTTP error from `-f` is returned on the first attempt so real 4xx/5xx
+# responses are not hidden behind a minute of retries.
+CURL_MAX_ATTEMPTS=12
+CURL_RETRY_DELAY=5
+curl() {
+  local attempt=1 out rc
+  while : ; do
+    out=$(command curl --max-time 30 "$@") && rc=0 || rc=$?
+    if [ "$rc" -eq 0 ]; then
+      printf '%s' "$out"
+      return 0
+    fi
+    case "$rc" in
+      6|7|28|35|52|56) ;;   # DNS / connect / timeout / TLS / empty or broken reply
+      *) printf '%s' "$out"; return "$rc" ;;
+    esac
+    if [ "$attempt" -ge "$CURL_MAX_ATTEMPTS" ]; then
+      printf '%s' "$out"
+      return "$rc"
+    fi
+    echo "[run-ai] lobby unreachable (curl exit $rc) — likely a dev-mode restart; retrying in ${CURL_RETRY_DELAY}s (attempt $attempt/$CURL_MAX_ATTEMPTS)" >&2
+    sleep "$CURL_RETRY_DELAY"
+    attempt=$(( attempt + 1 ))
+  done
+}
 
 master_key() {
   if [ -n "${MECCG_MASTER_KEY:-}" ]; then

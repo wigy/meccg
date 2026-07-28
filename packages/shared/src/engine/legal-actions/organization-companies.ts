@@ -28,8 +28,9 @@ import { isCharacterCard, isItemCard, isSiteCard, isAvatarCharacter } from '../.
 import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, fwSiteVersionForbidden } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
+import { companyHasUnlimitedSize } from '../company-composition.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
 import { companyMovementRestrictions, companyMovementTax, isMovementTaxSatisfied } from '../effects/company-restrictions.js';
@@ -587,9 +588,14 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     // Build candidate sites from the player's site deck
     const candidateSites: SiteCard[] = [];
     const siteInstMap = new Map<string, CardInstanceId>();
+    // Heart Grown Cold (wh-21) and its kin lock which alignment of a site card a
+    // Fallen-wizard may use for a location. A barred version is dropped before it
+    // can claim the name → instance slot, so the surviving version of the same
+    // location (if the deck holds one) becomes the destination the player uses.
     for (const siteCard of player.siteDeck) {
       const siteDef = defById(state, siteCard.definitionId);
       if (!siteDef || !isSiteCard(siteDef)) continue;
+      if (fwSiteVersionForbidden(state, player, siteDef)) continue;
       candidateSites.push(siteDef);
       siteInstMap.set(siteDef.name, siteCard.instanceId);
     }
@@ -616,6 +622,10 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         // the same site name via different instances, though in practice they
         // share the instance once movement resolves).
         if (siteInstMap.has(siblingDef.name)) continue;
+        // The same alignment lock applies to a site already in play: a
+        // Fallen-wizard barred from the hero card cannot join a sibling standing
+        // on it either.
+        if (fwSiteVersionForbidden(state, player, siblingDef)) continue;
         candidateSites.push(siblingDef);
         siteInstMap.set(siblingDef.name, siblingSite.instanceId);
         logDetail(`  sibling-in-play destination ${siblingDef.name} via company ${sibling.id as string}`);
@@ -1188,6 +1198,19 @@ export function splitCompanyActions(state: GameState, playerId: PlayerId): Evalu
         continue;
       }
 
+      // The reducer removes the splitter *and its followers*, and refuses a
+      // split that empties the source company. Mirror that exactly rather
+      // than relying on the "two general-influence characters" proxy above:
+      // a character whose control has reverted to general influence can still
+      // be listed in its former controller's followers, and then both leave
+      // together. Offering a split the reducer then rejects aborted two of
+      // 400 games in a gate run (seeds 4255 and 4418).
+      const leaving = new Set<string>([charInstId as string, ...char.followers.map(f => f as string)]);
+      if (company.characters.every(c => leaving.has(c as string))) {
+        logDetail(`  → skip: splitting ${charDef.name} with ${char.followers.length} follower(s) would empty ${company.id as string}`);
+        continue;
+      }
+
       logDetail(`  → viable: split ${charDef.name} (+ ${char.followers.length} followers) from ${company.id as string}`);
       const candidate: GameAction = {
         type: 'split-company',
@@ -1248,7 +1271,8 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
         if (!atHaven) {
           const extraLeaderSlots = countCompanyCardEffect(state, targetCompany.id, 'extra-leader-slot');
           const resultingSize = companyEffectiveSizeExemptingLeaders(state, resultingCharIds, extraLeaderSlots);
-          if (resultingSize > 7) {
+          // An Unexpected Party (dm-114) on the *target* company: no size limit.
+          if (resultingSize > 7 && !companyHasUnlimitedSize(state, targetCompany.id)) {
             logDetail(`  → skip: move ${charDef.name} to ${targetCompany.id as string} — would exceed size limit (${resultingSize} > 7)`);
             continue;
           }
@@ -1442,7 +1466,9 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
         const extraLeaderSlots = countCompanyCardEffect(state, targetCompany.id, 'extra-leader-slot')
           + countCompanyCardEffect(state, company.id, 'extra-leader-slot');
         const mergedSize = companyEffectiveSizeExemptingLeaders(state, mergedCharIds, extraLeaderSlots);
-        if (mergedSize > 7) {
+        // An Unexpected Party (dm-114): the surviving company is the *target*,
+        // so only its `company-size-unlimited` marker can lift the cap.
+        if (mergedSize > 7 && !companyHasUnlimitedSize(state, targetCompany.id)) {
           logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — would exceed size limit (${mergedSize} > 7)`);
           continue;
         }

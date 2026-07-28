@@ -69,6 +69,29 @@ export function findItemInstanceId(state: GameState, playerIdx: number, itemDefI
   throw new Error(`Item ${itemDefId as string} not borne by any character for player ${playerIdx}`);
 }
 
+/**
+ * The **site definitions** a player may currently declare movement to, as
+ * definition IDs resolved through that player's site deck.
+ *
+ * Tests that care *which version* of a location is offered need the definition,
+ * not the instance: a Fallen-wizard's location deck may hold both the hero and
+ * the minion card for the same place (CoE rule 1.28), and only the definition ID
+ * tells the two apart. Destinations not drawn from the site deck (a sibling
+ * company's site already in play) resolve to `undefined` and are dropped.
+ */
+export function movementDestinationDefIds(
+  state: GameState,
+  playerId: PlayerId,
+  playerIdx: number,
+): CardDefinitionId[] {
+  const deck = state.players[playerIdx].siteDeck;
+  return computeLegalActions(state, playerId)
+    .filter(ea => ea.viable && ea.action.type === 'plan-movement')
+    .map(ea => (ea.action as { destinationSite: CardInstanceId }).destinationSite)
+    .map(instId => deck.find(s => s.instanceId === instId)?.definitionId)
+    .filter((defId): defId is CardDefinitionId => defId !== undefined);
+}
+
 /** Get all viable actions of a specific type for a player. */
 export function viableActions(state: GameState, playerId: PlayerId, actionType: string) {
   return computeLegalActions(state, playerId)

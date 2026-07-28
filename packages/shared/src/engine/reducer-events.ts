@@ -20,10 +20,11 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
-import { addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
+import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
 import { applyMove, findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
 import { shuffle } from '../rng.js';
@@ -106,6 +107,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
     ...(action.companionCardInstanceId ? { companionCardInstanceId: action.companionCardInstanceId } : {}),
     ...(action.storeItemInstanceId ? { storeItemInstanceId: action.storeItemInstanceId } : {}),
     ...(action.storeCharacterId ? { storeCharacterId: action.storeCharacterId } : {}),
+    ...(action.opposedCharacterId ? { opposedCharacterId: action.opposedCharacterId } : {}),
   };
   newState = initiateOrPushChain(newState, action.player, handCard, payload);
 
@@ -220,26 +222,33 @@ export function handleLongEvent(state: GameState, action: GameAction): ReducerRe
       discardPile: [...p.discardPile, ...discardedEvents],
     }));
 
-    // Check for hazard-maintenance effects in remaining cardsInPlay.
-    // Fire once per permanent hazard event that has a hazard-maintenance effect
+    // [2.III.3] boundary: a long-event whose *effect* outlives its card
+    // (Witch-king of Angmar tw-113 — discarded the moment his long-event
+    // resolves, so the card sweep above can never reach it) records its
+    // duration as a `next-long-event-phase` constraint instead. Sweep it here,
+    // at the same moment the hazard player's long-event cards would go.
+    afterPass = sweepExpired(afterPass, {
+      kind: 'long-event-phase-end',
+      hazardPlayerId: hazardPlayer.id,
+      turnNumber: state.turnNumber,
+    });
+
+    // Check for event-maintenance effects in remaining cardsInPlay.
+    // Fire once per permanent hazard event that has an event-maintenance effect
     // with trigger: 'opponent-long-event-end'. The hazard player (non-active)
     // must pay the maintenance cost (discard self or matching hand card).
     for (const card of afterPass.players[hazardPlayerIndex].cardsInPlay) {
       const def = defById(afterPass, card.definitionId);
       if (!def) continue;
       for (const effect of getCardEffects(def)) {
-        if (effect.type !== 'hazard-maintenance') continue;
+        if (effect.type !== 'event-maintenance') continue;
         if (effect.trigger !== 'opponent-long-event-end') continue;
-        logDetail(`Long-event exit: queuing hazard-event-maintenance for "${def.name}" (${card.instanceId as string})`);
-        afterPass = enqueueResolution(afterPass, {
-          source: card.instanceId,
-          actor: afterPass.players[hazardPlayerIndex].id,
+        logDetail(`Long-event exit: queuing event-maintenance for "${def.name}" (${card.instanceId as string})`);
+        afterPass = enqueueMaintenanceUpkeep(afterPass, {
+          controllerId: afterPass.players[hazardPlayerIndex].id,
+          sourceInstanceId: card.instanceId,
+          sourceDefinitionId: card.definitionId,
           scope: { kind: 'phase', phase: Phase.LongEvent },
-          kind: {
-            type: 'hazard-event-maintenance',
-            sourceInstanceId: card.instanceId,
-            sourceDefinitionId: card.definitionId,
-          },
         });
       }
     }
@@ -1423,6 +1432,66 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       kind: {
         type: 'reveal-choose-to-hand',
         revealedInstanceIds: revealedCards.map(c => c.instanceId),
+        sourceDefinitionId: handCard.definitionId,
+      },
+    });
+    return { state: working };
+  }
+
+  // peek-shuffle-deck-top (Mirror of Galadriel tw-282): look at the opponent's
+  // whole hand, then choose any one play deck whose top `count` cards are
+  // looked at, shuffled, and returned to the top. The hand look is a "may" with
+  // no cost or downside, so it happens on play; the deck choice comes after it
+  // (the card's own ordering) via a `choose-peek-deck` pending resolution, which
+  // also carries the optional "you may … choose" pass. The event card goes to
+  // the discard pile immediately, before the choice resolves.
+  const peekShuffleEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').PeekShuffleDeckTopEffect =>
+      e.type === 'peek-shuffle-deck-top',
+  );
+  if (peekShuffleEffect) {
+    let working = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, handCard],
+    }));
+    const opponentIndex = 1 - playerIndex;
+    if (peekShuffleEffect.revealOpponentHand) {
+      const opponentHand = working.players[opponentIndex].hand;
+      working = revealInstances(working, opponentHand);
+      logDetail(
+        `${def.name}: ${action.player as string} looks at the opponent's hand ` +
+        `(${opponentHand.length} card(s))`,
+      );
+    }
+    const count = peekShuffleEffect.count ?? 5;
+    const deckChoice = peekShuffleEffect.deckChoice ?? 'any';
+    const ownDeckSize = working.players[playerIndex].playDeck.length;
+    const opponentDeckSize = working.players[opponentIndex].playDeck.length;
+    // An in-play `cancel-deck-search` (Bane of the Ithil-stone tw-13 against a
+    // non-minion, Lady of the Golden Wood as-13 against a minion) cancels
+    // looking at the player's OWN play deck; the opponent's deck is outside
+    // what those cards cover ("any portion of *his* play deck").
+    const ownDeckCanceller = deckSearchCancellerFor(working, action.player);
+    if (ownDeckCanceller) {
+      logDetail(`${def.name}: "${ownDeckCanceller}" cancels looking at ${action.player as string}'s own play deck`);
+    }
+    const selfEligible = deckChoice !== 'opponent' && !ownDeckCanceller && ownDeckSize > 0;
+    const opponentEligible = deckChoice !== 'self' && opponentDeckSize > 0;
+    if (!selfEligible && !opponentEligible) {
+      logDetail(`${def.name}: no play deck with cards to look at — deck step fizzles`);
+      return { state: working };
+    }
+    logDetail(
+      `${def.name}: awaiting deck choice (own deck ${ownDeckSize}, opponent deck ${opponentDeckSize}, top ${count})`,
+    );
+    working = enqueueResolution(working, {
+      source: handCard.instanceId,
+      actor: action.player,
+      scope: { kind: 'phase', phase: working.phaseState.phase },
+      kind: {
+        type: 'choose-peek-deck',
+        count,
+        deckChoice,
         sourceDefinitionId: handCard.definitionId,
       },
     });

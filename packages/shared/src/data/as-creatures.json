@@ -186,10 +186,25 @@
     "killMarshallingPoints": 6,
     "starredKillMarshallingPoints": true,
     "race": "maia",
+    "manifestId": "tw-156",
+    "certified": "2026-07-27",
     "keyedTo": [
       {
         "regionTypes": [
           "free"
+        ],
+        "siteTypes": [
+          "free-hold"
+        ]
+      },
+      {
+        "regionNames": [
+          "Arthedain",
+          "The Shire",
+          "Rhudaur",
+          "Lindon",
+          "Wold & Foothills",
+          "Anfalas"
         ]
       }
     ],
@@ -197,6 +212,64 @@
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event",
+        "persistent": true
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -3,
+        "when": {
+          "defender.alignment": "hero"
+        }
+      },
+      {
+        "type": "discard-self-when",
+        "condition": {
+          "charactersInPlayAnywhere": "Gandalf"
+        }
+      },
+      {
+        "type": "hazard-limit-environment",
+        "value": 1,
+        "appliesTo": "all",
+        "when": {
+          "company.alignment": "ringwraith",
+          "company.covert": false
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       }
     ]
   },
@@ -295,11 +368,78 @@
     "killMarshallingPoints": 2,
     "starredKillMarshallingPoints": true,
     "race": "man",
-    "keyedTo": [],
+    "manifestId": "tw-126",
+    "certified": "2026-07-27",
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Anduin Vales",
+          "Woodland Realm",
+          "Western Mirkwood",
+          "Wold & Foothills",
+          "High Pass",
+          "Redhorn Gate"
+        ]
+      }
+    ],
     "effects": [
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event",
+        "persistent": true
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "target": "all-in-play",
+        "when": {
+          "$or": [
+            {
+              "reason": "faction-influence-check",
+              "faction.race": "man"
+            },
+            {
+              "reason": "opponent-influence-check",
+              "target.kind": "faction",
+              "target.race": "man"
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       }
     ]
   },
@@ -337,11 +477,74 @@
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
     "race": "elf",
-    "keyedTo": [],
+    "manifestId": "tw-145",
+    "certified": "2026-07-27",
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Rhudaur",
+          "Arthedain",
+          "High Pass",
+          "The Shire",
+          "Cardolan"
+        ]
+      }
+    ],
     "effects": [
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event",
+        "persistent": true
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "end-of-turn",
+        "actor": "both",
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "count": 1,
+          "filter": {
+            "cardType": "hazard-creature",
+            "race": "elf"
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       }
     ]
   },

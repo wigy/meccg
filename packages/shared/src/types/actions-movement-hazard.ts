@@ -1398,3 +1398,18 @@ export interface TransferReturnedItemAction {
   /** The company-mate that receives the item; omitted to decline. */
   readonly targetCharacterId?: CardInstanceId;
 }
+
+/**
+ * Resolve a queued `discard-substitute-offer` pending resolution (Leaf Brooch
+ * dm-171). The owner of the doomed cards either names one card to save — the
+ * substitute item is discarded in its place — or declines by omitting
+ * `itemInstanceId`, letting the forced discard go through unchanged.
+ */
+export interface UseDiscardSubstituteAction {
+  /** Action discriminant. */
+  readonly type: 'use-discard-substitute';
+  /** Owner of both the substitute and the doomed cards. */
+  readonly player: PlayerId;
+  /** The card saved from discard; omitted to decline the substitution. */
+  readonly itemInstanceId?: CardInstanceId;
+}

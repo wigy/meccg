@@ -1975,7 +1975,12 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Blue Mountain Dwarf-hold",
-    "effects": [],
+    "effects": [
+      { "type": "stat-modifier", "stat": "prowess", "value": 1, "when": { "reason": "combat", "enemy.race": "orc" } },
+      { "type": "check-modifier", "check": "corruption", "value": -1 },
+      { "type": "check-modifier", "check": "influence", "value": -1, "when": { "reason": "faction-influence-check" } }
+    ],
+    "certified": "2026-07-27",
     "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions."
   },
   {
@@ -1997,8 +2002,32 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Blue Mountain Dwarf-hold",
-    "effects": [],
-    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
+      }
+    ],
+    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-character",
@@ -2089,8 +2118,46 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Iron Hill Dwarf-hold",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Iron Hill Dwarves faction, +2 prowess against Orcs. +1 direct influence against Men and Man factions."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Iron Hill Dwarves"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "man"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "man"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Iron Hill Dwarves faction, +2 prowess against Orcs. +1 direct influence against Men and Man factions.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-character",
@@ -2166,10 +2233,33 @@
     "directInfluence": 0,
     "marshallingPoints": 0,
     "marshallingCategory": "character",
-    "corruptionModifier": 0,
     "homesite": "Blue Mountain Dwarf-hold",
-    "effects": [],
-    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
+      }
+    ],
+    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-character",
@@ -2376,8 +2466,32 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Blue Mountain Dwarf-hold",
-    "effects": [],
-    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
+      }
+    ],
+    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-character",
@@ -2398,8 +2512,32 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Blue Mountain Dwarf-hold",
-    "effects": [],
-    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "corruption",
+        "value": -1
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "reason": "faction-influence-check"
+        }
+      }
+    ],
+    "text": "Unique. +1 prowess against Orcs. -1 to all of his corruption checks. -1 to influence checks against factions.",
+    "certified": "2026-07-27"
   },
   {
     "cardType": "hero-character",
