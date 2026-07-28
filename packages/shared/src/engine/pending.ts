@@ -112,6 +112,30 @@ export function enqueueCorruptionCheck(
   });
 }
 
+/**
+ * Replace the `kind` payload of a queued resolution, keeping its queue
+ * position (no-op if the id is absent).
+ *
+ * Multi-step resolutions that stay queued between player actions (e.g. the
+ * two rolls of a `gold-ring-test` with `rollCount: 2`) must update in place:
+ * dequeue-then-enqueue would move the resolution behind anything the same
+ * card enqueued after it, letting an unrelated check jump the queue mid-test.
+ */
+export function replaceResolutionKind(
+  state: GameState,
+  id: ResolutionId,
+  kind: PendingResolution['kind'],
+): GameState {
+  let found = false;
+  const next = state.pendingResolutions.map(r => {
+    if (r.id !== id) return r;
+    found = true;
+    return { ...r, kind };
+  });
+  if (!found) return state;
+  return { ...state, pendingResolutions: next };
+}
+
 /** Remove the resolution with the given id from the queue (no-op if absent). */
 export function dequeueResolution(state: GameState, id: ResolutionId): GameState {
   const next = state.pendingResolutions.filter(r => r.id !== id);

@@ -2832,6 +2832,26 @@ Apply types:
     "apply": { "type": "enqueue-gold-ring-test", "rollModifier": 0 } }
   ```
 
+  The optional `rollCount` (default 1) makes the test roll more than once and
+  let the player **choose** which total it is read with — *Wizard's Test*
+  (tw-365): "make two rolls and choose one result to use for the test". The
+  `gold-ring-test` resolution stays queued **in place** (so nothing the same
+  card enqueued behind it can jump the queue mid-test), emitting one
+  `gold-ring-test-roll` per outstanding roll and recording each modified total
+  in `rolledTotals`; once every roll is in, it emits one
+  `choose-gold-ring-test-roll` per **distinct** total, each explaining which
+  ring categories that total opens. The engine never picks for the player:
+  higher is not automatically better, since a ring's table can map low totals to
+  Magic Rings and high totals to Dwarven Rings. Because the play-target of such
+  a card also travels on the play action as `targetCharacterId`, the card can
+  pair the test with a `enqueue-corruption-check` on the same target — tw-365's
+  "Wizard makes a corruption check modified by -1".
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "enqueue-gold-ring-test", "rollModifier": 0, "rollCount": 2 } }
+  ```
+
   The same apply also works as a `grant-action` apply, where the tested ring is
   the action's `targetCardId` rather than `targetGoldRingInstanceId`. This is the
   Wizard tap-test of Rule 9.21: *Gandalf* (tw-156) and *Gandalf* FW (wh-4) pair

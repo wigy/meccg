@@ -3334,9 +3334,42 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsTest.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "wizard"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-gold-ring-test",
+          "rollModifier": 0,
+          "rollCount": 2
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -1
+        }
+      }
+    ],
+    "certified": "2026-07-28",
     "text": "Spell. Wizard only, and only if a character in his company has a gold ring. Play to test a gold ring; make two rolls and choose one result to use for the test. Wizard makes a corruption check modified by -1."
   },
   {

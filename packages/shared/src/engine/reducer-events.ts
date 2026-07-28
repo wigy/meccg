@@ -2388,7 +2388,10 @@ function applyShortEventOnEntersPlay(
       }
 
       const rollModifier = (onEvent.apply as { rollModifier?: number }).rollModifier ?? 0;
-      logDetail(`"${def.name}": enqueue-gold-ring-test on ring ${goldRingInstanceId as string} (bearer ${bearerId as string}, roll modifier ${rollModifier})`);
+      // rollCount > 1 (Wizard's Test tw-365): the player rolls that many times
+      // and then chooses which result the test uses.
+      const rollCount = (onEvent.apply as { rollCount?: number }).rollCount ?? 1;
+      logDetail(`"${def.name}": enqueue-gold-ring-test on ring ${goldRingInstanceId as string} (bearer ${bearerId as string}, roll modifier ${rollModifier}${rollCount > 1 ? `, ${rollCount} rolls — player chooses one` : ''})`);
       state = enqueueResolution(state, {
         source: handCard.instanceId,
         actor: actor.id,
@@ -2398,6 +2401,7 @@ function applyShortEventOnEntersPlay(
           goldRingInstanceId,
           rollModifier,
           characterInstanceId: bearerId,
+          ...(rollCount > 1 ? { rollCount } : {}),
         },
       });
     }
