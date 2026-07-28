@@ -19,10 +19,20 @@
  * nothing is worth nothing, and that is invisible to a linear weight — it is
  * the single clearest case in the whole design (§2.1).
  *
- * What is missing is stated on every evaluation: hazards en route are not
- * modelled, because doing so needs the belief half of `exposure` (§3.6) that
- * has not been built, and the acquisition modules' strategic view is absent so
- * only cards already in hand count toward a destination's worth.
+ * What is missing is stated on every evaluation: the acquisition modules'
+ * strategic view is absent, so only cards already in hand count toward a
+ * destination's worth. Hazards en route *are* priced now, though only as the
+ * likelihood that the opponent holds a creature at all — `beliefs` estimates
+ * kinds, not cards.
+ *
+ * Four action types, one model. `plan-movement` asks what a destination is
+ * worth; `cancel-movement` is that same number with the sign flipped, because
+ * cancelling gives up exactly what travelling would have gained;
+ * `declare-path` prices the route to a destination already fixed, so it is the
+ * travel cost alone; and `select-company` orders companies within a phase.
+ * Sharing one `destinationValue` between the first two is deliberate — two
+ * models of the same choice would eventually disagree about it, and nothing in
+ * the output would say which was wrong.
  */
 
 import type { CardInstanceId, GameAction, PlayerView } from '@meccg/shared';
@@ -37,7 +47,7 @@ import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['plan-movement', 'select-company', 'pass'] as const;
+const OWNED_ACTION_TYPES = ['plan-movement', 'cancel-movement', 'declare-path', 'select-company', 'pass'] as const;
 
 /** What a hand card would be worth if the company stood at a destination. */
 interface PlayableCard {
@@ -199,9 +209,25 @@ const ASSUMPTIONS: readonly string[] = [
   'a resource play is assumed to need one tap, and no card is assumed to be playable twice',
 ];
 
-/** Build the evaluation for one destination. */
-function evaluateDestination(context: ModuleContext, destination: Destination): Evaluation {
-  const { tunables, standing } = context;
+/** What travelling to a destination is worth, and the reasoning behind it. */
+interface DestinationValue {
+  readonly dtsd: number;
+  readonly label: string;
+  readonly detail: readonly Rationale[];
+  readonly playableNow: readonly PlayableCard[];
+  readonly playableCount: number;
+}
+
+/**
+ * The arithmetic of one destination, separated from the evaluation of it.
+ *
+ * `cancel-movement` needs exactly this number with the sign flipped —
+ * cancelling gives up whatever travelling was worth — and computing it twice
+ * would let the two answers drift apart, which is the disagreement the whole
+ * service pattern exists to prevent.
+ */
+function destinationValue(context: ModuleContext, destination: Destination): DestinationValue {
+  const { tunables } = context;
   const { site, playable } = destination;
 
   // Cards that can actually be played are bounded by taps available: a company
@@ -222,14 +248,9 @@ function evaluateDestination(context: ModuleContext, destination: Destination): 
   const tempo = site.pathLength * tunables.regionCrossingCost * (1 + threat);
 
   const dtsd = netTsdDelta({ realized, potential, tempo }, tunables);
-  const outcomes: Outcome[] = [{
-    p: 1,
-    label: playableNow.length > 0
-      ? `arrive at ${site.name} and play ${playableNow.map(c => c.name).join(', ')}`
-      : `arrive at ${site.name} with nothing to play`,
-    dtsd,
-  }];
-  const scored = standing.score(outcomes);
+  const label = playableNow.length > 0
+    ? `arrive at ${site.name} and play ${playableNow.map(c => c.name).join(', ')}`
+    : `arrive at ${site.name} with nothing to play`;
 
   const detail: Rationale[] = [
     leaf('site', `${site.name} (${site.siteType})`),
@@ -264,6 +285,16 @@ function evaluateDestination(context: ModuleContext, destination: Destination): 
       + 'a card still in the deck scores nothing here',
   }));
 
+  return { dtsd, label, detail, playableNow, playableCount: playable.length };
+}
+
+/** Build the evaluation for one destination. */
+function evaluateDestination(context: ModuleContext, destination: Destination): Evaluation {
+  const { standing } = context;
+  const value = destinationValue(context, destination);
+  const outcomes: Outcome[] = [{ p: 1, label: value.label, dtsd: value.dtsd }];
+  const scored = standing.score(outcomes);
+
   return {
     action: destination.action,
     module: 'travel',
@@ -272,11 +303,133 @@ function evaluateDestination(context: ModuleContext, destination: Destination): 
     sigmaTsd: scored.sigmaTsd,
     utility: scored.utility,
     method: scored.method,
-    rationale: node(`travel to ${site.name}`, scored.utility, [
-      node('destination', playable.length, detail),
+    rationale: node(`travel to ${destination.site.name}`, scored.utility, [
+      node('destination', value.playableCount, [...value.detail]),
       scored.rationale,
     ], { unit: 'winprob' }),
     assumptions: ASSUMPTIONS,
+  };
+}
+
+/**
+ * Score cancelling a planned movement.
+ *
+ * Cancelling is the exact inverse of travelling: the company stays where it
+ * stands, so what it gives up is what the destination was worth. That number is
+ * `destinationValue`, negated — not a separate model of staying put, because
+ * two models of the same choice would eventually disagree about it.
+ *
+ * A regressive cancel (undoing a plan made earlier this phase) is scored the
+ * same way. The engine distinguishes them because the phase state has to; the
+ * position they leave the company in is identical.
+ */
+function evaluateCancelMovement(context: ModuleContext, action: GameAction): Evaluation | null {
+  const companyId = (action as unknown as { companyId?: string }).companyId;
+  if (!companyId) return null;
+  const company = context.view.self.companies.find(c => (c.id as string) === companyId);
+  const planned = company?.destinationSite;
+  if (!company || !planned) return null;
+
+  const exposure = computeExposure(context.view, context.cardPool);
+  const budget = computeBudget(context.view, context.cardPool);
+  const site = exposure.siteExposure(planned.definitionId);
+  if (!site) return null;
+
+  const value = destinationValue(context, {
+    action,
+    site,
+    playable: playableAt(context, planned.definitionId),
+    tapsAvailable: budget.untappedIn(company.id).length,
+  });
+
+  const dtsd = -value.dtsd;
+  const outcomes: Outcome[] = [{
+    p: 1,
+    label: `stay at the current site instead of ${site.name}`,
+    dtsd,
+  }];
+  const scored = context.standing.score(outcomes);
+  return {
+    action,
+    module: 'travel',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(`cancel the move to ${site.name}`, scored.utility, [
+      node('what travelling was worth', value.dtsd, [...value.detail], {
+        unit: 'tsd',
+        note: 'cancelling gives up exactly this — the same number, with the sign flipped',
+      }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      'cancelling is priced as forgoing the destination; a company kept home because it is safer '
+      + 'there is not credited for the hazards it avoids beyond the travel cost already counted',
+      ...ASSUMPTIONS,
+    ],
+  };
+}
+
+/**
+ * Score one declared path to an already-chosen destination.
+ *
+ * By this point the destination is fixed — it was planned during organization —
+ * so nothing about where the company is going is still in play. What is left is
+ * how much of the map it crosses to get there, and every region crossed is
+ * another chance for the opponent to answer. So the whole evaluation is the
+ * travel cost, and the shortest safe path wins.
+ */
+function evaluateDeclarePath(context: ModuleContext, action: GameAction): Evaluation | null {
+  const declared = action as unknown as {
+    movementType?: string;
+    regionPath?: readonly string[];
+  };
+  const { tunables, standing } = context;
+  const regions = declared.regionPath ?? [];
+  const beliefs = computeBeliefs(context.view, context.cardPool);
+  const threat = beliefs.holdsAtLeastOne('creature');
+  const dtsd = -(regions.length * tunables.regionCrossingCost * (1 + threat));
+
+  const outcomes: Outcome[] = [{
+    p: 1,
+    label: regions.length > 0
+      ? `move by ${declared.movementType ?? 'movement'} across ${regions.length} region(s)`
+      : `move by ${declared.movementType ?? 'movement'} with no region crossed`,
+    dtsd,
+  }];
+  const scored = standing.score(outcomes);
+  return {
+    action,
+    module: 'travel',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node('declare the path', scored.utility, [
+      node('exposure of the route', dtsd, [
+        leaf('movement type', declared.movementType ?? 'unknown'),
+        leaf('regions crossed', regions.length, {
+          note: regions.length > 0 ? regions.join(' → ') : 'none',
+        }),
+        leaf('cost per region', tunables.regionCrossingCost * (1 + threat), {
+          unit: 'tsd',
+          tunable: 'regionCrossingCost',
+          note: `scaled by a ${(threat * 100).toFixed(0)}% chance the opponent holds a creature`,
+        }),
+      ], { unit: 'tsd' }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      'the destination is already fixed by this point, so only the route is priced — what differs '
+      + 'between movement types beyond the regions they cross is not modelled',
+      'each region is charged the same, because `exposure` reports which regions are crossed and '
+      + 'deliberately does not rank them: H1\'s hand-tuned region-danger table is the thing this '
+      + 'design removed',
+      ...ASSUMPTIONS,
+    ],
   };
 }
 
@@ -297,11 +450,16 @@ export const travelModule: H2Module = {
     //
     // What it does gate on: a `pass` here means "decline to move", which is
     // only an opinion worth having when there is somewhere to go.
-    return context.legalActions.some(a => a.type === 'plan-movement' || a.type === 'select-company');
+    return context.legalActions.some(a => a.type === 'plan-movement'
+      || a.type === 'cancel-movement'
+      || a.type === 'declare-path'
+      || a.type === 'select-company');
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
     if (action.type === 'select-company') return evaluateSelectCompany(context, action);
+    if (action.type === 'cancel-movement') return evaluateCancelMovement(context, action);
+    if (action.type === 'declare-path') return evaluateDeclarePath(context, action);
     const budget = computeBudget(context.view, context.cardPool);
     const exposure = computeExposure(context.view, context.cardPool);
 
