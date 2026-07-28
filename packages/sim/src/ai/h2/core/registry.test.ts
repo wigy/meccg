@@ -67,8 +67,28 @@ describe('claiming a decision', () => {
     expect(ownerOf([stubModule()], PASS, context([PASS]))?.name).toBe('stub');
   });
 
-  test('falls through to Heuristics 1 when no module is enabled', () => {
-    expect(coversDecision([], context([PASS]))).toBe(false);
+  test('a decision of nothing but passes is covered by the baseline', () => {
+    // Not a module: a utility is a change relative to doing nothing, and this
+    // is doing nothing. The agent still hands the decision over, because zero
+    // never clears the margin — but a *scored* pass is what stops one unowned
+    // `pass` from costing a whole site phase, which `coverage` measured at 476
+    // decisions in three games.
+    expect(coversDecision([], context([PASS]))).toBe(true);
+    const { modules, evaluations } = evaluateDecision([], context([PASS]));
+    expect(modules).toEqual(['baseline']);
+    expect(evaluations[0].utility).toBe(0);
+  });
+
+  test('a module that claims `pass` is still the one that answers for it', () => {
+    // The baseline is a last resort, not an override: combat's pass at a strike
+    // is a real decision with a real cost.
+    expect(ownerOf([stubModule()], PASS, context([PASS]))?.name).toBe('stub');
+    const { modules } = evaluateDecision([stubModule()], context([PASS]));
+    expect(modules).toEqual(['stub']);
+  });
+
+  test('falls through to Heuristics 1 when nothing owns the candidates', () => {
+    expect(coversDecision([], context([RESOLVE_STRIKE]))).toBe(false);
   });
 
   test('does not claim a decision with nothing to decide', () => {

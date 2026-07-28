@@ -38,6 +38,7 @@
 import type { GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext } from './types.js';
 import { assertValidDistribution } from './tsd.js';
+import { BASELINE_ACTION_TYPES, BASELINE_NAME, evaluateBaseline } from './baseline.js';
 import { combatModule } from '../modules/combat/combat.js';
 import { charactersModule } from '../modules/characters/characters.js';
 import { corruptionModule } from '../modules/corruption/corruption.js';
@@ -104,7 +105,9 @@ export function ownerOf(
  */
 export function coversDecision(modules: readonly H2Module[], context: ModuleContext): boolean {
   if (context.legalActions.length === 0) return false;
-  return context.legalActions.every(a => ownerOf(modules, a, context) !== null);
+  return context.legalActions.every(
+    a => ownerOf(modules, a, context) !== null || BASELINE_ACTION_TYPES.includes(a.type),
+  );
 }
 
 /** The result of asking H2 to handle one decision. */
@@ -140,15 +143,19 @@ export function evaluateDecision(
 
   for (const action of context.legalActions) {
     const owner = ownerOf(modules, action, context);
-    const evaluation = owner?.evaluate(action, context);
-    if (!owner || !evaluation) {
+    // No module claimed it: `pass` still has an answer, and it is a definition
+    // rather than an opinion — see core/baseline.ts.
+    const evaluation = owner
+      ? owner.evaluate(action, context)
+      : evaluateBaseline(action, context);
+    if (!evaluation) {
       // A module that declines an action it nominally owns leaves it
       // uncovered, exactly as if no module had claimed it.
       uncovered.push(action.type);
       continue;
     }
-    assertValidDistribution(evaluation.outcomes, owner.name);
-    contributors.add(owner.name);
+    assertValidDistribution(evaluation.outcomes, owner?.name ?? BASELINE_NAME);
+    contributors.add(owner?.name ?? BASELINE_NAME);
     evaluations.push(evaluation);
   }
 
