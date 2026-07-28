@@ -7122,6 +7122,7 @@ export type CardEffect =
   | SummonsFromLongSleepEffect
   | SetAsideEffect
   | PressGangCaptureEffect
+  | EliminateInsteadOfDiscardEffect
   | PlayCreatureFromDiscardEffect
   | GrantReplayAttackedCreatureEffect
   | LeaderControlEffect
@@ -8715,6 +8716,44 @@ export interface SummonsFromLongSleepEffect extends EffectBase {
  */
 export interface PressGangCaptureEffect extends EffectBase {
   readonly type: 'press-gang-capture';
+}
+
+/**
+ * Pallando the Soul-keeper (as-17). Marks an in-play card as a *replacement*
+ * for character discards: while it is in play, the next character matching
+ * {@link filter} that would be **discarded from play** is instead **eliminated**
+ * — its card goes to its owner's out-of-play pile rather than the discard pile,
+ * so it can never be recycled. Possessions and followers are dispersed exactly
+ * as for a normal discard.
+ *
+ * The filter is a plain card-definition condition (`matchesDefinition`), so the
+ * "which characters" clause stays data-driven: as-17's "non-Ringwraith minion"
+ * is `{ "cardType": "minion-character", "race": { "$ne": "ringwraith" } }`.
+ *
+ * With {@link discardSelf} the host is discarded the moment the replacement
+ * fires ("Discard when a minion is so eliminated"), which is also what makes
+ * the effect one-shot — "the *next* … minion".
+ *
+ * Interacts with `press-gang-capture`, which intercepts the same discards: a
+ * Press-gang capture wins (the character is never discarded at all, so there is
+ * nothing left for this effect to replace).
+ *
+ * See {@link module:engine/eliminate-instead-of-discard} for the wiring.
+ */
+export interface EliminateInsteadOfDiscardEffect extends EffectBase {
+  /** Discriminator. */
+  readonly type: 'eliminate-instead-of-discard';
+  /**
+   * Card-definition condition the discarded character must match. When absent,
+   * every character discard is replaced.
+   */
+  readonly filter?: Condition;
+  /**
+   * When true, the host card is discarded as soon as the replacement fires,
+   * making it a one-shot ("the next … is instead eliminated. Discard when a
+   * minion is so eliminated.").
+   */
+  readonly discardSelf?: boolean;
 }
 
 export interface SetAsideEffect extends EffectBase {

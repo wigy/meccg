@@ -43,6 +43,7 @@ import { initiateOrPushChain } from './chain-reducer.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
 import { finalizeCombat, applyRule8_22AfterTrophyDecision, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
+import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { pruneLeaderFollowers, nextStrikePhase, advanceStrikeOrFinalize, eliminateCombatantFromStrike } from './combat-strike.js';
 import { resolveChainStrikeModifier } from './combat-cancel.js';
 
@@ -557,6 +558,12 @@ function discardCharacterAfterBodyCheck(
     return advanceStrikeOrFinalize(captured, combatWithDiscard, effects);
   }
 
+  // Pallando the Soul-keeper (as-17): a character that would be discarded from
+  // play is instead *eliminated* — the character card goes to its owner's
+  // out-of-play pile. Everything else about the removal is unchanged, so this
+  // only redirects the character card's destination.
+  const elimHost = findEliminateInsteadOfDiscardHost(stateWithRoll, defById(state, charData.definitionId));
+
   const newPlayers = clonePlayers(stateWithRoll);
   const newPlayerData = { ...defPlayer };
   if (company) {
@@ -567,7 +574,12 @@ function discardCharacterAfterBodyCheck(
     );
   }
   const discardedCharDefId = resolveInstanceId(state, strike.characterId);
-  newPlayerData.discardPile = [...newPlayerData.discardPile, { instanceId: strike.characterId, definitionId: discardedCharDefId! }];
+  const removedCharCard = { instanceId: strike.characterId, definitionId: discardedCharDefId! };
+  if (elimHost) {
+    newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, removedCharCard];
+  } else {
+    newPlayerData.discardPile = [...newPlayerData.discardPile, removedCharCard];
+  }
   // An ally that returns to hand when its controller leaves play (Radagast's
   // Black Bird wh-114) is preserved to the owner's hand; the rest are discarded.
   {
@@ -597,7 +609,9 @@ function discardCharacterAfterBodyCheck(
   }
   newPlayerData.characters = pruneLeaderFollowers(updatedChars, strike.characterId, charData.controlledBy);
   newPlayers[defPlayerIndex] = newPlayerData;
-  return advanceStrikeOrFinalize({ ...stateWithRoll, players: newPlayers }, combatWithDiscard, effects);
+  let afterRemoval: GameState = { ...stateWithRoll, players: newPlayers };
+  if (elimHost) afterRemoval = consumeEliminateInsteadOfDiscardHost(afterRemoval, elimHost);
+  return advanceStrikeOrFinalize(afterRemoval, combatWithDiscard, effects);
 }
 
 /**

@@ -10038,6 +10038,45 @@ Behaviour (engine mechanics in `engine/press-gang.ts`):
 
 "Cannot be duplicated" is the standard `duplication-limit` scope `game` max 1.
 
+### 49b. `eliminate-instead-of-discard` — a discard from play becomes an elimination
+
+Carried by an in-play card (Pallando the Soul-keeper, as-17, in its
+permanent-event mode). While the card is in play, a character that would be
+**discarded from play** and matches `filter` is instead **eliminated**: its card
+goes to its owner's out-of-play pile rather than the discard pile, so it can
+never be recycled.
+
+```json
+{
+  "type": "eliminate-instead-of-discard",
+  "filter": { "cardType": "minion-character", "race": { "$ne": "ringwraith" } },
+  "discardSelf": true
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `filter` | no | Card-definition condition (`matchesDefinition`) the discarded character must match. Absent = every character discard is replaced. |
+| `discardSelf` | no | When `true`, the host card is discarded the moment the replacement fires — which is also what makes the effect one-shot ("the **next** … is instead eliminated"). |
+
+Behaviour (engine mechanics in `engine/eliminate-instead-of-discard.ts`):
+
+- **Which removals.** The same five "discard from play" seams Press-gang covers:
+  `discardCharacter` (dice-check discards, `pending-reducers.ts`), the
+  corruption-check `discard` outcome, the rule-3.22 voluntary organization
+  discard, the combat body-check discard band, and the Abductor "discard wounded
+  character" effect. A removal that is *already* an elimination is untouched.
+- **What changes.** Only the destination of the character card itself. Items,
+  allies and hazards still go to the discard piles and followers still revert to
+  general influence, exactly as for a normal discard (CoE 7.1: discard and
+  eliminate share the whole shape). No kill marshalling points change hands — the
+  effect redirects a removal that was already happening.
+- **Scope.** Both players' `cardsInPlay` are scanned (the wording is "the next …
+  minion", not "your opponent's"); set-aside copies never fire.
+- **Against Press-gang.** The `press-gang-capture` check runs first and wins: a
+  captured character is held off to the side and never discarded at all, so there
+  is nothing left to replace.
+
 ### 50. `recruitment-vehicle`
 
 Marks a permanent resource-event as a "recruitment vehicle" — Thrall of the
