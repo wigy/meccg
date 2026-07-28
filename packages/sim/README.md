@@ -260,7 +260,7 @@ Status by phase:
 | P2 services | `standing`, `budget`, `exposure`, `beliefs`, `character-value`, `card-price`, `denial`, `defence`, `strike/*` — printed by `explain` where they are spent |
 | P3 acquisition | `factions` and `resources` written; the strategic half (which sources are worth chasing) is still missing |
 | P4 | `corruption` and `health` written |
-| P5–P7 | `characters` (incl. company shape), `hand` (with §3.5's real card price), `endgame` and `hazards` written; `allies`/`misc` not started |
+| P5–P7 | `characters` (incl. company shape), `hand` (with §3.5's real card price), `endgame`, `hazards`, `grants`, `fetching` and `events` written; `allies`/`misc` not started |
 
 ### Coverage, measured
 
@@ -370,10 +370,12 @@ It declines to try, for a reason no flat tap cost could reach: shedding two
 corruption is worth 1.7, and tapping Glorfindel forfeits a faction attempt worth
 2.1.
 
-What is left is dominated by `hazards`'s two declared gaps — hazard events and
-non-creature on-guard cards — and closing those means pricing a card's *effect*
-in a way this family-based approach cannot reach, since a hazard event's value
-is what it does to the opponent rather than to a card in play.
+What is left, by decisions blocked: hazard `play-hazard` events at 146,
+`play-short-event` at 130, and the granted-action families `grants` still
+declines at 64. All three need a card's *effect* priced against the opponent
+rather than against a card in play, which is where the family approach runs
+out — knowing an event moves a card tells you the mechanism, not what the target
+is worth.
 
 ### Does it win?
 
