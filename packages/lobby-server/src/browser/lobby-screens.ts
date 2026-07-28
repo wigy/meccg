@@ -11,16 +11,17 @@ import {
   appState, type ScreenId,
   BACKGROUNDS, BG_KEY,
   EDITING_DECK_KEY, VIEWING_INBOX_KEY, VIEWING_DECKS_KEY, VIEWING_CREDITS_KEY,
-  MAIL_TAB_KEY, MAIL_MSG_KEY,
+  VIEWING_SCOREBOARD_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY,
 } from './app-state.js';
 import { restoreGameSession, saveGameSession } from './session.js';
 import { openInbox, openSent, autoSelectMessage, updateMailBadge } from './inbox.js';
 import { openCreditsPage, updateCreditsBadge } from './credits-page.js';
+import { openScoreboardPage } from './scoreboard-page.js';
 import { renderLog } from './render-log.js';
 import { loadGameBundle, loadDeckEditorBundle } from './lazy-load.js';
 
 /** All screen IDs in the lobby UI. */
-const ALL_SCREENS: ScreenId[] = ['auth-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen', 'connect-form'];
+const ALL_SCREENS: ScreenId[] = ['auth-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen', 'scoreboard-screen', 'connect-form'];
 
 /**
  * Pick a random hero background image for the auth screen and apply it.
@@ -52,7 +53,7 @@ export function showAuthTab(tab: 'login' | 'register'): void {
 }
 
 /** Screens that should show the persistent nav bar. */
-const NAV_SCREENS: ScreenId[] = ['lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen'];
+const NAV_SCREENS: ScreenId[] = ['lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen', 'scoreboard-screen'];
 
 /** Show one screen, hiding all others. */
 export function showScreen(id: ScreenId): void {
@@ -70,6 +71,8 @@ export function showScreen(id: ScreenId): void {
     id === 'decks-screen' || id === 'deck-editor-screen');
   document.getElementById('nav-mail')?.classList.toggle('lobby-nav-item--active',
     id === 'inbox-screen');
+  document.getElementById('nav-scoreboard')?.classList.toggle('lobby-nav-item--active',
+    id === 'scoreboard-screen');
   // Update player name and credits on all screens
   for (const el of document.querySelectorAll('.screen-player-name')) {
     el.textContent = appState.lobbyPlayerName ?? '';
@@ -302,6 +305,13 @@ export async function initLobby(): Promise<void> {
       if (sessionStorage.getItem(VIEWING_CREDITS_KEY)) {
         connectLobbyWs();
         void openCreditsPage();
+        return;
+      }
+
+      // Restore scoreboard if we were viewing it before reload
+      if (sessionStorage.getItem(VIEWING_SCOREBOARD_KEY)) {
+        connectLobbyWs();
+        void openScoreboardPage();
         return;
       }
 

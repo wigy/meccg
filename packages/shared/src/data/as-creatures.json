@@ -64,10 +64,26 @@
     "killMarshallingPoints": 6,
     "starredKillMarshallingPoints": true,
     "race": "maia",
+    "manifestId": "tw-117",
+    "certified": "2026-07-28",
     "keyedTo": [
       {
         "regionTypes": [
           "free"
+        ],
+        "siteTypes": [
+          "free-hold"
+        ]
+      },
+      {
+        "regionNames": [
+          "Andrast",
+          "Old Pûkel Gap",
+          "Anfalas",
+          "Lamedon",
+          "Lebennin",
+          "Belfalas",
+          "Anórien"
         ]
       }
     ],
@@ -75,6 +91,83 @@
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "permanent-event",
+        "persistent": true
+      },
+      {
+        "type": "combat-attacker-chooses-defenders"
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -3,
+        "when": {
+          "defender.alignment": "hero"
+        }
+      },
+      {
+        "type": "discard-self-when",
+        "condition": {
+          "charactersInPlayAnywhere": "Alatar"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "when": {
+          "enemy.race": "maia"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 1,
+        "target": "all-attacks",
+        "when": {
+          "enemy.race": "maia"
+        }
+      },
+      {
+        "type": "combat-attacker-chooses-defenders",
+        "scope": "all-attacks",
+        "when": {
+          "attack.creatureRace": "maia"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
       }
     ]
   },
@@ -154,9 +247,49 @@
         "regionTypes": [
           "wilderness",
           "border"
+        ],
+        "siteTypes": [
+          "ruins-and-lairs",
+          "border-hold"
         ]
       }
-    ]
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "grant-creature-keying",
+        "source": "faced-this-turn",
+        "creatureFilter": {
+          "race": "maia"
+        },
+        "siteFilter": {
+          "siteTypes": [
+            "border-hold",
+            "ruins-and-lairs"
+          ]
+        }
+      }
+    ],
+    "certified": "2026-07-28"
   },
   {
     "cardType": "hazard-creature",

@@ -3032,9 +3032,27 @@ export interface ReturnToHandEffect extends EffectBase {
 /**
  * The attacking player assigns strikes to defending characters, instead
  * of the defender assigning them. Example: Cave-drake.
+ *
+ * Without {@link scope} the rule is **self-bound**: it belongs to the creature
+ * card carrying it and applies only when that creature attacks.
+ *
+ * With `scope: "all-attacks"` the rule instead becomes **global** while the
+ * carrying card sits in either player's `cardsInPlay`: every attack — hazard
+ * creature *and* site automatic-attack — whose race satisfies {@link when}
+ * hands strike assignment to the attacker. Backs the permanent-event half of
+ * Alatar the Hunter (as-7): "As a permanent-event, all Maia attacks: … and
+ * attacker chooses defending characters." The `when` condition is matched
+ * against a context exposing `attack.creatureRace` (the attacking creature's
+ * normalized {@link Race}), the same vocabulary used by the global
+ * `body-check-modifier` (`scope: "all-attacks"`).
  */
 export interface CombatAttackerChoosesDefendersEffect extends EffectBase {
   readonly type: 'combat-attacker-chooses-defenders';
+  /**
+   * `"all-attacks"` turns the self-bound creature rule into a game-wide one
+   * carried by an in-play permanent-event. Absent → the printed creature rule.
+   */
+  readonly scope?: 'all-attacks';
 }
 
 /**
@@ -6600,6 +6618,25 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
    * Excludes Coastal-Sea-only creatures (e.g. tw-34) from the broadened keying.
    */
   readonly requiresNonCoastalKeying?: boolean;
+  /**
+   * Where the grant lives — i.e. what makes it active against the company
+   * currently being attacked. Defaults to `'in-play'`.
+   *
+   * - `'in-play'` — the carrying card must sit in either player's
+   *   `cardsInPlay` (an environment / long- or permanent-event such as
+   *   Ungoliant's Foul Issue ba-28 or A Pack at the Door tw-497).
+   * - `'faced-this-turn'` — the grant is carried by a **hazard creature** and
+   *   is active only against a company that has already faced that creature
+   *   this turn, i.e. the carrier's name appears in the company's
+   *   `MovementHazardPhaseState.hazardsEncountered` (rule 8.03 — an attack
+   *   counts as faced even when it was canceled). The carrier itself is long
+   *   gone from play by then (discarded, or in the defender's kill pile), so
+   *   the grant is resolved from the card pool by name rather than from
+   *   `cardsInPlay`. Used by Dwarven Travelers (as-9): "Maia hazard creatures
+   *   may be keyed to Border-holds [{B}] or Ruins & Lairs [{R}] against any
+   *   company that has faced Dwarven Travelers this turn."
+   */
+  readonly source?: 'in-play' | 'faced-this-turn';
 }
 
 /**

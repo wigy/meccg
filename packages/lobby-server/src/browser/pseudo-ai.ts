@@ -172,7 +172,7 @@ export function connectPseudoAi(aiName: string, aiDeck?: FullDeck | null): void 
       // Rejoin -- server already has the deck from autosave
       joinMsg = { type: 'join', name: aiName, alignment: Alignment.Wizard, draftPool: [], playDeck: [], siteDeck: [], sideboard: [] };
     }
-    const msg: ClientMessage = { ...joinMsg, token: appState.pseudoAiToken } as ClientMessage;
+    const msg: ClientMessage = { ...joinMsg, ai: true, token: appState.pseudoAiToken } as ClientMessage;
     appState.pseudoAiWs!.send(JSON.stringify(msg));
   };
 

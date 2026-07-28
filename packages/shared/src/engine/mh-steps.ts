@@ -32,7 +32,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCovertCompany, playerById, playerConvertsDetainmentToNormal, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
+import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCovertCompany, playerById, playerConvertsDetainmentToNormal, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
 import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance, dynamicUnderDeepsAdjacencyRoll } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
@@ -1001,7 +1001,9 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
   const effectiveProwess = resolveAttackProwess(state, effect.prowess, inPlayNames, effect.race, false, undefined, ahuntBoostCtx);
   const effectiveStrikes = resolveAttackStrikes(state, effect.strikes, inPlayNames, effect.race, false, ahuntBoostCtx);
 
-  const attackerChooses = effect.combatRules?.includes('attacker-chooses-defenders') ?? false;
+  const attackerChooses = resolveAttackerChoosesDefenders(
+    state, effect.combatRules?.includes('attacker-chooses-defenders') ?? false, effect.race,
+  );
   if (attackerChooses) {
     logDetail(`Ahunt attack has attacker-chooses-defenders`);
   }
@@ -1016,6 +1018,7 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
     creatureBody: effect.body ?? null,
     creatureRace: effect.race,
     assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
+    ...(attackerChooses ? { attackerChoosesDefenders: true } : {}),
     detainment: isDetainmentAttack({
       attackRace: effect.race,
       defendingAlignment: state.players[activePlayerIndex].alignment,
