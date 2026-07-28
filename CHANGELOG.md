@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.58.0 — 2026-07-28
+
+Introducing more AI
+
+### AI & Training
+
+- New `@meccg/sim` headless harness: in-process self-play over the real engine with seeded, reproducible games, agent registry, Glicko-2 tournaments and paired-seed side-swapped rating gates
+- Trained neural opponents — an action-conditioned policy/value network (behavioural cloning, then PPO self-play against a frozen league) with a pure-TypeScript forward pass, so no native runtime is needed to play against a model
+- `Play vs Real-AI` in the lobby: pick any model from `~/.meccg/models`; the previous built-in opponent is now labelled `Heuristic-AI`
+- New flat Monte-Carlo rollout agent (`mc`), which searches by playing the real engine forward. It is the strongest opponent available — +152 Elo over the heuristic at 8 rollouts, +352 at 16 — and unlike tree search it converts extra compute into strength
+- Determinizing PUCT search agent and hidden-state determinizer, with the measured post-mortem recorded: it never separated from the raw policy at any budget
+- Rollout sampling temperature is now configurable (`TEMP`), so exploration can be varied per generation and judged on the promotion gate
+- Decks carry a manual `approved` flag, and a new `qualify` CLI plays every deck pairing to report which matchups the engine can actually finish
+- Value head reads the global vector directly, fixing mid-game evaluations that had been no better than chance
+
+### Game Engine
+
+- Fixed a deadlock where a faction influence attempt whose influencer left play offered no actions at all, hanging the game for both players
+- Fixed a hang when a forced-strike target was an avatar the attack excluded, and another when the active company dissolved mid-site-phase
+- A character can no longer be listed twice as a follower, which previously corrupted every company built from that list
+- The duplicated automatic-attack index is bounded below as well as above, fixing a crash while a site's base attacks were still resolving
+- Free Council now resolves the reactive short events it offers, and an absent instance id no longer matches a company with no site
+- Splitting a company can no longer empty its source; region movement, hazard limits and on-guard reveals corrected across several cards
+- Corruption checks, agent withdrawal, item transfer and strike assignment fixes; race handling unified behind a single vocabulary
+
+### Card Certification
+
+- 74 further cards certified across all sets, taking card-test coverage to 99.7% and certified card data to 62.2% of the pool
+
+### Web Client
+
+- Item corruption-point badges reflect in-play modifiers, Sauron's granted actions highlight correctly, and the text log records dice rolls before the action they resolve
+
+### Infrastructure
+
+- Agents reset per-game state at the start of every game, so a failing seed is reproducible and tournament results are no longer contaminated by earlier games
+- Action-type indices are append-only and locked by a test — inserting one mid-list silently re-labels actions for every trained model
+- Weights files are rejected when their architecture does not match, instead of silently producing NaN
+
 ## 0.57.0 — 2026-07-22
 
 All Sites Certified
