@@ -378,25 +378,32 @@ is what it does to the opponent rather than to a card in play.
 ### Does it win?
 
 ```sh
-npm run headtohead -w @meccg/sim -- --games 12 --max-decisions 4000
+npm run headtohead -w @meccg/sim -- --games 16 --max-decisions 4000
 ```
+
+Three paired samples on different seeds, most recent last:
 
 ```text
-  h2 14 — 9 heuristic (1 drawn) over 24 games — 60.4% of the points available
+  seed  60   h2 13 —  6  heuristic (1 drawn)   20 games   67.5%
+  seed  80   h2 14 —  9  heuristic (1 drawn)   24 games   60.4%
+  seed 300   h2 17 — 15  heuristic             32 games   53.1%
+
+  pooled     h2 44 — 30  heuristic (2 drawn)   76 games   59.2%
 ```
 
-Twenty-four games separate nothing but a landslide, and this is not one. Two
-earlier samples ran 13-6-1 and 9-7 on other seeds; read the three together as
-"H2 is not worse than Heuristics 1 and plays every game to completion", which
-is the claim the evidence supports. `gate` is the tool for a verdict;
-`headtohead` exists because it prints each game as it finishes.
+The largest and most recent sample — the one with every module in — is the
+closest to even. Pooled, 44 wins in 74 decisive games is about p = 0.06 against
+a fair coin: suggestive, not significant. **The claim the evidence supports is
+"not worse than Heuristics 1", not "better than it".** `gate` computes an Elo
+interval and is the tool for a verdict; `headtohead` exists because it prints
+each game as it finishes, and a run you can watch beats a run you wait on.
 
-That "to completion" was earned. Two self-play games once ran to the decision
-limit cycling `split-company → plan-movement → merge-companies` inside one
+What the samples do establish is that H2 plays every game to completion, which
+was not true a week ago. Two self-play games once ran to the decision limit
+cycling `split-company → plan-movement → merge-companies` inside one
 organization phase, because `characters` valued a shape change and its undo both
 positively. Company-shape utility has to be a difference of one potential,
-`Σ harm(company)` over the whole board. Three separate things were breaking
-that, and `services/defence.ts` carries the first two with tests:
+`Σ harm(company)` over the whole board. Three separate things were breaking that:
 
 - **Order.** Strike targets are picked by lowest need with ties falling back to
   array position, so a company scored differently depending on how it had been
