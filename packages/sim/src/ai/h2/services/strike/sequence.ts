@@ -1,5 +1,5 @@
 /**
- * @module ai/h2/modules/combat/sequence
+ * @module ai/h2/services/strike/sequence
  *
  * Resolving an attack's strikes **in sequence**, carrying the company's
  * condition from one strike to the next.

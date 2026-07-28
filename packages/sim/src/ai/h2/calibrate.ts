@@ -21,7 +21,7 @@
 import { CardStatus, computeTournamentScore, reduce } from '@meccg/shared';
 import type { CardInstanceId, GameAction, GameState, PlayerId, RngState } from '@meccg/shared';
 import { projectPlayerView } from '@meccg/game-server';
-import type { CharacterFate, StrikeFate } from './modules/combat/strike-model.js';
+import type { CharacterFate, StrikeFate } from './services/strike/strike-model.js';
 
 /** How a rollout ended, in the same vocabulary the module predicts in. */
 export interface RolloutOutcome {

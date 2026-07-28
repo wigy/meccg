@@ -1,5 +1,5 @@
 /**
- * @module ai/h2/modules/combat/strike-model
+ * @module ai/h2/services/strike/strike-model
  *
  * Closed-form outcome model for one strike.
  *

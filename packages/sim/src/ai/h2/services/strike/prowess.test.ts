@@ -1,5 +1,5 @@
 /**
- * @module ai/h2/modules/combat/prowess.test
+ * @module ai/h2/services/strike/prowess.test
  *
  * The attack window has to predict the 2d6 target that the strike window
  * simply reads. That prediction is the module's most fragile claim — it

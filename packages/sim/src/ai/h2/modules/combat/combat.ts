@@ -32,13 +32,13 @@ import { netTsdDelta } from '../../core/tsd.js';
 import { pBodyCheckFailed } from '../../core/dice.js';
 import { leaf, node } from '../../core/rationale.js';
 import type { Standing } from '../../services/standing.js';
-import type { StrikeOption, StrikeOutcome, StrikeSituation, TapMode } from './strike-model.js';
-import { strikeOutcomes } from './strike-model.js';
+import type { StrikeOption, StrikeOutcome, StrikeSituation, TapMode } from '../../services/strike/strike-model.js';
+import { strikeOutcomes } from '../../services/strike/strike-model.js';
 import type { EliminationCost } from './mp-value.js';
 import { attackStillDefeatable, eliminationCost, killMpOnOffer, strikeCompletesTheAttack } from './mp-value.js';
-import type { StrikeTarget } from './prowess.js';
-import { DEFAULT_BODY, bodyOf as bodyOfTarget, predictedNeed, strikeTargets } from './prowess.js';
-import { resolveSequentially } from './sequence.js';
+import type { StrikeTarget } from '../../services/strike/prowess.js';
+import { DEFAULT_BODY, bodyOf as bodyOfTarget, predictedNeed, strikeTargets } from '../../services/strike/prowess.js';
+import { resolveSequentially } from '../../services/strike/sequence.js';
 import type { CharacterValue } from '../../services/character-value.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 

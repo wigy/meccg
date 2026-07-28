@@ -1,5 +1,5 @@
 /**
- * @module ai/h2/modules/combat/prowess
+ * @module ai/h2/services/strike/prowess
  *
  * Predicting the 2d6 target the engine will publish for a strike.
  *
@@ -7,6 +7,13 @@
  * every option it offers. But the attack-level decisions happen *before* that:
  * choosing who faces a strike, or whether to cancel the attack outright, means
  * pricing strikes the engine has not been asked about yet.
+ *
+ * It lives in `services/` rather than inside `combat` because the *attacking*
+ * seat needs exactly the same arithmetic and may not import a sibling module.
+ * `hazards` (§3.4) prices a bundle by asking what the defending company would
+ * roll against it, which is this calculation with the roster taken from the
+ * opponent's side of the view and the strike prowess taken from a creature
+ * card rather than from a live combat.
  *
  * So this mirrors the formula in `legal-actions/combat.ts`, built on the
  * character's already-computed `effectiveStats.prowess` (which the engine's
@@ -20,7 +27,7 @@
  */
 
 import { CardStatus, stayUntappedPenalty } from '@meccg/shared';
-import type { CardDefinition, CardInstanceId, CombatState, PlayerView } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, CombatState, Company, PlayerView } from '@meccg/shared';
 
 /** A character or ally that could face a strike. */
 export interface StrikeTarget {
@@ -62,9 +69,25 @@ export function strikeTargets(
 ): StrikeTarget[] {
   const company = view.self.companies.find(c => c.id === combat.companyId);
   if (!company) return [];
+  return rosterOf(company, view.self.characters, cardPool);
+}
+
+/**
+ * A company's characters and allies as strike targets, from either seat.
+ *
+ * The defending seat reaches this through {@link strikeTargets}; the attacking
+ * seat passes the *opponent's* company and character record, which the view
+ * publishes in full — characters in play are public, so nothing here depends on
+ * information the projection hides.
+ */
+export function rosterOf(
+  company: Company,
+  characters: PlayerView['self']['characters'],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): StrikeTarget[] {
   const targets: StrikeTarget[] = [];
   for (const characterId of company.characters) {
-    const character = view.self.characters[characterId];
+    const character = characters[characterId];
     if (!character) continue;
     targets.push({
       instanceId: character.instanceId,
@@ -119,6 +142,24 @@ export function predictedNeed(
   combat: CombatState,
   modifiers: StrikeModifiers = {},
 ): number {
+  return needAgainst(target, cardPool, effectiveStrikeProwess(combat), modifiers);
+}
+
+/**
+ * The same 2d6 target against a bare strike prowess, with no combat in play.
+ *
+ * This is the form the attacking seat needs: a creature card in hand has a
+ * printed prowess and no `CombatState` behind it, so there is nothing to read
+ * `effectiveStrikeProwess` from. The arithmetic is identical, which is the
+ * point — a bundle must be priced by the same formula the defender will
+ * actually face, not by a second one that drifts.
+ */
+export function needAgainst(
+  target: StrikeTarget,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  strikeProwess: number,
+  modifiers: StrikeModifiers = {},
+): number {
   let prowess = target.prowess;
   if (modifiers.stayUntapped) prowess -= stayUntappedPenalty(cardPool[target.definitionId]);
   if (target.status === CardStatus.Tapped) prowess -= 1;
@@ -126,7 +167,7 @@ export function predictedNeed(
   prowess -= modifiers.excessStrikes ?? 0;
   prowess += modifiers.supportCount ?? 0;
   prowess += modifiers.strikeProwessBonus ?? 0;
-  return Math.max(2, effectiveStrikeProwess(combat) - prowess + 1);
+  return Math.max(2, strikeProwess - prowess + 1);
 }
 
 /** Printed body of a strike target, defaulting to 9 as the engine does. */

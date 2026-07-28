@@ -1,5 +1,5 @@
 /**
- * @module ai/h2/modules/combat/strike-model.test
+ * @module ai/h2/services/strike/strike-model.test
  *
  * The dice half of the combat module. These are the claims the calibration
  * harness re-checks against the real reducer, so they are pinned here against

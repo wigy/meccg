@@ -26,7 +26,7 @@ import {
   binomialTolerance, rolloutCorruptionCheck, rolloutDeterministicPlay, rolloutInfluenceAttempt, rolloutStrike,
 } from '../ai/h2/calibrate.js';
 import { claimedStrikeOutcomes } from '../ai/h2/modules/combat/combat.js';
-import type { StrikeOutcome } from '../ai/h2/modules/combat/strike-model.js';
+import type { StrikeOutcome } from '../ai/h2/services/strike/strike-model.js';
 
 /** Flag reference, printed by `--help`. */
 const USAGE = `calibrate — check an H2 module's claimed probabilities against the real reducer

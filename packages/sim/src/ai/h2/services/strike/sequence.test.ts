@@ -1,5 +1,5 @@
 /**
- * @module ai/h2/modules/combat/sequence.test
+ * @module ai/h2/services/strike/sequence.test
  *
  * The point of resolving an attack strike by strike is that the strikes are
  * *not* independent, so the tests are about exactly that: a company that has
