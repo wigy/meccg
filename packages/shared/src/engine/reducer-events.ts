@@ -1833,7 +1833,7 @@ function applyShortEventOnEntersPlay(
     if (onEvent.apply.type === 'win-game') {
       const winner = state.players[playerIndex].id;
       logHeading(`"${def.name}" resolves — ${state.players[playerIndex].name} wins with The One Ring (CoE 10.39)`);
-      state = oneRingWin(state, winner, handCard.definitionId);
+      state = oneRingWin(state, winner, handCard.definitionId, onEvent.apply.destroysOneRing);
       continue;
     }
 

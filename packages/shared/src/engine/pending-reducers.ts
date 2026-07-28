@@ -522,7 +522,7 @@ export function applyCorruptionCheckResolution(
     if (onSuccess?.type === 'win-game') {
       const winCard = top.source ? resolveInstanceId(state, top.source) : null;
       logHeading(`Corruption check succeeded — ${player.name} wins with The One Ring (CoE 10.39)`);
-      stateAfterDequeue = oneRingWin(stateAfterDequeue, player.id, winCard ?? null);
+      stateAfterDequeue = oneRingWin(stateAfterDequeue, player.id, winCard ?? null, onSuccess.destroysOneRing);
     }
     // A Malady Without Healing (le-159): a target that survives the corruption
     // check must then make a body check (modified by +1 if tapped). Enqueue it
