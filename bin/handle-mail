@@ -81,24 +81,70 @@ master_key() {
 
 ai_display_name() { jq -r .displayName "$AI_INFO"; }
 
-# Authenticate as ai and print the session cookie value.
+# ---------------------------------------------------------------------------
+# Lobby HTTP, with retry across a lobby restart
+# ---------------------------------------------------------------------------
+# The lobby runs under nodemon in dev mode, watching packages/lobby-server/src
+# and packages/shared/src. The AI worker edits exactly those paths — merely
+# checking out a certification branch is enough — so the lobby restarts WHILE a
+# request is being handled, and any call landing in that few-second window gets
+# ECONNREFUSED. Under `set -euo pipefail` that killed handle-mail outright with
+# curl's own exit code (7), most damagingly at Step 6 (sending the reply), i.e.
+# AFTER the skill had done the work and opened its PR: run-ai then reported
+# "handle-mail failed (exit 7)" and force-failed a request whose PR was fine.
+#
+# A restart is transient, so wait it out instead of dying. Only connection-class
+# curl failures are retried; an HTTP error surfaced by `-f` (e.g. the credits
+# endpoint's 404, which legitimately means "unknown player") is returned as-is
+# on the first attempt so real errors are not masked by a minute of retries.
+# Every call is also bounded by --max-time so a half-open socket cannot hang the
+# handler indefinitely.
+API_MAX_ATTEMPTS=12
+API_RETRY_DELAY=5
+
+api_curl() {
+  local attempt=1 out rc
+  while : ; do
+    out=$(command curl --max-time 30 "$@") && rc=0 || rc=$?
+    if [ "$rc" -eq 0 ]; then
+      printf '%s' "$out"
+      return 0
+    fi
+    case "$rc" in
+      6|7|28|35|52|56) ;;   # DNS / connect / timeout / TLS / empty or broken reply
+      *) printf '%s' "$out"; return "$rc" ;;
+    esac
+    if [ "$attempt" -ge "$API_MAX_ATTEMPTS" ]; then
+      log "WARNING: lobby still unreachable after $attempt attempts (curl exit $rc); giving up on this call" >&2
+      printf '%s' "$out"
+      return "$rc"
+    fi
+    log "lobby unreachable (curl exit $rc) — likely a dev-mode restart; retrying in ${API_RETRY_DELAY}s (attempt $attempt/$API_MAX_ATTEMPTS)" >&2
+    sleep "$API_RETRY_DELAY"
+    attempt=$(( attempt + 1 ))
+  done
+}
+
+# Authenticate as ai and print the session cookie value. A failure here prints
+# nothing; the caller turns that into a clean "failed to log in" exit rather
+# than letting `pipefail` abort with a bare curl/grep status.
 login_ai() {
   local key
   key=$(master_key)
-  curl -s -c - -X POST "$BASE_URL/api/login" \
+  api_curl -s -c - -X POST "$BASE_URL/api/login" \
     -H 'Content-Type: application/json' \
     -d "{\"name\":\"ai\",\"password\":\"$key\"}" \
-    | grep meccg-session | awk '{print $NF}'
+    | grep meccg-session | awk '{print $NF}' || true
 }
 
 # GET with session cookie.  $1=path
 api_get() {
-  curl -s "$BASE_URL$1" -b "meccg-session=$SESSION"
+  api_curl -s "$BASE_URL$1" -b "meccg-session=$SESSION"
 }
 
 # POST with master-key auth.  $1=path $2=json-body
 api_post() {
-  curl -s -X POST "$BASE_URL$1" \
+  api_curl -s -X POST "$BASE_URL$1" \
     -H "Authorization: Bearer $(master_key)" \
     -H 'Content-Type: application/json' \
     -d "$2"
@@ -106,15 +152,18 @@ api_post() {
 
 # PUT with master-key auth.  $1=path $2=json-body
 api_put() {
-  curl -s -X PUT "$BASE_URL$1" \
+  api_curl -s -X PUT "$BASE_URL$1" \
     -H "Authorization: Bearer $(master_key)" \
     -H 'Content-Type: application/json' \
     -d "$2"
 }
 
 # Update message status.  $1=username $2=msg-id $3=json-body
+# Never fatal: a status write that fails is worth a loud warning, not a crash
+# that leaves the message stuck in 'processing' for run-ai to force-fail.
 set_status() {
-  api_put "/api/system/mail/$1/$2" "$3"
+  api_put "/api/system/mail/$1/$2" "$3" \
+    || log "WARNING: failed to set message $2 status ($3) — lobby unreachable"
 }
 
 # Send a mail via the system API.  $1=json-body
@@ -262,8 +311,32 @@ run_skill() {
   # the caller must NOT consume the message — see the auth guard after dispatch.
   # The patterns require structured/quoted context so incidental hex (UUIDs
   # containing "401") cannot trigger a false auth verdict.
+  # Classify the terminal result object with jq, NOT a literal substring match.
+  # The CLI emits the result fields in an UNSTABLE order — in the current build
+  # `is_error` is the 1st key, `subtype` the 13th and `type` the 19th of 21 — so
+  # the old pattern '"type":"result","subtype":"success","is_error":false'
+  # assumed an adjacency that no longer holds. After a CLI upgrade it silently
+  # stopped matching and EVERY successful run came back status=error: the
+  # certification path then reported "Skill did not reach a successful terminal
+  # result", mailed a failure, and marked the message 'failed' — while the skill
+  # had in fact done the work and opened a perfectly good PR (as-16, tw-46,
+  # tw-31 and ~110 more were burned this way). run-ai's preflight_token already
+  # carries this fix; handle-mail did not.
+  #
+  # Grep the single result line out first rather than running `jq -s` over the
+  # whole file: claude's stderr is merged into $raw_tmp by the 2>&1 above, so it
+  # is not guaranteed to be pure JSON and one malformed line would abort jq.
+  #
+  # Read .is_error bare — do NOT write `.is_error // false` or `// true` as a
+  # missing-key guard. jq's `//` treats BOTH null and false as empty, so on the
+  # success case (is_error=false) it yields the fallback. Bare .is_error fails
+  # safe: a missing key prints "null" and an unparseable line prints nothing,
+  # neither of which equals "false".
   local status="error"
-  if grep -qE '"type":"result","subtype":"success","is_error":false' "$raw_tmp"; then
+  local result_line
+  result_line=$(grep '"type":"result"' "$raw_tmp" 2>/dev/null | tail -1 || true)
+  if [ -n "$result_line" ] \
+     && [ "$(jq -r '.is_error' <<<"$result_line" 2>/dev/null)" = "false" ]; then
     status="success"
   elif grep -qiE 'API Error: 401|401 Invalid authentication|"status":[[:space:]]*401|authentication_error|Failed to authenticate' "$raw_tmp"; then
     status="auth"
@@ -542,7 +615,13 @@ send_reply_mail() {
       keywords: $keywords, replyTo: $replyTo, sentBy: "ai"}')
 
   log "Sending reply ($topic) to $recipient..."
-  send_mail "$payload" >/dev/null
+  # Never fatal. api_curl has already waited out any dev-mode lobby restart; if
+  # the lobby is still gone this is a real outage, and dying HERE would be the
+  # worst possible moment — the skill has finished and its PR exists, so run-ai
+  # would report the whole request as a crash. Warn and let Step 8 record the
+  # outcome instead.
+  send_mail "$payload" >/dev/null \
+    || log "WARNING: failed to send reply ($topic) to $recipient — lobby unreachable"
 }
 
 # Send a review request to one or more reviewers. No footer (reviews are not
@@ -605,8 +684,13 @@ MSG_ID="$1"
 log "Logging in as ai..."
 SESSION=$(login_ai)
 if [ -z "$SESSION" ]; then
-  log "ERROR: Failed to log in as ai"
-  exit 1
+  # Same reasoning as the unreadable-message guard below: exit 5 (run-ai's
+  # retryable code), not 1. Nothing has been marked 'processing' yet, so the
+  # message stays 'new' and gets retried — whereas exit 1 makes run-ai
+  # force-fail a request that was never even looked at.
+  log "ERROR: Failed to log in as ai (lobby unreachable or master key rejected)."
+  log "Leaving $MSG_ID 'new'; run-ai will back off and retry. Halting this run."
+  exit 5
 fi
 log "Logged in."
 
@@ -615,7 +699,19 @@ log "Logged in."
 # ---------------------------------------------------------------------------
 
 log "Fetching message $MSG_ID..."
-MSG=$(api_get "/api/mail/inbox/$MSG_ID")
+MSG=$(api_get "/api/mail/inbox/$MSG_ID" || true)
+
+# An unreadable response (lobby down even after api_curl's retries) must NOT
+# fall through: an empty $MSG leaves TOPIC empty, which lands in the `*)`
+# unknown-topic branch and BURNS the message with an "Unprocessable" reply.
+# Exit 5 instead — run-ai's retryable code. The message has not been marked
+# 'processing' yet, so it stays 'new' and run-ai backs off and retries it rather
+# than force-failing it.
+if [ -z "$MSG" ] || ! echo "$MSG" | jq -e . >/dev/null 2>&1; then
+  log "Could not read message $MSG_ID — the lobby is unreachable or returned garbage."
+  log "Leaving it 'new'; run-ai will back off and retry. Halting this run."
+  exit 5
+fi
 
 if echo "$MSG" | jq -e '.error' &>/dev/null; then
   log "ERROR: Message not found: $(echo "$MSG" | jq -r '.error')"
