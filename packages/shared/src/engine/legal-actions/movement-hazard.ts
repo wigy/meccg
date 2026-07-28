@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect } from '../../types/effects.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -1490,7 +1490,7 @@ function summonsFromLongSleepActions(
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
           || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
           || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-          || inPlayGrantsCreatureKeying(state, mhState, targetCompany, creatureDef);
+          || grantsCreatureKeying(state, mhState, targetCompany, creatureDef);
 
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(creatureDef);
@@ -1617,7 +1617,7 @@ function playCreatureFromDiscardActions(
       const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
         || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
         || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-        || inPlayGrantsCreatureKeying(state, mhState, targetCompany, creatureDef);
+        || grantsCreatureKeying(state, mhState, targetCompany, creatureDef);
 
       if (matches.length === 0 && !keyingBypassed) {
         logDetail(`${defName}: discard creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
@@ -2074,7 +2074,7 @@ function playHazardsActions(
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
           || siteAllowsCreatureByRace(state, targetCompany, def)
           || siteAllowsCreatureByKeying(state, targetCompany, def)
-          || inPlayGrantsCreatureKeying(state, mhState, targetCompany, def);
+          || grantsCreatureKeying(state, mhState, targetCompany, def);
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
@@ -4089,13 +4089,64 @@ function siteAllowsCreatureByKeying(
 }
 
 /**
- * Check whether any in-play card (either player's `cardsInPlay`) carries a
- * `grant-creature-keying` effect that lets the given creature be keyed to the
+ * Collect every `grant-creature-keying` effect currently in scope against the
+ * company being attacked, tagged with the name of the card that carries it (for
+ * logging). Two sources feed the list:
+ *
+ * - `source: 'in-play'` (the default) — cards sitting in either player's
+ *   `cardsInPlay`, i.e. environment long-/permanent-events such as Ungoliant's
+ *   Foul Issue (ba-28) or A Pack at the Door (tw-497).
+ * - `source: 'faced-this-turn'` — hazard creatures whose name appears in the
+ *   company's `hazardsEncountered` list. The carrier is no longer in play by
+ *   the time the grant is used (it was discarded, or taken as a trophy), so it
+ *   is resolved from the card pool by name. Used by Dwarven Travelers (as-9).
+ */
+function collectCreatureKeyingGrants(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+): { readonly sourceName: string; readonly effect: GrantCreatureKeyingEffect }[] {
+  const grants: { sourceName: string; effect: GrantCreatureKeyingEffect }[] = [];
+
+  for (const player of state.players) {
+    for (const cardInPlay of player.cardsInPlay) {
+      const def = defById(state, cardInPlay.definitionId);
+      if (!def) continue;
+      for (const e of getCardEffects(def)) {
+        if (e.type !== 'grant-creature-keying') continue;
+        if ((e.source ?? 'in-play') !== 'in-play') continue;
+        grants.push({ sourceName: (def as { name?: string }).name ?? (cardInPlay.definitionId as string), effect: e });
+      }
+    }
+  }
+
+  // "…against any company that has faced <this card> this turn." The grant
+  // outlives the creature that printed it, so scan the card pool for the
+  // definitions named in the company's hazardsEncountered list.
+  const encountered = mhState.hazardsEncountered;
+  if (encountered.length > 0) {
+    const encounteredNames = new Set<string>(encountered);
+    for (const def of Object.values(state.cardPool)) {
+      const name = (def as { name?: string }).name;
+      if (name === undefined || !encounteredNames.has(name)) continue;
+      for (const e of getCardEffects(def)) {
+        if (e.type !== 'grant-creature-keying') continue;
+        if (e.source !== 'faced-this-turn') continue;
+        grants.push({ sourceName: name, effect: e });
+      }
+    }
+  }
+
+  return grants;
+}
+
+/**
+ * Check whether any `grant-creature-keying` effect in scope (see
+ * {@link collectCreatureKeyingGrants}) lets the given creature be keyed to the
  * target company's effective site (destination if moving, else current). The
  * grant matches when the creature's card definition satisfies `creatureFilter`
  * and the effective site's type is one of `siteFilter.siteTypes` and the site
- * carries every keyword in `siteFilter.siteKeywords`. This is the in-play
- * permanent-event analogue of the site-bound keying-bypass rules.
+ * carries every keyword in `siteFilter.siteKeywords`. This is the card-borne
+ * analogue of the site-bound keying-bypass rules.
  *
  * Used by Ungoliant's Foul Issue (ba-28): "non-unique Spider creatures can be
  * keyed to Under-deeps Ruins & Lairs [{R}] and Shadow-holds [{S}]."
@@ -4108,7 +4159,7 @@ function siteAllowsCreatureByKeying(
  * Border-holds [{B}] or Ruins & Lairs [{R}] … must be playable in a non-Coastal
  * Sea [{c}] region."
  */
-function inPlayGrantsCreatureKeying(
+function grantsCreatureKeying(
   state: GameState,
   mhState: MovementHazardPhaseState,
   targetCompany: {
@@ -4117,6 +4168,9 @@ function inPlayGrantsCreatureKeying(
   },
   creatureDef: CardDefinition,
 ): boolean {
+  const grants = collectCreatureKeyingGrants(state, mhState);
+  if (grants.length === 0) return false;
+
   const effectiveSiteInstanceId = targetCompany.destinationSite?.instanceId
     ?? targetCompany.currentSite?.instanceId
     ?? null;
@@ -4130,27 +4184,26 @@ function inPlayGrantsCreatureKeying(
   const regionPath = mhState.resolvedSitePath;
 
   const creatureCtx = creatureDef as unknown as Record<string, unknown>;
-  for (const player of state.players) {
-    for (const cardInPlay of player.cardsInPlay) {
-      const def = defById(state, cardInPlay.definitionId);
-      if (!def) continue;
-      for (const e of getCardEffects(def)) {
-        if (e.type !== 'grant-creature-keying') continue;
-        if (!matchesCondition(e.creatureFilter, creatureCtx)) continue;
-        // The creature must be playable in a non-Coastal-Sea region (tw-497).
-        if (e.requiresNonCoastalKeying && creatureDef.cardType === 'hazard-creature'
-          && !creatureHasNonCoastalRegionKeying(creatureDef)) continue;
-        // Site-type branch: effective site type in siteTypes AND all keywords.
-        let siteBranch = false;
-        if (e.siteFilter.siteTypes) {
-          siteBranch = e.siteFilter.siteTypes.includes(effSiteType)
-            && (!e.siteFilter.siteKeywords || e.siteFilter.siteKeywords.every(k => siteKeywords.has(k)));
-        }
-        // Region-type branch: the company path holds a granted region type.
-        const regionBranch = !!e.siteFilter.regionTypes
-          && regionPath.some(rt => e.siteFilter.regionTypes!.includes(rt));
-        if (siteBranch || regionBranch) return true;
-      }
+  for (const { sourceName, effect: e } of grants) {
+    if (!matchesCondition(e.creatureFilter, creatureCtx)) continue;
+    // The creature must be playable in a non-Coastal-Sea region (tw-497).
+    if (e.requiresNonCoastalKeying && creatureDef.cardType === 'hazard-creature'
+      && !creatureHasNonCoastalRegionKeying(creatureDef)) continue;
+    // Site-type branch: effective site type in siteTypes AND all keywords.
+    let siteBranch = false;
+    if (e.siteFilter.siteTypes) {
+      siteBranch = e.siteFilter.siteTypes.includes(effSiteType)
+        && (!e.siteFilter.siteKeywords || e.siteFilter.siteKeywords.every(k => siteKeywords.has(k)));
+    }
+    // Region-type branch: the company path holds a granted region type.
+    const regionBranch = !!e.siteFilter.regionTypes
+      && regionPath.some(rt => e.siteFilter.regionTypes!.includes(rt));
+    if (siteBranch || regionBranch) {
+      logDetail(
+        `Creature keying granted by "${sourceName}" (${e.source ?? 'in-play'}): `
+        + `${siteBranch ? `site type ${effSiteType}` : `region type on path`}`,
+      );
+      return true;
     }
   }
   return false;
