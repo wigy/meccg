@@ -413,36 +413,41 @@ that, and `services/defence.ts` carries the first two with tests:
 
 ### Does any of it predict anything?
 
-The horizon test (§6.4) correlates what a module predicted over a turn against
-what the score actually did 1, 3 and 5 turns later. Over 16 games:
+Not measurably. The horizon test (§6.4) correlates what a module predicted over
+a turn against what the score actually did 1, 3 and 5 turns later. Over **32
+games**:
 
 ```text
-  (all)        h1 +0.09 [0.01, 0.17]   h3 +0.13 [0.05, 0.21]   h5 +0.11 [0.04, 0.19]
-  characters   h1 +0.25 [0.04, 0.43]   h3 +0.28 [0.08, 0.46]   h5 +0.11 [-0.10, 0.31]
-  grants       h1 +0.37 [0.19, 0.53]   h3 +0.21 [0.02, 0.39]   h5 +0.08 [-0.12, 0.27]
-  travel       h1 +0.03 [-0.09, 0.15]  h3 +0.15 [0.04, 0.27]   h5 +0.13 [0.02, 0.25]
-  hand         h1 -0.08 [-0.16, -0.00] h3 -0.10 [-0.18, -0.02] h5 -0.06 [-0.14, 0.02]
+  (all)        h1 +0.00 [-0.05, 0.06]  h3 +0.01 [-0.04, 0.07]  h5 +0.03 [-0.03, 0.08]
+  hand         h1 -0.01 [-0.06, 0.05]  h3 -0.03 [-0.09, 0.02]  h5 -0.05 [-0.11, 0.00]
+  travel       h1 -0.09 [-0.16, -0.01] h3 -0.06 [-0.14, 0.02]  h5 -0.03 [-0.11, 0.05]
+  hazards      h1 -0.05 [-0.14, 0.03]  h3 +0.01 [-0.07, 0.10]  h5 +0.04 [-0.05, 0.12]
 ```
 
-**The aggregate is positive and its interval clears zero** — the first time that
-has been true in this project. `characters`, `grants` and `travel` clear it
-individually; `combat`, `corruption`, `hazards` and `fetching` span zero, which
-is neither support nor a verdict.
+Every interval spans zero at horizon 3, including the aggregate. No module
+fails the gate and none passes it: the honest reading is that a module's
+predicted change over a turn does not measurably track the score three turns
+later, in either direction.
 
-**`hand` now fails the gate**, and it is the module that used to be the only one
-passing it. Two explanations are open and the run cannot separate them: the card
-price now rests on `hazard-plan`'s marginal contribution rather than a solo
-valuation and may have got worse, or a module whose predictions are *shadow
-prices* — what a card is worth to keep — is being scored against realized
-marshalling points, which shadow prices never become. The second would predict a
-correlation near zero rather than reliably negative, so it does not obviously
-explain the sign. It is the top open question.
+**This corrects a claim made a few commits earlier.** A 16-game run on different
+seeds put the aggregate at +0.13 [0.05, 0.21] and `hand` at -0.10 [-0.18,
+-0.02], and both went into this README — the first as "the first run where the
+aggregate predicts anything", the second as a module failing the gate. Neither
+replicates. The test's own documentation warns that two six-game samples once
+put the same module at +0.10 and -0.18, and reporting a single 16-game sample
+was the same mistake one size up. The 32-game numbers are the ones to trust,
+and what they say is "no signal", not "signal".
 
-Two things had to be fixed before the test said anything at all: it correlated
-single *decisions* (16 games put every module indistinguishable from zero out to
-n=2689 — one action among hundreds in a turn cannot explain a score change), and
-it failed a module on the sign of a point estimate (two six-game samples put the
-same module at +0.10 and -0.18).
+One diagnostic worth keeping from that episode: the report now prints how
+strongly each module's per-turn total correlates with its own *decision count*,
+because a module whose predictions all carry one sign has a per-turn total that
+is mostly how busy it was. `hazards` trips it at +0.85 — its number there is
+partly an activity measure. `hand` does not, so that never explained its sign.
+
+Two earlier fixes were needed before the test said anything at all: it
+correlated single *decisions* (16 games put every module indistinguishable from
+zero out to n=2689 — one action among hundreds in a turn cannot explain a score
+change), and it failed modules on the sign of a point estimate.
 
 ### Falsifiable, where it can be
 
