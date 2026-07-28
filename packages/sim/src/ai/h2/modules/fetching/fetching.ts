@@ -39,6 +39,7 @@ import { computeCardPrices } from '../../services/card-price.js';
 const OWNED_ACTION_TYPES = [
   'draft-pick',
   'add-character-to-deck',
+  'assign-starting-item',
   'fetch-from-pile',
   'fetch-from-sideboard',
   'fetch-hazard-from-sideboard',
@@ -53,6 +54,8 @@ const ASSUMPTIONS: readonly string[] = [
   + 'play it will ever exist',
   'taking a card out of a pile changes what is left in it, and that is not modelled: a deck thinned '
   + 'of its best resource is worse to draw from afterwards',
+  'where a card goes is not priced, only which card it is — so every way of assigning the same '
+  + 'starting item to a different character ties, and the choice of bearer falls to Heuristics 1',
 ];
 
 /** A card sitting in a setup pool, wherever that pool keeps it. */
@@ -95,8 +98,12 @@ function chosenCard(action: GameAction, context: ModuleContext): { definitionId:
     cardInstanceId?: CardInstanceId;
     sideboardCardInstanceId?: CardInstanceId;
     characterInstanceId?: CardInstanceId;
+    // `assign-starting-item` names the card by *definition*, because at setup
+    // there is no instance yet — the item is being minted onto a character.
+    itemDefId?: string;
     source?: string;
   };
+  if (record.itemDefId) return { definitionId: record.itemDefId, where: 'starting items' };
 
   // Each action names the card in its own field, and reading only one of them
   // is the recurring bug in this project — `characters` on `move-to-influence`,
