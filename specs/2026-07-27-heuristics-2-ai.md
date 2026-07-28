@@ -27,6 +27,25 @@ service on the shared layer per §4, computed from the standing and the roster
 rather than from the consumer's decision, so `combat` subtracts it without
 `factions` ever being asked about the combat.*
 
+*An open concern about `combat`, from the horizon test and the sweeps
+together. The horizon test (§6.4) reports essentially **zero** correlation
+between `combat`'s predicted Δtsd and the realized score change at any horizon
+— +0.03 at horizon 3 over 263 predictions, the largest sample and the flattest
+line of any module. Separately, `sweep --over tunable:tapTempoCost` flips the
+decision on `combat/creature-with-body` between 0.0 and 0.5, so the shipped
+0.3 sits **on a decision boundary**; `woundTempoCost` by contrast changes
+nothing across 0–6 on that position. Read together: the constant that decides
+combat's most common choice — tap to fight or stay untapped — is unvalidated
+and marginal, while the module's valuation does not track the score at all.
+That may be benign, since combat is largely about avoiding loss and its tempo
+terms never enter the score; or the tempo constants may be doing work the
+marshalling points should. It also weakens the encouraging reading of
+`compare`, where combat agreement with Heuristics 1 rose from 87.2% to 94.4%
+after `character-value` raised tap prices: that convergence could be insight,
+or it could be an artifact of a boundary-sitting constant. Resolving it needs
+either a horizon test with more combat-heavy samples or a gate that isolates
+the tap price.*
+
 *Two corrections to this document, found by reading the engine:*
 
 - *§3.3 says an eliminated character converts to TSD via lost character MP,
