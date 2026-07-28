@@ -24,6 +24,19 @@
  * influence attempt spends (`reducer-site.ts`). So the action is scored as
  * point-neutral with the influence change reported, which is the honest shape
  * until the strategic half can say what that influence is for.
+ *
+ * **Company shape** — `split-company` and `merge-companies` — belongs here for
+ * the same reason: it is a question about the roster, not about a destination.
+ * And it has a real answer, because the hazard limit *is* the company size. A
+ * company of five hands the opponent five slots to spend on it; split into two
+ * and three it hands them two and three, aimed at rosters that answer very
+ * differently. `defence` computes both sides against the same typical attack —
+ * the creatures this opponent has actually shown — and the difference is the
+ * whole evaluation.
+ *
+ * What that leaves out is stated: splitting also lets two companies reach two
+ * sites, which is usually the reason anyone does it, and pricing that needs
+ * destinations the organization phase has not chosen yet.
  */
 
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
@@ -32,9 +45,12 @@ import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
+import { computeDefence } from '../../services/defence.js';
+import { rosterOf } from '../../services/strike/prowess.js';
+import type { StrikeTarget } from '../../services/strike/prowess.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['play-character', 'move-to-influence'] as const;
+const OWNED_ACTION_TYPES = ['play-character', 'move-to-influence', 'split-company', 'merge-companies'] as const;
 
 /** A character definition named by an action, from hand or from play. */
 function characterOf(
@@ -67,12 +83,131 @@ const ASSUMPTIONS: readonly string[] = [
   'a change of controller is scored as marshalling-point neutral, which it is',
 ];
 
+/** The characters of a company, as strike targets from our own seat. */
+function rosterFor(context: ModuleContext, companyId: string): StrikeTarget[] {
+  const company = context.view.self.companies.find(c => (c.id as string) === companyId);
+  return company ? rosterOf(company, context.view.self.characters, context.cardPool) : [];
+}
+
+/** A roster's names, for the rationale. */
+function names(roster: readonly StrikeTarget[]): string {
+  return roster.length > 0 ? roster.map(t => t.name).join(', ') : '(nobody)';
+}
+
+/**
+ * Score changing the shape of a company.
+ *
+ * Both actions are the same comparison: the harm the shape *before* invites
+ * against the harm the shape *after* invites, where a company's hazard limit is
+ * its own size. Merging concentrates the slots on one roster that answers
+ * better; splitting spreads them across two that answer worse. Which wins is
+ * position-dependent, which is the point of computing it.
+ */
+function evaluateShape(context: ModuleContext, action: GameAction): Evaluation | null {
+  const { standing, cardPool, tunables, view } = context;
+  const defence = computeDefence(view, cardPool, standing, tunables);
+  const merging = action.type === 'merge-companies';
+
+  let before: StrikeTarget[][];
+  let after: StrikeTarget[][];
+  let headline: string;
+
+  if (merging) {
+    const record = action as unknown as { sourceCompanyId: string; targetCompanyId: string };
+    const source = rosterFor(context, record.sourceCompanyId);
+    const target = rosterFor(context, record.targetCompanyId);
+    if (source.length === 0 || target.length === 0) return null;
+    before = [source, target];
+    after = [[...target, ...source]];
+    headline = `merge ${names(source)} into ${names(target)}`;
+  } else {
+    const record = action as unknown as { sourceCompanyId: string; characterId: CardInstanceId };
+    const source = rosterFor(context, record.sourceCompanyId);
+    if (source.length < 2) return null;
+    // Followers move with the character they are held by. The view does not
+    // publish that grouping on the roster, so the split is modelled as the one
+    // named character leaving — which understates a split that takes followers
+    // along, and is declared.
+    const leaving = source.filter(t => t.instanceId === record.characterId);
+    const staying = source.filter(t => t.instanceId !== record.characterId);
+    if (leaving.length === 0 || staying.length === 0) return null;
+    before = [source];
+    after = [staying, leaving];
+    headline = `split ${names(leaving)} out of ${names(staying)}`;
+  }
+
+  // A company's hazard limit is its own size, so the shape decides both how
+  // many slots there are and what they are aimed at.
+  const harmOf = (shapes: StrikeTarget[][]): number =>
+    shapes.reduce((sum, roster) => sum + defence.expectedHarm(roster, roster.length), 0);
+  const harmBefore = harmOf(before);
+  const harmAfter = harmOf(after);
+  const dtsd = harmBefore - harmAfter;
+
+  const outcomes: Outcome[] = [{
+    p: 1,
+    label: dtsd >= 0
+      ? `${headline} — the shape invites ${dtsd.toFixed(1)} less harm`
+      : `${headline} — the shape invites ${(-dtsd).toFixed(1)} more harm`,
+    dtsd,
+  }];
+  const scored = standing.score(outcomes);
+
+  const detail: Rationale[] = [
+    leaf('typical attack', `${defence.typical.strikes} strike(s) at prowess `
+      + `${defence.typical.prowess}`, {
+      note: defence.typical.fromPool
+        ? 'the opponent has shown no creature yet — the median of the card pool'
+        : `the median of the ${defence.typical.seen} creature(s) they have shown`,
+    }),
+  ];
+  for (const roster of before) {
+    detail.push(leaf(`before: ${names(roster)}`, defence.expectedHarm(roster, roster.length), {
+      unit: 'tsd',
+      note: `${roster.length} character(s), so ${roster.length} hazard slot(s)`,
+    }));
+  }
+  for (const roster of after) {
+    detail.push(leaf(`after: ${names(roster)}`, defence.expectedHarm(roster, roster.length), {
+      unit: 'tsd',
+      note: `${roster.length} character(s), so ${roster.length} hazard slot(s)`,
+    }));
+  }
+
+  return {
+    action,
+    module: 'characters',
+    outcomes,
+    expectedTsd: scored.expectedTsd,
+    sigmaTsd: scored.sigmaTsd,
+    utility: scored.utility,
+    method: scored.method,
+    rationale: node(headline, scored.utility, [
+      node('harm the shape invites', dtsd, detail, { unit: 'tsd' }),
+      scored.rationale,
+    ], { unit: 'winprob' }),
+    assumptions: [
+      'company shape is priced only by the hazards its size invites; that splitting lets two '
+      + 'companies reach two sites — usually the reason to do it — needs destinations the '
+      + 'organization phase has not chosen yet',
+      'the hazards are assumed to be the average creature the opponent has shown, played into '
+      + 'every slot; a hand with nothing keyable to the path spends none of them',
+      'followers move with the character they are held by, and the roster does not publish that '
+      + 'grouping — a split that takes followers along is understated',
+      ...ASSUMPTIONS,
+    ],
+  };
+}
+
 /** The characters module. No context gate: both actions are always its own. */
 export const charactersModule: H2Module = {
   name: 'characters',
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
+    if (action.type === 'split-company' || action.type === 'merge-companies') {
+      return evaluateShape(context, action);
+    }
     // `move-to-influence` names the character in `characterInstanceId`;
     // `play-character` uses `cardInstanceId`. Reading only one of them made
     // the module return null on every real influence move, which the old

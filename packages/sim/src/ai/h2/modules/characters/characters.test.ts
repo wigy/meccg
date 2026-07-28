@@ -9,12 +9,13 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { CardStatus } from '@meccg/shared';
+import { CardStatus, loadCardPool } from '@meccg/shared';
 import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
+import { loadScenario, scenarioView } from '../../scenario-store.js';
 import { charactersModule } from './characters.js';
 
 const SCORER = 'tw-scorer';
@@ -112,5 +113,65 @@ describe('what it declines', () => {
   test('an action naming a character it cannot find', () => {
     const unknown = { type: 'play-character', cardInstanceId: 'nope' } as unknown as GameAction;
     expect(charactersModule.evaluate(unknown, contextWith(BALANCED, BALANCED))).toBeNull();
+  });
+});
+
+describe('company shape', () => {
+  test('splitting is priced by the harm the two shapes invite, and they differ', () => {
+    // The hazard limit is the company size, so shape decides both how many
+    // slots the opponent gets and what they are aimed at. A module that scored
+    // every split alike would have no opinion about which character to send.
+    const scenario = loadScenario('organization/replanned-movement');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const context: ModuleContext = {
+      view,
+      cardPool,
+      legalActions: [],
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const company = [...view.self.companies].sort((a, b) => b.characters.length - a.characters.length)[0];
+    expect(company.characters.length).toBeGreaterThan(2);
+
+    const scores = company.characters.map(characterId => charactersModule.evaluate({
+      type: 'split-company', sourceCompanyId: company.id, characterId,
+    } as unknown as GameAction, context)!.expectedTsd);
+    expect(Math.max(...scores)).toBeGreaterThan(Math.min(...scores));
+  });
+
+  test('merging is the same comparison run the other way', () => {
+    const scenario = loadScenario('organization/replanned-movement');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const context: ModuleContext = {
+      view,
+      cardPool,
+      legalActions: [],
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    if (view.self.companies.length < 2) return;
+    const [a, b] = view.self.companies;
+    const merged = charactersModule.evaluate({
+      type: 'merge-companies', sourceCompanyId: a.id, targetCompanyId: b.id,
+    } as unknown as GameAction, context);
+    expect(merged).not.toBeNull();
+    expect(JSON.stringify(merged!.rationale)).toContain('hazard slot');
+  });
+
+  test('declines a shape change it cannot resolve', () => {
+    const scenario = loadScenario('organization/replanned-movement');
+    const view = scenarioView(scenario);
+    const context: ModuleContext = {
+      view,
+      cardPool: loadCardPool(),
+      legalActions: [],
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    expect(charactersModule.evaluate({
+      type: 'merge-companies', sourceCompanyId: 'nope', targetCompanyId: 'also-nope',
+    } as unknown as GameAction, context)).toBeNull();
   });
 });
