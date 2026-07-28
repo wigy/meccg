@@ -33,6 +33,7 @@ import type {
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup } from '@meccg/shared';
 import { combatButtonLabel } from './combat-button-label.js';
 import { inPlayCancelAttackIds } from './cancel-attack-targets.js';
+import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
@@ -370,20 +371,14 @@ function renderAttackerRow(
   const container = document.createElement('div');
   container.className = 'combat-attacker';
 
-  if (
-    combat.attackSource.type === 'creature'
-    || combat.attackSource.type === 'on-guard-creature'
-    || combat.attackSource.type === 'played-auto-attack'
-  ) {
-    const instId = combat.attackSource.type === 'on-guard-creature'
-      ? combat.attackSource.cardInstanceId
-      : combat.attackSource.instanceId;
-    const defId = cachedInstanceLookup(instId);
+  const attackerCardInstanceId = resolveAttackerCardInstanceId(combat.attackSource);
+  if (attackerCardInstanceId) {
+    const defId = cachedInstanceLookup(attackerCardInstanceId);
     const def = defId ? cardPool[defId as string] : undefined;
     if (def) {
       const imgPath = cardImageProxyPath(def);
       if (imgPath) {
-        const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', instId as string);
+        const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', attackerCardInstanceId as string);
         container.appendChild(img);
       }
     }
@@ -395,27 +390,6 @@ function renderAttackerRow(
       const imgPath = cardImageProxyPath(def);
       if (imgPath) {
         const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.siteInstanceId as string);
-        container.appendChild(img);
-      }
-    }
-  } else if (combat.attackSource.type === 'agent') {
-    const defId = cachedInstanceLookup(combat.attackSource.instanceId);
-    const def = defId ? cardPool[defId as string] : undefined;
-    if (def) {
-      const imgPath = cardImageProxyPath(def);
-      if (imgPath) {
-        const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.instanceId as string);
-        container.appendChild(img);
-      }
-    }
-  } else if (combat.attackSource.type === 'card-triggered-attack') {
-    // Show the resource card that triggered the attack
-    const defId = cachedInstanceLookup(combat.attackSource.cardInstanceId);
-    const def = defId ? cardPool[defId as string] : undefined;
-    if (def) {
-      const imgPath = cardImageProxyPath(def);
-      if (imgPath) {
-        const img = createCardImage(defId as string, def, imgPath, 'combat-card combat-card--attacker', combat.attackSource.cardInstanceId as string);
         container.appendChild(img);
       }
     }
