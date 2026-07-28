@@ -22,7 +22,7 @@ import { loadWinProbModel } from '../ai/h2/core/winprob.js';
 import { computeStanding } from '../ai/h2/services/standing.js';
 import { ALL_MODULES, evaluateDecision, resolveModules } from '../ai/h2/core/registry.js';
 import { listScenarioIds, loadScenario, scenarioView } from '../ai/h2/scenario-store.js';
-import { binomialTolerance, rolloutCorruptionCheck, rolloutStrike } from '../ai/h2/calibrate.js';
+import { binomialTolerance, rolloutCorruptionCheck, rolloutInfluenceAttempt, rolloutStrike } from '../ai/h2/calibrate.js';
 import { claimedStrikeOutcomes } from '../ai/h2/modules/combat/combat.js';
 import type { StrikeOutcome } from '../ai/h2/modules/combat/strike-model.js';
 
@@ -57,12 +57,12 @@ const seed = numberFlag(args, 'seed', 20260727);
 const moduleFilter = stringFlag(args, 'module') ?? 'combat';
 const only = stringFlag(args, 'scenario');
 
-if (moduleFilter !== 'combat' && moduleFilter !== 'corruption') {
+if (!['combat', 'corruption', 'factions'].includes(moduleFilter)) {
   // Each module claims a different shape of outcome, so each needs its own
   // classifier in the harness. Claiming to check one without a classifier
   // would report a vacuous pass.
   console.error(`calibrate: no outcome classifier for module "${moduleFilter}" — `
-    + 'combat and corruption are supported');
+    + 'combat, corruption and factions are supported');
   process.exit(2);
 }
 
@@ -92,6 +92,33 @@ for (const id of ids) {
   console.log(`\n${id}  (${scenario.description})`);
 
   for (const action of legalActions) {
+    if (action.type === 'influence-attempt') {
+      const evaluation = evaluateDecision(modules, context).evaluations.find(e => e.action === action);
+      const success = evaluation?.outcomes.find(o => o.label.includes('influenced'));
+      if (!success) continue;
+      let landed = 0;
+      let resolvedAttempts = 0;
+      let rngA = createRng(seed);
+      for (let i = 0; i < rollouts; i++) {
+        const result = rolloutInfluenceAttempt(scenario.state, action, rngA);
+        rngA = result.rng;
+        if (result.succeeded === null) continue;
+        resolvedAttempts++;
+        if (result.succeeded) landed++;
+      }
+      if (resolvedAttempts === 0) { skipped++; continue; }
+      const observed = landed / resolvedAttempts;
+      const tolerance = binomialTolerance(success.p, resolvedAttempts);
+      const within = Math.abs(observed - success.p) <= tolerance;
+      checked++;
+      if (!within) failures++;
+      console.log(`  influence-attempt  (${resolvedAttempts} rollouts)`);
+      console.log(`    ${within ? 'ok  ' : 'FAIL'} ${'influenced'.padEnd(22)} `
+        + `claimed ${(success.p * 100).toFixed(2).padStart(6)}%  `
+        + `observed ${(observed * 100).toFixed(2).padStart(6)}%  ±${(tolerance * 100).toFixed(2)}%`);
+      continue;
+    }
+
     if (action.type === 'corruption-check') {
       // The module's claim is one number: how often the check holds. The
       // engine's own verdict is whether the character is still there.
@@ -176,6 +203,16 @@ function describeAction(action: GameAction): string {
 }
 
 console.log('');
+if (checked === 0) {
+  // "0/0 within the interval" reads like a pass. Nothing was checked, which
+  // is a different thing and must exit non-zero: a harness that reports
+  // success for measuring nothing is worse than no harness.
+  console.log(`NOTHING CHECKED — 0 claims measured at ${rollouts} rollouts`
+    + `${skipped > 0 ? `, ${skipped} action(s) skipped` : ''}.`);
+  console.log('Either the corpus has no position for this module, or every rollout ended');
+  console.log('unresolved and the classifier cannot tell what happened.');
+  process.exit(2);
+}
 console.log(`${checked - failures}/${checked} claims within the 99% interval at ${rollouts} rollouts`
   + `${skipped > 0 ? `, ${skipped} action(s) not dice-modelled` : ''}`);
 if (failures > 0) process.exit(1);

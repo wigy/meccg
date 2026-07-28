@@ -131,6 +131,49 @@ export function rolloutCorruptionCheck(
   return { survived: player?.characters[characterId] !== undefined, rng: applied.state.rng };
 }
 
+/**
+ * Replay a faction influence attempt and report whether it landed.
+ *
+ * The attempt does not resolve on the spot: it enqueues a pending
+ * `faction-influence-roll` (`chain-reducer.ts`), so the harness follows that
+ * forced step through before reading the verdict. The verdict is where the
+ * faction card came to rest — in play, or in the discard pile — not a
+ * re-derivation of the roll.
+ */
+export function rolloutInfluenceAttempt(
+  state: GameState,
+  action: GameAction,
+  rng: RngState,
+): { succeeded: boolean | null; rng: RngState } {
+  const factionId = (action as unknown as { factionInstanceId?: CardInstanceId }).factionInstanceId;
+  const playerId = (action as unknown as { player?: PlayerId }).player;
+  if (!factionId || !playerId) return { succeeded: null, rng };
+
+  const applied = reduce({ ...state, rng }, action);
+  if (applied.error) return { succeeded: null, rng };
+  let current = applied.state;
+
+  for (let step = 0; step < MAX_FOLLOW_THROUGH_STEPS; step++) {
+    const forced = viableFor(current, playerId).filter(a => a.type === 'faction-influence-roll');
+    if (forced.length !== 1) break;
+    const next = reduce(current, forced[0]);
+    if (next.error) return { succeeded: null, rng: current.rng };
+    current = next.state;
+  }
+
+  const player = current.players.find(p => p.id === playerId);
+  if (!player) return { succeeded: null, rng: current.rng };
+  if (player.cardsInPlay.some(c => c.instanceId === factionId)) return { succeeded: true, rng: current.rng };
+  if (player.discardPile.some(c => c.instanceId === factionId)) return { succeeded: false, rng: current.rng };
+  // Still unresolved. On the corpus position this happens on *every* rollout,
+  // so an influenced faction evidently does not come to rest in `cardsInPlay`
+  // — it may attach to the influencing character, or the pending roll may need
+  // a step this loop does not take. Until that is established the classifier
+  // reports "unknown" rather than guessing, and the CLI refuses to call a run
+  // with nothing measured a pass.
+  return { succeeded: null, rng: current.rng };
+}
+
 /** The creature card whose fate says whether the attack was defeated. */
 function attackingCreatureId(state: GameState): CardInstanceId | null {
   const source = state.combat?.attackSource;
