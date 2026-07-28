@@ -37,6 +37,7 @@ import { DEFAULT_TUNABLES } from '../ai/h2/core/tunables.js';
 import { loadWinProbModel } from '../ai/h2/core/winprob.js';
 import { computeStanding } from '../ai/h2/services/standing.js';
 import { ALL_MODULES, evaluateDecision, ownerOf } from '../ai/h2/core/registry.js';
+import { forwardActions } from '../ai/regress.js';
 
 /** Flag reference, printed by `--help`. */
 const USAGE = `coverage — how much of the game does H2 speak to, and what is stopping it?
@@ -105,19 +106,23 @@ for (let g = 0; g < games; g++) {
     startGame: () => inner.startGame?.(),
     chooseAction(context: AgentContext) {
       tally.decisions++;
-      if (context.legalActions.length > 1) {
+      // The same list the agent sees: the engine marks candidates that undo
+      // this phase's progress and every agent drops them, so counting them here
+      // would report coverage of decisions nobody is asked to make.
+      const legalActions = forwardActions(context.legalActions);
+      if (legalActions.length > 1) {
         const standing = computeStanding(context.view, model, DEFAULT_TUNABLES);
         const { evaluations, complete, uncovered } = evaluateDecision(ALL_MODULES, {
           view: context.view,
           cardPool,
-          legalActions: context.legalActions,
+          legalActions,
           tunables: DEFAULT_TUNABLES,
           standing,
         });
         tally.contested++;
 
         const scored = new Set(evaluations.map(e => e.action));
-        for (const action of context.legalActions) {
+        for (const action of legalActions) {
           const entry = byType.get(action.type) ?? { seen: 0, owned: 0 };
           entry.seen++;
           if (scored.has(action)) {
@@ -126,7 +131,7 @@ for (let g = 0; g < games; g++) {
             const owner = ownerOf(ALL_MODULES, action, {
               view: context.view,
               cardPool,
-              legalActions: context.legalActions,
+              legalActions,
               tunables: DEFAULT_TUNABLES,
               standing,
             });

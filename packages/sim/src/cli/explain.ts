@@ -8,6 +8,7 @@
  */
 
 import { formatGameState, formatPlayerView, loadCardPool, setEngineConsoleLog, stripCardMarkers } from '@meccg/shared';
+import { forwardActions } from '../ai/regress.js';
 import type { GameState, PlayerId, PlayerView } from '@meccg/shared';
 import { projectPlayerView } from '@meccg/game-server';
 import { parseCliArgs, numberFlag, stringFlag } from './common.js';
@@ -130,7 +131,10 @@ if (!view) {
   view = projectPlayerView(state, requested ?? (preferredPlayer ?? state.players[0].id));
 }
 
-const legalActions = view.legalActions.filter(e => e.viable).map(e => e.action);
+// Regressive candidates are dropped, because every agent drops them: the
+// engine marks the actions that undo this phase's own progress and explaining a
+// ranking that includes them would explain a decision nobody makes.
+const legalActions = forwardActions(view.legalActions.filter(e => e.viable).map(e => e.action));
 
 // ---- Evaluate ----
 

@@ -255,20 +255,26 @@ to write next and guessing at it was how the table below went stale twice:
 npm run coverage -w @meccg/sim -- --games 3
 ```
 
-Over 1321 contested decisions:
+Over 1364 contested decisions:
 
 ```text
-  covered and decisive        505  38.2%
-  covered but flat            103   7.8%   → H1
-  partial, acted anyway       155  11.7%
-  partial, handed over        447  33.8%   → H1
-  no owner at all             111   8.4%   → H1
+  covered and decisive        461  33.8%
+  covered but flat            188  13.8%   → H1
+  partial, acted anyway       141  10.3%
+  partial, handed over        448  32.8%   → H1
+  no owner at all             126   9.2%   → H1
 
-  H2 decides 50.0% of contested decisions.
+  H2 decides 44.1% of contested decisions.
 ```
 
-That is up from 33.1% at the start of the coverage work, and the three commits
-that moved it were all found by running this rather than by reasoning about it:
+That is up from 33.1% at the start of the coverage work. It reads lower than
+the 50.0% reported before regressive candidates were filtered out, and the
+comparison is not like for like: the denominator is now the decision the agent
+actually faces, with the engine's marked undos removed. More of what is left
+scores flat, because dropping a candidate and its undo often leaves a tie.
+
+The three commits that moved the number were all found by running this rather
+than by reasoning about it:
 
 - **`pass` was the largest single blocker by a factor of three** — 476
   decisions. Three modules own it inside their own windows and nobody owned it

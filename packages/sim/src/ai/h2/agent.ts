@@ -44,6 +44,7 @@
 import type { Agent, AgentContext, AgentDecision, ConsideredAction } from '../../types.js';
 import type { AiContext } from '../strategy.js';
 import { heuristicStrategy } from '../heuristic.js';
+import { forwardActions } from '../regress.js';
 import { sampleWeighted } from '../strategy.js';
 import type { H2Module, ModuleContext } from './core/types.js';
 import type { Tunables } from './core/tunables.js';
@@ -102,10 +103,15 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       if (context.legalActions.length === 0) {
         throw new Error('h2 agent asked to choose with no legal actions');
       }
+      // The engine marks candidates that undo this phase's own progress, and
+      // that is a fact rather than a preference — see `ai/regress`. Filtering
+      // here rather than inside a module keeps every module's coverage honest:
+      // an action H2 never sees cannot be one it declined to score.
+      const legalActions = forwardActions(context.legalActions);
       const moduleContext: ModuleContext = {
         view: context.view,
         cardPool: context.cardPool,
-        legalActions: context.legalActions,
+        legalActions,
         tunables,
         standing: computeStanding(context.view, model, tunables, options.riskOverride),
       };
@@ -127,12 +133,12 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         const aiContext: AiContext = {
           view: context.view,
           cardPool: context.cardPool,
-          legalActions: context.legalActions,
+          legalActions,
           random: context.random,
         };
         const weighted = heuristicStrategy.weighActions(aiContext);
         if (weighted.length === 0) {
-          return { action: context.legalActions[0], note: 'h1 fallback: no weighted actions' };
+          return { action: legalActions[0], note: 'h1 fallback: no weighted actions' };
         }
         return { action: sampleWeighted(weighted, context.random), considered: weighted, note: 'h1 fallback' };
       }
@@ -145,7 +151,7 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
           action: best.action,
           note: `${contributors.join('+')} (partial coverage): ΔP(win) ${(best.utility * 100).toFixed(2)}% `
             + `clears the ${(tunables.partialCoverageMargin * 100).toFixed(1)}% margin; `
-            + `${context.legalActions.length - evaluations.length} candidate(s) unscored`,
+            + `${legalActions.length - evaluations.length} candidate(s) unscored`,
         };
       }
 

@@ -14,6 +14,7 @@
  */
 
 import type { GameAction } from '@meccg/shared';
+import { forwardActions } from './regress.js';
 import type { AiStrategy, AiContext, WeightedAction } from './strategy.js';
 import type { ActionEvaluator } from './evaluators/types.js';
 import { setupEvaluator } from './evaluators/setup.js';
@@ -82,7 +83,7 @@ export const heuristicStrategy: AiStrategy = {
 
   weighActions(context: AiContext): WeightedAction[] {
     const phase = context.view.phaseState.phase;
-    const actions = context.legalActions.filter(a => !('regress' in a && a.regress));
+    const actions = forwardActions(context.legalActions);
 
     const allOptional = actions.every(a => PASS_ACTIONS.has(a.type) || OPTIONAL_ACTIONS.has(a.type));
     const hasSubstantive = actions.some(a => !PASS_ACTIONS.has(a.type));

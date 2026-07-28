@@ -31,6 +31,7 @@
  */
 
 import { reduce } from '@meccg/shared';
+import { forwardActions } from '../ai/regress.js';
 import type { GameAction, PlayerId } from '@meccg/shared';
 import type { Agent, AgentContext, AgentDecision, ConsideredAction } from '../types.js';
 import { determinizeNull } from '../search/determinize-null.js';
@@ -98,7 +99,10 @@ function shortlist(
   fallback: Agent,
   limit: number,
 ): readonly GameAction[] {
-  const actions = context.legalActions;
+  // The engine has already marked the candidates that undo this phase's
+  // progress. Searching them wastes rollouts on moves that cannot improve the
+  // position and lets the agent oscillate — see `ai/regress`.
+  const actions = forwardActions(context.legalActions);
   if (actions.length <= limit) return actions;
 
   const decision = fallback.chooseAction(context);
