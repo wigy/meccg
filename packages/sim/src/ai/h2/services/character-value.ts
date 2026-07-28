@@ -51,6 +51,14 @@ export interface CharacterValue {
    * TSD — the rise in the odds of failing a check, times what failing costs.
    */
   corruptionRisk(instanceId: CardInstanceId, added: number): CharacterPrice;
+  /**
+   * What taking `removed` corruption points *off* this character is worth.
+   *
+   * The mirror of {@link corruptionRisk} and deliberately a separate method
+   * rather than a negative argument: both return a positive magnitude, so a
+   * caller reading one cannot accidentally spend the other with the wrong sign.
+   */
+  corruptionRelief(instanceId: CardInstanceId, removed: number): CharacterPrice;
 }
 
 /** The company a character belongs to, if any. */
@@ -150,6 +158,22 @@ function buildComputeCharacterValue(
       return {
         tsd: deltaFail * onFailure,
         reason: `corruption ${before} → ${before + added} widens the failing band by `
+          + `${(deltaFail * 100).toFixed(1)}%, against ${onFailure.toFixed(1)} tsd lost if it fails`,
+      };
+    },
+
+    corruptionRelief(instanceId: CardInstanceId, removed: number): CharacterPrice {
+      const character = view.self.characters[instanceId];
+      if (!character || removed <= 0) return { tsd: 0, reason: 'no corruption removed' };
+      const before = character.effectiveStats.corruptionPoints;
+      const after = Math.max(0, before - removed);
+      const deltaFail = pAtMost(before) - pAtMost(after);
+      if (deltaFail <= 0) return { tsd: 0, reason: 'he was not going to fail a check on this' };
+      const onFailure = (standing.tsd - standing.tsdAfter(lossDelta(instanceId)))
+        + lossCostOf(instanceId).tsd;
+      return {
+        tsd: deltaFail * onFailure,
+        reason: `corruption ${before} → ${after} narrows the failing band by `
           + `${(deltaFail * 100).toFixed(1)}%, against ${onFailure.toFixed(1)} tsd lost if it fails`,
       };
     },

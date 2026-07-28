@@ -47,7 +47,7 @@ Capturing from self-play (cheaper, and needs nobody to have played it):
   --agents <a,b>      agent specs (default heuristic,heuristic)
   --at <conditions>   comma-separated key=value pairs; the first decision
                       matching all of them is captured. Keys:
-                        turn, phase, step, seq, stateSeq, player,
+                        turn, phase, step, seq, stateSeq, player, actionId,
                         combat (true|false), combatPhase, creatureBody,
                         strikes, companySize (characters in the defending
                         company), action (an action type that must be offered)
@@ -117,6 +117,11 @@ function parseAtCondition(spec: string): (state: GameState, decisionSeq: number,
       // a specific option (a strike event, the stay-untapped choice) exists.
       case 'action': return projectPlayerView(state, player).legalActions
         .some(e => e.viable && e.action.type === value);
+      // A granted action by its identifier. `activate-granted-action` covers a
+      // dozen unrelated card abilities, and a corpus that cannot ask for the
+      // one being modelled ends up capturing whichever happened to come first.
+      case 'actionId': return projectPlayerView(state, player).legalActions
+        .some(e => e.viable && (e.action as { actionId?: string }).actionId === value);
       default: throw new Error(`--at: unknown key "${key}" `
         + '(turn, phase, step, seq, stateSeq, player, combat, combatPhase, creatureBody, '
         + 'strikes, companySize, action)');
