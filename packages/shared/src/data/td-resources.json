@@ -725,7 +725,32 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "company.moving": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "extra-mh-phase",
+          "scope": "turn",
+          "requiresDestinationSiteType": "border-hold"
+        },
+        "target": "target-company"
+      }
+    ],
+    "certified": "2026-07-28",
     "text": "Playable at the end of the organization phase on a moving company. If the company moves to a Border-hold [{B}], it can take a second movement/hazard phase immediately following its first movement/hazard phase."
   },
   {

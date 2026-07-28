@@ -10532,6 +10532,51 @@ starter/region movement (not restricted to Under-deeps), grants exactly one extr
 phase (a one-shot short-event, not a persistent in-play effect), and carries no
 roll penalty.
 
+### 52b-ii. `extra-mh-phase` constraint (organization-phase promise)
+
+The organization-phase sibling of `grant-extra-mh-phase`, for cards played
+*before* the move resolves — Master of Esgaroth (td-135): "Playable at the end
+of the organization phase on a moving company. If the company moves to a
+Border-hold [{B}], it can take a second movement/hazard phase immediately
+following its first movement/hazard phase."
+
+Because the destination is not final when the card is played, the card is
+playable on **any** moving company and the "if it moves to …" clause is checked
+later. The card carries the usual end-of-org trio, with the gate on the
+`add-constraint` apply:
+
+```json
+{ "type": "play-window", "phase": "organization", "step": "end-of-org" },
+{ "type": "play-target", "target": "company", "filter": { "company.moving": true } },
+{
+  "type": "on-event",
+  "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "extra-mh-phase",
+    "scope": "turn",
+    "requiresDestinationSiteType": "border-hold"
+  },
+  "target": "target-company"
+}
+```
+
+`requiresDestinationSiteType` is the `SiteType` the company must actually have
+moved to; omit it for an unconditional grant.
+
+Behaviour: resolving the event installs a turn-scoped `extra-mh-phase`
+constraint targeted at the chosen company. When that company's movement/hazard
+phase ends, `advanceAfterCompanyMH` (`mh-hazard-play.ts`) looks for a matching
+constraint via `extraMHPhaseConstraint`: the company must have `moved` and its
+new `currentSite` must be of the required type. On a match the constraint is
+**consumed** (`removeConstraint`) and the company enters the same
+`extra-mh-move-offer` step `grant-extra-mh-phase` uses, so the second phase runs
+through the identical `extra-mh-move` → `reveal-new-site` path. Consuming the
+constraint is what bounds the card to exactly one extra phase even when the
+second move also lands on a qualifying site. A company that moved elsewhere — or
+did not move at all — leaves the constraint in place, inert, until the turn-end
+sweep.
+
 ### 52c. `surface-region-adjacency`
 
 Carried by a Balrog **permanent-event** played on an Under-deeps site during the

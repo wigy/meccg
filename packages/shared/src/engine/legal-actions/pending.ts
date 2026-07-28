@@ -1353,6 +1353,11 @@ function applyOneConstraint(
       return applyOnlyCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
       return applyOnlyCreaturesKeyedToSiteAtRuinsLairs(state, playerId, base, constraint);
+    case 'extra-mh-phase':
+      // Master of Esgaroth (td-135): consumed directly by
+      // `advanceAfterCompanyMH` (mh-hazard-play.ts) once the company's
+      // movement/hazard phase ends — no broad legal-action filtering here.
+      return base;
     case 'no-creatures-keyed-to-site':
       return applyNoCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'company-cannot-move':

@@ -2183,6 +2183,17 @@ function applyShortEventOnEntersPlay(
         case 'only-creatures-keyed-to-site-at-ruins-lairs':
           kind = { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
           break;
+        case 'extra-mh-phase': {
+          // Master of Esgaroth (td-135): "Playable at the end of the
+          // organization phase on a moving company. If the company moves to a
+          // Border-hold, it can take a second movement/hazard phase." The
+          // destination is not final at play time, so the site-type gate rides
+          // on the constraint and is evaluated by `advanceAfterCompanyMH`.
+          const required = onEvent.apply.requiresDestinationSiteType as
+            import('../types/common.js').SiteType | undefined;
+          kind = { type: 'extra-mh-phase', ...(required ? { requiresDestinationSiteType: required } : {}) };
+          break;
+        }
         case 'no-creatures-keyed-to-site': {
           const unless = onEvent.apply.unlessSiteRegionType as import('../types/common.js').RegionType | undefined;
           kind = { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };

@@ -1087,6 +1087,29 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Master of Esgaroth (td-135): the target company "can take a second
+         * movement/hazard phase immediately following its first" — the
+         * standing, destination-gated counterpart of the one-shot
+         * `grant-extra-mh-phase` short event (Forced March le-185), which is
+         * played at the *end* of the M/H phase and therefore knows the
+         * destination already.
+         *
+         * td-135 is played at the end of the **organization** phase, before
+         * the move resolves, so the gate is evaluated later: when the
+         * company's movement/hazard phase ends
+         * (`advanceAfterCompanyMH`), the engine checks that the company
+         * actually moved and that its new site matches
+         * {@link requiresDestinationSiteType} (absent = any destination). On a
+         * match the constraint is consumed (removed) and the company enters
+         * the shared `extra-mh-move-offer` step, so exactly one extra phase is
+         * granted no matter where the second move lands.
+         */
+        readonly type: 'extra-mh-phase';
+        /** Site type the company must have moved to, or undefined for any. */
+        readonly requiresDestinationSiteType?: import('./common.js').SiteType;
+      }
+    | {
+        /**
          * Crack in the Wall (le-177): the inverse of
          * `only-creatures-keyed-to-site` — no hazard creatures may be played
          * *at the target company's new site*. Any hazard-creature play whose

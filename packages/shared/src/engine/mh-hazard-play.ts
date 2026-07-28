@@ -45,7 +45,7 @@ import { autoMergeNonHavenCompanies, cardKeepsBoundSitePermanent, isNazgulPerman
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { sweepExpired, addConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -2056,6 +2056,38 @@ function enqueueLeftBehindRejoins(state: GameState, activeIndex: number): GameSt
   return s;
 }
 
+/**
+ * Find an `extra-mh-phase` constraint (Master of Esgaroth td-135) that the
+ * given company has just satisfied, or null.
+ *
+ * The card is played at the end of the organization phase on a *moving*
+ * company, long before the destination is committed, so its "if the company
+ * moves to a Border-hold" clause is a promise checked at the end of the
+ * company's movement/hazard phase. A match therefore requires both that the
+ * company actually moved this phase and that the site it now occupies has the
+ * constraint's {@link requiresDestinationSiteType} (a constraint with no
+ * required type matches any completed move).
+ */
+function extraMHPhaseConstraint(
+  state: GameState,
+  company: Company,
+): import('../types/pending.js').ActiveConstraint | null {
+  if (!company.moved) return null;
+  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  if (!siteDef || !isSiteCard(siteDef)) return null;
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'extra-mh-phase') continue;
+    if (c.target.kind !== 'company' || c.target.companyId !== company.id) continue;
+    const required = c.kind.requiresDestinationSiteType;
+    if (required && siteDef.siteType !== required) {
+      logDetail(`Extra M/H phase: company ${company.id as string} moved to ${siteDef.name} (${siteDef.siteType}), constraint requires ${required} — no extra phase`);
+      continue;
+    }
+    return c;
+  }
+  return null;
+}
+
 export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
@@ -2095,6 +2127,23 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
         idx !== mhState.activeCompanyIndex ? c : { ...c, extraMHPhasePending: false }),
     }));
     return { state: { ...clearedState, phaseState: { ...mhState, step: 'extra-mh-move-offer' as const } } };
+  }
+
+  // extra-mh-phase constraint (Master of Esgaroth td-135): played at the end of
+  // the organization phase on a moving company, before its destination is
+  // final, so the "if the company moves to a Border-hold" gate is evaluated
+  // here instead of at play time. When the company really did move and its new
+  // site matches, consume the constraint (exactly one extra phase, however the
+  // second move ends) and route it through the shared extra-move offer step.
+  const extraPhase = extraMHPhaseConstraint(state, currentCompany);
+  if (extraPhase) {
+    logDetail(`Extra M/H phase: "${extraPhase.sourceDefinitionId as string}" grants company ${currentCompany.id as string} a second movement/hazard phase → extra-mh-move-offer`);
+    return {
+      state: {
+        ...removeConstraint(state, extraPhase.id),
+        phaseState: { ...mhState, step: 'extra-mh-move-offer' as const },
+      },
+    };
   }
 
   if (playerHasExtraUnderDeepsMH(state, activeIndex)) {
