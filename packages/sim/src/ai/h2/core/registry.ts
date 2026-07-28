@@ -34,6 +34,7 @@ import type { Evaluation, H2Module, ModuleContext } from './types.js';
 import { assertValidDistribution } from './tsd.js';
 import { combatModule } from '../modules/combat/combat.js';
 import { corruptionModule } from '../modules/corruption/corruption.js';
+import { healthModule } from '../modules/health/health.js';
 import { factionsModule } from '../modules/factions/factions.js';
 import { resourcesModule } from '../modules/resources/resources.js';
 import { travelModule } from '../modules/travel/travel.js';
@@ -46,7 +47,7 @@ import { travelModule } from '../modules/travel/travel.js';
  * corpus and a calibration harness already waiting for it, rather than being
  * validated by eye.
  */
-export const ALL_MODULES: readonly H2Module[] = [combatModule, corruptionModule, factionsModule, resourcesModule, travelModule];
+export const ALL_MODULES: readonly H2Module[] = [combatModule, corruptionModule, factionsModule, healthModule, resourcesModule, travelModule];
 
 /** Look up modules by name, throwing on an unknown one. */
 export function resolveModules(spec: string | undefined, available: readonly H2Module[] = ALL_MODULES): H2Module[] {
