@@ -55,16 +55,37 @@ const ASSUMPTIONS: readonly string[] = [
   + 'of its best resource is worse to draw from afterwards',
 ];
 
-/** The rounds of a character draft still on offer, as searchable zones. */
-function draftPools(view: ModuleContext['view']): {
-  cards: readonly { instanceId: CardInstanceId; definitionId: string }[];
+/** A card sitting in a setup pool, wherever that pool keeps it. */
+interface PoolCard {
+  readonly instanceId: CardInstanceId;
+  readonly definitionId: string;
+}
+
+/**
+ * The setup pools still on offer, as searchable zones.
+ *
+ * Neither of these is a zone on the player: they live on the setup step,
+ * because they exist only while that step runs. There are two, with different
+ * field names — `draftState[].pool` for the starting-character draft and
+ * `deckDraftState[].remainingPool` for choosing which characters go into the
+ * play deck — and handling only the first left `add-character-to-deck` unowned
+ * even after the module had nominally taken it.
+ */
+function setupPools(view: ModuleContext['view']): {
+  cards: readonly PoolCard[];
   where: string;
 }[] {
   const setup = (view.phaseState as unknown as {
-    setupStep?: { draftState?: readonly { pool?: readonly { instanceId: CardInstanceId; definitionId: string }[] }[] };
+    setupStep?: {
+      draftState?: readonly { pool?: readonly PoolCard[] }[];
+      deckDraftState?: readonly { remainingPool?: readonly PoolCard[] }[];
+    };
   }).setupStep;
-  return (setup?.draftState ?? [])
-    .map(round => ({ cards: round.pool ?? [], where: 'draft pool' }));
+  return [
+    ...(setup?.draftState ?? []).map(round => ({ cards: round.pool ?? [], where: 'draft pool' })),
+    ...(setup?.deckDraftState ?? [])
+      .map(round => ({ cards: round.remainingPool ?? [], where: 'deck-draft pool' })),
+  ];
 }
 
 /** Where the card being chosen lives, by action type. */
@@ -88,10 +109,10 @@ function chosenCard(action: GameAction, context: ModuleContext): { definitionId:
     { cards: view.self.discardPile ?? [], where: 'discard pile' },
     { cards: view.self.hand ?? [], where: 'hand' },
     { cards: view.self.playDeck ?? [], where: 'play deck' },
-    // The draft pool is not a zone on the player: it lives on the setup step,
-    // because it exists only while the draft is running. Looking only at the
-    // player's zones found nothing, and the module declined every pick.
-    ...draftPools(view),
+    // The setup pools are not zones on the player: they live on the setup step,
+    // because they exist only while it runs. Looking only at the player's zones
+    // found nothing, and the module declined every pick.
+    ...setupPools(view),
   ];
   for (const zone of zones) {
     const card = zone.cards.find(c => c.instanceId === instanceId);
