@@ -76,9 +76,13 @@ function parseMcOptions(param: string | undefined): McAgentOptions {
   if (param === undefined || param.length === 0) return {};
   const options: {
     rollouts?: number; horizonTurns?: number; maxDecisions?: number;
-    maxCandidates?: number; timeMs?: number;
+    maxCandidates?: number; timeMs?: number; jobs?: number;
     unknownSites?: 'sample' | 'inert'; fallback?: Agent;
   } = {};
+  // SIM_MC_JOBS parallelizes per-decision search without touching spec
+  // strings (consistent with SIM_JOBS); an explicit jobs= key wins.
+  const envJobs = Number(process.env.SIM_MC_JOBS ?? 1) || 1;
+  if (envJobs > 1) options.jobs = envJobs;
   for (const part of param.split('/')) {
     const eq = part.indexOf('=');
     if (eq < 0) throw new Error(`mc expects key=value parameters separated by "/", got "${part}"`);
@@ -95,6 +99,7 @@ function parseMcOptions(param: string | undefined): McAgentOptions {
       case 'decisions': options.maxDecisions = asNumber(); break;
       case 'candidates': options.maxCandidates = asNumber(); break;
       case 'ms': options.timeMs = asNumber(); break;
+      case 'jobs': options.jobs = asNumber(); break;
       case 'sites':
         if (value !== 'sample' && value !== 'inert') {
           throw new Error(`mc sites expects "sample" or "inert", got "${value}"`);
@@ -104,7 +109,7 @@ function parseMcOptions(param: string | undefined): McAgentOptions {
       // Nested specs are not supported: the fallback is itself an agent
       // spec, and allowing commas inside it would break this parser.
       case 'fallback': options.fallback = resolveAgent(value); break;
-      default: throw new Error(`mc: unknown parameter "${key}" — expected rollouts, turns, decisions, candidates, ms, sites, fallback`);
+      default: throw new Error(`mc: unknown parameter "${key}" — expected rollouts, turns, decisions, candidates, ms, jobs, sites, fallback`);
     }
   }
   return options;

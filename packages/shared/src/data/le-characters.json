@@ -1552,8 +1552,28 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Moria",
-    "effects": [],
-    "text": "Unique. +1 prowess against Orcs and Elves."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "elf"
+        }
+      }
+    ],
+    "text": "Unique. +1 prowess against Orcs and Elves.",
+    "certified": "2026-07-28"
   },
   {
     "cardType": "minion-character",
@@ -1787,8 +1807,55 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Dol Guldur",
-    "effects": [],
-    "text": "Unique. +1 direct influence against Dwarves and Dwarf factions. +1 prowess against Orcs and Elves."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "opponent-influence-check",
+          "target.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "elf"
+        }
+      }
+    ],
+    "text": "Unique. +1 direct influence against Dwarves and Dwarf factions. +1 prowess against Orcs and Elves.",
+    "certified": "2026-07-28"
   },
   {
     "cardType": "minion-character",
@@ -1989,8 +2056,46 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Minas Morgul",
-    "effects": [],
-    "text": "Unique. +2 direct influence against Dwarves and Dwarf factions. +1 prowess against Orcs and Elves."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "dwarf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "orc"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "when": {
+          "reason": "combat",
+          "enemy.race": "elf"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against Dwarves and Dwarf factions. +1 prowess against Orcs and Elves.",
+    "certified": "2026-07-28"
   },
   {
     "cardType": "minion-character",

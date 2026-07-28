@@ -383,10 +383,12 @@ function runGrantApply(
       return { error: `enqueue-gold-ring-test: gold ring ${goldRingInstanceId as string} is not borne by any character` };
     }
     const rollModifier = apply.rollModifier ?? 0;
+    // rollCount > 1: the tester rolls that many times and chooses one result.
+    const rollCount = apply.rollCount ?? 1;
     const actor = ctx.action.player;
     const currentPhase = state.phaseState.phase;
     const ringName = defById(state, resolveInstanceId(state, goldRingInstanceId) ?? ('' as import('../types/common.js').CardDefinitionId))?.name ?? (goldRingInstanceId as string);
-    logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} tests ${ringName} — enqueueing gold-ring test (bearer ${bearerId as string}, roll modifier ${formatSignedNumber(rollModifier)})`);
+    logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} tests ${ringName} — enqueueing gold-ring test (bearer ${bearerId as string}, roll modifier ${formatSignedNumber(rollModifier)}${rollCount > 1 ? `, ${rollCount} rolls — tester chooses one` : ''})`);
     const ringId = goldRingInstanceId;
     const bearer = bearerId;
     return {
@@ -402,6 +404,7 @@ function runGrantApply(
             goldRingInstanceId: ringId,
             rollModifier,
             characterInstanceId: bearer,
+            ...(rollCount > 1 ? { rollCount } : {}),
           },
         }),
       ],

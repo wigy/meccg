@@ -8,7 +8,6 @@
 
 import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction } from '../index.js';
 import { parseConstraintScope } from './constraint-kind.js';
-import { hasPlayFlag } from '../effects/play-flags.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { CardStatus, cardStatusFromName, Race } from '../types/common.js';
@@ -20,7 +19,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { triggerCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -598,65 +597,61 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
   }
 
-  let newCharacters = workingState.players[playerIndex].characters;
+  // The sweep sibling of the branch above: a short event that discards *every*
+  // matching card in play (Wizard's River-horses tw-364, "All Nazgûl events are
+  // discarded"). Same chain treatment — the opponent is owed a response window
+  // before the sweep lands — but there is no chosen target to carry, so the
+  // payload flags the mode instead. The flag also keeps the sweep from firing
+  // when this card is played in its *other* mode (cancel-attack), which pushes
+  // a bare `short-event` payload from `handleCancelAttack`.
+  if (findMoveEffectByShape(def, 'filter-all', 'in-play', 'discard')) {
+    logDetail(`${def.name} → chain of effects (discard-all-in-play resolves on chain resolution)`);
+    const afterHand = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand }));
+    const payload: ChainEntryPayload = {
+      type: 'short-event',
+      discardAllInPlay: true,
+      ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+    };
+    return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
+  }
+
+  const newCharacters = workingState.players[playerIndex].characters;
 
   // Handle DSL-declared play-option `set-character-status` applies (e.g.
-  // Halfling Strength's untap / heal options). Constraint-producing applies
-  // are resolved below against the fully-updated state via addConstraint.
+  // And Forth He Hastened td-98, Halfling Strength's untap / heal options,
+  // Above the Abyss as-77, Angband Revisited ba-49). Constraint-producing
+  // applies are resolved below against the fully-updated state via
+  // addConstraint.
   const selectedOption = action.optionId
     ? (def.effects?.find(
         e => e.type === 'play-option' && e.id === action.optionId,
       ) as import('../types/effects.js').PlayOptionEffect | undefined)
     : undefined;
 
+  // Choosing a `set-character-status` play-option (untap/heal) is a declared
+  // action like any other, so per CoE 9.4/9.5 it must ride the chain of
+  // effects — the opponent is owed a response window before the character's
+  // status actually changes. The card leaves the hand and rides the chain
+  // entry, carrying the chosen target and option id; `resolveEntry` (in
+  // chain-reducer) applies the status change (and the healing-affects-all
+  // extension, if applicable) and discards the spent card once both players
+  // pass priority. Previously this resolved inline — the status changed and
+  // the card was discarded in the same step the action was declared —
+  // silently skipping the opponent's response window.
   if (selectedOption && action.targetCharacterId && selectedOption.apply.type === 'set-character-status') {
-    const targetId = action.targetCharacterId;
-    const targetChar = newCharacters[targetId];
-    const nextStatus = selectedOption.apply.status;
-    if (nextStatus === undefined) {
+    if (selectedOption.apply.status === undefined) {
       return { state, error: `${def.name} option '${selectedOption.id}': set-character-status missing status` };
     }
-    const statusEnum = cardStatusFromName(nextStatus);
-    logDetail(`${def.name} option "${selectedOption.id}": set ${targetId} status → ${nextStatus}`);
-    newCharacters = { ...newCharacters, [targetId]: { ...targetChar, status: statusEnum } };
-
-    // healing-affects-all — if this was a heal (wounded → well), extend
-    // the healing to all other wounded characters in the same company.
-    // Triggers either from a character in the company carrying the
-    // `healing-affects-all` play-flag (e.g. Ioreth) or from the company's
-    // current site carrying the `site-rule` variant (e.g. Rhosgobel, Old Forest).
-    const isHeal = targetChar.status === CardStatus.Inverted && statusEnum !== CardStatus.Inverted;
-    if (isHeal) {
-      const company = findCharacterCompany(player.companies, action.targetCharacterId);
-      if (company) {
-        const hasCompanyFlag = company.characters.some(charId => {
-          const ch = newCharacters[charId];
-          if (!ch) return false;
-          const charDef = state.cardPool[ch.definitionId] as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
-          return hasPlayFlag(charDef, 'healing-affects-all');
-        });
-        let hasSiteRule = false;
-        if (company.currentSite) {
-          const siteDef = defById(state, company.currentSite.definitionId);
-          hasSiteRule = !!(siteDef && 'effects' in siteDef &&
-            (siteDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.some(
-              e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
-            ));
-        }
-        if (hasCompanyFlag || hasSiteRule) {
-          const source = hasCompanyFlag ? 'play-flag' : 'site-rule';
-          for (const charId of company.characters) {
-            const cid = charId;
-            if (cid === targetId) continue;
-            const ch = newCharacters[cid];
-            if (ch && ch.status === CardStatus.Inverted) {
-              logDetail(`${source} healing-affects-all: extending heal to ${cid}`);
-              newCharacters = { ...newCharacters, [cid]: { ...ch, status: statusEnum } };
-            }
-          }
-        }
-      }
-    }
+    const targetName = resolveDef(workingState, action.targetCharacterId)?.name
+      ?? (action.targetCharacterId as string);
+    logDetail(`${def.name} → chain of effects (option "${selectedOption.id}" status change on ${targetName} resolves on chain resolution)`);
+    const afterHand = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand }));
+    const payload: ChainEntryPayload = {
+      type: 'short-event',
+      targetCharacterId: action.targetCharacterId,
+      optionId: action.optionId,
+    };
+    return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
   }
 
   // Collect fetch-to-deck effects — these need a sub-flow because the player
@@ -2200,6 +2195,18 @@ function applyShortEventOnEntersPlay(
           break;
         }
         case 'company-cannot-move':
+          // "The company may not move to another site this turn" (Hiding
+          // tw-256). End-of-org cards are played *alongside* the other
+          // organization actions, so the company may already have declared a
+          // destination — locking it stationary has to strip that declaration
+          // (returning the site card to the location deck) as well as barring a
+          // fresh one, exactly as Siege's `lock-company-movement` does. A no-op
+          // for a company that never planned a move (Hide in Dark Places
+          // le-192, which may only target a non-moving company).
+          if (company.destinationSite) {
+            logDetail(`"${def.name}": company ${company.id as string} may not move this turn — dropping its declared destination`);
+            state = clearPlannedMovement(state, playerIndex, company.id);
+          }
           kind = { type: 'company-cannot-move' };
           break;
         case 'site-phase-do-nothing':
@@ -2388,7 +2395,10 @@ function applyShortEventOnEntersPlay(
       }
 
       const rollModifier = (onEvent.apply as { rollModifier?: number }).rollModifier ?? 0;
-      logDetail(`"${def.name}": enqueue-gold-ring-test on ring ${goldRingInstanceId as string} (bearer ${bearerId as string}, roll modifier ${rollModifier})`);
+      // rollCount > 1 (Wizard's Test tw-365): the player rolls that many times
+      // and then chooses which result the test uses.
+      const rollCount = (onEvent.apply as { rollCount?: number }).rollCount ?? 1;
+      logDetail(`"${def.name}": enqueue-gold-ring-test on ring ${goldRingInstanceId as string} (bearer ${bearerId as string}, roll modifier ${rollModifier}${rollCount > 1 ? `, ${rollCount} rolls — player chooses one` : ''})`);
       state = enqueueResolution(state, {
         source: handCard.instanceId,
         actor: actor.id,
@@ -2398,6 +2408,7 @@ function applyShortEventOnEntersPlay(
           goldRingInstanceId,
           rollModifier,
           characterInstanceId: bearerId,
+          ...(rollCount > 1 ? { rollCount } : {}),
         },
       });
     }

@@ -3289,7 +3289,16 @@ export function playResourceShortEventActions(
     // has a play-target with tap cost AND discard-in-play, emit the cross-
     // product of (tap target × discard target). When the card has
     // enqueue-ring-play-offer, also cross with gold rings in the sage's company.
-    const emitPlay = (tapTargetId: CardInstanceId | undefined, goldRingId?: CardInstanceId) => {
+    // `playTargetId` names the play-target character when the card's target
+    // carries no tap cost (the tap-cost case travels as `targetScoutInstanceId`).
+    // The ring-test cards need it: Wizard's Test (tw-365) pairs the test with
+    // "Wizard makes a corruption check modified by -1", and the check is made by
+    // the play-target — the reducer reads it from `targetCharacterId`.
+    const emitPlay = (
+      tapTargetId: CardInstanceId | undefined,
+      goldRingId?: CardInstanceId,
+      playTargetId?: CardInstanceId,
+    ) => {
       if (discardTargetIds) {
         for (const discardId of discardTargetIds) {
           logDetail(`Resource short-event playable (target ${String(tapTargetId)}, discard ${String(discardId)}): ${def.name}`);
@@ -3305,13 +3314,14 @@ export function playResourceShortEventActions(
           });
         }
       } else {
-        logDetail(`Resource short-event playable${tapTargetId ? ` (target ${String(tapTargetId)})` : ''}${goldRingId ? ` (ring ${String(goldRingId)})` : ''}: ${def.name}`);
+        logDetail(`Resource short-event playable${tapTargetId ? ` (target ${String(tapTargetId)})` : ''}${playTargetId ? ` (target ${String(playTargetId)})` : ''}${goldRingId ? ` (ring ${String(goldRingId)})` : ''}: ${def.name}`);
         actions.push({
           action: {
             type: 'play-short-event',
             player: playerId,
             cardInstanceId: handCard.instanceId,
             ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
+            ...(playTargetId ? { targetCharacterId: playTargetId } : {}),
             ...(goldRingId ? { targetGoldRingInstanceId: goldRingId } : {}),
           },
           viable: true,
@@ -3401,12 +3411,14 @@ export function playResourceShortEventActions(
         logDetail(`${def.name}: no eligible character targets — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
       } else if (crossesGoldRing) {
-        // Test of Fire (le-239): sage filter with no tap cost. Cross each
-        // eligible sage with the gold rings borne by characters in that sage's
-        // company; emit targetGoldRingInstanceId so the reducer tests the chosen
-        // ring. This enforces "test a gold ring in a sage's company".
-        // A company may hold several sages; emit each gold ring once regardless
-        // of how many sages could authorize its test.
+        // Test of Fire (le-239) / Wizard's Test (tw-365): a skill or race filter
+        // with no tap cost. Cross each eligible target with the gold rings borne
+        // by characters in that target's company; emit targetGoldRingInstanceId
+        // so the reducer tests the chosen ring. This enforces "test a gold ring
+        // in a sage's company" / "only if a character in his company has a gold
+        // ring". A company may hold several eligible targets; emit each gold
+        // ring once regardless of how many could authorize its test, naming the
+        // first as the play-target (whose corruption check tw-365 needs).
         const offeredRings = new Set<CardInstanceId>();
         for (const sageId of filterTargets) {
           const sageCompany = findCharacterCompany(player.companies, sageId);
@@ -3418,7 +3430,7 @@ export function playResourceShortEventActions(
               if (offeredRings.has(item.instanceId)) continue;
               const itemDef = defById(state, item.definitionId);
               if (itemDef && 'subtype' in itemDef && (itemDef as { subtype?: string }).subtype === 'gold-ring') {
-                emitPlay(undefined, item.instanceId);
+                emitPlay(undefined, item.instanceId, sageId);
                 offeredRings.add(item.instanceId);
               }
             }

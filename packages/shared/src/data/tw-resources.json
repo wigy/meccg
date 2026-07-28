@@ -2492,8 +2492,45 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Scout only. Playable at the end of the organization phase. Scout’s company may not move to another site this turn. Cancels all hazard creature attacks against the scout’s company this turn."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "scout"
+          }
+        },
+        "requiredSkill": "scout"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "company-cannot-move",
+          "scope": "turn"
+        },
+        "target": "scout-company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "no-creature-hazards-on-company",
+          "scope": "turn"
+        },
+        "target": "scout-company"
+      }
+    ],
+    "text": "Scout only. Playable at the end of the organization phase. Scout’s company may not move to another site this turn. Cancels all hazard creature attacks against the scout’s company this turn.",
+    "certified": "2026-07-28"
   },
   {
     "cardType": "hero-resource-faction",
@@ -3129,8 +3166,13 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Play to test a gold ring in a sage’s company."
+    "effects": [
+      { "type": "play-window", "phase": "organization" },
+      { "type": "play-target", "target": "character", "filter": { "target.skills": { "$includes": "sage" } } },
+      { "type": "on-event", "event": "self-enters-play", "apply": { "type": "enqueue-gold-ring-test", "rollModifier": 0 } }
+    ],
+    "text": "Sage only. Play to test a gold ring in a sage’s company.",
+    "certified": "2026-07-28"
   },
   {
     "cardType": "hero-resource-event",
@@ -3321,9 +3363,46 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsRiverhorses.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "wizard"
+        }
+      },
+      {
+        "type": "move",
+        "select": "filter-all",
+        "from": "in-play",
+        "to": "discard",
+        "filter": {
+          "keywords": {
+            "$includes": "Nazgûl"
+          }
+        },
+        "corruptionCheck": {
+          "modifier": -2
+        }
+      },
+      {
+        "type": "cancel-attack",
+        "requiredRace": "wizard",
+        "cost": {
+          "check": "corruption",
+          "modifier": -2
+        },
+        "when": {
+          "bearer.companySize": 1
+        }
+      }
+    ],
+    "certified": "2026-07-28",
     "text": "Spell. Wizard only. All Nazgûl events are discarded or cancels an attack against a Wizard if he is the only character in the company. Wizard makes a corruption check modified by -2."
   },
   {
@@ -3334,9 +3413,42 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsTest.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "wizard"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-gold-ring-test",
+          "rollModifier": 0,
+          "rollCount": 2
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -1
+        }
+      }
+    ],
+    "certified": "2026-07-28",
     "text": "Spell. Wizard only, and only if a character in his company has a gold ring. Play to test a gold ring; make two rolls and choose one result to use for the test. Wizard makes a corruption check modified by -1."
   },
   {

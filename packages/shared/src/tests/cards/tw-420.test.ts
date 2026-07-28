@@ -38,7 +38,7 @@ import {
   LORIEN, MORIA, MINAS_TIRITH,
   ARAGORN, BILBO, LEGOLAS, IORETH, HALFLING_STRENGTH,
   resetMint, buildTestState, Phase, CardStatus,
-  findCharInstanceId, handCardId, dispatch, dispatchResult,
+  findCharInstanceId, handCardId, dispatch, dispatchResult, resolveChain,
   expectCharStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
@@ -74,13 +74,13 @@ describe('Rhosgobel (tw-420)', () => {
     const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
-    const state = dispatch(base, {
+    const state = resolveChain(dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
       optionId: 'heal',
-    });
+    }));
 
     // Both wounded characters in the company heal because the company's
     // site (Rhosgobel) carries site-rule healing-affects-all.
@@ -113,13 +113,13 @@ describe('Rhosgobel (tw-420)', () => {
     const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
-    const state = dispatch(base, {
+    const state = resolveChain(dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
       optionId: 'heal',
-    });
+    }));
 
     expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
@@ -150,13 +150,13 @@ describe('Rhosgobel (tw-420)', () => {
     const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
-    const state = dispatch(base, {
+    const state = resolveChain(dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
       optionId: 'heal',
-    });
+    }));
 
     expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     // Aragorn remains wounded — the site at Moria has no healing rule.
@@ -187,13 +187,13 @@ describe('Rhosgobel (tw-420)', () => {
     const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
-    const state = dispatch(base, {
+    const state = resolveChain(dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
       optionId: 'untap',
-    });
+    }));
 
     expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     // Aragorn is still wounded — untapping a tapped character is not healing.

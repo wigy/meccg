@@ -125,7 +125,37 @@ export function applyMove(
   }
   const pushed = pushToZone(next, move, ctx, located.instances.map(i => i.instance), located.instances);
   if ('error' in pushed) return pushed;
-  return { state: pushed.state };
+
+  // A card actually leaving play (destination is not one of the in-play
+  // zones) sheds any constraints it sourced — e.g. The Moon Is Dead's
+  // "all Undead automatic-attacks duplicated" must stop applying once the
+  // card itself is discarded, however it left play (its own attack-defeated
+  // trigger, or a generic effect like Marvels Told's "discard an in-play
+  // hazard event").
+  if (move.to === 'in-play-general' || move.to === 'in-play-on-character') {
+    return { state: pushed.state };
+  }
+  return { state: dropConstraintsSourcedBy(pushed.state, located.instances.map(i => i.instance.instanceId)) };
+}
+
+/**
+ * Drops any {@link GameState.activeConstraints} sourced by the given card
+ * instances. Continuous effects granted by an in-play permanent-event (e.g.
+ * The Moon Is Dead's auto-attack duplication) must not outlive the card that
+ * granted them, however the card left play — `applyMove` calls this whenever
+ * its destination is not an in-play zone; callers that move a card to
+ * discard/kill/hand outside `applyMove` (e.g. `short-event-discard.ts`'s
+ * single-target discard path) must call this explicitly. Safe to call with
+ * instances that never sourced a constraint — it's then a no-op.
+ */
+export function dropConstraintsSourcedBy(state: GameState, instanceIds: readonly CardInstanceId[]): GameState {
+  if (instanceIds.length === 0) return state;
+  const ids = new Set<string>(instanceIds.map(id => id as string));
+  if (!state.activeConstraints.some(c => ids.has(c.source as string))) return state;
+  return {
+    ...state,
+    activeConstraints: state.activeConstraints.filter(c => !ids.has(c.source as string)),
+  };
 }
 
 /**

@@ -1174,11 +1174,15 @@
     "unique": true,
     "marshallingPoints": 3,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 12,
     "race": "dwarf",
-    "playableAt": [],
+    "playableAt": [
+      {
+        "site": "The Worthy Hills"
+      }
+    ],
     "effects": [],
-    "text": "Unique. Playable at The Worthy Hills  if the influence check is greater than 11."
+    "text": "Unique. Playable at The Worthy Hills if the influence check is greater than 11."
   },
   {
     "cardType": "minion-resource-ally",

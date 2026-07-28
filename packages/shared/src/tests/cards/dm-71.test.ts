@@ -35,7 +35,8 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   reduce,
-  ARAGORN, LEGOLAS,
+  ARAGORN, LEGOLAS, ELROND,
+  MARVELS_TOLD,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   buildTestState, resetMint, buildSitePhaseState,
@@ -45,6 +46,7 @@ import {
   makeMHState,
   findCharInstanceId,
   addRaceDuplicateConstraint,
+  dispatch, resolveChain, handCardId, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { CardInPlay, CardInstanceId, SitePhaseState, CardDefinitionId } from '../../index.js';
 import { Race } from '../../index.js';
@@ -249,5 +251,50 @@ describe('The Moon Is Dead (dm-71)', () => {
 
     const actions = viableActions(readyState, PLAYER_2, 'play-hazard');
     expect(actions).toHaveLength(0);
+  });
+
+  test('discarding via Marvels Told (early, before an Undead attack is defeated) also clears its auto-attack-race-duplicate constraint', () => {
+    // Regression for bug c4a82d85ca793034 (game ms4knxxm-yjvsvt, seq 379):
+    // P1 played Marvels Told (td-134) to force-discard The Moon Is Dead from
+    // P2's cardsInPlay well before any Undead attack was defeated. The card's
+    // own "discard self on attack-defeated" path (combat-finalize.ts) also
+    // strips the constraint it granted, but the generic discard-in-play move
+    // (Marvels Told's `move` effect) did not — so the "duplicate every Undead
+    // automatic-attack" constraint kept firing at Tolfalas turns later, long
+    // after the card that granted it had left play.
+    const base = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [moonInPlay] },
+      ],
+    });
+    const state = addRaceDuplicateConstraint(base, moonInPlay.instanceId, THE_MOON_IS_DEAD, Race.Undead, PLAYER_2);
+    expect(state.activeConstraints.some(c => c.source === moonInPlay.instanceId)).toBe(true);
+
+    const marvelsId = handCardId(state, RESOURCE_PLAYER);
+    const elrondId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
+
+    const next = resolveChain(dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: marvelsId,
+      targetScoutInstanceId: elrondId,
+      discardTargetInstanceId: moonInPlay.instanceId,
+    }));
+
+    expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(moonInPlay.instanceId);
+    expect(next.players[1].discardPile.map(c => c.instanceId)).toContain(moonInPlay.instanceId);
+    // The duplication constraint must not outlive the card that granted it.
+    expect(next.activeConstraints.some(c => c.source === moonInPlay.instanceId)).toBe(false);
+
+    // Confirm the effect actually stops: a subsequent Undead automatic-attack
+    // at Gladden Fields is faced once, not duplicated.
+    const siteState = setupAutoAttackStep(buildSitePhaseState({ site: GLADDEN_FIELDS }));
+    const afterAutoAttack = reduce({ ...siteState, activeConstraints: next.activeConstraints }, { type: 'pass', player: PLAYER_1 });
+    expect(afterAutoAttack.error).toBeUndefined();
+    expect(afterAutoAttack.state.combat!.strikeProwess).toBe(8);
+    expect(afterAutoAttack.state.combat!.strikesTotal).toBe(1);
   });
 });

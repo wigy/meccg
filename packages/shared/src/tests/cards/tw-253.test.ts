@@ -37,7 +37,7 @@ import {
   ARAGORN, LEGOLAS, BILBO, FRODO, HALFLING_STRENGTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
-  handCardId, charIdAt, dispatch,
+  handCardId, charIdAt, dispatch, resolveChain,
   expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
@@ -201,13 +201,13 @@ describe('Halfling Strength (tw-253)', () => {
     const bilboId = charIdAt(base, RESOURCE_PLAYER);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
-    const state = dispatch(base, {
+    const state = resolveChain(dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
       optionId: 'untap',
-    });
+    }));
 
     expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     expect(state.players[0].hand).toHaveLength(0);
@@ -232,13 +232,13 @@ describe('Halfling Strength (tw-253)', () => {
     const bilboId = charIdAt(base, RESOURCE_PLAYER);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
-    const state = dispatch(base, {
+    const state = resolveChain(dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
       optionId: 'heal',
-    });
+    }));
 
     expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     expect(state.players[0].hand).toHaveLength(0);

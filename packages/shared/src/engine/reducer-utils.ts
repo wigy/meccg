@@ -3286,7 +3286,47 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
     return { ...player, companies: keptCompanies, siteDeck: newSiteDeck, discardPile: newDiscardPile, cardsInPlay: remainingCardsInPlay };
   });
 
-  return { ...state, players: [newPlayers[0], newPlayers[1]] };
+  const cleanedState: GameState = { ...state, players: [newPlayers[0], newPlayers[1]] };
+  return reindexActiveCompanyAfterCleanup(state, cleanedState);
+}
+
+/**
+ * Companies are removed from the array by a plain filter, so any company
+ * after a removed one shifts to a lower index. The movement/hazard and site
+ * phases track "the company currently being processed" purely by
+ * `activeCompanyIndex`, and every dissolved-company check scattered through
+ * those phases tests `!companies[activeCompanyIndex]` — which only fires
+ * correctly if the dissolved company was the last one in the array. If the
+ * active company dissolves mid-phase (e.g. its last character dies to a
+ * corruption check) while a later sibling company still exists, that sibling
+ * silently shifts into the active company's old slot, and the phase mistakes
+ * the sibling for the company that just finished — skipping the sibling's
+ * own movement/hazard or site phase entirely for the turn.
+ *
+ * Re-resolve `activeCompanyIndex` by company identity here, the single choke
+ * point where the companies array can shrink, so callers keep seeing a
+ * correct index (or a correct out-of-bounds sentinel when the active company
+ * itself was the one removed).
+ */
+function reindexActiveCompanyAfterCleanup(before: GameState, after: GameState): GameState {
+  const activeCompanyIndex = (before.phaseState as { activeCompanyIndex?: number }).activeCompanyIndex;
+  if (activeCompanyIndex === undefined || !before.activePlayer) return after;
+
+  const beforePlayer = playerById(before, before.activePlayer);
+  const activeCompanyId = beforePlayer?.companies[activeCompanyIndex]?.id;
+  if (!activeCompanyId) return after;
+
+  const afterPlayer = playerById(after, before.activePlayer);
+  const newIndex = afterPlayer?.companies.findIndex(c => c.id === activeCompanyId) ?? -1;
+  if (newIndex === activeCompanyIndex) return after;
+
+  const resolvedIndex = newIndex >= 0 ? newIndex : (afterPlayer?.companies.length ?? activeCompanyIndex);
+  logDetail(`cleanupEmptyCompanies: re-resolved activeCompanyIndex ${activeCompanyIndex} → ${resolvedIndex} for company ${activeCompanyId as string} after company removal shifted the array`);
+  const patchedPhaseState = {
+    ...(after.phaseState as { activeCompanyIndex?: number }),
+    activeCompanyIndex: resolvedIndex,
+  } as GameState['phaseState'];
+  return { ...after, phaseState: patchedPhaseState };
 }
 
 /**
@@ -4320,6 +4360,51 @@ export function companyHasNoAllyRestriction(
     }
   }
   return false;
+}
+
+/**
+ * Clear a company's planned destination, returning the destination site card
+ * to its owner's location deck. Shared by the player-driven `cancel-movement`
+ * action and by effects that strip a declared movement (Siege tw-87: a failed
+ * end-of-organization-phase roll means "the company may not move this turn";
+ * Hiding tw-256: "Scout's company may not move to another site this turn").
+ *
+ * Rules 3.37 / 3.39: if the destination instance is still in play at another
+ * sibling company (as its `currentSite` or its own `destinationSite`), the card
+ * must stay in play — only this company's claim on it is dropped. The physical
+ * card was drawn from the location deck exactly once, by whichever company took
+ * it. A no-op when the company has no planned movement.
+ */
+export function clearPlannedMovement(
+  state: GameState,
+  playerIndex: number,
+  companyId: CompanyId,
+): GameState {
+  const player = state.players[playerIndex];
+  const companyIdx = player.companies.findIndex(c => c.id === companyId);
+  if (companyIdx === -1) return state;
+  const company = player.companies[companyIdx];
+  const destination = company.destinationSite;
+  if (!destination) return state;
+
+  const siblingStillHasIt = player.companies.some(
+    c => c.id !== company.id
+      && (c.currentSite?.instanceId === destination.instanceId
+        || c.destinationSite?.instanceId === destination.instanceId),
+  );
+
+  const companies = [...player.companies];
+  companies[companyIdx] = { ...company, destinationSite: null, movementPath: [] };
+
+  let siteDeck = player.siteDeck;
+  if (siblingStillHasIt) {
+    logDetail(`Cancel movement: company ${company.id as string}, destination ${destination.instanceId as string} still in play at a sibling — not returning to site deck`);
+  } else {
+    logDetail(`Cancel movement: company ${company.id as string}, returning site ${destination.instanceId as string} to site deck`);
+    siteDeck = [...player.siteDeck, toCardInstance(destination)];
+  }
+
+  return updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck }));
 }
 
 /**

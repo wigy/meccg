@@ -27,7 +27,7 @@ import type {
 import type { CardInPlay } from '../types/state-cards.js';
 import type { ChainEntry } from '../types/state-combat.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { dequeueResolution, enqueueResolution, removeConstraint, addConstraint } from './pending.js';
+import { dequeueResolution, enqueueResolution, replaceResolutionKind, removeConstraint, addConstraint } from './pending.js';
 import { advanceMaintenanceChain, discardMaintainedEvent } from './event-maintenance.js';
 import { shuffle } from '../rng.js';
 import { formatSignedNumber } from '../format-helpers.js';
@@ -40,7 +40,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { makeCombatState, activePlayerState, cardName, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findEventMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, cardName, clearPlannedMovement, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, diceRollEffect, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, generalInfluenceControlLimit, findById, findCharacterCompany, findEventMaintenanceEffect, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, roll2d6, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findDiscardSubstitutes, substituteCovers, discardCardsFromCompany, enqueueDiscardSubstituteOffer } from './discard-substitute.js';
@@ -58,7 +58,6 @@ import { autoResolve } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
 import { eligibleRingCategories, opposedRollStat } from './legal-actions/pending.js';
-import { clearPlannedMovement } from './reducer-organization.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -2216,20 +2215,163 @@ function splitCharacterToOrigin(
 }
 
 /**
- * Resolve a queued `gold-ring-test` resolution (Rule 9.21 / 9.22). The
- * ring's owner rolls 2d6, the site's roll modifier is applied, and the
- * gold-ring item is discarded regardless of the result. Then a
- * `ring-play-offer` is enqueued so the player may play a matching special ring.
+ * Resolve a queued `gold-ring-test` resolution (Rule 9.21 / 9.22).
+ *
+ * The ring's owner rolls 2d6 and the test's roll modifier (plus company
+ * check-modifiers and the MEWH §10 Fallen-wizard penalty) is applied. A test
+ * with `rollCount > 1` (Wizard's Test tw-365: "make two rolls and choose one
+ * result to use for the test") stays queued, in place, accumulating one total
+ * per roll; once every roll is in, the player resolves it with a
+ * `choose-gold-ring-test-roll` action naming the total to use. Single-roll
+ * tests — every other producer — finalize on their one roll.
+ *
+ * Finalization ({@link finalizeGoldRingTest}) discards the gold-ring item
+ * regardless of the result and enqueues a `ring-play-offer` so the player may
+ * play a matching special ring.
  */
 export function applyGoldRingTestResolution(
   state: GameState,
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  if (top.kind.type !== 'gold-ring-test') return null;
+  const rolledTotals = top.kind.rolledTotals ?? [];
+
+  // Multi-roll variant: the player picks which of the rolled totals is used.
+  if (action.type === 'choose-gold-ring-test-roll') {
+    if (action.player !== top.actor) {
+      return { state, error: 'Wrong player for pending gold-ring-test' };
+    }
+    if (!rolledTotals.includes(action.rollTotal)) {
+      return { state, error: `Pending gold-ring-test: ${action.rollTotal} is not one of the rolled totals (${rolledTotals.join(', ')})` };
+    }
+    logDetail(`Gold-ring test: player chose ${action.rollTotal} from rolls (${rolledTotals.join(', ')})`);
+    return finalizeGoldRingTest(state, getPlayerIndex(state, action.player), top, top.kind, action.rollTotal, []);
+  }
+
   const g = guardRollResolution(state, action, top, 'gold-ring-test-roll', 'gold-ring-test');
   if (!g.ok) return g.result;
   const { actorIndex, player, kind } = g;
   const { goldRingInstanceId, rollModifier, characterInstanceId } = kind;
+  const rollCount = kind.rollCount ?? 1;
+
+  const ringCardForRoll = findTestedGoldRing(player, goldRingInstanceId);
+  if (!ringCardForRoll) {
+    return { state: dequeueResolution(state, top.id), error: 'Gold ring not found in out-of-play pile or character items' };
+  }
+  const ringDefForRoll = defById(state, ringCardForRoll.definitionId);
+  const ringNameForRoll = ringDefForRoll?.name ?? (ringCardForRoll.definitionId as string);
+
+  // Check-modifier effects (e.g. Scroll of Isildur) from every character in the
+  // company bearing the ring. The ring under test is excluded from the sweep —
+  // a ring may not modify its own test.
+  const itemCheckModifier = goldRingTestCompanyModifier(
+    state, actorIndex, characterInstanceId, goldRingInstanceId,
+  );
+
+  // MEWH §10: "Whenever a Fallen-wizard player tests a hero gold ring item, the
+  // roll is modified by -1." A hero gold ring is a `hero-resource-item`; minion
+  // gold rings are unaffected.
+  const fwGoldRingModifier = player.alignment === 'fallen-wizard'
+    && ringDefForRoll !== undefined && 'cardType' in ringDefForRoll
+    && (ringDefForRoll as { cardType?: string }).cardType === 'hero-resource-item'
+    ? -1 : 0;
+  if (fwGoldRingModifier !== 0) {
+    logDetail(`Gold-ring test: Fallen-wizard testing a hero gold ring — applying ${formatSignedNumber(fwGoldRingModifier)} (MEWH §10)`);
+  }
+
+  const rolled = rollForResolution(state, actorIndex, `Gold-ring test: ${ringNameForRoll}`);
+  const total = rolled.total + rollModifier + itemCheckModifier + fwGoldRingModifier;
+  const rollLabel = rollCount > 1 ? ` (roll ${rolledTotals.length + 1} of ${rollCount})` : '';
+  logDetail(`Gold-ring test: ${ringNameForRoll}${rollLabel} — rolled ${rolled.roll.die1} + ${rolled.roll.die2} ${formatSignedNumber(rollModifier)}${itemCheckModifier !== 0 ? ` item ${formatSignedNumber(itemCheckModifier)}` : ''}${fwGoldRingModifier !== 0 ? ` fw ${formatSignedNumber(fwGoldRingModifier)}` : ''} = ${total}`);
+
+  // Multi-roll test: record the total and keep the resolution queued (in place,
+  // so anything the same card enqueued behind it cannot jump ahead) until the
+  // remaining rolls are made and the player chooses between the results.
+  if (rollCount > 1) {
+    const nextTotals = [...rolledTotals, total];
+    logDetail(nextTotals.length < rollCount
+      ? `Gold-ring test: ${nextTotals.length} of ${rollCount} rolls made — roll again`
+      : `Gold-ring test: rolls complete (${nextTotals.join(', ')}) — choose which result the test uses`);
+    return {
+      state: replaceResolutionKind(rolled.state, top.id, { ...kind, rolledTotals: nextTotals }),
+      effects: [rolled.rollEffect],
+    };
+  }
+
+  return finalizeGoldRingTest(rolled.state, actorIndex, top, kind, total, [rolled.rollEffect]);
+}
+
+/**
+ * Locate the gold-ring item under test. Org-phase store-item path: the ring is
+ * in `killPile` (the MP pile). Site-phase / event paths: the ring sits in a
+ * character's items array.
+ */
+function findTestedGoldRing(
+  player: PlayerState,
+  goldRingInstanceId: CardInstanceId,
+): CardInstance | CardInPlay | undefined {
+  const stored = player.killPile.find(c => c.instanceId === goldRingInstanceId);
+  if (stored) return stored;
+  for (const char of Object.values(player.characters)) {
+    const borne = char.items.find(i => i.instanceId === goldRingInstanceId);
+    if (borne) return borne;
+  }
+  return undefined;
+}
+
+/**
+ * Sum the `gold-ring-test` {@link resolveCheckModifier} contributions of every
+ * character in the ring-bearer's company (e.g. Scroll of Isildur).
+ *
+ * The ring being tested is dropped from its bearer's items for the sweep: a
+ * gold ring may not modify its own test.
+ */
+function goldRingTestCompanyModifier(
+  state: GameState,
+  actorIndex: number,
+  characterInstanceId: CardInstanceId,
+  goldRingInstanceId: CardInstanceId,
+): number {
+  const player = state.players[actorIndex];
+  const company = findCharacterCompany(player.companies, characterInstanceId);
+  if (!company) return 0;
+  const checkContext = { reason: 'gold-ring-test' };
+  let modifier = 0;
+  for (const compCharId of company.characters) {
+    const compChar = player.characters[compCharId];
+    if (!compChar) continue;
+    const swept = compChar.items.some(i => i.instanceId === goldRingInstanceId)
+      ? { ...compChar, items: compChar.items.filter(i => i.instanceId !== goldRingInstanceId) }
+      : compChar;
+    modifier += resolveCheckModifier(collectCharacterEffects(state, swept, checkContext), 'gold-ring-test');
+  }
+  if (modifier !== 0) {
+    logDetail(`Gold-ring test: item modifiers from company: ${formatSignedNumber(modifier)}`);
+  }
+  return modifier;
+}
+
+/**
+ * Apply the outcome of a gold-ring test once its final roll total is known:
+ * discard the gold ring, map the total to the eligible ring categories through
+ * the ring's own `ring-test-table`, and enqueue the `ring-play-offer` (plus, if
+ * a Leaf Brooch-style `discard-substitute` covers the ring, the substitution
+ * offer behind it).
+ *
+ * Shared by the single-roll path and the `choose-gold-ring-test-roll` path, so
+ * both produce identical consequences for the same total.
+ */
+function finalizeGoldRingTest(
+  state: GameState,
+  actorIndex: number,
+  top: PendingResolution,
+  kind: Extract<PendingResolution['kind'], { readonly type: 'gold-ring-test' }>,
+  total: number,
+  effects: readonly GameEffect[],
+): ReducerResult {
+  const player = state.players[actorIndex];
+  const { goldRingInstanceId, characterInstanceId } = kind;
 
   // Locate the gold ring. Org-phase store-item path: ring is in killPile (the
   // MP pile). Site-phase auto-test path: ring was just played and sits in a
@@ -2288,56 +2430,19 @@ export function applyGoldRingTestResolution(
 
   const ringDef = defById(state, ringCard.definitionId);
   const ringName = ringDef?.name ?? (ringCard.definitionId as string);
-
-  // Collect check-modifier effects (e.g. Scroll of Isildur) from every character
-  // in the company bearing the ring. Uses stateAfterRing so the ring itself is
-  // already gone, but Scroll-of-Isildur-style companions are still present.
-  let itemCheckModifier = 0;
-  if (characterInstanceId) {
-    const afterRingPlayer = stateAfterRing.players[actorIndex];
-    const company = findCharacterCompany(afterRingPlayer.companies, characterInstanceId);
-    if (company) {
-      const checkContext = { reason: 'gold-ring-test' };
-      for (const compCharId of company.characters) {
-        const compChar = afterRingPlayer.characters[compCharId];
-        if (!compChar) continue;
-        const charEffects = collectCharacterEffects(stateAfterRing, compChar, checkContext);
-        itemCheckModifier += resolveCheckModifier(charEffects, 'gold-ring-test');
-      }
-      if (itemCheckModifier !== 0) {
-        logDetail(`Gold-ring test: item modifiers from company: ${formatSignedNumber(itemCheckModifier)}`);
-      }
-    }
-  }
-
-  // MEWH §10: "Whenever a Fallen-wizard player tests a hero gold ring item, the
-  // roll is modified by -1." A hero gold ring is a `hero-resource-item`; minion
-  // gold rings are unaffected.
-  const fwGoldRingModifier = player.alignment === 'fallen-wizard'
-    && ringDef !== undefined && 'cardType' in ringDef
-    && (ringDef as { cardType?: string }).cardType === 'hero-resource-item'
-    ? -1 : 0;
-  if (fwGoldRingModifier !== 0) {
-    logDetail(`Gold-ring test: Fallen-wizard testing a hero gold ring — applying ${formatSignedNumber(fwGoldRingModifier)} (MEWH §10)`);
-  }
-
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const total = roll.die1 + roll.die2 + rollModifier + itemCheckModifier + fwGoldRingModifier;
-  logDetail(`Gold-ring test: ${ringName} — rolled ${roll.die1} + ${roll.die2} ${formatSignedNumber(rollModifier)}${itemCheckModifier !== 0 ? ` item ${formatSignedNumber(itemCheckModifier)}` : ''}${fwGoldRingModifier !== 0 ? ` fw ${formatSignedNumber(fwGoldRingModifier)}` : ''} = ${total}; ring discarded`);
-
-  const rollEffect = diceRollEffect(player.name, roll, `Gold-ring test: ${ringName}`);
+  logDetail(`Gold-ring test: ${ringName} — test resolves on ${total}; ring discarded`);
 
   // Compute eligible categories from the gold ring's ring-test-table effect.
-  const effects: readonly unknown[] = ringDef && 'effects' in ringDef
+  const ringEffects: readonly unknown[] = ringDef && 'effects' in ringDef
     ? ((ringDef as unknown as { effects?: readonly unknown[] }).effects ?? [])
     : [];
-  const tableEffect = effects.find((e): e is RingTestTableEffect => (e as { type?: string }).type === 'ring-test-table');
+  const tableEffect = ringEffects.find((e): e is RingTestTableEffect => (e as { type?: string }).type === 'ring-test-table');
   const eligibleCategories = tableEffect ? eligibleRingCategories(tableEffect.table, total) : [];
   logDetail(`Gold-ring test: roll total ${total} — eligible categories: ${eligibleCategories.join(', ') || 'none'}`);
 
   // Collect search categories from ring-test-search effects (e.g. Gleaming Gold Ring
   // lets the player search deck/discard for a lesser-ring when lesser-ring is eligible).
-  const searchEffect = effects.find((e): e is RingTestSearchEffect => (e as { type?: string }).type === 'ring-test-search');
+  const searchEffect = ringEffects.find((e): e is RingTestSearchEffect => (e as { type?: string }).type === 'ring-test-search');
   const searchCategories = (searchEffect && (eligibleCategories as readonly string[]).includes(searchEffect.category))
     ? [searchEffect.category] as const
     : undefined;
@@ -2352,9 +2457,8 @@ export function applyGoldRingTestResolution(
   // a ring still borne in a company qualifies (a ring stored at a Darkhaven is
   // not "in the company"), and the substitution offer is queued *behind* the
   // ring-play offer so the owner decides knowing what the test produced. Until
-  // then the ring stays where it was: `stateAfterRing` (which already moved it
-  // to the discard pile, deliberately, so it cannot modify its own test) is
-  // used for the check-modifier sweep only.
+  // then the ring stays where it was — `stateAfterRing` (which already moved it
+  // to the discard pile) is dropped in that case.
   const ringCompanyId = ringBearerId !== undefined
     ? findCharacterCompany(player.companies, ringBearerId)?.id
     : undefined;
@@ -2362,16 +2466,13 @@ export function applyGoldRingTestResolution(
     && findDiscardSubstitutes(state, actorIndex, ringCompanyId, new Set([goldRingInstanceId]))
       .some(s => substituteCovers(s, ringDef));
 
-  const postRoll = dequeueResolution(
-    { ...updatePlayer(ringSubstitutable ? state : stateAfterRing, actorIndex, p => ({ ...p, lastDiceRoll: roll })), rng, cheatRollTotal },
-    top.id,
-  );
+  const postRoll = dequeueResolution(ringSubstitutable ? state : stateAfterRing, top.id);
 
   // Always enqueue ring-play-offer so the player can explicitly pass if they
   // hold no eligible rings or choose not to play one.
   const postOffer = enqueueResolution(postRoll, {
     source: goldRingInstanceId,
-    actor: action.player,
+    actor: top.actor,
     scope: top.scope,
     kind: {
       type: 'ring-play-offer',
@@ -2386,16 +2487,16 @@ export function applyGoldRingTestResolution(
   if (ringSubstitutable && ringCompanyId) {
     const offered = enqueueDiscardSubstituteOffer(postOffer, {
       source: goldRingInstanceId,
-      owner: action.player,
+      owner: top.actor,
       scope: top.scope,
       companyId: ringCompanyId,
       requiredInstanceIds: [goldRingInstanceId],
       sourceName: `Gold-ring test (${ringName})`,
     });
-    if (offered) return { state: offered, effects: [rollEffect] };
+    if (offered) return { state: offered, effects: [...effects] };
   }
 
-  return { state: postOffer, effects: [rollEffect] };
+  return { state: postOffer, effects: [...effects] };
 }
 
 /**

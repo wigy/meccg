@@ -29,7 +29,7 @@ import {
   ARAGORN, LEGOLAS, BILBO, IORETH, HALFLING_STRENGTH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
-  handCardId, findCharInstanceId, dispatch,
+  handCardId, findCharInstanceId, dispatch, resolveChain,
   expectCharStatus, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type { PlayShortEventAction } from '../../index.js';
@@ -64,13 +64,13 @@ describe('Ioreth (td-93)', () => {
     const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
-    const state = dispatch(base, {
+    const state = resolveChain(dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
       optionId: 'heal',
-    });
+    }));
 
     expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
@@ -103,13 +103,13 @@ describe('Ioreth (td-93)', () => {
     const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
-    const state = dispatch(base, {
+    const state = resolveChain(dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
       optionId: 'heal',
-    });
+    }));
 
     expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
@@ -139,13 +139,13 @@ describe('Ioreth (td-93)', () => {
     const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
     const hsInstance = handCardId(base, RESOURCE_PLAYER);
 
-    const state = dispatch(base, {
+    const state = resolveChain(dispatch(base, {
       type: 'play-short-event',
       player: PLAYER_1,
       cardInstanceId: hsInstance,
       targetCharacterId: bilboId,
       optionId: 'heal',
-    });
+    }));
 
     expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     expectCharStatus(state, RESOURCE_PLAYER, IORETH, CardStatus.Untapped);
@@ -182,7 +182,7 @@ describe('Ioreth (td-93)', () => {
     const untapAction = actions.find(a => a.optionId === 'untap' && a.targetCharacterId === bilboId);
     expect(untapAction).toBeDefined();
 
-    const state = dispatch(base, untapAction!);
+    const state = resolveChain(dispatch(base, untapAction!));
 
     expectCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Untapped);
     expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);

@@ -1,9 +1,10 @@
 /**
  * @module short-event-discard
  *
- * Resolution of the "discard a card in play" mode of a resource short event
- * (Voices of Malice le-250, Marvels Told td-134, Ancient Secrets ba-36,
- * The Cock Crows tw-342).
+ * Resolution of the "discard a card in play" mode of a resource short event —
+ * both the single-target form (Voices of Malice le-250, Marvels Told td-134,
+ * Ancient Secrets ba-36, The Cock Crows tw-342) and the sweep form that
+ * discards every matching card in play (Wizard's River-horses tw-364).
  *
  * Playing a short event is an action like any other, so per CoE 9.4/9.5 it is
  * declared on the chain of effects and only resolves once both players have
@@ -20,7 +21,7 @@ import { getPlayerIndex } from '../state-utils.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 import { enqueueCorruptionCheck } from './pending.js';
-import { findMoveEffectByShape } from './reducer-move.js';
+import { applyMove, dropConstraintsSourcedBy, findMoveEffectByShape } from './reducer-move.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { defById, findAttachment, getCardEffects, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 
@@ -108,6 +109,9 @@ export function applyShortEventDiscardInPlay(
   }
   const targetDef = defById(newState, targetInstance.definitionId)!;
   logDetail(`${def.name} discards ${targetDef.name} from ${owner.id as string}'s in-play`);
+  // The discarded card sheds any constraint it granted while in play (e.g.
+  // The Moon Is Dead's auto-attack duplication) — see dropConstraintsSourcedBy.
+  newState = dropConstraintsSourcedBy(newState, [targetInstance.instanceId]);
 
   if (discardInPlay.corruptionCheck && costTapCharacterId) {
     // Rule 7.4: allies never make corruption checks, but may still fulfill
@@ -128,6 +132,67 @@ export function applyShortEventDiscardInPlay(
         reason: def.name,
       });
     }
+  }
+
+  return { state: newState };
+}
+
+/**
+ * Resolve the "discard **every** matching card in play" mode of a resource
+ * short event — a `move { select: 'filter-all', from: 'in-play', to: 'discard' }`
+ * (Wizard's River-horses tw-364: "All Nazgûl events are discarded").
+ *
+ * The sibling of {@link applyShortEventDiscardInPlay}: where that one discards
+ * a single target the player chose at declaration time, this one sweeps every
+ * in-play card whose definition matches the effect's filter, in both players'
+ * `cardsInPlay` and character attachments. Each card goes to its own owner's
+ * discard pile (the shared {@link applyMove} primitive routes them).
+ *
+ * The follow-up corruption check is made by the character named as the event's
+ * `play-target` (the Wizard), not by a tapped cost-payer — this mode has no
+ * tap cost.
+ *
+ * @param state - Game state at the moment the short event's chain entry resolves.
+ * @param def - Definition of the short event being resolved.
+ * @param sourceInstanceId - Instance of the short event (the corruption check's source).
+ * @param actor - Player who declared the short event.
+ * @param targetCharacterId - The `play-target` character (the Wizard), if any.
+ * @returns The updated state, or an error when the sweep could not be applied.
+ */
+export function applyShortEventDiscardAllInPlay(
+  state: GameState,
+  def: CardDefinition,
+  sourceInstanceId: CardInstanceId,
+  actor: PlayerId,
+  targetCharacterId: CardInstanceId | undefined,
+): ReducerResult {
+  const sweep = findMoveEffectByShape({ effects: getCardEffects(def) }, 'filter-all', 'in-play', 'discard');
+  if (!sweep) return { state, error: `${def.name}: no discard-all-in-play effect` };
+
+  const playerIndex = getPlayerIndex(state, actor);
+  const before = state.players.map(p => p.cardsInPlay.length);
+  const moved = applyMove(state, sweep, {
+    sourceCardId: sourceInstanceId,
+    sourcePlayerIndex: playerIndex,
+    ...(targetCharacterId ? { targetCharacterId } : {}),
+  });
+  if ('error' in moved) return { state, error: moved.error };
+  let newState = moved.state;
+  const discarded = before.reduce(
+    (sum, count, i) => sum + (count - newState.players[i].cardsInPlay.length),
+    0,
+  );
+  logDetail(`${def.name}: discarded ${discarded} matching card(s) from play`);
+
+  if (sweep.corruptionCheck && targetCharacterId) {
+    newState = enqueueCorruptionCheck(newState, {
+      source: sourceInstanceId,
+      actor,
+      scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
+      characterId: targetCharacterId,
+      modifier: sweep.corruptionCheck.modifier,
+      reason: def.name,
+    });
   }
 
   return { state: newState };
