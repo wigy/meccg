@@ -21,7 +21,7 @@ import { getPlayerIndex } from '../state-utils.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 import { enqueueCorruptionCheck } from './pending.js';
-import { applyMove, findMoveEffectByShape } from './reducer-move.js';
+import { applyMove, dropConstraintsSourcedBy, findMoveEffectByShape } from './reducer-move.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { defById, findAttachment, getCardEffects, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 
@@ -109,6 +109,9 @@ export function applyShortEventDiscardInPlay(
   }
   const targetDef = defById(newState, targetInstance.definitionId)!;
   logDetail(`${def.name} discards ${targetDef.name} from ${owner.id as string}'s in-play`);
+  // The discarded card sheds any constraint it granted while in play (e.g.
+  // The Moon Is Dead's auto-attack duplication) — see dropConstraintsSourcedBy.
+  newState = dropConstraintsSourcedBy(newState, [targetInstance.instanceId]);
 
   if (discardInPlay.corruptionCheck && costTapCharacterId) {
     // Rule 7.4: allies never make corruption checks, but may still fulfill
