@@ -388,23 +388,27 @@ npm run headtohead -w @meccg/sim -- --games 16 --max-decisions 4000
 ```
 
 `gate` is the tool that answers this properly, and `headtohead` exists because a
-run you can watch beats a run you wait on. Three `headtohead` samples on
-different seeds, most recent last:
+run you can watch beats a run you wait on. Over **320 rated games**, paired and
+side-swapped:
 
 ```text
-  seed  60   h2 13 —  6  heuristic (1 drawn)   20 games   67.5%
-  seed  80   h2 14 —  9  heuristic (1 drawn)   24 games   60.4%
-  seed 300   h2 17 — 15  heuristic             32 games   53.1%
-
-  pooled     h2 44 — 30  heuristic (2 drawn)   76 games   59.2%
+  score:     175W-138L-6D (55.8%) over 319 rated games
+  elo diff:  +40 [+3, +79]      (95% CI, challenger − champion)
+  glicko-2:  +29 [-40, +98]
+  failures:  1 — seed 599: engine rejected 'pass', "Card not found in hand"
 ```
 
-The largest and most recent sample — the one with every module in — is the
-closest to even. Pooled, 44 wins in 74 decisive games is about p = 0.06 against
-a fair coin: suggestive, not significant. **The claim the evidence supports is
-"not worse than Heuristics 1", not "better than it".** `gate` computes an Elo
-interval and is the tool for a verdict; `headtohead` exists because it prints
-each game as it finishes, and a run you can watch beats a run you wait on.
+The two methods disagree about significance: the Elo interval clears zero by
+three points, the Glicko-2 interval does not. Read together with three smaller
+`headtohead` samples — 67.5%, 60.4% and 53.1% on 20, 24 and 32 games — the claim
+the evidence supports is **probably somewhat stronger than Heuristics 1, and
+certainly not weaker**. Not a landslide, and the run technically fails its own
+criterion, because one game in 320 ended in an engine error rather than a result.
+
+An earlier run of the same command reported +61 [+24, +100]. It is not quoted
+here: source was edited while it was running, and `gate` spawns `tsx` children
+that read the source at launch, so different games in it played different code.
+The number above is from a stable tree.
 
 What the samples do establish is that H2 plays every game to completion, which
 was not true a week ago. Two self-play games once ran to the decision limit
