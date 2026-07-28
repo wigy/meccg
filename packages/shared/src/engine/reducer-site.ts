@@ -1751,7 +1751,33 @@ function handleDeclareAgentAttack(
       return { state, error: `Agent "${agentDef.name}" must be untapped to tap for an extra strike` };
     }
   }
-  const strikesTotal = tapForExtraStrike ? 2 : 1;
+  // --- Global "all <race> attacks" modifiers (rule 2.V.iii attacks included) ---
+  // An agent hazard attack is an attack made by a character of the agent's own
+  // race, so game-wide race-keyed attack modifiers reach it just as they reach
+  // hazard creatures and site automatic-attacks (Chill Them with Fear le-106:
+  // "All Elf, Dwarf, Dúnadan, and Hobbit attacks receive +2 prowess and +2
+  // strikes"). Cards that mean only creature attacks say so and gate on
+  // `attack.isAgentAttack` (Rank upon Rank dm-80, Sun tw-335). The company
+  // context is passed so company-bound modifiers ("Any attack against this
+  // company" — Swarm of Bats le-237) apply to the company actually attacked.
+  const agentInPlayNames = buildInPlayNames(state);
+  const agentBoostCtx = company
+    ? { companyId: company.id, creatureInstanceId: action.agentInstanceId }
+    : undefined;
+  const modifiedProwess = resolveAttackProwess(
+    state, prowess, agentInPlayNames, agentDef.race, false, undefined, agentBoostCtx, true,
+  );
+  const modifiedBody = resolveAttackBody(
+    state, body, agentInPlayNames, agentDef.race, agentBoostCtx, true,
+  );
+  const strikesTotal = resolveAttackStrikes(
+    state, tapForExtraStrike ? 2 : 1, agentInPlayNames, agentDef.race, false, agentBoostCtx, undefined, true,
+  );
+  if (modifiedProwess !== prowess || strikesTotal !== (tapForExtraStrike ? 2 : 1) || modifiedBody !== body) {
+    logDetail(`Site: declare-agent-attack — "${agentDef.name}" (${agentDef.race}) modified by attacks-in-play: prowess ${prowess} → ${modifiedProwess}, strikes ${tapForExtraStrike ? 2 : 1} → ${strikesTotal}, body ${body} → ${String(modifiedBody)}`);
+  }
+  prowess = modifiedProwess;
+  body = modifiedBody ?? body;
 
   // Rule 3.II.2.R3/B3: Ringwraith/Balrog players → detainment
   const defendingAlignment = state.players[activePlayerIndex].alignment;

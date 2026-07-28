@@ -141,6 +141,16 @@ of strikes on creature and automatic attacks (e.g. Wake of War), or with
 only — not hazard creatures (e.g. Redoubled Force's +3 strikes to Orc/Troll
 automatic-attacks). Both `prowess` and `strikes` honour `all-automatic-attacks`.
 
+`"all-attacks"` also covers **agent hazard attacks** (rule 2.V.iii): an agent
+attacks as a member of its own race, so a race-keyed modifier reaches it exactly
+as it reaches a hazard creature — e.g. *Chill Them with Fear* (le-106) boosts a
+Dwarf agent's attack. The attack-stat context exposes `attack.isAgentAttack`
+(`true` only for an agent attack, absent otherwise) so a card whose text covers
+only creature attacks can opt out with
+`when: { "attack.isAgentAttack": { "$ne": true } }` — used by *Rank upon Rank*
+(dm-80, "All **non-agent** Man attacks…") and *Sun* (tw-335, "the prowess of each
+automatic-attack and hazard creature…").
+
 For automatic-attacks the resolution context also exposes `site.siteType` — the
 defending company's effective current-site type — so a global modifier can gate
 on the site type it applies at, e.g. `when: { "site.siteType": { "$in": ["free-hold",

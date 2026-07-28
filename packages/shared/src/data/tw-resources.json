@@ -339,7 +339,10 @@
         "value": -1,
         "target": "all-attacks",
         "when": {
-          "inPlay": "Gates of Morning"
+          "inPlay": "Gates of Morning",
+          "attack.isAgentAttack": {
+            "$ne": true
+          }
         }
       },
       {

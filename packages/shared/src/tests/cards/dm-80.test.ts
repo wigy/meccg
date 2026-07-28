@@ -4,8 +4,9 @@
  * Card test: Rank upon Rank (dm-80)
  * Type: hazard-event (permanent)
  * Effects: 6
- *   1. stat-modifier prowess +1 to all Man attacks (non-agent; agent attacks bypass
- *      resolveAttackProwess and are unaffected)
+ *   1. stat-modifier prowess +1 to all Man attacks (non-agent: gated on
+ *      `attack.isAgentAttack $ne true`, since agent hazard attacks do go through
+ *      the global all-attacks modifiers — see Chill Them with Fear le-106)
  *   2. stat-modifier strikes +1 to all Man attacks
  *   3. stat-modifier prowess +1 to all Giant attacks when Doors of Night is in play
  *   4. stat-modifier strikes +1 to all Giant attacks when Doors of Night is in play
@@ -26,7 +27,7 @@
  *
  * | # | Effect                                         | Status      | Notes                                        |
  * |---|------------------------------------------------|-------------|----------------------------------------------|
- * | 1 | stat-modifier prowess +1 (Man)                 | IMPLEMENTED | target: all-attacks; enemy.race normalised   |
+ * | 1 | stat-modifier prowess +1 (Man, non-agent)      | IMPLEMENTED | target: all-attacks; enemy.race normalised   |
  * | 2 | stat-modifier strikes +1 (Man)                 | IMPLEMENTED | target: all-attacks                          |
  * | 3 | stat-modifier prowess +1 (Giant + DoN)         | IMPLEMENTED | inPlay condition in buildAttackContext       |
  * | 4 | stat-modifier strikes +1 (Giant + DoN)         | IMPLEMENTED | inPlay condition in buildAttackContext       |
@@ -47,16 +48,21 @@ import {
   addP2CardsInPlay, setupAutoAttackStep,
   Phase,
   viableActions,
-  makeMHState, makeDoubleWildernessMHState,
+  makeMHState, makeDoubleWildernessMHState, makeSitePhase,
+  makeAgent, withAgentInPlay,
   handCardId, companyIdAt, dispatch, resolveChain,
   findCharInstanceId,
   BANDIT_LAIR, DOORS_OF_NIGHT,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import type { CardInPlay, CardInstanceId, CardDefinitionId } from '../../index.js';
+import type {
+  CardInPlay, CardInstanceId, CardDefinitionId, DeclareAgentAttackAction,
+} from '../../index.js';
 
 const RANK_UPON_RANK = 'dm-80' as CardDefinitionId;
 const GIANT = 'tw-39' as CardDefinitionId;
+const ELERINA = 'dm-7' as CardDefinitionId;   // Man agent, prowess 5
+const AGENT_SITE_ID = 'test-dm80-agent-site' as CardInstanceId;
 
 // ─── Shared fixtures ─────────────────────────────────────────────────────────
 
@@ -300,6 +306,39 @@ describe('Rank upon Rank (dm-80)', () => {
 
     // Giant defeated but no DoN → Rank upon Rank should remain in cardsInPlay
     expect(s.players[1].cardsInPlay.map(c => c.definitionId)).toContain(RANK_UPON_RANK);
+  });
+
+  // ── "non-agent": an agent hazard attack is never boosted ──────────────────
+
+  test('a Man agent attack is NOT boosted ("all non-agent Man attacks")', () => {
+    // Agent hazard attacks go through the same global all-attacks modifiers as
+    // creature attacks (Chill Them with Fear le-106), so Rank upon Rank's
+    // "non-agent" wording is an explicit opt-out. Elerína (dm-7) is a Man agent
+    // with prowess 5; revealed and away from home she gets no rule-3.iv.6.1
+    // modifier, so the attack must stay at 5 prowess / 1 strike.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [], hand: [], siteDeck: [], cardsInPlay: [rankInPlay] },
+      ],
+    });
+    const agent = makeAgent(ELERINA, { revealed: true });
+    const state = withAgentInPlay(
+      { ...base, phaseState: makeSitePhase({ step: 'declare-agent-attack', siteEntered: false }) },
+      HAZARD_PLAYER,
+      { ...agent, siteStack: [{ instanceId: AGENT_SITE_ID, definitionId: MORIA, status: CardStatus.Untapped }] },
+    );
+
+    const declare = viableActions(state, PLAYER_2, 'declare-agent-attack')
+      .find(ea => (ea.action as DeclareAgentAttackAction).tapForExtraStrike !== true);
+    expect(declare).toBeDefined();
+
+    const after = dispatch(state, declare!.action);
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.strikeProwess).toBe(5);
+    expect(after.combat!.strikesTotal).toBe(1);
   });
 
   // ── Cannot be duplicated ───────────────────────────────────────────────────

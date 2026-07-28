@@ -1085,8 +1085,93 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/ChillThemwithFear.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
-    "text": "All Elf, Dwarf, Dúnadan, and Hobbit attacks receive +2 prowess and +2 strikes (+1 prowess and +1 strike if Doors of Night is in play). Cannot be duplicated."
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "target": "all-attacks",
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "elf",
+              "dwarf",
+              "dunadan",
+              "hobbit"
+            ]
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 2,
+        "target": "all-attacks",
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "elf",
+              "dwarf",
+              "dunadan",
+              "hobbit"
+            ]
+          }
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -1,
+        "target": "all-attacks",
+        "when": {
+          "$and": [
+            {
+              "enemy.race": {
+                "$in": [
+                  "elf",
+                  "dwarf",
+                  "dunadan",
+                  "hobbit"
+                ]
+              }
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": -1,
+        "target": "all-attacks",
+        "when": {
+          "$and": [
+            {
+              "enemy.race": {
+                "$in": [
+                  "elf",
+                  "dwarf",
+                  "dunadan",
+                  "hobbit"
+                ]
+              }
+            },
+            {
+              "inPlay": "Doors of Night"
+            }
+          ]
+        }
+      }
+    ],
+    "text": "All Elf, Dwarf, Dúnadan, and Hobbit attacks receive +2 prowess and +2 strikes (+1 prowess and +1 strike if Doors of Night is in play). Cannot be duplicated.",
+    "certified": "2026-07-28"
   },
   {
     "cardType": "hazard-event",
