@@ -1538,8 +1538,33 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Playable if Doors of Night is in play. Treat all Wildernesses [{w}] as Shadow-lands [{s}] and all Shadow-lands [{s}] as Dark-domains [{d}].Cannot be duplicated."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Doors of Night"
+      },
+      {
+        "type": "region-type-remap",
+        "remap": [
+          {
+            "from": "wilderness",
+            "to": "shadow"
+          },
+          {
+            "from": "shadow",
+            "to": "dark"
+          }
+        ]
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. Playable if Doors of Night is in play. Treat all Wildernesses [{w}] as Shadow-lands [{s}] and all Shadow-lands [{s}] as Dark-domains [{d}].Cannot be duplicated.",
+    "certified": "2026-07-28"
   },
   {
     "cardType": "hazard-event",
