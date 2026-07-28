@@ -24,8 +24,8 @@ import { RegionType, SiteType } from '../../../types/common.js';
 import type { CardDefinitionId } from '../../test-helpers.js';
 import type { ActiveConstraint, PlayHazardAction } from '../../../index.js';
 
-// Wild Fell Beast (td-81): keyed only to `regionTypes: ['shadow']` — needs
-// at least one shadow-type region in the site path, and nothing else.
+// Wild Fell Beast (td-81): keyed `{s}{s}` (`regionTypes: ['shadow', 'shadow']`)
+// — needs two shadow-type regions in the site path, and nothing else.
 const WILD_FELL_BEAST = 'td-81' as CardDefinitionId;
 
 describe('Rule 5.09 — Region Modification Effects', () => {
@@ -40,10 +40,11 @@ describe('Rule 5.09 — Region Modification Effects', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [WILD_FELL_BEAST], siteDeck: [] },
       ],
     });
-    // No region in the path is shadow-typed to start with.
+    // Only one region in the path is shadow-typed to start with — one short of
+    // the two shadow-lands Wild Fell Beast is keyed to.
     const mhState = makeMHState({
-      resolvedSitePath: [RegionType.Wilderness],
-      resolvedSitePathNames: ['Rhudaur'],
+      resolvedSitePath: [RegionType.Shadow, RegionType.Wilderness],
+      resolvedSitePathNames: ['Gorgoroth', 'Rhudaur'],
       destinationSiteType: SiteType.ShadowHold,
       destinationSiteName: 'Moria',
     });
@@ -52,7 +53,8 @@ describe('Rule 5.09 — Region Modification Effects', () => {
 
     // An active region-type-override constraint (as created by Deeper
     // Shadow's change-region-type option — see le-179.test.ts) turns
-    // "Rhudaur" from wilderness to shadow for the rest of the turn.
+    // "Rhudaur" from wilderness to shadow for the rest of the turn, giving
+    // the path the second shadow-land the creature requires.
     const regionOverride: ActiveConstraint = {
       id: 'test-region-override-1' as ActiveConstraint['id'],
       source: 'test-src-1' as ActiveConstraint['source'],
